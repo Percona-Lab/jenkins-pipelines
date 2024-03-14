@@ -256,11 +256,6 @@ pipeline {
                         popd
                     '''
                 }
-                script {
-                    def node = Jenkins.instance.getNode(env.VM_NAME)
-                    Jenkins.instance.removeNode(node)
-                    Jenkins.instance.addNode(node)
-                }
             }
         }
         stage('Run Docker') {
