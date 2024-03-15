@@ -104,7 +104,7 @@ pipeline {
                                 cd ./source/
                                 sg docker -c "
                                     docker login -u '${USER}' -p '${PASS}'
-                                    RHEL=1 ./e2e-tests/build
+                                    RHEL=1 DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
                                     docker logout
                                 "
                             '''

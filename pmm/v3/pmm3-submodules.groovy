@@ -54,6 +54,7 @@ pipeline {
                 git poll: false,
                     branch: PMM_BRANCH,
                     url: 'http://github.com/Percona-Lab/pmm-submodules'
+
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                 sh '''
                     set -o errexit
@@ -94,6 +95,7 @@ pipeline {
                 }
                 script {
                     env.PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+                    env.FB_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                 }
                 stash includes: 'apiBranch', name: 'apiBranch'
                 stash includes: 'apiURL', name: 'apiURL'
@@ -121,9 +123,6 @@ pipeline {
         }
         stage('Build client binary') {
             steps {
-                script {
-                    env.GIT_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
-                }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         set -o errexit
@@ -134,11 +133,11 @@ pipeline {
                         aws s3 cp \
                             --acl public-read \
                             results/tarball/pmm-client-*.tar.gz \
-                            s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz
+                            s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${FB_COMMIT:0:7}.tar.gz
                     '''
                 }
                 script {
-                    sh (script: 'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL')
+                    sh (script: 'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${FB_COMMIT:0:7}.tar.gz" | tee CLIENT_URL')
                     env.CLIENT_URL = sh (script: "cat CLIENT_URL", returnStdout: true).trim()
                 }
             }
@@ -182,7 +181,7 @@ pipeline {
                     sh '''
                         set -o errexit
                         export PUSH_DOCKER=1
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}
                         ${PATH_TO_SCRIPTS}/build-client-docker
                     '''
                 }
@@ -221,7 +220,7 @@ pipeline {
                         set -o errexit
 
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${GIT_COMMIT:0:7}
+                        export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}
 
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3
                         export RPMBUILD_DIST=el9
@@ -241,6 +240,7 @@ pipeline {
                         unstash 'IMAGE'
                         unstash 'pmmQABranch'
                         unstash 'pmmUITestBranch'
+                        unstash 'fbCommitSha'
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
                         def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
@@ -371,14 +371,13 @@ pipeline {
                         string(name: 'DOCKER_VERSION', value: IMAGE),
                         string(name: 'GIT_URL', value: API_TESTS_URL),
                         string(name: 'GIT_BRANCH', value: API_TESTS_BRANCH),
-                        string(name: 'OWNER', value: "FB"),
                         string(name: 'GIT_COMMIT_HASH', value: GIT_COMMIT_HASH)
                     ]
                     env.API_TESTS_URL = apiTestJob.absoluteUrl
                     env.API_TESTS_RESULT = apiTestJob.result
 
                     if (!env.API_TESTS_RESULT.equals("SUCCESS")) {
-                        sh "exit 1"
+                        error "API tests failed."
                     }
                 }
             }

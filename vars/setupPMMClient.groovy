@@ -27,9 +27,11 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             if [ "${PMM_VERSION}" = pmm2 ]; then
               echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
             fi
-            sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-            sudo yum clean all
-            sudo yum makecache
+            if ! command -v percona-release > /dev/null; then
+                sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+                sudo yum clean all
+                sudo yum makecache
+            fi
 
             if [[ "$CLIENT_VERSION" =~ dev-latest|3-dev-latest ]]; then
                 sudo percona-release enable-only original experimental

@@ -243,7 +243,7 @@ pipeline {
                         sudo yum repolist
 
                         sudo amazon-linux-extras enable epel
-                        sudo amazon-linux-extras enable php7.4
+                        sudo amazon-linux-extras enable php8.2
                         sudo yum --enablerepo epel install php -y
 
                         sudo yum install sysbench mysql-client -y
@@ -352,10 +352,7 @@ pipeline {
                                 set -o errexit
                                 set -o xtrace
 
-                                docker exec --user root pmm-server yum update -y percona-release
-                                docker exec --user root pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/${PMM_VERSION}-server.repo
                                 docker exec --user root pmm-server percona-release enable percona testing
-                                docker exec --user root pmm-server yum clean all
                             '''
                         }
                     }
@@ -373,10 +370,7 @@ pipeline {
                             sh '''
                                 set -o errexit
                                 set -o xtrace
-                                docker exec --user root pmm-server yum update -y percona-release
-                                docker exec --user root pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/${PMM_VERSION}-server.repo
                                 docker exec --user root pmm-server percona-release enable percona experimental
-                                docker exec --user root pmm-server yum clean all
                             '''
                         }
                     }
@@ -390,10 +384,7 @@ pipeline {
                     setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
 
                     script {
-                        env.PMM_REPO="experimental"
-                        if (env.CLIENT_VERSION == "pmm-rc") {
-                            env.PMM_REPO="testing"
-                        }
+                        env.PMM_REPO = params.CLIENT_VERSION == "pmm-rc" ? "testing" : "experimental"
                     }
 
                     sh '''
