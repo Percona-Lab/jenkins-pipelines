@@ -86,7 +86,14 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                         pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$SERVER_IP:443" --server-insecure-tls --server-username=admin --server-password="$ADMIN_PASSWORD" --paths-base="$PMM_DIR" "$IP"
                     fi
                 else
-                    pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$IP:443" --server-insecure-tls --server-username=admin --server-password="$ADMIN_PASSWORD" --paths-base="$PMM_DIR" "$IP"
+                    if ! pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$IP:443" --server-insecure-tls --server-username=admin --server-password="$ADMIN_PASSWORD" --paths-base="$PMM_DIR" "$IP"; then
+                        echo "--- DEBUG sctl status ---"
+                        docker exec -t pmm-server supervisorctl status
+                        echo "--- DEBUG pmm-managed.log ---"
+                        docker exec -t pmm-server tail -n 200 /srv/logs/pmm-managed.log
+                        echo "--- DEBUG pmm-agent.log ---"
+                        docker exec -t pmm-server tail -n 100 /srv/logs/pmm-agent.log
+                    fi
                 fi
 
                 # launch pmm-agent
