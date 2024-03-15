@@ -105,7 +105,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
 
                 # launch pmm-agent
                 nohup bash -c 'pmm-agent --config-file="$PMM_DIR/config/pmm-agent.yaml" > pmm-agent.log 2>&1 &'
-                sleep 10
+                sleep 20
                 cat pmm-agent.log
                 pmm-admin status
             fi
