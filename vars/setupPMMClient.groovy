@@ -85,7 +85,10 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     fi
                 else
                     set +e
-                    sleep 10s
+                    docker exec -t pmm-server bash -c "curl -fsSL https://gist.githubusercontent.com/ademidoff/5af36a38e37a19afec3ee9a567262537/raw/a65ec153ea778383c70ea7ed57a878e6e535ecff/check-pmm-agent-setup.sh > /tmp/pmm-setup-check.sh"
+                    docker exec -t pmm-server bash -c "chmod +x /tmp/pmm-setup-check.sh"
+                    docker exec -t pmm-server bash /tmp/pmm-setup-check.sh
+
                     if ! pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$IP:443" --server-insecure-tls --server-username=admin --server-password="$ADMIN_PASSWORD" --paths-base="$PMM_DIR" "$IP"; then
                         echo "--- DEBUG sctl status ---"
                         docker exec -t pmm-server supervisorctl status
@@ -97,6 +100,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                         docker exec -t pmm-server tail -n 150 /srv/logs/nginx.log
                         return
                     fi
+                    set -e
                 fi
 
                 # launch pmm-agent
