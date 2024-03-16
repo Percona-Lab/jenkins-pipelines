@@ -10,7 +10,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 library changelog: false, identifier: 'v3lib@PMM-7-fix-pmm3-aws-staging-start-ppl', retriever: modernSCM(
   scm: [$class: 'GitSCMSource', credentialsId: '', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'], 
-  libraryPath: 'pmm/v3/lib/'
+  libraryPath: 'pmm/v3/'
 )
 
 def DEFAULT_SSH_KEYS = getSHHKeysPMM()
@@ -379,14 +379,15 @@ pipeline {
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
-                    // Download the client, install it outside of PMM and configure it to connect to PMM
-                    setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
+                    // Download the client, install it outside of PMM server and configure it to connect to PMM
+                    setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
 
                     script {
                         env.PMM_REPO = params.CLIENT_VERSION == "pmm-rc" ? "testing" : "experimental"
                     }
 
                     sh '''
+                        return # TODO: remove once the pipeline is stable
                         set -o errexit
                         set -o xtrace
                         export PATH=$PATH:/usr/sbin
