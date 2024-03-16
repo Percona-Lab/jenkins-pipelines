@@ -9,7 +9,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 library changelog: false, identifier: 'v3lib@PMM-7-fix-pmm3-aws-staging-start-ppl', retriever: modernSCM(
-  scm: [$class: 'GitSCMSource', credentialsId: '', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'], 
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'], 
   libraryPath: 'pmm/v3/'
 )
 
@@ -248,10 +248,9 @@ pipeline {
                         sudo yum repolist
 
                         sudo amazon-linux-extras enable epel php8.2
-                        # sudo amazon-linux-extras enable 
                         sudo yum --enablerepo epel install php -y
-
                         sudo yum install sysbench mysql-client -y
+
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
                             sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .

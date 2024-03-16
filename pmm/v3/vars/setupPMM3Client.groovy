@@ -6,8 +6,6 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             export PATH="$PATH:/usr/sbin:/sbin"
             test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
             export IP=$(curl -s ifconfig.me)
-            export ENABLE_TESTING_REPO=${ENABLE_TESTING_REPO}
-            export ENABLE_EXPERIMENTAL_REPO=${ENABLE_EXPERIMENTAL_REPO}
             export PMM_DIR=${WORKSPACE}/${PMM_VERSION}
             export PMM_BINARY=${WORKSPACE}/${PMM_VERSION}-client
 
@@ -15,9 +13,6 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 export IP=192.168.0.1
             fi
 
-            if [ "${PMM_VERSION}" = pmm2 ]; then
-              echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
-            fi
             if ! command -v percona-release > /dev/null; then
                 sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
                 sudo yum clean all
@@ -36,9 +31,9 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 sudo percona-release enable-only original experimental
             elif [[ "${CLIENT_VERSION}" = 3* ]]; then
                 sudo yum -y install "pmm3-client-${CLIENT_VERSION}-1.el9.x86_64"
-                if [ "$ENABLE_TESTING_REPO" = yes ]; then
+                if [ "${ENABLE_TESTING_REPO}" = yes ]; then
                     sudo percona-release enable-only original testing
-                elif [ "$ENABLE_TESTING_REPO" = no ] && [ "$ENABLE_EXPERIMENTAL_REPO" = yes ]; then
+                elif [ "${ENABLE_TESTING_REPO}" = no ] && [ "${ENABLE_EXPERIMENTAL_REPO}" = yes ]; then
                     sudo percona-release enable-only original experimental
                 else
                     sudo percona-release enable-only original release
