@@ -247,8 +247,8 @@ pipeline {
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum repolist
 
-                        sudo amazon-linux-extras enable epel
-                        sudo amazon-linux-extras enable php8.2
+                        sudo amazon-linux-extras enable epel php8.2
+                        # sudo amazon-linux-extras enable 
                         sudo yum --enablerepo epel install php -y
 
                         sudo yum install sysbench mysql-client -y
