@@ -84,28 +84,12 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                         pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$SERVER_IP:443" --server-insecure-tls --server-username=admin --server-password="$ADMIN_PASSWORD" --paths-base="$PMM_DIR" "$IP"
                     fi
                 else
-                    set +e
-                    docker exec -t pmm-server bash -c "curl -fsSL https://gist.githubusercontent.com/ademidoff/5af36a38e37a19afec3ee9a567262537/raw/a65ec153ea778383c70ea7ed57a878e6e535ecff/check-pmm-agent-setup.sh > /tmp/pmm-setup-check.sh"
-                    docker exec -t pmm-server bash -c "chmod +x /tmp/pmm-setup-check.sh"
-                    docker exec -t pmm-server bash /tmp/pmm-setup-check.sh
-
-                    if ! pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$IP:443" --server-insecure-tls --server-username=admin --server-password="$ADMIN_PASSWORD" --paths-base="$PMM_DIR" "$IP"; then
-                        echo "--- DEBUG sctl status ---"
-                        docker exec -t pmm-server supervisorctl status
-                        echo "--- DEBUG pmm-managed.log ---"
-                        docker exec -t pmm-server tail -n 200 /srv/logs/pmm-managed.log
-                        echo "--- DEBUG pmm-agent.log ---"
-                        docker exec -t pmm-server tail -n 150 /srv/logs/pmm-agent.log
-                        echo "--- DEBUG nginx.log ---"
-                        docker exec -t pmm-server tail -n 150 /srv/logs/nginx.log
-                        return
-                    fi
-                    set -e
+                    pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$IP:443" --server-insecure-tls --server-username=admin --server-password="$ADMIN_PASSWORD" --paths-base="$PMM_DIR" "$IP"
                 fi
 
                 # launch pmm-agent
                 nohup bash -c 'pmm-agent --config-file="$PMM_DIR/config/pmm-agent.yaml" > pmm-agent.log 2>&1 &'
-                sleep 20
+                sleep 10
                 cat pmm-agent.log
                 pmm-admin status
             fi
