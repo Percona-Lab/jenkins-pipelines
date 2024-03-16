@@ -3,10 +3,13 @@ import hudson.slaves.*
 import jenkins.model.Jenkins
 import hudson.plugins.sshslaves.SSHLauncher
 
-library 'lib@master'
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+]) _
 
-// scm: [$class: 'GitSCMSource', credentialsId: '', remote: ''], 
 library changelog: false, identifier: 'v3lib@PMM-7-fix-pmm3-aws-staging-start-ppl', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', credentialsId: '', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'], 
   libraryPath: 'pmm/v3/lib/'
 )
 
@@ -179,7 +182,7 @@ pipeline {
                 deleteDir()
                 script {
                     // getPMMBuildParams sets envvars: VM_NAME, OWNER, OWNER_SLACK
-                    lib.getPMMBuildParams('pmm-')
+                    getPMMBuildParams('pmm-')
                     echo """
                         DOCKER_VERSION:  ${DOCKER_VERSION}
                         CLIENT_VERSION:  ${CLIENT_VERSION}
@@ -212,7 +215,7 @@ pipeline {
         stage('Run VM') {
             steps {
                 // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, ID (AMI_ID)
-                lib.launchSpotInstance('t3.large', 'FAIR', 30)
+                launchSpotInstance('t3.large', 'FAIR', 30)
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
@@ -377,7 +380,7 @@ pipeline {
             steps {
                 node(env.VM_NAME){
                     // Download the client, install it outside of PMM and configure it to connect to PMM
-                    v3lib.setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
+                    setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
 
                     script {
                         env.PMM_REPO = params.CLIENT_VERSION == "pmm-rc" ? "testing" : "experimental"
