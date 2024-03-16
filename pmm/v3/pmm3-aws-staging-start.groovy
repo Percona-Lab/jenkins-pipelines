@@ -386,7 +386,6 @@ pipeline {
                     }
 
                     sh '''
-                        return # TODO: remove once the pipeline is stable
                         set -o errexit
                         set -o xtrace
                         export PATH=$PATH:/usr/sbin
