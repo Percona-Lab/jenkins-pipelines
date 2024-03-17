@@ -250,14 +250,6 @@ pipeline {
                         sudo amazon-linux-extras enable epel php8.2
                         sudo yum --enablerepo epel install php -y
                         sudo yum install sysbench mysql-client -y
-
-                        sudo mkdir -p /srv/pmm-qa || :
-                        pushd /srv/pmm-qa
-                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                            sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
-                            sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
-                            sudo chmod 755 get_download_link.sh
-                        popd
                     '''
                 }
             }
@@ -338,43 +330,6 @@ pipeline {
                 }
             }
         }
-        stage('Enable Testing Repo') {
-            when {
-                expression { env.ENABLE_TESTING_REPO == "yes" && env.CLIENT_INSTANCE == "no" }
-            }
-            steps {
-                script {
-                    withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        node(env.VM_NAME){
-                            sh '''
-                                set -o errexit
-                                set -o xtrace
-
-                                docker exec --user root pmm-server percona-release enable percona testing
-                            '''
-                        }
-                    }
-                }
-            }
-        }
-        stage('Enable Experimental Repo') {
-            when {
-                expression { env.CLIENT_INSTANCE == "no" && env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
-            }
-            steps {
-                script {
-                    withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        node(env.VM_NAME){
-                            sh '''
-                                set -o errexit
-                                set -o xtrace
-                                docker exec --user root pmm-server percona-release enable percona experimental
-                            '''
-                        }
-                    }
-                }
-            }
-        }
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
@@ -388,12 +343,14 @@ pipeline {
                     sh '''
                         set -o errexit
                         set -o xtrace
+                        # Exit if no CLIENTS are provided
+                        [ -z "${CLIENTS// }" ] && exit 0
+
                         export PATH=$PATH:/usr/sbin
                         export PMM_CLIENT_VERSION=${CLIENT_VERSION}
-                        if [[ "${CLIENT_VERSION}" = 3-dev-latest ]]; then
+                        if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
                             export PMM_CLIENT_VERSION="latest"
                         fi
-                        [ -z "${CLIENTS}" ] && exit 0 || :
 
                         PMM_SERVER_IP=${SERVER_IP}
                         if [[ "${CLIENT_INSTANCE}" = no ]]; then
@@ -401,6 +358,14 @@ pipeline {
                         fi
 
                         pmm-admin --version
+
+                        sudo mkdir -p /srv/pmm-qa || :
+                        pushd /srv/pmm-qa
+                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} --depth=1 https://github.com/percona/pmm-qa.git .
+                            sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
+                            sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
+                            sudo chmod 755 get_download_link.sh
+                        popd
 
                         bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                             --ms-version  ${MS_VERSION} \
