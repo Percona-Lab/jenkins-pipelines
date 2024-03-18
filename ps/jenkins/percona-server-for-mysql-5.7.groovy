@@ -568,6 +568,7 @@ parameters {
                         sudo docker images
                         sudo docker save -o percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_RELEASE} percona/percona-server:${PS_MAJOR_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
                         sudo chown admin:admin percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar
+                        sudo chmod a+r percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar
                         ls -la
                     '''
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
