@@ -21,7 +21,7 @@ pipeline {
             description: 'Centos versions(coma separated)',
             name: 'CENTOS_VERSIONS')
         string(
-            defaultValue: 'buster,bullseye,bionic,focal,jammy',
+            defaultValue: 'buster,bullseye,bookworm,bionic,focal,jammy',
             description: 'Debian and Ubuntu release codenames(coma separated)',
             name: 'DEB_CODE_NAMES')
         string(
