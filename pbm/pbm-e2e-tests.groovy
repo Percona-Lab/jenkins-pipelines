@@ -16,11 +16,11 @@ void prepareCluster(String TEST_TYPE) {
     """
 
     sh """
-        sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+        sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
         sudo chmod +x /usr/local/bin/docker-compose
 
-        wget https://download.docker.com/linux/static/stable/x86_64/docker-24.0.7.tgz
-        tar -xvf docker-24.0.7.tgz
+        wget https://download.docker.com/linux/static/stable/x86_64/docker-25.0.4.tgz
+        tar -xvf docker-25.0.4.tgz
         sudo systemctl stop docker containerd
         sudo cp docker/* /usr/bin/
         sudo systemctl start docker containerd

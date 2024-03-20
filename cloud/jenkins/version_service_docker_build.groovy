@@ -47,10 +47,6 @@ pipeline {
                     sudo install -m 0755 -D mkcert-v1.4.3-linux-amd64 /usr/local/bin/mkcert
                     /usr/local/bin/mkcert -install
 
-                    wget 'https://go.dev/dl/go1.21.8.linux-amd64.tar.gz'
-                    sudo rm -rf /usr/local/go && sudo tar -C /usr/local -xzf go1.21.8.linux-amd64.tar.gz
-                    export PATH=$PATH:/usr/local/go/bin:~/go/bin
-
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
                     sudo git config --global --add safe.directory /mnt/jenkins/workspace/build-version-service-image
@@ -78,9 +74,6 @@ pipeline {
                         export IMG=perconalab/version-service:$GIT_BRANCH-$GIT_COMMIT
 
                         cd ./source
-                        make init
-                        make gen
-                        make build
                         make docker-build
 
                         echo $IMG > ../IMG
