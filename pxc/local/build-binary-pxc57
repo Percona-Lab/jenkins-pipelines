@@ -56,6 +56,7 @@ TARGET_ARCH="$(uname -m)"
 # ------------------------------------------------------------------------------
 # Set Debug options
 # ------------------------------------------------------------------------------
+export CMAKE_OPTS=""
 if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
     BUILD_COMMENT+="-debug"
     CMAKE_OPTS+=" -DDEBUG_EXTNAME=ON -DWITH_DEBUG=ON"
