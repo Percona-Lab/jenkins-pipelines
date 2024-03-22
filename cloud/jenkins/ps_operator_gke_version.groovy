@@ -329,7 +329,7 @@ pipeline {
             description: 'GKE version',
             name: 'PLATFORM_VER')
         choice(
-            choices: 'regular\nrapid\nstable',
+            choices: 'None\nstable\nregular\nrapid',
             description: 'GKE release channel',
             name: 'GKE_RELEASE_CHANNEL')
         string(
