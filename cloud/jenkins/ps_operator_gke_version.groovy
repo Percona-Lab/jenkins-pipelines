@@ -179,6 +179,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 ret_val=0
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
+                    --release-channel $GKE_RELEASE_CHANNEL \
                     --zone $region \
                     --cluster-version $USED_PLATFORM_VER \
                     --machine-type n1-standard-4 \
@@ -327,6 +328,10 @@ pipeline {
             defaultValue: 'latest',
             description: 'GKE version',
             name: 'PLATFORM_VER')
+        choice(
+            choices: 'regular\nrapid\nstable',
+            description: 'GKE release channel',
+            name: 'GKE_RELEASE_CHANNEL')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mysql-operator:main',
