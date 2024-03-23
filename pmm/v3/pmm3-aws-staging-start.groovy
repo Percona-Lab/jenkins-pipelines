@@ -13,8 +13,6 @@ library changelog: false, identifier: 'v3lib@PMM-7-fix-pmm3-aws-staging-start-pp
   libraryPath: 'pmm/v3/'
 )
 
-def DEFAULT_SSH_KEYS = getSHHKeysPMM()
-
 pipeline {
     agent {
         label 'cli'
@@ -175,7 +173,9 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         skipDefaultCheckout()
     }
-
+    environment {
+        DEFAULT_SSH_KEYS = getSHHKeysPMM()
+    }
     stages {
         stage('Prepare') {
             steps {
