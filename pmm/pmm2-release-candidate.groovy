@@ -46,6 +46,7 @@ def pmm_submodules() {
         "pmm-ui-tests",
         "pmm-qa",
         "mysqld_exporter",
+        "mongodb_exporter",
         "grafana",
         "node_exporter",
         "postgres_exporter",
