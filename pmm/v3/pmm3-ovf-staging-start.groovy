@@ -126,7 +126,7 @@ pipeline {
                             --memory ${VM_MEMORY} \
                             --audio none \
                             --cpus 6 \
-                            --natpf1 "guestweb,tcp,,80,,8080" \
+                            --natpf1 "guestweb,tcp,,80,,80" \
                             --uart1 0x3F8 4 --uartmode1 file /tmp/${VM_NAME}-console.log \
                             --groups "/pmm"
                         VBoxManage modifyvm ${VM_NAME} --natpf1 "guesthttps,tcp,,443,,443"
@@ -141,7 +141,7 @@ pipeline {
                     sh """
                         # This fails sometimes, so we want to isolate this step
                         sleep 60
-                        curl -k --user admin:admin https://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
+                        curl -s --user admin:admin http://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
                     """
                 }
             }
