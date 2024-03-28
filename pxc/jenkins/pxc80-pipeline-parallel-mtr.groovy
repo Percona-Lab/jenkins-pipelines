@@ -66,9 +66,6 @@ String getLatestPxbPackageName(String PXB_VER, String GLIBC_VER) {
 }
 
 void checkIfPxbPackagesDownloadable() {
-    if (env.PXB24_LATEST == "true") {
-        PXB24_PACKAGE_TO_DOWNLOAD = getLatestPxbPackageName("2.4", "2.17")
-    }
     if (env.PXB80_LATEST == "true") {
         PXB80_PACKAGE_TO_DOWNLOAD = getLatestPxbPackageName("8.0", "2.17")
     }
@@ -101,15 +98,10 @@ void downloadPackage(String PACKAGE_URL, String OUTPUT_FILE_PATH) {
 
 void downloadFilesForTests() {
     sh """
-        mkdir -p ./pxc/sources/pxc/results/pxb24
         mkdir -p ./pxc/sources/pxc/results/pxb80
         mkdir -p ./pxc/sources/pxc/results/pxb_A
+        mkdir -p ./pxc/sources/pxc/results/pxb_B
     """
-    if (PXB24_PACKAGE_TO_DOWNLOAD != '') {
-        downloadLatestPxbPackage("2.4", PXB24_PACKAGE_TO_DOWNLOAD, "2.17", "./pxc/sources/pxc/results/pxb24/pxb24.tar.gz")
-    } else {
-        downloadFileFromS3("${BUILD_TAG_BINARIES}", "pxb24.tar.gz", "./pxc/sources/pxc/results/pxb24/pxb24.tar.gz")
-    }
 
     if (PXB80_PACKAGE_TO_DOWNLOAD) {
         downloadLatestPxbPackage("8.0", PXB80_PACKAGE_TO_DOWNLOAD, "2.17", "./pxc/sources/pxc/results/pxb80/pxb80.tar.gz")
@@ -117,9 +109,14 @@ void downloadFilesForTests() {
         downloadFileFromS3("${BUILD_TAG_BINARIES}", "pxb80.tar.gz", "./pxc/sources/pxc/results/pxb80/pxb80.tar.gz")
     }
 
-    echo "PXB_A_URL: ${env.PXB_A_URL}"
-    if (env.PXB_A_URL != '') {
-        downloadPackage(env.PXB_A_URL, "./pxc/sources/pxc/results/pxb_A/pxb_A.tar.gz")
+    echo "PXB_PREV_VERSION_URL: ${env.PXB_PREV_VERSION_URL}"
+    if (env.PXB_PREV_VERSION_URL != '') {
+        downloadPackage(env.PXB_PREV_VERSION_URL, "./pxc/sources/pxc/results/pxb_A/pxb_A.tar.gz")
+    }
+
+    echo "PXB_THIS_VERSION_URL: ${env.PXB_THIS_VERSION_URL}"
+    if (env.PXB_THIS_VERSION_URL != '') {
+        downloadPackage(env.PXB_THIS_VERSION_URL, "./pxc/sources/pxc/results/pxb_B/pxb_B.tar.gz")
     }
 
     downloadFileFromS3("${BUILD_TAG_BINARIES}", "pxc80.tar.gz", "./pxc/sources/pxc/results/pxc80.tar.gz")
@@ -450,6 +447,11 @@ void triggerAbortedTestWorkersRerun() {
                     string(name:'GIT_REPO', value: env.GIT_REPO),
                     string(name:'BRANCH', value: env.BRANCH),
                     string(name:'DOCKER_OS', value: env.DOCKER_OS),
+                    booleanParam(name:'PXB80_LATEST', value: env.PXB80_LATEST),
+                    string(name:'PXB_PREV_VERSION_URL', value: env.PXB_PREV_VERSION_URL),
+                    string(name:'PXB_PREV_VERSION_TARGET_DIR', value: env.PXB_PREV_VERSION_TARGET_DIR),
+                    string(name:'PXB_THIS_VERSION_URL', value: env.PXB_THIS_VERSION_URL),
+                    string(name:'PXB_THIS_VERSION_TARGET_DIR', value: env.PXB_THIS_VERSION_TARGET_DIR),
                     string(name:'JOB_CMAKE', value: env.JOB_CMAKE),
                     string(name:'CMAKE_BUILD_TYPE', value: env.CMAKE_BUILD_TYPE),
                     string(name:'ANALYZER_OPTS', value: env.ANALYZER_OPTS),
@@ -527,29 +529,25 @@ pipeline {
             description: 'Tag/Branch for PXB80 repository',
             name: 'PXB80_BRANCH',
             trim: true)
-        booleanParam(
-            defaultValue: true,
-            description: 'If checked, the PXB24_BRANCH will be ignored and latest available version will be used',
-            name: 'PXB24_LATEST')
-        string(
-            defaultValue: 'https://github.com/percona/percona-xtrabackup',
-            description: 'URL to PXB24 repository',
-            name: 'PXB24_REPO',
-            trim: true)
-        string(
-            defaultValue: 'percona-xtrabackup-2.4.27',
-            description: 'Tag/Branch for PXC repository',
-            name: 'PXB24_BRANCH',
-            trim: true)
         string(
             defaultValue: 'https://downloads.percona.com/downloads/Percona-XtraBackup-innovative-release/Percona-XtraBackup-8.1.0-1/binary/tarball/percona-xtrabackup-8.1.0-1-Linux-x86_64.glibc2.17-minimal.tar.gz',
-            description: 'Additional PXB package URL to be available in pxc_extra/PXB_A_TARGET_DIR',
-            name: 'PXB_A_URL',
+            description: 'Additional PXB package URL to be available in pxc_extra/PXB_PREV_VERSION_TARGET_DIR',
+            name: 'PXB_PREV_VERSION_URL',
             trim: true)
         string(
             defaultValue: 'pxb-8.1',
-            description: 'Additional PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_A_TARGET_DIR',
-            name: 'PXB_A_TARGET_DIR',
+            description: 'Additional PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_PREV_VERSION_TARGET_DIR',
+            name: 'PXB_PREV_VERSION_TARGET_DIR',
+            trim: true)
+        string(
+            defaultValue: 'https://downloads.percona.com/downloads/Percona-XtraBackup-innovative-release/Percona-XtraBackup-8.2.0-1/binary/tarball/percona-xtrabackup-8.2.0-1-Linux-x86_64.glibc2.17-minimal.tar.gz',
+            description: 'Additional PXB package URL to be available in pxc_extra/PXB_THIS_VERSION_TARGET_DIR',
+            name: 'PXB_THIS_VERSION_URL',
+            trim: true)
+        string(
+            defaultValue: 'pxb-8.2',
+            description: 'Additional PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_THIS_VERSION_TARGET_DIR',
+            name: 'PXB_THIS_VERSION_TARGET_DIR',
             trim: true)
         choice(
             choices: '/usr/bin/cmake',
@@ -655,7 +653,7 @@ pipeline {
                     echo "Using instances with LABEL ${LABEL} for build and test stages"
                 }
                 git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
-            
+
                 script {
                     BUILD_TRIGGER_BY = " (${currentBuild.getBuildCauses()[0].userId})"
                     if (BUILD_TRIGGER_BY == " (null)") {

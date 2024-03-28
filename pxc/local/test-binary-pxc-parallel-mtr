@@ -14,6 +14,7 @@
 #      ANALYZER_OPTS = (-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_MSAN=ON -DWITH_UBSAN=ON -DWITH_VALGRIND=ON)
 #      CI_FS_MTR
 #      PXB_A_TARGET_DIR
+#      PXB_B_TARGET_DIR
 
 set -o errexit
 set -o xtrace
@@ -40,23 +41,16 @@ mv ${WORKDIR_ABS}/PXC/library_output_directory ${WORKDIR_ABS}/library_output_dir
 # PXC <<<
 
 # PXB >>>
-PXB24_WORKDIR=$WORKDIR_ABS/pxb24
 PXB80_WORKDIR=$WORKDIR_ABS/pxb80
 
-PXB24_TAR=$(ls $PXB24_WORKDIR/{percona-xtrabackup-2.*.tar.gz,pxb24.tar.gz}  | awk -F'/' '{print $NF}')
 PXB80_TAR=$(ls $PXB80_WORKDIR/{percona-xtrabackup-8.*.tar.gz,pxb80.tar.gz}  | awk -F'/' '{print $NF}')
 
-mkdir -p ${PXB24_WORKDIR}/target
 mkdir -p ${PXB80_WORKDIR}/target
-tar -xzf $PXB24_WORKDIR/$PXB24_TAR --exclude='man' --exclude='*-test' -C ${PXB24_WORKDIR}/target
 tar -xzf $PXB80_WORKDIR/$PXB80_TAR --exclude='man' --exclude='*-test' -C ${PXB80_WORKDIR}/target
 
-mv ${PXB24_WORKDIR}/target/$(ls ${PXB24_WORKDIR}/target | grep percona-xtrabackup-2) ${PXB24_WORKDIR}/target/pxb-2.4
 mv ${PXB80_WORKDIR}/target/$(ls ${PXB80_WORKDIR}/target | grep percona-xtrabackup-8) ${PXB80_WORKDIR}/target/pxb-8.0
 
-mkdir -p ${WORKDIR_ABS}/PXC/bin/pxc_extra/pxb-2.4
 mkdir -p ${WORKDIR_ABS}/PXC/bin/pxc_extra/pxb-8.0
-cp -v -r ${PXB24_WORKDIR}/target/pxb-2.4/{bin,lib} ${WORKDIR_ABS}/PXC/bin/pxc_extra/pxb-2.4
 cp -v -r ${PXB80_WORKDIR}/target/pxb-8.0/{bin,lib} ${WORKDIR_ABS}/PXC/bin/pxc_extra/pxb-8.0
 
 echo "PXB_A_TARGET_DIR: ${PXB_A_TARGET_DIR}"
@@ -68,6 +62,17 @@ if [[ -n "${PXB_A_TARGET_DIR}" ]]; then
     mv ${PXB_A_WORKDIR}/target/$(ls ${PXB_A_WORKDIR}/target | grep percona-xtrabackup-) ${PXB_A_WORKDIR}/target/${PXB_A_TARGET_DIR}
     mkdir -p ${WORKDIR_ABS}/PXC/bin/pxc_extra/${PXB_A_TARGET_DIR}
     cp -v -r ${PXB_A_WORKDIR}/target/${PXB_A_TARGET_DIR}/{bin,lib} ${WORKDIR_ABS}/PXC/bin/pxc_extra/${PXB_A_TARGET_DIR}
+fi
+
+echo "PXB_B_TARGET_DIR: ${PXB_B_TARGET_DIR}"
+if [[ -n "${PXB_B_TARGET_DIR}" ]]; then
+    PXB_B_WORKDIR=$WORKDIR_ABS/pxb_B
+    PXB_B_TAR="pxb_B.tar.gz"
+    mkdir -p ${PXB_B_WORKDIR}/target
+    tar -xzf $PXB_B_WORKDIR/$PXB_B_TAR --exclude='man' --exclude='*-test' -C ${PXB_B_WORKDIR}/target
+    mv ${PXB_B_WORKDIR}/target/$(ls ${PXB_B_WORKDIR}/target | grep percona-xtrabackup-) ${PXB_B_WORKDIR}/target/${PXB_B_TARGET_DIR}
+    mkdir -p ${WORKDIR_ABS}/PXC/bin/pxc_extra/${PXB_B_TARGET_DIR}
+    cp -v -r ${PXB_B_WORKDIR}/target/${PXB_B_TARGET_DIR}/{bin,lib} ${WORKDIR_ABS}/PXC/bin/pxc_extra/${PXB_B_TARGET_DIR}
 fi
 # PXB <<<
 
