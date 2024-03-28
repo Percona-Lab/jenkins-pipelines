@@ -73,6 +73,10 @@ if [[ $MTR_ARGS == *"--big-test"* ]] || [[ $MTR_ARGS == *"--only-big-test"* ]]; 
     TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 2))
 fi
 
+if [[ $WITH_ASAN == "YES" ]]; then
+    MTR_ARGS+=" --sanitize "
+fi
+
 status=0
 #
 # Running MTR test cases
