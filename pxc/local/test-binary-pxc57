@@ -73,7 +73,8 @@ if [[ $MTR_ARGS == *"--big-test"* ]] || [[ $MTR_ARGS == *"--only-big-test"* ]]; 
     TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 2))
 fi
 
-if [[ $WITH_ASAN == "YES" ]]; then
+WITH_ASAN=$(echo "${WITH_ASAN}" | tr '[:upper:]' '[:lower:]')
+if [[ $WITH_ASAN == "yes" ]]; then
     MTR_ARGS+=" --sanitize "
 fi
 
