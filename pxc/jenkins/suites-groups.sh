@@ -24,7 +24,7 @@ function set_suites() {
   if [[ "$1" == "RelWithDebInfo" ]]; then
     echo "Setting WORKER_x_MTR_SUITES for BUILD_TYPE=RelWithDebInfo"
     # Unit tests will be executed by worker 1
-    WORKER_1_MTR_SUITES="innodb_undo,test_services,audit_null,service_sys_var_registration,connection_control,binlog_57_decryption,service_udf_registration,service_status_var_registration,procfs,interactive_utilities,percona-pam-for-mysql"
+    WORKER_1_MTR_SUITES="innodb_undo,test_services,audit_null,service_sys_var_registration,connection_control,service_udf_registration,service_status_var_registration,procfs,interactive_utilities,percona-pam-for-mysql"
     WORKER_2_MTR_SUITES="galera_nbo,galera_3nodes,galera_sr,galera_3nodes_nbo,galera_3nodes_sr,galera_encryption,wsrep,galera-x"
     WORKER_3_MTR_SUITES="engines/funcs,innodb"
     WORKER_4_MTR_SUITES="main,rpl"
@@ -35,7 +35,7 @@ function set_suites() {
   else # Debug (and everything different from "RelWithDebInfo")
     echo "Setting WORKER_x_MTR_SUITES for BUILD_TYPE=Debug"
     # Unit tests will be executed by worker 1
-    WORKER_1_MTR_SUITES="innodb_undo,test_services,audit_null,service_sys_var_registration,connection_control,binlog_57_decryption,service_udf_registration,service_status_var_registration,procfs,interactive_utilities,percona-pam-for-mysql"
+    WORKER_1_MTR_SUITES="innodb_undo,test_services,audit_null,service_sys_var_registration,connection_control,service_udf_registration,service_status_var_registration,procfs,interactive_utilities,percona-pam-for-mysql"
     WORKER_2_MTR_SUITES="galera_nbo,galera_3nodes,galera_sr,galera_3nodes_nbo,galera_3nodes_sr,galera_encryption,wsrep,galera-x"
     WORKER_3_MTR_SUITES="engines/funcs,innodb"
     WORKER_4_MTR_SUITES="main,rpl"
