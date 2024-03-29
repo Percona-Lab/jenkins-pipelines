@@ -115,7 +115,9 @@ void runTest(Integer TEST_ID) {
                 export KUBECONFIG=~/.kube/config
                 export PATH="${HOME}/.krew/bin:$PATH"
 
+                /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER} --cpus=6 --memory=28G
                 kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
+                /usr/local/bin/minikube delete
             """
             pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$PS_TAG-${PARAMS_HASH}")
             tests[TEST_ID]["result"] = "passed"
@@ -295,7 +297,6 @@ pipeline {
 
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
-                        /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER} --cpus=6 --memory=28G
                     '''
 
                     unstash "sourceFILES"
