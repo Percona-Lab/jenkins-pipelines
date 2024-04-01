@@ -213,7 +213,7 @@ pipeline {
                     steps {
                         script {
                             PXC_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${GIT_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                            if ("${PS_MAJOR_RELEASE}" == "80") {
+                            if ("${PXC_MAJOR_RELEASE}" == "80") {
                                 cleanUpWS()
                                 unstash 'pxc-80.properties'
                                 popArtifactFolder("source_deb/", AWS_STASH_PATH)
