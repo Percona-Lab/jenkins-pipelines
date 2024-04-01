@@ -45,10 +45,6 @@ pipeline {
         //     description: 'Enable Experimental, for Dev Latest testing',
         //     name: 'ENABLE_EXPERIMENTAL_REPO')
         string(
-            defaultValue: '',
-            description: 'public ssh key for "admin" user, please set if you need ssh access',
-            name: 'SSH_KEY')
-        string(
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
@@ -187,29 +183,29 @@ pipeline {
         //         }
         //     }
         // }
-        stage('Setup QA Repo on OVF VM') {
-            steps {
-                node(env.VM_NAME) {
-                    withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                        sh """
-                            ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
-                                export PMM_QA_GIT_BRANCH=${PMM_QA_GIT_BRANCH}
-                                export PMM_QA_GIT_COMMIT_HASH=${PMM_QA_GIT_COMMIT_HASH}
-                                sudo yum install -y wget git
-                                sudo mkdir -p /srv/pmm-qa || :
-                                pushd /srv/pmm-qa
-                                    sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                                    sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
-                                    sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
-                                    sudo chmod 755 get_download_link.sh
-                                popd
-                                sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
-                            '
-                        """
-                    }
-                }
-            }
-        }
+        // stage('Setup QA Repo on OVF VM') {
+        //     steps {
+        //         node(env.VM_NAME) {
+        //             withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        //                 sh """
+        //                     ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
+        //                         export PMM_QA_GIT_BRANCH=${PMM_QA_GIT_BRANCH}
+        //                         export PMM_QA_GIT_COMMIT_HASH=${PMM_QA_GIT_COMMIT_HASH}
+        //                         sudo yum install -y wget git
+        //                         sudo mkdir -p /srv/pmm-qa || :
+        //                         pushd /srv/pmm-qa
+        //                             sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+        //                             sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
+        //                             sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
+        //                             sudo chmod 755 get_download_link.sh
+        //                         popd
+        //                         sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
+        //                     '
+        //                 """
+        //             }
+        //         }
+        //     }
+        // }
     }
     post {
         success {
