@@ -144,10 +144,8 @@ pipeline {
                     """
                     sh """
                         # This fails sometimes, so we want to isolate this step
-                        #sleep 60
-                        #curl -s --user admin:admin http://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}' || true
                         sleep 180
-                        curl -k --user admin:admin https://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${SSH_KEY}"'"}'
+                        curl -k --user admin:admin https://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
                     """
                 }
             }
@@ -194,8 +192,7 @@ pipeline {
                 node(env.VM_NAME) {
                     withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
-                            #ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
-                            ssh -i "${SSH_KEY}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
+                            ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
                                 export PMM_QA_GIT_BRANCH=${PMM_QA_GIT_BRANCH}
                                 export PMM_QA_GIT_COMMIT_HASH=${PMM_QA_GIT_COMMIT_HASH}
                                 sudo yum install -y wget git
