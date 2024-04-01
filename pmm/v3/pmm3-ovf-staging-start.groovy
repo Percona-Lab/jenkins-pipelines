@@ -45,6 +45,10 @@ pipeline {
         //     description: 'Enable Experimental, for Dev Latest testing',
         //     name: 'ENABLE_EXPERIMENTAL_REPO')
         string(
+            defaultValue: '',
+            description: 'public ssh key for "admin" user, please set if you need ssh access',
+            name: 'SSH_KEY')
+        string(
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
@@ -141,7 +145,8 @@ pipeline {
                     sh """
                         # This fails sometimes, so we want to isolate this step
                         sleep 60
-                        curl -s --user admin:admin http://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}' || true
+                        #curl -s --user admin:admin http://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}' || true
+                        curl -k --user admin:admin https://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${SSH_KEY}"'"}'
                     """
                 }
             }
@@ -188,7 +193,8 @@ pipeline {
                 node(env.VM_NAME) {
                     withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
-                            ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
+                            #ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
+                            ssh -i "${SSH_KEY}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
                                 export PMM_QA_GIT_BRANCH=${PMM_QA_GIT_BRANCH}
                                 export PMM_QA_GIT_COMMIT_HASH=${PMM_QA_GIT_COMMIT_HASH}
                                 sudo yum install -y wget git
