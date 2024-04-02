@@ -20,11 +20,11 @@
         description: Reuse PXC, PXB80 binaries built in the specified build. Useful for quick MTR test rerun without rebuild.
     - string:
         name: GIT_REPO
-        default: "https://github.com/kamil-holubicki/percona-xtradb-cluster"
+        default: "https://github.com/percona/percona-xtradb-cluster"
         description: URL to PXC repository
     - string:
         name: BRANCH
-        default: "pxc-8.1.0-merge"
+        default: "trunk"
         description: Tag/PR/Branch for PXC repository
     - string:
         name: CUSTOM_BUILD_NAME

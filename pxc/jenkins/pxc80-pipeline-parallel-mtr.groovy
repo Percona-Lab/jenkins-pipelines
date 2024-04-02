@@ -8,7 +8,6 @@ S3_ROOT_DIR = 's3://pxc-build-cache'
 WORKER_ABORTED = new boolean[9]
 BUILD_NUMBER_BINARIES_FOR_RERUN = 0
 BUILD_TRIGGER_BY = ''
-PXB24_PACKAGE_TO_DOWNLOAD = ''
 PXB80_PACKAGE_TO_DOWNLOAD = ''
 
 def LABEL = 'docker-32gb'
@@ -493,16 +492,16 @@ pipeline {
     parameters {
         string(
             defaultValue: '',
-            description: 'Reuse PXC, PXB24, PXB80 binaries built in the specified build. Useful for quick MTR test rerun without rebuild.',
+            description: 'Reuse PXC, PXB80 binaries built in the specified build. Useful for quick MTR test rerun without rebuild.',
             name: 'BUILD_NUMBER_BINARIES',
             trim: true)
         string(
-            defaultValue: 'https://github.com/kamil-holubicki/percona-xtradb-cluster',
+            defaultValue: 'https://github.com/percona/percona-xtradb-cluster',
             description: 'URL to PXC repository',
             name: 'GIT_REPO',
             trim: true)
         string(
-            defaultValue: 'pxc-8.1.0-merge',
+            defaultValue: 'trunk',
             description: 'Tag/PR/Branch for PXC repository',
             name: 'BRANCH',
             trim: true)
@@ -706,38 +705,6 @@ pipeline {
                             }
                             env.BUILD_TAG_BINARIES = env.BUILD_TAG
                             BUILD_NUMBER_BINARIES_FOR_RERUN = env.BUILD_NUMBER
-                        }
-                    }
-                }
-                stage('Build PXB24') {
-                    when {
-                        beforeAgent true
-                        expression { (env.FULL_MTR != 'skip_mtr' && PXB24_PACKAGE_TO_DOWNLOAD == '') }
-                    }
-                    agent { label 'docker' }
-                    steps {
-                        script {
-	                        echo "JENKINS_SCRIPTS_BRANCH: $JENKINS_SCRIPTS_BRANCH"
-	                        echo "JENKINS_SCRIPTS_REPO: $JENKINS_SCRIPTS_REPO"
-       	                    sh "which git"
-                        }
-                        git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
-
-                        checkoutSources("PXB24")
-                        build("./pxc/docker/run-build-pxb24")
-
-                        script {
-                            FILE_NAME = sh(
-                                script: 'ls pxc/sources/pxb24/results/*.tar.gz | head -1',
-                                returnStdout: true
-                            ).trim()
-
-                            if (FILE_NAME != "") {
-                                uploadFileToS3("$FILE_NAME", "$BUILD_TAG", "pxb24.tar.gz")
-                            } else {
-                                echo 'Cannot find compiled archive'
-                                currentBuild.result = 'FAILURE'
-                            }
                         }
                     }
                 }
