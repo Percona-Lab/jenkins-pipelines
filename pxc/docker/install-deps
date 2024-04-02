@@ -28,6 +28,9 @@ if [ -f /usr/bin/yum ]; then
       # repo for procps-ng-devel
       yum install -y https://pkgs.dyn.su/el8/base/x86_64/raven-release-1.0-2.el8.noarch.rpm
       PKGLIST+=" procps-ng-devel"
+
+      wget https://downloads.percona.com/downloads/packaging/python2-scons-3.0.1-9.el8.noarch.rpm
+      yum -y install ./python2-scons-3.0.1-9.el8.noarch.rpm || true
   fi
 
   yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
@@ -81,7 +84,6 @@ if [ -f /usr/bin/yum ]; then
   done
 
   if [[ ${RHVER} -eq 8 ]]; then
-      wget -O /etc/yum.repos.d/percona-dev.repo https://jenkins.percona.com/yum-repo/percona-dev.repo
       dnf config-manager --set-enabled powertools
   fi
 
@@ -215,11 +217,6 @@ if [ -f /usr/bin/apt-get ]; then
     percona-release enable-only tools testing
 
     DIST=$(lsb_release -sc)
-    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' ]]; then
-        echo "deb http://jenkins.percona.com/apt-repo/ ${DIST} main" > /etc/apt/sources.list.d/percona-dev.list
-        wget -q -O - http://jenkins.percona.com/apt-repo/8507EFA5.pub | apt-key add -
-        wget -q -O - http://jenkins.percona.com/apt-repo/CD2EFD2A.pub | apt-key add -
-    fi
 
     until apt-get update; do
         sleep 1
