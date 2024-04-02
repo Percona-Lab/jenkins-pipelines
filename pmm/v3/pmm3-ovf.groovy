@@ -18,9 +18,9 @@ pipeline {
         disableConcurrentBuilds()
         parallelsAlwaysFailFast()
     }
-    // triggers {
-    //     upstream upstreamProjects: 'pmm3-server-autobuild', threshold: hudson.model.Result.SUCCESS
-    // }
+    triggers {
+        upstream upstreamProjects: 'pmm3-server-autobuild', threshold: hudson.model.Result.SUCCESS
+    }
 
     stages {
         stage('Prepare') {
@@ -42,10 +42,10 @@ pipeline {
                         doctl compute firewall add-droplets $FIREWALL_ID --droplet-ids $DROPLET_ID
                     '''
                 }                
-                // slackSend botUser: true,
-                //           channel: '#pmm-ci',
-                //           color: '#0000FF',
-                //           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend botUser: true,
+                          channel: '#pmm-ci',
+                          color: '#0000FF',
+                          message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 checkout([$class: 'GitSCM', 
                           branches: [[name: "*/${PMM_BRANCH}"]],
                           extensions: [[$class: 'CloneOption',
@@ -136,15 +136,15 @@ pipeline {
             script {
                 if (params.RELEASE_CANDIDATE == "yes") {
                     currentBuild.description = "RC Build, Image: " + env.PMM3_SERVER_OVA_S3
-                    // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RC build finished, Image: " + env.PMM3_SERVER_OVA_S3
+                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RC build finished, Image: " + env.PMM3_SERVER_OVA_S3
                 } else {
-                    // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, Image: " + env.PMM3_SERVER_OVA_S3
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, Image: " + env.PMM3_SERVER_OVA_S3
                 }
             }
         }
         failure {
             echo "Pipeline failed"
-            // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
+            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
         }
         cleanup {
             deleteDir()
