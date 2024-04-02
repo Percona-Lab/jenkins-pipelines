@@ -43,6 +43,9 @@ void deleteReleaseBranches(String VERSION) {
 
 void setupReleaseBranches(String VERSION) {
     sh '''
+        git config --global user.email "noreply@percona.com"
+        git config --global user.name "PMM Jenkins"
+
         git branch ${RELEASE_BRANCH}
         git checkout ${RELEASE_BRANCH}
     '''
@@ -57,7 +60,6 @@ void setupReleaseBranches(String VERSION) {
 
             # Configure git to push using ssh
             export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-
 
             git commit -a -m "Prepare Release Branch Submodules"
             git branch
@@ -142,7 +144,7 @@ pipeline {
             }
             steps {
                 script {
-                    env.TARGET_BRANCH = params.SUBMODULES_GIT_BRANCH == DEFAULT_BRANCH ? 'v3' : params.SUBMODULES_GIT_BRANCH
+                    env.TARGET_BRANCH = params.SUBMODULES_GIT_BRANCH
 
                     git branch: env.TARGET_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:percona/pmm'
 
@@ -179,7 +181,7 @@ pipeline {
         }
         stage('Rewind Submodules') {
             when {
-                expression { env.REMOVE_RELEASE_BRANCH == 'no' && env.TARGET_BRANCH == 'v3' && env.API_DESCRIPTOR == 'CHANGED' }
+                expression { env.REMOVE_RELEASE_BRANCH == 'no' && env.TARGET_BRANCH == DEFAULT_BRANCH && env.API_DESCRIPTOR == 'CHANGED' }
             }
             steps {
                 build job: 'pmm3-submodules-rewind', propagate: false, wait: true
@@ -202,14 +204,6 @@ pipeline {
                 expression { env.REMOVE_RELEASE_BRANCH == "yes" && env.SUBMODULES_GIT_BRANCH != DEFAULT_BRANCH }
             }
             steps {
-                git branch: env.SUBMODULES_GIT_BRANCH,
-                    credentialsId: 'GitHub SSH Key',
-                    poll: false,
-                    url: 'git@github.com:Percona-Lab/pmm-submodules'
-                script {
-                    env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
-                    env.RELEASE_BRANCH = 'pmm-' + VERSION
-                }
                 deleteReleaseBranches(env.SUBMODULES_GIT_BRANCH)
                 script {
                     currentBuild.description = "Release beanches were deleted: ${env.SUBMODULES_GIT_BRANCH}"
@@ -233,16 +227,11 @@ pipeline {
                 }
             }
         }
-        stage('Checkout Submodules and Prepare for creating branches') {
+        stage('Create Release branches') {
             when {
                 expression { env.EXIST.toInteger() == 0 }
             }
             steps {
-                git branch: SUBMODULES_GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
-                sh '''
-                    git config --global user.email "noreply@percona.com"
-                    git config --global user.name "PMM Jenkins"
-                '''
                 setupReleaseBranches(VERSION)
             }
         }
@@ -256,7 +245,7 @@ pipeline {
                 ]
             }
         }
-        stage('Autobuilds RC for Server & Client') {
+        stage('Run Server & Client RC Autobuilds') {
             when {
                 expression { env.REMOVE_RELEASE_BRANCH == "no"}
             }
@@ -280,12 +269,12 @@ pipeline {
                 }
             }
         }
-        stage('Autobuilds RC for OVF & AMI') {
+        stage('Run OVF & AMI RC builds') {
             when {
                 expression { env.REMOVE_RELEASE_BRANCH == "no"}
             }
             parallel {
-                stage('Start AMI Build for RC') {
+                stage('Start AMI RC Build') {
                     steps {
                         pmmAMI = build job: 'pmm3-ami', parameters: [
                             string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
@@ -294,7 +283,7 @@ pipeline {
                         env.AMI_ID = pmmAMI.buildVariables.AMI_ID                        
                     }
                 }
-                stage('Start OVF Build for RC') {
+                stage('Start OVF RC Build') {
                     steps {
                         pmmOVF = build job: 'pmm3-ovf', parameters: [
                             string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
@@ -304,25 +293,26 @@ pipeline {
                 }
             }
         }
-        stage('Launch a staging instance') {
-            when {
-                expression { env.REMOVE_RELEASE_BRANCH == "no"}
-            }            
-            steps {
-                script {
-                    pmmStaging = build job: 'aws-staging-start-pmm3', propagate: false, parameters: [
-                        string(name: 'DOCKER_VERSION', value: "perconalab/pmm-server:${VERSION}-rc"),
-                        string(name: 'CLIENT_VERSION', value: "pmm-rc"),
-                        string(name: 'ENABLE_TESTING_REPO', value: "yes"),
-                        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: "no"),
-                        string(name: 'NOTIFY', value: "false"),
-                        string(name: 'DAYS', value: "14")
-                    ]
-                    env.IP = pmmStaging.buildVariables.IP
-                    env.TEST_URL = env.IP ? "Testing environment (14d): https://${env.IP}" : ""
-                }
-            }
-        }
+        // This staging instance currently sees no use
+        // stage('Launch a staging instance') {
+        //     when {
+        //         expression { env.REMOVE_RELEASE_BRANCH == "no"}
+        //     }            
+        //     steps {
+        //         script {
+        //             pmmStaging = build job: 'pmm3-aws-staging-start', propagate: false, parameters: [
+        //                 string(name: 'DOCKER_VERSION', value: "perconalab/pmm-server:${VERSION}-rc"),
+        //                 string(name: 'CLIENT_VERSION', value: "pmm-rc"),
+        //                 string(name: 'ENABLE_TESTING_REPO', value: "yes"),
+        //                 string(name: 'ENABLE_EXPERIMENTAL_REPO', value: "no"),
+        //                 string(name: 'NOTIFY', value: "false"),
+        //                 string(name: 'DAYS', value: "14")
+        //             ]
+        //             env.IP = pmmStaging.buildVariables.IP
+        //             env.TEST_URL = env.IP ? "Testing environment (14d): https://${env.IP}" : ""
+        //         }
+        //     }
+        // }
         stage('Scan image for vulnerabilities') {
             when {
                 expression { env.REMOVE_RELEASE_BRANCH == "no"}
@@ -360,7 +350,6 @@ Client: perconalab/pmm-client:${VERSION}-rc
 OVA: https://percona-vm.s3.amazonaws.com/PMM3-Server-${VERSION}.ova
 AMI: ${env.AMI_ID}
 Tarball: ${env.TARBALL_URL}
-${env.TEST_URL}
 ${env.SCAN_REPORT_URL}
                       """
         }

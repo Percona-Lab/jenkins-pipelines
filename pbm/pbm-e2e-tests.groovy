@@ -16,11 +16,11 @@ void prepareCluster(String TEST_TYPE) {
     """
 
     sh """
-        sudo curl -L "https://github.com/docker/compose/releases/download/v2.23.0/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
+        sudo curl -L "https://github.com/docker/compose/releases/download/v2.24.7/docker-compose-linux-x86_64" -o /usr/local/bin/docker-compose
         sudo chmod +x /usr/local/bin/docker-compose
 
-        wget https://download.docker.com/linux/static/stable/x86_64/docker-24.0.7.tgz
-        tar -xvf docker-24.0.7.tgz
+        wget https://download.docker.com/linux/static/stable/x86_64/docker-25.0.4.tgz
+        tar -xvf docker-25.0.4.tgz
         sudo systemctl stop docker containerd
         sudo cp docker/* /usr/bin/
         sudo systemctl start docker containerd
@@ -32,14 +32,14 @@ void prepareCluster(String TEST_TYPE) {
     sh """
         cp $PBM_AWS_S3_YML ./e2e-tests/docker/conf/aws.yaml
         cp $PBM_GCS_S3_YML ./e2e-tests/docker/conf/gcs.yaml
-#       cp $PBM_AZURE_YML ./e2e-tests/docker/conf/azure.yaml
+        cp $PBM_AZURE_YML ./e2e-tests/docker/conf/azure.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/aws.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/gcs.yaml
-#       sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/azure.yaml
+        sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/azure.yaml
 
         chmod 664 ./e2e-tests/docker/conf/aws.yaml
         chmod 664 ./e2e-tests/docker/conf/gcs.yaml
-#       chmod 664 ./e2e-tests/docker/conf/azure.yaml
+        chmod 664 ./e2e-tests/docker/conf/azure.yaml
 
 
         openssl rand -base64 756 > ./e2e-tests/docker/keyFile
@@ -61,7 +61,7 @@ pipeline {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
-        string(name: 'PBM_BRANCH', defaultValue: 'main', description: 'PBM branch')
+        string(name: 'PBM_BRANCH', defaultValue: 'dev', description: 'PBM branch')
     }
     triggers {
         cron('0 3 * * 1')

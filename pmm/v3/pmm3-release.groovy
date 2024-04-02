@@ -41,51 +41,40 @@ pipeline {
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                                 set -x
                                 set -e
-                                #
-                                REPOS='PERCONA TOOLS PMM3-CLIENT'
 
-                                for REPOSITORY in \$REPOS; do
-                                    if [[ \${REPOSITORY} = PERCONA ]]; then
-                                        REPOPATH=repo-copy/percona/yum
-                                    fi
-                                    if [[ \${REPOSITORY} = TOOLS ]]; then
-                                        REPOPATH=repo-copy/tools/yum
-                                    fi
-                                    if [[ \${REPOSITORY} = PMM3-CLIENT ]]; then
-                                        REPOPATH=repo-copy/pmm-client/yum
-                                    fi
-                                    cd /srv/UPLOAD/${PATH_TO_CLIENT}
+                                # We are only pushing to 'pmm3-client' repository
+                                REPOPATH=repo-copy/pmm3-client/yum
+                                cd /srv/UPLOAD/${PATH_TO_CLIENT}
 
-                                    # getting the list of RH systems
-                                    RHVERS=\$(ls -1 binary/redhat | grep -v 6)
+                                # getting the list of RH systems
+                                RHVERS=\$(ls -1 binary/redhat | grep -v 6)
 
-                                    # source processing
-                                    if [ -d source/redhat ]; then
-                                        SRCRPM=\$(find source/redhat -name '*.src.rpm')
-                                        for rhel in \${RHVERS}; do
-                                            mkdir -p /srv/\${REPOPATH}/release/\${rhel}/SRPMS
-                                            cp -v \${SRCRPM} /srv/\${REPOPATH}/release/\${rhel}/SRPMS
-                                            createrepo --update /srv/\${REPOPATH}/release/\${rhel}/SRPMS
-                                            if [ -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc ]; then
-                                                rm -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc
-                                            fi
-                                            gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml
-                                        done
-                                    fi
-
-                                    # binary processing
-                                    pushd binary
+                                # source processing
+                                if [ -d source/redhat ]; then
+                                    SRCRPM=\$(find source/redhat -name '*.src.rpm')
                                     for rhel in \${RHVERS}; do
-                                        mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS
-                                        for arch in \$(ls -1 redhat/\${rhel}); do
-                                            mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}
-                                            cp -av redhat/\${rhel}/\${arch}/*.rpm /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
-                                            createrepo --update /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
-                                            if [ -f  /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc ]; then
-                                                rm -f  /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc
-                                            fi
-                                            gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml
-                                        done
+                                        mkdir -p /srv/\${REPOPATH}/release/\${rhel}/SRPMS
+                                        cp -v \${SRCRPM} /srv/\${REPOPATH}/release/\${rhel}/SRPMS
+                                        createrepo --update /srv/\${REPOPATH}/release/\${rhel}/SRPMS
+                                        if [ -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc ]; then
+                                            rm -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc
+                                        fi
+                                        gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml
+                                    done
+                                fi
+
+                                # binary processing
+                                pushd binary
+                                for rhel in \${RHVERS}; do
+                                    mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS
+                                    for arch in \$(ls -1 redhat/\${rhel}); do
+                                        mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}
+                                        cp -av redhat/\${rhel}/\${arch}/*.rpm /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
+                                        createrepo --update /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
+                                        if [ -f  /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc ]; then
+                                            rm -f  /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc
+                                        fi
+                                        gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml
                                     done
                                 done
 ENDSSH
@@ -102,66 +91,51 @@ ENDSSH
                         sh """
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                                 set -e
-                                #
-                                #
-                                REPOS='PERCONA TOOLS PMM3-CLIENT'
-                                for REPOSITORY in \$REPOS; do
-                                    if [[ \${REPOSITORY} = PERCONA ]]; then
-                                        REPOPATH=/srv/repo-copy/percona/apt
-                                        export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/puppetlabs/bin
-                                    fi
-                                    #
-                                    if [[ \${REPOSITORY} = TOOLS ]]; then
-                                        REPOPATH=/srv/repo-copy/tools/apt
-                                        export PATH=/usr/local/reprepro5/bin:\${PATH}
-                                    fi
-                                    #
-                                    if [[ \${REPOSITORY} = PMM3-CLIENT ]]; then
-                                        REPOPATH=/srv/repo-copy/pmm-client/apt
-                                        export PATH=/usr/local/reprepro5/bin:\${PATH}
-                                    fi
-                                    echo reprepro binary is \$(which reprepro)
-                                    pushd /srv/UPLOAD/${PATH_TO_CLIENT}/binary/debian
-                                        echo Looking for Debian build directories...
-                                        CODENAMES=\$(ls -1 | egrep -v 'cosmic|disco')
-                                        echo Distributions are: \${CODENAMES}
-                                    popd
 
-                                    #######################################
-                                    # source pushing, it's a bit specific #
-                                    #######################################
+                                # We are only pushing to 'pmm3-client' repository
+                                REPOPATH=/srv/repo-copy/pmm3-client/apt
+                                export PATH=/usr/local/reprepro5/bin:\${PATH}
 
-                                    # pushing sources
-                                    if  [ -d /srv/UPLOAD/${PATH_TO_CLIENT}/source/debian ]; then
-                                        cd /srv/UPLOAD/${PATH_TO_CLIENT}/source/debian
-                                        DSC=\$(find . -type f -name '*.dsc')
-                                        for DSC_FILE in \${DSC}; do
-                                            echo DSC file is \${DSC_FILE}
-                                            for _codename in \${CODENAMES}; do
-                                                echo ===>DSC \$DSC_FILE
-                                                repopush --gpg-pass=${SIGN_PASSWORD} --package=\${DSC_FILE} --repo-path=\${REPOPATH} --component=main  --codename=\${_codename} --verbose || true
-                                                if [ -f \${REPOPATH}/db/lockfile ]; then
-                                                    sudo rm -vf \${REPOPATH}/db/lockfile
-                                                fi
-                                                sleep 1
-                                            done
+                                echo reprepro binary is \$(which reprepro)
+                                pushd /srv/UPLOAD/${PATH_TO_CLIENT}/binary/debian
+                                    echo Looking for Debian build directories...
+                                    CODENAMES=\$(ls -1 | egrep -v 'cosmic|disco')
+                                    echo Distributions are: \${CODENAMES}
+                                popd
+
+                                #######################################
+                                # source pushing, it's a bit specific #
+                                #######################################
+
+                                # pushing sources
+                                if  [ -d /srv/UPLOAD/${PATH_TO_CLIENT}/source/debian ]; then
+                                    cd /srv/UPLOAD/${PATH_TO_CLIENT}/source/debian
+                                    DSC=\$(find . -type f -name '*.dsc')
+                                    for DSC_FILE in \${DSC}; do
+                                        echo DSC file is \${DSC_FILE}
+                                        for _codename in \${CODENAMES}; do
+                                            echo ===>DSC \$DSC_FILE
+                                            repopush --gpg-pass=${SIGN_PASSWORD} --package=\${DSC_FILE} --repo-path=\${REPOPATH} --component=main  --codename=\${_codename} --verbose || true
+                                            if [ -f \${REPOPATH}/db/lockfile ]; then
+                                                sudo rm -vf \${REPOPATH}/db/lockfile
+                                            fi
+                                            sleep 1
                                         done
-                                    fi
-
-                                    #######################################
-                                    # binary pushing                      #
-                                    #######################################
-                                    cd /srv/UPLOAD/$PATH_TO_CLIENT/binary/debian
-
-                                    for _codename in \${CODENAMES}; do
-                                        pushd \${_codename}
-                                            DEBS=\$(find . -type f -name '*.*deb' )
-                                            for _deb in \${DEBS}; do
-                                                repopush --gpg-pass=$SIGN_PASSWORD --package=\${_deb} --repo-path=\${REPOPATH} --component=main --codename=\${_codename} --verbose
-                                            done
-                                        popd
                                     done
-                                    #
+                                fi
+
+                                #######################################
+                                # binary pushing                      #
+                                #######################################
+                                cd /srv/UPLOAD/$PATH_TO_CLIENT/binary/debian
+
+                                for _codename in \${CODENAMES}; do
+                                    pushd \${_codename}
+                                        DEBS=\$(find . -type f -name '*.*deb' )
+                                        for _deb in \${DEBS}; do
+                                            repopush --gpg-pass=$SIGN_PASSWORD --package=\${_deb} --repo-path=\${REPOPATH} --component=main --codename=\${_codename} --verbose
+                                        done
+                                    popd
                                 done
 ENDSSH
                         """
@@ -178,16 +152,13 @@ ENDSSH
                         set -x
                         set -e
 
-                        REPOS='PERCONA TOOLS PMM3-CLIENT'
-
-                        for REPOSITORY in \$REPOS; do
-                            cd /srv/repo-copy
-                            REPO=\$(echo \${REPOSITORY} | tr '[:upper:]' '[:lower:]' )
-                            date +%s > /srv/repo-copy/version
-                            RSYNC_TRANSFER_OPTS=" -avt --delete --delete-excluded --delete-after --progress"
-                            rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.10.9.209:/www/repo.percona.com/htdocs/\${REPO}/
-                            rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/version 10.10.9.209:/www/repo.percona.com/htdocs/
-                        done
+                        cd /srv/repo-copy
+                        REPO=pmm3-client
+                        date +%s > /srv/repo-copy/version
+                        RSYNC_TRANSFER_OPTS=" -avt --delete --delete-excluded --delete-after --progress"
+                        rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.10.9.209:/www/repo.percona.com/htdocs/\${REPO}/
+                        rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/version 10.10.9.209:/www/repo.percona.com/htdocs/
+                        cd -
 ENDSSH
                     """
                 }
@@ -285,106 +256,6 @@ ENDSSH
             }
         }
 
-        stage('Get Docker RPMs') {
-            agent {
-                label 'min-rhel-7-x64'
-            }
-            steps {
-                installDocker()
-                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: release started - ${BUILD_URL}"
-                sh "sg docker -c 'docker run ${SERVER_IMAGE} /usr/bin/rpm -qa' > rpms.list"
-                sh "sg docker -c 'docker run ${SERVER_IMAGE_EL7} /usr/bin/rpm -qa' > rpms-el7.list"
-                stash includes: 'rpms.list, rpms-el7.list', name: 'rpms-stash'
-            }
-        }
-
-        stage('Get repo RPMs') {
-            steps {
-                unstash 'rpms-stash'
-                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            ls /srv/repo-copy/pmm3-components/yum/testing/9/RPMS/x86_64 > repo.list
-                        cat rpms.list \
-                            | grep -v 'pmm-client' \
-                            | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
-                            | xargs -n 1 -I {} grep "^{}.rpm" repo.list \
-                            | sort \
-                            | tee copy.list
-                    '''
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            ls /srv/repo-copy/pmm3-components/yum/testing/7/RPMS/x86_64 > repo-el7.list
-                        cat rpms-el7.list \
-                            | grep -v 'pmm-client' \
-                            | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
-                            | xargs -n 1 -I {} grep "^{}.rpm" repo-el7.list \
-                            | sort \
-                            | tee copy-el7.list
-                    '''
-                }
-                stash includes: 'copy.list, copy-el7.list', name: 'copy-stash'
-                archiveArtifacts 'copy*.list'
-            }
-        }
-        // Publish RPMs to repo.ci.percona.com
-        stage('Copy RPMs to PMM repo') {
-            steps {
-                unstash 'copy-stash'
-                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
-                    sh '''
-                        cat copy.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            "cat - | xargs -I{} cp -v /srv/repo-copy/pmm3-components/yum/testing/9/RPMS/x86_64/{} /srv/repo-copy/pmm3-components/yum/release/9/RPMS/x86_64/{}"
-                    '''
-                    sh '''
-                        cat copy-el7.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            "cat - | xargs -I{} cp -v /srv/repo-copy/pmm3-components/yum/testing/7/RPMS/x86_64/{} /srv/repo-copy/pmm3-components/yum/release/7/RPMS/x86_64/{}"
-                    '''
-                }
-            }
-        }
-        stage('Create repo') {
-            steps {
-                withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
-                    withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
-                            createrepo --update /srv/repo-copy/pmm3-components/yum/release/7/RPMS/x86_64/
-                            if [ -f /srv/repo-copy/pmm3-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc ]; then
-                                rm -f /srv/repo-copy/pmm3-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc
-                            fi
-
-                            createrepo --update /srv/repo-copy/pmm3-components/yum/release/9/RPMS/x86_64/
-                            if [ -f /srv/repo-copy/pmm3-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml.asc ]; then
-                                    rm -f /srv/repo-copy/pmm3-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml.asc
-                            fi
-
-                            export SIGN_PASSWORD=\${SIGN_PASSWORD}
-                            gpg --detach-sign --armor --passphrase \${SIGN_PASSWORD} /srv/repo-copy/pmm3-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml
-                            gpg --detach-sign --armor --passphrase \${SIGN_PASSWORD} /srv/repo-copy/pmm3-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml
-                        "
-                    """
-                    }
-                }
-            }
-        }
-        // Publish RPMs to repo.percona.com
-        stage('Publish RPMs') {
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
-                    sh """
-                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
-                            rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
-                                /srv/repo-copy/pmm3-components/yum/release \
-                                10.10.9.209:/www/repo.percona.com/htdocs/pmm3-components/yum/
-                            date +%s > /srv/repo-copy/version
-                            rsync /srv/repo-copy/version 10.10.9.209:/www/repo.percona.com/htdocs/
-                        "
-                    """
-                }
-            }
-        }
-
         stage('Set Docker Tag') {
             agent {
                 label 'min-rhel-7-x64'
@@ -401,9 +272,9 @@ ENDSSH
                 sh """
                     echo ${VERSION} > VERSION
                     VERSION=\$(cat VERSION)
-                    TOP_VER=\$(cat VERSION | cut -d. -f1)
-                    MID_VER=\$(cat VERSION | cut -d. -f2)
-                    DOCKER_MID="\$TOP_VER.\$MID_VER"
+                    TOP_TAG=\$(cat VERSION | cut -d. -f1)
+                    MID_TAG=\$(cat VERSION | cut -d. -f2)
+                    MID_TAG="\$TOP_TAG.\$MID_TAG"
                     sg docker -c "
                         set -ex
                         # push pmm-server el9
@@ -411,54 +282,39 @@ ENDSSH
                         docker tag \${SERVER_IMAGE} percona/pmm-server:latest
                         docker push percona/pmm-server:latest
 
-                        docker tag \${SERVER_IMAGE} percona/pmm-server:\${TOP_VER}
-                        docker tag \${SERVER_IMAGE} percona/pmm-server:\${DOCKER_MID}
+                        docker tag \${SERVER_IMAGE} percona/pmm-server:\${TOP_TAG}
+                        docker tag \${SERVER_IMAGE} percona/pmm-server:\${MID_TAG}
                         docker tag \${SERVER_IMAGE} percona/pmm-server:\${VERSION}
-                        docker push percona/pmm-server:\${TOP_VER}
-                        docker push percona/pmm-server:\${DOCKER_MID}
+                        docker push percona/pmm-server:\${TOP_TAG}
+                        docker push percona/pmm-server:\${MID_TAG}
                         docker push percona/pmm-server:\${VERSION}
 
-                        docker tag \${SERVER_IMAGE} perconalab/pmm-server:\${TOP_VER}
-                        docker tag \${SERVER_IMAGE} perconalab/pmm-server:\${DOCKER_MID}
+                        docker tag \${SERVER_IMAGE} perconalab/pmm-server:\${TOP_TAG}
+                        docker tag \${SERVER_IMAGE} perconalab/pmm-server:\${MID_TAG}
                         docker tag \${SERVER_IMAGE} perconalab/pmm-server:\${VERSION}
-                        docker push perconalab/pmm-server:\${TOP_VER}
-                        docker push perconalab/pmm-server:\${DOCKER_MID}
+                        docker push perconalab/pmm-server:\${TOP_TAG}
+                        docker push perconalab/pmm-server:\${MID_TAG}
                         docker push perconalab/pmm-server:\${VERSION}
 
                         docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
-
-                        # push pmm-server el7
-                        docker pull \${SERVER_IMAGE_EL7}
-
-                        docker tag \${SERVER_IMAGE_EL7} percona/pmm-server:\${DOCKER_MID}-el7
-                        docker tag \${SERVER_IMAGE_EL7} percona/pmm-server:\${VERSION}-el7
-                        docker push percona/pmm-server:\${DOCKER_MID}-el7
-                        docker push percona/pmm-server:\${VERSION}-el7
-
-                        docker tag \${SERVER_IMAGE_EL7} perconalab/pmm-server:\${DOCKER_MID}-el7
-                        docker tag \${SERVER_IMAGE_EL7} perconalab/pmm-server:\${VERSION}-el7
-                        docker push perconalab/pmm-server:\${DOCKER_MID}-el7
-                        docker push perconalab/pmm-server:\${VERSION}-el7
-
-                        docker save percona/pmm-server:\${VERSION}-el7 | xz > pmm-server-\${VERSION}-el7.docker
 
                         # push pmm-client
                         docker pull \${CLIENT_IMAGE}
                         docker tag \${CLIENT_IMAGE} percona/pmm-client:latest
                         docker push percona/pmm-client:latest
 
-                        docker tag \${CLIENT_IMAGE} percona/pmm-client:\${TOP_VER}
-                        docker tag \${CLIENT_IMAGE} percona/pmm-client:\${DOCKER_MID}
+                        docker tag \${CLIENT_IMAGE} percona/pmm-client:\${TOP_TAG}
+                        docker tag \${CLIENT_IMAGE} percona/pmm-client:\${MID_TAG}
                         docker tag \${CLIENT_IMAGE} percona/pmm-client:\${VERSION}
-                        docker push percona/pmm-client:\${TOP_VER}
-                        docker push percona/pmm-client:\${DOCKER_MID}
+                        docker push percona/pmm-client:\${TOP_TAG}
+                        docker push percona/pmm-client:\${MID_TAG}
                         docker push percona/pmm-client:\${VERSION}
 
-                        docker tag \${CLIENT_IMAGE} perconalab/pmm-client:\${TOP_VER}
-                        docker tag \${CLIENT_IMAGE} perconalab/pmm-client:\${DOCKER_MID}
+                        docker tag \${CLIENT_IMAGE} perconalab/pmm-client:\${TOP_TAG}
+                        docker tag \${CLIENT_IMAGE} perconalab/pmm-client:\${MID_TAG}
                         docker tag \${CLIENT_IMAGE} perconalab/pmm-client:\${VERSION}
-                        docker push perconalab/pmm-client:\${TOP_VER}
-                        docker push perconalab/pmm-client:\${DOCKER_MID}
+                        docker push perconalab/pmm-client:\${TOP_TAG}
+                        docker push perconalab/pmm-client:\${MID_TAG}
                         docker push perconalab/pmm-client:\${VERSION}
 
                         docker save percona/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}.docker
@@ -468,7 +324,6 @@ ENDSSH
                     sh '''
                         set -ex
                         aws s3 cp --only-show-errors pmm-server-${VERSION}.docker s3://percona-vm/pmm-server-${VERSION}.docker
-                        aws s3 cp --only-show-errors pmm-server-${VERSION}-el7.docker s3://percona-vm/pmm-server-${VERSION}-el7.docker
                         aws s3 cp --only-show-errors pmm-client-${VERSION}.docker s3://percona-vm/pmm-client-${VERSION}.docker
                     '''
                 }
@@ -481,19 +336,16 @@ ENDSSH
                     sh '''
                         set -ex
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}.docker pmm-server-${VERSION}.docker
-                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}-el7.docker pmm-server-${VERSION}-el7.docker
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}.docker pmm-client-${VERSION}.docker
                     '''
                 }
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         sha256sum pmm-server-${VERSION}.docker | tee pmm-server-${VERSION}.sha256sum
-                        sha256sum pmm-server-${VERSION}-el7.docker | tee pmm-server-${VERSION}-el7.sha256sum
                         sha256sum pmm-client-${VERSION}.docker | tee pmm-client-${VERSION}.sha256sum
                         export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm/${VERSION}/docker"
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.docker pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm/${VERSION}/docker/
-                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}-el7.docker pmm-server-${VERSION}-el7.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm/${VERSION}/docker/
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}.docker pmm-client-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm/${VERSION}/docker/
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "ls -l /data/downloads/pmm/${VERSION}/docker"
                     '''
@@ -548,7 +400,7 @@ ENDSSH
         }        
         stage('Run post-release tests') {
             steps {
-                build job: 'pmm-release-tests', propagate: false, wait: false, parameters: [
+                build job: 'pmm3-release-tests', propagate: false, wait: false, parameters: [
                     string(name: 'VERSION', value: params.VERSION)
                 ]
             }
