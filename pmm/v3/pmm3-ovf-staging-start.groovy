@@ -218,12 +218,12 @@ pipeline {
                     )
                 }
 
-                // if (env.OWNER_SLACK) {
-                //     slackSend botUser: true,
-                //             channel: "@${OWNER_SLACK}",
-                //             color: '#00FF00',
-                //             message: "OVF instance of ${OVA_VERSION} has been created. IP: https://${IP}\nYou can stop it with: https://pmm.cd.percona.com/job/pmm3-ovf-staging-stop/parambuild/?VM=${IP}"
-                // }
+                if (env.OWNER_SLACK) {
+                    slackSend botUser: true,
+                            channel: "@${OWNER_SLACK}",
+                            color: '#00FF00',
+                            message: "OVF instance of ${OVA_VERSION} has been created. IP: https://${IP}\nYou can stop it with: https://pmm.cd.percona.com/job/pmm3-ovf-staging-stop/parambuild/?VM=${IP}"
+                }
             }
         }
         failure {
