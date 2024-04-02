@@ -223,10 +223,10 @@ EOF
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
                 export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
-                
+
                 machineset=`oc get machineset  -n openshift-machine-api | awk 'NR==2 {print \$1; exit}'`
                 oc get machineset \$machineset -o yaml -n openshift-machine-api | yq eval '.spec.template.spec.providerSpec.value.spotMarketOptions = {}' | oc apply -f -
-                oc scale machineset --replicas=3  \$machineset -n openshift-machine-api  
+                oc scale machineset --replicas=3  \$machineset -n openshift-machine-api
             """
         }
     }
@@ -261,7 +261,6 @@ void runTest(Integer TEST_ID) {
                     export PATH="$HOME/.krew/bin:$PATH"
 
                     kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
-
                 """
             }
             pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PPG_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
