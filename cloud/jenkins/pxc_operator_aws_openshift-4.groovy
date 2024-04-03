@@ -1,30 +1,173 @@
+region='eu-west-2'
 tests=[]
 clusters=[]
 
-void IsRunTestsInClusterWide() {
-    if ("${params.CLUSTER_WIDE}" == "YES") {
-        env.OPERATOR_NS = 'pxc-operator'
+void prepareNode() {
+    echo "=========================[ Installing tools on the Jenkins executor ]========================="
+    sh """
+        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+        kubectl version --client --output=yaml
+
+        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
+
+        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
+        sudo chmod +x /usr/local/bin/yq
+
+        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+        sudo chmod +x /usr/local/bin/jq
+
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+        sudo percona-release enable-only tools
+        sudo yum install -y percona-xtrabackup-80 | true
+
+        wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
+        unzip -o terraform_0.11.14_linux_amd64.zip
+        sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
+    """
+
+    if ("$PLATFORM_VER" == "latest") {
+        USED_PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", , returnStdout: true).trim()
+    } else {
+        USED_PLATFORM_VER="$PLATFORM_VER"
+    }
+    echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
+
+    echo "=========================[ Cloning the sources ]========================="
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    sh """
+        # sudo is needed for better node recovery after compilation failure
+        # if building failed on compilation stage directory will have files owned by docker user
+        sudo sudo git config --global --add safe.directory '*'
+        sudo git reset --hard
+        sudo git clean -xdf
+        sudo rm -rf source
+        cloud/local/checkout $GIT_REPO $GIT_BRANCH
+    """
+    script {
+        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+        CLUSTER_NAME = sh(script: "echo jenkins-ver-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+    }
+}
+
+void dockerBuildPush() {
+    echo "=========================[ Building and Pushing the operator Docker image ]========================="
+    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        sh """
+            if [[ "$OPERATOR_IMAGE" ]]; then
+                echo "SKIP: Build is not needed, operator image was set!"
+            else
+                cd source
+                sg docker -c "
+                    docker buildx create --use
+                    docker login -u '$USER' -p '$PASS'
+                    export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                    e2e-tests/build
+                    docker logout
+                "
+                sudo rm -rf build
+            fi
+        """
+    }
+}
+
+void initTests() {
+    echo "=========================[ Initializing the tests ]========================="
+
+    echo "Populating tests into the tests array!"
+    def testList = "$TEST_LIST"
+    def suiteFileName = "source/e2e-tests/$TEST_SUITE"
+
+    if (testList.length() != 0) {
+        suiteFileName = 'source/e2e-tests/run-custom.csv'
+        sh """
+            echo -e "$testList" > $suiteFileName
+            echo "Custom test suite contains following tests:"
+            cat $suiteFileName
+        """
+    }
+
+    def records = readCSV file: suiteFileName
+
+    for (int i=0; i<records.size(); i++) {
+        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
+    }
+
+    echo "Marking passed tests in the tests map!"
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        if ("$IGNORE_PREVIOUS_RUN" == "NO") {
+            sh """
+                aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
+            """
+
+            for (int i=0; i<tests.size(); i++) {
+                def testName = tests[i]["name"]
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
+
+                if (retFileExists == 0) {
+                    tests[i]["result"] = "passed"
+                }
+            }
+        } else {
+            sh """
+                aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
+                """
+        }
+    }
+
+    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+        sh """
+            cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+        """
+    }
+}
+
+void clusterRunner(String cluster) {
+    def clusterCreated=0
+
+    for (int i=0; i<tests.size(); i++) {
+        if (tests[i]["result"] == "skipped") {
+            tests[i]["result"] = "failure"
+            tests[i]["cluster"] = cluster
+            if (clusterCreated == 0) {
+                createCluster(cluster)
+                clusterCreated++
+            }
+            runTest(i)
+        }
+    }
+
+    if (clusterCreated >= 1) {
+        shutdownCluster(cluster)
     }
 }
 
 void createCluster(String CLUSTER_SUFFIX){
-    clusters.add("${CLUSTER_SUFFIX}")
+    clusters.add("$CLUSTER_SUFFIX")
+
+    if ("$CLUSTER_WIDE" == "YES") {
+        OPERATOR_NS = 'pxc-operator'
+    }
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
-            platform_version=`echo "${params.PLATFORM_VER}" | awk -F. '{ printf("%d%03d%03d%03d\\n", \$1,\$2,\$3,\$4); }';`
-            version=`echo "4.12.0" | awk -F. '{ printf("%d%03d%03d%03d\\n", \$1,\$2,\$3,\$4); }';`
-            if [ \$platform_version -ge \$version ];then
+            if echo -e "4.12.0\\n\$USED_PLATFORM_VER" | sort -C -V; then
                 POLICY="additionalTrustBundlePolicy: Proxyonly"
                 NETWORK_TYPE="OVNKubernetes"
             else
                 POLICY=""
                 NETWORK_TYPE="OpenShiftSDN"
             fi
-            mkdir -p openshift/${CLUSTER_SUFFIX}
+
+            mkdir -p openshift/$CLUSTER_SUFFIX
             timestamp="\$(date +%s)"
-cat <<-EOF > ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
+tee openshift/$CLUSTER_SUFFIX/install-config.yaml << EOF
 \$POLICY
+additionalTrustBundlePolicy: Proxyonly
 apiVersion: v1
 baseDomain: cd.percona.com
 compute:
@@ -43,7 +186,7 @@ controlPlane:
   replicas: 1
 metadata:
   creationTimestamp: null
-  name: openshift4-pxc-jenkins-${CLUSTER_SUFFIX}
+  name: openshift-v2-ver-pg-jenkins-$CLUSTER_SUFFIX
 networking:
   clusterNetwork:
   - cidr: 10.128.0.0/14
@@ -55,7 +198,7 @@ networking:
   - 172.30.0.0/16
 platform:
   aws:
-    region: eu-west-2
+    region: $region
     userTags:
       iit-billing-tag: openshift
       delete-cluster-after-hours: 8
@@ -65,14 +208,14 @@ platform:
 
 publish: External
 EOF
-            cat $OPENSHIFT_CONF_FILE >> ./openshift/${CLUSTER_SUFFIX}/install-config.yaml
+            cat $OPENSHIFT_CONF_FILE >> openshift/$CLUSTER_SUFFIX/install-config.yaml
         """
 
         sshagent(['aws-openshift-41-key']) {
             sh """
-                /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
-                export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
-                
+                /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
+                export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+
                 machineset=`oc get machineset  -n openshift-machine-api | awk 'NR==2 {print \$1; exit}'`
                 oc get machineset \$machineset -o yaml -n openshift-machine-api | yq eval '.spec.template.spec.providerSpec.value.spotMarketOptions = {}' | oc apply -f -
                 oc scale machineset --replicas=3  \$machineset -n openshift-machine-api
@@ -97,11 +240,10 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
                 done
                 kubectl get svc --all-namespaces || true
 
-                /usr/local/bin/openshift-install destroy cluster --dir=./openshift/$CLUSTER_SUFFIX || true
+                /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
             """
         }
     }
-
 }
 
 void pushArtifactFile(String FILE_NAME) {
@@ -109,63 +251,11 @@ void pushArtifactFile(String FILE_NAME) {
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            touch ${FILE_NAME}
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${GIT_SHORT_COMMIT}
-            aws s3 ls \$S3_PATH/${FILE_NAME} || :
-            aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
+            touch $FILE_NAME
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
+            aws s3 ls \$S3_PATH/$FILE_NAME || :
+            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
         """
-    }
-}
-
-void initTests() {
-    echo "Populating tests into the tests array!"
-    def testList = "${params.TEST_LIST}"
-    def suiteFileName = "./source/e2e-tests/${params.TEST_SUITE}"
-
-    if (testList.length() != 0) {
-        suiteFileName = './source/e2e-tests/run-custom.csv'
-        sh """
-            echo -e "${testList}" > ${suiteFileName}
-            echo "Custom test suite contains following tests:"
-            cat ${suiteFileName}
-        """
-    }
-
-    def records = readCSV file: suiteFileName
-
-    for (int i=0; i<records.size(); i++) {
-        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
-    }
-
-    markPassedTests()
-}
-
-void markPassedTests() {
-    echo "Marking passed tests in the tests map!"
-
-    if ("${params.IGNORE_PREVIOUS_RUN}" == "NO") {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-            sh """
-                aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
-            """
-
-            for (int i=0; i<tests.size(); i++) {
-                def testName = tests[i]["name"]
-                def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}-${PARAMS_HASH}"
-                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
-
-                if (retFileExists == 0) {
-                    tests[i]["result"] = "passed"
-                }
-            }
-        }
-    }
-    else {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-            sh """
-                aws s3 rm "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" --recursive --exclude "*" --include "*-${PARAMS_HASH}" || :
-            """
-        }
     }
 }
 
@@ -179,26 +269,6 @@ void makeReport() {
         TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
     TestsReport = TestsReport + '</testsuite>\n'
-}
-
-void clusterRunner(String cluster) {
-    def clusterCreated=0
-
-    for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "skipped") {
-            tests[i]["result"] = "failure"
-            tests[i]["cluster"] = cluster
-            if (clusterCreated == 0) {
-                createCluster(cluster)
-                clusterCreated++
-            }
-            runTest(i)
-        }
-    }
-
-    if (clusterCreated >= 1) {
-        shutdownCluster(cluster)
-    }
 }
 
 void runTest(Integer TEST_ID) {
@@ -225,14 +295,14 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-
                     export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
+
                     oc whoami
 
-                    ./e2e-tests/$testName/run
+                    e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}-${PARAMS_HASH}")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -257,7 +327,7 @@ pipeline {
     environment {
         TF_IN_AUTOMATION = 'true'
         CLEAN_NAMESPACE = 1
-        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ]; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
+        PXC_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -274,7 +344,7 @@ pipeline {
             name: 'IGNORE_PREVIOUS_RUN'
         )
         string(
-            defaultValue: '4.10.30',
+            defaultValue: 'latest',
             description: 'OpenShift version to use',
             name: 'PLATFORM_VER')
         string(
@@ -286,7 +356,7 @@ pipeline {
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
         choice(
-            choices: 'NO\nYES',
+            choices: 'YES\nNO',
             description: 'Run tests with cluster wide',
             name: 'CLUSTER_WIDE')
         string(
@@ -329,88 +399,22 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
+        copyArtifactPermission('pxc-operator-latest-scheduler');
     }
-
     stages {
-        stage('Prepare') {
+        stage('Prepare node') {
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                sh """
-                    # sudo is needed for better node recovery after compilation failure
-                    # if building failed on compilation stage directory will have files owned by docker user
-                    sudo sudo git config --global --add safe.directory '*'
-                    sudo git reset --hard
-                    sudo git clean -xdf
-                    sudo rm -rf source
-                    ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
-                """
-                stash includes: "source/**", name: "sourceFILES"
-
-                script {
-                    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                    CLUSTER_NAME = sh(script: "echo jenkins-ver-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
-                }
+                prepareNode()
+            }
+        }
+        stage('Docker Build and Push') {
+            steps {
+                dockerBuildPush()
+            }
+        }
+        stage('Init tests') {
+            steps {
                 initTests()
-
-                sh """
-                    sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-                    sudo percona-release enable-only tools
-                    sudo yum install -y percona-xtrabackup-80 | true
-
-                    wget https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
-                    unzip terraform_0.11.14_linux_amd64.zip
-                    sudo mv terraform /usr/local/bin/ && rm terraform_0.11.14_linux_amd64.zip
-                """
-                sh '''
-                    sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
-                    kubectl version --client --output=yaml
-
-                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
-                        | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
-                    sudo chmod +x /usr/local/bin/yq
-                    sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-                    sudo chmod +x /usr/local/bin/jq
-
-                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux-$PLATFORM_VER.tar.gz \
-                        | sudo tar -C /usr/local/bin --wildcards -zxvpf -
-                    curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux-$PLATFORM_VER.tar.gz \
-                        | sudo tar -C /usr/local/bin  --wildcards -zxvpf -
-                '''
-                withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-                    sh """
-                        cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-                    """
-                }
-            }
-        }
-        stage('Build docker image') {
-            steps {
-                unstash "sourceFILES"
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-                    sh '''
-                        if [[ "$OPERATOR_IMAGE" ]]; then
-                            echo "SKIP: Build is not needed, PXC operator image was set!"
-                        else
-                            cd ./source/
-                            sg docker -c "
-                                docker buildx create --use
-                                docker login -u '${USER}' -p '${PASS}'
-                                export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
-                                ./e2e-tests/build
-                                docker logout
-                            "
-                            sudo rm -rf ./build
-                        fi
-                    '''
-                }
-            }
-        }
-        stage('Create AWS Infrastructure') {
-            steps {
-                IsRunTestsInClusterWide()
             }
         }
         stage('Run tests') {
@@ -474,24 +478,27 @@ pipeline {
             }
         }
     }
-
     post {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
             sh """
-                echo "${TestsReport}" > TestsReport.xml
+                echo "$TestsReport" > TestsReport.xml
             """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml'
 
             script {
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
+                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                }
+
                 clusters.each { shutdownCluster(it) }
             }
 
             sh """
-                sudo docker system prune -fa
-                sudo rm -rf ./*
+                sudo docker system prune --volumes -af
+                sudo rm -rf *
             """
             deleteDir()
         }
