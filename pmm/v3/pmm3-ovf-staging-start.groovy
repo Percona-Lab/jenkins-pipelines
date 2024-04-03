@@ -12,20 +12,6 @@ Jenkins.instance.getItemByFullName(env.JOB_NAME).description = '''
 With this job you can run an OVA image with PMM server on a Digital Ocean droplet. We use DO instead of AWS here because AWS doesn't support nested virtualization.
 '''
 
-void enableRepo(String REPO, String PUBLIC_IP) {
-    withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            export REPO=${REPO}
-            export PUBLIC_IP=${PUBLIC_IP}
-            ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${PUBLIC_IP} '
-                sudo yum update -y percona-release || true
-                sudo sed -i'' -e 's^/release/^/${REPO}/^' /etc/yum.repos.d/pmm-server.repo
-                sudo percona-release enable percona ${REPO}
-                sudo yum clean all
-            '
-        """
-    }
-}
 
 pipeline {
     agent {
@@ -33,17 +19,9 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM3-Server-3-dev-latest.ova',
+            defaultValue: 'PMM3-Server-dev-latest.ova',
             description: 'OVA Image version, for installing already released version, pass 3.x.y ex. 3.28.0',
             name: 'OVA_VERSION')
-        choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo, for RC testing',
-            name: 'ENABLE_TESTING_REPO')
-        choice(
-            choices: ['yes', 'no'],
-            description: 'Enable Experimental, for Dev Latest testing',
-            name: 'ENABLE_EXPERIMENTAL_REPO')
         string(
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm-qa repository',
@@ -126,10 +104,10 @@ pipeline {
                             --memory ${VM_MEMORY} \
                             --audio none \
                             --cpus 6 \
-                            --natpf1 "guestweb,tcp,,80,,8080" \
+                            --natpf1 "guestweb,tcp,,80,,80" \
                             --uart1 0x3F8 4 --uartmode1 file /tmp/${VM_NAME}-console.log \
                             --groups "/pmm"
-                        VBoxManage modifyvm ${VM_NAME} --natpf1 "guesthttps,tcp,,443,,8443"
+                        VBoxManage modifyvm ${VM_NAME} --natpf1 "guesthttps,tcp,,443,,443"
                         VBoxManage modifyvm ${VM_NAME} --natpf1 "guestssh,tcp,,3022,,22"
                         for p in \$(seq 0 30); do
                             VBoxManage modifyvm ${VM_NAME} --natpf1 "guestexporters\$p,tcp,,4200\$p,,4200\$p"
@@ -140,72 +118,35 @@ pipeline {
                     """
                     sh """
                         # This fails sometimes, so we want to isolate this step
-                        sleep 60
-                        curl -s --user admin:admin http://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
+                        sleep 180
+                        curl -k --user admin:admin https://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
                     """
                 }
             }
         }
-        stage('Enable Testing Repo') {
-            when {
-                expression { env.ENABLE_TESTING_REPO == "yes" && env.ENABLE_EXPERIMENTAL_REPO == "no" }
-            }
-            steps {
-                node(env.VM_NAME){
-                    enableRepo('testing', env.IP)
-                }
-            }
-        }
-        stage('Enable Experimental Repo') {
-            when {
-                expression { env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
-            }
-            steps {
-                node(env.VM_NAME){
-                    enableRepo('experimental', env.IP)
-                }
-            }
-        }
-        stage('Enable Release Repo') {
-            when {
-                expression { env.ENABLE_EXPERIMENTAL_REPO == "no" && env.ENABLE_TESTING_REPO == "no" }
-            }
-            steps {
-                node(env.VM_NAME) {
-                    withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                        sh '''
-                            ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
-                                sudo yum update -y percona-release || true
-                                sudo yum clean all
-                            '
-                        '''
-                    }
-                }
-            }
-        }
-        stage('Setup QA Repo on OVF VM') {
-            steps {
-                node(env.VM_NAME) {
-                    withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                        sh """
-                            ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
-                                export PMM_QA_GIT_BRANCH=${PMM_QA_GIT_BRANCH}
-                                export PMM_QA_GIT_COMMIT_HASH=${PMM_QA_GIT_COMMIT_HASH}
-                                sudo yum install -y wget git
-                                sudo mkdir -p /srv/pmm-qa || :
-                                pushd /srv/pmm-qa
-                                    sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                                    sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
-                                    sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
-                                    sudo chmod 755 get_download_link.sh
-                                popd
-                                sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
-                            '
-                        """
-                    }
-                }
-            }
-        }
+        // stage('Setup QA Repo on OVF VM') {
+        //     steps {
+        //         node(env.VM_NAME) {
+        //             withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        //                 sh """
+        //                     ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
+        //                         export PMM_QA_GIT_BRANCH=${PMM_QA_GIT_BRANCH}
+        //                         export PMM_QA_GIT_COMMIT_HASH=${PMM_QA_GIT_COMMIT_HASH}
+        //                         sudo yum install -y wget git
+        //                         sudo mkdir -p /srv/pmm-qa || :
+        //                         pushd /srv/pmm-qa
+        //                             sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+        //                             sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
+        //                             sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
+        //                             sudo chmod 755 get_download_link.sh
+        //                         popd
+        //                         sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
+        //                     '
+        //                 """
+        //             }
+        //         }
+        //     }
+        // }
     }
     post {
         success {
