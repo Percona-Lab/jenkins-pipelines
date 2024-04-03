@@ -22,14 +22,6 @@ pipeline {
             defaultValue: 'PMM3-Server-dev-latest.ova',
             description: 'OVA Image version, for installing already released version, pass 3.x.y ex. 3.28.0',
             name: 'OVA_VERSION')
-        // choice(
-        //     choices: ['no', 'yes'],
-        //     description: 'Enable Testing Repo, for RC testing',
-        //     name: 'ENABLE_TESTING_REPO')
-        // choice(
-        //     choices: ['yes', 'no'],
-        //     description: 'Enable Experimental, for Dev Latest testing',
-        //     name: 'ENABLE_EXPERIMENTAL_REPO')
         string(
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm-qa repository',
