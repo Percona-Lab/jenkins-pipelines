@@ -146,43 +146,6 @@ pipeline {
                 }
             }
         }
-        // stage('Enable Testing Repo') {
-        //     when {
-        //         expression { env.ENABLE_TESTING_REPO == "yes" && env.ENABLE_EXPERIMENTAL_REPO == "no" }
-        //     }
-        //     steps {
-        //         node(env.VM_NAME){
-        //             enableRepo('testing', env.IP)
-        //         }
-        //     }
-        // }
-        // stage('Enable Experimental Repo') {
-        //     when {
-        //         expression { env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
-        //     }
-        //     steps {
-        //         node(env.VM_NAME){
-        //             enableRepo('experimental', env.IP)
-        //         }
-        //     }
-        // }
-        // stage('Enable Release Repo') {
-        //     when {
-        //         expression { env.ENABLE_EXPERIMENTAL_REPO == "no" && env.ENABLE_TESTING_REPO == "no" }
-        //     }
-        //     steps {
-        //         node(env.VM_NAME) {
-        //             withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        //                 sh '''
-        //                     ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
-        //                         sudo yum update -y percona-release || true
-        //                         sudo yum clean all
-        //                     '
-        //                 '''
-        //             }
-        //         }
-        //     }
-        // }
         // stage('Setup QA Repo on OVF VM') {
         //     steps {
         //         node(env.VM_NAME) {
