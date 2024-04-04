@@ -285,6 +285,7 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+/*
                 stage('Centos 7 debug tarball') {
                     agent {
                         label 'docker-32gb'
@@ -299,6 +300,22 @@ pipeline {
                         pushArtifactFolder("debug/", AWS_STASH_PATH)
                     }
                 }
+*/
+                stage('Centos 8 tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-57.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("centos:8", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
                 stage('Centos 9 tarball') {
                     agent {
                         label 'docker-32gb'
@@ -308,6 +325,36 @@ pipeline {
                         unstash 'pxc-57.properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Ubuntu Bionic (18.04) tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-57.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:bionic", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Ubuntu Focal (20.04) tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-57.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:focal", "--build_tarball=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
@@ -329,9 +376,53 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+                stage('Debian Buster (10) tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-57.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:buster", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Debian Bullseye (11) tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-57.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:bullseye", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Debian Bookworm (12) tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-57.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:bookworm", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
             }
         }
-
         stage('Sign packages') {
             steps {
                 signRPM()
@@ -341,7 +432,21 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(PXC_REPO, COMPONENT)
+                // sync2ProdAutoBuild(PXC_REPO, COMPONENT)
+                sync2PrivateProdAutoBuild("pxc-57-eol", COMPONENT)
+            }
+        }
+        stage('Push Tarballs to TESTING download area') {
+            steps {
+                script {
+                    try {
+                        uploadTarballToDownloadsTesting("pxc-gated", "${BRANCH}")
+                    }
+                    catch (err) {
+                        echo "Caught: ${err}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
             }
         }
 
