@@ -1,6 +1,5 @@
 - job:
     name: pxb-package-testing-all
-    project-type: pipeline
     description: |
         Do not edit this job through the web!
     properties:
@@ -36,3 +35,10 @@
             default: 'https://github.com/Percona-QA/package-testing.git'
             description: ""
             trim: false
+        - choice:
+            name: server_to_test
+            choices:
+                - 'ps_innovation_lts'
+                - 'ms_innovation_lts'
+                - 'all'
+            description: 'Choose the server to test: PS, MS and All'
