@@ -407,7 +407,7 @@ pipeline {
         }
         stage('Upload packages and tarballs from S3') {
             agent {
-                label 'docker-32gb'
+                label 'min-jammy-x64'
             }
             steps {
                 cleanUpWS()
@@ -434,7 +434,7 @@ pipeline {
         }
         stage('Build docker container') {
             agent {
-                label 'docker-32gb'
+                label 'min-buster-x64'
             }
             steps {
                 script {
