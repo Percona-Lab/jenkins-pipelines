@@ -412,7 +412,7 @@ pipeline {
             steps {
                 cleanUpWS()
                 installCli("deb")
-                unstash 'properties'
+                unstash 'pxc-57.properties'
 
                 uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                 uploadDEBfromAWS("deb/", AWS_STASH_PATH)
