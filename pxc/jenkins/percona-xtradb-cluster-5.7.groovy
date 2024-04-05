@@ -407,7 +407,7 @@ pipeline {
         }
         stage('Upload packages and tarballs from S3') {
             agent {
-                label 'min-jammy-x64'
+                label 'min-buster-x64'
             }
             steps {
                 cleanUpWS()
@@ -457,8 +457,9 @@ pipeline {
                         sudo systemctl status docker
                         sudo apt-get install -y qemu binfmt-support qemu-user-static
                         sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-                        git clone https://github.com/percona/percona-docker
+                        git clone https://github.com/adivinho/percona-docker
                         cd percona-docker/percona-xtradb-cluster-5.7
+                        git checkout PXC-4395-PXC-5.7.44-49-post-EOL
                         mv /tmp/*.rpm .
                         sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}.${RPM_RELEASE}/g" Dockerfile-pro
                         sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${PXC_RELEASE}-${RPM_RELEASE}/g" Dockerfile-pro
