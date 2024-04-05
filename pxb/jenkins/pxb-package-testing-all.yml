@@ -1,5 +1,6 @@
 - job:
     name: pxb-package-testing-all
+    project-type: pipeline
     description: |
         Do not edit this job through the web!
     properties:
