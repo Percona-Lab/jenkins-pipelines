@@ -3,6 +3,24 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+void installCli(String PLATFORM) {
+    sh """
+        set -o xtrace
+        if [ -d aws ]; then
+            rm -rf aws
+        fi
+        if [ ${PLATFORM} = "deb" ]; then
+            sudo apt-get update
+            sudo apt-get -y install wget curl unzip
+        elif [ ${PLATFORM} = "rpm" ]; then
+            sudo yum -y install wget curl unzip
+        fi
+        curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+        unzip awscliv2.zip
+        sudo ./aws/install || true
+    """
+}
+
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
@@ -439,7 +457,6 @@ pipeline {
             steps {
                 script {
                     cleanUpWS()
-                    installCli("deb")
                     unstash 'uploadPath'
                     def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
