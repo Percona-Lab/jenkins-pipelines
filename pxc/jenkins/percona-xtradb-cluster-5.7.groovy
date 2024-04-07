@@ -466,9 +466,9 @@ pipeline {
                         """
                     }
                     sh '''
-                        PXC_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                        PXC_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 4)}')
-                        PXC_MAJOR_MINOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 7)}' | sed "s/-//g")
+                        PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
+                        PXC_MAJOR_RELEASE=$(echo ${GIT_BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 4)}')
+                        PXC_MAJOR_MINOR_RELEASE=$(echo ${GIT_BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 7)}' | sed "s/-//g")
                         sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                         sudo apt-get install -y docker.io
                         sudo systemctl status docker
@@ -493,7 +493,7 @@ pipeline {
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
                             cd percona-docker/percona-xtradb-cluster-5.7
-                            export PXC_RELEASE=`echo ${BRANCH} | sed 's/release-//g'`
+                            export PXC_RELEASE=`echo ${GIT_BRANCH} | sed 's/release-//g'`
                             scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-xtradb-cluster-\${PXC_RELEASE}-${RPM_RELEASE}.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
                         """
                     }
@@ -504,7 +504,7 @@ pipeline {
             steps {
                 script {
                     try {
-                        uploadTarballToDownloadsTesting("pxc-gated", "${BRANCH}")
+                        uploadTarballToDownloadsTesting("pxc-gated", "${GIT_BRANCH}")
                     }
                     catch (err) {
                         echo "Caught: ${err}"
