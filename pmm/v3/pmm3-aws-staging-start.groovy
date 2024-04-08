@@ -258,7 +258,7 @@ pipeline {
                             ls -la
                             export PATH=$PATH:$(pwd)
 
-                            sudo -E python3 pmm-framework.py \
+                            sudo -E ./pmm-framework \
                                 --pmm-server-ip=${PMM_SERVER_IP} --v \
                                 --pmm-server-password=${ADMIN_PASSWORD} \
                                 --client-version=${PMM_CLIENT_VERSION} \
