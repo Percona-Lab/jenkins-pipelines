@@ -254,7 +254,7 @@ pipeline {
 
                         pushd /srv/qa-integration/pmm_qa
                             sudo python3 -m pip install ansible-runner
-                            sudo -E pmm-framework \
+                            sudo -E python3 pmm-framework.py \
                                 --pmm-server-ip=${PMM_SERVER_IP} \
                                 --pmm-server-password=${ADMIN_PASSWORD} \
                                 --client-version=${PMM_CLIENT_VERSION} \
