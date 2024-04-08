@@ -258,11 +258,14 @@ pipeline {
 	                            sudo python3 -m pip install -r requirements.txt
                         popd
 
-                        sudo python3 /srv/qa-integration/pmm_qa/pmm-framework.py \
-                            --pmm-server-ip=${PMM_SERVER_IP} \
-                            --pmm-server-password=${ADMIN_PASSWORD} \
-                            --client-version=${PMM_CLIENT_VERSION} \
-                            ${CLIENTS}
+                        pushd /srv/qa-integration/pmm_qa
+                            source pmm_framework/bin/activate
+                            sudo python3 pmm-framework.py \
+                                --pmm-server-ip=${PMM_SERVER_IP} \
+                                --pmm-server-password=${ADMIN_PASSWORD} \
+                                --client-version=${PMM_CLIENT_VERSION} \
+                                ${CLIENTS}
+                        popd
                     '''
                 }
             }
