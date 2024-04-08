@@ -252,9 +252,10 @@ pipeline {
                             sudo chmod 755 get_download_link.sh
                         popd
 
+                        sudo chmod -R 755 /srv/qa-integration/pmm_qa
+
                         pushd /srv/qa-integration/pmm_qa
                             sudo yum install -y gcc python3-pip
-                            sudo chmod -R 755 .
                             python3 -m venv virtenv
                             . virtenv/bin/activate
                             python3 --version
