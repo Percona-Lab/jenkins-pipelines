@@ -255,7 +255,7 @@ pipeline {
                         sudo python /srv/qa-integration/pmm_qa/pmm-framework.py \
                             --pmm-server-ip=${PMM_SERVER_IP} \
                             --pmm-server-password=${ADMIN_PASSWORD} \
-                            --client-version=${PMM_CLIENT_VERSION}
+                            --client-version=${PMM_CLIENT_VERSION} \
                             ${CLIENTS}
                     '''
                 }
