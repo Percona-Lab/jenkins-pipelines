@@ -466,9 +466,16 @@ pipeline {
                         """
                     }
                     sh '''
-                        PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
-                        PXC_MAJOR_RELEASE=$(echo ${GIT_BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 4)}')
-                        PXC_MAJOR_MINOR_RELEASE=$(echo ${GIT_BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 7)}' | sed "s/-//g")
+                        curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
+                        curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/WSREP_VERSION
+                        MYSQL_VERSION_MAJOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MAJOR | awk -F= '{print \$2}')
+                        MYSQL_VERSION_MINOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print \$2}')
+                        MYSQL_VERSION_PATCH=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_PATCH | awk -F= '{print \$2}')
+                        WSREP_VERSION_API=\$(cat WSREP_VERSION | grep WSREP_VERSION_API | awk -F= '{print \$2}')
+                        WSREP_VERSION_PATCH=\$(cat WSREP_VERSION | grep WSREP_VERSION_PATCH | awk -F= '{print \$2}')
+
+                        PXC_RELEASE=\${MYSQL_VERSION_MAJOR}.\${MYSQL_VERSION_MINOR}.\${MYSQL_VERSION_PATCH}-\${WSREP_VERSION_API}.\${WSREP_VERSION_PATCH}
+
                         sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                         sudo apt-get install -y docker.io
                         sudo systemctl status docker
@@ -482,10 +489,8 @@ pipeline {
                         sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${PXC_RELEASE}-${RPM_RELEASE}/g" Dockerfile-pro
                         sudo docker build -t percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} -f Dockerfile-pro .
                         sudo docker tag percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} percona/percona-xtradb-cluster:${PXC_RELEASE}
-                        sudo docker tag percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} percona/percona-xtradb-cluster:${PXC_MAJOR_RELEASE}
-                        sudo docker tag percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} percona/percona-xtradb-cluster:${PXC_MAJOR_MINOR_RELEASE}
                         sudo docker images
-                        sudo docker save -o percona-xtradb-cluster-${PXC_RELEASE}-${RPM_RELEASE}.docker.tar percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} percona/percona-xtradb-cluster:${PXC_RELEASE} percona/percona-xtradb-cluster:${PXC_MAJOR_RELEASE} percona/percona-xtradb-cluster:${PXC_MAJOR_MINOR_RELEASE}
+                        sudo docker save -o percona-xtradb-cluster-${PXC_RELEASE}-${RPM_RELEASE}.docker.tar percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} percona/percona-xtradb-cluster:${PXC_RELEASE} 
                         sudo chown admin:admin percona-xtradb-cluster-${PXC_RELEASE}-${RPM_RELEASE}.docker.tar
                         sudo chmod a+r percona-xtradb-cluster-${PXC_RELEASE}-${RPM_RELEASE}.docker.tar
                         ls -la
