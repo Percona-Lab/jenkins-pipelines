@@ -8,7 +8,10 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-def DEFAULT_SSH_KEYS = getSHHKeysPMM()
+library changelog: false, identifier: 'v3lib@PMM-7-fix-pmm3-aws-staging-start-ppl', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
 
 pipeline {
     agent {
@@ -51,7 +54,7 @@ pipeline {
             name: 'DAYS'
         )
         text(
-            defaultValue: '-e PMM_DEBUG=1 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ -e PERCONA_PORTAL_URL=https://portal-dev.percona.com  -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443',
+            defaultValue: '-e PMM_DEBUG=1 -e ENABLE_TELEMETRY=0 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com',
             description: '''
             Passing environment variables to PMM Server Docker container is supported for PMM v2 and up.
             Example: -e PERCONA_TEST_CHECKS_INTERVAL=30s -e PERCONA_TEST_TELEMETRY_DISABLE_START_DELAY=1 -e PMM_DEBUG=1
@@ -104,7 +107,9 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         skipDefaultCheckout()
     }
-
+    environment {
+        DEFAULT_SSH_KEYS = getSHHKeysPMM()
+    }
     stages {
         stage('Prepare') {
             steps {
@@ -175,24 +180,10 @@ pipeline {
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum repolist
 
-                        sudo amazon-linux-extras enable epel
-                        sudo amazon-linux-extras enable php8.2
+                        sudo amazon-linux-extras enable epel php8.2
                         sudo yum --enablerepo epel install php -y
-
                         sudo yum install sysbench mysql-client -y
-                        sudo mkdir -p /srv/qa-integration || :
-                        pushd /srv/qa-integration
-                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                            sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
-                            sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
-                            sudo chmod 755 get_download_link.sh
-                        popd
                     '''
-                }
-                script {
-                    def node = Jenkins.instance.getNode(env.VM_NAME)
-                    Jenkins.instance.removeNode(node)
-                    Jenkins.instance.addNode(node)
                 }
             }
         }
@@ -223,7 +214,6 @@ pipeline {
                                         --hostname pmm-server \
                                         --network pmm-qa \
                                         --restart always \
-                                        -e DISABLE_TELEMETRY=1 \
                                         $ENV_VARIABLE \
                                         ${DOCKER_VERSION}
 
@@ -250,17 +240,27 @@ pipeline {
                     sh '''
                         set -o errexit
                         set -o xtrace
+                        # Exit if no CLIENTS are provided
+                        [ -z "${CLIENTS// }" ] && exit 0
+
                         export PATH=$PATH:/usr/sbin
                         export PMM_CLIENT_VERSION=${CLIENT_VERSION}
-                        if [[ "${CLIENT_VERSION}" = 3-dev-latest ]]; then
+                        if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
                             export PMM_CLIENT_VERSION="latest"
                         fi
-                        [ -z "${CLIENTS}" ] && exit 0 || :
 
                         PMM_SERVER_IP=${SERVER_IP}
                         if [[ "${CLIENT_INSTANCE}" = no ]]; then
                             PMM_SERVER_IP=${IP}
                         fi
+
+                        sudo mkdir -p /srv/qa-integration || :
+                        pushd /srv/qa-integration
+                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+                            sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
+                            sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
+                            sudo chmod 755 get_download_link.sh
+                        popd
 
                         sudo python /srv/qa-integration/pmm_qa/pmm-framework.py \
                             --pmm-server-ip=${PMM_SERVER_IP} \
