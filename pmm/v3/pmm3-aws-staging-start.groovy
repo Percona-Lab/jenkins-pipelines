@@ -120,7 +120,6 @@ pipeline {
                     echo """
                         DOCKER_VERSION:  ${DOCKER_VERSION}
                         CLIENT_VERSION:  ${CLIENT_VERSION}
-                        PMM_VERSION:     ${PMM_VERSION}
                         PXC_VERSION:     ${PXC_VERSION}
                         PS_VERSION:      ${PS_VERSION}
                         MS_VERSION:      ${MS_VERSION}
