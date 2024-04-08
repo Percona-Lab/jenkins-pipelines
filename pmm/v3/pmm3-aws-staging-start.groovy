@@ -266,12 +266,6 @@ pipeline {
                             ansible-runner --version
                             ls -la
                             export PATH=$PATH:$(pwd)
-
-                            sudo -E ./pmm-framework.py \
-                                --pmm-server-ip=${PMM_SERVER_IP} --v \
-                                --pmm-server-password=${ADMIN_PASSWORD} \
-                                --client-version=${PMM_CLIENT_VERSION} \
-                                ${CLIENTS}
                         popd
                     '''
                 }
@@ -280,14 +274,14 @@ pipeline {
     }
 
     post {
-        always {
-            script {
-                def node = Jenkins.instance.getNode(env.VM_NAME)
-                if (node) {
-                    echo "Removing the node from Jenkins: " + env.VM_NAME
-                    Jenkins.instance.removeNode(node)
-                }
-            }
+//         always {
+//             script {
+//                 def node = Jenkins.instance.getNode(env.VM_NAME)
+//                 if (node) {
+//                     echo "Removing the node from Jenkins: " + env.VM_NAME
+//                     Jenkins.instance.removeNode(node)
+//                 }
+//             }
         }
         success {
             script {
