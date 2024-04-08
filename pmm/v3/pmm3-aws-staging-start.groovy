@@ -257,11 +257,11 @@ pipeline {
                         pushd /srv/qa-integration/pmm_qa
                             sudo yum install -y gcc python3-pip
                             ls -la
-                            python3 -m venv virtenv
+                            sudo python3 -m venv virtenv
                             . virtenv/bin/activate
-                            python3 --version
-                            python3 -m pip install --upgrade pip
-                            python3 -m pip install ansible-runner
+                            sudo python3 --version
+                            sudo python3 -m pip install --upgrade pip
+                            sudo python3 -m pip install ansible-runner
 
                             ansible-runner --version
                             ls -la
