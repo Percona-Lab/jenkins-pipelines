@@ -120,15 +120,6 @@ pipeline {
                     echo """
                         DOCKER_VERSION:  ${DOCKER_VERSION}
                         CLIENT_VERSION:  ${CLIENT_VERSION}
-                        PXC_VERSION:     ${PXC_VERSION}
-                        PS_VERSION:      ${PS_VERSION}
-                        MS_VERSION:      ${MS_VERSION}
-                        MD_VERSION:      ${MD_VERSION}
-                        MO_VERSION:      ${MO_VERSION}
-                        MODB_VERSION:    ${MODB_VERSION}
-                        PGSQL_VERSION:   ${PGSQL_VERSION}
-                        PDPGSQL_VERSION: ${PDPGSQL_VERSION}
-                        QUERY_SOURCE:    ${QUERY_SOURCE}
                         CLIENTS:         ${CLIENTS}
                         OWNER:           ${OWNER}
                         VM_NAME:         ${VM_NAME}
