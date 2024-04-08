@@ -480,7 +480,7 @@ pipeline {
                         mv /tmp/*.rpm .
                         sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}.${RPM_RELEASE}/g" Dockerfile-pro
                         sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${PXC_RELEASE}-${RPM_RELEASE}/g" Dockerfile-pro
-                        sudo docker build -t percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} --progress plain -f Dockerfile-pro .
+                        sudo docker build -t percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} -f Dockerfile-pro .
                         sudo docker tag percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} percona/percona-xtradb-cluster:${PXC_RELEASE}
                         sudo docker tag percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} percona/percona-xtradb-cluster:${PXC_MAJOR_RELEASE}
                         sudo docker tag percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} percona/percona-xtradb-cluster:${PXC_MAJOR_MINOR_RELEASE}
