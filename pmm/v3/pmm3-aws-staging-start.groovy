@@ -254,6 +254,7 @@ pipeline {
 
                         pushd /srv/qa-integration/pmm_qa
                             sudo yum install -y gcc python3-pip
+                            sudo chmod -R 755 .
                             python3 -m venv virtenv
                             . virtenv/bin/activate
                             python3 --version
