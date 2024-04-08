@@ -254,15 +254,14 @@ pipeline {
 
                         pushd /srv/qa-integration/pmm_qa
                             sudo yum install -y gcc python3-pip
-                            ansible-runner --version
-                            ls -la
-
                             python3 -m venv virtenv
                             . virtenv/bin/activate
                             python3 --version
                             python3 -m pip install --upgrade pip
                             python3 -m pip install ansible-runner
 
+                            ansible-runner --version
+                            ls -la
                             export PATH=$PATH:$(pwd)
 
                             sudo -E ./pmm-framework.py \
