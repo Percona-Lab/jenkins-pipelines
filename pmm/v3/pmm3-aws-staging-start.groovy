@@ -253,7 +253,9 @@ pipeline {
                         popd
 
                         pushd /srv/qa-integration/pmm_qa
-                            sudo make init
+                            	sudo python3 -m venv pmm_framework
+	                            source pmm_framework/bin/activate
+	                            sudo python3 -m pip install -r requirements.txt
                         popd
 
                         sudo python3 /srv/qa-integration/pmm_qa/pmm-framework.py \
