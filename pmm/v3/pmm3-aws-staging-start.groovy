@@ -252,6 +252,10 @@ pipeline {
                             sudo chmod 755 get_download_link.sh
                         popd
 
+                        pushd /srv/qa-integration/pmm_qa
+                            sudo make init
+                        popd
+
                         sudo python /srv/qa-integration/pmm_qa/pmm-framework.py \
                             --pmm-server-ip=${PMM_SERVER_IP} \
                             --pmm-server-password=${ADMIN_PASSWORD} \
