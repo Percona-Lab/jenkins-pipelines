@@ -452,7 +452,7 @@ pipeline {
         }
         stage('Build docker container') {
             agent {
-                label 'min-buster-x64'
+                label 'min-focal-x64'
             }
             steps {
                 script {
