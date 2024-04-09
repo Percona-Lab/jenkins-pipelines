@@ -19,7 +19,7 @@ if (params.node_to_test == "all") {
 
 void runNodeBuild(String node_to_test) {
     build(
-        job: 'package-testing-ps-8.0-pro',
+        job: 'package-testing-ps-8.0-pro-build',
         parameters: [
             string(name: "cur_action_to_test", value: params.cur_action_to_test),
             string(name: "node_to_test", value: node_to_test),
