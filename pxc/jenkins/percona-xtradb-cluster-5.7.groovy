@@ -503,9 +503,8 @@ pipeline {
                             WSREP_VERSION_API=\$(cat WSREP_VERSION | grep WSREP_VERSION_API | awk -F= '{print \$2}')
                             WSREP_VERSION_PATCH=\$(cat WSREP_VERSION | grep WSREP_VERSION_PATCH | awk -F= '{print \$2}')
 
-                            PXC_RELEASE=\${MYSQL_VERSION_MAJOR}.\${MYSQL_VERSION_MINOR}.\${MYSQL_VERSION_PATCH}-\${WSREP_VERSION_API}.\${WSREP_VERSION_PATCH}
+                            export PXC_RELEASE=\${MYSQL_VERSION_MAJOR}.\${MYSQL_VERSION_MINOR}.\${MYSQL_VERSION_PATCH}-\${WSREP_VERSION_API}.\${WSREP_VERSION_PATCH}
                             cd percona-docker/percona-xtradb-cluster-5.7
-                            export PXC_RELEASE=`echo ${GIT_BRANCH} | sed 's/release-//g'`
                             scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-xtradb-cluster-\${PXC_RELEASE}-${RPM_RELEASE}.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
                         """
                     }
