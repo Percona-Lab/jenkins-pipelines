@@ -9,6 +9,12 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             export PMM_DIR=${WORKSPACE}/${PMM_VERSION}
             export PMM_BINARY=${WORKSPACE}/${PMM_VERSION}-client
 
+            if [ "${ENABLE_TESTING_REPO}" = yes ] && [ "${ENABLE_EXPERIMENTAL_REPO}" = yes ]; then
+                echo "Fatal: cannot enable both testing and exprimental repos. Please choose one."
+                echo "Exiting..."
+                exit 1
+            fi
+            
             if [ "${SETUP_TYPE}" = compose_setup ]; then
                 export IP=192.168.0.1
             fi
@@ -21,23 +27,31 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
 
             if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
                 sudo percona-release enable-only original experimental
-                sudo yum -y install https://repo.percona.com/pmm3-client/yum/experimental/9/RPMS/x86_64/pmm-client-3.0.0-6.el9.x86_64.rpm
+                RHEL=$(rpm --eval '%{rhel}')
+                if [ "$RHEL" -eq 9 ]; then
+                  sudo yum -y install https://repo.percona.com/pmm3-client/yum/experimental/9/RPMS/x86_64/pmm-client-3.0.0-6.el9.x86_64.rpm
+                elif [ "$RHEL" -eq 7 ]; then
+                  sudo yum -y install https://repo.percona.com/pmm3-client/yum/experimental/7/RPMS/x86_64/pmm-client-3.0.0-6.el7.x86_64.rpm
+                else
+                  echo "Fatal: pmm3-client has no compatible RPM version to install. Exiting..."
+                  exit 1
+                fi
             elif [ "${CLIENT_VERSION}" = pmm3-rc ]; then
                 sudo percona-release enable-only original testing
                 sudo yum -y install pmm3-client
             elif [ "${CLIENT_VERSION}" = pmm3-latest ]; then
+                sudo percona-release enable-only original experimental
                 sudo yum -y install pmm3-client
                 sudo yum -y update
-                sudo percona-release enable-only original experimental
             elif [[ "${CLIENT_VERSION}" = 3* ]]; then
-                sudo yum -y install "pmm3-client-${CLIENT_VERSION}-1.el9.x86_64"
                 if [ "${ENABLE_TESTING_REPO}" = yes ]; then
                     sudo percona-release enable-only original testing
-                elif [ "${ENABLE_TESTING_REPO}" = no ] && [ "${ENABLE_EXPERIMENTAL_REPO}" = yes ]; then
+                elif [ "${ENABLE_EXPERIMENTAL_REPO}" = yes ]; then
                     sudo percona-release enable-only original experimental
                 else
                     sudo percona-release enable-only original release
                 fi
+                sudo yum -y install "pmm3-client-${CLIENT_VERSION}-1.el9.x86_64"
                 sleep 10
             else
                 if [[ "${CLIENT_VERSION}" = http* ]]; then
@@ -71,10 +85,6 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     fi
                 else
                     set +e
-                    docker exec -t pmm-server bash -c "curl -fsSL https://gist.githubusercontent.com/ademidoff/5af36a38e37a19afec3ee9a567262537/raw/a65ec153ea778383c70ea7ed57a878e6e535ecff/check-pmm-agent-setup.sh > /tmp/agent-setup-check.sh"
-                    docker exec -t pmm-server bash -c "chmod +x /tmp/agent-setup-check.sh"
-                    docker exec -t pmm-server bash /tmp/agent-setup-check.sh
-
                     if ! pmm-agent setup --config-file="$PMM_DIR/config/pmm-agent.yaml" --server-address="$IP:443" --server-insecure-tls --server-username=admin --server-password="${ADMIN_PASSWORD}" --paths-base="$PMM_DIR" "$IP"; then
                         echo "--- DEBUG sctl status ---"
                         docker exec -t pmm-server supervisorctl status
@@ -93,12 +103,10 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 nohup bash -c 'pmm-agent --config-file="$PMM_DIR/config/pmm-agent.yaml" > pmm-agent.log 2>&1 &'
                 sleep 10
 
-                if ! grep -q "Two-way communication channel established" pmm-agent.log; then
+                if ! pmm-admin status; then
                   cat pmm-agent.log
                   exit 1
                 fi
-
-                pmm-admin status
             fi
 
             pmm-admin --version
