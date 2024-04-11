@@ -94,7 +94,6 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                         docker exec -t pmm-server tail -n 150 /srv/logs/pmm-agent.log
                         echo "--- DEBUG nginx.log ---"
                         docker exec -t pmm-server tail -n 150 /srv/logs/nginx.log
-                        return
                     fi
                     set -e
                 fi
