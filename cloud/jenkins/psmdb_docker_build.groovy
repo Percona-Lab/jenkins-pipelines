@@ -1,9 +1,13 @@
 void build(String IMAGE_SUFFIX){
     sh """
         cd ./source/
-        DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
-        docker build --no-cache --squash -t perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX} -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile.k8s percona-server-mongodb-\$DOCKER_FILE_PREFIX
-        docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX}-debug -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile.k8s percona-server-mongodb-\$DOCKER_FILE_PREFIX
+        if [ ${IMAGE_SUFFIX} = backup ]; then
+            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX} -f percona-backup-mongodb/Dockerfile percona-backup-mongodb
+        else
+            DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
+            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX} -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
+            docker build --build-arg DEBUG=1 --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX}-debug -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
+        fi
     """
 }
 void checkImageForDocker(String IMAGE_SUFFIX){
@@ -124,6 +128,10 @@ pipeline {
                     export GIT_BRANCH=$GIT_PD_BRANCH
                     ./cloud/local/checkout
                 """
+                echo 'Build PBM docker image'
+                retry(3) {
+                    build('backup')
+                }
                 echo 'Build PSMDB docker images'
                 retry(3) {
                     build('mongod5.0')
@@ -145,6 +153,7 @@ pipeline {
                 pushImageToDocker('mongod6.0-debug')
                 pushImageToDocker('mongod7.0')
                 pushImageToDocker('mongod7.0-debug')
+                pushImageToDocker('backup')
             }
         }
        stage('Trivy Checks') {
@@ -195,7 +204,7 @@ pipeline {
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-debug-mongod5.0-debug.xml"
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod5.0-debug-psmdb.xml"
                         }
                     }
                 }
@@ -205,7 +214,7 @@ pipeline {
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-debug-mongod6.0-debug.xml"
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod6.0-debug-psmdb.xml"
                         }
                     }
                 }
@@ -215,7 +224,17 @@ pipeline {
                     }
                     post {
                         always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-debug-mongod7.0-debug.xml"
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod7.0-debug-psmdb.xml"
+                        }
+                    }
+                }
+                stage('PBM'){
+                    steps {
+                        checkImageForDocker('main-backup')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-backup-psmdb.xml"
                         }
                     }
                 }

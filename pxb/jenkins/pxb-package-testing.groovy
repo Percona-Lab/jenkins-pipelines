@@ -39,7 +39,7 @@ setup_centos_package_tests = { ->
     sh '''
         sudo yum install -y epel-release
         sudo yum -y update
-        sudo yum install -y ansible
+        sudo yum install -y ansible zip
     '''
 }
 
@@ -48,7 +48,7 @@ setup_oracle8_package_tests = { ->
         sudo yum install -y epel-release
         sudo yum -y update
         sudo yum install -y ansible-2.9.27
-        sudo yum install -y tar
+        sudo yum install -y tar zip
     '''
 }
 
@@ -57,21 +57,21 @@ setup_oracle9_package_tests = { ->
         sudo yum install -y epel-release
         sudo yum -y update
         sudo yum install -y ansible
-        sudo yum install -y tar
+        sudo yum install -y tar zip
     '''
 }
 
 setup_buster_package_tests = { ->
     sh '''
         sudo apt-get update
-        sudo apt-get install -y ansible
+        sudo apt-get install -y ansible zip
     '''
 }
 
 setup_bullseye_package_tests = { ->
     sh '''
         sudo apt-get update
-        sudo apt-get install -y ansible
+        sudo apt-get install -y ansible zip
     '''
 }
 
@@ -80,7 +80,7 @@ setup_ubuntu_package_tests = { ->
         sudo apt-get update
         sudo apt-get install -y software-properties-common
         sudo apt-add-repository --yes --update ppa:ansible/ansible
-        sudo apt-get install -y ansible
+        sudo apt-get install -y ansible zip
     '''
 }
 
@@ -88,7 +88,7 @@ setup_ubuntu_jammy_package_tests = { ->
     sh '''
         sudo apt-get update
         sudo apt-get install -y software-properties-common
-        sudo apt-get install -y python3 python3-pip
+        sudo apt-get install -y python3 python3-pip zip
         echo $PATH
         python3 -m pip install --user ansible==2.9.27
         ~/.local/bin/ansible --version
@@ -114,7 +114,7 @@ void setup_package_tests() {
     node_setups[params.node_to_test]()
 }
 
-void runPlaybook(String action_to_test) {
+void runPlaybook(String action_to_test, String stt) {
     def playbook = product_action_playbooks[params.product_to_test][action_to_test]
     def playbook_path = "package-testing/playbooks/${playbook}"
     def git_repo = params.git_repo
@@ -127,6 +127,7 @@ void runPlaybook(String action_to_test) {
 
     sh """
         export install_repo="\${install_repo}"
+        export server_to_test="${stt}"
 
         ansible-playbook \
          -vvv \
@@ -134,6 +135,12 @@ void runPlaybook(String action_to_test) {
         --inventory 127.0.0.1, \
         --limit 127.0.0.1 \
         ${playbook_path}
+    """
+}
+
+void zipthelogs(String node_to_test, String action_to_test, String stt) {
+    sh """
+        sudo zip -r "${node_to_test}-${action_to_test}-${stt}"-logs.zip /var/log/*
     """
 }
 
@@ -169,11 +176,19 @@ pipeline {
         )
         string(
             defaultValue: 'https://github.com/Percona-QA/package-testing.git',
-            description: '',
+            description: 'repo name',
             name: 'git_repo',
             trim: false
         )
-
+        choice(
+            choices: [
+                'ps_innovation_lts',
+                'ms_innovation_lts',
+                'all',
+            ],
+            description: 'Server to test',
+            name: 'server_to_test'
+        )
     }
 
     options {
@@ -191,71 +206,278 @@ pipeline {
 
         stage('Run parallel') {
             parallel {
-                stage('Install') {
-                    agent {
-                        label params.node_to_test
-                    }
 
-                    steps {
-                        runPlaybook("install")
-                    }
-                }
-
-                stage('Upgrade') {
-                    agent {
-                        label params.node_to_test
-                    }
-
-                    steps {
-                        runPlaybook("upgrade")
-                    }
-                }
-
-                stage('Upstream') {
+                stage('PS INSTALL') {
                     agent {
                         label params.node_to_test
                     }
 
                     steps {
                         script{
-                            if (params.node_to_test == 'min-focal-x64') {
-                                echo 'Focal is not supported for upstream'
+                            boolean success = true
+                            if (params.server_to_test == 'all' || params.server_to_test == 'ps_innovation_lts') {
+                                try {
+                                    runPlaybook("install","ps_innovation_lts")
+                                } catch (Exception e) {
+                                    echo "An error occurred in runPlaybook: ${e.getMessage()}"
+                                    success = false
+                                } finally {
+                                    zipthelogs(params.node_to_test, "install", "ps_innovation_lts")
+                                    archiveArtifacts artifacts: '*.zip' , followSymlinks: false
+                                }
+                                if (!success) {
+                                    
+                                    error "Stage encountered errors"
+                                    
+                                }
                             } else {
-                                runPlaybook("upstream")
+                                echo 'PS is not Selected so not running'
                             }
                         }
                     }
                 }
 
-                stage('Tarball') {
+                stage('MS INSTALL') {
                     agent {
                         label params.node_to_test
                     }
 
                     steps {
-                        runPlaybook("tarball")
+                        script{
+                            boolean success = true
+                            if (params.server_to_test == 'all' || params.server_to_test == 'ms_innovation_lts') {
+                                try {
+                                    runPlaybook("install","ms_innovation_lts")
+                                }
+                                catch (Exception e) {
+                                    echo "An error occurred in runPlaybook: ${e.getMessage()}"
+                                    success = false
+                                }
+                                finally {
+                                    zipthelogs(params.node_to_test, "install", "ms_innovation_lts")
+                                    archiveArtifacts artifacts: '*.zip' , followSymlinks: false
+                                }
+                                if (!success) {
+                                    
+                                    error "Stage encountered errors"
+                                    
+                                }
+                            } else {
+                                echo 'MS is not Selected so not running'
+                            }
+                        }
                     }
                 }
 
-                stage('Kmip') {
+
+                stage('PS UPGRADE') {
                     agent {
                         label params.node_to_test
                     }
 
                     steps {
-                        runPlaybook("kmip")
+                        script{
+                            boolean success = true
+                            if (params.server_to_test == 'all' || params.server_to_test == 'ps_innovation_lts') {
+                                try {
+                                    runPlaybook("upgrade","ps_innovation_lts")
+                                } catch (Exception e) {
+                                    echo "An error occurred in runPlaybook: ${e.getMessage()}"
+                                    success = false
+                                } finally {
+                                    zipthelogs(params.node_to_test, "upgrade", "ps_innovation_lts")
+                                    archiveArtifacts artifacts: '*.zip' , followSymlinks: false
+                                }
+                                if (!success) {
+                                    
+                                    error "Stage encountered errors"
+                                    
+                                }
+                            } else {
+                                echo 'PS is not Selected so not running'
+                            }
+                        }
                     }
                 }
 
-                stage('kms') {
+                stage('MS UPGRADE') {
                     agent {
                         label params.node_to_test
                     }
 
                     steps {
-                        runPlaybook("kms")
+                        script{
+                            boolean success = true
+                            if (params.server_to_test == 'all' || params.server_to_test == 'ms_innovation_lts') {
+                                try {
+                                    runPlaybook("upgrade","ms_innovation_lts")
+                                } catch (Exception e) {
+                                    echo "An error occurred in runPlaybook: ${e.getMessage()}"
+                                    success = false
+                                } finally {
+                                    zipthelogs(params.node_to_test, "upgrade", "ms_innovation_lts")
+                                    archiveArtifacts artifacts: '*.zip' , followSymlinks: false
+                                }
+                                if (!success) {
+                                    
+                                    error "Stage encountered errors"
+                                    
+                                }
+                            } else {
+                                echo 'MS is not Selected so not running'
+                            }
+                        }
                     }
                 }
+
+                stage('PS TARBALL') {
+                    agent {
+                        label params.node_to_test
+                    }
+
+                    steps {
+                        script{
+                            boolean success = true
+                            if (params.server_to_test == 'all' || params.server_to_test == 'ps_innovation_lts') {
+                                try {
+                                    runPlaybook("tarball","ps_innovation_lts")
+                                } catch (Exception e) {
+                                    echo "An error occurred in runPlaybook: ${e.getMessage()}"
+                                    success = false
+                                } finally {
+                                    zipthelogs(params.node_to_test, "tarball", "ps_innovation_lts")
+                                    archiveArtifacts artifacts: '*.zip' , followSymlinks: false
+                                }
+                                if (!success) {
+                                    
+                                    error "Stage encountered errors"
+                                    
+                                }
+                            } else {
+                                echo 'PS is not Selected so not running'
+                            }
+                        }
+                    }
+                }
+
+                stage('MS TARBALL') {
+                    agent {
+                        label params.node_to_test
+                    }
+
+                    steps {
+                        script{
+                            boolean success = true
+                            if (params.server_to_test == 'all' || params.server_to_test == 'ms_innovation_lts') {
+                                try {
+                                    runPlaybook("tarball","ms_innovation_lts")
+                                } catch (Exception e) {
+                                    echo "An error occurred in runPlaybook: ${e.getMessage()}"
+                                    success = false
+                                } finally {
+                                    zipthelogs(params.node_to_test, "tarball", "ms_innovation_lts")
+                                    archiveArtifacts artifacts: '*.zip' , followSymlinks: false
+                                }
+                                if (!success) {
+                                    
+                                    error "Stage encountered errors"
+                                    
+                                }
+                            } else {
+                                echo 'MS is not Selected so not running'
+                            }
+                        }
+                    }
+                }
+
+                stage('PS KMIP') {
+                    agent {
+                        label params.node_to_test
+                    }
+
+                    steps {
+                        script{
+                            boolean success = true
+                            if (params.server_to_test == 'all' || params.server_to_test == 'ps_innovation_lts') {
+                                try {
+                                    runPlaybook("kmip","ps_innovation_lts")
+                                } catch (Exception e) {
+                                    echo "An error occurred in runPlaybook: ${e.getMessage()}"
+                                    success = false
+                                } finally {
+                                    zipthelogs(params.node_to_test, "kmip", "ps_innovation_lts")
+                                    archiveArtifacts artifacts: '*.zip' , followSymlinks: false
+                                }
+                                if (!success) {
+                                    
+                                    error "Stage encountered errors"
+                                    
+                                }
+                            } else {
+                                echo 'PS is not Selected so not running'
+                            }
+                        }
+                    }
+                }
+
+                stage('MS KMIP') {
+                    agent {
+                        label params.node_to_test
+                    }
+
+                    steps {
+                        script{
+                            boolean success = true
+                            if (params.server_to_test == 'all' || params.server_to_test == 'ms_innovation_lts') {
+                                try {
+                                    runPlaybook("kmip","ms_innovation_lts")
+                                } catch (Exception e) {
+                                    echo "An error occurred in runPlaybook: ${e.getMessage()}"
+                                    success = false
+                                } finally {
+                                    zipthelogs(params.node_to_test, "kmip", "ms_innovation_lts")
+                                    archiveArtifacts artifacts: '*.zip' , followSymlinks: false
+                                }
+                                if (!success) {
+                                    
+                                    error "Stage encountered errors"
+                                    
+                                }
+                            } else {
+                                echo 'MS is not Selected so not running'
+                            }
+                        }
+                    }
+                }
+
+                stage('PS kms') {
+                    agent {
+                        label params.node_to_test
+                    }
+
+                    steps {
+                        script{
+                            boolean success = true
+                            if (params.server_to_test == 'all' || params.server_to_test == 'ps_innovation_lts') {
+                                try {
+                                    runPlaybook("kms","ps_innovation_lts")
+                                } catch (Exception e) {
+                                    echo "An error occurred in runPlaybook: ${e.getMessage()}"
+                                    success = false
+                                } finally {
+                                    zipthelogs(params.node_to_test, "kms", "ps_innovation_lts")
+                                    archiveArtifacts artifacts: '*.zip' , followSymlinks: false
+                                }
+                                if (!success) {
+                                    error "Stage encountered errors"
+                                }
+                            } else {
+                                echo 'PS is not Selected so not running'
+                            }
+                        }
+                    }
+                }
+
             }
         }
     }

@@ -4,7 +4,8 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def moleculeDir = "psmdb-tarball/psmdb-tarball-pro"
-def os = ["rhel9","ubuntu-jammy-pro"]
+def psmdb_default_os_list = ["rhel8","rhel9","ubuntu-jammy-pro"]
+def psmdb_7_os_list = ["rhel9","ubuntu-jammy-pro"]
 
 pipeline {
     agent {
@@ -35,6 +36,13 @@ pipeline {
                 script {
                     currentBuild.displayName = "${env.BUILD_NUMBER}"
                     currentBuild.description = "${env.TARBALL_OL9}"
+
+                    def versionNumber = TARBALL_OL9 =~ /percona-server-mongodb-pro-(\d+)/
+                    def version = versionNumber ? Integer.parseInt(versionNumber[0][1]) : null
+
+                    if (version == 7) {
+                        psmdb_default_os_list = psmdb_7_os_list
+                    }
                 }
             }
         }
@@ -53,14 +61,14 @@ pipeline {
         }
         stage('Test') {
             steps {
-                moleculeParallelTest(os, moleculeDir)
+                moleculeParallelTest(psmdb_default_os_list, moleculeDir)
             }
         }
     }
     post {
         always {
             junit testResults: "**/*-report.xml", keepLongStdio: true
-            moleculeParallelPostDestroy(os, moleculeDir)
+            moleculeParallelPostDestroy(psmdb_default_os_list, moleculeDir)
         }
     }
 }

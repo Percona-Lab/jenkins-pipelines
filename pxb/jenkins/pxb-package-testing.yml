@@ -26,6 +26,13 @@
                 - "pxb_innovation_lts"
             description: 'Choose the product version to test: PXB8.0, PXB2.4 and PXB inovation lts'
         - choice:
+            name: server_to_test
+            choices:
+                - 'ps_innovation_lts'
+                - 'ms_innovation_lts'
+                - 'all'
+            description: 'Choose the server to test: PS, MS and All'
+        - choice:
             name: node_to_test
             choices:
                 - 'min-centos-7-x64'

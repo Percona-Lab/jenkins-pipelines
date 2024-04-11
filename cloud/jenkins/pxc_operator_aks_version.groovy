@@ -1,75 +1,100 @@
+location='westeurope'
 tests=[]
 clusters=[]
 
-void createCluster(String CLUSTER_SUFFIX) {
-    clusters.add("${CLUSTER_SUFFIX}")
+void prepareNode() {
+    echo "=========================[ Installing tools on the Jenkins executor ]========================="
+    sh """
+        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+        kubectl version --client --output=yaml
 
-    if ("${params.CLUSTER_WIDE}" == "YES") {
-        env.OPERATOR_NS = 'pxc-operator'
-    }
+        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
+        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
+        sudo chmod +x /usr/local/bin/yq
+
+        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+        sudo chmod +x /usr/local/bin/jq
+
+        if ! command -v az &>/dev/null; then
+            curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+            printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+            sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
+        fi
+
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+        sudo percona-release enable-only tools
+        sudo yum install -y percona-xtrabackup-80 | true
+    """
+
+    echo "=========================[ Logging in the Kubernetes provider ]========================="
     withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-${CLUSTER_SUFFIX}
-            ret_num=0
-            while [ \${ret_num} -lt 15 ]; do
-                ret_val=0
-                az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
-                az account show --query "{subscriptionId:id, tenantId:tenantId}"
-                az account list --all --output table
-                az aks create -g percona-operators --subscription eng-cloud-dev -n $CLUSTER_NAME-${CLUSTER_SUFFIX} --load-balancer-sku basic --enable-managed-identity --node-count 3 --node-vm-size Standard_B4ms --min-count 3 --max-count 3 --node-osdisk-size 30 --network-plugin kubenet  --generate-ssh-keys --enable-cluster-autoscaler --outbound-type loadbalancer --kubernetes-version ${params.PLATFORM_VER} -l eastus
-                az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-${CLUSTER_SUFFIX} --overwrite-existing
-                if [ \${ret_val} -eq 0 ]; then break; fi
-                ret_num=\$((ret_num + 1))
-            done
-            if [ \${ret_num} -eq 15 ]; then exit 1; fi
-        """
-    }
-}
-void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID" --allow-no-subscriptions
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
             az account set -s "$AZURE_SUBSCRIPTION_ID"
-            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
-            done
-            kubectl get svc --all-namespaces || true
-
-            az aks delete --name $CLUSTER_NAME-$CLUSTER_SUFFIX --resource-group percona-operators --subscription eng-cloud-dev --yes || true
         """
     }
-}
-void pushArtifactFile(String FILE_NAME) {
-    echo "Push $FILE_NAME file to S3!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    if ("$PLATFORM_VER" == "latest") {
+        USED_PLATFORM_VER = sh(script: "az aks get-versions --location $location --output json | jq -r '.values | max_by(.patchVersions) | .patchVersions | keys[]' | sort --version-sort | tail -1", , returnStdout: true).trim()
+    } else {
+        USED_PLATFORM_VER="$PLATFORM_VER"
+    }
+    echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
+
+    echo "=========================[ Cloning the sources ]========================="
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    sh """
+        # sudo is needed for better node recovery after compilation failure
+        # if building failed on compilation stage directory will have files owned by docker user
+        sudo sudo git config --global --add safe.directory '*'
+        sudo git reset --hard
+        sudo git clean -xdf
+        sudo rm -rf source
+        cloud/local/checkout $GIT_REPO $GIT_BRANCH
+    """
+
+    script {
+        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+        CLUSTER_NAME = sh(script: "echo jenkins-ver-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+    }
+}
+
+void dockerBuildPush() {
+    echo "=========================[ Building and Pushing the operator Docker image ]========================="
+    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            touch ${FILE_NAME}
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${GIT_SHORT_COMMIT}
-            aws s3 ls \$S3_PATH/${FILE_NAME} || :
-            aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
+            if [[ "$OPERATOR_IMAGE" ]]; then
+                echo "SKIP: Build is not needed, operator image was set!"
+            else
+                cd source
+                sg docker -c "
+                    docker buildx create --use
+                    docker login -u '$USER' -p '$PASS'
+                    export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                    e2e-tests/build
+                    docker logout
+                "
+                sudo rm -rf build
+            fi
         """
     }
 }
 
 void initTests() {
+    echo "=========================[ Initializing the tests ]========================="
+
     echo "Populating tests into the tests array!"
-    def testList = "${params.TEST_LIST}"
-    def suiteFileName = "./source/e2e-tests/${params.TEST_SUITE}"
+    def testList = "$TEST_LIST"
+    def suiteFileName = "source/e2e-tests/$TEST_SUITE"
 
     if (testList.length() != 0) {
-        suiteFileName = './source/e2e-tests/run-custom.csv'
+        suiteFileName = 'source/e2e-tests/run-custom.csv'
         sh """
-            echo -e "${testList}" > ${suiteFileName}
+            echo -e "$testList" > $suiteFileName
             echo "Custom test suite contains following tests:"
-            cat ${suiteFileName}
+            cat $suiteFileName
         """
     }
 
@@ -79,48 +104,36 @@ void initTests() {
         tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
     }
 
-    markPassedTests()
-}
-
-void markPassedTests() {
     echo "Marking passed tests in the tests map!"
-
-    if ("${params.IGNORE_PREVIOUS_RUN}" == "NO") {
+    if ("$IGNORE_PREVIOUS_RUN" == "NO") {
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
             sh """
-                aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
+                aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
             """
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}-${PARAMS_HASH}"
-                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
                     tests[i]["result"] = "passed"
                 }
             }
         }
-    }
-    else {
+    } else {
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
             sh """
-                aws s3 rm "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" --recursive --exclude "*" --include "*-${PARAMS_HASH}" || :
+                aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
             """
         }
     }
-}
 
-TestsReport = '<testsuite name=\\"PXC-AKS-version\\">\n'
-void makeReport() {
-    for (int i=0; i<tests.size(); i++) {
-        def testResult = tests[i]["result"]
-        def testTime = tests[i]["time"]
-        def testName = tests[i]["name"]
-
-        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
+    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+        sh """
+            cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+        """
     }
-    TestsReport = TestsReport + '</testsuite>\n'
 }
 
 void clusterRunner(String cluster) {
@@ -141,6 +154,35 @@ void clusterRunner(String cluster) {
     if (clusterCreated >= 1) {
         shutdownCluster(cluster)
     }
+}
+
+void createCluster(String CLUSTER_SUFFIX) {
+    clusters.add("$CLUSTER_SUFFIX")
+
+    if ("$CLUSTER_WIDE" == "YES") {
+        env.OPERATOR_NS = 'pxc-operator'
+    }
+
+    sh """
+        export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+        az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
+            -g percona-operators \
+            --subscription eng-cloud-dev \
+            --load-balancer-sku basic \
+            --enable-managed-identity \
+            --node-count 3 \
+            --node-vm-size Standard_B4ms \
+            --min-count 3 \
+            --max-count 3 \
+            --node-osdisk-size 30 \
+            --network-plugin kubenet \
+            --generate-ssh-keys \
+            --enable-cluster-autoscaler \
+            --outbound-type loadbalancer \
+            --kubernetes-version $USED_PLATFORM_VER \
+            -l $location
+        az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-$CLUSTER_SUFFIX --overwrite-existing
+    """
 }
 
 void runTest(Integer TEST_ID) {
@@ -167,12 +209,12 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
-                    ./e2e-tests/$testName/run
+
+                    e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}-${PARAMS_HASH}")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -193,11 +235,56 @@ void runTest(Integer TEST_ID) {
     }
 }
 
+void pushArtifactFile(String FILE_NAME) {
+    echo "Push $FILE_NAME file to S3!"
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            touch $FILE_NAME
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
+            aws s3 ls \$S3_PATH/$FILE_NAME || :
+            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
+        """
+    }
+}
+
+TestsReport = '<testsuite name=\\"PXC-AKS-version\\">\n'
+void makeReport() {
+    echo "=========================[ Generating Test Report ]========================="
+    for (int i=0; i<tests.size(); i++) {
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"]
+        def testName = tests[i]["name"]
+
+        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
+}
+
+void shutdownCluster(String CLUSTER_SUFFIX) {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+            done
+            kubectl get svc --all-namespaces || true
+
+            az aks delete --name $CLUSTER_NAME-$CLUSTER_SUFFIX --resource-group percona-operators --subscription eng-cloud-dev --yes || true
+        """
+    }
+}
+
 pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
-        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ]; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
+        PXC_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -222,12 +309,12 @@ pipeline {
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '1.21',
-            description: 'AKS version',
+            defaultValue: 'latest',
+            description: 'AKS kubernetes version',
             name: 'PLATFORM_VER')
         choice(
-            choices: 'NO\nYES',
-            description: 'Run tests with cluster wide',
+            choices: 'YES\nNO',
+            description: 'Run tests in cluster wide mode',
             name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
@@ -269,88 +356,22 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
+        copyArtifactPermission('pxc-operator-latest-scheduler');
     }
-
     stages {
-        stage('Prepare') {
+        stage('Prepare node') {
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                sh """
-                    # sudo is needed for better node recovery after compilation failure
-                    # if building failed on compilation stage directory will have files owned by docker user
-                    sudo sudo git config --global --add safe.directory '*'
-                    sudo git reset --hard
-                    sudo git clean -xdf
-                    sudo rm -rf source
-                    ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
-                """
-                stash includes: "source/**", name: "sourceFILES"
-
-                script {
-                    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                    CLUSTER_NAME = sh(script: "echo jenkins-ver-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
-                }
-                initTests()
-
-                sh """
-                    cat <<EOF > /tmp/kubernetes.repo
-[kubernetes]
-name=Kubernetes
-baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-                    sudo mv /tmp/kubernetes.repo /etc/yum.repos.d
-                    sudo yum install -y python3-pip kubectl || true
-                    sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-                    sudo percona-release enable-only tools
-                    sudo yum install -y percona-xtrabackup-80 | true
-
-                    curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
-                        | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-                    curl -s -L https://github.com/openshift/origin/releases/download/v3.11.0/openshift-origin-client-tools-v3.11.0-0cbc58b-linux-64bit.tar.gz \
-                        | sudo tar -C /usr/local/bin --strip-components 1 --wildcards -zxvpf - '*/oc'
-                    sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
-                    sudo chmod +x /usr/local/bin/yq
-                    sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-                    sudo chmod +x /usr/local/bin/jq
-
-                    if ! command -v az &>/dev/null; then
-                        curl -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
-                        printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
-                        sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0"
-                    fi
-                """
-                withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-                    sh """
-                        cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-                    """
-                }
+                prepareNode()
             }
         }
-        stage('Build docker image') {
+        stage('Docker Build and Push') {
             steps {
-                unstash "sourceFILES"
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
-                        if [[ "$OPERATOR_IMAGE" ]]; then
-                            echo "SKIP: Build is not needed, PXC operator image was set!"
-                        else
-                            cd ./source/
-                            sg docker -c "
-                                docker buildx create --use
-                                docker login -u '${USER}' -p '${PASS}'
-                                export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
-                                ./e2e-tests/build
-                                docker logout
-                            "
-                            sudo rm -rf ./build
-                        fi
-                    """
-                }
+                dockerBuildPush()
+            }
+        }
+        stage('Init tests') {
+            steps {
+                initTests()
             }
         }
         stage('Run Tests') {
@@ -403,21 +424,22 @@ EOF
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
             sh """
-                echo "${TestsReport}" > TestsReport.xml
+                echo "$TestsReport" > TestsReport.xml
             """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml'
+
             script {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, ${BUILD_URL}"
+                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
                 }
 
                 clusters.each { shutdownCluster(it) }
             }
 
             sh """
-                sudo docker system prune -fa
-                sudo rm -rf ./*
+                sudo docker system prune --volumes -af
+                sudo rm -rf *
             """
             deleteDir()
         }
