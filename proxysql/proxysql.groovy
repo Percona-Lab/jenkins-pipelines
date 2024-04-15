@@ -46,11 +46,11 @@ pipeline {
             description: 'URL for proxysql repository',
             name: 'PROXYSQL_REPO')
         string(
-            defaultValue: 'v2.5.1',
+            defaultValue: 'v2.6.2',
             description: 'Tag/Branch for proxysql repository',
             name: 'PROXYSQL_BRANCH')  
         string(
-            defaultValue: '2.5.1',
+            defaultValue: '2.6.2',
             description: 'PROXYSQL release value',
             name: 'VERSION')  
         string(
