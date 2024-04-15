@@ -10,7 +10,8 @@ void runNodeBuild(String node_to_test) {
             string(name: 'product_to_test', value: product_to_test),
             string(name: 'install_repo', value: params.install_repo),
             string(name: 'node_to_test', value: node_to_test),
-            string(name: 'git_repo', value: params.git_repo)
+            string(name: 'git_repo', value: params.git_repo),
+            string(name: 'server_to_test', value: params.server_to_test)
         ],
         propagate: true,
         wait: true
@@ -36,6 +37,15 @@ pipeline {
             description: '',
             name: 'git_repo',
             trim: false
+        )
+        choice(
+            choices: [
+                'ps_innovation_lts',
+                'ms_innovation_lts',
+                'all',
+            ],
+            description: 'Server to test',
+            name: 'server_to_test'
         )
     }
 

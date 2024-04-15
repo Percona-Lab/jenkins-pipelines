@@ -5,7 +5,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             set -o xtrace
             export PATH="$PATH:/usr/sbin:/sbin"
             test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
-            export IP=$(curl ifconfig.me)
+            export IP=$(curl -s ifconfig.me)
             export SERVER_IP=${SERVER_IP}
             export CLIENT_VERSION=${CLIENT_VERSION}
             export ENABLE_PULL_MODE=${ENABLE_PULL_MODE}
@@ -47,10 +47,8 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 sudo yum -y install "pmm2-client-$CLIENT_VERSION-6.el7.x86_64"
                 if [[ "$ENABLE_TESTING_REPO" = yes ]]; then
                     sudo percona-release enable-only original testing
-                elif [[ "$ENABLE_TESTING_REPO" = no ]]; then
+                elif [[ "$ENABLE_TESTING_REPO" = no ]] && [[ "$ENABLE_EXPERIMENTAL_REPO" = yes ]]; then
                     sudo percona-release enable-only original experimental
-                elif [[ "$ENABLE_TESTING_REPO" = no ]] && [[ "$ENABLE_EXPERIMENTAL_REPO" = no ]]; then
-                    sudo percona-release enable-only original release
                 else
                     sudo percona-release enable-only original release
                 fi
@@ -98,12 +96,8 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
 
             pmm-admin --version
             if [[ "$CLIENT_VERSION" =~ dev-latest|pmm2-latest|pmm2-rc|^2.* ]]; then
-                if [[ "$CLIENT_INSTANCE" = yes ]]; then
-                    if [[ "$ENABLE_PULL_MODE" = yes ]]; then
-                        sudo pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --metrics-mode=pull "$IP"
-                    else
-                        sudo pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls "$IP"
-                    fi
+                if [[ "$CLIENT_INSTANCE" = yes ]] && [[ "$ENABLE_PULL_MODE" = yes ]]; then
+                    sudo pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --metrics-mode=pull "$IP"
                 else
                     sudo pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls "$IP"
                 fi
