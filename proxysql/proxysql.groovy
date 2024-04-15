@@ -254,14 +254,14 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Ubuntu Bionic(18.04) tarball') {
+                stage('Debian Buster(10) tarball') {
                     agent {
                         label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "--build_tarball=1")
+                        buildStage("debian:buster", "--build_tarball=1")
 
                         pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
