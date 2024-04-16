@@ -18,6 +18,7 @@ docker run --rm \
     export PAT_TAG='${PAT_TAG}'
 
     mkdir /tmp/results
+    sudo rm /etc/yum.repos.d/percona-dev.repo || true
     bash -x  /tmp/scripts/build-binary-proxysql /tmp/results /tmp/proxysql
     sudo rm -rf /tmp/proxysql/results
     sudo mkdir /tmp/proxysql/results
