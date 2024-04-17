@@ -245,9 +245,11 @@ pipeline {
                 expression { env.REMOVE_RELEASE_BRANCH == "no"}
             }
             steps {
-                rewindSubmodule = build job: 'pmm3-rewind-submodules-fb', propagate: false, parameters: [
-                    string(name: 'GIT_BRANCH', value: RELEASE_BRANCH)
-                ]
+                script {
+                    rewindSubmodule = build job: 'pmm3-rewind-submodules-fb', propagate: false, parameters: [
+                        string(name: 'GIT_BRANCH', value: RELEASE_BRANCH)
+                    ]
+                }
             }
         }
         stage('Run Server & Client RC Autobuilds') {
