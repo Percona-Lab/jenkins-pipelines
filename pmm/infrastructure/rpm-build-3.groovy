@@ -31,19 +31,19 @@ pipeline {
                     }
                     stage('Build') {
                         steps {
-                            sh """
+                            sh '''
                                 cd build/docker/rpmbuild/
                                 docker buildx build --pull --tag ${IMAGE_REGISTRY}/${DOCKER_TAG} -f Dockerfile.el9 .
-                            """
+                            '''
                             withCredentials([[
                                 $class: 'AmazonWebServicesCredentialsBinding',
                                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                                 credentialsId: 'ECRRWUser',
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                                sh """
+                                sh '''
                                     aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin ${IMAGE_REGISTRY}
                                     docker push ${IMAGE_REGISTRY}/${DOCKER_TAG}
-                                """
+                                '''
                             }
                         }
                     }
