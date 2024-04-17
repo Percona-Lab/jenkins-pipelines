@@ -259,19 +259,23 @@ pipeline {
             parallel {
                 stage('Start PMM3 Server Autobuild') {
                     steps {
-                        pmmServer = build job: 'pmm3-server-autobuild', parameters: [
-                            string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                            string(name: 'DESTINATION', value: 'testing')
-                        ]                        
+                        script {
+                            pmmServer = build job: 'pmm3-server-autobuild', parameters: [
+                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                                string(name: 'DESTINATION', value: 'testing')
+                            ]
+                        }
                     }
                 }
                 stage('Start PMM3 Client Autobuild') {
                     steps {
-                        pmmClient = build job: 'pmm3-client-autobuild', parameters: [
-                            string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                            string(name: 'DESTINATION', value: 'testing')
-                        ]
-                        env.TARBALL_URL = pmmClient.buildVariables.TARBALL_URL                        
+                        script {
+                            pmmClient = build job: 'pmm3-client-autobuild', parameters: [
+                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                                string(name: 'DESTINATION', value: 'testing')
+                            ]
+                            env.TARBALL_URL = pmmClient.buildVariables.TARBALL_URL
+                        }
                     }
                 }
             }
@@ -283,19 +287,23 @@ pipeline {
             parallel {
                 stage('Start AMI RC Build') {
                     steps {
-                        pmmAMI = build job: 'pmm3-ami', parameters: [
-                            string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
-                            string(name: 'RELEASE_CANDIDATE', value: "yes")
-                        ]
-                        env.AMI_ID = pmmAMI.buildVariables.AMI_ID                        
+                        script {
+                            pmmAMI = build job: 'pmm3-ami', parameters: [
+                                string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
+                                string(name: 'RELEASE_CANDIDATE', value: "yes")
+                            ]
+                            env.AMI_ID = pmmAMI.buildVariables.AMI_ID
+                        }
                     }
                 }
                 stage('Start OVF RC Build') {
                     steps {
-                        pmmOVF = build job: 'pmm3-ovf', parameters: [
-                            string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
-                            string(name: 'RELEASE_CANDIDATE', value: 'yes')
-                        ]                        
+                        script {
+                            pmmOVF = build job: 'pmm3-ovf', parameters: [
+                                string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
+                                string(name: 'RELEASE_CANDIDATE', value: 'yes')
+                            ]
+                        }
                     }
                 }
             }
