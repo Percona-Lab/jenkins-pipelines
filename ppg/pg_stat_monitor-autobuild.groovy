@@ -27,49 +27,13 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         echo "Docker: $DOCKER_OS, Release: PG$PG_RELEASE, Stage: $STAGE_PARAM"
         set -o xtrace
         mkdir -p test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/percona-packaging/scripts/pg_stat_monitor_builder.sh -O psm_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/percona-packaging/scripts/pg_stat_monitor_builder.sh -o psm_builder.sh
-        if [ -f /etc/redhat-release ]; then
-            sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        else
-            DEBIAN_VERSION=\$(lsb_release -sc)
-            sed -e '/.*backports.*/d' /etc/apt/sources.list > sources.list.new
-            sudo mv -vf sources.list.new /etc/apt/sources.list
-            if [ \${DEBIAN_VERSION} = bionic ]; then
-                wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
-                echo "deb http://apt.llvm.org/bionic/ llvm-toolchain-bionic-11 main" | sudo tee -a /etc/apt/sources.list
-            fi
-            if [ \${DEBIAN_VERSION} = buster ]; then
-                sudo apt-get -y update --allow-releaseinfo-change || true
-            fi
-            if [ \${DEBIAN_VERSION} = bullseye ]; then
-                sed -i 's:clang-7::g' psm_builder.sh
-                sed -i '23s:focal:bullseye:' psm_builder.sh
-                sed -i 's:dh-systemd::' psm_builder.sh
-            fi
-            until sudo apt-get update; do
-                sleep 30
-                echo "Waiting ..."
-            done
-            until sudo apt-get -y install gpgv curl clang-11 gnupg; do
-                sleep 30
-                echo "Waiting ..."
-            done
-            sudo wget https://repo.percona.com/apt/percona-release_latest.\$(lsb_release -sc)_all.deb
-            sudo dpkg -i percona-release_latest.\$(lsb_release -sc)_all.deb
-        fi
-        sudo percona-release enable ppg-${PG_RELEASE} release
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/main/percona-packaging/scripts/pg_stat_monitor_builder.sh -O psm_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/main/percona-packaging/scripts/pg_stat_monitor_builder.sh -o psm_builder.sh
         pwd -P
         export build_dir=\$(pwd -P)
         set -o xtrace
         cd \${build_dir}
-        if [ -f ./test/pg-stat-monitor.properties ]; then
-            . ./test/pg-stat-monitor.properties
-        fi
-        sed -i "s:VERSION=\\"1.0.0:VERSION=\\"$VERSION:" psm_builder.sh
-        sed -i "s:PG_RELEASE=11:PG_RELEASE=\"${PG_RELEASE}\":" psm_builder.sh
-
-        sudo bash -x ./psm_builder.sh --builddir=\${build_dir}/test --install_deps=1
-        bash -x ./psm_builder.sh --builddir=\${build_dir}/test --branch=\${BRANCH} --repo=\${GIT_REPO} --rpm_release=\${RPM_RELEASE} --deb_release=\${DEB_RELEASE} --pg_release=\${PG_RELEASE} "$STAGE_PARAM"
+        sudo bash -x ./psm_builder.sh --builddir=\${build_dir}/test --pg_release=\${PG_RELEASE} --install_deps=1
+        bash -x ./psm_builder.sh --builddir=\${build_dir}/test --version=\${VERSION} --branch=\${BRANCH} --repo=\${GIT_REPO} --rpm_release=\${RPM_RELEASE} --deb_release=\${DEB_RELEASE} --pg_release=\${PG_RELEASE} "$STAGE_PARAM"
     """ 
 }
 
@@ -114,8 +78,12 @@ pipeline {
         choice(
             name: 'PG_RELEASE',
             description: 'PPG major version to test',
-            choices: ['11', '12', '13', '14', '15']
+            choices: ['11', '12', '13', '14', '15', '16']
         )
+        string(
+            defaultValue: 'ppg-16.0',
+            description: 'PPG repo name',
+            name: 'PPG_REPO')
         choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
             description: 'Repo component to push packages to',
@@ -210,17 +178,33 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 } //stage
-                stage('Centos 8') {
+                stage('OL 8') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
-                        echo "====> Build pg_stat_monitor rpm on Centos 8 PG${PG_RELEASE}"
+                        echo "====> Build pg_stat_monitor rpm on OL 8 PG${PG_RELEASE}"
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:8", "--build_rpm=1")
+                        buildStage("oraclelinux:8", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                } //stage
+                stage('OL 9') {
+                    agent {
+                        label 'min-ol-9-x64'
+                    }
+                    steps {
+                        echo "====> Build pg_stat_monitor rpm on OL 9 PG${PG_RELEASE}"
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
@@ -230,22 +214,6 @@ pipeline {
         } //stage
         stage('Build pg_stat_monitor DEBs') {
             parallel {
-                stage('Ubuntu 18.04') {
-                    agent {
-                        label 'min-bionic-x64'
-                    }
-                    steps {
-                        echo "====> Build pg_stat_monitor deb on Ubuntu 18.04 PG${PG_RELEASE}"
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                } //stage
                 stage('Ubuntu 20.04') {
                     agent {
                         label 'min-focal-x64'
@@ -256,7 +224,23 @@ pipeline {
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
+                        buildStage("ubuntu:focal", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                } //stage
+                stage('Ubuntu 22.04') {
+                    agent {
+                        label 'min-jammy-x64'
+                    }
+                    steps {
+                        echo "====> Build pg_stat_monitor deb on Ubuntu 22.04 PG${PG_RELEASE}"
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
@@ -294,14 +278,30 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 } //stage
+                stage('Debian 12') {
+                    agent {
+                        label 'min-bookworm-x64'
+                    }
+                    steps {
+                        echo "====> Build pg_stat_monitor deb on Debian 12 PG${PG_RELEASE}"
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bookworm", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                } //stage
             } //parallel
         } //stage
         stage('Build docker container') {
             agent {
-                label 'min-bionic-x64'
+                label 'min-focal-x64'
             }
             steps {
-                echo "====> Build docker container on Ubuntu 18.04 PG${PG_RELEASE}"
+                echo "====> Build docker container on Ubuntu 20.04 PG${PG_RELEASE}"
                 cleanUpWS()
                 installCli("deb")
                 unstash 'properties'
@@ -344,7 +344,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild("ppg-${PG_RELEASE}", COMPONENT)
+                sync2ProdAutoBuild(PPG_REPO, COMPONENT)
             }
         }
     } //stages

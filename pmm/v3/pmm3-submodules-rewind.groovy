@@ -18,11 +18,10 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
                         export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+                        
                         # Clone 'v3' branch and update submodules
                         git clone --single-branch --branch v3 git@github.com:Percona-Lab/pmm-submodules .
-                        git reset --hard
-                        git clean -xdff
-                        git submodule update --remote --init --recommend-shallow --jobs 10
+                        git submodule update --remote --init --jobs 10
                         git submodule status
                         git status --untracked-files=all --ignore-submodules=none
                     '''

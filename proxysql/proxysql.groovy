@@ -13,6 +13,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
+            sed -i "s/^RPM_RELEASE=.*/RPM_RELEASE=${RPM_RELEASE}/g" proxysql_builder.sh
+            sed -i "s/^DEB_RELEASE=.*/DEB_RELEASE=${DEB_RELEASE}/g" proxysql_builder.sh
             bash -x ./proxysql_builder.sh --builddir=\${build_dir}/test --install_deps=1
             bash -x ./proxysql_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --proxysql_repo=${PROXYSQL_REPO} --pat_repo=${PAT_REPO} --pat_tag=${PAT_TAG} --proxysql_branch=${PROXYSQL_BRANCH} --proxysql_ver=${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
@@ -44,11 +46,11 @@ pipeline {
             description: 'URL for proxysql repository',
             name: 'PROXYSQL_REPO')
         string(
-            defaultValue: 'v2.5.1',
+            defaultValue: 'v2.6.2',
             description: 'Tag/Branch for proxysql repository',
             name: 'PROXYSQL_BRANCH')  
         string(
-            defaultValue: '2.5.1',
+            defaultValue: '2.6.2',
             description: 'PROXYSQL release value',
             name: 'VERSION')  
         string(
@@ -252,14 +254,14 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Ubuntu Bionic(18.04) tarball') {
+                stage('Debian Buster(10) tarball') {
                     agent {
                         label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "--build_tarball=1")
+                        buildStage("debian:buster", "--build_tarball=1")
 
                         pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
@@ -287,7 +289,7 @@ pipeline {
         success {
             // slackNotify("", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH}"
+                currentBuild.description = "Built on ${PROXYSQL_BRANCH} + ${PAT_TAG} - [${BUILD_URL}]"
             }
             deleteDir()
         }

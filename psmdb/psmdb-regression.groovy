@@ -29,7 +29,7 @@ pipeline {
         booleanParam(name: 'integrationtests',defaultValue: false, description: 'Check if list of suites contains integration tests')
         booleanParam(name: 'benchmarktests',defaultValue: false, description: 'Check if list of suites contains benchmark tests')
         string(name: 'scons_params', defaultValue: 'CC=/usr/bin/gcc-8 CXX=/usr/bin/g++-8 --disable-warnings-as-errors --release --ssl --opt=size -j6 --use-sasl-client --wiredtiger --audit --inmemory --hotbackup CPPPATH=/usr/local/include LIBPATH=/usr/local/lib', description: 'Parameters for scons')
-        string(name: 'resmoke_params', defaultValue: '--excludeWithAnyTags=featureFlagColumnstoreIndexes,featureFlagUpdateOneWithoutShardKey,featureFlagGlobalIndexesShardingCatalog,featureFlagGlobalIndexes,featureFlagTelemetry,featureFlagAuditConfigClusterParameter,serverless,does_not_support_config_fuzzer,featureFlagDeprioritizeLowPriorityOperations,featureFlagSbeFull', description: 'Extra params passed to resmoke.py')
+        string(name: 'resmoke_params', defaultValue: '--excludeWithAnyTags=featureFlagColumnstoreIndexes,featureFlagUpdateOneWithoutShardKey,featureFlagGlobalIndexesShardingCatalog,featureFlagGlobalIndexes,featureFlagTelemetry,featureFlagAuditConfigClusterParameter,serverless,does_not_support_config_fuzzer,featureFlagDeprioritizeLowPriorityOperations,featureFlagSbeFull,featureFlagQueryStats,featureFlagTransitionToCatalogShard,requires_latch_analyzer', description: 'Extra params passed to resmoke.py')
     }
     options {
         withCredentials(moleculePbmJenkinsCreds())

@@ -8,7 +8,7 @@ pipeline {
             name: 'GIT_REPO',
             trim: true)
         string(
-            defaultValue: 'v2.5.5',
+            defaultValue: 'v2.6.2',
             description: 'Tag/Branch for ProxySQL repository',
             name: 'BRANCH',
             trim: true)
@@ -23,7 +23,7 @@ pipeline {
             name: 'PROXYSQL_PACKAGE_BRANCH',
             trim: true)
         string(
-            defaultValue: 'v2.5.5-dev',
+            defaultValue: 'v2.6.2-dev',
             description: 'Tag/Branch for ProxySQL-admin-tool repository',
             name: 'PAT_TAG',
             trim: true)
@@ -32,7 +32,7 @@ pipeline {
             description: 'PXC version to test proxysql-admin suite',
             name: 'PXC_VERSION')
        choice(
-            choices: 'centos:7\ncentos:8\nubuntu:bionic\nubuntu:focal\ndebian:stretch\ndebian:buster',
+            choices: 'centos:7\ncentos:8\nubuntu:jammy\nubuntu:focal\ndebian:buster\ndebian:bullseye\ndebian:bookworm',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(

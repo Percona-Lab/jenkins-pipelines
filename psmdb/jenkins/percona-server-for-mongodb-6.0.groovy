@@ -124,7 +124,7 @@ pipeline {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:bionic", "--build_src_deb=1 --enable_fipsmode=1")
+                                buildStage("debian:buster", "--build_src_deb=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("debian:buster", "--build_src_deb=1")
                             }
@@ -326,6 +326,24 @@ pipeline {
                     }
                 }
 */
+                stage('Centos 8 binary tarball(glibc2.28)') {
+                    agent {
+                        label 'docker-64gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("oraclelinux:8", "--build_tarball=1 --enable_fipsmode=1")
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            } else {
+                                echo "The step is skiped ..."
+                            }
+                        }
+                    }
+                }
                 stage('Oracle Linux 9 binary tarball(glibc2.34)') {
                     agent {
                         label 'docker-64gb'

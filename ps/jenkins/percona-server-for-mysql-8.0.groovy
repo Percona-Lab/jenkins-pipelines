@@ -613,13 +613,12 @@ parameters {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--build_tarball=1 --with_zenfs=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
                                 buildStage("none", "--build_tarball=1 --with_zenfs=1")
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9 debug tarball') {
@@ -713,13 +712,12 @@ parameters {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--build_tarball=1 --with_zenfs=1 --enable_fipsmode=1")
+                                echo "The step is skipped"
                             } else {
                                 buildStage("none", "--build_tarball=1 --with_zenfs=1")
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy(22.04) debug tarball') {
@@ -807,12 +805,12 @@ parameters {
         }
         stage('Build docker containers') {
             agent {
-                label 'min-buster-x64'
+                label 'min-focal-x64'
             }
             steps {
                 script {
                     if (env.FIPSMODE == 'YES') {
-                        echo "The step is skipped ..."
+                        echo "The step is skipped"
                     } else {
                         echo "====> Build docker container"
                         cleanUpWS()
@@ -823,8 +821,13 @@ parameters {
                         unstash 'properties'
                         sh '''
                             PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                            MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
-                            MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                            else
+                                MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                            fi
                             PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 3)}')
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                             sudo apt-get install -y docker.io

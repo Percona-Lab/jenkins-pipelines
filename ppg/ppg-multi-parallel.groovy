@@ -87,7 +87,7 @@ pipeline {
             description: 'wal2json version',
             name: 'WAL2JSON_VERSION')
         string(
-            defaultValue: 'no',
+            defaultValue: 'yes',
             description: 'Destroy VM after tests',
             name: 'DESTROY_ENV')
   }
@@ -135,7 +135,7 @@ pipeline {
                     }
                     catch (err) {
                         currentBuild.result = "FAILURE"
-                        echo "Stage 'Test install' failed, but we continue"
+                        echo "Stage 'Test install meta HA packages' failed, but we continue"
                     }
                 }
             }
@@ -157,7 +157,30 @@ pipeline {
                     }
                     catch (err) {
                         currentBuild.result = "FAILURE"
-                        echo "Stage 'Test install' failed, but we continue"
+                        echo "Stage 'Test install meta server packages' failed, but we continue"
+                    }
+                }
+            }
+        }
+        stage ('Test PGSM on all platforms') {
+            when {
+                expression { env.TO_REPO != 'release' }
+            }
+            steps {
+                script {
+                    try {
+                        build job: 'pgsm-parallel', parameters: [
+                        string(name: 'REPO', value: "${env.TO_REPO}"),
+                        string(name: 'PGSM_REPO', value: "https://github.com/percona/pg_stat_monitor.git"),
+                        string(name: 'VERSION', value: "${env.VERSION}"),                                                booleanParam(name: 'MAJOR_REPO', value: false),
+                        booleanParam(name: 'PGSM_PACKAGE_INSTALL', value: true),
+                        string(name: 'TESTING_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        booleanParam(name: 'MAJOR_REPO', value: false),
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'Test PGSM on all platforms' failed, but we continue"
                     }
                 }
             }
@@ -202,28 +225,6 @@ pipeline {
                     catch (err) {
                         currentBuild.result = "FAILURE"
                         echo "Stage 'Test postgis' failed, but we continue"
-                    }
-                }
-            }
-        }
-        stage ('Test pg_stat_monitor') {
-            steps {
-                script {
-                    try {
-                        build job: 'component', parameters: [
-                        string(name: 'VERSION', value: "${env.VERSION}"),
-                        string(name: 'REPO', value: "${env.TO_REPO}"),
-                        string(name: 'PRODUCT', value: "pg_stat_monitor"),
-                        string(name: 'COMPONENT_REPO', value: "https://github.com/percona/pg_stat_monitor.git"),
-                        string(name: 'COMPONENT_VERSION', value: "${env.PGSM_VERSION}"),
-                        string(name: 'SCENARIO', value: "ppg-${env.MAJOR_VERSION}"),
-                        string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
-                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
-                        ]
-                    }
-                    catch (err) {
-                        currentBuild.result = "FAILURE"
-                        echo "Stage 'Test pg_stat_monitor' failed, but we continue"
                     }
                 }
             }

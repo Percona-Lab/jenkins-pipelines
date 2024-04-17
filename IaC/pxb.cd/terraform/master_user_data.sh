@@ -30,7 +30,7 @@ install_software() {
     amazon-linux-extras install -y nginx1.12
     amazon-linux-extras install -y epel
     amazon-linux-extras install -y java-openjdk11
-    yum -y install jenkins-2.414.2 certbot git yum-cron aws-cli xfsprogs
+    yum -y install jenkins-2.426.3 certbot git yum-cron aws-cli xfsprogs
 
     sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
     sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
@@ -91,7 +91,8 @@ start_jenkins() {
 
     install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
     install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
-    chown -R jenkins:jenkins /mnt/$JENKINS_HOST
+    install -o jenkins -g jenkins -d /var/log/jenkins
+    chown -R jenkins:jenkins /mnt/$JENKINS_HOST /var/log/jenkins
 
     printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
         | tee -a /etc/hosts
@@ -259,7 +260,7 @@ EOF
 }
 
 setup_ssh_keys() {
-    KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets surabhi.bhat talha.rizwan"
+    KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets surabhi.bhat talha.rizwan muhammad.aqeel"
 
     for KEY in $KEYS_LIST; do
         RETRY="3"

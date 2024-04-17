@@ -27,6 +27,7 @@ docker run --rm \
     export MTR_SUITES='${MTR_SUITES}'
     export PARALLEL_RUN='${PARALLEL_RUN}'
     export DOCKER_OS='${DOCKER_OS//:/-}'
+    export WITH_ASAN='${WITH_ASAN}'
 
     mkdir /tmp/results
     cp /tmp/pxc/results/*.tar.gz /tmp/results

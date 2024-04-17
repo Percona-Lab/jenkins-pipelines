@@ -40,7 +40,7 @@ if [ -f /usr/bin/yum ]; then
     fi
 elif [ -f /usr/bin/apt-get ]; then
     OS_NAME="$(lsb_release -sc)"
-    if [[ ${OS_NAME} == "jammy" ]] || [[ ${OS_NAME} == "bullseye" ]]; then
+    if [[ ${OS_NAME} == "jammy" ]] || [[ ${OS_NAME} == "bullseye" ]] || [[ ${OS_NAME} == "bookworm" ]]; then
         sudo ln -sf /usr/bin/python3 /usr/bin/python
     fi
 fi
@@ -71,6 +71,11 @@ fi
 
 if [[ $MTR_ARGS == *"--big-test"* ]] || [[ $MTR_ARGS == *"--only-big-test"* ]]; then
     TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 2))
+fi
+
+WITH_ASAN=$(echo "${WITH_ASAN}" | tr '[:upper:]' '[:lower:]')
+if [[ $WITH_ASAN == "yes" ]]; then
+    MTR_ARGS+=" --sanitize "
 fi
 
 status=0

@@ -61,25 +61,7 @@ pipeline {
             }
         }
 
-        stage('Build Release Candidate Image') {
-            when {
-                expression { params.RELEASE_CANDIDATE == "yes" }
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    dir('build') {
-                        sh '''
-                            make pmm-ovf-rc
-                        '''
-                    }
-                }
-                sh 'ls */*/PMM3-Server-EL9*.ova | cut -d "/" -f 2 > IMAGE'
-            }
-        }
-        stage('Build Dev-Latest Image') {
-            when {
-                expression { params.RELEASE_CANDIDATE == "no" }
-            }
+        stage('Build Image') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     dir('build') {
@@ -88,10 +70,9 @@ pipeline {
                         '''
                     }
                 }
-                sh 'ls */*/PMM3-Server-EL9*.ova | cut -d "/" -f 2 > IMAGE'
+                sh 'ls */*/PMM3-Server-*.ova | cut -d "/" -f 2 > IMAGE'
             }
         }
-
         stage('Upload Release Candidate Image') {
             when {
                 expression { params.RELEASE_CANDIDATE == "yes" }
@@ -99,7 +80,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        FILE=$(ls */*/PMM3-Server-EL9*.ova)
+                        FILE=$(ls */*/PMM3-Server-*.ova)
                         NAME=$(basename ${FILE})
                         aws s3 cp \
                           --only-show-errors \
@@ -126,7 +107,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        FILE=$(ls */*/PMM3-Server-EL9*.ova)
+                        FILE=$(ls */*/PMM3-Server-*.ova)
                         NAME=$(basename ${FILE})
                         aws s3 cp \
                           --only-show-errors \
@@ -135,16 +116,16 @@ pipeline {
                           s3://percona-vm/${NAME}
 
                         # This will redirect to the image above
-                        echo /${NAME} > PMM3-Server-3-dev-latest.ova
+                        echo /${NAME} > PMM3-Server-dev-latest.ova
                         aws s3 cp \
                           --only-show-errors \
                           --website-redirect /${NAME} \
-                          PMM3-Server-3-dev-latest.ova \
-                          s3://percona-vm/PMM3-Server-3-dev-latest.ova
+                          PMM3-Server-dev-latest.ova \
+                          s3://percona-vm/PMM3-Server-dev-latest.ova
                     '''
                 }
                 script {
-                    env.PMM3_SERVER_OVA_S3 = "http://percona-vm.s3-website-us-east-1.amazonaws.com/PMM3-Server-3-dev-latest.ova"
+                    env.PMM3_SERVER_OVA_S3 = "http://percona-vm.s3-website-us-east-1.amazonaws.com/PMM3-Server-dev-latest.ova"
                 }
             }
         }
