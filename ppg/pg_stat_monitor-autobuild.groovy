@@ -246,6 +246,22 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 } //stage
+                stage('Ubuntu 24.04') {
+                    agent {
+                        label 'min-noble-x64'
+                    }
+                    steps {
+                        echo "====> Build pg_stat_monitor deb on Ubuntu 24.04 PG${PG_RELEASE}"
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:noble", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                } //stage
                 stage('Debian 10') {
                     agent {
                         label 'min-buster-x64'
