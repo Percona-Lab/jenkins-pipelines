@@ -77,8 +77,8 @@ void createBranch(String SUBMODULE, String BRANCH) {
 
             # Configure git to push using ssh
             export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-            export SUBMODULE=${SUBMODULE}
-            export BRANCH=${BRANCH}
+            export SUBMODULE=''' + SUBMODULE + '''
+            export BRANCH=''' + BRANCH + '''
             export submodule_url=\$(git config --file=.gitmodules submodule.${SUBMODULE}.url)
             export submodule_branch=\$(git config --file=.gitmodules submodule.${SUBMODULE}.branch)
             export ssh_submodule_url=\$(echo $submodule_url | sed "s^https://github.com/^git@github.com:^g")
@@ -104,8 +104,8 @@ void deleteBranch(String SUBMODULE, String BRANCH) {
 
             # Configure git to push using ssh
             export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-            export SUBMODULE=${SUBMODULE}
-            export BRANCH=${BRANCH}
+            export SUBMODULE=''' + SUBMODULE + '''
+            export BRANCH=''' + BRANCH + '''
             export submodule_url=$(git config --file=.gitmodules submodule.${SUBMODULE}.url)
             export submodule_branch=\$(git config --file=.gitmodules submodule.${SUBMODULE}.branch)
             export ssh_submodule_url=\$(echo $submodule_url | sed "s^https://github.com/^git@github.com:^g")
