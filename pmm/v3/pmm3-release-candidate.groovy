@@ -42,6 +42,7 @@ void deleteReleaseBranches(String VERSION) {
 }
 
 void setupReleaseBranches(String VERSION) {
+    git branch: SUBMODULES_GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
     sh '''
         git config --global user.email "noreply@percona.com"
         git config --global user.name "PMM Jenkins"
