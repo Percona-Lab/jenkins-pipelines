@@ -335,19 +335,19 @@ pipeline {
             }
             steps {
                 script {
-                    imageScan = build job: 'pmm-image-scanning', propagate: false, parameters: [
+                    imageScan = build job: 'pmm3-image-scanning', propagate: false, parameters: [
                         string(name: 'IMAGE', value: "perconalab/pmm-server"),
                         string(name: 'TAG', value: "${VERSION}-rc")
                     ]
 
                     env.SCAN_REPORT_URL = ""
                     if (imageScan.result == 'SUCCESS') {
-                        copyArtifacts filter: 'report.html', projectName: 'pmm-image-scanning'
+                        copyArtifacts filter: 'report.html', projectName: 'pmm3-image-scanning'
                         sh 'mv report.html report-${VERSION}-rc.html'
                         archiveArtifacts "report-${VERSION}-rc.html"
                         env.SCAN_REPORT_URL = "CVE Scan Report: ${BUILD_URL}artifact/report-${VERSION}-rc.html"
 
-                        copyArtifacts filter: 'evaluations/**/evaluation_*.json', projectName: 'pmm-image-scanning'
+                        copyArtifacts filter: 'evaluations/**/evaluation_*.json', projectName: 'pmm3-image-scanning'
                         sh 'mv evaluations/*/*/*/evaluation_*.json ./report-${VERSION}-rc.json'
                         archiveArtifacts "report-${VERSION}-rc.json"
                     }
