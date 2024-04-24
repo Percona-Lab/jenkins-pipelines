@@ -248,7 +248,7 @@ pipeline {
                 } //stage
                 stage('Ubuntu 24.04') {
                     agent {
-                        label 'min-noble-x64'
+                        label 'docker'
                     }
                     steps {
                         echo "====> Build pg_stat_monitor deb on Ubuntu 24.04 PG${PG_RELEASE}"
