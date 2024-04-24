@@ -290,7 +290,7 @@ pipeline {
                 } //stage
                 stage('Ubuntu 24.04') {
                     agent {
-                        label 'docker'
+                        label 'min-noble-x64'
                     }
                     steps {
                         echo "====> Build pgpool2 deb on Ubuntu 24.04 PG${PG_RELEASE}"
