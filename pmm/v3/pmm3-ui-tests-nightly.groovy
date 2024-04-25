@@ -157,7 +157,7 @@ pipeline {
             description: 'Enable Pull Mode, if you are using this instance as Client Node',
             name: 'ENABLE_PULL_MODE')
         string(
-            defaultValue: 'admin1',
+            defaultValue: 'pmm3admin',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         string(
