@@ -8,14 +8,14 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-library changelog: false, identifier: 'v3lib@PMM-7-fix-pmm3-aws-staging-start-ppl', retriever: modernSCM(
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
   scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
   libraryPath: 'pmm/v3/'
 )
 
 pipeline {
     agent {
-        label 'cli'
+        label 'agent-amd64'
     }
     parameters {
         string(
@@ -34,7 +34,7 @@ pipeline {
             name: 'SSH_KEY'
         )
         string(
-            defaultValue: 'pmm2023fortesting!',
+            defaultValue: 'pmm3admin',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD'
         )
@@ -61,19 +61,49 @@ pipeline {
             ''',
             name: 'DOCKER_ENV_VARIABLE'
         )
+                choice(
+            choices: ['8.0','5.7'],
+            description: 'Percona XtraDB Cluster version',
+            name: 'PXC_VERSION')
+        choice(
+            choices: ['8.0', '5.7', '5.7.30', '5.6'],
+            description: "Percona Server for MySQL version",
+            name: 'PS_VERSION')
+        choice(
+            choices: ['8.0', '5.7', '5.6'],
+            description: 'MySQL Community Server version',
+            name: 'MS_VERSION')
+        choice(
+            choices: ['15','14', '13', '12', '11'],
+            description: "Which version of PostgreSQL",
+            name: 'PGSQL_VERSION')
+        choice(
+            choices: ['16','15', '14', '13', '12'],
+            description: 'Percona Distribution for PostgreSQL',
+            name: 'PDPGSQL_VERSION')
+        choice(
+            choices: ['7.0.7-4', '6.0.14-11', '5.0.26-22', '4.4.29-28'],
+            description: "Percona Server for MongoDB version",
+            name: 'PSMDB_VERSION')
         text(
             defaultValue: '--database ps=5.7,QUERY_SOURCE=perfschema',
             description: '''
             Configure PMM Clients:
-            ps - Percona Server for MySQL (ex: --database ps=5.7,QUERY_SOURCE=perfschema)
-            psmdb - Percona Server for MongoDB (ex: --database psmdb=latest,SETUP_TYPE=pss)
-            pdpgsql - Percona Distribution for PostgreSQL (ex: --database pdpgsql=16,USE_SOCKET=1)
-            pxc - Percona XtraDB Cluster, --with-proxysql (to be used with proxysql only, ex: --addclient=pxc,1 --with-proxysql)
-            md - MariaDB Server (ex: --addclient=md,1)
-            modb - Official MongoDB version (ex: --addclient=modb,1)
-            pgsql - PostgreSQL Server (ex: --addclient=pgsql,1)
+            --database ps - Percona Server for MySQL (ex: --database ps=5.7,QUERY_SOURCE=perfschema)
+            Additional options:
+                QUERY_SOURCE=perfschema|slowlog
+                SETUP_TYPE=replica(Replication)|gr(Group Replication)|(single node if no option passed)
+            --database mysql - Official MySQL (ex: --database mysql,QUERY_SOURCE=perfschema)
+            Additional options:
+                QUERY_SOURCE=perfschema|slowlog
+            --database psmdb - Percona Server for MongoDB (ex: --database psmdb=latest,SETUP_TYPE=pss)
+            Additional options:
+                SETUP_TYPE=pss(Primary-Secondary-Secondary)|psa(Primary-Secondary-Arbiter)|shards(Sharded cluster)
+            --database pdpgsql - Percona Distribution for PostgreSQL (ex: --database pdpgsql=16)
+            --database pgsql - Percona Distribution for PostgreSQL (ex: --database pgsql=16)
+            --database pxc - Percona XtraDB Cluster, (to be used with proxysql only, ex: --database pxc)
             -----
-            Example: --database ps=5.7,QUERY_SOURCE=perfschema --database psmdb=latest,SETUP_TYPE=pss
+            Example: --database ps=5.7,QUERY_SOURCE=perfschema --database psmdb,SETUP_TYPE=pss
             ''',
             name: 'CLIENTS'
         )
@@ -93,14 +123,9 @@ pipeline {
             name: 'SERVER_IP'
         )
         string(
-            defaultValue: 'PMM-7-use-ansible-runner-lib',
+            defaultValue: 'v3',
             description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH'
-        )
-        string(
-            defaultValue: '',
-            description: 'Commit hash for pmm-qa branch',
-            name: 'PMM_QA_GIT_COMMIT_HASH'
         )
     }
     options {
@@ -121,6 +146,12 @@ pipeline {
                         DOCKER_VERSION:  ${DOCKER_VERSION}
                         CLIENT_VERSION:  ${CLIENT_VERSION}
                         CLIENTS:         ${CLIENTS}
+                        PXC_VERSION:     ${PXC_VERSION}
+                        PS_VERSION:      ${PS_VERSION}
+                        MS_VERSION:      ${MS_VERSION}
+                        MO_VERSION:      ${PSMDB_VERSION}
+                        PGSQL_VERSION:   ${PGSQL_VERSION}
+                        PDPGSQL_VERSION: ${PDPGSQL_VERSION}
                         OWNER:           ${OWNER}
                         VM_NAME:         ${VM_NAME}
                     """
@@ -173,6 +204,7 @@ pipeline {
                         sudo amazon-linux-extras enable epel php8.2
                         sudo yum --enablerepo epel install php -y
                         sudo yum install sysbench mysql-client -y
+                        sudo yum install ansible -y
                     '''
                 }
             }
@@ -204,7 +236,7 @@ pipeline {
                                         --hostname pmm-server \
                                         --network pmm-qa \
                                         --restart always \
-                                        $ENV_VARIABLE \
+                                        ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 
                                     sleep 10
@@ -239,10 +271,11 @@ pipeline {
                             export PMM_CLIENT_VERSION="latest"
                         fi
 
-                        PMM_SERVER_IP=${SERVER_IP}
-                        if [[ "${CLIENT_INSTANCE}" = no ]]; then
-                            PMM_SERVER_IP=${IP}
+                        if [[ "${CLIENT_INSTANCE}" = yes ]]; then
+                            export EXTERNAL_PMM_SERVER_FLAG="--pmm-server-ip=${SERVER_IP}"
                         fi
+
+                        docker network create pmm-qa || true
 
                         sudo mkdir -p /srv/qa-integration || :
                         pushd /srv/qa-integration
@@ -252,20 +285,18 @@ pipeline {
                             sudo chmod 755 get_download_link.sh
                         popd
 
-                        sudo chmod -R 755 /srv/qa-integration
+                        sudo chown ec2-user -R /srv/qa-integration
 
                         pushd /srv/qa-integration/pmm_qa
-                            sudo yum install -y gcc python3-pip
-                            ls -la
-                            sudo python3 -m venv virtenv
+                            python3 -m venv virtenv
                             . virtenv/bin/activate
-                            sudo python3 --version
-                            sudo python3 -m pip install --upgrade pip
-                            sudo python3 -m pip install ansible-runner
+                            pip install --upgrade pip
+                            pip install -r requirements.txt
 
-                            ansible-runner --version
-                            ls -la
-                            export PATH=$PATH:$(pwd)
+                            python pmm-framework.py --v \
+                                --pmm-server-password=${ADMIN_PASSWORD} \
+                                --client-version=${PMM_CLIENT_VERSION} \
+                                ${EXTERNAL_PMM_SERVER_FLAG} ${CLIENTS}
                         popd
                     '''
                 }
@@ -274,14 +305,14 @@ pipeline {
     }
 
     post {
-//         always {
-//             script {
-//                 def node = Jenkins.instance.getNode(env.VM_NAME)
-//                 if (node) {
-//                     echo "Removing the node from Jenkins: " + env.VM_NAME
-//                     Jenkins.instance.removeNode(node)
-//                 }
-//             }
+        always {
+            script {
+                def node = Jenkins.instance.getNode(env.VM_NAME)
+                if (node) {
+                    echo "Removing the node from Jenkins: " + env.VM_NAME
+                    Jenkins.instance.removeNode(node)
+                }
+            }
         }
         success {
             script {
