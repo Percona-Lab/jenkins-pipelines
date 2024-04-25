@@ -24,6 +24,8 @@ whoami
 grep -c ^processor /proc/cpuinfo
 free
 prlimit
+#disable core generation
+ulimit -c 0
 ulimit -a
 echo "*******************************************************"
 
@@ -80,6 +82,7 @@ fi
 # Galera
 export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
 
+LOG_FILE=${WORKDIR_ABS}/mtr.log
 
 cd ${WORKDIR_ABS}/PXC/mysql-test
 TESTCASE_TIMEOUT=30
@@ -257,7 +260,7 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
             --testcase-timeout=${TESTCASE_TIMEOUT} \
             ${MTR_ARGS_NORMAL} \
             --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
-            --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" || true
+            --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" | tee -a ${LOG_FILE} || true
 
         ln -s $PWD/var $PWD/var_${suiteNoSlash}
         rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
@@ -290,7 +293,7 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
             --testcase-timeout=${TESTCASE_TIMEOUT_BIG} \
             ${MTR_ARGS_BIG} \
             --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
-            --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" || true
+            --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" | tee -a ${LOG_FILE} || true
 
         ln -s $PWD/var $PWD/var_${suiteNoSlash}
         rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
@@ -333,7 +336,7 @@ if [[ "${CI_FS_MTR}" = 'yes' ]]; then
 
     set +x
     for CURRENT_TEST in $DISABLED_TESTS; do
-        CI_TESTS=${CI_TESTS//"$CURRENT_TEST"/""}
+        CI_TESTS=$(echo $CI_TESTS | sed "s/\b${CURRENT_TEST}\b//g")
     done
     set -x
 
@@ -349,7 +352,7 @@ if [[ "${CI_FS_MTR}" = 'yes' ]]; then
         --vardir="/tmp/ci_disk_dir/var" \
         ${CI_TESTS} \
         --junit-output=${WORKDIR_ABS}/junit_ci_fs.xml \
-        --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.ci_fs" || true
+        --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.ci_fs" | tee -a ${LOG_FILE} || true
 
     rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/ci_disk_dir $PWD/mtr_var
 
@@ -385,7 +388,7 @@ if [[ -n "${MTR_STANDALONE_TESTS}" ]]; then
         --testcase-timeout=${TESTCASE_TIMEOUT} \
         ${MTR_ARGS_NORMAL} \
         --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
-        --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" ${MTR_STANDALONE_TESTS} || true
+        --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" ${MTR_STANDALONE_TESTS} | tee -a ${LOG_FILE} || true
 
     ln -s $PWD/var $PWD/var_${suiteNoSlash}
     rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var

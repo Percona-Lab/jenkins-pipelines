@@ -173,6 +173,36 @@ void doTests(String WORKER_ID, String SUITES, String STANDALONE_TESTS = '', bool
     }  // withCredentials
 }
 
+void analyzeMtrLog(String logFile) {
+    script {
+        res = sh (
+        script: """
+            echo \$(cat ${logFile} | grep -c 'Not all tests completed')
+            """,
+            returnStdout: true
+        ).trim()
+
+        if (res != "0") {
+            catchError(stageResult: 'FAILURE', buildResult: null) {
+                error 'Not all tests executed.'
+            }
+        }
+
+        res = sh (
+        script: """
+            echo \$(cat ${logFile} | grep -c 'mysql-test-run: \\*\\*\\* ERROR')
+            """,
+            returnStdout: true
+        ).trim()
+
+        if (res != "0") {
+            catchError(stageResult: 'FAILURE', buildResult: null) {
+                error 'Not all tests executed.'
+            }
+        }
+    }
+}
+
 void doTestWorkerJob(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS = '', boolean UNIT_TESTS = false, boolean CIFS_TESTS = false) {
     timeout(time: PIPELINE_TIMEOUT, unit: 'HOURS')  {
         script {
@@ -185,7 +215,9 @@ void doTestWorkerJob(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS =
             prepareWorkspace()
             downloadFilesForTests()
             doTests(WORKER_ID.toString(), SUITES, STANDALONE_TESTS, UNIT_TESTS, CIFS_TESTS)
+            analyzeMtrLog("pxc/sources/pxc/results/mtr.log")
         }
+
         step([$class: 'JUnitResultArchiver', testResults: 'pxc/sources/pxc/results/*.xml', healthScaleFactor: 1.0])
         archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/pxc80-test-mtr_logs-*.tar.gz'
     }
@@ -369,6 +401,7 @@ void validatePxcBranch() {
         rm -f ${WORKSPACE}/VERSION-${BUILD_NUMBER}
     """
 }
+
 
 void triggerAbortedTestWorkersRerun() {
     script {
