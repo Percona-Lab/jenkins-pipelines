@@ -196,6 +196,11 @@ pipeline {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
                             }
                         }
+                        stage('Build client binary deb Noble') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:noble"
+                            }
+                        }
                     }
                     post {
                         success {
