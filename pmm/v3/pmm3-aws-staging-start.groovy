@@ -34,7 +34,7 @@ pipeline {
             name: 'SSH_KEY'
         )
         string(
-            defaultValue: 'pmm3admin',
+            defaultValue: 'pmm3admin!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD'
         )
@@ -281,9 +281,6 @@ pipeline {
                         sudo mkdir -p /srv/qa-integration || :
                         pushd /srv/qa-integration
                             sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                            sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
-                            sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
-                            sudo chmod 755 get_download_link.sh
                         popd
 
                         sudo chown ec2-user -R /srv/qa-integration
