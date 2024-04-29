@@ -100,7 +100,7 @@ pipeline {
             Additional options:
                 SETUP_TYPE=pss(Primary-Secondary-Secondary)|psa(Primary-Secondary-Arbiter)|shards(Sharded cluster)
             --database pdpgsql - Percona Distribution for PostgreSQL (ex: --database pdpgsql=16)
-            --database pgsql - Percona Distribution for PostgreSQL (ex: --database pgsql=16)
+            --database pgsql - Official PostgreSQL Distribution (ex: --database pgsql=16)
             --database pxc - Percona XtraDB Cluster, (to be used with proxysql only, ex: --database pxc)
             -----
             Example: --database ps=5.7,QUERY_SOURCE=perfschema --database psmdb,SETUP_TYPE=pss
