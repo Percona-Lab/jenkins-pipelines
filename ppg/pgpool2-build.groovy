@@ -54,8 +54,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 sleep 30
                 echo "Waiting ..."
             done
-            sudo wget https://repo.percona.com/apt/percona-release_latest.\$(lsb_release -sc)_all.deb
-            sudo dpkg -i percona-release_latest.\$(lsb_release -sc)_all.deb
+            sudo wget https://repo.percona.com/apt/percona-release_latest.generic_all.deb
+            sudo dpkg -i percona-release_latest.generic_all.deb
         fi
         sudo percona-release enable ppg-${PG_RELEASE} release
         pwd -P
