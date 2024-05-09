@@ -1,8 +1,8 @@
 tests=[]
 
 void IsRunTestsInClusterWide() {
-    if ("${params.CLUSTER_WIDE}" == "YES") {
-        env.OPERATOR_NS = 'psmdb-operator'
+    if ("$CLUSTER_WIDE" == "YES") {
+        OPERATOR_NS = 'psmdb-operator'
     }
 }
 
@@ -11,25 +11,25 @@ void pushArtifactFile(String FILE_NAME) {
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            touch ${FILE_NAME}
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${GIT_SHORT_COMMIT}
-            aws s3 ls \$S3_PATH/${FILE_NAME} || :
-            aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
+            touch $FILE_NAME
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
+            aws s3 ls \$S3_PATH/$FILE_NAME || :
+            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
         """
     }
 }
 
 void initTests() {
     echo "Populating tests into the tests array!"
-    def testList = "${params.TEST_LIST}"
-    def suiteFileName = "./source/e2e-tests/${params.TEST_SUITE}"
+    def testList = "$TEST_LIST"
+    def suiteFileName = "./source/e2e-tests/$TEST_SUITE"
 
     if (testList.length() != 0) {
         suiteFileName = './source/e2e-tests/run-custom.csv'
         sh """
-            echo -e "${testList}" > ${suiteFileName}
+            echo -e "$testList" > $suiteFileName
             echo "Custom test suite contains following tests:"
-            cat ${suiteFileName}
+            cat $suiteFileName
         """
     }
 
@@ -45,16 +45,16 @@ void initTests() {
 void markPassedTests() {
     echo "Marking passed tests in the tests map!"
 
-    if ("${params.IGNORE_PREVIOUS_RUN}" == "NO") {
+    if ("$IGNORE_PREVIOUS_RUN" == "NO") {
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
             sh """
-                aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
+                aws s3 ls "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" || :
             """
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}-${PARAMS_HASH}"
-                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
                     tests[i]["result"] = "passed"
@@ -65,7 +65,7 @@ void markPassedTests() {
     else {
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
             sh """
-                aws s3 rm "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" --recursive --exclude "*" --include "*-${PARAMS_HASH}" || :
+                aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
             """
         }
     }
@@ -116,7 +116,7 @@ void runTest(Integer TEST_ID) {
                 sudo rm -rf /tmp/hostpath-provisioner/*
                 ./e2e-tests/$testName/run
             """
-            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$MDB_TAG-CW_${params.CLUSTER_WIDE}-${PARAMS_HASH}")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -176,9 +176,13 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
             description: 'percona-server-mongodb-operator repository',
             name: 'GIT_REPO')
+        string(
+            defaultValue: 'latest',
+            description: 'Minikube version',
+            name: 'PLATFORM_VER')
         choice(
-            choices: 'NO\nYES',
-            description: 'Run tests with cluster wide',
+            choices: 'YES\nNO',
+            description: 'Run tests in cluster wide mode',
             name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
@@ -186,7 +190,7 @@ pipeline {
             name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod4.0',
+            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
             name: 'IMAGE_MONGOD')
         string(
             defaultValue: '',
@@ -200,14 +204,9 @@ pipeline {
             defaultValue: '',
             description: 'PMM server image: perconalab/pmm-server:dev-latest',
             name: 'IMAGE_PMM_SERVER')
-        string(
-            defaultValue: 'latest',
-            description: 'Kubernetes Version',
-            name: 'PLATFORM_VER',
-            trim: true)
     }
     agent {
-         label 'micro-amazon'
+        label 'micro-amazon'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
@@ -215,7 +214,7 @@ pipeline {
     }
     environment {
         CLEAN_NAMESPACE = 1
-        MDB_TAG = sh(script: "if [ -n \"\${IMAGE_MONGOD}\" ] ; then echo ${IMAGE_MONGOD} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
+        MDB_TAG = sh(script: "if [ -n \"\$IMAGE_MONGOD\" ] ; then echo $IMAGE_MONGOD | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
     }
     stages {
         stage('Prepare') {
@@ -255,7 +254,7 @@ pipeline {
                             cd ./source/
                             sg docker -c "
                                 docker buildx create --use
-                                docker login -u '${USER}' -p '${PASS}'
+                                docker login -u '$USER' -p '$PASS'
                                 export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                                 ./e2e-tests/build
                                 docker logout
@@ -287,7 +286,7 @@ pipeline {
                         sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
                         sudo chmod +x /usr/local/bin/minikube
                         export CHANGE_MINIKUBE_NONE_USER=true
-                        /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER} --cpus=6 --memory=28G
+                        /usr/local/bin/minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G
                     """
 
                     unstash "sourceFILES"
@@ -315,7 +314,7 @@ pipeline {
                 echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
                 makeReport()
                 sh """
-                    echo "${TestsReport}" > TestsReport.xml
+                    echo "$TestsReport" > TestsReport.xml
                 """
                 step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
                 archiveArtifacts '*.xml'
