@@ -38,10 +38,10 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 fi
             elif [ "${CLIENT_VERSION}" = pmm3-rc ]; then
                 sudo percona-release enable-only original testing
-                sudo yum -y install pmm3-client
+                sudo yum -y install pmm-client
             elif [ "${CLIENT_VERSION}" = pmm3-latest ]; then
                 sudo percona-release enable-only original experimental
-                sudo yum -y install pmm3-client
+                sudo yum -y install pmm-client
                 sudo yum -y update
             elif [[ "${CLIENT_VERSION}" = 3* ]]; then
                 if [ "${ENABLE_TESTING_REPO}" = yes ]; then
@@ -51,7 +51,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 else
                     sudo percona-release enable-only original release
                 fi
-                sudo yum -y install "pmm3-client-${CLIENT_VERSION}-1.el9.x86_64"
+                sudo yum -y install "pmm-client-${CLIENT_VERSION}-1.el9.x86_64"
                 sleep 10
             else
                 if [[ "${CLIENT_VERSION}" = http* ]]; then
