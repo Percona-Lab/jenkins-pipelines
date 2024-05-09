@@ -255,7 +255,6 @@ pipeline {
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
-                setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), DOCKER_VERSION, ENABLE_PULL_MODE, 'no', CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD, 'no')
                 script {
                         env.PMM_REPO = params.CLIENT_VERSION == "pmm-rc" ? "testing" : "experimental"
                     }
