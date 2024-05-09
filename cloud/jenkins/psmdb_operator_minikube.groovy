@@ -288,7 +288,14 @@ pipeline {
                 steps {
                     clusterRunner('cluster1')
                 }
-
+            post {
+                always {
+                    sh """
+                        /usr/local/bin/minikube delete || true
+                        sudo rm -rf *
+                    """
+                }
+            }
         }
     }
     post {
@@ -308,7 +315,7 @@ pipeline {
             }
 
             sh """
-                /usr/local/bin/minikube delete || true
+                # /usr/local/bin/minikube delete || true
                 sudo docker system prune --volumes -af
                 sudo rm -rf *
             """
