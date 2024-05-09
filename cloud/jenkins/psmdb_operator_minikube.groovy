@@ -288,14 +288,7 @@ pipeline {
                 steps {
                     clusterRunner('cluster1')
                 }
-            post {
-                always {
-                    sh """
-                        /usr/local/bin/minikube delete || true
-                        sudo rm -rf *
-                    """
-                }
-            }
+
         }
     }
     post {
