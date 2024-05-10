@@ -7,15 +7,15 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/percona-packaging/scripts/pg_stat_monitor_builder.sh -O builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/main/percona-packaging/scripts/pg_stat_monitor_builder.sh -O builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./builder.sh --builddir=\${build_dir}/test --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./builder.sh --builddir=\${build_dir}/test --pg_release=\${PG_RELEASE} --ppg_repo_name=\${PPG_REPO} --install_deps=1
+            bash -x ./builder.sh --builddir=\${build_dir}/test --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} --pg_release=\${PG_RELEASE} --ppg_repo_name=\${PPG_REPO} ${STAGE_PARAM}"
     """
 }
 
