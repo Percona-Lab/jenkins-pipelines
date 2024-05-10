@@ -266,35 +266,23 @@ pipeline {
     }
     stages {
         stage('Prepare node') {
-            agent { label 'docker' }
             steps {
                 prepareNode()
             }
         }
         stage('Docker Build and Push') {
-            agent { label 'docker' }
             steps {
                 dockerBuildPush()
             }
         }
         stage('Init tests') {
-            agent { label 'docker' }
             steps {
                 initTests()
             }
         }
         stage('Run Tests') {
-            agent { label 'docker-32gb' }
-                steps {
-                    clusterRunner('cluster1')
-                }
-            post {
-                always {
-                    sh """
-                        /usr/local/bin/minikube delete || true
-                        sudo rm -rf *
-                    """
-                }
+            steps {
+                clusterRunner('cluster1')
             }
         }
     }
@@ -315,7 +303,7 @@ pipeline {
             }
 
             sh """
-                # /usr/local/bin/minikube delete || true
+                /usr/local/bin/minikube delete || true
                 sudo docker system prune --volumes -af
                 sudo rm -rf *
             """
