@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@add-dist', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 List all_nodes = [
@@ -9,11 +9,13 @@ List all_nodes = [
     "min-bookworm-x64",
     "min-centos-7-x64",
     "min-ol-8-x64",
-    "min-bionic-x64",
-    "min-focal-x64",
-    "min-amazon-2-x64",
-    "min-jammy-x64",
     "min-ol-9-x64",
+    "min-focal-x64",
+    "min-jammy-x64",
+    "min-noble-x64",
+    "min-amazon-2-x64",
+    "min-rhel-8-x64",
+    "min-rhel-9-x64",
 ]
 
 product_to_test = params.product_to_test
@@ -155,17 +157,16 @@ pipeline {
                     }
                 }
 
-                stage("Ubuntu Bionic") {
+                stage("Oracle Linux 9") {
                     when {
                         expression {
-                            nodes_to_test.contains("min-bionic-x64")
+                            nodes_to_test.contains("min-ol-9-x64")
                         }
                     }
 
                     steps {
-                        runNodeBuild("min-bionic-x64")
+                        runNodeBuild("min-ol-9-x64")
                     }
-                }
 
                 stage("Ubuntu Focal") {
                     when {
@@ -176,6 +177,30 @@ pipeline {
 
                     steps {
                         runNodeBuild("min-focal-x64")
+                    }
+                }
+
+                stage("Ubuntu Jammy") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("min-jammy-x64")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("min-jammy-x64")
+                    }
+                }
+
+                stage("Ubuntu Nobel") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("min-noble-x64")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("min-noble-x64")
                     }
                 }
 
@@ -190,26 +215,26 @@ pipeline {
                         runNodeBuild("min-amazon-2-x64")
                     }
                 }
-                stage("Ubuntu Jammy") {
+                stage("RHEL 9") {
                     when {
                         expression {
-                            nodes_to_test.contains("min-jammy-x64")
+                            nodes_to_test.contains("min-rhel-8-x64")
                         }
                     }
 
                     steps {
-                        runNodeBuild("min-jammy-x64")
+                        runNodeBuild("min-rhel-8-x64")
                     }
                 }
-                stage("Oracle Linux 9") {
+                stage("RHEL 9") {
                     when {
                         expression {
-                            nodes_to_test.contains("min-ol-9-x64")
+                            nodes_to_test.contains("min-rhel-9-x64")
                         }
                     }
 
                     steps {
-                        runNodeBuild("min-ol-9-x64")
+                        runNodeBuild("min-rhel-9-x64")
                     }
                 }
             }
