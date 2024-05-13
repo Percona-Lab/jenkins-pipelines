@@ -167,6 +167,7 @@ pipeline {
                     steps {
                         runNodeBuild("min-ol-9-x64")
                     }
+                } 
 
                 stage("Ubuntu Focal") {
                     when {
@@ -192,7 +193,7 @@ pipeline {
                     }
                 }
 
-                stage("Ubuntu Nobel") {
+                stage("Ubuntu Noble") {
                     when {
                         expression {
                             nodes_to_test.contains("min-noble-x64")
@@ -215,7 +216,7 @@ pipeline {
                         runNodeBuild("min-amazon-2-x64")
                     }
                 }
-                stage("RHEL 9") {
+                stage("RHEL 8") {
                     when {
                         expression {
                             nodes_to_test.contains("min-rhel-8-x64")
