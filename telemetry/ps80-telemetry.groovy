@@ -61,14 +61,13 @@ pipeline {
             steps {
                 script {
                     currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.SCENARIO}"
-                    currentBuild.description = "${env.VERSION}-${env.REPO}-${env.TESTING_BRANCH}-${env.MAJOR_REPO}"
+                    currentBuild.description = "${env.VERSION}-${env.TESTING_BRANCH}"
                 }
             }
         }
         stage('Check version param and checkout') {
             steps {
                 deleteDir()
-                checkOrchVersionParam()
                 git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
             }
         }
