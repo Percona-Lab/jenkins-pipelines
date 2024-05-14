@@ -286,8 +286,6 @@ pipeline {
                         sudo chown ec2-user -R /srv/qa-integration
 
                         pushd /srv/qa-integration/pmm_qa
-                            echo "Setting up PMM client on the host"
-                            sudo bash -x pmm3-client-setup.sh --pmm_server_ip 127.0.0.1 --client_version ${CLIENT_VERSION} --admin_password ${ADMIN_PASSWORD} --use_metrics_mode no
                             echo "Setting docker based PMM clients"
                             python3 -m venv virtenv
                             . virtenv/bin/activate
