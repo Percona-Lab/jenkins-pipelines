@@ -31,7 +31,7 @@ pipeline {
         choice(
             name: 'SCENARIO',
             description: 'Scenario for test',
-            choices: ['ps-telemetry',]
+            choices: ['telemetry-ps',]
         )
         string(
             defaultValue: 'telemetry_ph1',
