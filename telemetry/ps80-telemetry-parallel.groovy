@@ -13,11 +13,6 @@ pipeline {
 
   }
   parameters {
-        choice(
-            name: 'PLATFORM',
-            description: 'For what platform (OS) need to test',
-            choices: pdpsOperatingSystems()
-        )
         string(
             defaultValue: 'phase-0.1',
             description: 'Telemetry Agent version',
