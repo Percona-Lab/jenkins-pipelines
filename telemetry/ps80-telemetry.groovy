@@ -3,6 +3,8 @@ library changelog: false, identifier: "lib@telem_ph1", retriever: modernSCM([
     remote: 'https://github.com/eleo007/jenkins-pipelines.git'
 ])
 
+List operating_systems = []
+operating_systems = pdpsOperatingSystems() + ['rocky-8', 'rocky-9']
 
 pipeline {
     agent {
@@ -16,7 +18,7 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: pdpsOperatingSystems() + ['rocky-8', 'rocky-9']
+            choices: operating_systems
         )
         string(
             defaultValue: 'phase-0.1',
@@ -118,3 +120,4 @@ pipeline {
         }
     }
 }
+
