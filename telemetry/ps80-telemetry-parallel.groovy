@@ -68,7 +68,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(pdpsOperatingSystems(), env.MOLECULE_DIR)
+                    moleculeParallelTest(pdpsOperatingSystems() + ['rocky-8', 'rocky-9'], env.MOLECULE_DIR)
                 }
             }
          }
@@ -76,7 +76,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(pdpsOperatingSystems(), env.MOLECULE_DIR)
+              moleculeParallelPostDestroy(pdpsOperatingSystems() + ['rocky-8', 'rocky-9'], env.MOLECULE_DIR)
          }
       }
    }

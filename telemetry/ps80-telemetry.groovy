@@ -16,7 +16,7 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: pdpsOperatingSystems()
+            choices: pdpsOperatingSystems() + ['rocky-8', 'rocky-9']
         )
         string(
             defaultValue: 'phase-0.1',
