@@ -1,9 +1,10 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@add-dist', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 List all_nodes = [
+    'ubuntu-noble',
     'ubuntu-focal',
     'ubuntu-jammy',
     'debian-10',
@@ -11,7 +12,9 @@ List all_nodes = [
     'debian-12',
     'centos-7',
     'oracle-8',
-    'oracle-9'
+    'oracle-9',
+    'rhel-8',
+    'rhel-9'
 ]
 
 List TEST_DISTS = []
@@ -61,6 +64,7 @@ pipeline {
             name: 'TEST_DIST',
             choices: [
                 'all',
+                'ubuntu-noble',
                 'ubuntu-focal',
                 'ubuntu-jammy',
                 'debian-10',
@@ -68,7 +72,9 @@ pipeline {
                 'debian-12',
                 'centos-7',
                 'oracle-8',
-                'oracle-9'
+                'oracle-9',
+                'rhel-8',
+                'rhel-9'
             ],
             description: 'Distribution to run test'
         )
@@ -95,6 +101,19 @@ pipeline {
 
         stage("Run parallel") {
             parallel {
+           
+                stage("Ubuntu Noble") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("ubuntu-noble")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("ubuntu-noble")
+                    }
+                }
+
                 stage("Ubuntu Focal") {
                     when {
                         expression {
@@ -188,6 +207,33 @@ pipeline {
 
                     steps {
                         runNodeBuild("oracle-9")
+    
+                    }
+                }
+
+                stage("Rhel-8") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("rhel-8")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("rhel-8")
+
+                    }
+                }
+
+                stage("Rhel-9") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("rhel-9")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("rhel-9")
+
                     }
                 }
             }

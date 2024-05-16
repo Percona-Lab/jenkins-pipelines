@@ -35,6 +35,7 @@
             name: TEST_DIST
             choices:
                 - 'all'
+                - 'ubuntu-noble'  
                 - 'ubuntu-focal'
                 - 'ubuntu-jammy'
                 - 'debian-10'
@@ -43,6 +44,8 @@
                 - 'centos-7'
                 - 'oracle-8'
                 - 'oracle-9'
+                - 'rhel-8'
+                - 'rhel-9'  
             description: "Distribution to run test"
         - choice:
             name: INSTALL_REPO
