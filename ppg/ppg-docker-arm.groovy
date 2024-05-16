@@ -12,7 +12,7 @@ pipeline {
     }
     parameters {
         choice(name: 'PPG_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
-        string(name: 'PPG_VERSION', defaultValue: '12.18', description: 'PPG version')
+        string(name: 'PPG_VERSION', defaultValue: '12.19-1', description: 'PPG version')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
         choice(name: 'LATEST', choices: ['no','yes'], description: 'Tag image as latest')
     }
