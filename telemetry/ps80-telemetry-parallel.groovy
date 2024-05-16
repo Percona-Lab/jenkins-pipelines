@@ -81,3 +81,6 @@ pipeline {
       }
    }
 }
+
+List operating_systems = []
+operating_systems = pdpsOperatingSystems() + ['rocky-8', 'rocky-9']
