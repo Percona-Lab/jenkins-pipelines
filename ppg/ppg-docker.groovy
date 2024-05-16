@@ -15,7 +15,6 @@ pipeline {
         string(name: 'PPG_VERSION', defaultValue: '16.3-1', description: 'PPG version')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
         choice(name: 'DEBUG', choices: ['no','yes'], description: 'Additionally build debug image')
-        choice(name: 'TESTS', choices: ['yes','no'], description: 'Run tests after building')
     }
     options {
         disableConcurrentBuilds()
