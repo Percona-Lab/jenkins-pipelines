@@ -80,7 +80,7 @@ pipeline {
                          sudo ./aws/install
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
                          docker tag percona-distribution-postgresql:\$MAJ_VER public.ecr.aws/e7j3v3n0/ppg-build:ppg-${params.PPG_VERSION}
-                         docker push public.ecr.aws/e7j3v3n0/ppg-build:ppg-${params.PPG_VERSION}
+                         #docker push public.ecr.aws/e7j3v3n0/ppg-build:ppg-${params.PPG_VERSION}
                      """
                 }
             }
@@ -96,9 +96,11 @@ pipeline {
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                          MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
                          docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:${params.PPG_VERSION}
-                         docker push perconalab/percona-distribution-postgresql:${params.PPG_VERSION}
+                         #docker push perconalab/percona-distribution-postgresql:${params.PPG_VERSION}
+                         docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
+                         #docker push perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
                          docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:\$MAJ_VER
-                         docker push perconalab/percona-distribution-postgresql:\$MAJ_VER
+                         #docker push perconalab/percona-distribution-postgresql:\$MAJ_VER
                      """
                 }
             }
@@ -114,9 +116,11 @@ pipeline {
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                          MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
                          docker tag percona-distribution-postgresql:\$MAJ_VER percona/percona-distribution-postgresql:${params.PPG_VERSION}
-                         docker push percona/percona-distribution-postgresql:${params.PPG_VERSION}
+                         #docker push percona/percona-distribution-postgresql:${params.PPG_VERSION}
+                         docker tag percona-distribution-postgresql:\$MAJ_VER percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
+                         #docker push percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
                          docker tag percona-distribution-postgresql:\$MAJ_VER percona/percona-distribution-postgresql:\$MAJ_VER
-                         docker push percona/percona-distribution-postgresql:\$MAJ_VER
+                         #docker push percona/percona-distribution-postgresql:\$MAJ_VER
                      """
                 }
             }
