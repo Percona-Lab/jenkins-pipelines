@@ -34,7 +34,7 @@ pipeline {
                     echo \$MAJ_VER
                     MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
                     echo \$MIN_VER
-                    git clone https://github.com/maqeel75/percona-docker
+                    git clone https://github.com/percona/percona-docker
                     cd percona-docker/percona-distribution-postgresql-\$MAJ_VER
                     sed -E "s/ENV PPG_VERSION (.+)/ENV PPG_VERSION ${params.PPG_VERSION}/" -i Dockerfile
                     sed -E "s/ENV PPG_REPO (.+)/ENV PPG_REPO ${params.PPG_REPO}/" -i Dockerfile
