@@ -46,8 +46,46 @@ pipeline {
         }
         stage ('Push images to percona') {
             when {
+                environment name: 'TARGET_REPO', value: 'PerconaLab'
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'hub1.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                     sh """
+                         docker login -u '${USER}' -p '${PASS}'
+                         MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
+                         MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
+                         docker tag percona-distribution-postgresql perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-arm64
+                         docker tag percona-distribution-postgresql perconalab/percona-distribution-postgresql:\$MAJ_VER-arm64
+                         docker push perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-arm64
+                         docker push perconalab/percona-distribution-postgresql:\$MAJ_VER-arm64
+
+                         docker manifest create --amend perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-multi \
+                            perconalab/percona-distribution-postgresql:${params.PPG_VERSION} \
+                            perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-arm64
+                         docker manifest annotate perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-multi \
+                            perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-multi \
+                            perconalab/percona-distribution-postgresql:${params.PPG_VERSION} --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-multi
+                         docker manifest push perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-multi
+
+                         docker manifest create --amend perconalab/percona-distribution-postgresql:\$MAJ_VER-multi \
+                            perconalab/percona-distribution-postgresql:\$MAJ_VER \
+                            perconalab/percona-distribution-postgresql:\$MAJ_VER-arm64
+                         docker manifest annotate perconalab/percona-distribution-postgresql:\$MAJ_VER-multi \
+                            perconalab/percona-distribution-postgresql:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-distribution-postgresql:\$MAJ_VER-multi \
+                            perconalab/percona-distribution-postgresql:\$MAJ_VER --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-distribution-postgresql:\$MAJ_VER-multi
+                         docker manifest push perconalab/percona-distribution-postgresql:\$MAJ_VER-multi
+
+                     """
+                }
+            }
+        }
+        stage ('Push images to percona') {
+            when {
                 environment name: 'TARGET_REPO', value: 'DockerHub'
-                //environment name: 'TARGET_REPO', value: 'PerconaLab'
             }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub1.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
