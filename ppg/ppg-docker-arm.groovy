@@ -44,7 +44,7 @@ pipeline {
                     """
             }
         }
-        stage ('Push images to percona') {
+        stage ('Push images to perconalab') {
             when {
                 environment name: 'TARGET_REPO', value: 'PerconaLab'
             }
