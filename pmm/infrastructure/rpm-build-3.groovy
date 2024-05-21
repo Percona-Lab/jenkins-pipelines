@@ -51,13 +51,8 @@ pipeline {
                     //         }
                     //     }
                     // }
-                    stage('Build') {
+                    stage('Login to ECR') {
                         steps {
-                            sh '''
-                                cd build/docker/rpmbuild/
-                                ## docker buildx build --pull --tag ${IMAGE_REGISTRY}/${DOCKER_TAG} -f Dockerfile.el9 .
-                                docker buildx build --pull --platform linux/amd64,linux/arm64 --tag ${IMAGE_REGISTRY}/${DOCKER_TAG} -f Dockerfile.el9 --push .
-                            '''
                             withCredentials([[
                                 $class: 'AmazonWebServicesCredentialsBinding',
                                 accessKeyVariable: 'AWS_ACCESS_KEY_ID',
@@ -65,9 +60,27 @@ pipeline {
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                                 sh '''
                                     aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin ${IMAGE_REGISTRY}
-                                    ## docker push ${IMAGE_REGISTRY}/${DOCKER_TAG}
                                 '''
                             }
+                        }
+                    }
+                    stage('Build') {
+                        steps {
+                            sh '''
+                                cd build/docker/rpmbuild/
+                                ## docker buildx build --pull --tag ${IMAGE_REGISTRY}/${DOCKER_TAG} -f Dockerfile.el9 .
+                                docker buildx build --pull --platform linux/amd64,linux/arm64 --tag ${IMAGE_REGISTRY}/${DOCKER_TAG} -f Dockerfile.el9 --push .
+                            '''
+                            // withCredentials([[
+                            //     $class: 'AmazonWebServicesCredentialsBinding',
+                            //     accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                            //     credentialsId: 'ECRRWUser',
+                            //     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            //     sh '''
+                            //         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin ${IMAGE_REGISTRY}
+                            //         ## docker push ${IMAGE_REGISTRY}/${DOCKER_TAG}
+                            //     '''
+                            // }
                         }
                     }
                 }
