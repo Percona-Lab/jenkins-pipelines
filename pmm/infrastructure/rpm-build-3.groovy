@@ -31,6 +31,17 @@ pipeline {
                             ])
                         }
                     }
+                    stage('Setup Buildx') {
+                        steps {
+                            script {
+                                sh '''
+                                    # Ensure Buildx is available and create a new builder with the docker-container driver
+                                    docker buildx create --use --name pmmbuilder --driver docker-container || true
+                                    docker buildx inspect pmmbuilder --bootstrap
+                                '''
+                            }
+                        }
+                    }
                     // stage('Prepare') {
                     //     steps {
                     //         script {
