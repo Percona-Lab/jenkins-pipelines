@@ -33,7 +33,8 @@ pipeline {
                         steps {
                             sh '''
                                 cd build/docker/rpmbuild/
-                                docker buildx build --pull --tag ${IMAGE_REGISTRY}/${DOCKER_TAG} -f Dockerfile.el9 .
+                                ## docker buildx build --pull --tag ${IMAGE_REGISTRY}/${DOCKER_TAG} -f Dockerfile.el9 .
+                                docker buildx build --pull --platform linux/amd64,linux/arm64 --tag ${IMAGE_REGISTRY}/${DOCKER_TAG} -f Dockerfile.el9 --push
                             '''
                             withCredentials([[
                                 $class: 'AmazonWebServicesCredentialsBinding',
@@ -42,7 +43,7 @@ pipeline {
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                                 sh '''
                                     aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin ${IMAGE_REGISTRY}
-                                    docker push ${IMAGE_REGISTRY}/${DOCKER_TAG}
+                                    ## docker push ${IMAGE_REGISTRY}/${DOCKER_TAG}
                                 '''
                             }
                         }
