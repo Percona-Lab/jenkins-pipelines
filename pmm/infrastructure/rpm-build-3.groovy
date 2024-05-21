@@ -21,13 +21,25 @@ pipeline {
                 stages {
                     stage('Prepare') {
                         steps {
-                            script {
-                                sh '''
-                                    git clone --single-branch --no-tags --branch ${PMM_GIT_BRANCH} --depth=1 https://github.com/percona/pmm.git .
-                                '''
-                            }
+                            checkout([$class: 'GitSCM', 
+                                    branches: [[name: "*/${PMM_GIT_BRANCH}"]],
+                                    extensions: [[$class: 'CloneOption',
+                                    noTags: true,
+                                    reference: '',
+                                    shallow: true]],
+                                    userRemoteConfigs: [[url: 'https://github.com/percona/pmm.git']]
+                            ])
                         }
                     }
+                    // stage('Prepare') {
+                    //     steps {
+                    //         script {
+                    //             sh '''
+                    //                 git clone --single-branch --no-tags --branch ${PMM_GIT_BRANCH} --depth=1 https://github.com/percona/pmm.git .
+                    //             '''
+                    //         }
+                    //     }
+                    // }
                     stage('Build') {
                         steps {
                             sh '''
