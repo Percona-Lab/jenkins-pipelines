@@ -1,5 +1,7 @@
 pipeline {
-    agent none
+    agent {
+        label "agent-amd64"
+    }
     parameters {
         string(
             defaultValue: 'v3',
@@ -16,9 +18,6 @@ pipeline {
     }
     stages {
         stage('Build rpmbuild image for v3') {
-                agent {
-                    label "agent-amd64"
-                }
                 stages {
                     stage('Prepare') {
                         steps {
