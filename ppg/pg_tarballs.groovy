@@ -121,7 +121,7 @@ pipeline {
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				unstash 'timestamp'
-				AWS_STASH_PATH_16="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
+				AWS_STASH_PATH_16="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
 				sh """
 					echo ${AWS_STASH_PATH_16} > uploadPath-${PACKAGE_VERSION}
 					cat uploadPath-${PACKAGE_VERSION}
@@ -147,7 +147,7 @@ pipeline {
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	unstash 'timestamp'
-				AWS_STASH_PATH_16="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
+				AWS_STASH_PATH_16="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH_16} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -173,7 +173,7 @@ pipeline {
 
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	unstash 'timestamp'
-				AWS_STASH_PATH_15="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
+				AWS_STASH_PATH_15="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH_15} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -199,7 +199,7 @@ pipeline {
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	unstash 'timestamp'
-				AWS_STASH_PATH_15="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
+				AWS_STASH_PATH_15="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH_15} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -225,7 +225,7 @@ pipeline {
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	unstash 'timestamp'
-				AWS_STASH_PATH_14="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
+				AWS_STASH_PATH_14="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH_14} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -251,7 +251,7 @@ pipeline {
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
                         	unstash 'timestamp'
-				AWS_STASH_PATH_14="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
+				AWS_STASH_PATH_14="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH_14} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -277,7 +277,7 @@ pipeline {
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				unstash 'timestamp'
-				AWS_STASH_PATH_13="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
+				AWS_STASH_PATH_13="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH_13} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -303,7 +303,7 @@ pipeline {
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				unstash 'timestamp'
-				AWS_STASH_PATH_13="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
+				AWS_STASH_PATH_13="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH_13} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -329,7 +329,7 @@ pipeline {
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				unstash 'timestamp'
-				AWS_STASH_PATH_12="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
+				AWS_STASH_PATH_12="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH_12} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
@@ -355,7 +355,7 @@ pipeline {
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
 				def PRODUCT="Percona-PostgreSQL-Tarballs"
 				unstash 'timestamp'
-				AWS_STASH_PATH_12="BUILDS/${PRODUCT}/${DESTINATION}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
+				AWS_STASH_PATH_12="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
 				sh """
                                         echo ${AWS_STASH_PATH_12} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
