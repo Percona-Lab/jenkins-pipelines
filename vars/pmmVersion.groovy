@@ -83,7 +83,5 @@ def call(String type='dev-latest') {
       return ovfVersions
     case 'dbaas':
       return dbaasVersions
-    case 'list':
-      return versionsList
   }
 }
