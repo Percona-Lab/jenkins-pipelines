@@ -16,7 +16,7 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENA
     ]
 }
 
-def versions = pmmVersion('list_with_old')
+def versions = pmmVersion('list')
 def parallelStagesMatrix = versions.collectEntries {
     ["${it}" : generateStage(it)]
 }
