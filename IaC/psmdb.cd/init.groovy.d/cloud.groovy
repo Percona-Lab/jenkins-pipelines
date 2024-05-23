@@ -35,6 +35,7 @@ imageMap['min-xenial-x64']   = 'ami-079e7a3f57cc8e0d0'
 imageMap['min-bionic-x64']   = 'ami-093407aedabc3d647'
 imageMap['min-focal-x64']    = 'ami-0ee3d9a8776e8b99c'
 imageMap['min-jammy-x64']    = 'ami-0aa5fa88fa2ec19dc'
+imageMap['min-noble-x64']    = 'ami-0cf2b4e024cdb6960'
 imageMap['psmdb']            = imageMap['min-xenial-x64']
 imageMap['psmdb-bionic']     = imageMap['min-bionic-x64']
 imageMap['docker']           = imageMap['micro-amazon']
@@ -44,11 +45,11 @@ imageMap['docker-64gb']      = imageMap['micro-amazon']
 imageMap['docker-64gb-aarch64'] = 'ami-055495e6fc65e4321'
 
 priceMap = [:]
-priceMap['c5.large']   = '0.13' // type=c5.large, vCPU=2, memory=4GiB, saving=29%, interruption='<5%', price=0.071400
-priceMap['c5ad.2xlarge']  = '0.33'
-priceMap['c5.4xlarge'] = '0.33' // type=c5.4xlarge, vCPU=16, memory=32GiB, saving=62%, interruption='<5%', price=0.260400
-priceMap['i4i.4xlarge'] = '0.72' // type=i4i.4xlarge, vCPU=16, memory=64GiB, saving=70%, interruption='<5%'
-priceMap['m6g.4xlarge'] = '0.57' // aarch64 type=m6g.4xlarge, vCPU=16, memory=64GiB, saving=38%, interruption='<5%', price=0.488500
+priceMap['c5.xlarge']   = '0.13' // type=c5.xlarge, vCPU=2, memory=4GiB, saving=29%, interruption='<5%', price=0.071400
+priceMap['c5a.2xlarge']  = '0.25'  //type=c5a.2xlarge, vCPU=8, memory=16GiB, saving=58%, interruption='<5%', price=0.182000
+priceMap['g4ad.2xlarge'] = '0.33' //type=g4ad.2xlarge, vCPU=8, memory=32GiB, saving=63%, interruption='<5%', price=0.20
+priceMap['i3en.3xlarge'] = '0.72' // type=i3en.3xlarge, vCPU=16, memory=64GiB, saving=70%, interruption='<5%'
+priceMap['i4g.4xlarge'] = '0.57' // aarch64 type=i4g.4xlarge, vCPU=16, memory=64GiB, saving=38%, interruption='<5%', price=0.488500
 
 userMap = [:]
 userMap['docker']           = 'ec2-user'
@@ -65,6 +66,7 @@ userMap['min-xenial-x64']   = 'ubuntu'
 userMap['min-bionic-x64']   = 'ubuntu'
 userMap['min-focal-x64']    = 'ubuntu'
 userMap['min-jammy-x64']    = 'ubuntu'
+userMap['min-noble-x64']    = 'ubuntu'
 userMap['min-bullseye-x64'] = 'admin'
 userMap['min-bookworm-x64'] = 'admin'
 userMap['psmdb']            = userMap['min-xenial-x64']
@@ -230,6 +232,8 @@ initMap['debMap'] = '''
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
+    sudo sed -i '/buster-backports/ s/cdn-aws.deb.debian.org/archive.debian.org/' /etc/apt/sources.list
+
     until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
@@ -244,11 +248,12 @@ initMap['debMap'] = '''
     else
         JAVA_VER="openjdk-11-jre-headless"
     fi
-    if [[ ${DEB_VER} == "bookworm" ]]; then
+    if [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "buster" ]]; then
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
         sudo cp -r /etc/ssl_old /etc/ssl
+        sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
     else
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
     fi
@@ -269,6 +274,7 @@ initMap['min-stretch-x64']  = initMap['debMap']
 initMap['min-buster-x64']   = initMap['debMap']
 
 initMap['min-jammy-x64']   = initMap['debMap']
+initMap['min-noble-x64']   = initMap['debMap']
 initMap['min-focal-x64']   = initMap['debMap']
 initMap['min-bionic-x64']  = initMap['debMap']
 initMap['min-xenial-x64']  = initMap['debMap']
@@ -278,16 +284,16 @@ initMap['psmdb-bionic']    = initMap['debMap']
 initMap['docker-64gb-aarch64'] = initMap['docker-32gb']
 
 capMap = [:]
-capMap['c5ad.2xlarge'] = '60'
-capMap['c5.4xlarge'] = '80'
-capMap['i4i.4xlarge'] = '20'
-capMap['m6g.4xlarge'] = '20'
+capMap['c5a.2xlarge'] = '60'
+capMap['g4ad.2xlarge'] = '80'
+capMap['i3en.3xlarge'] = '30'
+capMap['i4g.4xlarge'] = '20'
 
 typeMap = [:]
-typeMap['micro-amazon']      = 'c5.large'
-typeMap['docker']            = 'c5ad.2xlarge'
-typeMap['docker-32gb']       = 'c5.4xlarge'
-typeMap['docker-64gb']       = 'i4i.4xlarge'
+typeMap['micro-amazon']      = 'c5.xlarge'
+typeMap['docker']            = 'c5a.2xlarge'
+typeMap['docker-32gb']       = 'g4ad.2xlarge'
+typeMap['docker-64gb']       = 'i3en.3xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
 typeMap['min-centos-8-x64']  = typeMap['docker-32gb']
 typeMap['min-ol-8-x64']      = typeMap['docker-32gb']
@@ -300,10 +306,11 @@ typeMap['min-xenial-x64']    = typeMap['docker-32gb']
 typeMap['min-bionic-x64']    = typeMap['docker-32gb']
 typeMap['min-focal-x64']     = typeMap['docker-32gb']
 typeMap['min-jammy-x64']     = typeMap['docker-32gb']
+typeMap['min-noble-x64']     = typeMap['docker-32gb']
 typeMap['psmdb']             = typeMap['docker-32gb']
 typeMap['psmdb-bionic']      = typeMap['docker-32gb']
 
-typeMap['docker-64gb-aarch64'] = 'm6g.4xlarge'
+typeMap['docker-64gb-aarch64'] = 'i4g.4xlarge'
 
 execMap = [:]
 execMap['docker']           = '1'
@@ -322,6 +329,7 @@ execMap['min-xenial-x64']   = '1'
 execMap['min-bionic-x64']   = '1'
 execMap['min-focal-x64']    = '1'
 execMap['min-jammy-x64']    = '1'
+execMap['min-noble-x64']    = '1'
 execMap['psmdb']            = '1'
 execMap['psmdb-bionic']     = '1'
 
@@ -346,6 +354,7 @@ devMap['min-xenial-x64']   = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
 devMap['min-bionic-x64']   = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
 devMap['min-focal-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
 devMap['min-jammy-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
+devMap['min-noble-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:500:true:gp2'
 
 devMap['docker-64gb-aarch64'] = devMap['docker']
 
@@ -366,6 +375,7 @@ labelMap['min-xenial-x64']   = ''
 labelMap['min-bionic-x64']   = ''
 labelMap['min-focal-x64']    = ''
 labelMap['min-jammy-x64']    = ''
+labelMap['min-noble-x64']    = ''
 labelMap['psmdb']            = ''
 labelMap['psmdb-bionic']     = ''
 
@@ -388,6 +398,7 @@ jvmoptsMap['min-xenial-x64']   = jvmoptsMap['docker']
 jvmoptsMap['min-bionic-x64']   = jvmoptsMap['docker']
 jvmoptsMap['min-focal-x64']    = jvmoptsMap['docker']
 jvmoptsMap['min-jammy-x64']    = jvmoptsMap['docker']
+jvmoptsMap['min-noble-x64']    = jvmoptsMap['docker']
 jvmoptsMap['psmdb']            = jvmoptsMap['docker']
 jvmoptsMap['psmdb-bionic']     = jvmoptsMap['docker']
 
@@ -475,6 +486,7 @@ String region = 'us-west-2'
             getTemplate('min-bullseye-x64', "${region}${it}"),
             getTemplate('min-bookworm-x64', "${region}${it}"),
             getTemplate('min-jammy-x64',    "${region}${it}"),
+            getTemplate('min-noble-x64',    "${region}${it}"),
             getTemplate('min-focal-x64',    "${region}${it}"),
             getTemplate('min-bionic-x64',   "${region}${it}"),
             getTemplate('min-xenial-x64',   "${region}${it}"),
