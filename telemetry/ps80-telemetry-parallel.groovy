@@ -19,7 +19,7 @@ pipeline {
             name: 'VERSION'
         )
         string(
-            defaultValue: 'a620a1d8',
+            defaultValue: 'c6cf2f26',
             description: 'Telemetry Agent revision',
             name: 'REVISION'
         )
