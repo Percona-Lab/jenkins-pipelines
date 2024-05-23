@@ -76,11 +76,11 @@ pipeline {
                             sh """
                                 ${PATH_TO_SCRIPTS}/build-client-binary
                                 ls -la "results/tarball" || :
-                                ##aws s3 cp --only-show-errors --acl public-read results/tarball/pmm-client-*.tar.gz \
-                                ##    s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz
-                                ##aws s3 cp --only-show-errors --acl public-read --copy-props none \
-                                ##  s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz \
-                                ##  s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz
+                                aws s3 cp --only-show-errors --acl public-read results/tarball/pmm-client-*.tar.gz \
+                                    s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest-${BUILD_ID}.tar.gz
+                                aws s3 cp --only-show-errors --acl public-read --copy-props none \
+                                  s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest-${BUILD_ID}.tar.gz \
+                                  s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest.tar.gz
                             """
                         }
                         stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
@@ -132,7 +132,7 @@ pipeline {
                     post {
                         success {
                             stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                            // uploadRPM()
+                            uploadRPM()
                         }
                     }
                 }
@@ -159,7 +159,7 @@ pipeline {
                     post {
                         success {
                             stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
-                            // uploadRPM()
+                            uploadRPM()
                         }
                     }
                 }
@@ -247,7 +247,7 @@ pipeline {
             script {
                 // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
                 if (params.DESTINATION == "testing") {
-                    env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz"
+                    env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest-${BUILD_ID}.tar.gz"
                     currentBuild.description = "RC Build, tarball: " + env.TARBALL_URL
                     // slackSend botUser: true,
                     //           channel: '#pmm-qa',

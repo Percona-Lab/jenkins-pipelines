@@ -28,6 +28,15 @@ def call() {
                             ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/\${rhel}/x86_64/
                     fi
                 done
+                for rhel in \${RHEL[*]}; do
+                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                        mkdir -p \${path_to_build}/binary/redhat/\${rhel}/aarch64
+                    if [ `find . -name "*.el\${rhel}.noarch.rpm" -o -name "*.el\${rhel}.aarch64.rpm" | wc -l` -gt 0 ]; then
+                        scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                            `find . -name "*.el\${rhel}.noarch.rpm" -o -name "*.el\${rhel}.aarch64.rpm"` \
+                            ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/\${rhel}/aarch64/
+                    fi
+                done
             """
         }
         deleteDir()
