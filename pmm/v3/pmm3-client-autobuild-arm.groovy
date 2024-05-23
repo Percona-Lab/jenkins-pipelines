@@ -206,7 +206,7 @@ pipeline {
                     post {
                         success {
                             stash includes: 'results/deb/*.deb', name: 'debs'
-                            // uploadDEB()
+                            uploadDEB()
                         }
                     }
                 }
