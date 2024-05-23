@@ -67,7 +67,7 @@ pipeline {
                     steps {
                         sh "${PATH_TO_SCRIPTS}/build-client-source"
                         stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
-                        // uploadTarball('source')
+                        uploadTarball('source')
                     }
                 }
                 stage('Build client binary') {
@@ -84,7 +84,7 @@ pipeline {
                             """
                         }
                         stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
-                        // uploadTarball('binary')
+                        uploadTarball('binary')
                     }
                 }
                 // stage('Build client docker') {
