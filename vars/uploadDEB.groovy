@@ -25,6 +25,16 @@ def call() {
                         \${deb} \
                         ${USER}@repo.ci.percona.com:\${path_to_dist}/
                 done
+
+                for deb in \$(find . -name '*.deb'); do
+                    dist=`echo \${deb} | sed -re 's/.*\\.([^.]+)_(amd64|arm64).deb/\\1/'`
+                    path_to_dist=\${path_to_build}/binary/debian/\${dist}/aarch64
+                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                        mkdir -p \${path_to_dist}
+                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                        \${deb} \
+                        ${USER}@repo.ci.percona.com:\${path_to_dist}/
+                done
             """
         }
         deleteDir()
