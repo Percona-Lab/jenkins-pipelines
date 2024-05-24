@@ -85,12 +85,18 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     dch --force-distribution -v \\"\${VERSION}-\${RELEASE}.generic\\" \\"Update percona-release package\\"
                     dpkg-buildpackage -rfakeroot
                     mkdir -p \${build_dir}/deb
-                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.bionic_amd64.deb
+                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.noble_amd64.deb
                     cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.bookworm_amd64.deb
                     cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.bullseye_amd64.deb
                     cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.buster_amd64.deb
                     cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.focal_amd64.deb
                     cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.jammy_amd64.deb
+                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.noble_arm64.deb
+                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.bookworm_arm64.deb
+                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.bullseye_arm64.deb
+                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.buster_arm64.deb
+                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.focal_arm64.deb
+                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.jammy_arm64.deb
                 "
              """
              break
