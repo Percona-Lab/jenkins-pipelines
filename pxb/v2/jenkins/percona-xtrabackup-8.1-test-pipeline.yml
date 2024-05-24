@@ -46,11 +46,11 @@
         description: Specific percona-xtrabackup-8.1-compile-param build id to use binaries from.
     - string:
         name: INNODB80_VERSION
-        default: "8.1.0"
+        default: "8.3.0"
         description: Version of MySQL InnoDB80 which will be used for bootstrap.sh script
     - string:
         name: XTRADB80_VERSION
-        default: "8.1.0.1"
+        default: "8.3.0.1"
         description: Version of Percona XtraDB80 which will be used for bootstrap.sh script
     - string:
         name: XBTR_ARGS

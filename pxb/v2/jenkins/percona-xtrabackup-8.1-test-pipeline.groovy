@@ -13,11 +13,11 @@ pipeline {
             description: 'MySQL version for QA run',
             name: 'XTRABACKUP_TARGET')
         string(
-            defaultValue: '8.1.0',
+            defaultValue: '8.3.0',
             description: 'Version of MySQL InnoDB80 which will be used for bootstrap.sh script',
             name: 'INNODB80_VERSION')
         string(
-            defaultValue: '8.1.0.1',
+            defaultValue: '8.3.0.1',
             description: 'Version of Percona XtraDB80 which will be used for bootstrap.sh script',
             name: 'XTRADB80_VERSION')
         string(
