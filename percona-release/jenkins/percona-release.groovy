@@ -52,7 +52,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     cp -av \${build_dir}/percona-repositories/rpm/percona-release.spec \${build_dir}/rpmbuild/SPECS
                     cp -av \${build_dir}/percona-repositories/scripts/* \${build_dir}/rpmbuild/SOURCES
 
-                    rpmbuild -ba --define \\"_topdir \${build_dir}/rpmbuild\\" \${build_dir}/rpmbuild/SPECS/percona-release.spec
+                    rpmbuild -ba --define \\"_topdir \${build_dir}/rpmbuild\\" --define \\"_source_filedigest_algorithm 8\\" --define \\"_binary_filedigest_algorithm 8\\" --define \\"_source_payload_digest_algorithm 8\\" --define \\"_binary_payload_digest_algorithm 8\\" \${build_dir}/rpmbuild/SPECS/percona-release.spec
 
                     mkdir -p srpm
                     cp rpmbuild/SRPMS/*.rpm srpm
@@ -174,7 +174,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "RPM")
+                        buildStage("oraclelinux:8", "RPM")
                         sh '''
                             pwd
                             ls -la test/rpm
