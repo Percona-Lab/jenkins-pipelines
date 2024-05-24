@@ -15,7 +15,7 @@ def call() {
                         `dirname \${dsc}`/* \
                         ${USER}@repo.ci.percona.com:\${path_to_build}/source/debian/
                 fi
-                
+
                 for deb in \$(find . -name '*.deb'); do
                     arch=`echo \${deb} | sed -re 's/.*_(amd64|arm64).deb/\\1/'`
                     if [ "\${arch}" = "amd64" ]; then
