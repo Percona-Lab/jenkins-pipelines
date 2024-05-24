@@ -21,7 +21,7 @@ def call() {
                 RHEL=("6" "7" "8" "9")
                 for rhel in \${RHEL[*]}; do
                     for rpm in \$(find . -name "*.el\${rhel}.*.rpm"); do
-                        arch=`echo \${rpm} | sed -re 's/.*\\.el\${rhel}\\.(noarch|x86_64|aarch64)\\.rpm/\\1/'`
+                        arch=\$(echo \${rpm} | sed -re "s/.*\\.el\${rhel}\\.(noarch|x86_64|aarch64)\\.rpm/\\1/")
                         if [ "\${arch}" = "x86_64" ] || [ "\${arch}" = "aarch64" ]; then
                             path_to_dist=\${path_to_build}/binary/redhat/\${rhel}/\${arch}
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
