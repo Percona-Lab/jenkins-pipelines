@@ -47,7 +47,7 @@ pipeline {
                                 secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                                 sh '''
                                     cd build/docker/rpmbuild/
-                                    docker build --pull --tag ${IMAGE_REGISTRY}/rpmbuild:${ARCH} .
+                                    docker buildx build --tag ${IMAGE_REGISTRY}/rpmbuild:${ARCH} .
 
                                     aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin ${IMAGE_REGISTRY}
                                     docker push ${IMAGE_REGISTRY}/rpmbuild:${ARCH}
@@ -86,7 +86,7 @@ pipeline {
                             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''
                                 cd build/docker/rpmbuild/
-                                docker build --pull --tag ${IMAGE_REGISTRY}/rpmbuild:ol9 -f Dockerfile.el9 .
+                                docker buildx build --tag ${IMAGE_REGISTRY}/rpmbuild:ol9 -f Dockerfile.el9 .
                                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin ${IMAGE_REGISTRY}
                                 docker push ${IMAGE_REGISTRY}/rpmbuild:ol9
                             '''

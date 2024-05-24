@@ -31,7 +31,7 @@ pipeline {
             steps {
                 sh '''
                     cd build/docker/rpmbuild/
-                    docker buildx build --pull --tag ${IMAGE_REGISTRY}/${DOCKER_TAG} -f Dockerfile.el9 .
+                    docker buildx build --tag ${IMAGE_REGISTRY}/${DOCKER_TAG} -f Dockerfile.el9 .
                 '''
                 withCredentials([[
                     $class: 'AmazonWebServicesCredentialsBinding',
