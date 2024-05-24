@@ -85,9 +85,8 @@ pipeline {
                 sh '''
                     docker run -d \
                     -e PMM_DEBUG=1 \
-                    -e PERCONA_TEST_CHECKS_INTERVAL=10s \
-                    -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com \
-                    -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
+                    -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com \
+                    -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
                     -p 80:8080 \
                     -p 443:8443 \
                     -v ${PWD}/managed/testdata/checks:/srv/checks \
