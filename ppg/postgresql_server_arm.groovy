@@ -120,19 +120,6 @@ pipeline {
         } // stage
         stage('Build PPG-SERVER RPMs/DEBs/Binary tarballs') {
             parallel {
-		stage('Centos 7') {
-                    agent {
-                        label 'docker-32gb-aarch64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_rpm=1")
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Oracle Linux 8') {
                     agent {
                         label 'docker-32gb-aarch64'
