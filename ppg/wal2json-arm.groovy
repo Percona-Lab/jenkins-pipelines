@@ -92,7 +92,7 @@ pipeline {
             parallel {
                 stage('Build WAL2JSON generic source rpm') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label 'docker'
                     }
                     steps {
                         cleanUpWS()
