@@ -105,7 +105,7 @@ pipeline {
                 }
 		stage('Build PG_REPACK generic source deb') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
