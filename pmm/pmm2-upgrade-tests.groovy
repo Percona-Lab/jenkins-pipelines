@@ -36,7 +36,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String PMM_CLIENT_VERSI
 }
 
 def latestVersion = pmmVersion()
-def versionsList = pmmVersion('list_with_old')
+def versionsList = pmmVersion('list')
 def getMinorVersion(VERSION) {
     return VERSION.split("\\.")[1].toInteger()
 }

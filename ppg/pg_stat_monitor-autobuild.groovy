@@ -32,7 +32,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         export build_dir=\$(pwd -P)
         set -o xtrace
         cd \${build_dir}
-        sudo bash -x ./psm_builder.sh --builddir=\${build_dir}/test --pg_release=\${PG_RELEASE} --install_deps=1
+        sudo bash -x ./psm_builder.sh --builddir=\${build_dir}/test --pg_release=\${PG_RELEASE} --ppg_repo_name=\${PPG_REPO} --install_deps=1
         bash -x ./psm_builder.sh --builddir=\${build_dir}/test --version=\${VERSION} --branch=\${BRANCH} --repo=\${GIT_REPO} --rpm_release=\${RPM_RELEASE} --deb_release=\${DEB_RELEASE} --pg_release=\${PG_RELEASE} --ppg_repo_name=\${PPG_REPO} "$STAGE_PARAM"
     """ 
 }
