@@ -7,7 +7,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/pgpool2/pgpool2_builder.sh -O pgpool2_builder.sh
+        wget \$(echo ${GIT_BUILD_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BUILD_BRANCH}/pgpool2/pgpool2_builder.sh -O pgpool2_builder.sh
         pwd -P
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
@@ -84,7 +84,7 @@ pipeline {
     stages {
         stage('Create pgpool2 source tarball') {
             steps {
-                slackNotify("", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
+                slackNotify("", "#00FF00", "[${JOB_NAME}]: starting build for ${BUILD_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 buildStage("centos:7", "--get_sources=1")
                 sh '''
@@ -258,14 +258,14 @@ pipeline {
     }
     post {
         success {
-            slackNotify("", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BUILD_BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH}"
+                currentBuild.description = "Built on ${BUILD_BRANCH}"
             }
             deleteDir()
         }
         failure {
-            slackNotify("", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("", "#FF0000", "[${JOB_NAME}]: build failed for ${BUILD_BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {
