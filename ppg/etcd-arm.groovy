@@ -29,7 +29,7 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'docker-32gb-aarch64'
+        label 'docker'
     }
     parameters {
         string(
@@ -68,6 +68,9 @@ pipeline {
     }
     stages {
         stage('Create etcd source tarball') {
+            agent {
+                     label 'docker-32gb-aarch64'
+            }
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
