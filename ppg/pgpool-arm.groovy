@@ -14,7 +14,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./pgpool2_builder.sh --builddir=\${build_dir}/test --install_deps=1
-	    bash -x ./pgpool2_builder.sh --builddir=\${build_dir}/test --branch=\${BRANCH} --repo=\${GIT_REPO} --pp_branch=\${BUILD_BRANCH} --pp_repo=\${GIT_BUILD_REPO} --rpm_release=\${RPM_RELEASE} --deb_release=\${DEB_RELEASE} --pg_release=\${PG_RELEASE} "$STAGE_PARAM"
+	    bash -x ./pgpool2_builder.sh --builddir=\${build_dir}/test --branch=\${BRANCH} --repo=\${GIT_REPO} --pp_branch=\${BUILD_BRANCH} --pp_repo=\${GIT_BUILD_REPO} --rpm_release=\${RPM_RELEASE} --deb_release=\${DEB_RELEASE} --pg_release=\${PG_RELEASE} $STAGE_PARAM"
     """
 }
 
