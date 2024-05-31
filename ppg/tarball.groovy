@@ -12,7 +12,7 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: ppgOperatingSystems()
+            choices: ppgOperatingSystems_tde()
         )
         choice(
             name: 'SSL_VERSION',
