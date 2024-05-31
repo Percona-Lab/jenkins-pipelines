@@ -56,7 +56,6 @@ pipeline {
     }
     options {
           withCredentials(moleculePdpsJenkinsCreds())
-          disableConcurrentBuilds()
     }
     stages {
         stage('Set build name'){
