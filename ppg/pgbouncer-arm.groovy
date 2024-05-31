@@ -7,7 +7,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/pgaudit/pgaudit_builder.sh -O builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/pgbouncer/pgbouncer_builder.sh -O builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
@@ -34,15 +34,15 @@ pipeline {
     parameters {
         string(
             defaultValue: 'https://github.com/percona/postgres-packaging.git',
-            description: 'URL for pg_audit repository',
+            description: 'URL for pg_bouncer repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '16.0',
-            description: 'Tag/Branch for pg_audit repository',
+            defaultValue: 'ver_1.4.4',
+            description: 'Tag/Branch for postgresql',
             name: 'PG_BRANCH')
         string(
-            defaultValue: '16.1',
-            description: 'Tag/Branch for pg_audit packaging repository',
+            defaultValue: '16.0',
+            description: 'Tag/Branch for pg_bouncer repository',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '1',
@@ -53,7 +53,7 @@ pipeline {
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
-            defaultValue: 'ppg-16.1',
+            defaultValue: 'ppg-16.0',
             description: 'PPG repo name',
             name: 'PPG_REPO')
         choice(
@@ -67,17 +67,17 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
     }
     stages {
-        stage('Create PG_AUDIT source tarball') {
+        stage('Create PG_bouncer source tarball') {
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 buildStage("centos:7", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/pgaudit.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/pgbouncer.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/pgaudit.properties
+                   cat test/pgbouncer.properties
                    cat uploadPath
                 '''
                 script {
@@ -88,9 +88,9 @@ pipeline {
                 uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
-        stage('Build PG_AUDIT generic source packages') {
+        stage('Build PG_bouncer generic source packages') {
             parallel {
-                stage('Build PG_AUDIT generic source rpm') {
+                stage('Build PG_bouncer generic source rpm') {
                     agent {
                         label 'docker'
                     }
@@ -103,9 +103,9 @@ pipeline {
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
                 }
-		stage('Build PG_AUDIT generic source deb') {
+                stage('Build PG_bouncer generic source deb') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -118,9 +118,9 @@ pipeline {
                 }
             }  //parallel
         } // stage
-        stage('Build PG_AUDIT RPMs/DEBs/Binary tarballs') {
+        stage('Build PG_bouncer RPMs/DEBs/Binary tarballs') {
             parallel {
-		stage('Oracle Linux 8') {
+                stage('Oracle Linux 8') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -146,7 +146,7 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-		stage('Ubuntu Focal(20.04)') {
+                stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -198,7 +198,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-		stage('Debian Bullseye(11)') {
+                stage('Debian Bullseye(11)') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -230,6 +230,7 @@ pipeline {
         stage('Sign packages') {
             steps {
                 signRPM()
+                signDEB()
             }
         }
         stage('Push to public repository') {

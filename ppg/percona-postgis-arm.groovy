@@ -7,15 +7,14 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/pgaudit/pgaudit_builder.sh -O builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/postgis/postgis_builder.sh -O postgis_builder.sh
         pwd -P
-        ls -laR
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./builder.sh --builddir=\${build_dir}/test --branch=${PG_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./postgis_builder.sh --builddir=\${build_dir}/test --install_deps=1
+            bash -x ./postgis_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --postgis_gitrepo=${POSTGIS_GITREPO} --postgis_branch=${POSTGIS_BRANCH} --postgis_ver=${POSTGIS_VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -34,16 +33,24 @@ pipeline {
     parameters {
         string(
             defaultValue: 'https://github.com/percona/postgres-packaging.git',
-            description: 'URL for pg_audit repository',
+            description: 'URL for postgis packaging repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '16.0',
-            description: 'Tag/Branch for pg_audit repository',
-            name: 'PG_BRANCH')
-        string(
-            defaultValue: '16.1',
-            description: 'Tag/Branch for pg_audit packaging repository',
+            defaultValue: '15.4',
+            description: 'Tag/Branch for postgis packaging repository',
             name: 'GIT_BRANCH')
+        string(
+            defaultValue: 'https://github.com/postgis/postgis.git',
+            description: 'URL for postgis repository',
+            name: 'POSTGIS_GITREPO')
+        string(
+            defaultValue: 'stable-3.3',
+            description: 'Tag/Branch for postgis repository',
+            name: 'POSTGIS_BRANCH')  
+        string(
+            defaultValue: '3.3',
+            description: 'POSTGIS release value',
+            name: 'POSTGIS_VERSION')  
         string(
             defaultValue: '1',
             description: 'RPM release value',
@@ -53,9 +60,9 @@ pipeline {
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
-            defaultValue: 'ppg-16.1',
-            description: 'PPG repo name',
-            name: 'PPG_REPO')
+            defaultValue: 'ppg-15.4',
+            description: 'POSTGIS repo name',
+            name: 'POSTGIS_REPO')
         choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
@@ -67,17 +74,17 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
     }
     stages {
-        stage('Create PG_AUDIT source tarball') {
+        stage('Create POSTGIS source tarball') {
             steps {
-                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
+                slackNotify("", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 buildStage("centos:7", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/pgaudit.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-postgis.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/pgaudit.properties
+                   cat test/percona-postgis.properties
                    cat uploadPath
                 '''
                 script {
@@ -88,9 +95,9 @@ pipeline {
                 uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
-        stage('Build PG_AUDIT generic source packages') {
+        stage('Build POSTGIS generic source packages') {
             parallel {
-                stage('Build PG_AUDIT generic source rpm') {
+                stage('Build POSTGIS generic source rpm') {
                     agent {
                         label 'docker'
                     }
@@ -103,9 +110,9 @@ pipeline {
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
                 }
-		stage('Build PG_AUDIT generic source deb') {
+                stage('Build POSTGIS generic source deb') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -118,9 +125,9 @@ pipeline {
                 }
             }  //parallel
         } // stage
-        stage('Build PG_AUDIT RPMs/DEBs/Binary tarballs') {
+        stage('Build POSTGIS RPMs/DEBs/Binary tarballs') {
             parallel {
-		stage('Oracle Linux 8') {
+                stage('Oracle Linux 8') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -141,12 +148,12 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_rpm=1")
-
+            
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
-                }
-		stage('Ubuntu Focal(20.04)') {
+                } 
+                stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -198,7 +205,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-		stage('Debian Bullseye(11)') {
+                stage('Debian Bullseye(11)') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -211,7 +218,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian bookworm(12)') {
+                stage('Debian Bookworm(12)') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -230,26 +237,27 @@ pipeline {
         stage('Sign packages') {
             steps {
                 signRPM()
+                signDEB()
             }
         }
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(PPG_REPO, COMPONENT)
+                sync2ProdAutoBuild(POSTGIS_REPO, COMPONENT)
             }
         }
 
     }
     post {
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
                 currentBuild.description = "Built on ${GIT_BRANCH}"
             }
             deleteDir()
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {
