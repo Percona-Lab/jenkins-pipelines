@@ -103,7 +103,6 @@ pipeline {
                                         docker buildx imagetools create --tag perconalab/pmm-client:${DOCKER_RC_TAG} ${DOCKER_CLIENT_TAG}
                                     fi
                                     docker buildx imagetools create --tag perconalab/pmm-client:${DOCKER_LATEST_TAG} ${DOCKER_CLIENT_TAG}
-                                    docker buildx imagetools create --tag ${DOCKER_CLIENT_TAG} ${DOCKER_CLIENT_TAG}
                                 '''
                             }
                         }
