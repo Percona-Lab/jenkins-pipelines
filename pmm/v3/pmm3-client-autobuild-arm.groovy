@@ -4,7 +4,9 @@ library changelog: false, identifier: 'lib@PMM-12574-arm-build-for-client', retr
 ]) _
 
 pipeline {
-    agent none
+    agent {
+        label 'agent-arm64'
+    }
     parameters {
         string(
             defaultValue: 'v3',
@@ -31,187 +33,181 @@ pipeline {
         GOARCH = 'arm64'
     }
     stages {
-        stage('Build PMM Client') {
-            agent {
-                label 'agent-arm64'
+        stage('Prepare') {
+            steps {
+                git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
+                sh '''
+                    git reset --hard
+                    git clean -xdf
+                    git submodule update --init --jobs 10
+                    git submodule status
+
+                    git rev-parse --short HEAD > shortCommit
+                    echo "UPLOAD/${DESTINATION}/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
+                '''
+                script {
+                    def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
+                    if (params.DESTINATION == "testing") {
+                        env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
+                        env.DOCKER_RC_TAG = "${versionTag}-rc"
+                    } else {
+                        env.DOCKER_LATEST_TAG = "3-dev-latest"
+                    }
+                }
+
+                archiveArtifacts 'uploadPath'
+                stash includes: 'uploadPath', name: 'uploadPath'
+                archiveArtifacts 'shortCommit'
             }
-            stages {
-                stage('Prepare') {
-                    steps {
-                        git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
+        }
+        stage('Build client source') {
+            steps {
+                sh "${PATH_TO_SCRIPTS}/build-client-source"
+                stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
+                uploadTarball('source')
+            }
+        }
+        stage('Build client binary') {
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        ${PATH_TO_SCRIPTS}/build-client-binary
+                        ls -la "results/tarball" || :
+                        aws s3 cp --only-show-errors --acl public-read results/tarball/pmm-client-*.tar.gz \
+                            s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest-${BUILD_ID}.tar.gz
+                        aws s3 cp --only-show-errors --acl public-read --copy-props none \
+                            s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest-${BUILD_ID}.tar.gz \
+                            s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest.tar.gz
+                    """
+                }
+                stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
+                uploadTarball('binary')
+            }
+        }
+        stage('Build client docker') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    withEnv(['PATH_TO_SCRIPTS=' + env.PATH_TO_SCRIPTS]) {
                         sh '''
-                            git reset --hard
-                            git clean -xdf
-                            git submodule update --init --jobs 10
-                            git submodule status
+                            echo "${PASS}" | docker login -u "${USER}" --password-stdin
+                            set -o xtrace
 
-                            git rev-parse --short HEAD > shortCommit
-                            echo "UPLOAD/${DESTINATION}/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
+                            export PUSH_DOCKER=1
+                            export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')
+
+                            ${PATH_TO_SCRIPTS}/build-client-docker
+
+                            if [ -n "${DOCKER_RC_TAG}" ]; then
+                                docker buildx imagetools create --tag perconalab/pmm-client:${DOCKER_RC_TAG} ${DOCKER_CLIENT_TAG}
+                            fi
+                            docker buildx imagetools create --tag perconalab/pmm-client:${DOCKER_LATEST_TAG} ${DOCKER_CLIENT_TAG}
                         '''
-                        script {
-                            def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
-                            if (params.DESTINATION == "testing") {
-                                env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
-                                env.DOCKER_RC_TAG = "${versionTag}-rc"
-                            } else {
-                                env.DOCKER_LATEST_TAG = "3-dev-latest"
-                            }
-                        }
-
-                        archiveArtifacts 'uploadPath'
-                        stash includes: 'uploadPath', name: 'uploadPath'
-                        archiveArtifacts 'shortCommit'
                     }
                 }
-                stage('Build client source') {
+                stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
+                archiveArtifacts 'results/docker/CLIENT_TAG'
+            }
+        }
+        stage('Build client source rpm') {
+            parallel {
+                stage('Build client source rpm EL7') {
                     steps {
-                        sh "${PATH_TO_SCRIPTS}/build-client-source"
-                        stash includes: 'results/source_tarball/*.tar.*', name: 'source.tarball'
-                        uploadTarball('source')
+                        sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7"
                     }
                 }
-                stage('Build client binary') {
+                stage('Build client source rpm EL9') {
                     steps {
-                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            sh """
-                                ${PATH_TO_SCRIPTS}/build-client-binary
-                                ls -la "results/tarball" || :
-                                aws s3 cp --only-show-errors --acl public-read results/tarball/pmm-client-*.tar.gz \
-                                    s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest-${BUILD_ID}.tar.gz
-                                aws s3 cp --only-show-errors --acl public-read --copy-props none \
-                                  s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest-${BUILD_ID}.tar.gz \
-                                  s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest.tar.gz
-                            """
-                        }
-                        stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
-                        uploadTarball('binary')
+                        sh """
+                            ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:3
+                        """
                     }
                 }
-                stage('Build client docker') {
+            }
+            post {
+                success {
+                    stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
+                    uploadRPM()
+                }
+            }
+        }
+        stage('Build client binary rpms') {
+            parallel {
+                stage('Build client binary rpm EL7') {
                     steps {
-                        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                            withEnv(['PATH_TO_SCRIPTS=' + env.PATH_TO_SCRIPTS]) {
-                                sh '''
-                                    echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                                    set -o xtrace
-
-                                    export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')
-
-                                    ${PATH_TO_SCRIPTS}/build-client-docker
-
-                                    if [ -n "${DOCKER_RC_TAG}" ]; then
-                                        docker buildx imagetools create --tag perconalab/pmm-client:${DOCKER_RC_TAG} ${DOCKER_CLIENT_TAG}
-                                    fi
-                                    docker buildx imagetools create --tag perconalab/pmm-client:${DOCKER_LATEST_TAG} ${DOCKER_CLIENT_TAG}
-                                '''
-                            }
-                        }
-                        stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
-                        archiveArtifacts 'results/docker/CLIENT_TAG'
+                        sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
                     }
                 }
-                stage('Build client source rpm') {
-                    parallel {
-                        stage('Build client source rpm EL7') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7"
-                            }
-                        }
-                        stage('Build client source rpm EL9') {
-                            steps {
-                                sh """
-                                    ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:3
-                                """
-                            }
-                        }
-                    }
-                    post {
-                        success {
-                            stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                            uploadRPM()
-                        }
-                    }
-                }
-                stage('Build client binary rpms') {
-                    parallel {
-                        stage('Build client binary rpm EL7') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
-                            }
-                        }
-                        stage('Build client binary rpm EL8') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:8"
-                            }
-                        }
-                        stage('Build client binary rpm EL9') {
-                            steps {
-                                sh """
-                                    ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:3
-                                """
-                            }
-                        }
-                    }
-                    post {
-                        success {
-                            stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
-                            uploadRPM()
-                        }
-                    }
-                }
-                stage('Build client source deb') {
+                stage('Build client binary rpm EL8') {
                     steps {
-                        sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:focal"
-                        stash includes: 'results/source_deb/*', name: 'debs'
-                        uploadDEB()
+                        sh "${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:8"
                     }
                 }
-                stage('Build client binary debs') {
-                    parallel {
-                        stage('Build client binary deb Buster') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:buster"
-                            }
-                        }
-                        stage('Build client binary deb Bullseye') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
-                            }
-                        }
-                        stage('Build client binary deb Bookworm') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bookworm"
-                            }
-                        }
-                        stage('Build client binary deb Jammy') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
-                            }
-                        }
-                        stage('Build client binary deb Focal') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
-                            }
-                        }
-                        stage('Build client binary deb Noble') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:noble"
-                            }
-                        }
-                    }
-                    post {
-                        success {
-                            stash includes: 'results/deb/*.deb', name: 'debs'
-                            uploadDEB()
-                        }
-                    }
-                }
-                stage('Sign packages') {
+                stage('Build client binary rpm EL9') {
                     steps {
-                        signRPM()
-                        signDEB()
+                        sh """
+                            ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:3
+                        """
                     }
                 }
+            }
+            post {
+                success {
+                    stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
+                    uploadRPM()
+                }
+            }
+        }
+        stage('Build client source deb') {
+            steps {
+                sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:focal"
+                stash includes: 'results/source_deb/*', name: 'debs'
+                uploadDEB()
+            }
+        }
+        stage('Build client binary debs') {
+            parallel {
+                stage('Build client binary deb Buster') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:buster"
+                    }
+                }
+                stage('Build client binary deb Bullseye') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
+                    }
+                }
+                stage('Build client binary deb Bookworm') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bookworm"
+                    }
+                }
+                stage('Build client binary deb Jammy') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
+                    }
+                }
+                stage('Build client binary deb Focal') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
+                    }
+                }
+                stage('Build client binary deb Noble') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:noble"
+                    }
+                }
+            }
+            post {
+                success {
+                    stash includes: 'results/deb/*.deb', name: 'debs'
+                    uploadDEB()
+                }
+            }
+        }
+        stage('Sign packages') {
+            steps {
+                signRPM()
+                signDEB()
             }
         }
         // stage('Push to public repository') {
