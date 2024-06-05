@@ -44,12 +44,12 @@ pipeline {
       name: 'BUILD_TYPE_MINIMAL'
     )
     string(
-      defaultValue: 'pxc-rhel-binary-tarballs-8.6-8.9',
+      defaultValue: 'master',
       description: 'Branch for package-testing repository',
       name: 'TESTING_BRANCH'
     )
     string(
-      defaultValue: 'panchal-yash',
+      defaultValue: 'Percona-QA',
       description: 'Git account for package-testing repository',
       name: 'TESTING_GIT_ACCOUNT'
     )
