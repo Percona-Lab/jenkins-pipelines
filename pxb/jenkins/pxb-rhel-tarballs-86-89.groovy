@@ -38,7 +38,7 @@ pipeline {
     )
   }
   options {
-    withCredentials(moleculepxbJenkinsCreds())
+    withCredentials(moleculepxcJenkinsCreds())
     disableConcurrentBuilds()
   }
 
