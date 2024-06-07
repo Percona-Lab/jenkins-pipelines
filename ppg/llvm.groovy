@@ -78,6 +78,10 @@ pipeline {
                             cat test/llvm.properties
                             cat uploadPath
                            '''
+                        script {
+                            AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
+                        }
+                        stash includes: 'uploadPath', name: 'uploadPath'
                         buildStage("oraclelinux:8", "--build_rpm=1")
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
@@ -100,6 +104,10 @@ pipeline {
                             cat test/llvm.properties
                             cat uploadPath
                            '''
+                        script {
+                            AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
+                        }
+                        stash includes: 'uploadPath', name: 'uploadPath'
                         buildStage("oraclelinux:9", "--build_rpm=1")
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
