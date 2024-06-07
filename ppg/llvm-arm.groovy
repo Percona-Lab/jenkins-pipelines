@@ -6,6 +6,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
+	mkdir -p test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/llvm/llvm_builder.sh -O builder.sh
         pwd -P
         ls -laR
