@@ -32,6 +32,7 @@ imageMap['us-east-2a.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64'
 imageMap['us-east-2a.min-bionic-x64']     = 'ami-0bb220fc4bffd88dd'               // ubuntu 18
 imageMap['us-east-2a.min-focal-x64']      = 'ami-01936e31f56bdacde'               // ubuntu 20
 imageMap['us-east-2a.min-jammy-x64']      = 'ami-0e83be366243f524a'               // ubuntu 22
+imageMap['us-east-2a.min-noble-x64']      = 'ami-075e395c96a011fee'               // ubuntu 24
 imageMap['us-east-2a.min-stretch-x64']    = 'ami-0a694f67ea86df8a7'               // debian 9
 imageMap['us-east-2a.min-buster-x64']     = 'ami-0dc2cee9dad26918a'               // debian 10
 imageMap['us-east-2a.min-bullseye-x64']   = 'ami-023766a7f545f3c77'               // debian 11
@@ -46,6 +47,7 @@ imageMap['us-east-2b.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64'
 imageMap['us-east-2b.min-bionic-x64']     = imageMap['us-east-2a.min-bionic-x64']
 imageMap['us-east-2b.min-focal-x64']      = imageMap['us-east-2a.min-focal-x64']
 imageMap['us-east-2b.min-jammy-x64']      = imageMap['us-east-2a.min-jammy-x64']
+imageMap['us-east-2b.min-noble-x64']      = imageMap['us-east-2a.min-noble-x64']
 imageMap['us-east-2b.min-stretch-x64']    = imageMap['us-east-2a.min-stretch-x64']
 imageMap['us-east-2b.min-buster-x64']     = imageMap['us-east-2a.min-buster-x64']
 imageMap['us-east-2b.min-bullseye-x64']   = imageMap['us-east-2a.min-bullseye-x64']
@@ -60,6 +62,7 @@ imageMap['us-east-2c.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64'
 imageMap['us-east-2c.min-bionic-x64']     = imageMap['us-east-2a.min-bionic-x64']
 imageMap['us-east-2c.min-focal-x64']      = imageMap['us-east-2a.min-focal-x64']
 imageMap['us-east-2c.min-jammy-x64']      = imageMap['us-east-2a.min-jammy-x64']
+imageMap['us-east-2c.min-noble-x64']      = imageMap['us-east-2a.min-noble-x64']
 imageMap['us-east-2c.min-stretch-x64']    = imageMap['us-east-2a.min-stretch-x64']
 imageMap['us-east-2c.min-buster-x64']     = imageMap['us-east-2a.min-buster-x64']
 imageMap['us-east-2c.min-bullseye-x64']   = imageMap['us-east-2a.min-bullseye-x64']
@@ -82,6 +85,7 @@ userMap['min-ol-9-x64']      = 'ec2-user'
 userMap['min-focal-x64']     = 'ubuntu'
 userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-jammy-x64']     = 'ubuntu'
+userMap['min-noble-x64']     = 'ubuntu'
 userMap['min-stretch-x64']   = 'admin'
 userMap['min-buster-x64']    = 'admin'
 userMap['min-bullseye-x64']  = 'admin'
@@ -219,6 +223,7 @@ initMap['min-ol-9-x64']     = initMap['rpmMap']
 initMap['min-focal-x64']    = initMap['debMap']
 initMap['min-bionic-x64']   = initMap['debMap']
 initMap['min-jammy-x64']    = initMap['debMap']
+initMap['min-noble-x64']    = initMap['debMap']
 initMap['min-stretch-x64']  = initMap['debMap']
 initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-bookworm-x64'] = initMap['debMap']
@@ -240,6 +245,7 @@ typeMap['min-ol-9-x64']     = typeMap['min-rhel-7-x64']
 typeMap['min-focal-x64']    = typeMap['min-rhel-7-x64']
 typeMap['min-bionic-x64']   = typeMap['min-rhel-7-x64']
 typeMap['min-jammy-x64']    = typeMap['min-rhel-7-x64']
+typeMap['min-noble-x64']    = typeMap['min-rhel-7-x64']
 typeMap['min-stretch-x64']  = typeMap['min-rhel-7-x64']
 typeMap['min-buster-x64']   = typeMap['min-rhel-7-x64']
 typeMap['min-bullseye-x64'] = typeMap['min-rhel-7-x64']
@@ -255,6 +261,7 @@ execMap['min-ol-9-x64']     = '1'
 execMap['min-focal-x64']    = '1'
 execMap['min-bionic-x64']   = '1'
 execMap['min-jammy-x64']    = '1'
+execMap['min-noble-x64']    = '1'
 execMap['min-stretch-x64']  = '1'
 execMap['min-buster-x64']   = '1'
 execMap['min-bullseye-x64'] = '1'
@@ -270,6 +277,7 @@ devMap['min-ol-9-x64']     = devMap['min-rhel-7-x64']
 devMap['min-focal-x64']    = devMap['min-rhel-7-x64']
 devMap['min-bionic-x64']   = devMap['min-rhel-7-x64']
 devMap['min-jammy-x64']    = devMap['min-rhel-7-x64']
+devMap['min-noble-x64']    = devMap['min-rhel-7-x64']
 devMap['min-stretch-x64']  = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
 devMap['min-buster-x64']   = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
 devMap['min-bullseye-x64'] = '/dev/xvda=:80:true:gp2,/dev/xvdd=:20:true:gp2'
@@ -285,6 +293,7 @@ labelMap['min-ol-9-x64']     = 'min-ol-9-x64'
 labelMap['min-focal-x64']    = 'min-focal-x64'
 labelMap['min-bionic-x64']   = 'min-bionic-x64'
 labelMap['min-jammy-x64']    = 'min-jammy-x64'
+labelMap['min-noble-x64']    = 'min-noble-x64'
 labelMap['min-stretch-x64']  = 'min-stretch-x64'
 labelMap['min-buster-x64']   = 'min-buster-x64'
 labelMap['min-bullseye-x64'] = 'min-bullseye-x64'
@@ -300,6 +309,7 @@ jvmoptsMap['min-ol-9-x64']     = jvmoptsMap['min-rhel-7-x64']
 jvmoptsMap['min-focal-x64']    = jvmoptsMap['min-rhel-7-x64']
 jvmoptsMap['min-bionic-x64']   = jvmoptsMap['min-rhel-7-x64']
 jvmoptsMap['min-jammy-x64']    = jvmoptsMap['min-rhel-7-x64']
+jvmoptsMap['min-noble-x64']    = jvmoptsMap['min-rhel-7-x64']
 jvmoptsMap['min-stretch-x64']  = jvmoptsMap['min-rhel-7-x64']
 jvmoptsMap['min-buster-x64']   = jvmoptsMap['min-rhel-7-x64']
 jvmoptsMap['min-bullseye-x64'] = jvmoptsMap['min-rhel-7-x64']
@@ -383,6 +393,7 @@ String region = 'us-east-2'
             getTemplate('min-focal-x64',     "${region}${it}"),
             getTemplate('min-bionic-x64',    "${region}${it}"),
             getTemplate('min-jammy-x64',     "${region}${it}"),
+            getTemplate('min-noble-x64',     "${region}${it}"),
             getTemplate('min-stretch-x64',   "${region}${it}"),
             getTemplate('min-buster-x64',    "${region}${it}"),
             getTemplate('min-bullseye-x64',  "${region}${it}"),
