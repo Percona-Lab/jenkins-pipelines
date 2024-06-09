@@ -68,7 +68,7 @@ pipeline {
                     script {
                         currentBuild.displayName = "#${BUILD_NUMBER}-${params.BRANCH}-${params.DOCKER_OS}-${params.CMAKE_BUILD_TYPE}-${params.PXC_VERSION}"
                     }
-                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                    git branch: 'check-go', url: 'https://github.com/kaushikpuneet07/jenkins-pipelines'
                     echo 'Checkout ProxySQL sources'
                     sh '''
                         # sudo is needed for better node recovery after compilation failure
