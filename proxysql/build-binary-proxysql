@@ -33,11 +33,8 @@ if [ -f /usr/bin/yum ]; then
     fi
 elif [ -f /usr/bin/apt ]; then
   DEBIAN_VERSION=$(lsb_release -sc)
-  if [ ${DEBIAN_VERSION} = "stretch" ]; then
-    sudo sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list
-    sudo sed -i 's|security.debian.org|archive.debian.org|g' /etc/apt/sources.list
-    sudo sed -i '/stretch-updates/d' /etc/apt/sources.list
-    sudo apt-get -y update
+  if [ ${DEBIAN_VERSION} = "focal" ]; then
+    sudo apt-get update
     sudo apt-get install -y uuid-dev
   else
     sudo apt-get install -y uuid-dev
