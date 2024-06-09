@@ -114,16 +114,27 @@ pipeline {
                     }
                 }
 
+                stage('Debian Bookworm') {
+                    steps {
+                        runNodeBuild('min-bookworm-x64')
+                    }
+                }
+
                 stage('Ubuntu Focal') {
                     steps {
                         runNodeBuild('min-focal-x64')
                     }
                 }
 
-
                 stage('Ubuntu Jammy') {
                     steps {
                         runNodeBuild('min-jammy-x64')
+                    }
+                }
+
+                stage('Ubuntu Noble Numbat') {
+                    steps {
+                        runNodeBuild('min-noble-x64')
                     }
                 }
 
