@@ -157,8 +157,7 @@ pipeline {
         )
         booleanParam(
             name: 'skip_psmdb60',
-            defaultValue: true,
-            description: "Enable to skip psmdb 6.0 packages installation tests. Leave enabled till PT-2217 is fixed"
+            description: "Enable to skip psmdb 6.0 packages installation tests."
         )
         booleanParam(
             name: 'skip_upstream57',
