@@ -11,9 +11,13 @@ set -o xtrace
 
 if [ -f /usr/bin/yum ]; then
     RHEL=$(rpm --eval %rhel)
-    if [[ $RHEL -eq 8 ]]; then
+    if [[ $RHEL -eq 9 ]]; then
         sudo yum -y install python2 gnutls-devel libtool libuuid libuuid-devel perl-IPC-Cmd || true
         sudo yum remove -y cmake
+	sudo yum -y install wget
+	wget https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/gcc-c++-11.4.1-2.3.el9.x86_64.rpm
+	wget https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/gcc-11.4.1-2.3.el9.x86_64.rpm
+	sudo rpm -ivh gcc-c++-11.4.1-2.3.el9.x86_64.rpm gcc-11.4.1-2.3.el9.x86_64.rpm
         sudo wget https://github.com/Kitware/CMake/releases/download/v3.19.8/cmake-3.19.8.tar.gz
         sudo tar -zxf cmake-3.19.8.tar.gz
         cd cmake-3.19.8/
@@ -22,6 +26,8 @@ if [ -f /usr/bin/yum ]; then
         sudo make install
         sudo ln -s /usr/local/bin/cmake /usr/bin/cmake
         sudo cmake --version
+	gcc --version
+	g++ --version
     fi
     sudo yum -y install wget
     if [[ $RHEL -eq 7 ]]; then
