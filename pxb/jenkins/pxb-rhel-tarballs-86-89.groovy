@@ -77,6 +77,7 @@ pipeline {
   post {
     always {
       script {
+        archiveArtifacts artifacts: "*.tar.gz" , followSymlinks: false
         moleculeParallelPostDestroy(pxbTarballRHEL8689(), env.MOLECULE_DIR)
       }
     }
