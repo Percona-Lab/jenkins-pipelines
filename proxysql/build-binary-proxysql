@@ -25,7 +25,14 @@ if [ -f /usr/bin/yum ]; then
     fi
     sudo yum -y install wget
     if [[ $RHEL -eq 7 ]]; then
+      sudo yum install -y centos-release-scl
+      sudo yum install -y devtoolset-7-gcc-c++ --enablerepo='centos-sclo-rh'
+      scl enable devtoolset-7 'gcc --version' | head -1
       sudo yum -y install automake bzip2 cmake3 make gcc-c++ gcc git openssl openssl-devel gnutls gnutls-devel libtool patch libuuid libuuid-devel perl-IPC-Cmd
+      gcc --version
+      g++ --version
+      which gcc
+      which g++
       if [ -f /usr/bin/cmake3 ]; then
         sudo mv /usr/bin/cmake /usr/bin/cmake2
         sudo ln -s /usr/bin/cmake3 /usr/bin/cmake
