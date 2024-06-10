@@ -326,7 +326,7 @@ pipeline {
                         sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
                         sudo chmod +x /usr/local/bin/yq
 
-                        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+                        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 > /usr/local/bin/jq"
                         sudo chmod +x /usr/local/bin/jq
 
                         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
