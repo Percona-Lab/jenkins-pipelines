@@ -29,7 +29,7 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'docker'
+        label 'docker-32gb'
     }
     parameters {
         string(
@@ -63,7 +63,7 @@ pipeline {
             parallel {
                 stage('Oracle Linux 8') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -89,7 +89,7 @@ pipeline {
                 }
                 stage('Oracle Linux 9') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
