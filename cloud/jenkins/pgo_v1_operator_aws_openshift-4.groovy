@@ -94,7 +94,7 @@ EOF
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
                 export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
-                
+
                 machineset=`oc get machineset  -n openshift-machine-api | awk 'NR==2 {print \$1; exit}'`
                 oc get machineset \$machineset -o yaml -n openshift-machine-api | yq w - --style=double 'spec.template.spec.providerSpec.value.spotMarketOptions' '{}' | sed 's/"{}"/{}/' | oc apply -f -
                 oc scale machineset --replicas=3  \$machineset -n openshift-machine-api
@@ -330,7 +330,7 @@ pipeline {
                         sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/3.3.2/yq_linux_amd64 > /usr/local/bin/yq"
                         sudo chmod +x /usr/local/bin/yq
 
-                        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 > /usr/local/bin/jq"
+                        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
                         sudo chmod +x /usr/local/bin/jq
 
                         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
