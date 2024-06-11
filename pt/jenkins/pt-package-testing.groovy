@@ -33,7 +33,7 @@ sudo cp ${WORKSPACE}/ansible.cfg /etc/ansible/ansible.cfg
 """
 }
 
-setup_buster_bullseye_package_tests = { ->
+setup_debian_package_tests = { ->
     sh '''
         sudo apt-get update
         sudo apt-get install -y ansible
@@ -50,13 +50,15 @@ setup_ubuntu_package_tests = { ->
 }
 
 node_setups = [
-    "min-buster-x64": setup_buster_bullseye_package_tests,
-    "min-bullseye-x64": setup_buster_bullseye_package_tests,
+    "min-buster-x64": setup_debian_package_tests,
+    "min-bullseye-x64": setup_debian_package_tests,
+    "min-bookworm-x64": setup_debian_package_tests,
     "min-centos-7-x64": setup_rhel_package_tests,
     "min-ol-8-x64": setup_ol8_package_tests,
     "min-ol-9-x64": setup_rhel_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
-    "min-jammy-x64": setup_ubuntu_package_tests
+    "min-jammy-x64": setup_ubuntu_package_tests,
+    "min-noble-x64": setup_ubuntu_package_tests
 ]
 
 void setup_package_tests() {
@@ -155,8 +157,7 @@ pipeline {
         )
         booleanParam(
             name: 'skip_psmdb60',
-            defaultValue: true,
-            description: "Enable to skip psmdb 6.0 packages installation tests. Leave enabled till PT-2217 is fixed"
+            description: "Enable to skip psmdb 6.0 packages installation tests."
         )
         booleanParam(
             name: 'skip_upstream57',
