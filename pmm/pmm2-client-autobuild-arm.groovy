@@ -86,7 +86,6 @@ pipeline {
         //                     echo "${PASS}" | docker login -u "${USER}" --password-stdin
         //                     set -o xtrace
 
-        //                     export PUSH_DOCKER=1
         //                     export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')
 
         //                     ${PATH_TO_SCRIPTS}/build-client-docker
