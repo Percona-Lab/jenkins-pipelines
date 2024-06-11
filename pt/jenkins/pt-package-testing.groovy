@@ -219,7 +219,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(bullseye)/) && !params.skip_ps57
+                            !(params.node_to_test =~ /(bullseye|noble)/) && !params.skip_ps57
                         }
                     }
                     environment {
@@ -237,7 +237,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !params.skip_ps80
+                            !(params.node_to_test =~ /(noble)/) && !params.skip_ps80
                         }
                     }
                     environment {
@@ -255,7 +255,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(bullseye)/) && !params.skip_pxc57
+                            !(params.node_to_test =~ /(bullseye|noble)/) && !params.skip_pxc57
                         }
                     }
                     environment {
@@ -273,25 +273,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !params.skip_pxc80
-                        }
-                    }
-                    environment {
-                        install_with = 'pxc80'
-                    }
-                    steps {
-                        runPlaybook("pt_with_products")
-                    }
-                }
-
-                stage('psmdb44_and_pt') {
-                    agent {
-                        label params.node_to_test
-                    }
-                    when {
-                        beforeAgent true
-                        expression {
-                            !(params.node_to_test =~ /(ol-9)/) && !params.skip_psmdb44
+                            !(params.node_to_test =~ /(noble)/) && !params.skip_psmdb44
                         }
                     }
                     environment {
@@ -309,7 +291,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(ol-9)/) && !params.skip_psmdb50
+                            !(params.node_to_test =~ /(ol-9|bookworm|noble)/) && !params.skip_psmdb50
                         }
                     }
                     environment {
@@ -327,7 +309,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !params.skip_psmdb60
+                            !(params.node_to_test =~ /(bookworm|noble)/) && !params.skip_psmdb60
                         }
                     }
                     environment {
@@ -345,7 +327,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(ol-8|ol-9|focal|jammy|bullseye)/) && !params.skip_upstream57
+                            !(params.node_to_test =~ /(ol-8|ol-9|focal|jammy|bullseye|bookworm|noble)/) && !params.skip_upstream57
                         }
                     }
                     environment {
@@ -363,7 +345,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !params.skip_upstream80
+                            !(params.node_to_test =~ /(bookworm|noble)/) && !params.skip_upstream80
                         }
                     }
                     environment {
