@@ -108,8 +108,10 @@ pipeline {
                 'min-ol-9-x64',
                 'min-focal-x64',
                 'min-jammy-x64',
+                'min-noble-x64',
                 'min-buster-x64',
-                'min-bullseye-x64'
+                'min-bullseye-x64',
+                'min-bookworm-x64'
             ],
             description: 'Node to run tests on',
             name: 'node_to_test'
