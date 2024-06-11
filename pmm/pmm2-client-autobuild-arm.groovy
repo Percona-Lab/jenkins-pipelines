@@ -78,30 +78,30 @@ pipeline {
                 uploadTarball('binary')
             }
         }
-        stage('Build client docker') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    withEnv(['PATH_TO_SCRIPTS=' + env.PATH_TO_SCRIPTS]) {
-                        sh '''
-                            echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                            set -o xtrace
+        // stage('Build client docker') {
+        //     steps {
+        //         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        //             withEnv(['PATH_TO_SCRIPTS=' + env.PATH_TO_SCRIPTS]) {
+        //                 sh '''
+        //                     echo "${PASS}" | docker login -u "${USER}" --password-stdin
+        //                     set -o xtrace
 
-                            export PUSH_DOCKER=1
-                            export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')
+        //                     export PUSH_DOCKER=1
+        //                     export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')
 
-                            ${PATH_TO_SCRIPTS}/build-client-docker
+        //                     ${PATH_TO_SCRIPTS}/build-client-docker
 
-                            if [ -n "${DOCKER_RC_TAG}" ]; then
-                                docker buildx imagetools create --tag perconalab/pmm-client:${DOCKER_RC_TAG} ${DOCKER_CLIENT_TAG}
-                            fi
-                            docker buildx imagetools create --tag perconalab/pmm-client:${DOCKER_LATEST_TAG} ${DOCKER_CLIENT_TAG}
-                        '''
-                    }
-                }
-                stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
-                archiveArtifacts 'results/docker/CLIENT_TAG'
-            }
-        }
+        //                     if [ -n "${DOCKER_RC_TAG}" ]; then
+        //                         docker buildx imagetools create --tag perconalab/pmm-client:${DOCKER_RC_TAG} ${DOCKER_CLIENT_TAG}
+        //                     fi
+        //                     docker buildx imagetools create --tag perconalab/pmm-client:${DOCKER_LATEST_TAG} ${DOCKER_CLIENT_TAG}
+        //                 '''
+        //             }
+        //         }
+        //         stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
+        //         archiveArtifacts 'results/docker/CLIENT_TAG'
+        //     }
+        // }
         stage('Build client source rpm') {
             parallel {
                 stage('Build client source rpm EL7') {
