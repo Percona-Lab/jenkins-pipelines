@@ -273,7 +273,25 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(noble)/) && !params.skip_psmdb44
+                            !(params.node_to_test =~ /(noble)/) && !params.skip_pxc80
+                        }
+                    }
+                    environment {
+                        install_with = 'pxc80'
+                    }
+                    steps {
+                        runPlaybook("pt_with_products")
+                    }
+                }
+
+                stage('psmdb44_and_pt') {
+                    agent {
+                        label params.node_to_test
+                    }
+                    when {
+                        beforeAgent true
+                        expression {
+                            !(params.node_to_test =~ /(ol-9|bookworm|noble)/) && !params.skip_psmdb44
                         }
                     }
                     environment {
