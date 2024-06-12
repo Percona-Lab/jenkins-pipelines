@@ -345,7 +345,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(ol-8|ol-9|focal|jammy|bullseye|bookworm|noble)/) && !params.skip_upstream57
+                            !(params.node_to_test =~ /(ol-8|ol-9|focal|jammy|buster|bullseye|bookworm|noble)/) && !params.skip_upstream57
                         }
                     }
                     environment {
@@ -363,7 +363,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(bookworm|noble)/) && !params.skip_upstream80
+                            !(params.node_to_test =~ /(buster|bookworm|noble)/) && !params.skip_upstream80
                         }
                     }
                     environment {
