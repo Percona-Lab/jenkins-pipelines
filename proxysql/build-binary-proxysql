@@ -11,9 +11,13 @@ set -o xtrace
 
 if [ -f /usr/bin/yum ]; then
     RHEL=$(rpm --eval %rhel)
-    if [[ $RHEL -eq 8 ]]; then
+    if [[ $RHEL -eq 9 ]]; then
         sudo yum -y install python2 gnutls-devel libtool libuuid libuuid-devel perl-IPC-Cmd || true
         sudo yum remove -y cmake
+	sudo yum -y install wget
+	wget https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/gcc-c++-11.4.1-2.3.el9.x86_64.rpm
+	wget https://mirror.stream.centos.org/9-stream/AppStream/x86_64/os/Packages/gcc-11.4.1-2.3.el9.x86_64.rpm
+	sudo rpm -ivh gcc-c++-11.4.1-2.3.el9.x86_64.rpm gcc-11.4.1-2.3.el9.x86_64.rpm
         sudo wget https://github.com/Kitware/CMake/releases/download/v3.19.8/cmake-3.19.8.tar.gz
         sudo tar -zxf cmake-3.19.8.tar.gz
         cd cmake-3.19.8/
@@ -22,10 +26,19 @@ if [ -f /usr/bin/yum ]; then
         sudo make install
         sudo ln -s /usr/local/bin/cmake /usr/bin/cmake
         sudo cmake --version
+	gcc --version
+	g++ --version
     fi
     sudo yum -y install wget
     if [[ $RHEL -eq 7 ]]; then
+      sudo yum install -y centos-release-scl
+      sudo yum install -y devtoolset-7-gcc-c++ --enablerepo='centos-sclo-rh'
+      scl enable devtoolset-7 'gcc --version' | head -1
       sudo yum -y install automake bzip2 cmake3 make gcc-c++ gcc git openssl openssl-devel gnutls gnutls-devel libtool patch libuuid libuuid-devel perl-IPC-Cmd
+      gcc --version
+      g++ --version
+      which gcc
+      which g++
       if [ -f /usr/bin/cmake3 ]; then
         sudo mv /usr/bin/cmake /usr/bin/cmake2
         sudo ln -s /usr/bin/cmake3 /usr/bin/cmake
@@ -33,11 +46,8 @@ if [ -f /usr/bin/yum ]; then
     fi
 elif [ -f /usr/bin/apt ]; then
   DEBIAN_VERSION=$(lsb_release -sc)
-  if [ ${DEBIAN_VERSION} = "stretch" ]; then
-    sudo sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list
-    sudo sed -i 's|security.debian.org|archive.debian.org|g' /etc/apt/sources.list
-    sudo sed -i '/stretch-updates/d' /etc/apt/sources.list
-    sudo apt-get -y update
+  if [ ${DEBIAN_VERSION} = "focal" ]; then
+    sudo apt-get update
     sudo apt-get install -y uuid-dev
   else
     sudo apt-get install -y uuid-dev
@@ -55,7 +65,7 @@ elif [ -f /usr/bin/apt ]; then
 fi
 
 # We need to use golang version >= 1.21. Downloading golang from tarball to ensure each platform uses the same version.
-sudo wget https://go.dev/dl/go1.21.9.linux-amd64.tar.gz
+sudo wget https://go.dev/dl/go1.17.7.linux-amd64.tar.gz
 
 # /usr/local is the default path included in the $PATH variable. Using any other custom installation path will not work
 # Example:
@@ -64,7 +74,7 @@ sudo wget https://go.dev/dl/go1.21.9.linux-amd64.tar.gz
 #
 # The above method will not work. This is because the value of $PATH is not preserved/passed on to the child scipt from the parent script
 # Hence using the default $PATH that is available to every new session (both parent and child script)
-sudo tar -C /usr/local/ -xzf go1.21.9.linux-amd64.tar.gz
+sudo tar -C /usr/local/ -xzf go1.17.7.linux-amd64.tar.gz
 sudo cp /usr/local/go/bin/go /usr/local/bin/go
 if [ -f /usr/bin/yum ]; then
   RHEL=$(rpm --eval %rhel)
