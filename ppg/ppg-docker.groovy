@@ -14,7 +14,7 @@ pipeline {
         choice(name: 'PPG_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PPG_VERSION', defaultValue: '16.3-1', description: 'PPG version')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
-//      choice(name: 'DEBUG', choices: ['no','yes'], description: 'Additionally build debug image')
+        choice(name: 'LATEST', choices: ['no','yes'], description: 'Tag image as latest')
     }
     options {
         disableConcurrentBuilds()
@@ -82,6 +82,10 @@ pipeline {
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
                          docker tag percona-distribution-postgresql:\$MAJ_VER public.ecr.aws/e7j3v3n0/ppg-build:ppg-${params.PPG_VERSION}
                          docker push public.ecr.aws/e7j3v3n0/ppg-build:ppg-${params.PPG_VERSION}
+                         if [ ${params.LATEST} = "yes" ]; then
+                            docker tag percona-distribution-postgresql:\$MAJ_VER public.ecr.aws/e7j3v3n0/ppg-build:latest
+                            docker push public.ecr.aws/e7j3v3n0/ppg-build:latest
+                         fi
                      """
                 }
             }
@@ -102,6 +106,10 @@ pipeline {
                          docker push perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
                          docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:\$MAJ_VER
                          docker push perconalab/percona-distribution-postgresql:\$MAJ_VER
+                         if [ ${params.LATEST} = "yes" ]; then
+                            docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:latest
+                            docker push perconalab/percona-distribution-postgresql:latest
+                         fi
                      """
                 }
             }
@@ -122,6 +130,10 @@ pipeline {
                          docker push percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
                          docker tag percona-distribution-postgresql:\$MAJ_VER percona/percona-distribution-postgresql:\$MAJ_VER
                          docker push percona/percona-distribution-postgresql:\$MAJ_VER
+                         if [ ${params.LATEST} = "yes" ]; then
+                            docker tag percona-distribution-postgresql:\$MAJ_VER percona/percona-distribution-postgresql:latest
+                            docker push percona/percona-distribution-postgresql:latest
+                         fi
                      """
                 }
             }
