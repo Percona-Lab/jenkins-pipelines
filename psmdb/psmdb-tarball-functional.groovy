@@ -53,7 +53,7 @@ pipeline {
         stage('Test') {
             steps {
                 sh """
-                  echo ${params.TARBALL} | awk '{ match(\$0,/([0-9].[0-9])/,m); print m[0]}' > VERSION
+                  echo ${params.TARBALL} | sed -E 's/(.+mongodb-)([0-9].[0-9])(.+)/\\2/' > VERSION
                 """
                 script {
                     def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()
