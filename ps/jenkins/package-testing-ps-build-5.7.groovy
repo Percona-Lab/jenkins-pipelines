@@ -114,7 +114,7 @@ void runPlaybook(String action_to_test) {
     setup_package_tests()
 
     sh '''
-        git clone -b package-fix --depth 1 https://github.com/kaushikpuneet07/package-testing
+        git clone -b packages-fix --depth 1 https://github.com/kaushikpuneet07/package-testing
     '''
     withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
     sh """
