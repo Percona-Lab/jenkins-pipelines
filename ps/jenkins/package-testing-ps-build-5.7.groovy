@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@package-fix', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 setup_rhel_package_tests = { ->
@@ -72,6 +72,10 @@ List ps56_excluded_nodes = [
     "min-bookworm-x64"
 ]
 
+List ps57_excluded_nodes = [
+    "min-bionic-x64"
+]
+
 List all_actions = [
     "install",
     "upgrade",
@@ -110,7 +114,7 @@ void runPlaybook(String action_to_test) {
     setup_package_tests()
 
     sh '''
-        git clone --depth 1 https://github.com/Percona-QA/package-testing
+        git clone -b package-fix --depth 1 https://github.com/kaushikpuneet07/package-testing
     '''
     withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
     sh """
@@ -253,6 +257,9 @@ pipeline {
                         }
                         expression {
                             actions_to_test.contains("maj-upgrade-from")
+                        }
+                        expression {
+                            !(ps57_excluded_nodes.contains(params.node_to_test))
                         }
                     }
 
