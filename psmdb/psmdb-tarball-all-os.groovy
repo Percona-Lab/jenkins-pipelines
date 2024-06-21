@@ -9,7 +9,7 @@ def encList = [ 'NONE', 'KEYFILE', 'VAULT']
 
 pipeline {
     agent {
-    label 'min-centos-7-x64'
+    label 'min-bookworm-x64'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -55,7 +55,7 @@ pipeline {
         stage ('Prepare') {
             steps {
                 script {
-                    installMolecule()
+                    installMoleculeBookworm()
                 }
             }
         }

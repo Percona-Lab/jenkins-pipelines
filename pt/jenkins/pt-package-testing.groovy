@@ -33,7 +33,7 @@ sudo cp ${WORKSPACE}/ansible.cfg /etc/ansible/ansible.cfg
 """
 }
 
-setup_buster_bullseye_package_tests = { ->
+setup_debian_package_tests = { ->
     sh '''
         sudo apt-get update
         sudo apt-get install -y ansible
@@ -50,13 +50,15 @@ setup_ubuntu_package_tests = { ->
 }
 
 node_setups = [
-    "min-buster-x64": setup_buster_bullseye_package_tests,
-    "min-bullseye-x64": setup_buster_bullseye_package_tests,
+    "min-buster-x64": setup_debian_package_tests,
+    "min-bullseye-x64": setup_debian_package_tests,
+    "min-bookworm-x64": setup_debian_package_tests,
     "min-centos-7-x64": setup_rhel_package_tests,
     "min-ol-8-x64": setup_ol8_package_tests,
     "min-ol-9-x64": setup_rhel_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
-    "min-jammy-x64": setup_ubuntu_package_tests
+    "min-jammy-x64": setup_ubuntu_package_tests,
+    "min-noble-x64": setup_ubuntu_package_tests
 ]
 
 void setup_package_tests() {
@@ -106,8 +108,10 @@ pipeline {
                 'min-ol-9-x64',
                 'min-focal-x64',
                 'min-jammy-x64',
+                'min-noble-x64',
                 'min-buster-x64',
-                'min-bullseye-x64'
+                'min-bullseye-x64',
+                'min-bookworm-x64'
             ],
             description: 'Node to run tests on',
             name: 'node_to_test'
@@ -155,8 +159,7 @@ pipeline {
         )
         booleanParam(
             name: 'skip_psmdb60',
-            defaultValue: true,
-            description: "Enable to skip psmdb 6.0 packages installation tests. Leave enabled till PT-2217 is fixed"
+            description: "Enable to skip psmdb 6.0 packages installation tests."
         )
         booleanParam(
             name: 'skip_upstream57',
@@ -216,7 +219,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(bullseye)/) && !params.skip_ps57
+                            !(params.node_to_test =~ /(bullseye|noble)/) && !params.skip_ps57
                         }
                     }
                     environment {
@@ -234,7 +237,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !params.skip_ps80
+                            !(params.node_to_test =~ /(noble)/) && !params.skip_ps80
                         }
                     }
                     environment {
@@ -252,7 +255,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(bullseye)/) && !params.skip_pxc57
+                            !(params.node_to_test =~ /(bullseye|noble)/) && !params.skip_pxc57
                         }
                     }
                     environment {
@@ -270,7 +273,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !params.skip_pxc80
+                            !(params.node_to_test =~ /(noble)/) && !params.skip_pxc80
                         }
                     }
                     environment {
@@ -288,7 +291,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(ol-9)/) && !params.skip_psmdb44
+                            !(params.node_to_test =~ /(ol-9|bookworm|noble)/) && !params.skip_psmdb44
                         }
                     }
                     environment {
@@ -306,7 +309,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(ol-9)/) && !params.skip_psmdb50
+                            !(params.node_to_test =~ /(ol-9|bookworm|noble)/) && !params.skip_psmdb50
                         }
                     }
                     environment {
@@ -324,7 +327,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !params.skip_psmdb60
+                            !(params.node_to_test =~ /(bookworm|noble)/) && !params.skip_psmdb60
                         }
                     }
                     environment {
@@ -342,7 +345,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(ol-8|ol-9|focal|jammy|bullseye)/) && !params.skip_upstream57
+                            !(params.node_to_test =~ /(ol-8|ol-9|focal|jammy|buster|bullseye|bookworm|noble)/) && !params.skip_upstream57
                         }
                     }
                     environment {
@@ -360,7 +363,7 @@ pipeline {
                     when {
                         beforeAgent true
                         expression {
-                            !params.skip_upstream80
+                            !(params.node_to_test =~ /(buster|bookworm|noble)/) && !params.skip_upstream80
                         }
                     }
                     environment {

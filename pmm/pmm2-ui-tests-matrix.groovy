@@ -77,10 +77,10 @@ pipeline {
                         }
                     }
                 }
-                stage('Run MongoDb & MySQL BM Tests using @backup'){
+                stage('Run MySQL BM Tests using @bm-mysql'){
                     steps {
                         script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@backup|@bm-mysql', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--mongo-replica-for-backup --setup-bm-mysql');
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@bm-mysql', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--mongo-replica-for-backup --setup-bm-mysql');
                         }
                     }
                 }
@@ -91,10 +91,10 @@ pipeline {
                         }
                     }
                 }
-                stage('Run Tests using @settings @cli @pgss-pmm-integration'){
+                stage('Run Tests using @settings @cli'){
                     steps {
                         script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@settings|@cli|@pgss-pmm-integration', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--setup-pmm-pgss-integration');
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@settings|@cli', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--setup-pmm-pgss-integration');
                         }
                     }
                 }

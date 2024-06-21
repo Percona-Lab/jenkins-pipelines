@@ -13,11 +13,8 @@ void prepareNode() {
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
 
-        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
-        sudo chmod +x /usr/local/bin/yq
-
-        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-        sudo chmod +x /usr/local/bin/jq
+        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
+        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
 
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable-only tools
@@ -33,8 +30,8 @@ void prepareNode() {
 
         kubectl krew install assert
 
-        # v0.15.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/a67f31ecb2e62f15149ca66d096357050f07b77d/plugins/kuttl.yaml
+        # v0.16.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/e450fd06ebe9ce200355726b81d13e5e59b9bf47/plugins/kuttl.yaml
         echo \$(kubectl kuttl --version) is installed
     """
 }

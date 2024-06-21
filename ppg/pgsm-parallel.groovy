@@ -17,7 +17,7 @@ def sendSlackNotification(pgsm_repo, pgsm_branch, pgsm_package_install, version,
 
 pipeline {
   agent {
-      label 'min-ol-8-x64'
+      label 'min-ol-9-x64'
   }
   parameters {
         choice(
@@ -88,7 +88,7 @@ pipeline {
         stage ('Prepare') {
           steps {
                 script {
-                   installMoleculePPG()
+                   installMoleculePython39()
              }
            }
         }

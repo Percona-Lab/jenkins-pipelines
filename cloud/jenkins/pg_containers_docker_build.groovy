@@ -126,6 +126,9 @@ pipeline {
                 retry(3) {
                     build('pgbadger')
                 }
+                retry(3) {
+                    build('upgrade')
+                }
             }
         }
         stage('Push Images to Docker registry') {

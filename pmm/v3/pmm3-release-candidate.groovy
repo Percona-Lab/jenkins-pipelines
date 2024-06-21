@@ -212,7 +212,7 @@ pipeline {
             steps {
                 deleteReleaseBranches(env.SUBMODULES_GIT_BRANCH)
                 script {
-                    currentBuild.description = "Release beanches were deleted: ${env.SUBMODULES_GIT_BRANCH}"
+                    currentBuild.description = "Release branches were deleted: ${env.SUBMODULES_GIT_BRANCH}"
                     return
                 }
             }

@@ -54,10 +54,10 @@ pipeline {
             name: 'DAYS'
         )
         text(
-            defaultValue: '-e PMM_DEBUG=1 -e ENABLE_TELEMETRY=0 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com',
+            defaultValue: '-e PMM_DEBUG=1 -e PMM_ENABLE_TELEMETRY=0 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com',
             description: '''
             Passing environment variables to PMM Server Docker container is supported for PMM v2 and up.
-            Example: -e PERCONA_TEST_CHECKS_INTERVAL=30s -e PERCONA_TEST_TELEMETRY_DISABLE_START_DELAY=1 -e PMM_DEBUG=1
+            Example: -e PMM_DEV_TELEMETRY_DISABLE_START_DELAY=1 -e PMM_DEBUG=1
             ''',
             name: 'DOCKER_ENV_VARIABLE'
         )
@@ -286,8 +286,6 @@ pipeline {
                         sudo chown ec2-user -R /srv/qa-integration
 
                         pushd /srv/qa-integration/pmm_qa
-                            echo "Setting up PMM client on the host"
-                            sudo bash -x pmm3-client-setup.sh --pmm_server_ip 127.0.0.1 --client_version ${CLIENT_VERSION} --admin_password ${ADMIN_PASSWORD} --use_metrics_mode no
                             echo "Setting docker based PMM clients"
                             python3 -m venv virtenv
                             . virtenv/bin/activate
