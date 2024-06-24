@@ -25,7 +25,7 @@ pipeline {
             parallel {
                 stage('Build PMM2 Client for AMD64') {
                     steps {
-                        build job: 'pmm2-client-autobuild-amd', parameters: [
+                        build job: 'pmm2-client-autobuilds-amd', parameters: [
                             string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
                             string(name: 'DESTINATION', value: params.DESTINATION)
                         ]
