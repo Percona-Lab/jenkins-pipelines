@@ -4,7 +4,9 @@ library changelog: false, identifier: 'lib@PMM-9242-arm-build-for-client', retri
 ]) _
 
 pipeline {
-    agent none
+    agent {
+        label 'agent-amd64'
+    }
     parameters {
         string(
             defaultValue: 'PMM-2.0',
@@ -29,9 +31,6 @@ pipeline {
     }
     stages {
         stage('Build PMM Client') {
-            agent {
-                label 'agent-amd64'
-            }
             stages {
                 stage('Prepare') {
                     steps {

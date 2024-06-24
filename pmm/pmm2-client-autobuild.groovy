@@ -1,7 +1,6 @@
 pipeline {
-    agent {
-        label 'cli'
-    }
+    agent none
+
     parameters {
         string(
             defaultValue: 'PMM-2.0',
