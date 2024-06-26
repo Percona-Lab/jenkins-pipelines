@@ -37,12 +37,12 @@ pipeline {
             description: 'URL for timescaledb repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '2.5',
-            description: 'General version of the product',
+            defaultValue: '2.15.2',
+            description: 'Branch/Tag of the timescaledb',
             name: 'PG_BRANCH')
         string(
             defaultValue: '16.3',
-            description: 'Tag/Branch for timescaledb repository',
+            description: 'Tag/Branch for packaging repository',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '1',
