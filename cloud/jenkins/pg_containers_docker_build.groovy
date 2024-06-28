@@ -140,6 +140,7 @@ pipeline {
                 pushImageToDocker('postgres')
                 pushImageToDocker('postgres-gis')
                 pushImageToDocker('pgbadger')
+                pushImageToDocker('upgrade')
             }
         }
         stage('Trivy Checks') {
@@ -211,6 +212,16 @@ pipeline {
                     post {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgbadger.xml"
+                        }
+                    }
+                }
+                stage('upgrade'){
+                    steps {
+                        checkImageForDocker('upgrade')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-upgrade.xml"
                         }
                     }
                 }
