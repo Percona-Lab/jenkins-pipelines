@@ -30,7 +30,7 @@ imageMap['min-jammy-x64']    = 'ami-014d05e6b24240371'
 imageMap['min-noble-x64']    = 'ami-08012c0a9ee8e21c4'
 imageMap['min-centos-6-x32'] = 'ami-67e3cd22'
 imageMap['min-centos-6-x64'] = 'ami-0d282a216ae4c0c42'
-imageMap['min-centos-7-x64'] = 'ami-08d2d8b00f270d03b'
+imageMap['min-centos-7-x64'] = 'ami-0bcd12d19d926f8e9'
 imageMap['min-centos-8-x64'] = 'ami-04adf3fcbc8a45c54'
 imageMap['min-ol-8-x64']     = 'ami-0ec007654a879ba5e'
 imageMap['min-ol-9-x64']     = 'ami-0bf91ca60fd852846'
@@ -222,7 +222,7 @@ initMap['rpmMap'] = '''
 
         PKGLIST="p7zip"
     fi
-    if [[ ${RHVER} -eq 8 ]]; then
+    if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
         sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
         sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
     fi

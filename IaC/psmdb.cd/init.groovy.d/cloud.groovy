@@ -23,7 +23,7 @@ netMap['us-west-2c'] = 'subnet-09103aa8678a054f7'
 
 imageMap = [:]
 imageMap['micro-amazon']     = 'ami-00b44d3dbe1f81742'
-imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
+imageMap['min-centos-7-x64'] = 'ami-04f798ca92cc13f74'
 imageMap['min-centos-8-x64'] = 'ami-0155c31ea13d4abd2'
 imageMap['min-ol-8-x64']     = 'ami-0c32e4ead7507bc6f'
 imageMap['min-ol-9-x64']     = 'ami-00a5d5bcea31bb02c'

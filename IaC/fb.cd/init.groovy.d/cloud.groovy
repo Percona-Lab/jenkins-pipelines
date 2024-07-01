@@ -25,7 +25,7 @@ imageMap['eu-west-1a.docker'] = 'ami-05247819264504af0'
 imageMap['eu-west-1a.docker-32gb'] = 'ami-05247819264504af0'
 imageMap['eu-west-1a.docker2'] = 'ami-05247819264504af0'
 imageMap['eu-west-1a.micro-amazon'] = 'ami-05247819264504af0'
-imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-04f5641b0d178a27a'
+imageMap['eu-west-1a.min-centos-7-x64'] = 'ami-00d464afa64e1fc69'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
@@ -40,9 +40,9 @@ imageMap['eu-west-1c.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
 imageMap['eu-west-1c.min-centos-7-x64'] = imageMap['eu-west-1a.min-centos-7-x64']
 
 priceMap = [:]
-priceMap['t2.small'] = '0.01'     // type=t2.small, vCPU=1, memory=2GiB, saving=64%, interruption='<5%', price=0.009100
+priceMap['t2.small'] = '0.03'     // type=t2.small, vCPU=1, memory=2GiB, saving=64%, interruption='<5%', price=0.017500
 priceMap['c4.xlarge'] = '0.10'    // type=c4.xlarge, vCPU=4, memory=7.5GiB, saving=61%, interruption='<5%', price=0.094100
-priceMap['g4ad.2xlarge'] = '0.29' // type=g4ad.2xlarge, vCPU=8, memory=32GiB, saving=64%, interruption='<5%', price=0.219800
+priceMap['g4ad.2xlarge'] = '0.53' // type=g4ad.2xlarge, vCPU=8, memory=32GiB, saving=64%, interruption='<5%', price=0.479800
 priceMap['i4i.4xlarge'] = '0.57'  // type=i4i.4xlarge, vCPU=16, memory=128GiB, saving=67%, interruption='<5%', price=0.534400
 
 userMap = [:]
@@ -81,13 +81,13 @@ initMap['docker'] = '''
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
-        
+
         until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
             sleep 1
             echo try again
         done
 
-        7za -o/tmp x /tmp/awscliv2.zip 
+        7za -o/tmp x /tmp/awscliv2.zip
         cd /tmp/aws && sudo ./install
     fi
 
@@ -138,6 +138,39 @@ initMap['micro-amazon'] = '''
     sudo yum -y install git aws-cli || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
+initMap['min-centos-7-x64'] = '''
+    set -o xtrace
+    if ! mountpoint -q /mnt; then
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext2 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
+    fi
+
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
+
+    if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
+        sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+        sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+    fi
+
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+    sudo amazon-linux-extras install epel -y
+    sudo amazon-linux-extras install java-openjdk11 -y || :
+    sudo yum -y install java-11-openjdk tzdata-java || :
+    sudo yum -y install git || :
+    sudo yum -y install aws-cli || :
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
 
 capMap = [:]
 capMap['c4.xlarge'] = '60'
@@ -168,7 +201,7 @@ devMap['min-centos-7-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
 labelMap = [:]
 labelMap['docker'] = ''
 labelMap['docker-32gb'] = ''
-labelMap['docker2'] = 'docker-32gb'
+labelMap['docker2'] = ''
 labelMap['micro-amazon'] = 'master'
 labelMap['min-centos-7-x64'] = ''
 

@@ -25,7 +25,7 @@ imageMap['eu-central-1a.micro-amazon'] = 'ami-01fd08d7b0955d6d5'
 imageMap['eu-central-1b.micro-amazon'] = imageMap['eu-central-1a.micro-amazon']
 imageMap['eu-central-1c.micro-amazon'] = imageMap['eu-central-1a.micro-amazon']
 
-imageMap['eu-central-1a.min-centos-7-x64'] = 'ami-08b6d44b4f6f7b279'
+imageMap['eu-central-1a.min-centos-7-x64'] = 'ami-0afcbcee3dfbce929'
 imageMap['eu-central-1b.min-centos-7-x64'] = imageMap['eu-central-1a.min-centos-7-x64']
 imageMap['eu-central-1c.min-centos-7-x64'] = imageMap['eu-central-1a.min-centos-7-x64']
 
@@ -50,6 +50,7 @@ userMap['min-ol-9-x64']     = userMap['micro-amazon']
 initMap = [:]
 initMap['micro-amazon'] = '''
     set -o xtrace
+    RHVER=$(rpm --eval %rhel)
     if ! mountpoint -q /mnt; then
         for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
             if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
@@ -62,6 +63,12 @@ initMap['micro-amazon'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
+
+    if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
+        sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+        sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+    fi
+
     until sudo yum makecache; do
         sleep 1
         echo try again

@@ -23,7 +23,7 @@ netMap['us-east-2c'] = 'subnet-00b3df129e7d8c658'
 
 // TODO We use rhel label here, in reality it's a RHEL-compatible derivative.
 imageMap = [:]
-imageMap['us-east-2a.min-rhel-7-x64']     = 'ami-00f8e2c955f7ffa9b'               // centos 7
+imageMap['us-east-2a.min-rhel-7-x64']     = 'ami-033adaf0b583374d4'               // centos 7
 imageMap['us-east-2a.min-centos-7-x64']   = imageMap['us-east-2a.min-rhel-7-x64'] // centos 7
 imageMap['us-east-2a.min-rhel-8-x64']     = 'ami-0426a691fd088149c'               // rocky linux 8
 imageMap['us-east-2a.min-ol-8-x64']       = 'ami-046d14d0ddf879691'               // oraclelinux 8
@@ -126,6 +126,11 @@ initMap['rpmMap'] = '''
         PKGLIST="tar coreutils java-11-openjdk"
     elif [[ $SYSREL -ge 8 ]]; then
         PKGLIST="tar coreutils java-11-openjdk tzdata-java"
+    fi
+
+    if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
+        sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+        sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
     fi
 
     until sudo yum makecache; do
