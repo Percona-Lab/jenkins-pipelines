@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'agent-cli'
+        label 'cli'
     }
 
     parameters {
