@@ -24,29 +24,25 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
+                git poll: true,
+                    branch: GIT_BRANCH,
+                    url: 'http://github.com/Percona-Lab/pmm-submodules'
+                script {
+                    env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+                }
                 sh '''
-                    git reset --hard
-                    git clean -xdf
+                    set -o errexit
                     git submodule update --init --jobs 10
                     git submodule status
-
-                    git rev-parse --short HEAD > shortCommit
-                    echo "UPLOAD/${DESTINATION}/${JOB_NAME}/pmm2/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
                 '''
+
                 script {
-                    def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
                     if (params.DESTINATION == "testing") {
-                        env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}-amd64"
-                        env.DOCKER_RC_TAG = "${versionTag}-rc-amd64"
+                        env.DOCKER_RC_TAG         = "${VERSION}-rc"
                     } else {
-                        env.DOCKER_LATEST_TAG = "dev-latest-amd64"
+                        env.DOCKER_LATEST_TAG     = "dev-latest"
                     }
                 }
-
-                archiveArtifacts 'uploadPath'
-                stash includes: 'uploadPath', name: 'uploadPath'
-                archiveArtifacts 'shortCommit'
             }
         }
         // stage('Prepare') {
