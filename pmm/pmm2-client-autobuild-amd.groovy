@@ -102,8 +102,6 @@ pipeline {
                                 '''
                             }
                         }
-                        stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
-                        archiveArtifacts 'results/docker/CLIENT_TAG'
                     }
                 }
                 stage('Build client source rpm') {
