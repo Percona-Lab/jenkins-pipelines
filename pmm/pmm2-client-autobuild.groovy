@@ -2,7 +2,6 @@ pipeline {
     agent {
         label 'agent-amd64'
     }
-
     parameters {
         string(
             defaultValue: 'PMM-2.0',
@@ -24,46 +23,31 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git poll: true,
-                    branch: GIT_BRANCH,
-                    url: 'http://github.com/Percona-Lab/pmm-submodules'
-                script {
-                    env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
-                }
+                git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
                 sh '''
-                    set -o errexit
+                    git reset --hard
+                    git clean -xdf
                     git submodule update --init --jobs 10
                     git submodule status
-                '''
 
+                    git rev-parse --short HEAD > shortCommit
+                    echo "UPLOAD/${DESTINATION}/${JOB_NAME}/pmm2/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
+                '''
                 script {
+                    def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
                     if (params.DESTINATION == "testing") {
-                        env.DOCKER_RC_TAG         = "${VERSION}-rc"
+                        env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}"
+                        env.DOCKER_RC_TAG = "${versionTag}-rc"
                     } else {
-                        env.DOCKER_LATEST_TAG     = "dev-latest"
+                        env.DOCKER_LATEST_TAG = "dev-latest"
                     }
                 }
+
+                archiveArtifacts 'uploadPath'
+                stash includes: 'uploadPath', name: 'uploadPath'
+                archiveArtifacts 'shortCommit'
             }
         }
-        // stage('Prepare') {
-        //     steps {
-        //         git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
-        //         sh '''
-        //             git reset --hard
-        //             git clean -xdf
-        //             git submodule update --init --jobs 10
-        //             git submodule status
-        //         '''
-        //         script {
-        //             def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
-        //             if (params.DESTINATION == "testing") {
-        //                 env.DOCKER_RC_TAG = "${versionTag}-rc"
-        //             } else {
-        //                 env.DOCKER_LATEST_TAG = "dev-latest"
-        //             }
-        //         }
-        //     }
-        // }
         stage('Build pmm2 client for amd64') {
             steps {
                 build job: 'tbr-pmm2-client-autobuilds-amd', parameters: [
