@@ -440,36 +440,24 @@ pipeline {
         stage('Run Tests') {
             parallel {
                 stage('cluster1') {
-                    agent {
-                        label 'docker'
-                    }
                     steps {
                         unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
                 }
                 stage('cluster2') {
-                    agent {
-                        label 'docker'
-                    }
                     steps {
                         unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
                 }
                 stage('cluster3') {
-                    agent {
-                        label 'docker'
-                    }
                     steps {
                         unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
                 }
                 stage('cluster4') {
-                    agent {
-                        label 'docker'
-                    }
                     steps {
                         unstash "sourceFILES"
                         clusterRunner('cluster4')
