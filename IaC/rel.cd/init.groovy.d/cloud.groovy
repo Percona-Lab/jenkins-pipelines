@@ -27,8 +27,8 @@ imageMap['eu-west-1a.docker2'] = 'ami-0e8b5d4aece7e1ce8'
 imageMap['eu-west-1a.micro-amazon'] = 'ami-0e8b5d4aece7e1ce8'
 imageMap['eu-west-1a.min-amazon-2-x64'] = 'ami-0e8b5d4aece7e1ce8'
 
-imageMap['eu-west-1a.min-centos-7-x64']  = 'ami-04f5641b0d178a27a'
-imageMap['eu-west-1a.fips-centos-7-x64'] = 'ami-04f5641b0d178a27a'
+imageMap['eu-west-1a.min-centos-7-x64']  = 'ami-00d464afa64e1fc69'
+imageMap['eu-west-1a.fips-centos-7-x64'] = 'ami-00d464afa64e1fc69'
 imageMap['eu-west-1a.min-centos-8-x64']  = 'ami-0a75a5a43b05b4d5f'
 imageMap['eu-west-1a.min-ol-8-x64']      = 'ami-0f31520cb83bd0301'
 imageMap['eu-west-1a.min-ol-9-x64']      = 'ami-04e2c29c7de5e0f5a'
@@ -195,6 +195,7 @@ initMap['docker-32gb'] = initMap['docker']
 initMap['docker2'] = initMap['docker']
 initMap['micro-amazon'] = '''
     set -o xtrace
+    RHVER=$(rpm --eval %rhel)
     if ! mountpoint -q /mnt; then
         for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
             if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
@@ -210,11 +211,9 @@ initMap['micro-amazon'] = '''
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
-    if [ -f /etc/redhat-release ]; then
-        if grep -q 'CentOS.* 8\\.' /etc/redhat-release; then
-            sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-*
-            sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-*
-        fi
+    if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
+        sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+        sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
     fi
 
     until sudo yum makecache; do
