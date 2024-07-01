@@ -25,7 +25,7 @@ imageMap = [:]
 imageMap['docker'] = 'ami-0f64dfdea96e44686'
 imageMap['docker-32gb'] = imageMap['docker']
 imageMap['micro-amazon'] = imageMap['docker']
-imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
+imageMap['min-centos-7-x64'] = 'ami-04f798ca92cc13f74'
 imageMap['min-centos-8-x64'] = 'ami-0155c31ea13d4abd2'
 imageMap['min-ol-8-x64']     = 'ami-000b99c02c2b64925'
 imageMap['min-ol-9-x64']     = 'ami-00a5d5bcea31bb02c'
@@ -145,7 +145,7 @@ initMap['rpmMap'] = '''
         sudo amazon-linux-extras install java-openjdk11 -y || :
         PKGLIST="p7zip"
     fi
-    if [[ ${RHVER} -eq 8 ]]; then
+    if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
         sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
         sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
     fi
