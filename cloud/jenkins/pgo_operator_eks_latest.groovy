@@ -444,7 +444,6 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-                        prepareNode()
                         unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
@@ -454,7 +453,6 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-                        prepareNode()
                         unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
@@ -464,7 +462,6 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-                        prepareNode()
                         unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
@@ -474,7 +471,6 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-                        prepareNode()
                         unstash "sourceFILES"
                         clusterRunner('cluster4')
                     }
