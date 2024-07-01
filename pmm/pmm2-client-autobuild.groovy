@@ -24,11 +24,6 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                cleanWs()
-                echo "Branch: ${GIT_BRANCH}"
-                echo "Destination: ${params.DESTINATION}"
-                sh 'env'
-
                 git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
                 sh '''
                     git reset --hard
