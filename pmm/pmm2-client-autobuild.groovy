@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-cli'
     }
 
     parameters {
@@ -24,6 +24,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                cleanWs()
                 git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
                 sh '''
                     git reset --hard
