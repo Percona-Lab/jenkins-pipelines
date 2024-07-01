@@ -23,6 +23,9 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                echo "Branch: ${GIT_BRANCH}"
+                echo "Destination: ${params.DESTINATION}"
+
                 checkout([$class: 'GitSCM', 
                           branches: [[name: "*/${GIT_BRANCH}"]],
                           extensions: [[$class: 'CloneOption',
