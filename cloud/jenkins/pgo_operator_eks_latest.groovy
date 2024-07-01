@@ -24,13 +24,8 @@ void prepareNode() {
         echo \$(kubectl kuttl --version) is installed
 
         curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
-
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
     """
-}
 
-void prepareSources() {
     if ("$PLATFORM_VER" == "latest") {
         USED_PLATFORM_VER = sh(script: "eksctl version -ojson | jq -r '.EKSServerSupportedVersions | max'", , returnStdout: true).trim()
     } else {
@@ -372,14 +367,6 @@ pipeline {
             description: 'Ignore passed tests in previous run (run all)',
             name: 'IGNORE_PREVIOUS_RUN'
         )
-        choice(
-            choices: 'YES\nNO',
-            description: 'Run tests with cluster wide',
-            name: 'CLUSTER_WIDE')
-        string(
-            defaultValue: 'latest',
-            description: 'Kubernetes target version',
-            name: 'PLATFORM_VER')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-postgresql-operator repository',
@@ -392,6 +379,14 @@ pipeline {
             defaultValue: '',
             description: 'PG version',
             name: 'PG_VERSION')
+        string(
+            defaultValue: 'latest',
+            description: 'EKS kubernetes version',
+            name: 'PLATFORM_VER')
+        choice(
+            choices: 'YES\nNO',
+            description: 'Run tests in cluster wide mode',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-postgresql-operator:main',
@@ -430,7 +425,6 @@ pipeline {
         stage('Prepare node') {
             steps {
                 prepareNode()
-                prepareSources()
             }
         }
         stage('Docker Build and Push') {
