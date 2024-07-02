@@ -75,8 +75,8 @@ pipeline {
                                 --amend perconalab/pmm-client:${DOCKER_RC_TAG}-amd64 \
                                 --amend perconalab/pmm-client:${DOCKER_RC_TAG}-arm64
 
-                            docker manifest annotate --arch amd64 ${DOCKER_RC_TAG} perconalab/pmm-client:${DOCKER_RC_TAG}-amd64
-                            docker manifest annotate --arch arm64 ${DOCKER_RC_TAG} perconalab/pmm-client:${DOCKER_RC_TAG}-arm64
+                            docker manifest annotate --arch amd64 perconalab/pmm-client:${DOCKER_RC_TAG} perconalab/pmm-client:${DOCKER_RC_TAG}-amd64
+                            docker manifest annotate --arch arm64 perconalab/pmm-client:${DOCKER_RC_TAG} perconalab/pmm-client:${DOCKER_RC_TAG}-arm64
 
                             ##docker manifest push ${DOCKER_RC_TAG}
                         else
@@ -84,8 +84,8 @@ pipeline {
                                 --amend perconalab/pmm-client:${DOCKER_LATEST_TAG}-amd64 \
                                 --amend perconalab/pmm-client:${DOCKER_LATEST_TAG}-arm64
 
-                            docker manifest annotate --arch amd64 ${DOCKER_LATEST_TAG} perconalab/pmm-client:${DOCKER_LATEST_TAG}-amd64
-                            docker manifest annotate --arch arm64 ${DOCKER_LATEST_TAG} perconalab/pmm-client:${DOCKER_LATEST_TAG}-arm64
+                            docker manifest annotate --arch amd64 perconalab/pmm-client:${DOCKER_LATEST_TAG} perconalab/pmm-client:${DOCKER_LATEST_TAG}-amd64
+                            docker manifest annotate --arch arm64 perconalab/pmm-client:${DOCKER_LATEST_TAG} perconalab/pmm-client:${DOCKER_LATEST_TAG}-arm64
 
                             ##docker manifest push ${DOCKER_LATEST_TAG}
                         fi
