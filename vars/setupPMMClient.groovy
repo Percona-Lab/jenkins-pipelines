@@ -34,23 +34,23 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             fi
 
             if [[ "$CLIENT_VERSION" =~ dev-latest|3-dev-latest ]]; then
-                sudo percona-release enable-only original experimental
+                sudo percona-release enable-only pmm2-client experimental
                 sudo yum -y install pmm2-client
             elif [[ "$CLIENT_VERSION" = pmm2-rc ]]; then
-                sudo percona-release enable-only original testing
+                sudo percona-release enable-only pmm2-client testing
                 sudo yum -y install pmm2-client
             elif [[ "$CLIENT_VERSION" = pmm2-latest ]]; then
                 sudo yum -y install pmm2-client
                 sudo yum -y update
-                sudo percona-release enable-only original experimental
+                sudo percona-release enable-only pmm2-client experimental
             elif [[ "$CLIENT_VERSION" = 2* ]]; then
                 sudo yum -y install "pmm2-client-$CLIENT_VERSION-6.el7.x86_64"
                 if [[ "$ENABLE_TESTING_REPO" = yes ]]; then
-                    sudo percona-release enable-only original testing
+                    sudo percona-release enable-only pmm2-client testing
                 elif [[ "$ENABLE_TESTING_REPO" = no ]] && [[ "$ENABLE_EXPERIMENTAL_REPO" = yes ]]; then
-                    sudo percona-release enable-only original experimental
+                    sudo percona-release enable-only pmm2-client experimental
                 else
-                    sudo percona-release enable-only original release
+                    sudo percona-release enable-only pmm2-client release
                 fi
                 sleep 10
             else
