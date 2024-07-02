@@ -58,45 +58,6 @@ export CXXFLAGS=${CXXFLAGS:-}
 export MAKE_JFLAG=-j$(nproc)
 
 # ------------------------------------------------------------------------------
-# Install cmake and gcc
-# ------------------------------------------------------------------------------
-ARCH=$(echo $(uname -m) | sed -e 's:i686:i386:g')
-
-if [[ "$DOCKER_OS" == *"buster"* || "$DOCKER_OS" == *"bionic"* ]]; then
-    CMAKE_VERSION=3.29.6
-    CMAKE_MAJOR_VERSION=$(echo ${CMAKE_VERSION} | cut -f1,2 -d'.')
-    sudo apt update -y
-    sudo apt install -y wget
-    cd /tmp
-    wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-${ARCH}.tar.gz
-    tar -xvzf cmake-${CMAKE_VERSION}-linux-${ARCH}.tar.gz
-    sudo cp -rp cmake-${CMAKE_VERSION}-linux-${ARCH}/bin/* /usr/bin/
-    sudo cp -rp cmake-${CMAKE_VERSION}-linux-${ARCH}/share/cmake-${CMAKE_MAJOR_VERSION} /usr/share
-    cd -
-fi
-
-if [[ "$DOCKER_OS" == *"focal"* ]]; then
-    export DEBIAN_FRONTEND=noninteractive
-
-    sudo ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime
-    sudo apt-get install -y tzdata
-    sudo dpkg-reconfigure --frontend noninteractive tzdata
-
-    sudo apt update -y
-    sudo apt install -y software-properties-common
-
-    sudo add-apt-repository -y ppa:ubuntu-toolchain-r/test
-    sudo apt update -y
-
-    sudo apt install -y gcc-11 g++-11
-
-    sudo update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100
-    sudo update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100
-
-    gcc --version
-fi
-
-# ------------------------------------------------------------------------------
 # Set compile options
 # ------------------------------------------------------------------------------
 if [[ "$COMPILER" != "default" ]]; then
