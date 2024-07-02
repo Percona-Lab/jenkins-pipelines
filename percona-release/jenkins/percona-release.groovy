@@ -144,7 +144,7 @@ pipeline {
          stage('Create percona-release source tarball') {
             steps {
                 cleanUpWS()
-                buildStage("centos:7", "SOURCE")
+                buildStage("oraclelinux:8", "SOURCE")
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-release.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
