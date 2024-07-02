@@ -417,14 +417,6 @@ pipeline {
                         clusterRunner('cluster4')
                     }
                 }
-                stage('cluster5') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
-                    }
-                    steps {
-                        clusterRunner('cluster5')
-                    }
-                }
             }
         }
     }

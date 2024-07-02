@@ -1,4 +1,4 @@
-location='westeurope'
+location='eastus'
 tests=[]
 clusters=[]
 
