@@ -341,6 +341,45 @@ if [ -f /usr/bin/apt-get ]; then
         update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-7 700 --slave /usr/bin/g++ g++ /usr/bin/g++-7
         update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 800 --slave /usr/bin/g++ g++ /usr/bin/g++-8
     fi
+
+    # ------------------------------------------------------------------------------
+    # Install cmake and gcc for older OS versions
+    # ------------------------------------------------------------------------------
+    ARCH=$(echo $(uname -m) | sed -e 's:i686:i386:g')
+
+    if [[ "$DIST" == *"buster"* || "$DIST" == *"bionic"* ]]; then
+        CMAKE_VERSION=3.29.6
+        CMAKE_MAJOR_VERSION=$(echo ${CMAKE_VERSION} | cut -f1,2 -d'.')
+        apt update -y
+        apt install -y wget
+        cd /tmp
+        wget https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-linux-${ARCH}.tar.gz
+        tar -xvzf cmake-${CMAKE_VERSION}-linux-${ARCH}.tar.gz
+        cp -rp cmake-${CMAKE_VERSION}-linux-${ARCH}/bin/* /usr/bin/
+        cp -rp cmake-${CMAKE_VERSION}-linux-${ARCH}/share/cmake-${CMAKE_MAJOR_VERSION} /usr/share
+        cd -
+    fi
+
+    if [[ "$DIST" == *"focal"* ]]; then
+        export DEBIAN_FRONTEND=noninteractive
+
+        ln -fs /usr/share/zoneinfo/Etc/UTC /etc/localtime
+        apt-get install -y tzdata
+        dpkg-reconfigure --frontend noninteractive tzdata
+
+        apt update -y
+        apt install -y software-properties-common
+
+        add-apt-repository -y ppa:ubuntu-toolchain-r/test
+        apt update -y
+
+        apt install -y gcc-11 g++-11
+
+        update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-11 100
+        update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-11 100
+
+        gcc --version
+    fi
 fi
 
 if [ ! -f /usr/local/lib/libeatmydata.so ]; then
