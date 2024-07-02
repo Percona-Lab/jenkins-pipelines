@@ -103,131 +103,131 @@ pipeline {
                 }
             }
         }
-        // stage('Build client source rpm') {
-        //     parallel {
-        //         stage('Build client source rpm EL7') {
-        //             steps {
-        //                 sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7"
-        //             }
-        //         }
-        //         stage('Build client source rpm EL9') {
-        //             steps {
-        //                 sh """
-        //                     ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-        //                 """
-        //             }
-        //         }
-        //     }
-        //     post {
-        //         success {
-        //             stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-        //             uploadRPM()
-        //         }
-        //     }
-        // }
-        // stage('Build client binary rpms') {
-        //     parallel {
-        //         stage('Build client binary rpm EL7') {
-        //             steps {
-        //                 sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
-        //             }
-        //         }
-        //         stage('Build client binary rpm EL8') {
-        //             steps {
-        //                 sh "${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:8"
-        //             }
-        //         }
-        //         stage('Build client binary rpm EL9') {
-        //             steps {
-        //                 sh """
-        //                     ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-        //                 """
-        //             }
-        //         }
-        //     }
-        //     post {
-        //         success {
-        //             stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
-        //             uploadRPM()
-        //         }
-        //     }
-        // }
-        // stage('Build client source deb') {
-        //     steps {
-        //         sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:focal"
-        //         stash includes: 'results/source_deb/*', name: 'debs'
-        //         uploadDEB()
-        //     }
-        // }
-        // stage('Build client binary debs') {
-        //     parallel {
-        //         stage('Build client binary deb Buster') {
-        //             steps {
-        //                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:buster"
-        //             }
-        //         }
-        //         stage('Build client binary deb Bullseye') {
-        //             steps {
-        //                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
-        //             }
-        //         }
-        //         stage('Build client binary deb Bookworm') {
-        //             steps {
-        //                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bookworm"
-        //             }
-        //         }
-        //         stage('Build client binary deb Jammy') {
-        //             steps {
-        //                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
-        //             }
-        //         }
-        //         stage('Build client binary deb Focal') {
-        //             steps {
-        //                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
-        //             }
-        //         }
-        //         stage('Build client binary deb Noble') {
-        //             steps {
-        //                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:noble"
-        //             }
-        //         }
-        //     }
-        //     post {
-        //         success {
-        //             stash includes: 'results/deb/*.deb', name: 'debs'
-        //             uploadDEB()
-        //         }
-        //     }
-        // }
-        // stage('Sign packages') {
-        //     steps {
-        //         signRPM()
-        //         signDEB()
-        //     }
-        // }
-        // stage('Push to public repository') {
-        //     agent {
-        //         label 'master'
-        //     }
-        //     steps {
-        //         unstash 'uploadPath'
-        //         script {
-        //             env.UPLOAD_PATH = sh(returnStdout: true, script: "cat uploadPath").trim()
-        //         }
-        //         // sync packages
-        //         sync2ProdPMMClient(DESTINATION, 'yes')
-        //         sync2ProdPMMClientRepo(DESTINATION, env.UPLOAD_PATH, 'pmm2-client')
-        //         withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
-        //             script {
-        //                 sh '''
-        //                     ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
-        //                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${UPLOAD_PATH}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
-        //                     "
-        //                 '''
-        //             }
-        //         }
-        //     }
-        // }
+        stage('Build client source rpm') {
+            parallel {
+                stage('Build client source rpm EL7') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-srpm oraclelinux:8"
+                    }
+                }
+                stage('Build client source rpm EL9') {
+                    steps {
+                        sh """
+                            ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                        """
+                    }
+                }
+            }
+            post {
+                success {
+                    stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
+                    uploadRPM()
+                }
+            }
+        }
+        stage('Build client binary rpms') {
+            parallel {
+                // stage('Build client binary rpm EL7') {
+                //     steps {
+                //         sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
+                //     }
+                // }
+                stage('Build client binary rpm EL8') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:8"
+                    }
+                }
+                stage('Build client binary rpm EL9') {
+                    steps {
+                        sh """
+                            ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                        """
+                    }
+                }
+            }
+            post {
+                success {
+                    stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
+                    uploadRPM()
+                }
+            }
+        }
+        stage('Build client source deb') {
+            steps {
+                sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:focal"
+                stash includes: 'results/source_deb/*', name: 'debs'
+                uploadDEB()
+            }
+        }
+        stage('Build client binary debs') {
+            parallel {
+                stage('Build client binary deb Buster') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:buster"
+                    }
+                }
+                stage('Build client binary deb Bullseye') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
+                    }
+                }
+                stage('Build client binary deb Bookworm') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bookworm"
+                    }
+                }
+                stage('Build client binary deb Jammy') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
+                    }
+                }
+                stage('Build client binary deb Focal') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
+                    }
+                }
+                stage('Build client binary deb Noble') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:noble"
+                    }
+                }
+            }
+            post {
+                success {
+                    stash includes: 'results/deb/*.deb', name: 'debs'
+                    uploadDEB()
+                }
+            }
+        }
+        stage('Sign packages') {
+            steps {
+                signRPM()
+                signDEB()
+            }
+        }
+        stage('Push to public repository') {
+            agent {
+                label 'master'
+            }
+            steps {
+                unstash 'uploadPath'
+                script {
+                    env.UPLOAD_PATH = sh(returnStdout: true, script: "cat uploadPath").trim()
+                }
+                // sync packages
+                sync2ProdPMMClient(DESTINATION, 'yes')
+                sync2ProdPMMClientRepo(DESTINATION, env.UPLOAD_PATH, 'pmm2-client')
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    script {
+                        sh '''
+                            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
+                                scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${UPLOAD_PATH}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
+                            "
+                        '''
+                    }
+                }
+            }
+        }
     }
     post {
         success {
