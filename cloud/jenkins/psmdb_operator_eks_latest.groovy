@@ -43,7 +43,7 @@ void prepareNode() {
 }
 
 void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the Docker image ]========================="
+    echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$OPERATOR_IMAGE" ]]; then
@@ -86,8 +86,8 @@ void initTests() {
     }
 
     echo "Marking passed tests in the tests map!"
-    if ("$IGNORE_PREVIOUS_RUN" == "NO") {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        if ("$IGNORE_PREVIOUS_RUN" == "NO") {
             sh """
                 aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
             """
@@ -101,9 +101,7 @@ void initTests() {
                     tests[i]["result"] = "passed"
                 }
             }
-        }
-    } else {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        } else {
             sh """
                 aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
             """
