@@ -21,16 +21,9 @@ if [ -f /usr/bin/yum ]; then
   
   yum list installed
 
-  if [[ ${RHVER} -eq 8 ]]; then
-      sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-Linux-*
-      sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-Linux-*
-
-      # repo for procps-ng-devel
-      yum install -y https://pkgs.dyn.su/el8/base/x86_64/raven-release-1.0-2.el8.noarch.rpm
-      PKGLIST+=" procps-ng-devel"
-
-      wget https://downloads.percona.com/downloads/packaging/python2-scons-3.0.1-9.el8.noarch.rpm
-      yum -y install ./python2-scons-3.0.1-9.el8.noarch.rpm || true
+  if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
+      sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+      sed -i 's|#\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
   fi
 
   yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
@@ -56,6 +49,15 @@ if [ -f /usr/bin/yum ]; then
         sleep 1
       done
 
+      wget https://downloads.percona.com/downloads/packaging/python2-scons-3.0.1-9.el8.noarch.rpm -O /tmp/python2-scons-3.0.1-9.el8.noarch.rpm
+      wget https://downloads.percona.com/downloads/packaging/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm
+      wget https://downloads.percona.com/downloads/packaging/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm -O /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
+      wget https://downloads.percona.com/downloads/packaging/MySQL-python-1.3.6-3.el8.x86_64.rpm -O /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+      yum -y install /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm
+      yum -y install /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+      yum -y install /tmp/python2-scons-3.0.1-9.el8.noarch.rpm || true
+      rm /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm /tmp/python2-scons-3.0.1-9.el8.noarch.rpm /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
+
       dnf config-manager --set-enabled powertools
       PKGLIST+=" libedit-devel python3-docutils"
   fi
@@ -77,6 +79,9 @@ if [ -f /usr/bin/yum ]; then
         echo "waiting"
         sleep 1
       done
+      # switch to vault scl repos
+      sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+      sed -i 's|#\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
   fi
   until yum -y install ${PKGLIST}; do
     echo "waiting"
@@ -175,6 +180,8 @@ if [ -f /usr/bin/yum ]; then
         done           
     elif [[ ${RHVER} -eq 8 ]]; then
         yum -y install centos-release-stream
+        sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+        sed -i 's|#\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
         until yum -y install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11} ${PKGLIST_DEVTOOLSET12}; do
             echo "waiting"
             sleep 1
