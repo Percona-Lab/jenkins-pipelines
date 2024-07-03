@@ -208,6 +208,7 @@ EOF
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             export PATH=/home/ec2-user/.local/bin:\$PATH
             eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+            kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
             kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
         """
     }
