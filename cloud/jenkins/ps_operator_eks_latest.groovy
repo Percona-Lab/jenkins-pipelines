@@ -151,10 +151,6 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    if ("$CLUSTER_WIDE" == "YES") {
-        OPERATOR_NS = 'ps-operator'
-    }
-
     sh """
         timestamp="\$(date +%s)"
 tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
@@ -234,6 +230,7 @@ void runTest(Integer TEST_ID) {
                     sh """
                         cd source
 
+                        [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=ps-operator
                         [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
                         export IMAGE_MYSQL=$IMAGE_MYSQL
                         export IMAGE_ORCHESTRATOR=$IMAGE_ORCHESTRATOR

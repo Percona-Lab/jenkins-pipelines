@@ -1,11 +1,5 @@
 tests=[]
 
-void IsRunTestsInClusterWide() {
-    if ("${params.CLUSTER_WIDE}" == "YES") {
-        env.OPERATOR_NS = 'pg-operator'
-    }
-}
-
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -106,6 +100,7 @@ void runTest(Integer TEST_ID) {
             sh """
                 cd source
 
+                [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pg-operator
                 [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                 export PG_VER=$PG_VERSION
                 export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
@@ -273,7 +268,6 @@ pipeline {
             }
             agent { label 'docker-32gb' }
                 steps {
-                    IsRunTestsInClusterWide()
                     sh '''
                         sudo yum install -y conntrack
                         sudo usermod -aG docker $USER
