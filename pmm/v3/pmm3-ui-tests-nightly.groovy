@@ -3,16 +3,17 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, ADMIN_PASSWORD = "admin") {
-    stagingJob = build job: 'aws-staging-start-pmm3', parameters: [
+void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
+    stagingJob = build job: 'pmm3-aws-staging-start-temp', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e DATA_RETENTION=48h -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PMM_DATA_RETENTION=48h -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
     ]
     env.VM_IP = stagingJob.buildVariables.IP
@@ -29,8 +30,9 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD = "admin") {
-    stagingJob = build job: 'aws-staging-start-pmm3', parameters: [
+void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION,
+PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD = "admin") {
+    stagingJob = build job: 'pmm3-aws-staging-start-temp', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -46,14 +48,17 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'PGSQL_VERSION', value: PGSQL_VERSION),
         string(name: 'PDPGSQL_VERSION', value: PDPGSQL_VERSION),
         string(name: 'MD_VERSION', value: MD_VERSION),
-        string(name: 'MO_VERSION', value: MO_VERSION),
-        string(name: 'MODB_VERSION', value: MODB_VERSION),
+        string(name: 'PSMDB_VERSION', value: PSMDB_VERSION),
         string(name: 'QUERY_SOURCE', value: QUERY_SOURCE),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
     ]
     if ( NODE_TYPE == 'mysql-node' ) {
         env.VM_CLIENT_IP_MYSQL = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_MYSQL = stagingJob.buildVariables.VM_NAME
+    }
+    else if ( NODE_TYPE == 'ps-gr-node' ) {
+        env.VM_CLIENT_IP_PS_GR = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_PS_GR = stagingJob.buildVariables.VM_NAME
     }
     else if ( NODE_TYPE == 'pxc-node' ) {
         env.VM_CLIENT_IP_PXC = stagingJob.buildVariables.IP
@@ -80,47 +85,10 @@ void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-void checkClientNodesAgentStatus(String VM_CLIENT_IP) {
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP} '
-                set -o errexit
-                set -o xtrace
-                echo "Checking Agent Status on Client Nodes";
-                sudo chmod 755 /srv/pmm-qa/pmm-tests/agent_status.sh
-                bash -xe /srv/pmm-qa/pmm-tests/agent_status.sh
-            '
-        """
-    }
-}
-
-void checkAndRestartMySQL(String VM_CLIENT_IP) {
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no "${USER}@${VM_CLIENT_IP}" '
-                set -o errexit
-                set -o xtrace
-                echo "Checking MySQL Status on Client Nodes"
-                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_and_restart_mysql.sh
-                bash -xe /srv/pmm-qa/pmm-tests/check_and_restart_mysql.sh
-            '
-        """
-    }
-}
-
 void destroyStaging(IP) {
     build job: 'aws-staging-stop', parameters: [
         string(name: 'VM', value: IP),
     ]
-}
-
-void uploadAllureArtifacts() {
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            scp -r -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
-                tests/output/allure aws-jenkins@${MONITORING_HOST}:/home/aws-jenkins/allure-reports
-        """
-    }
 }
 pipeline {
     agent {
@@ -177,10 +145,6 @@ pipeline {
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '',
-            description: 'Commit hash for the branch',
-            name: 'GIT_COMMIT_HASH')
-        string(
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
@@ -190,31 +154,15 @@ pipeline {
             name: 'CLIENT_VERSION')
         choice(
             choices: ['no', 'yes'],
-            description: "Use this instance only as a client host",
-            name: 'CLIENT_INSTANCE')
-        choice(
-            choices: ['no', 'yes'],
-            description: "Run AMI Setup Wizard for AMI UI tests",
-            name: 'AMI_TEST')
-        string(
-            defaultValue: '',
-            description: 'AMI Instance ID',
-            name: 'AMI_INSTANCE_ID')
-        choice(
-            choices: ['no', 'yes'],
             description: 'Enable Pull Mode, if you are using this instance as Client Node',
             name: 'ENABLE_PULL_MODE')
         string(
-            defaultValue: 'pmm2023fortesting!',
+            defaultValue: 'pmm3admin!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
-        string (
-            defaultValue: '',
-            description: 'Value for Server Public IP, to use this instance just as client',
-            name: 'SERVER_IP')
         string(
             defaultValue: 'v3',
-            description: 'Tag/Branch for pmm-qa repository',
+            description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ['8.0','5.7'],
@@ -229,11 +177,11 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['15', '14', '13', '12', '11'],
+            choices: ['15','14', '13', '12', '11'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['16.0','15.4','14.9', '13.12', '12.16', '11.21'],
+            choices: ['16','15', '14', '13', '12'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -241,15 +189,11 @@ pipeline {
             description: "MariaDB Server version",
             name: 'MD_VERSION')
         choice(
-            choices: ['6.0', '5.0', '4.4', '4.2', '4.0', '3.6'],
+            choices: ['7.0.7-4', '6.0.14-11', '5.0.26-22', '4.4.29-28'],
             description: "Percona Server for MongoDB version",
-            name: 'MO_VERSION')
+            name: 'PSMDB_VERSION')
         choice(
-            choices: ['4.4', '4.2', '4.0', '5.0.2', '6.0'],
-            description: "Official MongoDB version from MongoDB Inc",
-            name: 'MODB_VERSION')
-        choice(
-            choices: ['slowlog', 'perfschema'],
+            choices: ['perfschema', 'slowlog'],
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
     }
@@ -266,45 +210,37 @@ pipeline {
 
                 slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
-                    sudo mkdir -p /srv/pmm-qa || :
-                    sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git /srv/pmm-qa
-                    sudo chmod -R 755 /srv/pmm-qa
+                    sudo mkdir -p /srv/qa-integration || :
+                    sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
+                    sudo chmod -R 755 /srv/qa-integration
                 '''
-            }
-        }
-        stage('Checkout Commit') {
-             when {
-                expression { env.GIT_COMMIT_HASH.length()>0 }
-            }
-            steps {
-                sh 'git checkout ' + env.GIT_COMMIT_HASH
             }
         }
         stage('Start Server') {
             steps {
-                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service', CLIENT_INSTANCE, '127.0.0.1', ADMIN_PASSWORD)
+                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--database external --database haproxy', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
             }
         }
         stage('Setup PMM Clients') {
             parallel {
-                stage('Start Client Instance - ps-replication') {
+                stage('ps-group-replication client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ps,1 --pmm --add-annotation --setup-replication-ps-pmm --group', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=gr', 'yes', env.VM_IP, 'ps-gr-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
                     }
                 }
-                stage('Start Client Instance - ms/md/pxc') {
+                stage('ps-replication and pxc') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=ms,1 --addclient=md,1 --addclient=pxc,3 --with-proxysql --pmm', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=replica --database pxc', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
                     }
                 }
-                stage('Start Client Instance - mongo and pgsql') {
+                stage('ps single and mongo pss') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pgsql,1 --addclient=mo,1 --with-replica --mongomagic', 'yes', env.VM_IP, 'mongo-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps --database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
                     }
                 }
-                stage('Start Client Instance - postgresql only pdpgsql') {
+                stage('pdpgsql, pgsql and mysql') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pdpgsql,1 --pmm', 'yes', env.VM_IP, 'postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pdpgsql --database pgsql --database mysql', 'yes', env.VM_IP, 'postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
                     }
                 }
             }
@@ -328,12 +264,6 @@ pipeline {
                 """
             }
         }
-        stage('MySQL status check') {
-            steps {
-                checkAndRestartMySQL(env.VM_CLIENT_IP_MYSQL)
-                checkAndRestartMySQL(env.VM_CLIENT_IP_PXC)
-            }
-        }
         stage('Sleep') {
             steps {
                 sleep 300
@@ -343,10 +273,7 @@ pipeline {
             parallel {
                 stage('Run UI - Tests') {
                     options {
-                        timeout(time: 120, unit: "MINUTES")
-                    }
-                    when {
-                        expression { env.AMI_TEST == "no" }
+                        timeout(time: 150, unit: "MINUTES")
                     }
                     steps {
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -358,74 +285,51 @@ pipeline {
                         }
                     }
                 }
-                stage('Check Agent Status on ps & replication node') {
-                    steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_MYSQL)
-                    }
-                }
-                stage('Check Agent Status on ms/md/pxc node') {
-                    steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PXC)
-                    }
-                }
-                stage('Check Agent Status on mongo node') {
-                    steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_MONGO)
-                    }
-                }
-                stage('Check Agent Status on postgresql node') {
-                    steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PGSQL)
-                    }
-                }
             }
         }
     }
     post {
-        sucess {
-            script {
-                junit 'tests/output/*.xml'
-                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                archiveArtifacts artifacts: 'logs.zip'
-            }
-        }
         always {
             // stop staging
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             script {
-                if (currentBuild.result != 'SUCCESS') {
+                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
+                    junit 'tests/output/*.xml'
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                    archiveArtifacts artifacts: 'logs.zip'
+                } else {
                     junit 'tests/output/*.xml'
                     slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
-            /*
-            allure([
-                includeProperties: false,
-                jdk: '',
-                properties: [],
-                reportBuildPolicy: 'ALWAYS',
-                results: [[path: 'tests/output/allure']]
-            ])
-            */
             script {
-                if (env.VM_NAME) {
+                if(env.VM_NAME)
+                {
                     destroyStaging(VM_NAME)
                 }
-                if (env.VM_CLIENT_NAME_MYSQL) {
+                if(env.VM_CLIENT_NAME_MYSQL)
+                {
                     destroyStaging(VM_CLIENT_NAME_MYSQL)
                 }
-                if (env.VM_CLIENT_NAME_MONGO) {
+                if(env.VM_CLIENT_NAME_MONGO)
+                {
                     destroyStaging(VM_CLIENT_NAME_MONGO)
                 }
-                if (env.VM_CLIENT_NAME_PXC) {
+                if(env.VM_CLIENT_NAME_PXC)
+                {
                     destroyStaging(VM_CLIENT_NAME_PXC)
                 }
-                if (env.VM_CLIENT_NAME_PGSQL) {
+                if(env.VM_CLIENT_NAME_PGSQL)
+                {
                     destroyStaging(VM_CLIENT_NAME_PGSQL)
+                }
+                if(env.VM_CLIENT_NAME_PGSQL)
+                {
+                    destroyStaging(VM_CLIENT_NAME_PS_GR)
                 }
             }
             deleteDir()

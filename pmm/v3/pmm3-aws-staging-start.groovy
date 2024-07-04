@@ -9,13 +9,13 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
-  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'], 
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
   libraryPath: 'pmm/v3/'
 )
 
 pipeline {
     agent {
-        label 'cli'
+        label 'agent-amd64'
     }
     parameters {
         string(
@@ -24,7 +24,7 @@ pipeline {
             name: 'DOCKER_VERSION'
         )
         string(
-            defaultValue: 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz',
+            defaultValue: '3-dev-latest',
             description: 'PMM Client version ("3-dev-latest" for main branch, "latest" or "X.X.X" for released version, "pmm3-rc" for Release Candidate, "http://..." for feature build)',
             name: 'CLIENT_VERSION'
         )
@@ -34,24 +34,14 @@ pipeline {
             name: 'SSH_KEY'
         )
         string(
-            defaultValue: 'pmm2023fortesting!',
+            defaultValue: 'pmm3admin!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD'
         )
         choice(
-            choices: ['pmm'],
-            description: 'Which Version of PMM Server: pmm stands for PMM v3 and up',
-            name: 'PMM_VERSION'
-        )
-        choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo, for RC testing',
-            name: 'ENABLE_TESTING_REPO'
-        )
-        choice(
-            choices: ['yes', 'no'],
-            description: 'Enable Experimental Repo, for 3-dev-latest',
-            name: 'ENABLE_EXPERIMENTAL_REPO'
+            choices: ['experimental', 'testing', 'release'],
+            description: 'PMM Client repo to enable',
+            name: 'PMM_CLIENT_REPO'
         )
         choice(
             choices: ['no', 'yes'],
@@ -63,83 +53,57 @@ pipeline {
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS'
         )
-        choice(
-            choices: ['8.0','5.7'],
-            description: 'Percona XtraDB Cluster version',
-            name: 'PXC_VERSION'
-        )
-        choice(
-            choices: ['8.0', '5.7', '5.7.30', '5.6'],
-            description: "Percona Server for MySQL version",
-            name: 'PS_VERSION'
-        )
-        choice(
-            choices: ['8.0', '5.7', '5.6'],
-            description: 'MySQL Community Server version',
-            name: 'MS_VERSION'
-        )
-        choice(
-            choices: ['15','14', '13', '12', '11'],
-            description: "Which version of PostgreSQL",
-            name: 'PGSQL_VERSION'
-        )
-        choice(
-            choices: ['16.0','15.4', '14.9', '13.12', '12.16', '11.21'],
-            description: 'Percona Distribution for PostgreSQL',
-            name: 'PDPGSQL_VERSION'
-        )
-        choice(
-            choices: ['10.6', '10.5', '10.4', '10.3', '10.2'],
-            description: "MariaDB Server version",
-            name: 'MD_VERSION'
-        )
-        choice(
-            choices: ['6.0', '5.0', '4.4', '4.2', '4.0', '3.6'],
-            description: "Percona Server for MongoDB version",
-            name: 'MO_VERSION'
-        )
-        choice(
-            choices: ['4.4', '4.2', '4.0', '6.0', '5.0.2'],
-            description: "Official MongoDB version from MongoDB Inc",
-            name: 'MODB_VERSION'
-        )
-        choice(
-            choices: ['perfschema', 'slowlog'],
-            description: "Query Source for Monitoring",
-            name: 'QUERY_SOURCE'
-        )
-        choice(
-            choices: ['dev','prod'],
-            description: 'Prod or Dev version service',
-            name: 'VERSION_SERVICE_VERSION'
-        )
-        string(
-            defaultValue: '',
-            description: 'Docker image for version service, use it if you want to run your own version service.',
-            name: 'VERSION_SERVICE_IMAGE'
-        )
         text(
-            defaultValue: '-e PMM_DEBUG=1 -e ENABLE_TELEMETRY=0 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com',
+            defaultValue: '-e PMM_DEBUG=1 -e PMM_ENABLE_TELEMETRY=0 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com',
             description: '''
             Passing environment variables to PMM Server Docker container is supported for PMM v2 and up.
-            Example: -e PERCONA_TEST_CHECKS_INTERVAL=30s -e PERCONA_TEST_TELEMETRY_DISABLE_START_DELAY=1 -e PMM_DEBUG=1
+            Example: -e PMM_DEV_TELEMETRY_DISABLE_START_DELAY=1 -e PMM_DEBUG=1
             ''',
             name: 'DOCKER_ENV_VARIABLE'
         )
+                choice(
+            choices: ['8.0','5.7'],
+            description: 'Percona XtraDB Cluster version',
+            name: 'PXC_VERSION')
+        choice(
+            choices: ['8.0', '5.7', '5.7.30', '5.6'],
+            description: "Percona Server for MySQL version",
+            name: 'PS_VERSION')
+        choice(
+            choices: ['8.0', '5.7', '5.6'],
+            description: 'MySQL Community Server version',
+            name: 'MS_VERSION')
+        choice(
+            choices: ['15','14', '13', '12', '11'],
+            description: "Which version of PostgreSQL",
+            name: 'PGSQL_VERSION')
+        choice(
+            choices: ['16','15', '14', '13', '12'],
+            description: 'Percona Distribution for PostgreSQL',
+            name: 'PDPGSQL_VERSION')
+        choice(
+            choices: ['7.0.7-4', '6.0.14-11', '5.0.26-22', '4.4.29-28'],
+            description: "Percona Server for MongoDB version",
+            name: 'PSMDB_VERSION')
         text(
-            defaultValue: '--addclient=ps,1',
+            defaultValue: '--database ps=5.7,QUERY_SOURCE=perfschema',
             description: '''
             Configure PMM Clients:
-            ms - MySQL (ex: --addclient=ms,1)
-            ps - Percona Server for MySQL (ex: --addclient=ps,1)
-            pxc - Percona XtraDB Cluster, --with-proxysql (to be used with proxysql only, ex: --addclient=pxc,1 --with-proxysql)
-            md - MariaDB Server (ex: --addclient=md,1)
-            mo - Percona Server for MongoDB (ex: --addclient=mo,1)
-            modb - Official MongoDB version (ex: --addclient=modb,1)
-            pgsql - PostgreSQL Server (ex: --addclient=pgsql,1)
-            pdpgsql - Percona Distribution for PostgreSQL (ex: --addclient=pdpgsql,1)
+            --database ps - Percona Server for MySQL (ex: --database ps=5.7,QUERY_SOURCE=perfschema)
+            Additional options:
+                QUERY_SOURCE=perfschema|slowlog
+                SETUP_TYPE=replica(Replication)|gr(Group Replication)|(single node if no option passed)
+            --database mysql - Official MySQL (ex: --database mysql,QUERY_SOURCE=perfschema)
+            Additional options:
+                QUERY_SOURCE=perfschema|slowlog
+            --database psmdb - Percona Server for MongoDB (ex: --database psmdb=latest,SETUP_TYPE=pss)
+            Additional options:
+                SETUP_TYPE=pss(Primary-Secondary-Secondary)|psa(Primary-Secondary-Arbiter)|shards(Sharded cluster)
+            --database pdpgsql - Percona Distribution for PostgreSQL (ex: --database pdpgsql=16)
+            --database pgsql - Official PostgreSQL Distribution (ex: --database pgsql=16)
+            --database pxc - Percona XtraDB Cluster, (to be used with proxysql only, ex: --database pxc)
             -----
-            Example: --addclient=ps,1 --addclient=mo,2 --addclient=md,1 --addclient=pgsql,1 --addclient=modb,1
+            Example: --database ps=5.7,QUERY_SOURCE=perfschema --database psmdb,SETUP_TYPE=pss
             ''',
             name: 'CLIENTS'
         )
@@ -160,13 +124,8 @@ pipeline {
         )
         string(
             defaultValue: 'v3',
-            description: 'Tag/Branch for pmm-qa repository',
+            description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH'
-        )
-        string(
-            defaultValue: '',
-            description: 'Commit hash for pmm-qa branch',
-            name: 'PMM_QA_GIT_COMMIT_HASH'
         )
     }
     options {
@@ -186,20 +145,15 @@ pipeline {
                     echo """
                         DOCKER_VERSION:  ${DOCKER_VERSION}
                         CLIENT_VERSION:  ${CLIENT_VERSION}
-                        PMM_VERSION:     ${PMM_VERSION}
+                        CLIENTS:         ${CLIENTS}
                         PXC_VERSION:     ${PXC_VERSION}
                         PS_VERSION:      ${PS_VERSION}
                         MS_VERSION:      ${MS_VERSION}
-                        MD_VERSION:      ${MD_VERSION}
-                        MO_VERSION:      ${MO_VERSION}
-                        MODB_VERSION:    ${MODB_VERSION}
+                        MO_VERSION:      ${PSMDB_VERSION}
                         PGSQL_VERSION:   ${PGSQL_VERSION}
                         PDPGSQL_VERSION: ${PDPGSQL_VERSION}
-                        QUERY_SOURCE:    ${QUERY_SOURCE}
-                        CLIENTS:         ${CLIENTS}
                         OWNER:           ${OWNER}
                         VM_NAME:         ${VM_NAME}
-                        VERSION_SERVICE: ${VERSION_SERVICE_IMAGE}
                     """
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     if (params.NOTIFY == "true") {
@@ -250,6 +204,7 @@ pipeline {
                         sudo amazon-linux-extras enable epel php8.2
                         sudo yum --enablerepo epel install php -y
                         sudo yum install sysbench mysql-client -y
+                        sudo yum install ansible -y
                     '''
                 }
             }
@@ -269,18 +224,6 @@ pipeline {
 
                                     aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                                    if [ ${VERSION_SERVICE_VERSION} == dev ]; then
-                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1"
-                                    else
-                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check.percona.com/versions/v1"
-                                    fi
-
-                                    if [ -n "${VERSION_SERVICE_IMAGE}" ]; then
-                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=http://version-service/versions/v1"
-                                    else
-                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
-                                    fi
-
                                     docker network create pmm-qa || true
                                     docker volume create pmm-data
 
@@ -293,7 +236,7 @@ pipeline {
                                         --hostname pmm-server \
                                         --network pmm-qa \
                                         --restart always \
-                                        $ENV_VARIABLE \
+                                        ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 
                                     sleep 10
@@ -309,34 +252,11 @@ pipeline {
                 }
             }
         }
-        stage('Run version service') {
-            when {
-                expression { env.VERSION_SERVICE_IMAGE != "" }
-            }
-            steps {
-                script {
-                    withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        node(env.VM_NAME){
-                            sh '''
-                                set -o errexit
-                                set -o xtrace
-                                docker run -d --name version-service --hostname=version-service -e SERVE_HTTP=true -e GW_PORT=80 ${VERSION_SERVICE_IMAGE}
-                                docker network create vs-network
-                                docker network connect vs-network version-service
-                                docker network connect vs-network pmm-server
-                            '''
-                        }
-                    }
-                }
-            }
-        }
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
-                    // Download the client, install it outside of PMM server and configure it to connect to PMM
-                    setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
-
-                    script {
+                setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), DOCKER_VERSION, ENABLE_PULL_MODE, 'no', CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD, 'no')
+                script {
                         env.PMM_REPO = params.CLIENT_VERSION == "pmm-rc" ? "testing" : "experimental"
                     }
 
@@ -352,42 +272,35 @@ pipeline {
                             export PMM_CLIENT_VERSION="latest"
                         fi
 
-                        PMM_SERVER_IP=${SERVER_IP}
-                        if [[ "${CLIENT_INSTANCE}" = no ]]; then
-                            PMM_SERVER_IP=${IP}
+                        if [[ "${CLIENT_INSTANCE}" = yes ]]; then
+                            export EXTERNAL_PMM_SERVER_FLAG="--pmm-server-ip=${SERVER_IP}"
                         fi
 
-                        pmm-admin --version
+                        docker network create pmm-qa || true
 
-                        sudo mkdir -p /srv/pmm-qa || :
-                        pushd /srv/pmm-qa
-                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} --depth=1 https://github.com/percona/pmm-qa.git .
-                            sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
-                            sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
-                            sudo chmod 755 get_download_link.sh
+                        sudo mkdir -p /srv/qa-integration || :
+                        pushd /srv/qa-integration
+                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
                         popd
 
-                        bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
-                            --ms-version  ${MS_VERSION} \
-                            --mo-version  ${MO_VERSION} \
-                            --ps-version  ${PS_VERSION} \
-                            --modb-version ${MODB_VERSION} \
-                            --md-version  ${MD_VERSION} \
-                            --pgsql-version ${PGSQL_VERSION} \
-                            --pxc-version ${PXC_VERSION} \
-                            --pdpgsql-version ${PDPGSQL_VERSION} \
-                            --download \
-                            ${CLIENTS} \
-                            --pmm2 \
-                            --dbdeployer \
-                            --run-load-pmm2 \
-                            --query-source=${QUERY_SOURCE} \
-                            --pmm2-server-ip=$PMM_SERVER_IP
+                        sudo chown ec2-user -R /srv/qa-integration
+
+                        pushd /srv/qa-integration/pmm_qa
+                            echo "Setting docker based PMM clients"
+                            python3 -m venv virtenv
+                            . virtenv/bin/activate
+                            pip install --upgrade pip
+                            pip install -r requirements.txt
+
+                            python pmm-framework.py --v \
+                                --pmm-server-password=${ADMIN_PASSWORD} \
+                                --client-version=${PMM_CLIENT_VERSION} \
+                                ${EXTERNAL_PMM_SERVER_FLAG} ${CLIENTS}
+                        popd
                     '''
                 }
             }
         }
-
     }
 
     post {

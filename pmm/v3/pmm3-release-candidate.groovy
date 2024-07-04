@@ -42,6 +42,7 @@ void deleteReleaseBranches(String VERSION) {
 }
 
 void setupReleaseBranches(String VERSION) {
+    git branch: SUBMODULES_GIT_BRANCH, credentialsId: 'GitHub SSH Key', poll: false, url: 'git@github.com:Percona-Lab/pmm-submodules'
     sh '''
         git config --global user.email "noreply@percona.com"
         git config --global user.name "PMM Jenkins"
@@ -76,8 +77,8 @@ void createBranch(String SUBMODULE, String BRANCH) {
 
             # Configure git to push using ssh
             export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-            export SUBMODULE=${SUBMODULE}
-            export BRANCH=${BRANCH}
+            export SUBMODULE=''' + SUBMODULE + '''
+            export BRANCH=''' + BRANCH + '''
             export submodule_url=\$(git config --file=.gitmodules submodule.${SUBMODULE}.url)
             export submodule_branch=\$(git config --file=.gitmodules submodule.${SUBMODULE}.branch)
             export ssh_submodule_url=\$(echo $submodule_url | sed "s^https://github.com/^git@github.com:^g")
@@ -103,8 +104,8 @@ void deleteBranch(String SUBMODULE, String BRANCH) {
 
             # Configure git to push using ssh
             export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-            export SUBMODULE=${SUBMODULE}
-            export BRANCH=${BRANCH}
+            export SUBMODULE=''' + SUBMODULE + '''
+            export BRANCH=''' + BRANCH + '''
             export submodule_url=$(git config --file=.gitmodules submodule.${SUBMODULE}.url)
             export submodule_branch=\$(git config --file=.gitmodules submodule.${SUBMODULE}.branch)
             export ssh_submodule_url=\$(echo $submodule_url | sed "s^https://github.com/^git@github.com:^g")
@@ -135,6 +136,11 @@ pipeline {
             choices: ['no', 'yes'],
             description: 'Recreate Release branches, Option to be used only to recreate release branches',
             name: 'REMOVE_RELEASE_BRANCH'
+        )
+        string(
+            defaultValue: '#pmm-dev',
+            description: 'Channel to send notifications to',
+            name: 'NOTIFICATION_CHANNEL'
         )
     }
     stages {
@@ -206,7 +212,7 @@ pipeline {
             steps {
                 deleteReleaseBranches(env.SUBMODULES_GIT_BRANCH)
                 script {
-                    currentBuild.description = "Release beanches were deleted: ${env.SUBMODULES_GIT_BRANCH}"
+                    currentBuild.description = "Release branches were deleted: ${env.SUBMODULES_GIT_BRANCH}"
                     return
                 }
             }
@@ -217,7 +223,7 @@ pipeline {
                 script {
                     currentBuild.description = "$VERSION"
                     slackSend botUser: true,
-                        channel: '#pmm-dev',
+                        channel: env.NOTIFICATION_CHANNEL,
                         color: '#0892d0',
                         message: "Release candidate PMM $VERSION build has started. You can check progress at: ${BUILD_URL}"
                     env.EXIST = sh (
@@ -240,9 +246,11 @@ pipeline {
                 expression { env.REMOVE_RELEASE_BRANCH == "no"}
             }
             steps {
-                rewindSubmodule = build job: 'pmm3-rewind-submodules-fb', propagate: false, parameters: [
-                    string(name: 'GIT_BRANCH', value: RELEASE_BRANCH)
-                ]
+                script {
+                    rewindSubmodule = build job: 'pmm3-rewind-submodules-fb', propagate: false, parameters: [
+                        string(name: 'GIT_BRANCH', value: RELEASE_BRANCH)
+                    ]
+                }
             }
         }
         stage('Run Server & Client RC Autobuilds') {
@@ -252,19 +260,23 @@ pipeline {
             parallel {
                 stage('Start PMM3 Server Autobuild') {
                     steps {
-                        pmmServer = build job: 'pmm3-server-autobuild', parameters: [
-                            string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                            string(name: 'DESTINATION', value: 'testing')
-                        ]                        
+                        script {
+                            pmmServer = build job: 'pmm3-server-autobuild', parameters: [
+                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                                string(name: 'DESTINATION', value: 'testing')
+                            ]
+                        }
                     }
                 }
                 stage('Start PMM3 Client Autobuild') {
                     steps {
-                        pmmClient = build job: 'pmm3-client-autobuild', parameters: [
-                            string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
-                            string(name: 'DESTINATION', value: 'testing')
-                        ]
-                        env.TARBALL_URL = pmmClient.buildVariables.TARBALL_URL                        
+                        script {
+                            pmmClient = build job: 'pmm3-client-autobuild', parameters: [
+                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                                string(name: 'DESTINATION', value: 'testing')
+                            ]
+                            env.TARBALL_URL = pmmClient.buildVariables.TARBALL_URL
+                        }
                     }
                 }
             }
@@ -276,19 +288,23 @@ pipeline {
             parallel {
                 stage('Start AMI RC Build') {
                     steps {
-                        pmmAMI = build job: 'pmm3-ami', parameters: [
-                            string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
-                            string(name: 'RELEASE_CANDIDATE', value: "yes")
-                        ]
-                        env.AMI_ID = pmmAMI.buildVariables.AMI_ID                        
+                        script {
+                            pmmAMI = build job: 'pmm3-ami', parameters: [
+                                string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
+                                string(name: 'RELEASE_CANDIDATE', value: "yes")
+                            ]
+                            env.AMI_ID = pmmAMI.buildVariables.AMI_ID
+                        }
                     }
                 }
                 stage('Start OVF RC Build') {
                     steps {
-                        pmmOVF = build job: 'pmm3-ovf', parameters: [
-                            string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
-                            string(name: 'RELEASE_CANDIDATE', value: 'yes')
-                        ]                        
+                        script {
+                            pmmOVF = build job: 'pmm3-ovf', parameters: [
+                                string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
+                                string(name: 'RELEASE_CANDIDATE', value: 'yes')
+                            ]
+                        }
                     }
                 }
             }
@@ -319,19 +335,19 @@ pipeline {
             }
             steps {
                 script {
-                    imageScan = build job: 'pmm-image-scanning', propagate: false, parameters: [
+                    imageScan = build job: 'pmm3-image-scanning', propagate: false, parameters: [
                         string(name: 'IMAGE', value: "perconalab/pmm-server"),
                         string(name: 'TAG', value: "${VERSION}-rc")
                     ]
 
                     env.SCAN_REPORT_URL = ""
                     if (imageScan.result == 'SUCCESS') {
-                        copyArtifacts filter: 'report.html', projectName: 'pmm-image-scanning'
+                        copyArtifacts filter: 'report.html', projectName: 'pmm3-image-scanning'
                         sh 'mv report.html report-${VERSION}-rc.html'
                         archiveArtifacts "report-${VERSION}-rc.html"
                         env.SCAN_REPORT_URL = "CVE Scan Report: ${BUILD_URL}artifact/report-${VERSION}-rc.html"
 
-                        copyArtifacts filter: 'evaluations/**/evaluation_*.json', projectName: 'pmm-image-scanning'
+                        copyArtifacts filter: 'evaluations/**/evaluation_*.json', projectName: 'pmm3-image-scanning'
                         sh 'mv evaluations/*/*/*/evaluation_*.json ./report-${VERSION}-rc.json'
                         archiveArtifacts "report-${VERSION}-rc.json"
                     }
@@ -342,7 +358,7 @@ pipeline {
     post {
         success {
             slackSend botUser: true,
-                      channel: '#pmm-dev',
+                      channel: env.NOTIFICATION_CHANNEL,
                       color: '#00FF00',
                       message: """New Release Candidate is out :rocket:
 Server: perconalab/pmm-server:${VERSION}-rc

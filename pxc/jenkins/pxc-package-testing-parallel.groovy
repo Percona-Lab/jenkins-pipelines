@@ -42,7 +42,7 @@ void runNodeBuild(String node_to_test) {
             string(name: "node_to_test", value: node_to_test),
             string(name: "test_repo", value: params.test_repo),
             string(name: "test_type", value: "${test_type}"),
-            string(name: "pxc57_repo", value: params.pxc57_repo)            
+            string(name: "pxc57_repo", value: params.pxc57_repo)
         ],
         propagate: true,
         wait: true
@@ -59,7 +59,8 @@ pipeline {
             name: 'product_to_test',
             choices: [
                 'pxc80',
-                'pxc57'
+                'pxc57',
+                'pxc-innovation-lts'
             ],
             description: 'PXC product_to_test to test'
         )
@@ -76,7 +77,7 @@ pipeline {
 
         choice(
             name: "pxc57_repo",
-            choices: ["original","pxc57" ],
+            choices: ["original","pxc57","EOL"],
             description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."
         )
 

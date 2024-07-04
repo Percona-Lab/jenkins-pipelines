@@ -26,6 +26,7 @@
             choices:
                 - 'pxc80'
                 - 'pxc57'
+                - 'pxc-innovation-lts'
             description: "PXC version to test"
         - choice:
             name: node_to_test
@@ -52,11 +53,13 @@
             choices:
                 - "install_and_upgrade"
                 - "install"
-                - "upgrade"
+                - "min_upgrade"
+                - "maj_upgrade"
             description: "Set test type for testing"     
         - choice:
             name: pxc57_repo
             choices:
                 - "original"
                 - "pxc57"
+                - "EOL"
             description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."

@@ -10,11 +10,8 @@ void prepareNode() {
 
         curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
-        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
-        sudo chmod +x /usr/local/bin/yq
-
-        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-        sudo chmod +x /usr/local/bin/jq
+        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
+        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
 
         curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
         ./krew-linux_amd64 install krew
@@ -22,18 +19,13 @@ void prepareNode() {
 
         kubectl krew install assert
 
-        # v0.15.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/a67f31ecb2e62f15149ca66d096357050f07b77d/plugins/kuttl.yaml
+        # v0.17.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/336ef83542fd2f783bfa2c075b24599e834dcc77/plugins/kuttl.yaml
         echo \$(kubectl kuttl --version) is installed
 
         curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
-
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
     """
-}
 
-void prepareSources() {
     if ("$PLATFORM_VER" == "latest") {
         USED_PLATFORM_VER = sh(script: "eksctl version -ojson | jq -r '.EKSServerSupportedVersions | max'", , returnStdout: true).trim()
     } else {
@@ -221,6 +213,7 @@ EOF
             export KUBECONFIG=/tmp/${CLUSTER_NAME}-${CLUSTER_SUFFIX}
             export PATH=/home/ec2-user/.local/bin:$PATH
             eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+            kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
             kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
         """
     }
@@ -374,14 +367,6 @@ pipeline {
             description: 'Ignore passed tests in previous run (run all)',
             name: 'IGNORE_PREVIOUS_RUN'
         )
-        choice(
-            choices: 'YES\nNO',
-            description: 'Run tests with cluster wide',
-            name: 'CLUSTER_WIDE')
-        string(
-            defaultValue: 'latest',
-            description: 'Kubernetes target version',
-            name: 'PLATFORM_VER')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-postgresql-operator repository',
@@ -394,6 +379,14 @@ pipeline {
             defaultValue: '',
             description: 'PG version',
             name: 'PG_VERSION')
+        string(
+            defaultValue: 'latest',
+            description: 'EKS kubernetes version',
+            name: 'PLATFORM_VER')
+        choice(
+            choices: 'YES\nNO',
+            description: 'Run tests in cluster wide mode',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-postgresql-operator:main',
@@ -432,7 +425,6 @@ pipeline {
         stage('Prepare node') {
             steps {
                 prepareNode()
-                prepareSources()
             }
         }
         stage('Docker Build and Push') {

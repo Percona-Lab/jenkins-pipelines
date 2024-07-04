@@ -5,11 +5,11 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 def moleculeDir = "psmdb-tarball/psmdb-tarball-pro"
 def psmdb_default_os_list = ["rhel8","rhel9","ubuntu-jammy-pro"]
-def psmdb_7_os_list = ["rhel9","ubuntu-jammy-pro"]
+def psmdb_7_os_list = ["rhel8","rhel9","ubuntu-jammy-pro","debian-12"]
 
 pipeline {
     agent {
-        label 'min-centos-7-x64'
+        label 'min-bookworm-x64'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -55,7 +55,7 @@ pipeline {
         stage ('Prepare') {
             steps {
                 script {
-                    installMolecule()
+                    installMoleculeBookworm()
                 }
             }
         }

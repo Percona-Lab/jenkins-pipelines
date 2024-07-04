@@ -181,6 +181,11 @@ pipeline {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
                             }
                         }
+                        stage('Build client binary deb Bookworm') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bookworm"
+                            }
+                        }
                         stage('Build client binary deb Jammy') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
@@ -189,6 +194,11 @@ pipeline {
                         stage('Build client binary deb Focal') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
+                            }
+                        }
+                        stage('Build client binary deb Noble') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:noble"
                             }
                         }
                     }
