@@ -170,6 +170,10 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
+    if ("$CLUSTER_WIDE" == "YES") {
+        OPERATOR_NS = 'ps-operator'
+    }
+
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
@@ -232,7 +236,7 @@ void runTest(Integer TEST_ID) {
                     kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
                 """
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PS_TAG-$PARAMS_HASH")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PS_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -332,6 +336,10 @@ pipeline {
             choices: 'None\nstable\nregular\nrapid',
             description: 'GKE release channel',
             name: 'GKE_RELEASE_CHANNEL')
+        choice(
+            choices: 'YES\nNO',
+            description: 'Run tests in cluster wide mode',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mysql-operator:main',
