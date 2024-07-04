@@ -105,7 +105,7 @@ void initTests() {
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PS_TAG-$PARAMS_HASH"
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PS_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
@@ -150,6 +150,10 @@ void clusterRunner(String cluster) {
 
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
+
+    if ("$CLUSTER_WIDE" == "YES") {
+        OPERATOR_NS = 'ps-operator'
+    }
 
     sh """
         timestamp="\$(date +%s)"
@@ -247,7 +251,7 @@ void runTest(Integer TEST_ID) {
                     """
                 }
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PS_TAG-$PARAMS_HASH")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PS_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -371,6 +375,10 @@ pipeline {
             defaultValue: 'latest',
             description: 'EKS kubernetes version',
             name: 'PLATFORM_VER')
+        choice(
+            choices: 'YES\nNO',
+            description: 'Run tests in cluster wide mode',
+            name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mysql-operator:main',
