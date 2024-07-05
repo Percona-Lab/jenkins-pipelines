@@ -250,6 +250,10 @@ if [ -f /usr/bin/apt-get ]; then
     if [[ ${DIST} == "bookworm" ]] || [[ ${DIST} == "noble" ]]; then
         PKGLIST+=" gsasl-common libproc2-dev"
     else
+        # this is needed for qpress installation
+        curl https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb --output /tmp/prel.deb && dpkg -i /tmp/prel.deb && rm /tmp/prel.deb
+        percona-release enable-only tools testing
+
         PKGLIST+=" libgsasl7 libprocps-dev qpress"
     fi
 
@@ -261,7 +265,7 @@ if [ -f /usr/bin/apt-get ]; then
         PKGLIST+=" python"
     fi
 
-    if [[ ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' ]] && ${DIST} != 'noble' ]]; then
+    if [[ ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' && ${DIST} != 'noble' ]]; then
         PKGLIST+=" dh-systemd"
     fi
 
@@ -269,7 +273,7 @@ if [ -f /usr/bin/apt-get ]; then
         PKGLIST+=" libgflags-dev util-linux"
     fi
 
-    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' ]] && ${DIST} != 'noble' ]]; then
+    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' && ${DIST} != 'noble' ]]; then
         PKGLIST+=" python-mysqldb"
     else
         PKGLIST+=" python3-mysqldb"
@@ -323,7 +327,7 @@ if [ -f /usr/bin/apt-get ]; then
     done
 
     # Install mysql-connector for QA framework run
-    if [[ ${DIST} != 'bookworm' ]] && ${DIST} != 'noble' ]]; then
+    if [[ ${DIST} != 'bookworm' ]] && [[ ${DIST} != 'noble' ]]; then
 	    pip3 install mysql-connector
     else
       pip3 install mysql-connector --break-system-packages
