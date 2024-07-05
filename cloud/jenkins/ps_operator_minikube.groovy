@@ -302,19 +302,19 @@ pipeline {
     }
     stages {
         stage('Prepare node') {
-            agent { label 'docker' }
+            // agent { label 'docker' }
             steps {
                 prepareNode()
             }
         }
         stage('Docker Build and Push') {
-            agent { label 'docker' }
+            // agent { label 'docker' }
             steps {
                 dockerBuildPush()
             }
         }
         stage('Init tests') {
-            agent { label 'docker' }
+            // agent { label 'docker' }
             steps {
                 initTests()
             }
