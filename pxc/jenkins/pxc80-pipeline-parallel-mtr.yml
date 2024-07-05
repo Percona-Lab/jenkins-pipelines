@@ -1,5 +1,5 @@
 - job:
-    name: pxc-8.0-pipeline-parallel-mtr-innovative
+    name: pxc-8.x-pipeline-parallel-mtr
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -87,9 +87,9 @@
           - centos:7
           - centos:8
           - oraclelinux:9
-          - ubuntu:bionic
           - ubuntu:focal
           - ubuntu:jammy
+          - ubuntu:noble
           - debian:buster
           - debian:bullseye
           - debian:bookworm

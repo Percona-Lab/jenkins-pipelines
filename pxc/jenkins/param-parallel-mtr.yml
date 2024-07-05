@@ -1,5 +1,5 @@
 - job:
-    name: pxc-8.0-param-parallel-mtr
+    name: pxc-8.x-param-parallel-mtr
     project-type: matrix
     defaults: global
     description: |
@@ -23,14 +23,14 @@
     - matrix-combinations:
         name: COMBINATIONS
         description: "Select matrix combinations"
-        filter: CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="ubuntu:jammy" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="ubuntu:jammy" || CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="debian:bookworm" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="debian:bookworm" || CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="oraclelinux:9" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="oraclelinux:9"
+        filter: CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="ubuntu:noble" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="ubuntu:noble" || CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="debian:bookworm" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="debian:bookworm" || CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="oraclelinux:9" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="oraclelinux:9"
     - string:
         name: GIT_REPO
         default: "https://github.com/percona/percona-xtradb-cluster"
         description: URL to PXC repository
     - string:
         name: BRANCH
-        default: "8.0"
+        default: "trunk"
         description: Tag/PR/Branch for PXC repository
     - string:
         name: CUSTOM_BUILD_NAME
@@ -52,18 +52,22 @@
         name: PXB80_BRANCH
         default: percona-xtrabackup-8.0.27-19
         description: Tag/Branch for PXB80 repository
-    - bool:
-        name: PXB24_LATEST
-        default: true
-        description: "If checked, the PXB24_BRANCH will be ignored and latest available version will be used"
     - string:
-        name: PXB24_REPO
-        default: https://github.com/percona/percona-xtrabackup
-        description: URL to PXB24 repository
+        name: PXB_PREV_VERSION_URL
+        default: "https://downloads.percona.com/downloads/Percona-XtraBackup-innovative-release/Percona-XtraBackup-8.1.0-1/binary/tarball/percona-xtrabackup-8.1.0-1-Linux-x86_64.glibc2.17-minimal.tar.gz"
+        description: Additional PXB package URL to be available in pxc_extra/PXB_A_TARGET_PATH
     - string:
-        name: PXB24_BRANCH
-        default: percona-xtrabackup-2.4.24
-        description: Tag/Branch for PXC repository
+        name: PXB_PREV_VERSION_TARGET_DIR
+        default: "pxb-8.1"
+        description: Additional PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_A_TARGET_PATH
+    - string:
+        name: PXB_THIS_VERSION_URL
+        default: "https://downloads.percona.com/downloads/Percona-XtraBackup-innovative-release/Percona-XtraBackup-8.2.0-1/binary/tarball/percona-xtrabackup-8.2.0-1-Linux-x86_64.glibc2.17-minimal.tar.gz"
+        description: Additional PXB package URL to be available in pxc_extra/PXB_A_TARGET_PATH
+    - string:
+        name: PXB_THIS_VERSION_TARGET_DIR
+        default: "pxb-8.2"
+        description: Additional PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_A_TARGET_PATH
     - choice:
         name: JOB_CMAKE
         choices:
@@ -165,15 +169,15 @@
           - centos:7
           - centos:8
           - oraclelinux:9
-          - ubuntu:bionic
           - ubuntu:focal
           - ubuntu:jammy
+          - ubuntu:noble
           - debian:buster
           - debian:bullseye
           - debian:bookworm
     builders:
     - trigger-builds:
-      - project: pxc-8.0-pipeline-parallel-mtr
+      - project: pxc-8.x-pipeline-parallel-mtr
         current-parameters: true
         predefined-parameters: |
           DOCKER_OS=${DOCKER_OS}
