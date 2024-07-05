@@ -323,7 +323,7 @@ pipeline {
             options {
                 timeout(time: 3, unit: 'HOURS')
             }
-            agent { label 'docker-32gb' }
+            // agent { label 'docker-32gb' }
             steps {
                 unstash "sourceFILES"
                 clusterRunner('cluster1')
