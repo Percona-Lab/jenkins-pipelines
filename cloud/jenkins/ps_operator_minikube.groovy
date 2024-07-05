@@ -42,7 +42,7 @@ void prepareNode() {
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
 
-    stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
+    stash includes: "source/**", name: "sourceFILES"
 
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
