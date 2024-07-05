@@ -302,19 +302,16 @@ pipeline {
     }
     stages {
         stage('Prepare node') {
-            // agent { label 'docker' }
             steps {
                 prepareNode()
             }
         }
         stage('Docker Build and Push') {
-            // agent { label 'docker' }
             steps {
                 dockerBuildPush()
             }
         }
         stage('Init tests') {
-            // agent { label 'docker' }
             steps {
                 initTests()
             }
@@ -323,7 +320,6 @@ pipeline {
             options {
                 timeout(time: 3, unit: 'HOURS')
             }
-            // agent { label 'docker-32gb' }
             steps {
                 unstash "sourceFILES"
                 clusterRunner('cluster1')
