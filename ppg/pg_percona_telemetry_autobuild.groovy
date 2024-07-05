@@ -136,7 +136,7 @@ pipeline {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_src_rpm=1")
+                        buildStage("oraclelinux:8", "--build_src_rpm=1")
 
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
@@ -162,22 +162,6 @@ pipeline {
         } //stage
         stage('Build percona_pg_telemetry RPMs') {
             parallel {
-                stage('Centos 7') {
-                    agent {
-                        label 'min-centos-7-x64'
-                    }
-                    steps {
-                        echo "====> Build percona_pg_telemetry rpm on Centos 7 PG${PG_RELEASE}"
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_rpm=1")
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                    }
-                } //stage
                 stage('OL 8') {
                     agent {
                         label 'min-ol-8-x64'
@@ -257,22 +241,6 @@ pipeline {
 			unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:noble", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                } //stage
-                stage('Debian 10') {
-                    agent {
-                        label 'min-buster-x64'
-                    }
-                    steps {
-                        echo "====> Build percona_pg_telemetry deb on Debian 10 PG${PG_RELEASE}"
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:buster", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)

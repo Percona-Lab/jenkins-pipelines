@@ -111,10 +111,6 @@ void initTests() {
 }
 
 void clusterRunner(String cluster) {
-    if ("$CLUSTER_WIDE" == "YES") {
-        OPERATOR_NS = 'psmdb-operator'
-    }
-
     sh """
         export CHANGE_MINIKUBE_NONE_USER=true
         /usr/local/bin/minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G
@@ -144,6 +140,7 @@ void runTest(Integer TEST_ID) {
                     cd source
 
                     export DEBUG_TESTS=1
+                    [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=psmdb-operator
                     [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                     export IMAGE_MONGOD=$IMAGE_MONGOD
                     export IMAGE_BACKUP=$IMAGE_BACKUP
