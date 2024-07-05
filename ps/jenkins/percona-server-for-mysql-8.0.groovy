@@ -458,31 +458,6 @@ parameters {
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Buster(10)') {
-                    agent {
-                        label 'min-buster-x64'
-                    }
-                    steps {
-                        script {
-                            PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                            if ("${PS_MAJOR_RELEASE}" == "80") {
-                                if (env.FIPSMODE == 'YES') {
-                                    echo "The step is skipped"
-                                } else {
-                                    cleanUpWS()
-                                    installCli("deb")
-                                    unstash 'properties'
-                                    popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                                    buildStage("none", "--build_deb=1")
-
-                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                }
-                            } else {
-                                echo "The step is skipped"
-                            }
-                        }
-                    }
-                }
                 stage('Debian Bullseye(11)') {
                     agent {
                         label 'min-bullseye-x64'
