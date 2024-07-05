@@ -294,7 +294,7 @@ pipeline {
             name: 'IMAGE_PMM_SERVER')
     }
     agent {
-         label 'docker'
+         label 'docker-32gb'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
