@@ -27,6 +27,7 @@ void prepareNode() {
         echo \$(kubectl kuttl --version) is installed
     """
 
+    USED_PLATFORM_VER="$PLATFORM_VER"
     echo "USED_PLATFORM_VER=$PLATFORM_VER"
 
     echo "=========================[ Cloning the sources ]========================="
