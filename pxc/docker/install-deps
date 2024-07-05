@@ -220,9 +220,6 @@ if [ -f /usr/bin/apt-get ]; then
         echo "waiting"
     done
 
-    curl https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb --output /tmp/prel.deb && dpkg -i /tmp/prel.deb && rm /tmp/prel.deb
-    percona-release enable-only tools testing
-
     DIST=$(lsb_release -sc)
 
     until apt-get update; do
@@ -230,7 +227,7 @@ if [ -f /usr/bin/apt-get ]; then
         echo "waiting"
     done
 
-    # Percona Server
+    # Percona Server (keep this list the same as in PS install-deps)
     PKGLIST=" \
         curl bison cmake perl libssl-dev gcc g++ libaio-dev libldap2-dev libwrap0-dev gdb zip unzip gawk \
         libmecab-dev libncurses5-dev libreadline-dev libpam-dev zlib1g-dev libcurl4-openssl-dev \
@@ -238,17 +235,19 @@ if [ -f /usr/bin/apt-get ]; then
         libmecab2 mecab mecab-ipadic git autoconf libsasl2-dev libsasl2-modules devscripts \
         debconf debhelper fakeroot po-debconf psmisc ccache libtool sudo liblz4-dev liblz4-tool libedit-dev libssl-dev \
         tzdata golang libunwind-dev zstd python3-mysqldb libdbi-perl libdbd-mysql-perl \
-        jq openssl libxml-simple-perl \
+        cpio jq openssl libxml-simple-perl \
         libsasl2-dev libsasl2-modules-gssapi-mit libkrb5-dev libudev-dev libzstd-dev libsys-meminfo-perl \
     "
 
     # PXC specific
     PKGLIST+=" make build-essential check scons  libgcrypt-dev libev-dev  libasio-dev  vim-common python3-pip \
-        libboost-all-dev rsync python3 sysbench patchelf lynx librtmp-dev lsof socat libncurses5 libtinfo5 \
+        libboost-all-dev rsync python3 sysbench patch patchelf librtmp-dev lsof socat \
         python3-sphinx stunnel \
     "
+    # PXC specific - TODO: these packages are not present in PS, but were specified in common list. Verify if/why they are needed
+    PGKLIST+=" libsasl2-modules-gssapi-mit libgnutls28-dev"
 
-    if [[ ${DIST} == "bookworm" ]]; then
+    if [[ ${DIST} == "bookworm" ]] || [[ ${DIST} == "noble" ]]; then
         PKGLIST+=" gsasl-common libproc2-dev"
     else
         PKGLIST+=" libgsasl7 libprocps-dev qpress"
@@ -256,24 +255,28 @@ if [ -f /usr/bin/apt-get ]; then
 
     if [[ ${DIST} == 'jammy' ]]; then
         PKGLIST+=" python2"
-    elif [[ ${DIST} == 'bookworm' ]]; then 
+    elif [[ ${DIST} == 'bookworm' ]] || [[ ${DIST} == "noble" ]]; then 
         PKGLIST+=" dh-python"
     else
         PKGLIST+=" python"
     fi
 
-    if [[ ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' ]]; then
+    if [[ ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' ]] && ${DIST} != 'noble' ]]; then
         PKGLIST+=" dh-systemd"
     fi
 
-    if [[ ${DIST} == 'jammy' ]] || [[ ${DIST} == 'bullseye' ]] || [[ ${DIST} == 'bookworm' ]]; then
+    if [[ ${DIST} == 'jammy' ]] || [[ ${DIST} == 'bullseye' ]] || [[ ${DIST} == 'bookworm' ]] || [[ ${DIST} == "noble" ]]; then
         PKGLIST+=" libgflags-dev util-linux"
     fi
 
-    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' ]]; then
+    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' ]] && ${DIST} != 'noble' ]]; then
         PKGLIST+=" python-mysqldb"
     else
         PKGLIST+=" python3-mysqldb"
+    fi
+
+    if [[ ${DIST} == "noble" ]]; then
+        PKGLIST+=" libtirpc-dev"
     fi
 
     # PS-7834: 8.0.26 requires GCC 8 on bionic
@@ -320,23 +323,14 @@ if [ -f /usr/bin/apt-get ]; then
     done
 
     # Install mysql-connector for QA framework run
-    if [[ ${DIST} != 'bookworm' ]]; then
+    if [[ ${DIST} != 'bookworm' ]] && ${DIST} != 'noble' ]]; then
 	    pip3 install mysql-connector
     else
       pip3 install mysql-connector --break-system-packages
     fi
-
-    apt-get -y install build-essential devscripts
-    # deps from spec files
-    if [[ ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' ]]; then
-        apt-get -y install debhelper pkg-config cmake dh-systemd
-    else
-        apt-get -y install debhelper pkg-config cmake
-    fi
-    # missing build deps
-    apt-get -y install libssl-dev gawk lynx zlib1g-dev
+    
+    # clenup
     apt-get -y purge librtmp-dev || true
-    apt-get -y install automake bzip2 cmake make g++ gcc git openssl libssl-dev libgnutls28-dev libtool patch patchelf
     apt-get -y clean
 
 
@@ -435,6 +429,9 @@ wget_loop 'boost_1_59_0.tar.gz' 'http://downloads.sourceforge.net/boost/boost/1.
 
 # boost 1.77.0 needed for percona-server 8.0
 wget_loop 'boost_1_77_0.tar.bz2' 'http://downloads.sourceforge.net/boost/boost/1.77.0/boost_1_77_0.tar.bz2'
+
+# boost 1.84.0 needed for percona-server 8.4
+wget_loop 'boost_1_84_0.tar.bz2' 'http://downloads.sourceforge.net/boost/boost/1.84.0/boost_1_84_0.tar.bz2'
 
 # googletest 1.8.0 needed for percona-server versions 5.6 to 8.0
 wget_loop 'googletest-release-1.8.0.zip' 'https://github.com/google/googletest/archive/release-1.8.0.zip'
