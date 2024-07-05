@@ -338,17 +338,6 @@ pipeline {
                 }
             }
         }
-        stage('Make report') {
-            steps {
-                echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
-                makeReport()
-                sh """
-                    echo "$TestsReport" > TestsReport.xml
-                """
-                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                archiveArtifacts '*.xml'
-            }
-        }
     }
 
     post {
