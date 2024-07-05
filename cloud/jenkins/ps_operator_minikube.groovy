@@ -318,7 +318,7 @@ pipeline {
         }
         stage('Run Tests') {
             options {
-                timeout(time: 3, unit: 'HOURS')
+                timeout(time: 4, unit: 'HOURS')
             }
             steps {
                 unstash "sourceFILES"
