@@ -19,8 +19,8 @@ void installCli(String PLATFORM) {
             export RHVER=\$(rpm --eval %rhel)
             if [ \${RHVER} = "7" ]; then
                 cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
-                sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
-                sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+                sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
+                sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
                 cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
             fi
             sudo yum -y install wget curl unzip
