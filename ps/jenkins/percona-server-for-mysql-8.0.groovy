@@ -16,6 +16,11 @@ void installCli(String PLATFORM) {
             sudo apt-get update
             sudo apt-get -y install wget curl unzip
         elif [ ${PLATFORM} = "rpm" ]; then
+            RHVER=$(rpm --eval %rhel)
+            if [ ${RHVER} = "7" ]; then
+                sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+                sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+            fi
             sudo yum -y install wget curl unzip
         fi
         curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
