@@ -19,7 +19,7 @@ void installCli(String PLATFORM) {
             export RHVER=\$(rpm --eval %rhel)
             if [ \${RHVER} = "7" ]; then
                 sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
-                sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
+                sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
                 if [ -e "/etc/yum.repos.d/CentOS-SCLo-scl.repo" ]; then
                     cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
                 fi
