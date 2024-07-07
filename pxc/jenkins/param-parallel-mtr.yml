@@ -172,7 +172,6 @@
           - ubuntu:focal
           - ubuntu:jammy
           - ubuntu:noble
-          - debian:buster
           - debian:bullseye
           - debian:bookworm
     builders:
@@ -190,7 +189,7 @@
     - shell: |
         sudo find . -name "*.xml" -o -name "*.log" -delete
     - copyartifact:
-        project: pxc-8.0-pipeline-parallel-mtr
+        project: pxc-8.x-pipeline-parallel-mtr
         which-build: specific-build
         build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_8_0_pipeline_parallel_mtr}"
         do-not-fingerprint: true

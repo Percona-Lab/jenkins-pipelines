@@ -90,7 +90,6 @@
           - ubuntu:focal
           - ubuntu:jammy
           - ubuntu:noble
-          - debian:buster
           - debian:bullseye
           - debian:bookworm
         description: OS version for compilation
