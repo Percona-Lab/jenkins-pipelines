@@ -326,9 +326,9 @@ parameters {
                         }
                     }
                 }
-                stage('Centos 8') {
+                stage('Oracle Linux 8') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
                         script {
@@ -546,9 +546,9 @@ parameters {
                         }
                     }
                 }
-                stage('Centos 8 binary tarball') {
+                stage('Oracle Linux 8 binary tarball') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
                         script {
@@ -566,9 +566,9 @@ parameters {
                         }
                     }
                 }
-                stage('Centos 8 debug tarball') {
+                stage('Oracle Linux 8 debug tarball') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
                         script {
