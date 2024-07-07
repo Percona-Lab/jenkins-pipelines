@@ -472,7 +472,7 @@ void triggerAbortedTestWorkersRerun() {
             echo "rerun needed: $rerunNeeded"
             if (rerunNeeded) {
                 echo "restarting aborted workers"
-                build job: 'pxc-8.0-pipeline-parallel-mtr-innovative',
+                build job: 'pxc-8.x-pipeline-parallel-mtr',
                 wait: false,
                 parameters: [
                     string(name:'BUILD_NUMBER_BINARIES', value: BUILD_NUMBER_BINARIES_FOR_RERUN),
@@ -674,7 +674,7 @@ pipeline {
         skipStagesAfterUnstable()
         timeout(time: 6, unit: 'DAYS')
         buildDiscarder(logRotator(numToKeepStr: '200', artifactNumToKeepStr: '200'))
-        copyArtifactPermission('pxc-8.0-param-parallel-mtr');
+        copyArtifactPermission('pxc-8.x-param-parallel-mtr');
     }
     stages {
         stage('Prepare') {
