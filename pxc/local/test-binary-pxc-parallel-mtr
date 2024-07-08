@@ -262,6 +262,10 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
             --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
             --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" | tee -a ${LOG_FILE} || true
 
+        end=`date +%s`
+        runtime=$((end-start))
+        echo KH,SUITE_NOBIG,${suite},time,$runtime
+
         ln -s $PWD/var $PWD/var_${suiteNoSlash}
         rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
 
@@ -273,6 +277,7 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
     fi
 
     if [[ $big_tests_this == "1" ]]; then
+        start_big=`date +%s`
         echo "Executing big tests for suite $suite"
         MTR_ARGS_BIG=${MTR_ARGS}
         MTR_ARGS_BIG+=" --only-big-test"
@@ -295,6 +300,11 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
             --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
             --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" | tee -a ${LOG_FILE} || true
 
+
+        end=`date +%s`
+        runtime=$((end-start_big))
+        echo KH,SUITE_BIG,${suite},time,$runtime
+
         ln -s $PWD/var $PWD/var_${suiteNoSlash}
         rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
 
@@ -307,7 +317,7 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
 
     end=`date +%s`
     runtime=$((end-start))
-    echo KH,SUITE,${suite},time,$runtime
+    echo KH,SUITE_TOTAL,${suite},time,$runtime
 
 done
 
@@ -401,7 +411,7 @@ if [[ -n "${MTR_STANDALONE_TESTS}" ]]; then
 
     end=`date +%s`
     runtime=$((end-start))
-    echo KH,SUITE,${suite},time,$runtime
+    echo KH,SUITE_TOTAL,${suite},time,$runtime
 fi
 
 # Convert Latin1(ISO-8859-1) into browser readable UTF-8
