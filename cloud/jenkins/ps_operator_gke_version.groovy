@@ -72,7 +72,7 @@ void prepareSources() {
 }
 
 void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the operator Docker image ]========================="
+    echo "=========================[ Building and Pushing the operator Docker image eleo branch]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$OPERATOR_IMAGE" ]]; then
