@@ -16,6 +16,14 @@ void installCli(String PLATFORM) {
             sudo apt-get update
             sudo apt-get -y install wget curl unzip
         elif [ ${PLATFORM} = "rpm" ]; then
+            export RHVER=\$(rpm --eval %rhel)
+            if [ \${RHVER} = "7" ]; then
+                sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
+                sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
+                if [ -e "/etc/yum.repos.d/CentOS-SCLo-scl.repo" ]; then
+                    cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
+                fi
+            fi
             sudo yum -y install wget curl unzip
         fi
         curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
@@ -318,9 +326,9 @@ parameters {
                         }
                     }
                 }
-                stage('Centos 8') {
+                stage('Oracle Linux 8') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
                         script {
@@ -458,31 +466,6 @@ parameters {
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Buster(10)') {
-                    agent {
-                        label 'min-buster-x64'
-                    }
-                    steps {
-                        script {
-                            PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                            if ("${PS_MAJOR_RELEASE}" == "80") {
-                                if (env.FIPSMODE == 'YES') {
-                                    echo "The step is skipped"
-                                } else {
-                                    cleanUpWS()
-                                    installCli("deb")
-                                    unstash 'properties'
-                                    popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                                    buildStage("none", "--build_deb=1")
-
-                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                }
-                            } else {
-                                echo "The step is skipped"
-                            }
-                        }
-                    }
-                }
                 stage('Debian Bullseye(11)') {
                     agent {
                         label 'min-bullseye-x64'
@@ -563,9 +546,9 @@ parameters {
                         }
                     }
                 }
-                stage('Centos 8 binary tarball') {
+                stage('Oracle Linux 8 binary tarball') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
                         script {
@@ -583,9 +566,9 @@ parameters {
                         }
                     }
                 }
-                stage('Centos 8 debug tarball') {
+                stage('Oracle Linux 8 debug tarball') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
                         script {
