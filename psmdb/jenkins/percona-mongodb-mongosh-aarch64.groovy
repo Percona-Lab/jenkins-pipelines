@@ -50,11 +50,11 @@ pipeline {
             description: 'Tag/Branch for build script repository',
             name: 'BUILD_GIT_BRANCH')
         string(
-            defaultValue: '1.6.0',
+            defaultValue: '2.2.10',
             description: 'VERSION value',
             name: 'VERSION')
         string(
-            defaultValue: 'psmdb-60',
+            defaultValue: 'psmdb-70',
             description: 'PSMDB repo name',
             name: 'PSMDB_REPO')
         choice(
@@ -142,6 +142,19 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_mongosh=1 --build_variant=deb-arm64")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Noble') {
+                    agent {
+                        label 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:noble", "--build_mongosh=1 --build_variant=deb-arm64")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
