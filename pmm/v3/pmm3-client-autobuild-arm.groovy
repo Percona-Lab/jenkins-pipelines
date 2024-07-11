@@ -58,16 +58,8 @@ pipeline {
                         stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
                     }
                 }
-                stage('Build client source rpm') {
-                    steps {
-                        sh '''
-                            ./build/bin/build-client-srpm centos:7
-                        '''
-                    }
-                }
                 stage('Build client binary rpm') {
                     steps {
-                        sh './build/bin/build-client-rpm centos:7'
                         sh './build/bin/build-client-rpm rockylinux:8'
                         sh './build/bin/build-client-rpm almalinux:9.0'
                         sh 'aws s3 cp --recursive --acl public-read --include "pmm*-client-*.rpm" results/rpm/ \
@@ -84,11 +76,13 @@ pipeline {
                 }
                 stage('Build client binary debs') {
                     steps {
-                        sh './build/bin/build-client-deb debian:buster'
+                        //  TODO: We can re-enable if needed after stabilizing the pipeline
+                        // sh './build/bin/build-client-deb debian:buster'
                         sh './build/bin/build-client-deb debian:bullseye'
                         sh './build/bin/build-client-deb debian:bookworm'
-                        sh './build/bin/build-client-deb ubuntu:focal'
+                        // sh './build/bin/build-client-deb ubuntu:focal'
                         sh './build/bin/build-client-deb ubuntu:jammy'
+                        sh './build/bin/build-client-deb ubuntu:noble'
                         sh 'aws s3 cp --recursive --acl public-read --include "*.deb" results/deb/ \
                                 s3://pmm-build-cache/pmm-client/ARM/'
                         stash includes: 'results/deb/*.deb', name: 'debs'

@@ -114,19 +114,10 @@ pipeline {
                     }
                 }
                 stage('Build client source rpm') {
-                    parallel {
-                        stage('Build client source rpm EL7') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-srpm centos:7"
-                            }
-                        }
-                        stage('Build client source rpm EL9') {
-                            steps {
-                                sh """
-                                    ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:3
-                                """
-                            }
-                        }
+                    steps {
+                        sh """
+                            ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:3
+                        """
                     }
                     post {
                         success {
@@ -137,11 +128,6 @@ pipeline {
                 }
                 stage('Build client binary rpms') {
                     parallel {
-                        stage('Build client binary rpm EL7') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
-                            }
-                        }
                         stage('Build client binary rpm EL8') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:8"
