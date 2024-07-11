@@ -114,14 +114,10 @@ pipeline {
                     }
                 }
                 stage('Build client source rpm') {
-                    parallel {
-                        stage('Build client source rpm EL9') {
-                            steps {
-                                sh """
-                                    ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:3
-                                """
-                            }
-                        }
+                    steps {
+                        sh """
+                            ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:3
+                        """
                     }
                     post {
                         success {
