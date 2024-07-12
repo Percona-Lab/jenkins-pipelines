@@ -103,14 +103,14 @@ pipeline {
                 '''
                 script {
                     env.VM_IP = "127.0.0.1"
-                    env.PMM_URL = "http://admin:admin@${env.VM_IP}"
+                    env.PMM_URL = "https://admin:admin@${env.VM_IP}"
                 }
             }
         }
         stage('Connectivity Check') {
             steps {
                 sh '''
-                    if ! timeout 100 bash -c "until curl -sf ${PMM_URL}/ping; do sleep 1; done"; then
+                    if ! timeout 100 bash -c "until curl -skf ${PMM_URL}/ping; do sleep 1; done"; then
                         echo "PMM Server did not pass the connectivity check" >&2
                         exit 1
                     fi
@@ -122,6 +122,7 @@ pipeline {
                 sh '''
                     docker run -e PMM_SERVER_URL=${PMM_URL} \
                                -e PMM_RUN_UPDATE_TEST=0 \
+                               -e PMM_SERVER_INSECURE_TLS=1 \
                                -e PMM_RUN_STT_TESTS=0 \
                                --name ${BUILD_TAG} \
                                --network host \
