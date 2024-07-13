@@ -34,7 +34,7 @@ void makeReport() {
 void CreateCluster(String CLUSTER_SUFFIX){
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
-            platform_version=`echo "\${params.PLATFORM_VER}" | awk -F. '{ printf("%d%03d%03d%03d\\n", \$1,\$2,\$3,\$4); }';`
+            platform_version=`echo "\$PLATFORM_VER" | awk -F. '{ printf("%d%03d%03d%03d\\n", \$1,\$2,\$3,\$4); }';`
             version=`echo "4.12.0" | awk -F. '{ printf("%d%03d%03d%03d\\n", \$1,\$2,\$3,\$4); }';`
             if [ \$platform_version -ge \$version ];then
                 POLICY="additionalTrustBundlePolicy: Proxyonly"
@@ -94,7 +94,7 @@ EOF
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=./openshift/${CLUSTER_SUFFIX}
                 export KUBECONFIG=./openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
-                
+
                 machineset=`oc get machineset  -n openshift-machine-api | awk 'NR==2 {print \$1; exit}'`
                 oc get machineset \$machineset -o yaml -n openshift-machine-api | yq w - --style=double 'spec.template.spec.providerSpec.value.spotMarketOptions' '{}' | sed 's/"{}"/{}/' | oc apply -f -
                 oc scale machineset --replicas=3  \$machineset -n openshift-machine-api

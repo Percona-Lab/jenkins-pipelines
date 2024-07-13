@@ -225,6 +225,19 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Noble (24.04)') {
+                    agent {
+                        label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:noble", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Buster (10)') {
                     agent {
                         label 'docker'
@@ -234,11 +247,13 @@ pipeline {
                             cleanUpWS()
                             PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
                             if ("${PS_MAJOR_RELEASE}" == "80") {
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                                buildStage("debian:buster", "--build_deb=1")
+                                //popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                //buildStage("debian:buster", "--build_deb=1")
 
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                //pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                //uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+
+                                echo "The step is skipped"
                             } else {
                                 echo "The step is skipped"
                             }

@@ -13,11 +13,8 @@ void prepareNode() {
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
 
-        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
-        sudo chmod +x /usr/local/bin/yq
-
-        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-        sudo chmod +x /usr/local/bin/jq
+        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
+        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
     """
 
     if ("$PLATFORM_VER" == "latest") {
@@ -141,10 +138,6 @@ void clusterRunner(String cluster) {
 
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
-
-    if ("$CLUSTER_WIDE" == "YES") {
-        OPERATOR_NS = 'psmdb-operator'
-    }
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
@@ -271,13 +264,14 @@ void runTest(Integer TEST_ID) {
                     cd source
 
                     export DEBUG_TESTS=1
+                    [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=psmdb-operator
                     [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$env.GIT_BRANCH
                     export IMAGE_MONGOD=$IMAGE_MONGOD
                     export IMAGE_BACKUP=$IMAGE_BACKUP
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-
                     export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
+
                     oc whoami
 
                     e2e-tests/$testName/run
@@ -418,14 +412,6 @@ pipeline {
                     }
                     steps {
                         clusterRunner('cluster4')
-                    }
-                }
-                stage('cluster5') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
-                    }
-                    steps {
-                        clusterRunner('cluster5')
                     }
                 }
             }

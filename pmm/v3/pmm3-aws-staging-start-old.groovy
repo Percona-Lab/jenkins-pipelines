@@ -119,10 +119,10 @@ pipeline {
             name: 'VERSION_SERVICE_IMAGE'
         )
         text(
-            defaultValue: '-e PMM_DEBUG=1 -e ENABLE_TELEMETRY=0 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com',
+            defaultValue: '-e PMM_DEBUG=1 -e PMM_ENABLE_TELEMETRY=0 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com',
             description: '''
             Passing environment variables to PMM Server Docker container is supported for PMM v2 and up.
-            Example: -e PERCONA_TEST_CHECKS_INTERVAL=30s -e PERCONA_TEST_TELEMETRY_DISABLE_START_DELAY=1 -e PMM_DEBUG=1
+            Example: -e PMM_DEV_TELEMETRY_DISABLE_START_DELAY=1 -e PMM_DEBUG=1
             ''',
             name: 'DOCKER_ENV_VARIABLE'
         )
@@ -270,13 +270,13 @@ pipeline {
                                     aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
                                     if [ ${VERSION_SERVICE_VERSION} == dev ]; then
-                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1"
+                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PMM_DEV_VERSION_SERVICE_URL=https://check-dev.percona.com/versions/v1"
                                     else
-                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=https://check.percona.com/versions/v1"
+                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PMM_DEV_VERSION_SERVICE_URL=https://check.percona.com/versions/v1"
                                     fi
 
                                     if [ -n "${VERSION_SERVICE_IMAGE}" ]; then
-                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PERCONA_TEST_VERSION_SERVICE_URL=http://version-service/versions/v1"
+                                        ENV_VARIABLE="${DOCKER_ENV_VARIABLE} -e PMM_DEV_VERSION_SERVICE_URL=http://version-service/versions/v1"
                                     else
                                         ENV_VARIABLE="${DOCKER_ENV_VARIABLE}"
                                     fi

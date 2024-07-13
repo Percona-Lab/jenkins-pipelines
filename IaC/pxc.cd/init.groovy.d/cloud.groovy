@@ -27,9 +27,10 @@ imageMap['micro-amazon']     = 'ami-098023750985977ad'
 imageMap['min-bionic-x64']   = 'ami-0a0da33f8cf70309a'
 imageMap['min-focal-x64']    = 'ami-081a3b9eded47f0f3'
 imageMap['min-jammy-x64']    = 'ami-014d05e6b24240371'
+imageMap['min-noble-x64']    = 'ami-08012c0a9ee8e21c4'
 imageMap['min-centos-6-x32'] = 'ami-67e3cd22'
 imageMap['min-centos-6-x64'] = 'ami-0d282a216ae4c0c42'
-imageMap['min-centos-7-x64'] = 'ami-08d2d8b00f270d03b'
+imageMap['min-centos-7-x64'] = 'ami-0bcd12d19d926f8e9'
 imageMap['min-centos-8-x64'] = 'ami-04adf3fcbc8a45c54'
 imageMap['min-ol-8-x64']     = 'ami-0ec007654a879ba5e'
 imageMap['min-ol-9-x64']     = 'ami-0bf91ca60fd852846'
@@ -51,6 +52,7 @@ imageMap['ramdisk-xenial-x64']   = imageMap['min-xenial-x64']
 imageMap['ramdisk-bionic-x64']   = imageMap['min-bionic-x64']
 imageMap['ramdisk-focal-x64']    = imageMap['min-focal-x64']
 imageMap['ramdisk-jammy-x64']    = imageMap['min-jammy-x64']
+imageMap['ramdisk-noble-x64']    = imageMap['min-noble-x64']
 imageMap['ramdisk-buster-x64']   = imageMap['min-buster-x64']
 imageMap['ramdisk-bullseye-x64'] = imageMap['min-bullseye-x64']
 imageMap['ramdisk-bookworm-x64'] = imageMap['min-bookworm-x64']
@@ -71,6 +73,7 @@ userMap['micro-amazon']      = userMap['docker']
 userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-focal-x64']     = 'ubuntu'
 userMap['min-jammy-x64']     = 'ubuntu'
+userMap['min-noble-x64']     = 'ubuntu'
 userMap['min-centos-6-x32']  = 'root'
 userMap['min-centos-6-x64']  = 'centos'
 userMap['min-centos-7-x64']  = 'centos'
@@ -94,6 +97,7 @@ userMap['ramdisk-xenial-x64']   = userMap['min-xenial-x64']
 userMap['ramdisk-bionic-x64']   = userMap['min-bionic-x64']
 userMap['ramdisk-focal-x64']    = userMap['min-focal-x64']
 userMap['ramdisk-jammy-x64']    = userMap['min-jammy-x64']
+userMap['ramdisk-noble-x64']    = userMap['min-noble-x64']
 userMap['ramdisk-buster-x64']   = userMap['min-buster-x64']
 userMap['ramdisk-bullseye-x64'] = userMap['min-bullseye-x64']
 userMap['ramdisk-bookworm-x64'] = userMap['min-bookworm-x64']
@@ -218,7 +222,7 @@ initMap['rpmMap'] = '''
 
         PKGLIST="p7zip"
     fi
-    if [[ ${RHVER} -eq 8 ]]; then
+    if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
         sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
         sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
     fi
@@ -304,6 +308,7 @@ initMap['debMap'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
+    sudo sed -i '/buster-backports/ s/cdn-aws.deb.debian.org/archive.debian.org/' /etc/apt/sources.list
     until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
@@ -318,11 +323,12 @@ initMap['debMap'] = '''
     else
         JAVA_VER="openjdk-11-jre-headless"
     fi
-    if [[ ${DEB_VER} == "bookworm" ]]; then
+    if [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "buster" ]]; then
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
         sudo cp -r /etc/ssl_old /etc/ssl
+        sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
     else
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
     fi
@@ -334,6 +340,7 @@ initMap['debMapRamdisk'] = '''
     if ! mountpoint -q /mnt; then
         sudo mount -t tmpfs -o size=20G tmpfs /mnt
     fi
+    sudo sed -i '/buster-backports/ s/cdn-aws.deb.debian.org/archive.debian.org/' /etc/apt/sources.list
     until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
@@ -348,11 +355,12 @@ initMap['debMapRamdisk'] = '''
     else
         JAVA_VER="openjdk-11-jre-headless"
     fi
-    if [[ ${DEB_VER} == "bookworm" ]]; then
+    if [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "buster" ]]; then
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
         sudo cp -r /etc/ssl_old /etc/ssl
+        sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
     else
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
     fi
@@ -374,6 +382,7 @@ initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-bookworm-x64'] = initMap['debMap']
 initMap['min-focal-x64']    = initMap['debMap']
 initMap['min-jammy-x64']    = initMap['debMap']
+initMap['min-noble-x64']    = initMap['debMap']
 initMap['min-stretch-x64']  = initMap['debMap']
 initMap['min-xenial-x64']   = initMap['debMap']
 
@@ -386,6 +395,7 @@ initMap['ramdisk-buster-x64']   = initMap['debMapRamdisk']
 initMap['ramdisk-bionic-x64']   = initMap['debMapRamdisk']
 initMap['ramdisk-focal-x64']    = initMap['debMapRamdisk']
 initMap['ramdisk-jammy-x64']    = initMap['debMapRamdisk']
+initMap['ramdisk-noble-x64']    = initMap['debMapRamdisk']
 initMap['ramdisk-stretch-x64']  = initMap['debMapRamdisk']
 initMap['ramdisk-xenial-x64']   = initMap['debMapRamdisk']
 initMap['ramdisk-bullseye-x64'] = initMap['debMapRamdisk']
@@ -440,6 +450,7 @@ typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-jammy-x64']     = typeMap['min-centos-7-x64']
+typeMap['min-noble-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-centos-6-x32']  = 'm1.medium'
 typeMap['min-centos-6-x64']  = 'r3.2xlarge'
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
@@ -458,6 +469,7 @@ typeMap['ramdisk-xenial-x64']   = typeMap['docker-32gb']
 typeMap['ramdisk-bionic-x64']   = typeMap['docker-32gb']
 typeMap['ramdisk-focal-x64']    = typeMap['docker-32gb']
 typeMap['ramdisk-jammy-x64']    = typeMap['docker-32gb']
+typeMap['ramdisk-noble-x64']    = typeMap['docker-32gb']
 typeMap['ramdisk-buster-x64']   = typeMap['docker-32gb']
 typeMap['ramdisk-bullseye-x64'] = typeMap['docker-32gb']
 typeMap['ramdisk-bookworm-x64'] = typeMap['docker-32gb']
@@ -469,6 +481,7 @@ execMap['micro-amazon'] = '30'
 execMap['min-bionic-x64'] = '1'
 execMap['min-focal-x64']  = '1'
 execMap['min-jammy-x64']  = '1'
+execMap['min-noble-x64']  = '1'
 execMap['min-centos-6-x32'] = '1'
 execMap['min-centos-6-x64'] = '1'
 execMap['min-centos-7-x64'] = '1'
@@ -492,6 +505,7 @@ execMap['ramdisk-xenial-x64']   = execMap['docker-32gb']
 execMap['ramdisk-bionic-x64']   = execMap['docker-32gb']
 execMap['ramdisk-focal-x64']    = execMap['docker-32gb']
 execMap['ramdisk-jammy-x64']    = execMap['docker-32gb']
+execMap['ramdisk-noble-x64']    = execMap['docker-32gb']
 execMap['ramdisk-buster-x64']   = execMap['docker-32gb']
 execMap['ramdisk-bullseye-x64'] = execMap['docker-32gb']
 execMap['ramdisk-bookworm-x64'] = execMap['docker-32gb']
@@ -505,6 +519,7 @@ devMap['micro-amazon']      = devMap['docker']
 devMap['min-bionic-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-focal-x64']     = devMap['min-bionic-x64']
 devMap['min-jammy-x64']     = devMap['min-bionic-x64']
+devMap['min-noble-x64']     = devMap['min-bionic-x64']
 devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
@@ -526,6 +541,7 @@ devMap['ramdisk-ol-9-x64']     = '/dev/sda1=:10:true:gp2'
 devMap['ramdisk-bionic-x64']   = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-focal-x64']    = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-jammy-x64']    = devMap['ramdisk-centos-6-x64']
+devMap['ramdisk-noble-x64']    = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-xenial-x64']   = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-stretch-x64']  = 'xvda=:8:true:gp2'
 devMap['ramdisk-buster-x64']   = '/dev/xvda=:8:true:gp2'
@@ -541,6 +557,7 @@ labelMap['micro-amazon']      = 'master micro-amazon'
 labelMap['min-bionic-x64']    = 'min-bionic-x6 asan'
 labelMap['min-focal-x64']     = 'min-focal-x64'
 labelMap['min-jammy-x64']     = 'min-jammy-x64'
+labelMap['min-noble-x64']     = 'min-noble-x64'
 labelMap['min-centos-6-x32']  = 'min-centos-6-x32'
 labelMap['min-centos-6-x64']  = 'min-centos-6-x64'
 labelMap['min-centos-7-x64']  = 'min-centos-7-x64'
@@ -562,6 +579,7 @@ labelMap['ramdisk-ol-9-x64']     = 'ramdisk-ol-9-x64'
 labelMap['ramdisk-bionic-x64']   = 'ramdisk-bionic-x64'
 labelMap['ramdisk-focal-x64']    = 'ramdisk-focal-x64'
 labelMap['ramdisk-jammy-x64']    = 'ramdisk-jammy-x64'
+labelMap['ramdisk-noble-x64']    = 'ramdisk-noble-x64'
 labelMap['ramdisk-xenial-x64']   = 'ramdisk-xenial-x64'
 labelMap['ramdisk-stretch-x64']  = 'ramdisk-stretch-x64'
 labelMap['ramdisk-buster-x64']   = 'ramdisk-buster-x64'
@@ -580,6 +598,7 @@ maxUseMap['micro-amazon']      = maxUseMap['multipleUse']
 maxUseMap['min-bionic-x64']    = maxUseMap['singleUse']
 maxUseMap['min-focal-x64']     = maxUseMap['singleUse']
 maxUseMap['min-jammy-x64']     = maxUseMap['singleUse']
+maxUseMap['min-noble-x64']     = maxUseMap['singleUse']
 maxUseMap['min-centos-6-x32']  = maxUseMap['singleUse']
 maxUseMap['min-centos-6-x64']  = maxUseMap['singleUse']
 maxUseMap['min-centos-7-x64']  = maxUseMap['singleUse']
@@ -601,6 +620,7 @@ maxUseMap['ramdisk-ol-9-x64']     = maxUseMap['singleUse']
 maxUseMap['ramdisk-bionic-x64']   = maxUseMap['singleUse']
 maxUseMap['ramdisk-focal-x64']    = maxUseMap['singleUse']
 maxUseMap['ramdisk-jammy-x64']    = maxUseMap['singleUse']
+maxUseMap['ramdisk-noble-x64']    = maxUseMap['singleUse']
 maxUseMap['ramdisk-xenial-x64']   = maxUseMap['singleUse']
 maxUseMap['ramdisk-stretch-x64']  = maxUseMap['singleUse']
 maxUseMap['ramdisk-buster-x64']   = maxUseMap['singleUse']
@@ -616,6 +636,7 @@ jvmoptsMap['micro-amazon']      = jvmoptsMap['docker']
 jvmoptsMap['min-bionic-x64']    = jvmoptsMap['docker']
 jvmoptsMap['min-focal-x64']     = jvmoptsMap['docker']
 jvmoptsMap['min-jammy-x64']     = jvmoptsMap['docker']
+jvmoptsMap['min-noble-x64']     = jvmoptsMap['docker']
 jvmoptsMap['min-centos-6-x32']  = jvmoptsMap['docker']
 jvmoptsMap['min-centos-6-x64']  = jvmoptsMap['docker']
 jvmoptsMap['min-centos-7-x64']  = jvmoptsMap['docker']
@@ -637,6 +658,7 @@ jvmoptsMap['ramdisk-ol-9-x64']     = jvmoptsMap['docker']
 jvmoptsMap['ramdisk-bionic-x64']   = jvmoptsMap['docker']
 jvmoptsMap['ramdisk-focal-x64']    = jvmoptsMap['docker']
 jvmoptsMap['ramdisk-jammy-x64']    = jvmoptsMap['docker']
+jvmoptsMap['ramdisk-noble-x64']    = jvmoptsMap['docker']
 jvmoptsMap['ramdisk-xenial-x64']   = jvmoptsMap['docker']
 jvmoptsMap['ramdisk-stretch-x64']  = jvmoptsMap['docker']
 jvmoptsMap['ramdisk-buster-x64']   = jvmoptsMap['docker']
@@ -730,6 +752,7 @@ String region = 'us-west-1'
             getTemplate('min-bionic-x64',   "${region}${it}"),
             getTemplate('min-focal-x64',    "${region}${it}"),
             getTemplate('min-jammy-x64',    "${region}${it}"),
+            getTemplate('min-noble-x64',    "${region}${it}"),
             // getTemplate('ramdisk-centos-6-x64', "${region}${it}"),
             getTemplate('ramdisk-centos-7-x64', "${region}${it}"),
             getTemplate('ramdisk-centos-8-x64', "${region}${it}"),
@@ -740,6 +763,7 @@ String region = 'us-west-1'
             getTemplate('ramdisk-bionic-x64',   "${region}${it}"),
             getTemplate('ramdisk-focal-x64',    "${region}${it}"),
             getTemplate('ramdisk-jammy-x64',    "${region}${it}"),
+            getTemplate('ramdisk-noble-x64',    "${region}${it}"),
             getTemplate('ramdisk-buster-x64',   "${region}${it}"),
             getTemplate('performance-centos-6-x64', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates

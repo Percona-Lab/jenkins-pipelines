@@ -5,7 +5,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 pipeline {
   agent {
-  label 'min-ol-8-x64'
+  label 'min-ol-9-x64'
   }
 
   parameters {
@@ -71,7 +71,7 @@ pipeline {
     stage ('Prepare') {
       steps {
           script {
-              installMoleculePPG()
+              installMoleculePython39()
             }
         }
     }
