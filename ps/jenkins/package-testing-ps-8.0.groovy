@@ -14,8 +14,6 @@ List all_nodes = [
     "min-jammy-x64",
     "min-noble-x64",
     "min-amazon-2-x64",
-    "min-rhel-8-x64",
-    "min-rhel-9-x64",
 ]
 
 product_to_test = params.product_to_test
@@ -214,28 +212,6 @@ pipeline {
 
                     steps {
                         runNodeBuild("min-amazon-2-x64")
-                    }
-                }
-                stage("RHEL 8") {
-                    when {
-                        expression {
-                            nodes_to_test.contains("min-rhel-8-x64")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("min-rhel-8-x64")
-                    }
-                }
-                stage("RHEL 9") {
-                    when {
-                        expression {
-                            nodes_to_test.contains("min-rhel-9-x64")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("min-rhel-9-x64")
                     }
                 }
             }

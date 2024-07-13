@@ -47,8 +47,6 @@
                 - "min-jammy-x64"
                 - "min-noble-x64"  
                 - "min-amazon-2-x64"
-                - "min-rhel-8-x64"
-                - "min-rhel-9-x64"  
             description: "Node in which to test the product"
         - choice:
             name: action_to_test

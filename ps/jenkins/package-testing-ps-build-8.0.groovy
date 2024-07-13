@@ -65,8 +65,6 @@ node_setups = [
     "min-amazon-2-x64": setup_amazon_package_tests,
     "min-jammy-x64": setup_ubuntu_package_tests,
     "min-ol-9-x64": setup_rhel_package_tests,
-    "min-rhel-8-x64": setup_rhel8_package_tests,
-    "min-rhel-9-x64": setup_rhel_package_tests,
 ]
 
 void setup_package_tests() {
