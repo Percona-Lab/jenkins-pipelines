@@ -397,7 +397,7 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Ubuntu Focal(20.04)') {
+                stage('Ubuntu Focal(20.04) tarball') {
                     agent {
                         label 'docker-32gb'
                     }
@@ -410,7 +410,7 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Ubuntu Jammy(22.04)') {
+                stage('Ubuntu Jammy(22.04) tarball') {
                     agent {
                         label 'docker-32gb'
                     }
@@ -423,7 +423,7 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Ubuntu Noble(24.04)') {
+                stage('Ubuntu Noble(24.04) tarball') {
                     agent {
                         label 'docker-32gb'
                     }
@@ -436,7 +436,7 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Debian Bullseye(11)') {
+                stage('Debian Bullseye(11) tarball') {
                     agent {
                         label 'docker-32gb'
                     }
@@ -449,7 +449,7 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Debian Bookworm(12)') {
+                stage('Debian Bookworm(12) tarball') {
                     agent {
                         label 'docker-32gb'
                     }
