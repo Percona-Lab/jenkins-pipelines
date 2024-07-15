@@ -60,6 +60,14 @@ pipeline {
             name: 'TO_PSMDB_VERSION'
         )
         choice(
+            name: 'PREL_VERSION',
+            description: 'Percona release version',
+            choices: [
+                'latest',
+                '1.0-27'
+            ]
+        )
+        choice(
             name: 'ENCRYPTION',
             description: 'Enable/disable encryption at rest',
             choices: [
