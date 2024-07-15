@@ -201,9 +201,9 @@ pipeline {
                                 ##echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
 
                                 # disable fastestmirror plugin, which mostly fails due to CentOS 7 being EOL
-                                sed -i 's/enabled=1/enabled=0/g' /etc/yum/pluginconf.d/fastestmirror.conf
-                                sed -i -e 's/^\\(mirrorlist\\)/#\\1/g' /etc/yum.repos.d/CentOS-Base.repo
-                                sed -i -e 's|^#baseurl.*|baseurl=http://vault.centos.org/centos/\\$releasever/os/\\$basearch/|g' /etc/yum.repos.d/CentOS-Base.repo
+                                sudo sed -i 's/enabled=1/enabled=0/g' /etc/yum/pluginconf.d/fastestmirror.conf
+                                sudo sed -i -e 's/^\\(mirrorlist\\)/#\\1/g' /etc/yum.repos.d/CentOS-Base.repo
+                                sudo sed -i -e 's|^#baseurl.*|baseurl=http://vault.centos.org/centos/\\$releasever/os/\\$basearch/|g' /etc/yum.repos.d/CentOS-Base.repo
 
                                 sudo yum makecache
                                 sudo yum -y install git wget docker
