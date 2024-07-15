@@ -198,7 +198,13 @@ pipeline {
                                 sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
                                 sudo dnf install -y git wget docker-ce docker-ce-cli containerd.io docker-compose-plugin
                             else
-                                echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+                                ##echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
+
+                                # disable fastestmirror plugin, which mostly fails due to CentOS 7 being EOL
+                                sed -i 's/enabled=1/enabled=0/g' /etc/yum/pluginconf.d/fastestmirror.conf
+                                sed -i -e 's/^\(mirrorlist\)/#\1/g' /etc/yum.repos.d/CentOS-Base.repo
+                                sed -i -e 's|^#baseurl.*|baseurl=http://vault.centos.org/centos/\$releasever/os/\$basearch/|g' /etc/yum.repos.d/CentOS-Base.repo
+
                                 sudo yum makecache
                                 sudo yum -y install git wget docker
                             fi
@@ -231,7 +237,7 @@ pipeline {
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
                             sudo yum update -y percona-release
                             sudo sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                            sudo percona-release enable percona testing
+                            sudo percona-release enable pmm2-server testing
                             sudo yum clean all
                         '
                     '''
@@ -248,7 +254,7 @@ pipeline {
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
                             sudo yum update -y percona-release
                             sudo sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                            sudo percona-release enable percona experimental
+                            sudo percona-release enable pmm2-server experimental
                             sudo yum clean all
                         '
                     '''
