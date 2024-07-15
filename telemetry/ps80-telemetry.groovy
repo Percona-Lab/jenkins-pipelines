@@ -21,12 +21,12 @@ pipeline {
             choices: operating_systems
         )
         string(
-            defaultValue: 'phase-0.1',
+            defaultValue: '1.0.1',
             description: 'Telemetry Agent version',
             name: 'VERSION'
         )
         string(
-            defaultValue: 'f193432',
+            defaultValue: 'ee4825e',
             description: 'Telemetry Agent revision',
             name: 'REVISION'
         )
