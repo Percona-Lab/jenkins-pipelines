@@ -135,13 +135,13 @@ pipeline {
             deleteDir()
         }
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of PPG ${PPG_VERSION} repo ${PPG_REPO} succeed")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of Percona pgBouncer ${PGBOUNCER_VERSION} repo ${PPG_REPO} succeed")
         }
         unstable {
-            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of PPG ${PPG_VERSION} repo ${PPG_REPO} unstable - [${BUILD_URL}testReport/]")
+            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of Percona pgBouncer ${PGBOUNCER_VERSION} repo ${PPG_REPO} unstable - [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of PPG ${PPG_VERSION} repo ${PPG_REPO} failed - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of Percona pgBouncer ${PGBOUNCER_VERSION} repo ${PPG_REPO} failed - [${BUILD_URL}]")
         }
     }
 }
