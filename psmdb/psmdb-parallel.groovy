@@ -44,6 +44,14 @@ pipeline {
                 'true'
             ]
         )
+        choice(
+            name: 'PREL_VERSION',
+            description: 'Percona release version',
+            choices: [
+                'latest',
+                '1.0-27'
+            ]
+        )
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',
