@@ -266,11 +266,11 @@ pipeline {
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("oraclelinux:8", "--build_tarball=1 --enable_fipsmode=1")
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                             } else {
-                                echo "The step is skipped ..."
+                                buildStage("oraclelinux:8", "--build_tarball=1")
                             }
+                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                         }
                     }
                 }
@@ -284,11 +284,29 @@ pipeline {
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                             } else {
-                                echo "The step is skipped ..."
+                                buildStage("oraclelinux:9", "--build_tarball=1")
                             }
+                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                        }
+                    }
+                }
+                stage('Ubuntu Focal(20.04) binary tarball(glibc2.31)') {
+                    agent {
+                        label 'docker-64gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("ubuntu:focal", "--build_tarball=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:focal", "--build_tarball=1")
+                            }
+                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                         }
                     }
                 }
@@ -339,11 +357,11 @@ pipeline {
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("debian:bookworm", "--build_tarball=1 --enable_fipsmode=1")
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                             } else {
-                                echo "The step is skipped ..."
+                                buildStage("debian:bookworm", "--build_tarball=1")
                             }
+                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                         }
                     }
                 }
