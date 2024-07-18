@@ -29,7 +29,7 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'docker-64gb'
+        label 'micro-amazon'
     }
     parameters {
         string(
@@ -37,11 +37,11 @@ pipeline {
             description: 'URL for  percona-server-mongodb repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'v6.0',
+            defaultValue: 'v8.0',
             description: 'Tag/Branch for percona-server-mongodb repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '6.0.0',
+            defaultValue: '8.0.0',
             description: 'PSMDB release value',
             name: 'PSMDB_VERSION')
         string(
@@ -49,11 +49,11 @@ pipeline {
             description: 'PSMDB release value',
             name: 'PSMDB_RELEASE')
         string(
-            defaultValue: '100.5.4',
+            defaultValue: '100.9.5',
             description: 'https://docs.mongodb.com/database-tools/installation/',
             name: 'MONGO_TOOLS_TAG')
         string(
-            defaultValue: 'psmdb-60',
+            defaultValue: 'psmdb-80',
             description: 'PSMDB repo name',
             name: 'PSMDB_REPO')
         choice(
@@ -73,16 +73,19 @@ pipeline {
     }
     stages {
         stage('Create PSMDB source tarball') {
+            agent {
+                label 'docker'
+            }
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                buildStage("centos:7", "--get_sources=1")
+                buildStage("oraclelinux:8", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-60.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-80.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/percona-server-mongodb-60.properties
+                   cat test/percona-server-mongodb-80.properties
                    cat uploadPath
                    cat awsUploadPath
                 '''
@@ -105,9 +108,9 @@ pipeline {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
+                                buildStage("oraclelinux:8", "--build_src_rpm=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("centos:7", "--build_src_rpm=1")
+                                buildStage("oraclelinux:8", "--build_src_rpm=1")
                             }
                         }
 
@@ -124,12 +127,11 @@ pipeline {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("debian:buster", "--build_src_deb=1 --enable_fipsmode=1")
+                                buildStage("ubuntu:focal", "--build_src_deb=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("debian:buster", "--build_src_deb=1")
+                                buildStage("ubuntu:focal", "--build_src_deb=1")
                             }
                         }
-
                         pushArtifactFolder("source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
                     }
@@ -138,25 +140,6 @@ pipeline {
         } // stage
         stage('Build PSMDB RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Centos 7') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("centos:7", "--build_rpm=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("centos:7", "--build_rpm=1")
-                            }
-                        }
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Oracle Linux 8') {
                     agent {
                         label 'docker-64gb'
@@ -190,25 +173,9 @@ pipeline {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
                             }
                         }
+
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Ubuntu Bionic(18.04)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:bionic", "--build_deb=1 --enable_fipsmode=1")
-                            }
-                        }
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal(20.04)') {
@@ -249,44 +216,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Noble(24.04)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("ubuntu:noble", "--build_deb=1")
-                            }
-                        }
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Debian Buster(10)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("debian:buster", "--build_deb=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("debian:buster", "--build_deb=1")
-                            }
-                        }
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
+/*
                 stage('Debian Bullseye(11)') {
                     agent {
                         label 'docker-64gb'
@@ -306,46 +236,27 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 7 binary tarball(glibc2.17)') {
+*/
+                stage('Debian Bookworm(12)') {
                     agent {
                         label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
+                                buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("centos:7", "--build_tarball=1")
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                            }
-                        }
-                    }
-                }
-/*
-                stage('Centos 7 debug binary tarball(glibc2.17)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                                buildStage("centos:7", "--debug=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("centos:7", "--debug=1")
+                                buildStage("debian:bookworm", "--build_deb=1")
                             }
                         }
 
-                        pushArtifactFolder("debug/", AWS_STASH_PATH)
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-*/
-                stage('Centos 8 binary tarball(glibc2.28)') {
+                stage('Oracle Linux 8 binary tarball(glibc2.28)') {
                     agent {
                         label 'docker-64gb'
                     }
@@ -358,7 +269,7 @@ pipeline {
                                 pushArtifactFolder("tarball/", AWS_STASH_PATH)
                                 uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                             } else {
-                                echo "The step is skiped ..."
+                                echo "The step is skipped ..."
                             }
                         }
                     }
@@ -376,7 +287,7 @@ pipeline {
                                 pushArtifactFolder("tarball/", AWS_STASH_PATH)
                                 uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                             } else {
-                                echo "The step is skiped ..."
+                                echo "The step is skipped ..."
                             }
                         }
                     }
@@ -409,19 +320,36 @@ pipeline {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
                                 buildStage("ubuntu:jammy", "--debug=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("ubuntu:jammy", "--debug=1")
                             }
-                        }
-
-                        pushArtifactFolder("debug/", AWS_STASH_PATH)
+                            pushArtifactFolder("debug/", AWS_STASH_PATH)
+                       }
                     }
                 }
 */
+                stage('Debian Bookworm(12) binary tarball(glibc2.36)') {
+                    agent {
+                        label 'docker-64gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("debian:bookworm", "--build_tarball=1 --enable_fipsmode=1")
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            } else {
+                                echo "The step is skipped ..."
+                            }
+                        }
+                    }
+                }
             }
         }
+
         stage('Sign packages') {
             steps {
                 signRPM()
@@ -433,7 +361,6 @@ pipeline {
                 // sync packages
                 script {
                     if (env.FIPSMODE == 'yes') {
-                        // Replace by a new procedure when it's ready
                         sync2PrivateProdAutoBuild(PSMDB_REPO+"-pro", COMPONENT)
                     } else {
                         sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
@@ -468,9 +395,13 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
+                if (env.FIPSMODE == 'yes') {
+                    currentBuild.description = "!!! PRO Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
+                } else {
+                    currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
+                }
             }
             deleteDir()
         }

@@ -37,11 +37,11 @@ pipeline {
             description: 'URL for  percona-server-mongodb repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'v6.0',
+            defaultValue: 'v8.0',
             description: 'Tag/Branch for percona-server-mongodb repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '6.0.0',
+            defaultValue: '8.0.0',
             description: 'PSMDB release value',
             name: 'PSMDB_VERSION')
         string(
@@ -49,11 +49,11 @@ pipeline {
             description: 'PSMDB release value',
             name: 'PSMDB_RELEASE')
         string(
-            defaultValue: '100.6.0',
+            defaultValue: '100.9.5',
             description: 'https://docs.mongodb.com/database-tools/installation/',
             name: 'MONGO_TOOLS_TAG')
         string(
-            defaultValue: 'psmdb-60',
+            defaultValue: 'psmdb-80',
             description: 'PSMDB repo name',
             name: 'PSMDB_REPO')
         choice(
@@ -81,11 +81,11 @@ pipeline {
                 cleanUpWS()
                 buildStage("oraclelinux:8", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-60.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-80.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/percona-server-mongodb-60.properties
+                   cat test/percona-server-mongodb-80.properties
                    cat uploadPath
                    cat awsUploadPath
                 '''
@@ -217,25 +217,6 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu 24.04') {
-                    agent {
-                        label 'docker-64gb-aarch64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("ubuntu:noble", "--build_deb=1")
-                            }
-                        }
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
             }
         }
 
@@ -250,7 +231,6 @@ pipeline {
                 // sync packages
                 script {
                     if (env.FIPSMODE == 'yes') {
-                        // Replace by a new procedure when it's ready
                         sync2PrivateProdAutoBuild(PSMDB_REPO+"-pro", COMPONENT)
                     } else {
                         sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
@@ -260,8 +240,8 @@ pipeline {
         }
     }
     post {
-        success {
-            script {
+         success {
+             script {
                 if (env.FIPSMODE == 'YES') {
                     slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: PRO build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
                 } else {
@@ -272,17 +252,11 @@ pipeline {
                 } else {
                     currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
                 }
-            }
-            deleteDir()
+             }
+             deleteDir()
         }
         failure {
-            script {
-                if (env.FIPSMODE == 'YES') {
-                    slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: PRO build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
-                } else {
-                    slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
-                }
-            }
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {

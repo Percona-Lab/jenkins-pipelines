@@ -78,7 +78,7 @@ pipeline {
         choice(
             name: 'PG_RELEASE',
             description: 'PPG major version to test',
-            choices: ['11', '12', '13', '14', '15', '16']
+            choices: ['11', '12', '13', '14', '15', '16', '17']
         )
         string(
             defaultValue: 'ppg-16.0',
@@ -128,7 +128,7 @@ pipeline {
             parallel {
                 stage('Source rpm') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
                         echo "====> Build pg_stat_monitor generic source rpm"

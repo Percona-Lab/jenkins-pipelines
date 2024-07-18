@@ -31,6 +31,14 @@ pipeline {
             defaultValue: '1.6.0',
             description: 'PBM Version for tests',
             name: 'VERSION')
+        choice(
+            name: 'PREL_VERSION',
+            description: 'Percona release version',
+            choices: [
+                'latest',
+                '1.0-27'
+            ]
+        )
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',
