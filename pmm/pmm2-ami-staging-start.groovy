@@ -198,13 +198,7 @@ pipeline {
                                 sudo dnf config-manager --add-repo=https://download.docker.com/linux/centos/docker-ce.repo
                                 sudo dnf install -y git wget docker-ce docker-ce-cli containerd.io docker-compose-plugin
                             else
-                                ##echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
-
-                                # disable fastestmirror plugin, which mostly fails due to CentOS 7 being EOL
-                                sudo sed -i 's/enabled=1/enabled=0/g' /etc/yum/pluginconf.d/fastestmirror.conf
-                                sudo sed -i -e 's/^\\(mirrorlist\\)/#\\1/g' /etc/yum.repos.d/CentOS-Base.repo
-                                sudo sed -i -e 's|^#baseurl.*|baseurl=http://vault.centos.org/centos/\\$releasever/os/\\$basearch/|g' /etc/yum.repos.d/CentOS-Base.repo
-
+                                echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
                                 sudo yum makecache
                                 sudo yum -y install git wget docker
                             fi
