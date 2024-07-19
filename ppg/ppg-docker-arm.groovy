@@ -49,7 +49,7 @@ pipeline {
                 environment name: 'TARGET_REPO', value: 'PerconaLab'
             }
             steps {
-                withCredentials([usernamePassword(credentialsId: 'hub1.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                      sh """
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
@@ -112,7 +112,7 @@ pipeline {
                 environment name: 'TARGET_REPO', value: 'DockerHub'
             }
             steps {
-                withCredentials([usernamePassword(credentialsId: 'hub1.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                      sh """
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
