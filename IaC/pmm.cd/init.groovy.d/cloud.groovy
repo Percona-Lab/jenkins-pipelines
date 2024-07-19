@@ -69,16 +69,16 @@ imageMap['us-east-2c.min-bullseye-x64']   = imageMap['us-east-2a.min-bullseye-x6
 imageMap['us-east-2c.min-bookworm-x64']   = imageMap['us-east-2a.min-bookworm-x64']
 
 // ARM64 based AMIs
-imageMap['us-east-2a.min-ol-8-arm64']     = 'ami-0f77cbbab56907b6c'               // oraclelinux 8.9 arm64
-imageMap['us-east-2a.min-ol-9-arm64']     = 'ami-0ffbdb6ee492c2cd5'               // oraclelinux 9.3 arm64
-imageMap['us-east-2a.min-bionic-arm64']   = 'ami-0e3606a8091a015e5'               // ubuntu 18.04 arm64
-imageMap['us-east-2a.min-focal-arm64']    = 'ami-0c9212cf4cd1d5894'               // ubuntu 20.04 arm64
-imageMap['us-east-2a.min-jammy-arm64']    = 'ami-03772d93fb1879bbe'               // ubuntu 22.04 arm64
-imageMap['us-east-2a.min-noble-arm64']    = 'ami-0e9af7032a7f96163'               // ubuntu 24.04 arm64
-imageMap['us-east-2a.min-stretch-x64']    = 'ami-073d96d68c638b467'               // debian 9 arm64
-imageMap['us-east-2a.min-buster-x64']     = 'ami-00e633f48b4aa17dc'               // debian 10 arm64
-imageMap['us-east-2a.min-bullseye-x64']   = 'ami-0bdce15f646d6ffc5'               // debian 11 arm64
-imageMap['us-east-2a.min-bookworm-x64']   = 'ami-093aaca871a94bd3a'               // debian 12 arm64
+imageMap['us-east-2a.min-ol-8-arm64']       = 'ami-0f77cbbab56907b6c'               // oraclelinux 8.9 arm64
+imageMap['us-east-2a.min-ol-9-arm64']       = 'ami-0ffbdb6ee492c2cd5'               // oraclelinux 9.3 arm64
+imageMap['us-east-2a.min-bionic-arm64']     = 'ami-0e3606a8091a015e5'               // ubuntu 18.04 arm64
+imageMap['us-east-2a.min-focal-arm64']      = 'ami-0c9212cf4cd1d5894'               // ubuntu 20.04 arm64
+imageMap['us-east-2a.min-jammy-arm64']      = 'ami-03772d93fb1879bbe'               // ubuntu 22.04 arm64
+imageMap['us-east-2a.min-noble-arm64']      = 'ami-0e9af7032a7f96163'               // ubuntu 24.04 arm64
+imageMap['us-east-2a.min-stretch-arm64']    = 'ami-073d96d68c638b467'               // debian 9 arm64
+imageMap['us-east-2a.min-buster-arm64']     = 'ami-00e633f48b4aa17dc'               // debian 10 arm64
+imageMap['us-east-2a.min-bullseye-arm64']   = 'ami-0bdce15f646d6ffc5'               // debian 11 arm64
+imageMap['us-east-2a.min-bookworm-arm64']   = 'ami-093aaca871a94bd3a'               // debian 12 arm64
 
 imageMap['us-east-2b.min-ol-8-arm64']       = imageMap['us-east-2a.min-ol-8-arm64']
 imageMap['us-east-2b.min-ol-9-arm64']       = imageMap['us-east-2a.min-rhel-9-arm64']
