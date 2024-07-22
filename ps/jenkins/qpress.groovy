@@ -202,27 +202,6 @@ pipeline {
         }
         stage('Build qpress packages') {
             parallel {
-                stage('Centos 7') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "RPM")
-                        sh '''
-                            pwd
-                            ls -la test/rpm
-                            cp -r test/srpm .
-                            cp -r test/rpm .
-                        '''
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        pushArtifactFolder("srpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Oracle Linux 8') {
                     agent {
                         label 'docker'
