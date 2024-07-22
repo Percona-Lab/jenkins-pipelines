@@ -456,6 +456,22 @@ pipeline {
                     }
                 }
 */
+                stage('Debian Buster(10) binary tarball(glibc2.28)') {
+                    agent {
+                        label 'docker-64gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE != 'yes') {
+                                buildStage("debian:buster", "--build_tarball=1")
+                            }
+                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                        }
+                    }
+                }
                 stage('Debian Bullseye(11) binary tarball(glibc2.31)') {
                     agent {
                         label 'docker-64gb'
