@@ -73,7 +73,7 @@ def latestVersion = pmmVersion()
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-arm64'
     }
     parameters {
         string(
@@ -121,9 +121,9 @@ pipeline {
         }
         stage('Execute Package Tests') {
             parallel {
-                stage('centos-7-x64') {
+                stage('ol-8-arm64') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label 'min-ol-8-arm64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -135,9 +135,9 @@ pipeline {
                         }
                     }
                 }
-                stage('ol-8-x64') {
+                stage('ol-9-arm64') {
                     agent {
-                        label 'min-ol-8-x64'
+                        label 'min-ol-9-arm64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -149,23 +149,9 @@ pipeline {
                         }
                     }
                 }
-                stage('ol-9-x64') {
+                stage('focal-arm64') {
                     agent {
-                        label 'min-ol-9-x64'
-                    }
-                    steps{
-                        setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
-                stage('focal-x64') {
-                    agent {
-                        label 'min-focal-x64'
+                        label 'min-focal-arm64'
                     }
                     steps{
                         setup_ubuntu_package_tests()
@@ -177,9 +163,9 @@ pipeline {
                         }
                     }
                 }
-                stage('bionic-x64') {
+                stage('jammy-arm64') {
                     agent {
-                        label 'min-bionic-x64'
+                        label 'min-jammy-arm64'
                     }
                     steps{
                         setup_ubuntu_package_tests()
@@ -191,23 +177,9 @@ pipeline {
                         }
                     }
                 }
-                stage('jammy-x64') {
+                stage('buster-arm64') {
                     agent {
-                        label 'min-jammy-x64'
-                    }
-                    steps{
-                        setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
-                stage('buster-x64') {
-                    agent {
-                        label 'min-buster-x64'
+                        label 'min-buster-arm64'
                     }
                     steps{
                         setup_debian_package_tests()
@@ -219,9 +191,37 @@ pipeline {
                         }
                     }
                 }
-                stage('bullseye-x64') {
+                stage('bullseye-arm64') {
                     agent {
-                        label 'min-bullseye-x64'
+                        label 'min-bullseye-arm64'
+                    }
+                    steps {
+                        setup_debian_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('noble-arm64') {
+                    agent {
+                        label 'min-noble-arm64'
+                    }
+                    steps {
+                        setup_ubuntu_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('bookworm-arm64') {
+                    agent {
+                        label 'min-bookworm-arm64'
                     }
                     steps {
                         setup_debian_package_tests()
