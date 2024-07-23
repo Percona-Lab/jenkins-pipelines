@@ -476,6 +476,7 @@ pipeline {
                         buildStage("debian:bullseye", "--build_tarball=1")
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
                 }
             }
         }
