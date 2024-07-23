@@ -30,7 +30,7 @@ void setup_rhel_package_tests()
     sh '''
         sudo yum install -y epel-release
         sudo yum -y update
-        sudo yum install -y ansible git wget
+        sudo yum install -y ansible-core git wget
     '''
 }
 
@@ -61,7 +61,7 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
     git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/package-testing'
     sh '''
         export install_repo=\${INSTALL_REPO}
-        git clone https://github.com/Percona-QA/ppg-testing
+        git clone https://github.com/Percona-QA/package-testing
         ls
         ansible-playbook \
         --connection=local \
