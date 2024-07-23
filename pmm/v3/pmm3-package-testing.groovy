@@ -116,7 +116,7 @@ pipeline {
     stages {
         stage('Setup Server Instance') {
             steps {
-                runStaging(DOCKER_VERSION, '')
+                runStaging(DOCKER_VERSION, '--database ps=5.7,QUERY_SOURCE=perfschema')
             }
         }
         stage('Execute Package Tests') {
