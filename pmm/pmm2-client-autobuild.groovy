@@ -78,7 +78,7 @@ pipeline {
                             docker manifest annotate --arch amd64 perconalab/pmm-client-test:${DOCKER_RC_TAG} perconalab/pmm-client-test:${DOCKER_RC_TAG}-amd64
                             docker manifest annotate --arch arm64 perconalab/pmm-client-test:${DOCKER_RC_TAG} perconalab/pmm-client-test:${DOCKER_RC_TAG}-arm64
 
-                            docker manifest push ${DOCKER_RC_TAG}
+                            docker manifest push perconalab/pmm-client-test:${DOCKER_RC_TAG}
                         else
                             docker manifest create perconalab/pmm-client-test:${DOCKER_LATEST_TAG} \
                                 --amend perconalab/pmm-client-test:${DOCKER_LATEST_TAG}-amd64 \
@@ -87,7 +87,7 @@ pipeline {
                             docker manifest annotate --arch amd64 perconalab/pmm-client-test:${DOCKER_LATEST_TAG} perconalab/pmm-client-test:${DOCKER_LATEST_TAG}-amd64
                             docker manifest annotate --arch arm64 perconalab/pmm-client-test:${DOCKER_LATEST_TAG} perconalab/pmm-client-test:${DOCKER_LATEST_TAG}-arm64
 
-                            docker manifest push ${DOCKER_LATEST_TAG}
+                            docker manifest push perconalab/pmm-client-test:${DOCKER_LATEST_TAG}
                         fi
                     '''
                 }
