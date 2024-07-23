@@ -4,7 +4,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 void runStaging(String DOCKER_VERSION, CLIENTS) {
-    stagingJob = build job: 'aws-staging-start-pmm3', parameters: [
+    stagingJob = build job: 'pmm3-aws-staging-start-temp', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: 'pmm-latest'),
         string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_ENABLE_TELEMETRY=false -e PMM_DATA_RETENTION=48h -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX'),
@@ -30,7 +30,7 @@ void setup_rhel_package_tests()
     sh '''
         sudo yum install -y epel-release
         sudo yum -y update
-        sudo yum install -y ansible git wget
+        sudo yum install -y ansible-core git wget
     '''
 }
 
@@ -73,7 +73,7 @@ def latestVersion = pmmVersion()
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-arm64'
     }
     parameters {
         string(
@@ -116,14 +116,14 @@ pipeline {
     stages {
         stage('Setup Server Instance') {
             steps {
-                runStaging(DOCKER_VERSION, '--addclient=ps,1')
+                runStaging(DOCKER_VERSION, '')
             }
         }
         stage('Execute Package Tests') {
             parallel {
-                stage('centos-7-x64') {
+                stage('ol-8-arm64') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label 'min-ol-8-arm64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -135,9 +135,9 @@ pipeline {
                         }
                     }
                 }
-                stage('ol-8-x64') {
+                stage('ol-9-arm64') {
                     agent {
-                        label 'min-ol-8-x64'
+                        label 'min-ol-9-arm64'
                     }
                     steps{
                         setup_rhel_package_tests()
@@ -149,26 +149,12 @@ pipeline {
                         }
                     }
                 }
-                stage('ol-9-x64') {
+                stage('focal-arm64') {
                     when {
                         expression { env.TESTS == "pmm-client" || env.TESTS == "pmm-client_upgrade" }
                     }
                     agent {
-                        label 'min-ol-9-x64'
-                    }
-                    steps{
-                        setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
-                stage('focal-x64') {
-                    agent {
-                        label 'min-focal-x64'
+                        label 'min-focal-arm64'
                     }
                     steps{
                         setup_ubuntu_package_tests()
@@ -180,26 +166,26 @@ pipeline {
                         }
                     }
                 }
-                stage('jammy-x64') {
+                stage('jammy-arm64') {
                     agent {
-                        label 'min-jammy-x64'
+                        label 'min-jammy-arm64'
+                    }
+                    steps{
+                        setup_ubuntu_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('buster-arm64') {
+                    agent {
+                        label 'min-buster-arm64'
                     }
                     when {
                         expression { env.TESTS == "pmm-client" }
-                    }
-                    steps{
-                        setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
-                stage('buster-x64') {
-                    agent {
-                        label 'min-buster-x64'
                     }
                     steps{
                         setup_debian_package_tests()
@@ -211,14 +197,42 @@ pipeline {
                         }
                     }
                 }
-                stage('bullseye-x64') {
+                stage('bullseye-arm64') {
+                    agent {
+                        label 'min-bullseye-arm64'
+                    }
+                    steps{
+                        setup_debian_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('noble-arm64') {
                     when {
                         expression { env.TESTS == "pmm-client" || env.TESTS == "pmm-client_upgrade" }
                     }
                     agent {
-                        label 'min-bullseye-x64'
+                        label 'min-noble-arm64'
                     }
                     steps {
+                        setup_ubuntu_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('bookworm-arm64') {
+                    agent {
+                        label 'min-bookworm-arm64'
+                    }
+                    steps{
                         setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
                     }
