@@ -195,18 +195,16 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Bionic(18.04)') {
+                    when {
+                        expression { env.FIPSMODE == 'yes' }
+                    }
                     agent {
                         label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:bionic", "--build_deb=1 --enable_fipsmode=1")
-                            }
-                        }
-
+                        buildStage("ubuntu:bionic", "--build_deb=1 --enable_fipsmode=1")
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
@@ -307,21 +305,18 @@ pipeline {
                     }
                 }
                 stage('Centos 7 binary tarball(glibc2.17)') {
+                    when {
+                        expression { env.FIPSMODE != 'yes' }
+                    }
                     agent {
                         label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                            } else {
-                                buildStage("centos:7", "--build_tarball=1")
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                            }
-                        }
+                        buildStage("centos:7", "--build_tarball=1")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
 /*
@@ -373,8 +368,6 @@ pipeline {
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                             } else {
                                 buildStage("oraclelinux:9", "--build_tarball=1")
                             }
@@ -384,19 +377,18 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Focal(20.04) binary tarball(glibc2.31)') {
+                    when {
+                        expression { env.FIPSMODE != 'yes' }
+                    }
                     agent {
                         label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE != 'yes') {
-                                buildStage("ubuntu:focal", "--build_tarball=1")
-                            }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        }
+                        buildStage("ubuntu:focal", "--build_tarball=1")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Ubuntu Jammy(22.04) binary tarball(glibc2.35)') {
@@ -457,36 +449,33 @@ pipeline {
                 }
 */
                 stage('Debian Buster(10) binary tarball(glibc2.28)') {
+                    when {
+                        expression { env.FIPSMODE != 'yes' }
+                    }
                     agent {
                         label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE != 'yes') {
-                                buildStage("debian:buster", "--build_tarball=1")
-                            }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        }
+                        buildStage("debian:buster", "--build_tarball=1")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Debian Bullseye(11) binary tarball(glibc2.31)') {
+                    when {
+                        expression { env.FIPSMODE != 'yes' }
+                    }
                     agent {
                         label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE != 'yes') {
-                                buildStage("debian:bullseye", "--build_tarball=1")
-                            }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        }
-                    }
+                        buildStage("debian:bullseye", "--build_tarball=1")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                 }
             }
         }
