@@ -4,7 +4,8 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def moleculeDir = "psmdb/psmdb"
-def fipsOS = ['rhel7-fips','rhel8-fips','rhel9','ubuntu-focal-pro','ubuntu-jammy-pro']
+def psmdb_default_os_list = ['rhel7-fips','rhel8-fips','rhel9','ubuntu-focal-pro','ubuntu-jammy-pro','ubuntu-noble-pro']
+def psmdb_7_os_list = ['rhel7-fips','rhel8-fips','rhel9','ubuntu-focal-pro','ubuntu-jammy-pro']
 
 pipeline {
     agent {
@@ -51,6 +52,13 @@ pipeline {
             steps {
                 script {
                     currentBuild.displayName = "${params.REPO}-${params.PSMDB_VERSION}"
+
+                    def versionNumber = PSMDB_VERSION =~ /^(\d+)\.(\d+)\.(\d+)/
+                    def version = versionNumber ? Integer.parseInt(versionNumber[0][1]) : null
+
+                    if (version == 7) {
+                        psmdb_default_os_list = psmdb_7_os_list
+                    }
                 }
             }
         }
@@ -71,7 +79,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                     script {
-                        moleculeParallelTest(fipsOS, moleculeDir)
+                        moleculeParallelTest(psmdb_default_os_list, moleculeDir)
                     }
                 }
             }
@@ -83,12 +91,6 @@ pipeline {
         }
     }
     post {
-        success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Package tests for PSMDB ${PSMDB_VERSION} on FIPS-enabled OSs, repo ${REPO}, pro repo - ${GATED_BUILD} finished succesfully - [${BUILD_URL}]")
-        }
-        failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: Package tests for PSMDB ${PSMDB_VERSION} on FIPS-enabled OSs, repo ${REPO}, pro repo - ${GATED_BUILD} failed - [${BUILD_URL}]")
-        }
         always {
             script {
                 moleculeParallelPostDestroy(fipsOS, moleculeDir)
