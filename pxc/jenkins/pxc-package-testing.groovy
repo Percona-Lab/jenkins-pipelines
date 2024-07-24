@@ -32,6 +32,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                 def install_repo="${test_repo}"
                 def check_version="${version_check}"
                 def pxc57repo = "${params.pxc57_repo}"
+
                 if(action != "create" && action != "destroy"){
                     def IN_PXC1_IP = sh(
                         script: """cat ${INSTALL_BOOTSTRAP_INSTANCE_PRIVATE_IP} | jq -r .[0] | jq [.private_ip] | jq -r .[]""",
@@ -57,10 +58,13 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     """
                     
                     if ("${product_to_test}" == "pxc57"){
-                        sh """
-                            echo 'pxc57repo: "${pxc57repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
-                        """
                         if ("${pxc57repo}" == "EOL"){
+
+                            sh """
+                                echo 'pxc57repo: "EOL"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                                echo 'install_repo_eol: "testing"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                            """
+
                             echo "Setting the secret variables for molecule use"
                             withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
                                 sh """
@@ -88,6 +92,9 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                 def check_version="${version_check}"
                 def upgrade_repo="testing"
                 def pxc57repo = "${params.pxc57_repo}"
+                def MIN_UPGRADE_TEST = env.MIN_UPGRADE_TEST
+                echo "MIN UPGRADE TYPE: ${MIN_UPGRADE_TEST}"
+                
 
                 if(action != "create" && action != "destroy"){
                     def UP_PXC1_IP = sh(
@@ -107,17 +114,51 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     sh """
                         echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                        echo 'upgrade_repo: "${upgrade_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+
                         echo 'PXC1_IP: "${UP_PXC1_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         echo 'PXC2_IP: "${UP_PXC2_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         echo 'PXC3_IP: "${UP_PXC3_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                     """
 
-                    if ("${product_to_test}" == "pxc57"){
+                    if(action == "converge"){
                         sh """
-                            echo 'pxc57repo: "${pxc57repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                            echo 'check_version: "no"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         """
-                        if ("${pxc57repo}" == "EOL"){
+                    } else {
+                        sh """
+                            echo 'check_version: "yes"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                        """
+                    }
+
+                    if ("${product_to_test}" == "pxc57"){
+                            if(action == "converge" && "${MIN_UPGRADE_TEST}" == "EOL_MAIN_TO_EOL_TESTING"){
+                                sh """
+                                    echo 'pxc57repo: "EOL"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                    echo 'install_repo_eol: "main"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                    echo 'check_version: "no"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                """
+                                echo "INSIDE PXC CONVERGE AND EOL_MAIN_TO_EOL_TESTING"
+                            }
+                            else if(action == "converge" && "${MIN_UPGRADE_TEST}" == "PXC57_MAIN_TO_EOL_TESTING"){
+                                sh """
+                                    echo 'pxc57repo: "pxc57"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                    echo 'check_version: "no"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                """
+                                echo "INSIDE PXC CONVERGE AND PXC57_MAIN_TO_EOL_TESTING"
+
+                            }
+                            else {
+                                sh """
+                                    echo 'pxc57repo: "${pxc57repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                    echo 'check_version: "yes"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                    echo 'install_repo_eol: "testing"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                                """
+                                echo "NOT INSIDE PXC CONVERGE"
+                            }
+
+
+                        if ("${pxc57repo}" == "EOL" ){
+
                             echo "Setting the secret variables for molecule use"
                             withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
                                 sh """
@@ -136,9 +177,15 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     echo "Not setting up VARS as in create or destroy stage"
                     sh """
                     echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                    echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                     echo 'upgrade_repo: "${upgrade_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                     """
+                    if ("${product_to_test}" != "pxc57"){
+                        
+                    sh """
+                        echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                    """
+                    }
+
                 }
             }else if(param_test_type == "maj_upgrade"){
                 def install_repo="testing"
@@ -171,9 +218,17 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     """
 
                     if ("${product_to_test}" == "pxc57"){
-                        sh """
-                            echo 'pxc57repo: "${pxc57repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
-                        """
+
+                        if(action == "converge"){
+                            sh """
+                                echo 'pxc57repo: "pxc57"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
+                            """
+                        }
+                        else {
+                                sh """
+                                    echo 'pxc57repo: "${pxc57repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/maj_upgrade/envfile"
+                                """
+                        }
                         if ("${pxc57repo}" == "EOL"){
                             echo "Setting the secret variables for molecule use"
                             withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
@@ -588,11 +643,12 @@ pipeline {
                             }
                 }
 
-                stage("UPGRADE") {
+                stage("MIN UPGRADE") {
                             when {
                                 allOf{
                                     expression{params.test_type == "min_upgrade" || params.test_type == "install_and_upgrade"}
-                                    expression{params.test_repo != "main"}                
+                                    expression{params.test_repo != "main"}
+                                    expression{params.pxc57_repo != "EOL"}                
                                 }
                             }
 
@@ -612,6 +668,147 @@ pipeline {
                                 UPGRADE_COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/min_upgrade/common_instance_public_ip.json"
 
                                 JENWORKSPACE = "${env.WORKSPACE}"
+
+                            }
+
+                            options {
+                                skipDefaultCheckout()
+                            }
+
+
+                            steps {
+                                setup()
+                                script{
+
+                                    echo "UPGRADE STAGE INSIDE"
+                                    def param_test_type = "min_upgrade"   
+                                    echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
+                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
+                                    setInventories("min_upgrade")
+                                    echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
+                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
+                                        }
+                                    echo "3. Run UPGRADE scripts and playbooks for running PXC UPGRADE tests.. Molecule side-effect step"
+                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
+                                        }
+                                }
+                            }
+                            post{
+                                always{
+                                    script{
+                                        def param_test_type = "min_upgrade"
+                                        echo "4. Take Backups of the Logs.. for PXC UPGRADE tests"
+                                        setInventories("min_upgrade")
+                                        runlogsbackup(params.product_to_test, "min_upgrade")
+                                        echo "5. Destroy the Molecule instances for PXC UPGRADE tests.."
+                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
+                                    }
+                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                        archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
+                                    }
+                                }
+
+                            }
+                }
+
+                stage("MIN UPGRADE (EOL_MAIN_TO_EOL_TESTING)") {
+                            when {
+                                allOf{
+                                    expression{params.test_type == "min_upgrade" || params.test_type == "install_and_upgrade"}
+                                    expression{params.test_repo != "main"}
+                                    expression{params.product_to_test == "pxc57"}
+                                }
+                            }
+
+                            agent {
+                                label 'min-centos-7-x64'
+                            }
+
+                            environment {
+
+                                UPGRADE_BOOTSTRAP_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_private_ip.json"
+                                UPGRADE_COMMON_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/common_instance_private_ip.json"
+                                
+                                UPGRADE_BOOTSTRAP_INSTANCE_PUBLIC_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_public_ip.json"
+                                UPGRADE_COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/min_upgrade/common_instance_public_ip.json"
+
+                                JENWORKSPACE = "${env.WORKSPACE}"
+
+                                MIN_UPGRADE_TEST = "EOL_MAIN_TO_EOL_TESTING"
+
+                            }
+
+                            options {
+                                skipDefaultCheckout()
+                            }
+
+
+                            steps {
+                                setup()
+                                script{
+
+                                    echo "UPGRADE STAGE INSIDE"
+                                    def param_test_type = "min_upgrade"   
+                                    echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
+                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
+                                    setInventories("min_upgrade")
+                                    echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
+                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
+                                        }
+                                    echo "3. Run UPGRADE scripts and playbooks for running PXC UPGRADE tests.. Molecule side-effect step"
+                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
+                                        }
+                                }
+                            }
+                            post{
+                                always{
+                                    script{
+                                        def param_test_type = "min_upgrade"
+                                        echo "4. Take Backups of the Logs.. for PXC UPGRADE tests"
+                                        setInventories("min_upgrade")
+                                        runlogsbackup(params.product_to_test, "min_upgrade")
+                                        echo "5. Destroy the Molecule instances for PXC UPGRADE tests.."
+                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
+                                    }
+                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                        archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
+                                    }
+                                }
+
+                            }
+                }
+
+                stage("MIN UPGRADE (PXC57_MAIN_TO_EOL_TESTING)") {
+                            when {
+                                allOf{
+                                    expression{params.test_type == "min_upgrade" || params.test_type == "install_and_upgrade"}
+                                    expression{params.test_repo != "main"}
+                                    expression{params.product_to_test == "pxc57"}
+                                }
+                            }
+
+
+
+                            agent {
+                                label 'min-centos-7-x64'
+                            }
+
+
+                            environment {
+
+                                UPGRADE_BOOTSTRAP_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_private_ip.json"
+                                UPGRADE_COMMON_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/common_instance_private_ip.json"
+                                
+                                UPGRADE_BOOTSTRAP_INSTANCE_PUBLIC_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_public_ip.json"
+                                UPGRADE_COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/min_upgrade/common_instance_public_ip.json"
+
+                                JENWORKSPACE = "${env.WORKSPACE}"
+
+                                MIN_UPGRADE_TEST = "PXC57_MAIN_TO_EOL_TESTING"
 
                             }
 
