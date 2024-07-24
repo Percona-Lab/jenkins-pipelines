@@ -128,11 +128,6 @@ pipeline {
                 }
                 stage('Build client binary rpms') {
                     parallel {
-                        // stage('Build client binary rpm EL7') {
-                        //     steps {
-                        //         sh "${PATH_TO_SCRIPTS}/build-client-rpm centos:7"
-                        //     }
-                        // }
                         stage('Build client binary rpm EL8') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:8"
