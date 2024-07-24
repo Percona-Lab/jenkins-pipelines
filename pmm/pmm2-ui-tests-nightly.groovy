@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@pmm7-fix_mysqlcheck', retriever: modernSCM([
+library changelog: false, identifier: 'lib@pmm7-fix-qarepo', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
