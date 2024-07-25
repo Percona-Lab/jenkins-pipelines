@@ -217,6 +217,25 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu 24.04') {
+                    agent {
+                        label 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:noble", "--build_deb=1")
+                            }
+                        }
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
             }
         }
 

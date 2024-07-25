@@ -75,6 +75,10 @@ parameters {
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
         choice(
+            choices: 'NO\nYES',
+            description: 'Set if required to build for noble OS',
+            name: 'BUILD_NOBLE')
+        choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
@@ -231,6 +235,26 @@ parameters {
                         buildStage("ubuntu:jammy", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Noble(24.04)') {
+                    agent {
+                        label 'min-noble-x64'
+                    }
+                    steps {
+                        script {
+                            if ("${BUILD_NOBLE}" == 'NO') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("deb")
+                                unstash 'properties'
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                buildStage("ubuntu:noble", "--build_deb=1")
+
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            }
+                        }
                     }
                 }
                 stage('Debian Buster(10)') {

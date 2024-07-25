@@ -41,51 +41,40 @@ pipeline {
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                                 set -x
                                 set -e
-                                #
-                                REPOS='PERCONA TOOLS PMM2-CLIENT'
 
-                                for REPOSITORY in \$REPOS; do
-                                    if [[ \${REPOSITORY} = PERCONA ]]; then
-                                        REPOPATH=repo-copy/percona/yum
-                                    fi
-                                    if [[ \${REPOSITORY} = TOOLS ]]; then
-                                        REPOPATH=repo-copy/tools/yum
-                                    fi
-                                    if [[ \${REPOSITORY} = PMM2-CLIENT ]]; then
-                                        REPOPATH=repo-copy/pmm2-client/yum
-                                    fi
-                                    cd /srv/UPLOAD/${PATH_TO_CLIENT}
+                                # We are only pushing to 'pmm2-client' repository
+                                REPOPATH=repo-copy/pmm2-client/yum
+                                cd /srv/UPLOAD/${PATH_TO_CLIENT}
 
-                                    # getting the list of RH systems
-                                    RHVERS=\$(ls -1 binary/redhat | grep -v 6)
+                                # getting the list of RH systems
+                                RHVERS=\$(ls -1 binary/redhat | grep -v 6)
 
-                                    # source processing
-                                    if [ -d source/redhat ]; then
-                                        SRCRPM=\$(find source/redhat -name '*.src.rpm')
-                                        for rhel in \${RHVERS}; do
-                                            mkdir -p /srv/\${REPOPATH}/release/\${rhel}/SRPMS
-                                            cp -v \${SRCRPM} /srv/\${REPOPATH}/release/\${rhel}/SRPMS
-                                            createrepo --update /srv/\${REPOPATH}/release/\${rhel}/SRPMS
-                                            if [ -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc ]; then
-                                                rm -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc
-                                            fi
-                                            gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml
-                                        done
-                                    fi
-
-                                    # binary processing
-                                    pushd binary
+                                # source processing
+                                if [ -d source/redhat ]; then
+                                    SRCRPM=\$(find source/redhat -name '*.src.rpm')
                                     for rhel in \${RHVERS}; do
-                                        mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS
-                                        for arch in \$(ls -1 redhat/\${rhel}); do
-                                            mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}
-                                            cp -av redhat/\${rhel}/\${arch}/*.rpm /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
-                                            createrepo --update /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
-                                            if [ -f  /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc ]; then
-                                                rm -f  /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc
-                                            fi
-                                            gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml
-                                        done
+                                        mkdir -p /srv/\${REPOPATH}/release/\${rhel}/SRPMS
+                                        cp -v \${SRCRPM} /srv/\${REPOPATH}/release/\${rhel}/SRPMS
+                                        createrepo --update /srv/\${REPOPATH}/release/\${rhel}/SRPMS
+                                        if [ -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc ]; then
+                                            rm -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc
+                                        fi
+                                        gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml
+                                    done
+                                fi
+
+                                # binary processing
+                                pushd binary
+                                for rhel in \${RHVERS}; do
+                                    mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS
+                                    for arch in \$(ls -1 redhat/\${rhel}); do
+                                        mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}
+                                        cp -av redhat/\${rhel}/\${arch}/*.rpm /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
+                                        createrepo --update /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
+                                        if [ -f  /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc ]; then
+                                            rm -f  /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc
+                                        fi
+                                        gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml
                                     done
                                 done
 ENDSSH
@@ -102,66 +91,51 @@ ENDSSH
                         sh """
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                                 set -e
-                                #
-                                #
-                                REPOS='PERCONA TOOLS PMM2-CLIENT'
-                                for REPOSITORY in \$REPOS; do
-                                    if [[ \${REPOSITORY} = PERCONA ]]; then
-                                        REPOPATH=/srv/repo-copy/percona/apt
-                                        export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/puppetlabs/bin
-                                    fi
-                                    #
-                                    if [[ \${REPOSITORY} = TOOLS ]]; then
-                                        REPOPATH=/srv/repo-copy/tools/apt
-                                        export PATH=/usr/local/reprepro5/bin:\${PATH}
-                                    fi
-                                    #
-                                    if [[ \${REPOSITORY} = PMM2-CLIENT ]]; then
-                                        REPOPATH=/srv/repo-copy/pmm2-client/apt
-                                        export PATH=/usr/local/reprepro5/bin:\${PATH}
-                                    fi
-                                    echo reprepro binary is \$(which reprepro)
-                                    pushd /srv/UPLOAD/${PATH_TO_CLIENT}/binary/debian
-                                        echo Looking for Debian build directories...
-                                        CODENAMES=\$(ls -1 | egrep -v 'cosmic|disco')
-                                        echo Distributions are: \${CODENAMES}
-                                    popd
 
-                                    #######################################
-                                    # source pushing, it's a bit specific #
-                                    #######################################
+                                # We are only pushing to 'pmm2-client' repository
+                                REPOPATH=/srv/repo-copy/pmm2-client/apt
+                                export PATH=/usr/local/reprepro5/bin:\${PATH}
 
-                                    # pushing sources
-                                    if  [ -d /srv/UPLOAD/${PATH_TO_CLIENT}/source/debian ]; then
-                                        cd /srv/UPLOAD/${PATH_TO_CLIENT}/source/debian
-                                        DSC=\$(find . -type f -name '*.dsc')
-                                        for DSC_FILE in \${DSC}; do
-                                            echo DSC file is \${DSC_FILE}
-                                            for _codename in \${CODENAMES}; do
-                                                echo ===>DSC \$DSC_FILE
-                                                repopush --gpg-pass=${SIGN_PASSWORD} --package=\${DSC_FILE} --repo-path=\${REPOPATH} --component=main  --codename=\${_codename} --verbose || true
-                                                if [ -f \${REPOPATH}/db/lockfile ]; then
-                                                    sudo rm -vf \${REPOPATH}/db/lockfile
-                                                fi
-                                                sleep 1
-                                            done
+                                echo reprepro binary is \$(which reprepro)
+                                pushd /srv/UPLOAD/${PATH_TO_CLIENT}/binary/debian
+                                    echo Looking for Debian build directories...
+                                    CODENAMES=\$(ls -1 | egrep -v 'cosmic|disco')
+                                    echo Distributions are: \${CODENAMES}
+                                popd
+
+                                #######################################
+                                # source pushing, it's a bit specific #
+                                #######################################
+
+                                # pushing sources
+                                if  [ -d /srv/UPLOAD/${PATH_TO_CLIENT}/source/debian ]; then
+                                    cd /srv/UPLOAD/${PATH_TO_CLIENT}/source/debian
+                                    DSC=\$(find . -type f -name '*.dsc')
+                                    for DSC_FILE in \${DSC}; do
+                                        echo DSC file is \${DSC_FILE}
+                                        for _codename in \${CODENAMES}; do
+                                            echo ===>DSC \$DSC_FILE
+                                            repopush --gpg-pass=${SIGN_PASSWORD} --package=\${DSC_FILE} --repo-path=\${REPOPATH} --component=main  --codename=\${_codename} --verbose || true
+                                            if [ -f \${REPOPATH}/db/lockfile ]; then
+                                                sudo rm -vf \${REPOPATH}/db/lockfile
+                                            fi
+                                            sleep 1
                                         done
-                                    fi
-
-                                    #######################################
-                                    # binary pushing                      #
-                                    #######################################
-                                    cd /srv/UPLOAD/$PATH_TO_CLIENT/binary/debian
-
-                                    for _codename in \${CODENAMES}; do
-                                        pushd \${_codename}
-                                            DEBS=\$(find . -type f -name '*.*deb' )
-                                            for _deb in \${DEBS}; do
-                                                repopush --gpg-pass=$SIGN_PASSWORD --package=\${_deb} --repo-path=\${REPOPATH} --component=main --codename=\${_codename} --verbose
-                                            done
-                                        popd
                                     done
-                                    #
+                                fi
+
+                                #######################################
+                                # binary pushing                      #
+                                #######################################
+                                cd /srv/UPLOAD/$PATH_TO_CLIENT/binary/debian
+
+                                for _codename in \${CODENAMES}; do
+                                    pushd \${_codename}
+                                        DEBS=\$(find . -type f -name '*.*deb' )
+                                        for _deb in \${DEBS}; do
+                                            repopush --gpg-pass=$SIGN_PASSWORD --package=\${_deb} --repo-path=\${REPOPATH} --component=main --codename=\${_codename} --verbose
+                                        done
+                                    popd
                                 done
 ENDSSH
                         """
@@ -178,16 +152,12 @@ ENDSSH
                         set -x
                         set -e
 
-                        REPOS='PERCONA TOOLS PMM2-CLIENT'
-
-                        for REPOSITORY in \$REPOS; do
-                            cd /srv/repo-copy
-                            REPO=\$(echo \${REPOSITORY} | tr '[:upper:]' '[:lower:]' )
-                            date +%s > /srv/repo-copy/version
-                            RSYNC_TRANSFER_OPTS=" -avt --delete --delete-excluded --delete-after --progress"
-                            rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.30.9.32:/www/repo.percona.com/htdocs/\${REPO}/
-                            rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/version 10.30.9.32:/www/repo.percona.com/htdocs/
-                        done
+                        cd /srv/repo-copy
+                        REPO=pmm2-client
+                        date +%s > /srv/repo-copy/version
+                        RSYNC_TRANSFER_OPTS=" -avt --delete --delete-excluded --delete-after --progress"
+                        rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.30.9.32:/www/repo.percona.com/htdocs/\${REPO}/
+                        rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/version 10.30.9.32:/www/repo.percona.com/htdocs/
 ENDSSH
                     """
                 }
@@ -545,12 +515,27 @@ ENDSSH
                     '''
                 }
             }
-        }        
-        stage('Run post-release tests') {
-            steps {
-                build job: 'pmm2-release-tests', propagate: false, wait: false, parameters: [
-                    string(name: 'VERSION', value: params.VERSION)
-                ]
+        }
+        stage('Run post-release tests GH Actions') {
+            steps{
+                script{
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                        sh '''
+                            curl -v -X POST \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/percona/pmm-qa/actions/workflows/package-test-single.yml/dispatches" \
+                                -d '{"ref":"main","inputs":{"playbook": "pmm2-client", "package": "pmm2-client", "repository": "release", "metrics_mode": "auto"}}'
+                        '''
+                        sh '''
+                            curl -v -X POST \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/percona/pmm-qa/actions/workflows/e2e-upgrade-tests-matrix-full.yml/dispatches" \
+                                -d '{"ref":"main","inputs":{"pmm_ui_tests_branch": "main", "pmm_qa_branch": "main", "repository": "release", "versions_range": 1}}'
+                        '''
+                    }
+                }
             }
         }
         stage('Scan Image for Vulnerabilities') {

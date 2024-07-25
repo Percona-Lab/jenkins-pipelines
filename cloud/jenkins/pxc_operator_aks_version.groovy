@@ -10,11 +10,8 @@ void prepareNode() {
 
         curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
-        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
-        sudo chmod +x /usr/local/bin/yq
-
-        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-        sudo chmod +x /usr/local/bin/jq
+        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
+        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
 
         if ! command -v az &>/dev/null; then
             curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
@@ -159,10 +156,6 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    if ("$CLUSTER_WIDE" == "YES") {
-        env.OPERATOR_NS = 'pxc-operator'
-    }
-
     sh """
         export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
         az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
@@ -201,6 +194,7 @@ void runTest(Integer TEST_ID) {
                     cd source
 
                     export DEBUG_TESTS=1
+                    [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pxc-operator
                     [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
                     export IMAGE_PXC=$IMAGE_PXC
                     export IMAGE_PROXY=$IMAGE_PROXY

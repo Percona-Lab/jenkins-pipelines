@@ -13,11 +13,8 @@ void prepareNode() {
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
 
-        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
-        sudo chmod +x /usr/local/bin/yq
-
-        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-        sudo chmod +x /usr/local/bin/jq
+        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
+        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
 
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable-only tools
@@ -33,8 +30,8 @@ void prepareNode() {
 
         kubectl krew install assert
 
-        # v0.16.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/e450fd06ebe9ce200355726b81d13e5e59b9bf47/plugins/kuttl.yaml
+        # v0.17.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/336ef83542fd2f783bfa2c075b24599e834dcc77/plugins/kuttl.yaml
         echo \$(kubectl kuttl --version) is installed
     """
 }
@@ -166,10 +163,6 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    if ("$CLUSTER_WIDE" == "YES") {
-        OPERATOR_NS = 'pg-operator'
-    }
-
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
             if echo -e "4.12.0\\n\$USED_PLATFORM_VER" | sort -C -V; then
@@ -254,6 +247,8 @@ void runTest(Integer TEST_ID) {
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
                     cd source
+
+                    [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pg-operator
                     [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                     export PG_VER=$PG_VERSION
                     export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
@@ -263,7 +258,6 @@ void runTest(Integer TEST_ID) {
                     fi
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-
                     export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
                     export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
                     export PATH="$HOME/.krew/bin:$PATH"
