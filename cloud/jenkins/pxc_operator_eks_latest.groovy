@@ -144,10 +144,6 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    if ("$CLUSTER_WIDE" == "YES") {
-        OPERATOR_NS = 'pxc-operator'
-    }
-
     sh """
         timestamp="\$(date +%s)"
 tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
@@ -202,6 +198,7 @@ EOF
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             export PATH=/home/ec2-user/.local/bin:$PATH
             eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+            kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
             kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
         """
     }
@@ -224,6 +221,7 @@ void runTest(Integer TEST_ID) {
                         cd source
 
                         export DEBUG_TESTS=1
+                        [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pxc-operator
                         [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
                         export IMAGE_PXC=$IMAGE_PXC
                         export IMAGE_PROXY=$IMAGE_PROXY

@@ -29,7 +29,7 @@ imageMap['eu-central-1a.min-amazon-2-x64']  = 'ami-089ef08b563ccf2bf'
 imageMap['eu-central-1a.min-ol-8-x64']      = 'ami-065e2293a3df4c870'
 imageMap['eu-central-1a.min-ol-9-x64']      = 'ami-02952e732e6126584'
 imageMap['eu-central-1a.min-centos-8-x64']  = 'ami-0a2dc38dc30ba417e'
-imageMap['eu-central-1a.min-centos-7-x64']  = 'ami-04cf43aca3e6f3de3'
+imageMap['eu-central-1a.min-centos-7-x64']  = 'ami-0afcbcee3dfbce929'
 imageMap['eu-central-1a.fips-centos-7-x64'] = 'ami-0f4ad402d76e82cbe'
 imageMap['eu-central-1a.min-centos-6-x64']  = 'ami-01fc903dce948db3f'
 imageMap['eu-central-1a.min-buster-x64']    = 'ami-0c984d7a384cafb51'
@@ -233,7 +233,7 @@ initMap['rpmMap'] = '''
         PKGLIST="aws-cli"
     fi
 
-    if grep -q 'CentOS.* 8\\.' /etc/redhat-release; then
+    if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
         sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
         sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
     fi

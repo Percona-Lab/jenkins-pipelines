@@ -1,11 +1,5 @@
 tests=[]
 
-void IsRunTestsInClusterWide() {
-    if ("${params.CLUSTER_WIDE}" == "YES") {
-        env.OPERATOR_NS = 'pg-operator'
-    }
-}
-
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
@@ -106,6 +100,7 @@ void runTest(Integer TEST_ID) {
             sh """
                 cd source
 
+                [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pg-operator
                 [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                 export PG_VER=$PG_VERSION
                 export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
@@ -145,23 +140,6 @@ void runTest(Integer TEST_ID) {
             echo "The $testName test was finished!"
         }
     }
-}
-
-void installRpms() {
-    sh """
-        cat <<EOF > /tmp/kubernetes.repo
-[kubernetes]
-name=Kubernetes
-baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-        sudo mv /tmp/kubernetes.repo /etc/yum.repos.d/
-        sudo yum clean all || true
-        sudo yum install -y kubectl
-    """
 }
 
 pipeline {
@@ -290,12 +268,12 @@ pipeline {
             }
             agent { label 'docker-32gb' }
                 steps {
-                    IsRunTestsInClusterWide()
-                    installRpms()
-
                     sh '''
                         sudo yum install -y conntrack
                         sudo usermod -aG docker $USER
+
+                        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+                        kubectl version --client --output=yaml
 
                         curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
                             | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -

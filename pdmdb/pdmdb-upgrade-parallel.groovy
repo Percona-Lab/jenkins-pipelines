@@ -53,7 +53,14 @@ pipeline {
             description: 'To this version PBM will be updated',
             name: 'TO_PBM_VERSION'
         )
-
+        choice(
+            name: 'PREL_VERSION',
+            description: 'Percona release version',
+            choices: [
+                'latest',
+                '1.0-27'
+            ]
+        )
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',

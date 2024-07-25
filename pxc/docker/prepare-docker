@@ -12,6 +12,7 @@ build_docker() {
         ${DOCKER_DIR}/Dockerfile.inc \
         > ${DOCKER_DIR}/Dockerfile-${SOURCE_IMAGE//[:\/]/-}
 
+    export DOCKER_BUILDKIT=0
     docker build \
         --squash \
         --no-cache \

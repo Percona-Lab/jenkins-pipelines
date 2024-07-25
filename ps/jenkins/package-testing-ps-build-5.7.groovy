@@ -72,6 +72,10 @@ List ps56_excluded_nodes = [
     "min-bookworm-x64"
 ]
 
+List ps57_excluded_nodes = [
+    "min-bionic-x64"
+]
+
 List all_actions = [
     "install",
     "upgrade",
@@ -253,6 +257,9 @@ pipeline {
                         }
                         expression {
                             actions_to_test.contains("maj-upgrade-from")
+                        }
+                        expression {
+                            !(ps57_excluded_nodes.contains(params.node_to_test))
                         }
                     }
 
