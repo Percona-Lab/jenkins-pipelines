@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'cli'
     }
     parameters {
         string(
@@ -92,6 +92,11 @@ pipeline {
                     '''
                 }
             }
+        }
+    }
+    post {
+        cleanup {
+            deleteDir()
         }
     }
 }
