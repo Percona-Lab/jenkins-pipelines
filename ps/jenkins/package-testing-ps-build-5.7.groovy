@@ -72,6 +72,10 @@ List ps56_excluded_nodes = [
     "min-bookworm-x64"
 ]
 
+List ps57_excluded_nodes = [
+    "min-bionic-x64"
+]
+
 List all_actions = [
     "install",
     "upgrade",
@@ -112,16 +116,20 @@ void runPlaybook(String action_to_test) {
     sh '''
         git clone --depth 1 https://github.com/Percona-QA/package-testing
     '''
-
+    withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
     sh """
         export install_repo="\${install_repo}"
         export client_to_test="ps57"
+        export EOL="\${EOL}"
+        export PASSWORD="\${PASSWORD}"
+        export USERNAME="\${USERNAME}"
         ansible-playbook \
         --connection=local \
         --inventory 127.0.0.1, \
         --limit 127.0.0.1 \
         ${playbook_path}
     """
+   } 
 }
 
 pipeline {
@@ -154,6 +162,11 @@ pipeline {
             name: "action_to_test",
             choices: ["all"] + all_actions,
             description: "Action to test on the product"
+        )
+        choice(
+            name: "EOL",
+            choices: ["yes", "no"],
+            description: "EOL version or Normal"
         )
     }
 
@@ -244,6 +257,9 @@ pipeline {
                         }
                         expression {
                             actions_to_test.contains("maj-upgrade-from")
+                        }
+                        expression {
+                            !(ps57_excluded_nodes.contains(params.node_to_test))
                         }
                     }
 

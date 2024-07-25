@@ -206,7 +206,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Buster(10)') {
+                stage('Ubuntu Noble(24.04)') {
                     agent {
                         label 'docker-32gb'
                     }
@@ -214,11 +214,33 @@ pipeline {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:buster", "--build_deb=1")
+                        buildStage("ubuntu:noble", "--build_deb=1")
 
                         stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Buster(10)') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        script {
+                            PXC_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${GIT_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
+                            if ("${PXC_MAJOR_RELEASE}" == "80") {
+                                cleanUpWS()
+                                unstash 'pxc-80.properties'
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                buildStage("debian:buster", "--build_deb=1")
+
+                                stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            } else {
+                                echo "The step is skipped"
+                            }
+                        }
                     }
                 }
                 stage('Debian Bullseye(11)') {

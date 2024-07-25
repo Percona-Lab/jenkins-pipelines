@@ -52,7 +52,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     cp -av \${build_dir}/percona-repositories/rpm/percona-release.spec \${build_dir}/rpmbuild/SPECS
                     cp -av \${build_dir}/percona-repositories/scripts/* \${build_dir}/rpmbuild/SOURCES
 
-                    rpmbuild -ba --define \\"_topdir \${build_dir}/rpmbuild\\" \${build_dir}/rpmbuild/SPECS/percona-release.spec
+                    rpmbuild -ba --define \\"_topdir \${build_dir}/rpmbuild\\" --define \\"_source_filedigest_algorithm 8\\" --define \\"_binary_filedigest_algorithm 8\\" --define \\"_source_payload_digest_algorithm 8\\" --define \\"_binary_payload_digest_algorithm 8\\" \${build_dir}/rpmbuild/SPECS/percona-release.spec
 
                     mkdir -p srpm
                     cp rpmbuild/SRPMS/*.rpm srpm
@@ -85,12 +85,18 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     dch --force-distribution -v \\"\${VERSION}-\${RELEASE}.generic\\" \\"Update percona-release package\\"
                     dpkg-buildpackage -rfakeroot
                     mkdir -p \${build_dir}/deb
-                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.bionic_amd64.deb
+                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.noble_amd64.deb
                     cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.bookworm_amd64.deb
                     cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.bullseye_amd64.deb
                     cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.buster_amd64.deb
                     cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.focal_amd64.deb
                     cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.jammy_amd64.deb
+                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.noble_arm64.deb
+                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.bookworm_arm64.deb
+                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.bullseye_arm64.deb
+                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.buster_arm64.deb
+                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.focal_arm64.deb
+                    cp ../*.deb \${build_dir}/deb/percona-release_\${VERSION}-\${RELEASE}.jammy_arm64.deb
                 "
              """
              break
@@ -138,7 +144,7 @@ pipeline {
          stage('Create percona-release source tarball') {
             steps {
                 cleanUpWS()
-                buildStage("centos:7", "SOURCE")
+                buildStage("oraclelinux:8", "SOURCE")
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-release.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -168,7 +174,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "RPM")
+                        buildStage("oraclelinux:8", "RPM")
                         sh '''
                             pwd
                             ls -la test/rpm

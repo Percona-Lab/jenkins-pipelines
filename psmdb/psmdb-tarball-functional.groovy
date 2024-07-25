@@ -7,7 +7,7 @@ def moleculeDir = "psmdb-tarball/psmdb-tarball"
 
 pipeline {
     agent {
-        label 'min-centos-7-x64'
+        label 'min-bookworm-x64'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -46,14 +46,14 @@ pipeline {
         stage ('Prepare') {
             steps {
                 script {
-                   installMolecule()
+                   installMoleculeBookworm()
                 }
             }
         }
         stage('Test') {
             steps {
                 sh """
-                  echo ${params.TARBALL} | awk '{ match(\$0,/([0-9].[0-9])/,m); print m[0]}' > VERSION
+                  echo ${params.TARBALL} | sed -E 's/(.+mongodb-)([0-9].[0-9])(.+)/\\2/' > VERSION
                 """
                 script {
                     def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()

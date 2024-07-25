@@ -16,6 +16,14 @@ void installCli(String PLATFORM) {
             sudo apt-get update
             sudo apt-get -y install wget curl unzip
         elif [ ${PLATFORM} = "rpm" ]; then
+            export RHVER=\$(rpm --eval %rhel)
+            if [ \${RHVER} = "7" ]; then
+                sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
+                sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
+                if [ -e "/etc/yum.repos.d/CentOS-SCLo-scl.repo" ]; then
+                    cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
+                fi
+            fi
             sudo yum -y install wget curl unzip
         fi
         curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
@@ -66,7 +74,7 @@ void cleanUpWS() {
 }
 
 def installDependencies(def nodeName) {
-    def aptNodes = ['min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64']
+    def aptNodes = ['min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64', 'min-noble-x64']
     def yumNodes = ['min-ol-8-x64', 'min-centos-7-x64', 'min-ol-9-x64', 'min-amazon-2-x64']
     try{
         if (aptNodes.contains(nodeName)) {
@@ -75,7 +83,7 @@ def installDependencies(def nodeName) {
                     sudo apt-get update
                     sudo apt-get install -y ansible git wget
                 '''
-            }else if(nodeName == "min-focal-x64" || nodeName == "min-jammy-x64"){
+            }else if(nodeName == "min-focal-x64" || nodeName == "min-jammy-x64" || nodeName == "min-noble-x64"){
                 sh '''
                     sudo apt-get update
                     sudo apt-get install -y software-properties-common
@@ -153,6 +161,7 @@ def minitestNodes = [  "min-bullseye-x64",
                        "min-focal-x64",
                        "min-amazon-2-x64",
                        "min-jammy-x64",
+                       "min-noble-x64",
                        "min-ol-9-x64"     ]
 
 def package_tests_ps80(def nodes) {
@@ -317,9 +326,9 @@ parameters {
                         }
                     }
                 }
-                stage('Centos 8') {
+                stage('Oracle Linux 8') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
                         script {
@@ -437,29 +446,24 @@ parameters {
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Buster(10)') {
+                stage('Ubuntu Noble(24.04)') {
                     agent {
-                        label 'min-buster-x64'
+                        label 'min-noble-x64'
                     }
                     steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
-                            PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                            if ("${PS_MAJOR_RELEASE}" == "80") {
-                                if (env.FIPSMODE == 'YES') {
-                                    echo "The step is skipped"
-                                } else {
-                                    cleanUpWS()
-                                    installCli("deb")
-                                    unstash 'properties'
-                                    popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                                    buildStage("none", "--build_deb=1")
-
-                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                }
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("none", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
                             } else {
-                                echo "The step is skipped"
+                                buildStage("none", "--build_deb=1 --with_zenfs=1")
                             }
                         }
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bullseye(11)') {
@@ -542,9 +546,9 @@ parameters {
                         }
                     }
                 }
-                stage('Centos 8 binary tarball') {
+                stage('Oracle Linux 8 binary tarball') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
                         script {
@@ -562,9 +566,9 @@ parameters {
                         }
                     }
                 }
-                stage('Centos 8 debug tarball') {
+                stage('Oracle Linux 8 debug tarball') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
                         script {
@@ -805,7 +809,7 @@ parameters {
         }
         stage('Build docker containers') {
             agent {
-                label 'min-buster-x64'
+                label 'min-focal-x64'
             }
             steps {
                 script {
@@ -821,9 +825,14 @@ parameters {
                         unstash 'properties'
                         sh '''
                             PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                            MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
-                            MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
-                            PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 3)}')
+                            PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                            else
+                                MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                            fi
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                             sudo apt-get install -y docker.io
                             sudo systemctl status docker

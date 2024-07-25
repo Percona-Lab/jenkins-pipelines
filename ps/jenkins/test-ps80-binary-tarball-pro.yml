@@ -1,0 +1,14 @@
+- job:
+    name: test-ps80-binary-tarball-pro
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'master'
+            wipe-workspace: true
+      lightweight-checkout: true
+      script-path: ps/jenkins/test-ps80-binary-tarball-pro.groovy

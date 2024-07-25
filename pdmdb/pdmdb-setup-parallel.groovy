@@ -7,7 +7,7 @@ def moleculeDir = "pdmdb/pdmdb-setup"
 
 pipeline {
   agent {
-      label 'min-centos-7-x64'
+      label 'min-bookworm-x64'
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -21,6 +21,14 @@ pipeline {
             defaultValue: '1.6.0',
             description: 'PBM Version for tests',
             name: 'VERSION')
+        choice(
+            name: 'PREL_VERSION',
+            description: 'Percona release version',
+            choices: [
+                'latest',
+                '1.0-27'
+            ]
+        )
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',
@@ -40,7 +48,7 @@ pipeline {
         stage ('Prepare') {
           steps {
                 script {
-                   installMolecule()
+                   installMoleculeBookworm()
              }
            }
         }

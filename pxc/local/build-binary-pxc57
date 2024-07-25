@@ -68,6 +68,9 @@ if [[ "${WITH_ASAN}" = "yes" ]]; then
     CMAKE_OPTS+=" -DWITH_ASAN=ON"
     BUILD_COMMENT+="-asan"
 fi
+export CMAKE_OPTS=${CMAKE_OPTS}
+export SCONS_ARGS=${SCONS_ARGS}
+export BUILD_COMMENT=${BUILD_COMMENT}
 
 # ------------------------------------------------------------------------------
 # set version
@@ -83,13 +86,13 @@ fi
 if [[ -n "$(which git)" ]] && [[ -d "$SOURCEDIR/.git" ]]; then
     REVISION="$(cd "$SOURCEDIR"; git rev-parse --short HEAD)"
 fi
-MYSQL_VERSION="$MYSQL_VERSION_MAJOR.$MYSQL_VERSION_MINOR.$MYSQL_VERSION_PATCH"
-PERCONA_SERVER_VERSION="$(echo $MYSQL_VERSION_EXTRA | sed 's/^-//')"
-PRODUCT="Percona-XtraDB-Cluster_$MYSQL_VERSION-$PERCONA_SERVER_VERSION"
-TOKUDB_BACKUP_VERSION="${MYSQL_VERSION}${MYSQL_VERSION_EXTRA}"
-PRODUCT_FULL="Percona-XtraDB-Cluster_${MYSQL_VERSION}-${PERCONA_SERVER_VERSION}${BUILD_COMMENT}-${TAG}$(uname -s)${DIST_NAME}.${TARGET_ARCH}${SSL_VER}"
-COMMENT="Percona XtraDB Cluster binary  (GPL), Release ${MYSQL_VERSION_EXTRA#-}, Revision ${REVISION:-}${BUILD_COMMENT}"
-PERCONA_SERVER_EXTENSION="$(echo $MYSQL_VERSION_EXTRA | sed 's/^-/./')"
+export MYSQL_VERSION="$MYSQL_VERSION_MAJOR.$MYSQL_VERSION_MINOR.$MYSQL_VERSION_PATCH"
+export PERCONA_SERVER_VERSION="$(echo $MYSQL_VERSION_EXTRA | sed 's/^-//')"
+export PRODUCT="Percona-XtraDB-Cluster_$MYSQL_VERSION-$PERCONA_SERVER_VERSION"
+export TOKUDB_BACKUP_VERSION="${MYSQL_VERSION}${MYSQL_VERSION_EXTRA}"
+export PRODUCT_FULL="Percona-XtraDB-Cluster_${MYSQL_VERSION}-${PERCONA_SERVER_VERSION}${BUILD_COMMENT}-${TAG}$(uname -s)${DIST_NAME}.${TARGET_ARCH}${SSL_VER}"
+export COMMENT="Percona XtraDB Cluster binary  (GPL), Release ${MYSQL_VERSION_EXTRA#-}, Revision ${REVISION:-}${BUILD_COMMENT}"
+export PERCONA_SERVER_EXTENSION="$(echo $MYSQL_VERSION_EXTRA | sed 's/^-/./')"
 
 # CentOS 6 and 7
 RHVER=0
@@ -128,9 +131,9 @@ fi
 # ------------------------------------------------------------------------------
 pushd ${SOURCEDIR}
     if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
-        sudo bash -x ./build-ps/build-binary.sh -d ./target
+        sudo -E bash -x ./build-ps/build-binary.sh -d ./target
     else
-        sudo bash -x ./build-ps/build-binary.sh ./target
+        sudo -E bash -x ./build-ps/build-binary.sh ./target
     fi
 popd
 

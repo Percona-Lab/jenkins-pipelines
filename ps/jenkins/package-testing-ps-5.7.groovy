@@ -47,6 +47,7 @@ void runNodeBuild(String node_to_test) {
         parameters: [
             string(name: "product_to_test", value: product_to_test),
             string(name: "install_repo", value: params.install_repo),
+            string(name: "EOL", value: params.EOL),
             string(name: "node_to_test", value: node_to_test),
             string(name: "action_to_test", value: params.action_to_test)
         ],
@@ -69,6 +70,12 @@ pipeline {
             name: "install_repo",
             choices: ["testing", "main", "experimental"],
             description: "Repo to use in install test"
+        )
+
+        choice(
+            name: "EOL",
+            choices: ["yes", "no"],
+            description: "EOL or normal Version"
         )
 
         choice(

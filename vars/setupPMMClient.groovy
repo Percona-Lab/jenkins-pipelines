@@ -5,7 +5,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             set -o xtrace
             export PATH="$PATH:/usr/sbin:/sbin"
             test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
-            export IP=$(curl ifconfig.me)
+            export IP=$(curl -s ifconfig.me)
             export SERVER_IP=${SERVER_IP}
             export CLIENT_VERSION=${CLIENT_VERSION}
             export ENABLE_PULL_MODE=${ENABLE_PULL_MODE}
@@ -27,30 +27,30 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             if [ "${PMM_VERSION}" = pmm2 ]; then
               echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
             fi
-            sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-            sudo yum clean all
-            sudo yum makecache
+            if ! command -v percona-release > /dev/null; then
+                sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+                sudo yum clean all
+                sudo yum makecache
+            fi
 
             if [[ "$CLIENT_VERSION" =~ dev-latest|3-dev-latest ]]; then
-                sudo percona-release enable-only original experimental
+                sudo percona-release enable-only pmm2-client experimental
                 sudo yum -y install pmm2-client
             elif [[ "$CLIENT_VERSION" = pmm2-rc ]]; then
-                sudo percona-release enable-only original testing
+                sudo percona-release enable-only pmm2-client testing
                 sudo yum -y install pmm2-client
             elif [[ "$CLIENT_VERSION" = pmm2-latest ]]; then
                 sudo yum -y install pmm2-client
                 sudo yum -y update
-                sudo percona-release enable-only original experimental
+                sudo percona-release enable-only pmm2-client experimental
             elif [[ "$CLIENT_VERSION" = 2* ]]; then
                 sudo yum -y install "pmm2-client-$CLIENT_VERSION-6.el7.x86_64"
                 if [[ "$ENABLE_TESTING_REPO" = yes ]]; then
-                    sudo percona-release enable-only original testing
-                elif [[ "$ENABLE_TESTING_REPO" = no ]]; then
-                    sudo percona-release enable-only original experimental
-                elif [[ "$ENABLE_TESTING_REPO" = no ]] && [[ "$ENABLE_EXPERIMENTAL_REPO" = no ]]; then
-                    sudo percona-release enable-only original release
+                    sudo percona-release enable-only pmm2-client testing
+                elif [[ "$ENABLE_TESTING_REPO" = no ]] && [[ "$ENABLE_EXPERIMENTAL_REPO" = yes ]]; then
+                    sudo percona-release enable-only pmm2-client experimental
                 else
-                    sudo percona-release enable-only original release
+                    sudo percona-release enable-only pmm2-client release
                 fi
                 sleep 10
             else
@@ -96,12 +96,8 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
 
             pmm-admin --version
             if [[ "$CLIENT_VERSION" =~ dev-latest|pmm2-latest|pmm2-rc|^2.* ]]; then
-                if [[ "$CLIENT_INSTANCE" = yes ]]; then
-                    if [[ "$ENABLE_PULL_MODE" = yes ]]; then
-                        sudo pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --metrics-mode=pull "$IP"
-                    else
-                        sudo pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls "$IP"
-                    fi
+                if [[ "$CLIENT_INSTANCE" = yes ]] && [[ "$ENABLE_PULL_MODE" = yes ]]; then
+                    sudo pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls --metrics-mode=pull "$IP"
                 else
                     sudo pmm-admin config --server-url="https://admin:$ADMIN_PASSWORD@$SERVER_IP:443" --server-insecure-tls "$IP"
                 fi

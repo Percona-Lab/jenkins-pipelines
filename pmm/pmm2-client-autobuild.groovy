@@ -190,6 +190,11 @@ pipeline {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
                             }
                         }
+                        stage('Build client binary deb Noble') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:noble"
+                            }
+                        }
                     }
                     post {
                         success {
@@ -221,9 +226,8 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     script {
                         sh '''
-                            PATH_TO_BUILD=$(cat uploadPath)
                             ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
-                                scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${PATH_TO_BUILD}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
+                                scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${UPLOAD_PATH}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
                             "
                         '''
                     }  

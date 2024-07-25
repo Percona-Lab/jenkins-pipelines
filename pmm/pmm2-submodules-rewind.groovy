@@ -22,7 +22,7 @@ pipeline {
                         export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
                         git clone --single-branch --branch "PMM-2.0" git@github.com:Percona-Lab/pmm-submodules .
-                        git submodule update --remote --init --recommend-shallow --jobs 10
+                        git submodule update --remote --init --jobs 10
                         git submodule status
                         git status --untracked-files=all --ignore-submodules=none
                     '''
@@ -39,18 +39,15 @@ pipeline {
         }
         stage('Commit') {
             steps {
-                sh '''
-                    git config user.email "noreply@percona.com"
-                    git config user.name "PMM Jenkins"
-
-                    git commit -a -m "chore: rewind submodules for dev-latest"
-                    git show
-                '''
-
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
                         export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
                         git config --global push.default matching
+                        git config user.email "noreply@percona.com"
+                        git config user.name "PMM Jenkins"
+
+                        git commit -a -m "chore: rewind submodules for dev-latest"
+                        git show                        
                         git push
                     '''
                 }

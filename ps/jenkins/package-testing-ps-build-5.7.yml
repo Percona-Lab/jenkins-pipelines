@@ -35,6 +35,12 @@
                 - "experimental"
             description: "Repo to use in install test"
         - choice:
+            name: EOL
+            choices:
+                - "yes"
+                - "no"
+            description: "EOL version or Normal"    
+        - choice:
             name: node_to_test
             choices:
                 - "min-bullseye-x64"            

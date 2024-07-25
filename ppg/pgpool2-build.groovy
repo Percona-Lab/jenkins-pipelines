@@ -54,8 +54,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 sleep 30
                 echo "Waiting ..."
             done
-            sudo wget https://repo.percona.com/apt/percona-release_latest.\$(lsb_release -sc)_all.deb
-            sudo dpkg -i percona-release_latest.\$(lsb_release -sc)_all.deb
+            sudo wget https://repo.percona.com/apt/percona-release_latest.generic_all.deb
+            sudo dpkg -i percona-release_latest.generic_all.deb
         fi
         sudo percona-release enable ppg-${PG_RELEASE} release
         pwd -P
@@ -170,7 +170,7 @@ pipeline {
             parallel {
                 stage('Source rpm') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
                         echo "====> Build pgpool2 generic source rpm"
@@ -178,7 +178,7 @@ pipeline {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_src_rpm=1")
+                        buildStage("oraclelinux:8", "--build_src_rpm=1")
 
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
@@ -204,22 +204,6 @@ pipeline {
         } //stage
         stage('Build pgpool2 RPMs') {
             parallel {
-                stage('Centos 7') {
-                    agent {
-                        label 'min-centos-7-x64'
-                    }
-                    steps {
-                        echo "====> Build pgpool2 rpm on Centos 7 PG${PG_RELEASE}"
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_rpm=1")
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                    }
-                } //stage
                 stage('OL 8') {
                     agent {
                         label 'min-ol-8-x64'
@@ -288,17 +272,17 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 } //stage
-                stage('Debian 10') {
+                stage('Ubuntu 24.04') {
                     agent {
-                        label 'min-buster-x64'
+                        label 'min-noble-x64'
                     }
                     steps {
-                        echo "====> Build pgpool2 deb on Debian 10 PG${PG_RELEASE}"
+                        echo "====> Build pgpool2 deb on Ubuntu 24.04 PG${PG_RELEASE}"
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:buster", "--build_deb=1")
+                        buildStage("ubuntu:noble", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)

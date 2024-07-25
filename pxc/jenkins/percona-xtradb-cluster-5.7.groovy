@@ -3,6 +3,24 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+void installCli(String PLATFORM) {
+    sh """
+        set -o xtrace
+        if [ -d aws ]; then
+            rm -rf aws
+        fi
+        if [ ${PLATFORM} = "deb" ]; then
+            sudo apt-get update
+            sudo apt-get -y install wget curl unzip
+        elif [ ${PLATFORM} = "rpm" ]; then
+            sudo yum -y install wget curl unzip
+        fi
+        curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+        unzip awscliv2.zip
+        sudo ./aws/install || true
+    """
+}
+
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
@@ -147,7 +165,6 @@ pipeline {
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Centos 8') {
@@ -162,7 +179,6 @@ pipeline {
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9') {
@@ -177,7 +193,6 @@ pipeline {
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Bionic(18.04)') {
@@ -192,7 +207,6 @@ pipeline {
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal(20.04)') {
@@ -207,7 +221,6 @@ pipeline {
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy(22.04)') {
@@ -222,7 +235,20 @@ pipeline {
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Noble(24.04)') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-57.properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:noble", "--build_deb=1")
+
+                        stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Buster(10)') {
@@ -237,7 +263,6 @@ pipeline {
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bullseye(11)') {
@@ -252,7 +277,6 @@ pipeline {
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bookworm(12)') {
@@ -267,7 +291,6 @@ pipeline {
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Centos 7 tarball') {
@@ -282,9 +305,9 @@ pipeline {
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+/*
                 stage('Centos 7 debug tarball') {
                     agent {
                         label 'docker-32gb'
@@ -299,6 +322,21 @@ pipeline {
                         pushArtifactFolder("debug/", AWS_STASH_PATH)
                     }
                 }
+*/
+                stage('Centos 8 tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-57.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("centos:8", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Centos 9 tarball') {
                     agent {
                         label 'docker-32gb'
@@ -311,7 +349,34 @@ pipeline {
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Ubuntu Bionic (18.04) tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-57.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:bionic", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Focal (20.04) tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-57.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:focal", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy(22.04) tarball') {
@@ -326,12 +391,66 @@ pipeline {
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Debian Buster (10) tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-57.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:buster", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Bullseye (11) tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-57.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:bullseye", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Bookworm (12) tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-57.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:bookworm", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
                     }
                 }
             }
         }
+        stage('Upload packages and tarballs from S3') {
+            agent {
+                label 'min-jammy-x64'
+            }
+            steps {
+                cleanUpWS()
+                installCli("deb")
+                unstash 'pxc-57.properties'
 
+                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+            }
+        }
         stage('Sign packages') {
             steps {
                 signRPM()
@@ -341,10 +460,84 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(PXC_REPO, COMPONENT)
+                // sync2ProdAutoBuild(PXC_REPO, COMPONENT)
+                sync2PrivateProdAutoBuild("pxc-57-eol", COMPONENT)
             }
         }
+        stage('Build docker container') {
+            agent {
+                label 'min-focal-x64'
+            }
+            steps {
+                script {
+                    cleanUpWS()
+                    unstash 'uploadPath'
+                    def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
+                    withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                        sh """
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/8/x86_64/*.rpm /tmp
+                            ls -la /tmp
+                        """
+                    }
+                    sh '''
+                        curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
+                        curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/WSREP_VERSION
+                        MYSQL_VERSION_MAJOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MAJOR | awk -F= '{print \$2}')
+                        MYSQL_VERSION_MINOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print \$2}')
+                        MYSQL_VERSION_PATCH=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_PATCH | awk -F= '{print \$2}')
+                        WSREP_VERSION_API=\$(cat WSREP_VERSION | grep WSREP_VERSION_API | awk -F= '{print \$2}')
+                        WSREP_VERSION_PATCH=\$(cat WSREP_VERSION | grep WSREP_VERSION_PATCH | awk -F= '{print \$2}')
 
+                        PXC_RELEASE=\${MYSQL_VERSION_MAJOR}.\${MYSQL_VERSION_MINOR}.\${MYSQL_VERSION_PATCH}-\${WSREP_VERSION_API}.\${WSREP_VERSION_PATCH}
+
+                        sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+                        sudo apt-get install -y docker.io
+                        sudo systemctl status docker
+                        sudo apt-get install -y qemu binfmt-support qemu-user-static
+                        sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+                        git clone https://github.com/percona/percona-docker
+                        cd percona-docker/percona-xtradb-cluster-5.7
+                        mv /tmp/*.rpm .
+                        sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}.${RPM_RELEASE}/g" Dockerfile-pro
+                        sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${PXC_RELEASE}-${RPM_RELEASE}/g" Dockerfile-pro
+                        sudo docker build -t percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} -f Dockerfile-pro .
+                        sudo docker tag percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} percona/percona-xtradb-cluster:${PXC_RELEASE}
+                        sudo docker images
+                        sudo docker save -o percona-xtradb-cluster-${PXC_RELEASE}-${RPM_RELEASE}.docker.tar percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} percona/percona-xtradb-cluster:${PXC_RELEASE} 
+                        sudo useradd admin -g admin
+                        sudo chown admin:admin percona-xtradb-cluster-${PXC_RELEASE}-${RPM_RELEASE}.docker.tar
+                        sudo chmod a+r percona-xtradb-cluster-${PXC_RELEASE}-${RPM_RELEASE}.docker.tar
+                        ls -la
+                    '''
+                    withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                        sh """
+                            MYSQL_VERSION_MAJOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MAJOR | awk -F= '{print \$2}')
+                            MYSQL_VERSION_MINOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print \$2}')
+                            MYSQL_VERSION_PATCH=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_PATCH | awk -F= '{print \$2}')
+                            WSREP_VERSION_API=\$(cat WSREP_VERSION | grep WSREP_VERSION_API | awk -F= '{print \$2}')
+                            WSREP_VERSION_PATCH=\$(cat WSREP_VERSION | grep WSREP_VERSION_PATCH | awk -F= '{print \$2}')
+
+                            export PXC_RELEASE=\${MYSQL_VERSION_MAJOR}.\${MYSQL_VERSION_MINOR}.\${MYSQL_VERSION_PATCH}-\${WSREP_VERSION_API}.\${WSREP_VERSION_PATCH}
+                            cd percona-docker/percona-xtradb-cluster-5.7
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} percona-xtradb-cluster-\${PXC_RELEASE}-${RPM_RELEASE}.docker.tar ${USER}@repo.ci.percona.com:${path_to_build}/binary/tarball
+                        """
+                    }
+               }
+            }
+        }
+        stage('Push Tarballs to TESTING download area') {
+            steps {
+                script {
+                    try {
+                        uploadTarballToDownloadsTesting("pxc-gated", "${GIT_BRANCH}")
+                    }
+                    catch (err) {
+                        echo "Caught: ${err}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+        }
     }
     post {
         success {

@@ -15,8 +15,6 @@ pipeline {
         string(name: 'PSMDB', defaultValue: 'percona/percona-server-mongodb', description: 'PSMDB docker image')
         string(name: 'GO_VER', defaultValue: 'bullseye', description: 'GOLANG docker image for building PBM from sources')
         choice(name: 'instance', choices: ['docker-64gb','docker-64gb-aarch64'], description: 'Ec2 instance type for running tests')
-        choice(name: 'JIRA_REPORT', choices: ['no','yes'], description: 'Send report to jira')
-        string(name: 'TEST_CYCLE_NAME', defaultValue: 'test', description: 'Jira test cycle name')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
     }
     stages {
@@ -41,7 +39,7 @@ pipeline {
                 stages {
                     stage ('Run tests') {
                         steps {
-                            withCredentials([usernamePassword(credentialsId: 'JIRA_CREDENTIALS', passwordVariable: 'JIRA_PASSWORD', usernameVariable: 'JIRA_USERNAME')]) {
+                            withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN')]) {
                                 sh """
                                     docker kill \$(docker ps -a -q) || true
                                     docker rm \$(docker ps -a -q) || true
@@ -61,16 +59,9 @@ pipeline {
                                     cd pbm-functional/pytest
                                     docker-compose build
                                     docker-compose up -d
-                                    if [ ${params.JIRA_REPORT} = "yes" ]; then
-                                        export JIRA_SERVER=https://jira.percona.com 
-                                        export JIRA_USERNAME=${JIRA_USERNAME} 
-                                        export JIRA_PASSWORD=${JIRA_PASSWORD}
-                                        echo "test_cycle_name=${params.TEST_CYCLE_NAME}" >> pytest.ini
-                                        docker-compose run test pytest --adaptavist -s --junitxml=junit.xml -k ${TEST} || true
-                                    else 
-                                        docker-compose run test pytest -s --junitxml=junit.xml -k ${TEST} || true
-                                    fi
+                                    docker-compose run test pytest -s --junitxml=junit.xml -k ${TEST} || true
                                     docker-compose down -v --remove-orphans
+                                    curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PBM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PBM branch": "${PBM_BRANCH}","PSMDB docker image": "${PSMDB}","instance": "${instance}"}};type=application/json' -i || true
                                 """
                                 }
                              }

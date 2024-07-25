@@ -326,6 +326,7 @@ EOF
                      sh """
                          export PATH=/home/ec2-user/.local/bin:$PATH
                          eksctl create cluster -f cluster.yaml
+                         kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
                      """
                 }
                 stash includes: 'cluster.yaml', name: 'cluster_conf'

@@ -3,18 +3,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runAPItests(String DOCKER_IMAGE_VERSION, GIT_URL, GIT_BRANCH, GIT_COMMIT_HASH, CLIENT_VERSION) {
-    apiTestJob = build job: 'pmm2-api-tests', propagate: false, parameters: [
-        string(name: 'DOCKER_VERSION', value: DOCKER_IMAGE_VERSION),
-        string(name: 'GIT_URL', value: GIT_URL),
-        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
-        string(name: 'OWNER', value: "FB"),
-        string(name: 'GIT_COMMIT_HASH', value: GIT_COMMIT_HASH)
-    ]
-    env.API_TESTS_URL = apiTestJob.absoluteUrl
-    env.API_TESTS_RESULT = apiTestJob.result
-}
-
 void addComment(String COMMENT) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
         sh """
@@ -105,6 +93,7 @@ pipeline {
                 }
                 script {
                     env.PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
+                    env.FB_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                 }
                 stash includes: 'apiBranch', name: 'apiBranch'
                 stash includes: 'apiURL', name: 'apiURL'
@@ -120,23 +109,20 @@ pipeline {
         stage('Build client source') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
 
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
                         ${PATH_TO_SCRIPTS}/build-client-source
-                    """
+                    '''
                 }
             }
         }
         stage('Build client binary') {
             steps {
-                script {
-                    env.GIT_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
-                }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
 
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
@@ -145,11 +131,11 @@ pipeline {
                         aws s3 cp \
                             --acl public-read \
                             results/tarball/pmm2-client-*.tar.gz \
-                            s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-\${BRANCH_NAME}-\${GIT_COMMIT:0:7}.tar.gz
-                    """
+                            s3://pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${FB_COMMIT:0:7}.tar.gz
+                    '''
                 }
                 script {
-                    def clientPackageURL = sh script:'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${GIT_COMMIT:0:7}.tar.gz" | tee CLIENT_URL', returnStdout: true
+                    def clientPackageURL = sh script:'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-${BRANCH_NAME}-${FB_COMMIT:0:7}.tar.gz" | tee CLIENT_URL', returnStdout: true
                     env.CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                 }
                 stash includes: 'CLIENT_URL', name: 'CLIENT_URL'
@@ -227,12 +213,12 @@ pipeline {
                     """
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
                         export PUSH_DOCKER=1
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}
                         ${PATH_TO_SCRIPTS}/build-client-docker
-                    """
+                    '''
                 }
                 stash includes: 'results/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
                 archiveArtifacts 'results/docker/CLIENT_TAG'
@@ -287,12 +273,12 @@ pipeline {
                     """
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         set -o errexit
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}
                         ${PATH_TO_SCRIPTS}/build-server-docker
-                    """
+                    '''
                 }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
                 archiveArtifacts 'results/docker/TAG'
@@ -313,7 +299,7 @@ pipeline {
                         set -o errexit
 
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server-fb:\${BRANCH_NAME}-\${GIT_COMMIT:0:7}
+                        export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}
 
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
                         export RPMBUILD_DIST="el9"
@@ -353,7 +339,7 @@ pipeline {
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                                 "https://api.github.com/repos/\$(echo ${CHANGE_URL} | cut -d '/' -f 4-5)/actions/workflows/pmm-qa-fb-checks.yml/dispatches" \
-                                -d '{"ref":"${PMM_BRANCH}","inputs":{"server_image":"${IMAGE}","client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}", "pmm_qa_branch": "${PMM_QA_GIT_BRANCH}", "pmm_ui_branch": "${PMM_UI_TESTS_GIT_BRANCH}", "client_version": "${CLIENT_URL}"}}'
+                                -d '{"ref":"${PMM_BRANCH}","inputs":{"pmm_server_image":"${IMAGE}","pmm_client_image":"${CLIENT_IMAGE}","sha":"${FB_COMMIT_HASH}", "pmm_qa_branch": "${PMM_QA_GIT_BRANCH}", "pmm_ui_tests_branch": "${PMM_UI_TESTS_GIT_BRANCH}", "pmm_client_version": "${CLIENT_URL}"}}'
                         """
                     }
                 }
@@ -369,14 +355,22 @@ pipeline {
                             unstash 'apiBranch'
                             unstash 'apiCommitSha'
                             def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                            def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
-                            def CLIENT_URL = sh(returnStdout: true, script: "cat CLIENT_URL").trim()
                             def API_TESTS_URL = sh(returnStdout: true, script: "cat apiURL").trim()
                             def API_TESTS_BRANCH = sh(returnStdout: true, script: "cat apiBranch").trim()
                             def GIT_COMMIT_HASH = sh(returnStdout: true, script: "cat apiCommitSha").trim()
-                            runAPItests(IMAGE, API_TESTS_URL, API_TESTS_BRANCH, GIT_COMMIT_HASH, CLIENT_URL)
+
+                            apiTestJob = build job: 'pmm2-api-tests', propagate: false, parameters: [
+                                string(name: 'DOCKER_VERSION', value: IMAGE),
+                                string(name: 'GIT_URL', value: API_TESTS_URL),
+                                string(name: 'GIT_BRANCH', value: API_TESTS_BRANCH),
+                                string(name: 'OWNER', value: "FB"),
+                                string(name: 'GIT_COMMIT_HASH', value: GIT_COMMIT_HASH)
+                            ]
+                            env.API_TESTS_URL = apiTestJob.absoluteUrl
+                            env.API_TESTS_RESULT = apiTestJob.result
+
                             if (!env.API_TESTS_RESULT.equals("SUCCESS")) {
-                                sh "exit 1"
+                                error "API tests failed."
                             }
                         }
                     }
@@ -387,26 +381,31 @@ pipeline {
 
     }
     post {
+        success {
+            script {
+                if (params.CHANGE_URL) {
+                    unstash 'IMAGE'
+                    def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                }
+            }
+        }
+        failure {
+            script {
+                if (env.API_TESTS_RESULT != "SUCCESS" && env.API_TESTS_URL) {
+                    addComment("API tests have failed, Please check: API: ${API_TESTS_URL}")
+                }
+                if (env.BATS_TESTS_RESULT != "SUCCESS" && env.BATS_TESTS_URL) {
+                    addComment("pmm2-client testsuite has failed, Please check: BATS: ${BATS_TESTS_URL}")
+                }
+                if (env.UI_TESTS_RESULT != "SUCCESS" && env.UI_TESTS_URL) {
+                    addComment("UI tests have failed, Please check: UI: ${UI_TESTS_URL}")
+                }
+            }
+        }
         always {
             script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    if (params.CHANGE_URL) {
-                        unstash 'IMAGE'
-                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                        slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
-                    }
-                } else {
-                    if(env.API_TESTS_RESULT != "SUCCESS" && env.API_TESTS_URL) {
-                        addComment("API tests have failed, Please check: API: ${API_TESTS_URL}")
-                    }
-                    if(env.BATS_TESTS_RESULT != "SUCCESS" && env.BATS_TESTS_URL) {
-                        addComment("pmm2-client testsuite has failed, Please check: BATS: ${BATS_TESTS_URL}")
-                    }
-                    if(env.UI_TESTS_RESULT != "SUCCESS" && env.UI_TESTS_URL) {
-                        addComment("UI tests have failed, Please check: UI: ${UI_TESTS_URL}")
-                    }
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} build job link: ${BUILD_URL}"
-                }
+                slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
         }
     }

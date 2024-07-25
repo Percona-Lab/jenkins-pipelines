@@ -33,6 +33,11 @@
                 - "experimental"
             description: "Repo to use in install test"
         - choice:
+            name: EOL
+            choices:
+                - "yes"
+                - "no"
+        - choice:
             name: node_to_test
             choices:
                 - "all"

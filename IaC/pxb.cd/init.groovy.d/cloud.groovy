@@ -25,7 +25,7 @@ imageMap = [:]
 imageMap['docker'] = 'ami-0f64dfdea96e44686'
 imageMap['docker-32gb'] = imageMap['docker']
 imageMap['micro-amazon'] = imageMap['docker']
-imageMap['min-centos-7-x64'] = 'ami-0686851c4e7b1a8e1'
+imageMap['min-centos-7-x64'] = 'ami-04f798ca92cc13f74'
 imageMap['min-centos-8-x64'] = 'ami-0155c31ea13d4abd2'
 imageMap['min-ol-8-x64']     = 'ami-000b99c02c2b64925'
 imageMap['min-ol-9-x64']     = 'ami-00a5d5bcea31bb02c'
@@ -33,13 +33,14 @@ imageMap['min-bionic-x64']   = 'ami-0bdef2eb518663879'
 imageMap['min-buster-x64']   = 'ami-090cd3aed687b1ee1'
 imageMap['min-focal-x64']    = 'ami-01773ce53581acf22'
 imageMap['min-jammy-x64']    = 'ami-0ee8244746ec5d6d4'
+imageMap['min-noble-x64']    = 'ami-0cf2b4e024cdb6960'
 imageMap['min-bullseye-x64'] = 'ami-0d0f7602aa5c2425d'
 imageMap['min-bookworm-x64'] = 'ami-0544719b13af6edc3'
 
 priceMap = [:]
 priceMap['c5a.large'] = '0.08'    // type=c5a.large, vCPU=2, memory=4GiB, saving=55%, interruption='<5%', price=0.043400
 priceMap['m5n.2xlarge'] = '0.32'  // type=m5n.2xlarge, vCPU=8, memory=32GiB, saving=48%, interruption='<5%', price=0.253000
-priceMap['m5n.4xlarge'] = '0.62'  // type=m5n.4xlarge, vCPU=16, memory=64GiB, saving=48%, interruption='<5%', price=0.512200
+priceMap['i4i.4xlarge'] = '0.62'  // type=i4i.4xlarge, vCPU=16, memory=64GiB, saving=48%, interruption='<5%', price=0.512200
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
@@ -54,6 +55,7 @@ userMap['min-ol-9-x64'] = 'ec2-user'
 userMap['min-buster-x64'] = 'admin'
 userMap['min-focal-x64'] = 'ubuntu'
 userMap['min-jammy-x64'] = 'ubuntu'
+userMap['min-noble-x64'] = 'ubuntu'
 userMap['min-bullseye-x64'] = 'admin'
 userMap['min-bookworm-x64'] = 'admin'
 
@@ -143,7 +145,7 @@ initMap['rpmMap'] = '''
         sudo amazon-linux-extras install java-openjdk11 -y || :
         PKGLIST="p7zip"
     fi
-    if [[ ${RHVER} -eq 8 ]]; then
+    if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
         sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
         sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
     fi
@@ -195,6 +197,9 @@ initMap['debMap'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
+
+    sudo sed -i '/buster-backports/ s/cdn-aws.deb.debian.org/archive.debian.org/' /etc/apt/sources.list
+
     until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
@@ -209,11 +214,12 @@ initMap['debMap'] = '''
     else
         JAVA_VER="openjdk-11-jre-headless"
     fi
-    if [[ ${DEB_VER} == "bookworm" ]]; then
+    if [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "buster" ]]; then
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
         sudo cp -r /etc/ssl_old /etc/ssl
+	sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
     else
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
     fi
@@ -234,17 +240,18 @@ initMap['min-bookworm-x64'] = initMap['debMap']
 initMap['min-bionic-x64'] = initMap['debMap']
 initMap['min-focal-x64']  = initMap['debMap']
 initMap['min-jammy-x64']  = initMap['debMap']
+initMap['min-noble-x64']  = initMap['debMap']
 
 
 capMap = [:]
 capMap['m5n.2xlarge'] = '120'
-capMap['m5n.4xlarge'] = '80'
+capMap['i4i.4xlarge'] = '80'
 capMap['c5a.large'] = '15'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 'c5a.large'
 typeMap['docker'] = 'm5n.2xlarge'
-typeMap['docker-32gb'] = 'm5n.4xlarge'
+typeMap['docker-32gb'] = 'i4i.4xlarge'
 typeMap['min-centos-7-x64'] = typeMap['docker']
 typeMap['fips-centos-7-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-centos-8-x64'] = typeMap['min-centos-7-x64']
@@ -253,6 +260,7 @@ typeMap['min-ol-9-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-jammy-x64'] = typeMap['min-centos-7-x64']
+typeMap['min-noble-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bullseye-x64'] = typeMap['min-centos-7-x64']
 typeMap['min-bookworm-x64'] = typeMap['min-centos-7-x64']
@@ -270,6 +278,7 @@ execMap['min-ol-9-x64'] = '1'
 execMap['min-buster-x64'] = '1'
 execMap['min-focal-x64'] = '1'
 execMap['min-jammy-x64'] = '1'
+execMap['min-noble-x64'] = '1'
 execMap['min-bullseye-x64'] = '1'
 execMap['min-bookworm-x64'] = '1'
 
@@ -280,6 +289,7 @@ devMap['micro-amazon'] = devMap['docker']
 devMap['min-bionic-x64'] = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-focal-x64'] = devMap['min-bionic-x64']
 devMap['min-jammy-x64'] = devMap['min-bionic-x64']
+devMap['min-noble-x64'] = devMap['min-bionic-x64']
 devMap['min-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-centos-8-x64'] = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
@@ -296,6 +306,7 @@ labelMap['micro-amazon'] = 'master'
 labelMap['min-bionic-x64'] = 'asan'
 labelMap['min-focal-x64'] = ''
 labelMap['min-jammy-x64'] = ''
+labelMap['min-noble-x64'] = ''
 labelMap['min-centos-7-x64'] = ''
 labelMap['fips-centos-7-x64'] = ''
 labelMap['min-centos-8-x64'] = ''
@@ -312,6 +323,7 @@ jvmoptsMap['micro-amazon'] = jvmoptsMap['docker']
 jvmoptsMap['min-bionic-x64'] = jvmoptsMap['docker']
 jvmoptsMap['min-focal-x64'] = jvmoptsMap['docker']
 jvmoptsMap['min-jammy-x64'] = jvmoptsMap['docker']
+jvmoptsMap['min-noble-x64'] = jvmoptsMap['docker']
 jvmoptsMap['min-centos-7-x64'] = jvmoptsMap['docker']
 jvmoptsMap['fips-centos-7-x64'] = jvmoptsMap['docker']
 jvmoptsMap['min-centos-8-x64'] = jvmoptsMap['docker']
@@ -400,6 +412,7 @@ String region = 'us-west-2'
             getTemplate('min-bionic-x64', "${region}${it}"),
             getTemplate('min-focal-x64', "${region}${it}"),
             getTemplate('min-jammy-x64', "${region}${it}"),
+            getTemplate('min-noble-x64', "${region}${it}"),
             getTemplate('min-bullseye-x64', "${region}${it}"),
             getTemplate('min-bookworm-x64', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
