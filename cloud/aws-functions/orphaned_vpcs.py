@@ -9,7 +9,6 @@ from utils import get_regions_list
 
 def is_vpc_to_terminate(vpc):
     tags = vpc.tags
-    print(f"tags: {tags}")
     if tags == None:
         return False
     tags_dict = {item['Key']: item['Value'] for item in tags}
@@ -21,12 +20,10 @@ def is_vpc_to_terminate(vpc):
 
     instance_lifetime = float(tags_dict['delete-cluster-after-hours'])
     current_time = datetime.datetime.now().timestamp()
-    
     try:
         creation_time = int(tags_dict['creation-time'])
     except KeyError as e:
-        return False
-
+        return True
     if (current_time - creation_time) / 3600 > instance_lifetime:
         return True
     return False
@@ -60,6 +57,7 @@ def delete_vpc_ep(aws_region, vpc_id):
 
 def delete_load_balancers(aws_region, vpc_id):
     elb_client = boto3.client('elb', region_name=aws_region)
+    elbv2_client = boto3.client('elbv2', region_name=aws_region)
     lb_names = [lb['LoadBalancerName']
                 for lb in elb_client.describe_load_balancers()['LoadBalancerDescriptions']
                 if lb['VPCId'] == vpc_id]
@@ -70,6 +68,28 @@ def delete_load_balancers(aws_region, vpc_id):
                 elb_client.delete_load_balancer(LoadBalancerName=lb_name)
             except Boto3Error as e:
                 logging.error(f"Deleting load balancer {lb_name} failed with error: {e}")
+
+    lbv2_names = []
+
+
+    responseV2 = elbv2_client.describe_load_balancers()['LoadBalancers']
+    print(f'responseV2 {responseV2}')
+    for lbv2 in responseV2:
+        print(f"lbv2_vpc {lbv2['VpcId']} vs vpc {vpc_id}")
+        if lbv2['VpcId'] == vpc_id:
+            lbv2_names.append(lbv2['LoadBalancerArn'])
+
+    print(f"lbv2_names {lbv2_names}")
+    if lbv2_names:
+        for lbv2_name in lbv2_names:
+            try:
+                logging.info(f"Deleting load balancer: {lbv2_name} for vpc id: {vpc_id}")
+                print(f"Deleting load balancer: {lbv2_name} for vpc id: {vpc_id}")
+                resp=elbv2_client.delete_load_balancer(LoadBalancerArn=lbv2_name)
+                print(f"deleted {resp}")
+            except Boto3Error as e:
+                logging.error(f"Deleting load balancer {lbv2_name} failed with error: {e}")
+                print(logging.error(f"Deleting load balancer {lbv2_name} failed with error: {e}"))
 
 
 def delete_nat_gateway(aws_region, vpc_id):
@@ -113,15 +133,22 @@ def delete_subnets(ec2_resource, vpc_id):
             for attempt in range(0, 10):
                 logging.info(f"Removing subnet with id: {sub.id}. Attempt {attempt}/10")
                 try:
+                    logging.info(f"Network interfaces {sub.network_interfaces.all()} for {sub}")
                     for interface in sub.network_interfaces.all():
-                        interface.delete()
+                        for attempt in range(0, 10):
+                            try:
+                                interface.delete()
+                            except ClientError as e:
+                                logging.info(f"Failed to delete network interface, will try again. The error was: {e}. Sleeping 10 seconds")
+                                sleep(10)
+                                continue
+                            break
                     sub.delete()
                 except ClientError as e:
                     logging.info(f"Failed to delete subnet, will try again. The error was: {e}. Sleeping 10 seconds")
                     sleep(10)
                     continue
                 break
-
 
 def delete_route_tables(ec2_resource, vpc_id):
     vpc_resource = ec2_resource.Vpc(vpc_id)
@@ -162,6 +189,7 @@ def delete_security_groups(security_groups):
                 continue
     except Boto3Error as e:
         logging.error(f"Deleting of security group failed with error: {e}")
+
 
 def wait_for_nat_gateway_delete(ec2, nat_gateway_id):
     timeout = 300  # 5 min
@@ -239,4 +267,8 @@ def lambda_handler(event, context):
 
         for vpc in vpcs:
             logging.info(f"Deleting all resources and VPC.")
-            terminate_vpc(vpc, aws_region)
+            response=terminate_vpc(vpc, aws_region)
+            logging.info(f"Failed to delete vpc. The error was: {response}")
+            continue
+
+

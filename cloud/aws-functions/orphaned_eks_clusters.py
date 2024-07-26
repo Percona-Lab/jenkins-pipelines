@@ -58,29 +58,51 @@ def wait_for_node_group_delete(autoscaling_client, autoscaling_group_name):
     else:
         logging.error(f"Node group {autoscaling_group_name} was not deleted in {timeout} seconds.")
 
-def delete_nodegroup(aws_region, cluster_name):
+def delete_nodegroup(aws_region):
     autoscaling_client = boto3.client('autoscaling', region_name=aws_region)
-    ec2 = boto3.resource('ec2')
+    auto_scaling_groups = []
 
-    autoscaling_group_name = ""
-    for instance in ec2.instances.all():
-        tags = instance.tags
-        tags_dict = {item['Key']: item['Value'] for item in tags}
-        if cluster_name not in tags_dict['Name']:
-            continue
-        state = instance.state['Name']
-        if tags_dict['alpha.eksctl.io/cluster-name'] and tags_dict[
-            'alpha.eksctl.io/cluster-name'] == cluster_name and state == 'running':
-            autoscaling_group_name = tags_dict['aws:autoscaling:groupName']
-            break
-        else:
-            continue
-    if len(autoscaling_group_name) != 0:
-        try:
-            autoscaling_client.delete_auto_scaling_group(AutoScalingGroupName=autoscaling_group_name, ForceDelete=True)
-            wait_for_node_group_delete(autoscaling_client, autoscaling_group_name)
-        except Boto3Error as e:
-            logging.error(f"Deleting autoscaling group {autoscaling_group_name} failed with error: {e}")
+    paginator = autoscaling_client.get_paginator('describe_auto_scaling_groups')
+    for page in paginator.paginate():
+        print(f'page {page}')
+        for group in page['AutoScalingGroups']:
+            print(f'group {group}')
+            tags = group.get('Tags', [])
+            print(f'tags {tags}')
+            team_value = False
+            delete_cluster = False
+
+            for tag in tags:
+                # print(f'tag {tag}')
+                # print(f"tagKey {tag['Key']}")
+                # print(f"tagValue {tag['Value']}")
+
+                if ( tag['Key']=='team' and tag['Value']=='cloud'):
+                    team_value = True
+
+                if tag['Key'] == 'delete-cluster-after-hours':
+                    delete_cluster = True
+                    cluster_lifetime = float(tag['Value'])
+
+                if tag['Key'] == 'creation-time':
+                    creation_time = float(tag['Value'])
+
+            print (f'creation_time {type(creation_time)}')
+
+            current_time = datetime.datetime.now().timestamp()
+            print(f" current_time {type( current_time)}")
+
+            if (team_value and delete_cluster and (current_time - creation_time) / 3600 > cluster_lifetime):
+                auto_scaling_groups.append(group['AutoScalingGroupName'])
+
+
+    if auto_scaling_groups:
+        for auto_scaling_group in auto_scaling_groups:
+            try:
+                autoscaling_client.delete_auto_scaling_group(AutoScalingGroupName=auto_scaling_group, ForceDelete=True)
+                wait_for_node_group_delete(autoscaling_client, auto_scaling_group)
+            except Boto3Error as e:
+                logging.error(f"Deleting autoscaling group {auto_scaling_group} failed with error: {e}")
 
 
 def delete_cluster(aws_region, cluster_name):
@@ -107,18 +129,15 @@ def wait_for_cluster_delete(eks_client, cluster_name):
     else:
         logging.error(f"Cluster {cluster_name} was not deleted in {timeout} seconds.")
 
-def terminate_cluster(cluster_name, aws_region):
-    delete_nodegroup(aws_region, cluster_name)
-    delete_cluster(aws_region, cluster_name)
-
-
 def lambda_handler(event, context):
     aws_regions = get_regions_list()
 
     for aws_region in aws_regions:
         logging.info(f"Searching for resources to remove in {aws_region}.")
         clusters = get_clusters_to_terminate(aws_region)
+        delete_nodegroup(aws_region)
 
         for cluster in clusters:
             logging.info(f"Terminating {cluster}")
-            terminate_cluster(cluster_name=cluster, aws_region=aws_region)
+            print(f"Terminating {cluster}")
+            delete_cluster(aws_region, cluster)
