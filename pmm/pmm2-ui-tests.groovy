@@ -27,9 +27,6 @@ def changeUserPasswordUtility(dockerImage) {
 }
 
 pipeline {
-    agent {
-        label ARCHITECTURE
-    }
     environment {
         AZURE_CLIENT_ID=credentials('AZURE_CLIENT_ID');
         AZURE_CLIENT_SECRET=credentials('AZURE_CLIENT_SECRET');
@@ -204,6 +201,9 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
+    }
+    agent {
+        label ARCHITECTURE
     }
     stages {
         stage('Prepare') {
