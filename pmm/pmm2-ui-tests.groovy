@@ -232,6 +232,11 @@ pipeline {
                     popd
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
+                if (ARCHITECTURE = "agent-amd64") {
+                    sh '''
+                        /srv/pmm-qa/pmm-tests/install_k8s_tools.sh --kubectl --sudo
+                    '''
+                }
             }
         }
         stage('Checkout Commit') {
