@@ -282,7 +282,7 @@ pipeline {
         }
         stage('Start Server') {
             steps {
-                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service', CLIENT_INSTANCE, '127.0.0.1', ADMIN_PASSWORD)
+                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service --mongo-replica-for-backup', CLIENT_INSTANCE, '127.0.0.1', ADMIN_PASSWORD)
             }
         }
         stage('Setup PMM Clients') {
