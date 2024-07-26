@@ -28,7 +28,7 @@ def changeUserPasswordUtility(dockerImage) {
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label ARCHITECTURE
     }
     environment {
         AZURE_CLIENT_ID=credentials('AZURE_CLIENT_ID');
@@ -150,6 +150,10 @@ pipeline {
             choices: ['no', 'yes'],
             description: "Run Specified Tagged Tests",
             name: 'RUN_TAGGED_TEST')
+        choice(
+            choices: ['agent-amd64', 'agent-arm64'],
+            description: 'Enable Pull Mode, if you are using this instance as Client Node',
+            name: 'ARCHITECTURE')
         choice(
             choices: ['no', 'yes'],
             description: 'Enable Pull Mode, if you are using this instance as Client Node',
