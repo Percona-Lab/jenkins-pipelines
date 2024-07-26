@@ -230,7 +230,6 @@ pipeline {
                         sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                         sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
                     popd
-                    /srv/pmm-qa/pmm-tests/install_k8s_tools.sh --kubectl --sudo
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
