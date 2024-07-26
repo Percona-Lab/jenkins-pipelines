@@ -64,20 +64,13 @@ def delete_nodegroup(aws_region):
 
     paginator = autoscaling_client.get_paginator('describe_auto_scaling_groups')
     for page in paginator.paginate():
-        print(f'page {page}')
         for group in page['AutoScalingGroups']:
-            print(f'group {group}')
             tags = group.get('Tags', [])
-            print(f'tags {tags}')
             team_value = False
             delete_cluster = False
 
             for tag in tags:
-                # print(f'tag {tag}')
-                # print(f"tagKey {tag['Key']}")
-                # print(f"tagValue {tag['Value']}")
-
-                if ( tag['Key']=='team' and tag['Value']=='cloud'):
+                if (tag['Key']=='team' and tag['Value']=='cloud'):
                     team_value = True
 
                 if tag['Key'] == 'delete-cluster-after-hours':
@@ -87,10 +80,7 @@ def delete_nodegroup(aws_region):
                 if tag['Key'] == 'creation-time':
                     creation_time = float(tag['Value'])
 
-            print (f'creation_time {type(creation_time)}')
-
             current_time = datetime.datetime.now().timestamp()
-            print(f" current_time {type( current_time)}")
 
             if (team_value and delete_cluster and (current_time - creation_time) / 3600 > cluster_lifetime):
                 auto_scaling_groups.append(group['AutoScalingGroupName'])
@@ -139,5 +129,4 @@ def lambda_handler(event, context):
 
         for cluster in clusters:
             logging.info(f"Terminating {cluster}")
-            print(f"Terminating {cluster}")
             delete_cluster(aws_region, cluster)
