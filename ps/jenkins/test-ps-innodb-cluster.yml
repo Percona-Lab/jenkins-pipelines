@@ -38,7 +38,7 @@
             choices:
                 - 'ubuntu-noble'
                 - 'ubuntu-jammy'
-                - 'ubuntu-focal'  
+                - 'ubuntu-focal'
                 - 'debian-12'
                 - 'debian-11'
                 - 'debian-10'
@@ -46,7 +46,8 @@
                 - 'oracle-8'
                 - 'oracle-9'
                 - 'rhel-8'
-                - 'rhel-9'  
+                - 'rhel-9'
+                - 'rhel-9-arm'
             description: "Distribution to run test"
         - choice:
             name: INSTALL_REPO

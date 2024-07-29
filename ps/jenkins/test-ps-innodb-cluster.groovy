@@ -113,7 +113,8 @@ pipeline {
                 'oracle-8',
                 'oracle-9',
                 'rhel-8',
-                'rhel-9' 
+                'rhel-9',
+                'rhel-9-arm' 
             ],
             description: 'Distribution to run test'
         )
