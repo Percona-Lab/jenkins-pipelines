@@ -100,9 +100,12 @@ pipeline {
                                     ${PATH_TO_SCRIPTS}/build-client-docker
 
                                     if [ -n "${DOCKER_RC_TAG}" ]; then
-                                        docker buildx imagetools create --tag perconalab/pmm-client:${DOCKER_RC_TAG} ${DOCKER_CLIENT_TAG}
+                                        docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_RC_TAG}
+                                        docker push perconalab/pmm-client:${DOCKER_RC_TAG}
                                     fi
-                                    docker buildx imagetools create --tag perconalab/pmm-client:${DOCKER_LATEST_TAG} ${DOCKER_CLIENT_TAG}
+                                    docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_LATEST_TAG}
+                                    docker push $DOCKER_CLIENT_TAG
+                                    docker push perconalab/pmm-client:${DOCKER_LATEST_TAG}
                                 '''
                             }
                         }
