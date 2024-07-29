@@ -1,6 +1,12 @@
 tests=[]
 
 void checkoutSources() {
+    if ("$IMAGE_PXC") {
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_PXC".split(":")[1]
+    }
+
+    echo "USED_PLATFORM_VER=$PLATFORM_VER"
+
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
@@ -105,36 +111,14 @@ void prepareNode() {
 
         sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
     """
-
-    echo "USED_PLATFORM_VER=$PLATFORM_VER"
-}
-
-void pushArtifactFile(String FILE_NAME) {
-    echo "Push $FILE_NAME file to S3!"
-
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            touch ${FILE_NAME}
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/${GIT_SHORT_COMMIT}
-            aws s3 ls \$S3_PATH/${FILE_NAME} || :
-            aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
-        """
-    }
-}
-
-TestsReport = '<testsuite name=\\"PXC-MiniKube-version\\">\n'
-void makeReport() {
-    for (int i=0; i<tests.size(); i++) {
-        def testResult = tests[i]["result"]
-        def testTime = tests[i]["time"]
-        def testName = tests[i]["name"]
-
-        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
-    }
-    TestsReport = TestsReport + '</testsuite>\n'
 }
 
 void clusterRunner(String cluster) {
+    sh """
+        export CHANGE_MINIKUBE_NONE_USER=true
+        /usr/local/bin/minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G
+    """
+
     for (int i=0; i<tests.size(); i++) {
         if (tests[i]["result"] == "skipped") {
             tests[i]["result"] = "failure"
@@ -170,7 +154,7 @@ void runTest(Integer TEST_ID) {
                 sudo rm -rf /tmp/hostpath-provisioner/*
                 e2e-tests/$testName/run
             """
-            pushArtifactFile("${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-$testName-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}-${PARAMS_HASH}")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -189,6 +173,32 @@ void runTest(Integer TEST_ID) {
             echo "The $testName test was finished!"
         }
     }
+}
+
+void pushArtifactFile(String FILE_NAME) {
+    echo "Push $FILE_NAME file to S3!"
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            touch $FILE_NAME
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
+            aws s3 ls \$S3_PATH/$FILE_NAME || :
+            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
+        """
+    }
+}
+
+TestsReport = '<testsuite name=\\"PXC-MiniKube\\">\n'
+void makeReport() {
+    echo "=========================[ Generating Test Report ]========================="
+    for (int i=0; i<tests.size(); i++) {
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"]
+        def testName = tests[i]["name"]
+
+        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
 }
 
 pipeline {
@@ -274,11 +284,6 @@ pipeline {
     stages {
         stage('Checkout sources') {
             steps {
-                sh """
-                    if ("$IMAGE_PXC") {
-                        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_PXC".split(":")[1]
-                    }
-                """
                 checkoutSources()
             }
         }
@@ -302,54 +307,27 @@ pipeline {
             }
             post {
                 always {
+                    sh """
+                        /usr/local/bin/minikube delete || true
+                    """
                     deleteDir()
                 }
             }
         }
-        // stage('Tests') {
-        //     options {
-        //         timeout(time: 3, unit: 'HOURS')
-        //     }
-        //         steps {
-
-        //             sh """
-        //                 curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
-        //                     | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-        //                 sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
-        //                 sudo chmod +x /usr/local/bin/yq
-        //                 sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-        //                 sudo chmod +x /usr/local/bin/jq
-        //                 sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-        //                 sudo chmod +x /usr/local/bin/minikube
-        //                 /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER} --cpus=6 --memory=28G
-        //             """
-        //             clusterRunner('cluster1')
-        //     }
-        //     post {
-        //         always {
-        //             sh """
-        //                 /usr/local/bin/minikube delete || true
-        //                 sudo rm -rf ./*
-        //             """
-        //             deleteDir()
-        //         }
-        //     }
-        // }
-        // stage('Make report') {
-        //     steps {
-        //         echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
-        //         makeReport()
-        //         sh """
-        //             echo "${TestsReport}" > TestsReport.xml
-        //         """
-        //         step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-        //         archiveArtifacts '*.xml'
-        //     }
-        // }
     }
 
     post {
         always {
+            echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
+            makeReport()
+            sh """
+                echo "$TestsReport" > TestsReport.xml
+            """
+            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            archiveArtifacts '*.xml'
+            sh """
+                /usr/local/bin/minikube delete || true
+            """
             deleteDir()
         }
     }
