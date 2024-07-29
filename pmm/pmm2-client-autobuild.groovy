@@ -49,7 +49,7 @@ pipeline {
         }
         stage('Build pmm2 client for amd64') {
             steps {
-                build job: 'tbr-pmm2-client-autobuilds-amd', parameters: [
+                build job: 'pmm2-client-autobuilds-amd', parameters: [
                     string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
                     string(name: 'DESTINATION', value: params.DESTINATION)
                 ]
@@ -57,7 +57,7 @@ pipeline {
         }
         stage('Build pmm2 client for arm64') {
             steps {
-                build job: 'tbr-pmm2-client-autobuilds-arm', parameters: [
+                build job: 'pmm2-client-autobuilds-arm', parameters: [
                     string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
                     string(name: 'DESTINATION', value: params.DESTINATION)
                 ]
@@ -71,23 +71,23 @@ pipeline {
                         set -o xtrace
 
                         if [ -n "${DOCKER_RC_TAG}" ]; then
-                            docker manifest create perconalab/pmm-client-test:${DOCKER_RC_TAG} \
-                                --amend perconalab/pmm-client-test:${DOCKER_RC_TAG}-amd64 \
-                                --amend perconalab/pmm-client-test:${DOCKER_RC_TAG}-arm64
+                            docker manifest create perconalab/pmm-client:${DOCKER_RC_TAG} \
+                                --amend perconalab/pmm-client:${DOCKER_RC_TAG}-amd64 \
+                                --amend perconalab/pmm-client:${DOCKER_RC_TAG}-arm64
 
-                            docker manifest annotate --arch amd64 perconalab/pmm-client-test:${DOCKER_RC_TAG} perconalab/pmm-client-test:${DOCKER_RC_TAG}-amd64
-                            docker manifest annotate --arch arm64 perconalab/pmm-client-test:${DOCKER_RC_TAG} perconalab/pmm-client-test:${DOCKER_RC_TAG}-arm64
+                            docker manifest annotate --arch amd64 perconalab/pmm-client:${DOCKER_RC_TAG} perconalab/pmm-client:${DOCKER_RC_TAG}-amd64
+                            docker manifest annotate --arch arm64 perconalab/pmm-client:${DOCKER_RC_TAG} perconalab/pmm-client:${DOCKER_RC_TAG}-arm64
 
-                            docker manifest push perconalab/pmm-client-test:${DOCKER_RC_TAG}
+                            docker manifest push perconalab/pmm-client:${DOCKER_RC_TAG}
                         else
-                            docker manifest create perconalab/pmm-client-test:${DOCKER_LATEST_TAG} \
-                                --amend perconalab/pmm-client-test:${DOCKER_LATEST_TAG}-amd64 \
-                                --amend perconalab/pmm-client-test:${DOCKER_LATEST_TAG}-arm64
+                            docker manifest create perconalab/pmm-client:${DOCKER_LATEST_TAG} \
+                                --amend perconalab/pmm-client:${DOCKER_LATEST_TAG}-amd64 \
+                                --amend perconalab/pmm-client:${DOCKER_LATEST_TAG}-arm64
 
-                            docker manifest annotate --arch amd64 perconalab/pmm-client-test:${DOCKER_LATEST_TAG} perconalab/pmm-client-test:${DOCKER_LATEST_TAG}-amd64
-                            docker manifest annotate --arch arm64 perconalab/pmm-client-test:${DOCKER_LATEST_TAG} perconalab/pmm-client-test:${DOCKER_LATEST_TAG}-arm64
+                            docker manifest annotate --arch amd64 perconalab/pmm-client:${DOCKER_LATEST_TAG} perconalab/pmm-client:${DOCKER_LATEST_TAG}-amd64
+                            docker manifest annotate --arch arm64 perconalab/pmm-client:${DOCKER_LATEST_TAG} perconalab/pmm-client:${DOCKER_LATEST_TAG}-arm64
 
-                            docker manifest push perconalab/pmm-client-test:${DOCKER_LATEST_TAG}
+                            docker manifest push perconalab/pmm-client:${DOCKER_LATEST_TAG}
                         fi
                     '''
                 }
