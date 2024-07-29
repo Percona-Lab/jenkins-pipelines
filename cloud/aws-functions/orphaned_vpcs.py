@@ -73,23 +73,17 @@ def delete_load_balancers(aws_region, vpc_id):
 
 
     responseV2 = elbv2_client.describe_load_balancers()['LoadBalancers']
-    print(f'responseV2 {responseV2}')
     for lbv2 in responseV2:
-        print(f"lbv2_vpc {lbv2['VpcId']} vs vpc {vpc_id}")
         if lbv2['VpcId'] == vpc_id:
             lbv2_names.append(lbv2['LoadBalancerArn'])
-
-    print(f"lbv2_names {lbv2_names}")
     if lbv2_names:
         for lbv2_name in lbv2_names:
             try:
                 logging.info(f"Deleting load balancer: {lbv2_name} for vpc id: {vpc_id}")
-                print(f"Deleting load balancer: {lbv2_name} for vpc id: {vpc_id}")
                 resp=elbv2_client.delete_load_balancer(LoadBalancerArn=lbv2_name)
-                print(f"deleted {resp}")
             except Boto3Error as e:
                 logging.error(f"Deleting load balancer {lbv2_name} failed with error: {e}")
-                print(logging.error(f"Deleting load balancer {lbv2_name} failed with error: {e}"))
+
 
 
 def delete_nat_gateway(aws_region, vpc_id):

@@ -70,14 +70,14 @@ def delete_nodegroup(aws_region):
             delete_cluster = False
 
             for tag in tags:
-                if (tag['Key']=='team' and tag['Value']=='cloud'):
+                if tag['Key']=='team' and tag['Value']=='cloud':
                     team_value = True
 
-                if tag['Key'] == 'delete-cluster-after-hours':
+                if tag['Key'] == 'delete-cluster-after-hours' and tag['Value']:
                     delete_cluster = True
                     cluster_lifetime = float(tag['Value'])
 
-                if tag['Key'] == 'creation-time':
+                if tag['Key'] == 'creation-time' and tag['Value']:
                     creation_time = float(tag['Value'])
 
             current_time = datetime.datetime.now().timestamp()
