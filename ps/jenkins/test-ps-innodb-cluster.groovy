@@ -114,7 +114,8 @@ pipeline {
                 'oracle-9',
                 'rhel-8',
                 'rhel-9',
-                'rhel-9-arm' 
+                'rhel-9-arm',
+                'debian-12-arm' 
             ],
             description: 'Distribution to run test'
         )
