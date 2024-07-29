@@ -1,32 +1,6 @@
 tests=[]
 
-void prepareNode() {
-    echo "=========================[ Installing tools on the Jenkins executor ]========================="
-    sh """
-        echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
-        echo $PATH
-        echo $HOME
-        echo $PWD
-        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
-        kubectl version --client --output=yaml
-
-        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-
-        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
-        sudo chmod +x /usr/local/bin/yq
-
-        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-        sudo chmod +x /usr/local/bin/jq
-
-        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
-    """
-
-    echo "USED_PLATFORM_VER=$PLATFORM_VER"
-
-    if ("$IMAGE_PXC") {
-        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_PXC".split(":")[1]
-    }
-
+void checkoutSources() {
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
@@ -38,8 +12,6 @@ void prepareNode() {
         sudo rm -rf source
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
-    stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
-
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
     PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
 }
@@ -115,6 +87,26 @@ void initTests() {
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
         """
     }
+}
+
+void prepareNode() {
+    echo "=========================[ Installing tools on the Jenkins executor ]========================="
+    sh """
+        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+        kubectl version --client --output=yaml
+
+        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+
+        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
+        sudo chmod +x /usr/local/bin/yq
+
+        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+        sudo chmod +x /usr/local/bin/jq
+
+        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
+    """
+
+    echo "USED_PLATFORM_VER=$PLATFORM_VER"
 }
 
 void pushArtifactFile(String FILE_NAME) {
@@ -264,51 +256,49 @@ pipeline {
             name: 'PLATFORM_VER',
             trim: true)
     }
+
     agent {
-         label 'micro-amazon'
+        label 'docker-32gb'
     }
+
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
     }
+
     environment {
         CLEAN_NAMESPACE = 1
         PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ]; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
     }
+
     stages {
-        stage('Prepare node') {
+        stage('Checkout sources') {
             steps {
-                prepareNode()
+                sh """
+                    if ("$IMAGE_PXC") {
+                        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_PXC".split(":")[1]
+                    }
+                """
+                checkoutSources()
             }
         }
         stage('Docker Build and Push') {
-            agent { label 'docker' }
             steps {
-                unstash "sourceFILES"
                 dockerBuildPush()
             }
         }
         stage('Init tests') {
-            // agent { label 'docker' }
             steps {
                 initTests()
             }
         }
-        stage('Tests') {
+        stage('Run Tests') {
             options {
                 timeout(time: 3, unit: 'HOURS')
             }
-            agent { label 'docker-32gb' }
-                steps {
-
-                    unstash "sourceFILES"
-                    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-                        sh """
-                           cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-                        """
-                    }
-
-                    clusterRunner('cluster1')
+            steps {
+                prepareNode()
+                clusterRunner('cluster1')
             }
             post {
                 always {
@@ -320,7 +310,6 @@ pipeline {
         //     options {
         //         timeout(time: 3, unit: 'HOURS')
         //     }
-        //     agent { label 'docker-32gb' }
         //         steps {
 
         //             sh """
@@ -334,14 +323,6 @@ pipeline {
         //                 sudo chmod +x /usr/local/bin/minikube
         //                 /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER} --cpus=6 --memory=28G
         //             """
-
-        //             unstash "sourceFILES"
-        //             withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
-        //                 sh """
-        //                    cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
-        //                 """
-        //             }
-
         //             clusterRunner('cluster1')
         //     }
         //     post {
