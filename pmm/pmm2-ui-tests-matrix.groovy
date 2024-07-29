@@ -133,10 +133,17 @@ pipeline {
                         }
                     }
                 }
-                 stage('Run tests for pmm-server Disconnect @disconnect'){
+                stage('Run tests for pmm-server Disconnect @disconnect'){
                     steps {
                         script {
                             runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@disconnect', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
+                        }
+                    }
+                }
+                stage('Run stanity tests for pmm-client docker container on amd64'){
+                    steps {
+                        script {
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@client-docker-multi-arch', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
                         }
                     }
                 }
