@@ -11,7 +11,7 @@ void installDependencies() {
         python3 -m venv venv
         source venv/bin/activate
         python3 -m pip install --upgrade pip setuptools wheel
-        python3 -m pip install molecule==2.22 boto boto3 paramiko testinfra
+        python3 -m pip install molecule==3.0.0 boto boto3 paramiko testinfra
     '''
 
     sh '''
