@@ -1,8 +1,119 @@
 tests=[]
 
-void IsRunTestsInClusterWide() {
-    if ("${params.CLUSTER_WIDE}" == "YES") {
-        env.OPERATOR_NS = 'pxc-operator'
+void prepareNode() {
+    echo "=========================[ Installing tools on the Jenkins executor ]========================="
+    sh """
+        echo AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+        echo $PATH
+        echo $HOME
+        echo $PWD
+        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+        kubectl version --client --output=yaml
+
+        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+
+        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
+        sudo chmod +x /usr/local/bin/yq
+
+        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+        sudo chmod +x /usr/local/bin/jq
+
+        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
+    """
+
+    echo "USED_PLATFORM_VER=$PLATFORM_VER"
+
+    if ("$IMAGE_PXC") {
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_PXC".split(":")[1]
+    }
+
+    echo "=========================[ Cloning the sources ]========================="
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    sh """
+        # sudo is needed for better node recovery after compilation failure
+        # if building failed on compilation stage directory will have files owned by docker user
+        sudo sudo git config --global --add safe.directory '*'
+        sudo git reset --hard
+        sudo git clean -xdf
+        sudo rm -rf source
+        cloud/local/checkout $GIT_REPO $GIT_BRANCH
+    """
+    stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
+
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+}
+
+void dockerBuildPush() {
+    echo "=========================[ Building and Pushing the operator Docker image ]========================="
+    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        sh """
+            if [[ "$OPERATOR_IMAGE" ]]; then
+                echo "SKIP: Build is not needed, operator image was set!"
+            else
+                cd source
+                sg docker -c "
+                    docker buildx create --use
+                    docker login -u '$USER' -p '$PASS'
+                    export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                    e2e-tests/build
+                    docker logout
+                "
+                sudo rm -rf build
+            fi
+        """
+    }
+}
+
+void initTests() {
+    echo "=========================[ Initializing the tests ]========================="
+
+    echo "Populating tests into the tests array!"
+    def testList = "$TEST_LIST"
+    def suiteFileName = "source/e2e-tests/$TEST_SUITE"
+
+    if (testList.length() != 0) {
+        suiteFileName = 'source/e2e-tests/run-custom.csv'
+        sh """
+            echo -e "$testList" > $suiteFileName
+            echo "Custom test suite contains following tests:"
+            cat $suiteFileName
+        """
+    }
+
+    def records = readCSV file: suiteFileName
+
+    for (int i=0; i<records.size(); i++) {
+        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
+    }
+
+    echo "Marking passed tests in the tests map!"
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        if ("$IGNORE_PREVIOUS_RUN" == "NO") {
+            sh """
+                aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
+            """
+
+            for (int i=0; i<tests.size(); i++) {
+                def testName = tests[i]["name"]
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
+
+                if (retFileExists == 0) {
+                    tests[i]["result"] = "passed"
+                }
+            }
+        } else {
+            sh """
+                aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
+            """
+        }
+    }
+
+    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+        sh """
+            cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+        """
     }
 }
 
@@ -16,58 +127,6 @@ void pushArtifactFile(String FILE_NAME) {
             aws s3 ls \$S3_PATH/${FILE_NAME} || :
             aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
         """
-    }
-}
-
-void initTests() {
-    echo "Populating tests into the tests array!"
-    def testList = "${params.TEST_LIST}"
-    def suiteFileName = "./source/e2e-tests/${params.TEST_SUITE}"
-
-    if (testList.length() != 0) {
-        suiteFileName = './source/e2e-tests/run-custom.csv'
-        sh """
-            echo -e "${testList}" > ${suiteFileName}
-            echo "Custom test suite contains following tests:"
-            cat ${suiteFileName}
-        """
-    }
-
-    def records = readCSV file: suiteFileName
-
-    for (int i=0; i<records.size(); i++) {
-        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
-    }
-
-    markPassedTests()
-}
-
-void markPassedTests() {
-    echo "Marking passed tests in the tests map!"
-
-    if ("${params.IGNORE_PREVIOUS_RUN}" == "NO") {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-            sh """
-                aws s3 ls "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" || :
-            """
-
-            for (int i=0; i<tests.size(); i++) {
-                def testName = tests[i]["name"]
-                def file="${params.GIT_BRANCH}-${GIT_SHORT_COMMIT}-${testName}-${params.PLATFORM_VER}-$PXC_TAG-CW_${params.CLUSTER_WIDE}-${PARAMS_HASH}"
-                def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key ${JOB_NAME}/${GIT_SHORT_COMMIT}/${file} >/dev/null 2>&1", returnStatus: true)
-
-                if (retFileExists == 0) {
-                    tests[i]["result"] = "passed"
-                }
-            }
-        }
-    }
-    else {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-            sh """
-                aws s3 rm "s3://percona-jenkins-artifactory/${JOB_NAME}/${GIT_SHORT_COMMIT}/" --recursive --exclude "*" --include "*-${PARAMS_HASH}" || :
-            """
-        }
     }
 }
 
@@ -140,25 +199,6 @@ void runTest(Integer TEST_ID) {
     }
 }
 
-void installRpms() {
-    sh """
-        cat <<EOF > /tmp/kubernetes.repo
-[kubernetes]
-name=Kubernetes
-baseurl=https://packages.cloud.google.com/yum/repos/kubernetes-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/yum-key.gpg https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-        sudo mv /tmp/kubernetes.repo /etc/yum.repos.d/
-
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum clean all || true
-        sudo yum install -y percona-xtrabackup-80 kubectl socat
-    """
-}
 pipeline {
     parameters {
         choice(
@@ -236,52 +276,22 @@ pipeline {
         PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ]; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
     }
     stages {
-        stage('Prepare') {
-            agent { label 'docker' }
+        stage('Prepare node') {
             steps {
-                git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                sh """
-                    # sudo is needed for better node recovery after compilation failure
-                    # if building failed on compilation stage directory will have files owned by docker user
-                    sudo sudo git config --global --add safe.directory '*'
-                    sudo git reset --hard
-                    sudo git clean -xdf
-                    sudo rm -rf source
-                    ./cloud/local/checkout $GIT_REPO $GIT_BRANCH
-                """
-                stash includes: "source/**", name: "sourceFILES", useDefaultExcludes: false
-                script {
-                    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-                    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
-                }
-                initTests()
+                prepareNode()
             }
         }
-
-        stage('Build docker image') {
+        stage('Docker Build and Push') {
             agent { label 'docker' }
             steps {
-                sh """
-                    sudo rm -rf source
-                """
                 unstash "sourceFILES"
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh '''
-                        if [[ "$OPERATOR_IMAGE" ]]; then
-                            echo "SKIP: Build is not needed, PXC operator image was set!"
-                        else
-                            cd ./source/
-                            sg docker -c "
-                                docker buildx create --use
-                                docker login -u '${USER}' -p '${PASS}'
-                                export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
-                                ./e2e-tests/build
-                                docker logout
-                            "
-                            sudo rm -rf ./build
-                        fi
-                    '''
-                }
+                dockerBuildPush()
+            }
+        }
+        stage('Init tests') {
+            // agent { label 'docker' }
+            steps {
+                initTests()
             }
         }
         stage('Tests') {
@@ -290,22 +300,6 @@ pipeline {
             }
             agent { label 'docker-32gb' }
                 steps {
-                    IsRunTestsInClusterWide()
-
-                    sh """
-                        sudo yum install -y conntrack
-                        sudo usermod -aG docker $USER
-
-                        curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
-                            | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
-                        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
-                        sudo chmod +x /usr/local/bin/yq
-                        sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-                        sudo chmod +x /usr/local/bin/jq
-                        sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
-                        sudo chmod +x /usr/local/bin/minikube
-                        /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER} --cpus=6 --memory=28G
-                    """
 
                     unstash "sourceFILES"
                     withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
@@ -314,37 +308,67 @@ pipeline {
                         """
                     }
 
-                    installRpms()
                     clusterRunner('cluster1')
             }
             post {
                 always {
-                    sh """
-                        /usr/local/bin/minikube delete || true
-                        sudo rm -rf ./*
-                    """
                     deleteDir()
                 }
             }
         }
-        stage('Make report') {
-            steps {
-                echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
-                makeReport()
-                sh """
-                    echo "${TestsReport}" > TestsReport.xml
-                """
-                step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-                archiveArtifacts '*.xml'
-            }
-        }
+        // stage('Tests') {
+        //     options {
+        //         timeout(time: 3, unit: 'HOURS')
+        //     }
+        //     agent { label 'docker-32gb' }
+        //         steps {
+
+        //             sh """
+        //                 curl -s https://get.helm.sh/helm-v3.9.4-linux-amd64.tar.gz \
+        //                     | sudo tar -C /usr/local/bin --strip-components 1 -zvxpf -
+        //                 sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.34.1/yq_linux_amd64 > /usr/local/bin/yq"
+        //                 sudo chmod +x /usr/local/bin/yq
+        //                 sudo sh -c "curl -s -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+        //                 sudo chmod +x /usr/local/bin/jq
+        //                 sudo curl -Lo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64
+        //                 sudo chmod +x /usr/local/bin/minikube
+        //                 /usr/local/bin/minikube start --kubernetes-version ${PLATFORM_VER} --cpus=6 --memory=28G
+        //             """
+
+        //             unstash "sourceFILES"
+        //             withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+        //                 sh """
+        //                    cp $CLOUD_SECRET_FILE ./source/e2e-tests/conf/cloud-secret.yml
+        //                 """
+        //             }
+
+        //             clusterRunner('cluster1')
+        //     }
+        //     post {
+        //         always {
+        //             sh """
+        //                 /usr/local/bin/minikube delete || true
+        //                 sudo rm -rf ./*
+        //             """
+        //             deleteDir()
+        //         }
+        //     }
+        // }
+        // stage('Make report') {
+        //     steps {
+        //         echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
+        //         makeReport()
+        //         sh """
+        //             echo "${TestsReport}" > TestsReport.xml
+        //         """
+        //         step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+        //         archiveArtifacts '*.xml'
+        //     }
+        // }
     }
 
     post {
         always {
-            sh """
-                sudo rm -rf ./*
-            """
             deleteDir()
         }
     }
