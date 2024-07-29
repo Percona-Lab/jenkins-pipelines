@@ -17,9 +17,9 @@ pipeline {
         disableConcurrentBuilds()
         parallelsAlwaysFailFast()
     }
-    // triggers {
-    //     upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
-    // }
+    triggers {
+        upstream upstreamProjects: 'pmm2-submodules-rewind', threshold: hudson.model.Result.SUCCESS
+    }
     stages {
         stage('Prepare') {
             steps {

@@ -106,7 +106,7 @@ pipeline {
                 }
                 stage('Build client source rpm') {
                     parallel {
-                        stage('Build client source rpm EL7') {
+                        stage('Build client source rpm EL8') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-srpm oraclelinux:8"
                             }
@@ -231,22 +231,22 @@ pipeline {
         success {
             script {
                 env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz"
-                    // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
-                    // slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo"
+                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
+                    slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo"
                     if (params.DESTINATION == "testing") {
                       currentBuild.description = "RC Build, tarball: " + env.TARBALL_URL
-                    //   slackSend botUser: true,
-                    //             channel: '#pmm-qa',
-                    //             color: '#00FF00',
-                    //             message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished\nClient Tarball: ${env.TARBALL_URL}"
+                      slackSend botUser: true,
+                                channel: '#pmm-qa',
+                                color: '#00FF00',
+                                message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished\nClient Tarball: ${env.TARBALL_URL}"
                     }
             }
         }
         failure {
             script {
                 echo "Pipeline failed"
-                // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                // slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
             }
         }
     }
