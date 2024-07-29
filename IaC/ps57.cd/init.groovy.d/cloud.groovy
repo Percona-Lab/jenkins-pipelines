@@ -29,13 +29,14 @@ imageMap['eu-central-1a.min-amazon-2-x64']  = 'ami-089ef08b563ccf2bf'
 imageMap['eu-central-1a.min-ol-8-x64']      = 'ami-065e2293a3df4c870'
 imageMap['eu-central-1a.min-ol-9-x64']      = 'ami-02952e732e6126584'
 imageMap['eu-central-1a.min-centos-8-x64']  = 'ami-0a2dc38dc30ba417e'
-imageMap['eu-central-1a.min-centos-7-x64']  = 'ami-04cf43aca3e6f3de3'
-imageMap['eu-central-1a.fips-centos-7-x64'] = 'ami-0837950ffca9ae6e8'
+imageMap['eu-central-1a.min-centos-7-x64']  = 'ami-0afcbcee3dfbce929'
+imageMap['eu-central-1a.fips-centos-7-x64'] = 'ami-0f4ad402d76e82cbe'
 imageMap['eu-central-1a.min-centos-6-x64']  = 'ami-01fc903dce948db3f'
 imageMap['eu-central-1a.min-buster-x64']    = 'ami-0c984d7a384cafb51'
 imageMap['eu-central-1a.min-bullseye-x64']  = 'ami-08f13e5792295e1b2'
 imageMap['eu-central-1a.min-bookworm-x64']  = 'ami-04fc201ba10cb21bd'
 imageMap['eu-central-1a.min-jammy-x64']     = 'ami-0ec7f9846da6b0f61'
+imageMap['eu-central-1a.min-noble-x64']     = 'ami-01e444924a2233b07'
 imageMap['eu-central-1a.min-focal-x64']     = 'ami-0d497a49e7d359666'
 imageMap['eu-central-1a.min-bionic-x64']    = 'ami-0cc29ffa555d90047'
 imageMap['eu-central-1a.min-stretch-x64']   = 'ami-0d78ea9dc521d7ed3'
@@ -54,6 +55,7 @@ imageMap['eu-central-1b.fips-centos-7-x64'] = imageMap['eu-central-1a.fips-cento
 imageMap['eu-central-1b.min-centos-6-x64']  = imageMap['eu-central-1a.min-centos-6-x64']
 imageMap['eu-central-1b.min-buster-x64']    = imageMap['eu-central-1a.min-buster-x64']
 imageMap['eu-central-1b.min-jammy-x64']     = imageMap['eu-central-1a.min-jammy-x64']
+imageMap['eu-central-1b.min-noble-x64']     = imageMap['eu-central-1a.min-noble-x64']
 imageMap['eu-central-1b.min-focal-x64']     = imageMap['eu-central-1a.min-focal-x64']
 imageMap['eu-central-1b.min-bionic-x64']    = imageMap['eu-central-1a.min-bionic-x64']
 imageMap['eu-central-1b.min-stretch-x64']   = imageMap['eu-central-1a.min-stretch-x64']
@@ -74,6 +76,7 @@ imageMap['eu-central-1c.fips-centos-7-x64'] = imageMap['eu-central-1a.fips-cento
 imageMap['eu-central-1c.min-centos-6-x64']  = imageMap['eu-central-1a.min-centos-6-x64']
 imageMap['eu-central-1c.min-buster-x64']    = imageMap['eu-central-1a.min-buster-x64']
 imageMap['eu-central-1c.min-jammy-x64']     = imageMap['eu-central-1a.min-jammy-x64']
+imageMap['eu-central-1c.min-noble-x64']     = imageMap['eu-central-1a.min-noble-x64']
 imageMap['eu-central-1c.min-focal-x64']     = imageMap['eu-central-1a.min-focal-x64']
 imageMap['eu-central-1c.min-bionic-x64']    = imageMap['eu-central-1a.min-bionic-x64']
 imageMap['eu-central-1c.min-stretch-x64']   = imageMap['eu-central-1a.min-stretch-x64']
@@ -96,6 +99,7 @@ userMap['docker2']           = userMap['docker']
 userMap['micro-amazon']      = userMap['docker']
 userMap['min-amazon-2-x64']  = userMap['docker']
 userMap['min-jammy-x64']     = 'ubuntu'
+userMap['min-noble-x64']     = 'ubuntu'
 userMap['min-focal-x64']     = 'ubuntu'
 userMap['min-bionic-x64']    = 'ubuntu'
 userMap['min-trusty-x64']    = 'ubuntu'
@@ -229,7 +233,7 @@ initMap['rpmMap'] = '''
         PKGLIST="aws-cli"
     fi
 
-    if grep -q 'CentOS.* 8\\.' /etc/redhat-release; then
+    if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
         sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
         sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
     fi
@@ -290,6 +294,9 @@ initMap['debMap'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
+
+    sudo sed -i '/buster-backports/ s/cdn-aws.deb.debian.org/archive.debian.org/' /etc/apt/sources.list
+
     until sudo apt-get update; do
         sleep 1
         echo try again
@@ -304,11 +311,12 @@ initMap['debMap'] = '''
     else
         JAVA_VER="openjdk-11-jre-headless"
     fi
-    if [[ ${DEB_VER} == "bookworm" ]]; then
+    if [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "buster" ]]; then
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
         sudo cp -r /etc/ssl_old /etc/ssl
+        sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
     else
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
     fi
@@ -333,6 +341,7 @@ initMap['min-bookworm-x64'] = initMap['debMap']
 initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-buster-x64']   = initMap['debMap']
 initMap['min-jammy-x64']    = initMap['debMap']
+initMap['min-noble-x64']    = initMap['debMap']
 initMap['min-focal-x64']    = initMap['debMap']
 initMap['min-stretch-x64']  = initMap['debMap']
 initMap['min-xenial-x64']   = initMap['debMap']
@@ -355,6 +364,7 @@ typeMap['min-centos-8-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-ol-8-x64']      = typeMap['min-centos-7-x64']
 typeMap['min-ol-9-x64']      = 'i3en.2xlarge'
 typeMap['min-jammy-x64']     = typeMap['min-centos-7-x64']
+typeMap['min-noble-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-focal-x64']     = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
@@ -373,6 +383,7 @@ execMap['docker2']           = execMap['docker']
 execMap['micro-amazon']      = '30'
 execMap['min-amazon-2-x64']  = '1'
 execMap['min-jammy-x64']     = '1'
+execMap['min-noble-x64']     = '1'
 execMap['min-focal-x64']     = '1'
 execMap['min-bionic-x64']    = '1'
 execMap['min-centos-6-x32']  = '1'
@@ -396,6 +407,7 @@ devMap['micro-amazon']      = devMap['docker']
 devMap['min-amazon-2-x64']  = '/dev/xvda=:30:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-bionic-x64']    = '/dev/sda1=:30:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-jammy-x64']     = devMap['min-bionic-x64']
+devMap['min-noble-x64']     = devMap['min-bionic-x64']
 devMap['min-focal-x64']     = devMap['min-bionic-x64']
 devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
@@ -418,6 +430,7 @@ labelMap['micro-amazon']      = 'master'
 labelMap['min-amazon-2-x64']  = ''
 labelMap['min-bionic-x64']    = 'asan'
 labelMap['min-jammy-x64']     = ''
+labelMap['min-noble-x64']     = ''
 labelMap['min-focal-x64']     = ''
 labelMap['min-centos-6-x32']  = ''
 labelMap['min-centos-6-x64']  = ''
@@ -440,6 +453,7 @@ jvmoptsMap['micro-amazon']      = jvmoptsMap['docker']
 jvmoptsMap['min-amazon-2-x64']  = jvmoptsMap['docker']
 jvmoptsMap['min-bionic-x64']    = jvmoptsMap['docker']
 jvmoptsMap['min-jammy-x64']     = jvmoptsMap['docker']
+jvmoptsMap['min-noble-x64']     = jvmoptsMap['docker']
 jvmoptsMap['min-focal-x64']     = jvmoptsMap['docker']
 jvmoptsMap['min-centos-6-x32']  = jvmoptsMap['docker']
 jvmoptsMap['min-centos-6-x64']  = jvmoptsMap['docker']
@@ -533,6 +547,7 @@ String region = 'eu-central-1'
             getTemplate('fips-centos-7-x64',  "${region}${it}"),
             // getTemplate('min-centos-6-x64',   "${region}${it}"),
             getTemplate('min-jammy-x64',      "${region}${it}"),
+            getTemplate('min-noble-x64',      "${region}${it}"),
             getTemplate('min-focal-x64',      "${region}${it}"),
             getTemplate('min-bionic-x64',     "${region}${it}"),
             getTemplate('min-buster-x64',     "${region}${it}"),

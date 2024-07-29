@@ -49,7 +49,7 @@ pipeline {
             name: 'HAPROXY_VERSION'
         )
         string(
-            defaultValue: '3.5.7',
+            defaultValue: '3.6.0',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
         )

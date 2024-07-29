@@ -81,8 +81,7 @@ pipeline {
         )
         booleanParam(
             name: 'skip_psmdb60',
-            defaultValue: true,
-            description: "Enable to skip psmdb 6.0 packages installation tests. Leave enabled till PT-2217 is fixed"
+            description: "Enable to skip psmdb 6.0 packages installation tests."
         )
         booleanParam(
             name: 'skip_upstream57',
@@ -114,16 +113,27 @@ pipeline {
                     }
                 }
 
+                stage('Debian Bookworm') {
+                    steps {
+                        runNodeBuild('min-bookworm-x64')
+                    }
+                }
+
                 stage('Ubuntu Focal') {
                     steps {
                         runNodeBuild('min-focal-x64')
                     }
                 }
 
-
                 stage('Ubuntu Jammy') {
                     steps {
                         runNodeBuild('min-jammy-x64')
+                    }
+                }
+
+                stage('Ubuntu Noble Numbat') {
+                    steps {
+                        runNodeBuild('min-noble-x64')
                     }
                 }
 

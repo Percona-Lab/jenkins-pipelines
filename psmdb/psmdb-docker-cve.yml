@@ -1,5 +1,5 @@
 - job:
-    name: everest-cli-autobuild-RELEASE
+    name: psmdb-docker-cve
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,5 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pmm/everest-cli.groovy
-
+      script-path: psmdb/psmdb-docker-cve.groovy
