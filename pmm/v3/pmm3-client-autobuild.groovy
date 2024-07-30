@@ -47,20 +47,24 @@ pipeline {
                 }
             }
         }
-        stage('Build pmm3 client for amd64') {
-            steps {
-                build job: 'tbr-pmm3-client-autobuild-amd', parameters: [
-                    string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
-                    string(name: 'DESTINATION', value: params.DESTINATION)
-                ]
-            }
-        }
-        stage('Build pmm3 client for arm64') {
-            steps {
-                build job: 'tbr-pmm3-client-autobuild-arm', parameters: [
-                    string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
-                    string(name: 'DESTINATION', value: params.DESTINATION)
-                ]
+        stage('Build multi-arch pmm3 client') {
+            parallel {
+                stage('Build pmm3 client for amd64') {
+                    steps {
+                        build job: 'tbr-pmm3-client-autobuild-amd', parameters: [
+                            string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                            string(name: 'DESTINATION', value: params.DESTINATION)
+                        ]
+                    }
+                }
+                stage('Build pmm3 client for arm64') {
+                    steps {
+                        build job: 'tbr-pmm3-client-autobuild-arm', parameters: [
+                            string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                            string(name: 'DESTINATION', value: params.DESTINATION)
+                        ]
+                    }
+                }
             }
         }
         stage('Push pmm2 client multi-arch images') {
