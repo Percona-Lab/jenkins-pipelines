@@ -205,7 +205,7 @@ pipeline {
                     env.UPLOAD_PATH = sh(returnStdout: true, script: "cat uploadPath").trim()
                 }
                 // sync packages
-                sync2ProdPMMClient(DESTINATION, 'yes')
+                // sync2ProdPMMClient(DESTINATION, 'yes')
                 sync2ProdPMMClientRepo(DESTINATION, env.UPLOAD_PATH, 'pmm2-client')
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     script {
