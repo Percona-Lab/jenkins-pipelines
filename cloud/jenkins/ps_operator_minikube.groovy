@@ -1,8 +1,8 @@
 tests=[]
 
 void checkoutSources() {
-    if ("$IMAGE_PXC") {
-        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_PXC".split(":")[1]
+    if ("$IMAGE_MYSQL") {
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MYSQL".split(":")[1]
     }
 
     echo "USED_PLATFORM_VER=$PLATFORM_VER"
