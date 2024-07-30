@@ -139,10 +139,10 @@ pipeline {
             '''
             script {
                 if (fileExists("${BUILD_TAG}.xml")) {
-                  junit "${BUILD_TAG}.xml"
+                    junit testResults: "${BUILD_TAG}.xml", skipPublishingChecks: true
                 }
                 if (fileExists("logs.zip")) {
-                  archiveArtifacts artifacts: 'logs.zip'
+                    archiveArtifacts artifacts: 'logs.zip'
                 }
                 if (currentBuild.result != 'SUCCESS') {
                     slackSend botUser: true,
