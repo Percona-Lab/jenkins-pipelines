@@ -237,7 +237,7 @@ pipeline {
             name: 'PLATFORM_VER')
         choice(
             choices: 'NO\nYES',
-            description: 'Run tests with cluster wide',
+            description: 'Run tests in cluster wide mode',
             name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
