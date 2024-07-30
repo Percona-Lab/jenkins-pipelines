@@ -39,6 +39,7 @@ pipeline {
     environment {
         VM_MEMORY = "10240"
         OVF_PUBLIC_KEY=credentials('OVF_STAGING_PUB_KEY_QA')
+        DEFAULT_SSH_KEYS = getSHHKeysPMM()
     }
     stages {
         stage('Run staging server') {
@@ -112,14 +113,17 @@ pipeline {
                         for p in \$(seq 0 30); do
                             VBoxManage modifyvm ${VM_NAME} --natpf1 "guestexporters\$p,tcp,,4200\$p,,4200\$p"
                         done
+                        VBoxManage modifyvm ${VM_NAME} --vrde on
+                        VBoxManage modifyvm ${VM_NAME} --vrdeport 5000
                         VBoxManage startvm --type headless ${VM_NAME}
                         cat /tmp/${VM_NAME}-console.log
                         timeout 100 bash -c 'until curl --insecure -LI https://${IP}; do sleep 5; done' || true
+                        echo "${DEFAULT_SSH_KEYS}" >> /root/.ssh/authorized_keys
                     """
                     sh """
                         # This fails sometimes, so we want to isolate this step
                         sleep 180
-                        curl -k --user admin:admin https://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
+                        curl -k --user admin:admin -X PUT https://${IP}/v1/server/settings --data '{"ssh_key": "'"\${DEFAULT_SSH_KEYS}"'"}'
                     """
                 }
             }
@@ -169,6 +173,7 @@ pipeline {
         }
         failure {
             withCredentials([string(credentialsId: 'f5415992-e274-45c2-9eb9-59f9e8b90f43', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+                node(env.VM_NAME){
                 sh '''
                     set -o xtrace
 
@@ -176,6 +181,7 @@ pipeline {
                     DROPLET_ID=$(curl -s http://169.254.169.254/metadata/v1/id)
                     doctl compute droplet delete $DROPLET_ID
                 '''
+                }
             }
         }
         cleanup {
