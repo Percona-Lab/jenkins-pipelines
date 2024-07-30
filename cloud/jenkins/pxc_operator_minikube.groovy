@@ -204,7 +204,7 @@ void makeReport() {
 pipeline {
     parameters {
         choice(
-            choices: ['run-minikube.csv', 'run-release.csv', 'run-distro.csv'],
+            choices: ['run-minikube.csv', 'run-distro.csv'],
             description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
             name: 'TEST_SUITE')
         text(
@@ -224,6 +224,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
             description: 'percona-xtradb-cluster-operator repository',
             name: 'GIT_REPO')
+        string(
+            defaultValue: 'latest',
+            description: 'Kubernetes Version',
+            name: 'PLATFORM_VER')
         choice(
             choices: 'NO\nYES',
             description: 'Run tests with cluster wide',
@@ -234,7 +238,7 @@ pipeline {
             name: 'OPERATOR_IMAGE')
         string(
             defaultValue: '',
-            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:main-pxc5.7',
+            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0',
             name: 'IMAGE_PXC')
         string(
             defaultValue: '',
@@ -246,7 +250,7 @@ pipeline {
             name: 'IMAGE_HAPROXY')
         string(
             defaultValue: '',
-            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:main-pxc5.7-backup',
+            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup',
             name: 'IMAGE_BACKUP')
         string(
             defaultValue: '',
@@ -260,11 +264,6 @@ pipeline {
             defaultValue: '',
             description: 'PMM server image: perconalab/pmm-server:dev-latest',
             name: 'IMAGE_PMM_SERVER')
-        string(
-            defaultValue: 'latest',
-            description: 'Kubernetes Version',
-            name: 'PLATFORM_VER',
-            trim: true)
     }
 
     agent {
