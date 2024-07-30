@@ -233,9 +233,9 @@ pipeline {
                     env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz"
                     currentBuild.description = "RC Build, tarball: " + env.TARBALL_URL
                     // slackSend botUser: true,
-                              channel: '#pmm-qa',
-                              color: '#00FF00',
-                              message: "[${JOB_NAME}]: ${BUILD_URL} RC Client build finished\nClient Tarball: ${env.TARBALL_URL}"
+                    //           channel: '#pmm-qa',
+                    //           color: '#00FF00',
+                    //           message: "[${JOB_NAME}]: ${BUILD_URL} RC Client build finished\nClient Tarball: ${env.TARBALL_URL}"
                 }
             }
         }
