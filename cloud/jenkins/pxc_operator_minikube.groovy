@@ -18,6 +18,7 @@ void checkoutSources() {
         sudo rm -rf source
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
+
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
     PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
 }
@@ -74,7 +75,7 @@ void initTests() {
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
@@ -95,7 +96,7 @@ void initTests() {
     }
 }
 
-void prepareNode() {
+void installToolsOnNode() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
@@ -142,6 +143,7 @@ void runTest(Integer TEST_ID) {
                 cd source
 
                 export DEBUG_TESTS=1
+                [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=ps-operator
                 [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
                 export IMAGE_PXC=$IMAGE_PXC
                 export IMAGE_PROXY=$IMAGE_PROXY
@@ -154,7 +156,7 @@ void runTest(Integer TEST_ID) {
                 sudo rm -rf /tmp/hostpath-provisioner/*
                 e2e-tests/$testName/run
             """
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -202,6 +204,11 @@ void makeReport() {
 }
 
 pipeline {
+    environment {
+        CLEAN_NAMESPACE = 1
+        DB_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
+    }
+
     parameters {
         choice(
             choices: ['run-minikube.csv', 'run-distro.csv'],
@@ -275,11 +282,6 @@ pipeline {
         skipDefaultCheckout()
     }
 
-    environment {
-        CLEAN_NAMESPACE = 1
-        PXC_TAG = sh(script: "if [ -n \"\${IMAGE_PXC}\" ]; then echo ${IMAGE_PXC} | awk -F':' '{print \$2}'; else echo 'main'; fi", , returnStdout: true).trim()
-    }
-
     stages {
         stage('Checkout sources') {
             steps {
@@ -301,7 +303,7 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
-                prepareNode()
+                installToolsOnNode()
                 clusterRunner('cluster1')
             }
             post {

@@ -1,33 +1,10 @@
 tests=[]
 
-void prepareNode() {
-    echo "=========================[ Installing tools on the Jenkins executor ]========================="
-    sh """
-        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
-        kubectl version --client --output=yaml
+void checkoutSources() {
+    if ("$IMAGE_PXC") {
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_PXC".split(":")[1]
+    }
 
-        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-
-        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
-        sudo chmod +x /usr/local/bin/yq
-
-        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-        sudo chmod +x /usr/local/bin/jq
-
-        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
-
-        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
-        ./krew-linux_amd64 install krew
-        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-
-        kubectl krew install assert
-
-        # v0.17.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/336ef83542fd2f783bfa2c075b24599e834dcc77/plugins/kuttl.yaml
-        echo \$(kubectl kuttl --version) is installed
-    """
-
-    USED_PLATFORM_VER="$PLATFORM_VER"
     echo "USED_PLATFORM_VER=$PLATFORM_VER"
 
     echo "=========================[ Cloning the sources ]========================="
@@ -42,16 +19,11 @@ void prepareNode() {
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
 
-    stash includes: "source/**", name: "sourceFILES"
-
-    script {
-        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MYSQL-$IMAGE_ORCHESTRATOR-$IMAGE_ROUTER-$IMAGE_BACKUP-$IMAGE_TOOLKIT-$IMAGE_HAPROXY-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
-    }
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MYSQL-$IMAGE_ORCHESTRATOR-$IMAGE_ROUTER-$IMAGE_BACKUP-$IMAGE_TOOLKIT-$IMAGE_HAPROXY-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
-    unstash "sourceFILES"
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
@@ -103,7 +75,7 @@ void initTests() {
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PS_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
@@ -124,10 +96,38 @@ void initTests() {
     }
 }
 
+void installToolsOnNode() {
+    echo "=========================[ Installing tools on the Jenkins executor ]========================="
+    sh """
+        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+        kubectl version --client --output=yaml
+
+        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+
+        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
+        sudo chmod +x /usr/local/bin/yq
+
+        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+        sudo chmod +x /usr/local/bin/jq
+
+        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
+
+        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
+        ./krew-linux_amd64 install krew
+        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+
+        kubectl krew install assert
+
+        # v0.17.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/336ef83542fd2f783bfa2c075b24599e834dcc77/plugins/kuttl.yaml
+        echo \$(kubectl kuttl --version) is installed
+    """
+}
+
 void clusterRunner(String cluster) {
     sh """
         export CHANGE_MINIKUBE_NONE_USER=true
-        /usr/local/bin/minikube start --kubernetes-version $USED_PLATFORM_VER --cpus=6 --memory=28G
+        /usr/local/bin/minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G
     """
 
     for (int i=0; i<tests.size(); i++) {
@@ -149,30 +149,26 @@ void runTest(Integer TEST_ID) {
             echo "The $testName test was started !"
             tests[TEST_ID]["result"] = "failure"
 
-            timeout(time: 90, unit: 'MINUTES') {
-                sh """
-                    cd source
+            sh """
+                cd source
 
-                    [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=ps-operator
-                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
-                    export IMAGE_MYSQL=$IMAGE_MYSQL
-                    export IMAGE_ORCHESTRATOR=$IMAGE_ORCHESTRATOR
-                    export IMAGE_ROUTER=$IMAGE_ROUTER
-                    export IMAGE_HAPROXY=$IMAGE_HAPROXY
-                    export IMAGE_BACKUP=$IMAGE_BACKUP
-                    export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
-                    export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
-                    export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+                export DEBUG_TESTS=1
+                [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=ps-operator
+                [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
+                export IMAGE_MYSQL=$IMAGE_MYSQL
+                export IMAGE_ORCHESTRATOR=$IMAGE_ORCHESTRATOR
+                export IMAGE_ROUTER=$IMAGE_ROUTER
+                export IMAGE_HAPROXY=$IMAGE_HAPROXY
+                export IMAGE_BACKUP=$IMAGE_BACKUP
+                export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
+                export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
-                    sudo rm -rf /tmp/hostpath-provisioner/*
-
-                    export KUBECONFIG=~/.kube/config
-                    export PATH="\$HOME/.krew/bin:\$PATH"
-
-                    kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
-                """
-            }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PS_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+                sudo rm -rf /tmp/hostpath-provisioner/*
+                export PATH="\$HOME/.krew/bin:\$PATH"
+                kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
+            """
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -223,8 +219,9 @@ void makeReport() {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        PS_TAG = sh(script: "[[ \"$IMAGE_MYSQL\" ]] && echo $IMAGE_MYSQL | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
+        DB_TAG = sh(script: "[[ \"$IMAGE_MYSQL\" ]] && echo $IMAGE_MYSQL | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
     }
+
     parameters {
         choice(
             choices: ['run-minikube.csv', 'run-distro.csv'],
@@ -293,17 +290,20 @@ pipeline {
             description: 'PMM server image: perconalab/pmm-server:dev-latest',
             name: 'IMAGE_PMM_SERVER')
     }
+
     agent {
-         label 'docker-32gb'
+        label 'docker-32gb'
     }
+
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
     }
+
     stages {
-        stage('Prepare node') {
+        stage('Checkout sources') {
             steps {
-                prepareNode()
+                checkoutSources()
             }
         }
         stage('Docker Build and Push') {
@@ -318,19 +318,18 @@ pipeline {
         }
         stage('Run Tests') {
             options {
-                timeout(time: 4, unit: 'HOURS')
+                timeout(time: 3, unit: 'HOURS')
             }
             steps {
-                unstash "sourceFILES"
+                installToolsOnNode()
                 clusterRunner('cluster1')
             }
             post {
                 always {
                     sh """
                         /usr/local/bin/minikube delete || true
-                        sudo docker system prune --volumes -af
-                        sudo rm -rf *
                     """
+                    deleteDir()
                 }
             }
         }
@@ -345,12 +344,10 @@ pipeline {
             """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml'
-
             sh """
                 /usr/local/bin/minikube delete || true
-                sudo docker system prune --volumes -af
-                sudo rm -rf *
             """
+            deleteDir()
         }
     }
 }
