@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, ADMIN_PASSWORD = "admin") {
+void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, ADMIN_PASSWORD = "admin", PMM_QA_GIT_BRANCH) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -283,7 +283,7 @@ pipeline {
         }
         stage('Start Server') {
             steps {
-                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service --mongo-replica-for-backup', CLIENT_INSTANCE, '127.0.0.1', ADMIN_PASSWORD)
+                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service --mongo-replica-for-backup', CLIENT_INSTANCE, '127.0.0.1', ADMIN_PASSWORD, PMM_QA_GIT_BRANCH)
             }
         }
         stage('Setup PMM Clients') {
