@@ -233,7 +233,7 @@ pipeline {
             name: 'GIT_REPO')
         string(
             defaultValue: 'latest',
-            description: 'Kubernetes Version',
+            description: 'Minikube Kubernetes Version',
             name: 'PLATFORM_VER')
         choice(
             choices: 'NO\nYES',
@@ -305,14 +305,6 @@ pipeline {
             steps {
                 installToolsOnNode()
                 clusterRunner('cluster1')
-            }
-            post {
-                always {
-                    sh """
-                        /usr/local/bin/minikube delete || true
-                    """
-                    deleteDir()
-                }
             }
         }
     }

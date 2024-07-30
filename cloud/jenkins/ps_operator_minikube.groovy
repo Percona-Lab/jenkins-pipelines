@@ -166,7 +166,7 @@ void runTest(Integer TEST_ID) {
 
                 sudo rm -rf /tmp/hostpath-provisioner/*
                 export PATH="\$HOME/.krew/bin:\$PATH"
-                kubectl kuttl test --config ./e2e-tests/kuttl.yaml --test "^$testName\$"
+                kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
             """
             pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
@@ -246,7 +246,7 @@ pipeline {
             name: 'GIT_REPO')
         string(
             defaultValue: 'latest',
-            description: 'Kubernetes Version',
+            description: 'Minikube Kubernetes Version',
             name: 'PLATFORM_VER',
             trim: true)
         choice(
@@ -323,14 +323,6 @@ pipeline {
             steps {
                 installToolsOnNode()
                 clusterRunner('cluster1')
-            }
-            post {
-                always {
-                    sh """
-                        /usr/local/bin/minikube delete || true
-                    """
-                    deleteDir()
-                }
             }
         }
     }
