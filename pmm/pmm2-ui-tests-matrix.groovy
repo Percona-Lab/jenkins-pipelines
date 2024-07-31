@@ -20,6 +20,22 @@ void runUITestsJob(String GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VE
     ]
 }
 
+void runStaging(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS) {
+    stagingJob = build job: 'aws-staging-start', parameters: [
+        string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
+        string(name: 'CLIENT_VERSION', value: 'pmm2-latest'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e DISABLE_TELEMETRY=true -e DATA_RETENTION=48h -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX'),
+        string(name: 'CLIENTS', value: CLIENTS),
+        string(name: 'NOTIFY', value: 'false'),
+        string(name: 'DAYS', value: '1')
+    ]
+    env.VM_IP = stagingJob.buildVariables.IP
+    env.PMM_SERVER_IP = stagingJob.buildVariables.IP
+    env.VM_NAME = stagingJob.buildVariables.VM_NAME
+    env.ADMIN_PASSWORD = stagingJob.buildVariables.ADMIN_PASSWORD
+    env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
+}
+
 pipeline {
     agent {
         label 'agent-amd64'
@@ -149,26 +165,12 @@ pipeline {
                     }
                 }
                 stage('Run stanity tests for pmm-client docker container on arm64'){
-//                    steps {
-                        stagingJob = build job: 'aws-staging-start', parameters: [
-                            string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
-                            string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-                            string(name: 'CLIENTS', value: CLIENTS),
-                            string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-                            string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e DATA_RETENTION=48h -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s'),
-                            string(name: 'SERVER_IP', value: SERVER_IP),
-                            string(name: 'NOTIFY', value: 'false'),
-                            string(name: 'DAYS', value: '1'),
-                            string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
-                        ]
-                        env.VM_IP = stagingJob.buildVariables.IP
-                        env.VM_NAME = stagingJob.buildVariables.VM_NAME
-                        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
-                        env.PMM_UI_URL = "http://${VM_IP}/"
+                    steps {
+                        runStaging(String DOCKER_VERSION, CLIENT_VERSION, '') {
 //                        script {
 //                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@client-docker-multi-arch', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '', 'agent-arm64');
 //                        }
-//                    }
+                    }
                 }
             }
         }
