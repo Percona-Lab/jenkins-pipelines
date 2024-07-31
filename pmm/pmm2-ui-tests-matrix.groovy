@@ -150,9 +150,24 @@ pipeline {
                 }
                 stage('Run stanity tests for pmm-client docker container on arm64'){
                     steps {
-                        script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@client-docker-multi-arch', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '', 'agent-arm64');
-                        }
+                        stagingJob = build job: 'aws-staging-start', parameters: [
+                            string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
+                            string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
+                            string(name: 'CLIENTS', value: CLIENTS),
+                            string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
+                            string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e DATA_RETENTION=48h -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PERCONA_TEST_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PERCONA_TEST_CHECKS_INTERVAL=10s'),
+                            string(name: 'SERVER_IP', value: SERVER_IP),
+                            string(name: 'NOTIFY', value: 'false'),
+                            string(name: 'DAYS', value: '1'),
+                            string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
+                        ]
+                        env.VM_IP = stagingJob.buildVariables.IP
+                        env.VM_NAME = stagingJob.buildVariables.VM_NAME
+                        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
+                        env.PMM_UI_URL = "http://${VM_IP}/"
+//                        script {
+//                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@client-docker-multi-arch', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '', 'agent-arm64');
+//                        }
                     }
                 }
             }
@@ -160,6 +175,9 @@ pipeline {
     }
     post {
         always {
+            build job: 'aws-staging-stop', parameters: [
+                string(name: 'VM', value: env.VM_NAME),
+            ]
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
