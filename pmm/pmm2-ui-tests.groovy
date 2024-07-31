@@ -39,10 +39,19 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, ADMIN_PASS
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
     ]
     env.VM_IP = stagingJob.buildVariables.IP
+    env.SERVER_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
     env.PMM_UI_URL = "http://${VM_IP}/"
 }
+
+
+void destroyStaging(IP) {
+    build job: 'aws-staging-stop', parameters: [
+        string(name: 'VM', value: IP),
+    ]
+}
+
 
 pipeline {
     environment {
