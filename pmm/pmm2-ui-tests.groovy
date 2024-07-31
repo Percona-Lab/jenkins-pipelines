@@ -261,7 +261,7 @@ pipeline {
                     whereis chrome
                     whereis chromium
                     ls /usr/bin/chromium
-                    sudo apt install chromium-browser
+                    sudo yum install chromium-browser
                 '''
                 script {
                     if (ARCHITECTURE == "agent-amd64") {
