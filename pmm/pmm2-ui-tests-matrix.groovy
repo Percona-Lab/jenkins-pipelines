@@ -167,9 +167,6 @@ pipeline {
                 stage('Run stanity tests for pmm-client docker container on arm64'){
                     steps {
                         runStaging(String DOCKER_VERSION, CLIENT_VERSION, '')
-//                        script {
-//                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@client-docker-multi-arch', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '', 'agent-arm64');
-//                        }
                     }
                 }
             }
@@ -177,9 +174,6 @@ pipeline {
     }
     post {
         always {
-            build job: 'aws-staging-stop', parameters: [
-                string(name: 'VM', value: env.VM_NAME),
-            ]
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
