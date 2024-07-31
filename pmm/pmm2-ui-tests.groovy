@@ -261,9 +261,7 @@ pipeline {
                     whereis chrome
                     whereis chromium
                     ls /usr/bin/chromium
-                    cd /etc/yum.repos.d
-                    wget http://people.centos.org/hughesjr/chromium/6/chromium-el6.repo 
-                    sudo yum install chromium-browser
+                    sudo yum install -y epel chromium-browser
                 '''
                 script {
                     if (ARCHITECTURE == "agent-amd64") {
