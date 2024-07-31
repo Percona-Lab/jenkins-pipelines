@@ -261,6 +261,7 @@ pipeline {
                     whereis chrome
                     whereis chromium
                     ls /usr/bin/chromium
+                    ls /usr/bin/chromium-browser
                 '''
                 script {
                     if (ARCHITECTURE == "agent-amd64") {
