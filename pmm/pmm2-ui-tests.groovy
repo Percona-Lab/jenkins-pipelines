@@ -253,7 +253,7 @@ pipeline {
             parallel {
                 stage('Setup Server Instance') {
                     when {
-                        expression { env.CLIENT_INSTANCE == "no" }
+                        expression { env.CLIENT_INSTANCE == "no" && env.ARCHITECTURE = 'agent-amd64'}
                     }
                     steps {
                         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -290,6 +290,11 @@ pipeline {
                             env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${SERVER_IP}"
                             env.PMM_UI_URL = "http://${SERVER_IP}/"
                         }
+                    }
+                }
+                stage('Setup PMM Server on amd-64') {
+                    when {
+                        expression { env.ARCHITECTURE = 'agent-arm64'}
                     }
                 }
             }
