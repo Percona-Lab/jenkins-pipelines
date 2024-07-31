@@ -260,6 +260,7 @@ pipeline {
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                     whereis chrome
                     whereis chromium
+                    ls /usr/bin/chromium
                 '''
                 script {
                     if (ARCHITECTURE == "agent-amd64") {
