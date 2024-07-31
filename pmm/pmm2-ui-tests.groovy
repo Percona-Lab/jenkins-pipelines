@@ -26,6 +26,23 @@ def changeUserPasswordUtility(dockerImage) {
         return "yes"
 }
 
+void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION) {
+    stagingJob = build job: 'aws-staging-start', parameters: [
+        string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
+        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
+        string(name: 'DOCKER_ENV_VARIABLE', value: DOCKER_ENV_VARIABLE),
+        string(name: 'SERVER_IP', value: '127.0.0.1'),
+        string(name: 'NOTIFY', value: 'false'),
+        string(name: 'DAYS', value: '1')
+    ]
+
+    env.VM_IP = stagingJob.buildVariables.IP
+    env.VM_NAME = stagingJob.buildVariables.VM_NAME
+    env.ADMIN_PASSWORD = "pmm2023fortesting!"
+    env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
+    env.PMM_UI_URL = "http://${VM_IP}/"
+}
+
 pipeline {
     environment {
         AZURE_CLIENT_ID=credentials('AZURE_CLIENT_ID');
@@ -295,6 +312,9 @@ pipeline {
                 stage('Setup PMM Server on amd-64') {
                     when {
                         expression { env.ARCHITECTURE == 'agent-arm64'}
+                    }
+                    steps {
+                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION)
                     }
                 }
             }
