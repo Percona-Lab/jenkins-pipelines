@@ -294,7 +294,7 @@ pipeline {
                 }
                 stage('Setup PMM Server on amd-64') {
                     when {
-                        expression { env.ARCHITECTURE = 'agent-arm64'}
+                        expression { env.ARCHITECTURE == 'agent-arm64'}
                     }
                 }
             }
