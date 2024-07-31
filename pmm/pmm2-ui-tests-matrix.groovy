@@ -15,7 +15,7 @@ void runUITestsJob(String GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VE
         string(name: 'MONGO_IMAGE', value: MONGO_IMAGE),
         string(name: 'PROXYSQL_IMAGE', value: PROXYSQL_IMAGE),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'CLIENTS', value: CLIENTS)
+        string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'ARCHITECTURE', value: ARCHITECTURE)
     ]
 }
