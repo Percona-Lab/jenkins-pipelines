@@ -253,7 +253,7 @@ pipeline {
             parallel {
                 stage('Setup Server Instance') {
                     when {
-                        expression { env.CLIENT_INSTANCE == "no" && env.ARCHITECTURE = 'agent-amd64'}
+                        expression { env.CLIENT_INSTANCE == "no" && env.ARCHITECTURE == 'agent-amd64'}
                     }
                     steps {
                         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
