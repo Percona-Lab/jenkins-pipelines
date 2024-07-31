@@ -258,10 +258,6 @@ pipeline {
                         sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
                     popd
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
-                    whereis chrome
-                    whereis chromium
-                    ls /usr/bin/chromium
-                    sudo yum install -y epel chromium-browser
                 '''
                 script {
                     if (ARCHITECTURE == "agent-amd64") {
