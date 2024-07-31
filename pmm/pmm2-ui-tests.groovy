@@ -258,6 +258,8 @@ pipeline {
                         sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
                     popd
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
+                    whereis chrome
+                    whereis chromium
                 '''
                 script {
                     if (ARCHITECTURE == "agent-amd64") {
