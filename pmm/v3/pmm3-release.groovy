@@ -239,16 +239,12 @@ ENDSSH
                                 done
                             fi
 
-                            #
                             cd \${RELEASEDIR}/..
-                            #
                             ln -s \${RELEASE} LATEST
-                            #
                             cd /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
 
                             rsync -avt -e "ssh -p 2222" --bwlimit=50000 --exclude="*yassl*" --progress \${PRODUCT} jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/
 
-                            #
                             rm -fr /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
 ENDSSH
                 """
@@ -279,8 +275,6 @@ ENDSSH
                         set -ex
                         # push pmm-server el9
                         docker pull \${SERVER_IMAGE}
-                        docker tag \${SERVER_IMAGE} percona/pmm-server:latest
-                        docker push percona/pmm-server:latest
 
                         docker tag \${SERVER_IMAGE} percona/pmm-server:\${TOP_TAG}
                         docker tag \${SERVER_IMAGE} percona/pmm-server:\${MID_TAG}
@@ -300,8 +294,6 @@ ENDSSH
 
                         # push pmm-client
                         docker pull \${CLIENT_IMAGE}
-                        docker tag \${CLIENT_IMAGE} percona/pmm-client:latest
-                        docker push percona/pmm-client:latest
 
                         docker tag \${CLIENT_IMAGE} percona/pmm-client:\${TOP_TAG}
                         docker tag \${CLIENT_IMAGE} percona/pmm-client:\${MID_TAG}
