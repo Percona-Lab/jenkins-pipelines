@@ -41,40 +41,40 @@ def get_cloudformation_to_terminate(aws_region):
     return stacks_for_deletion
 
 def delete_stack(stack_name):
-    client = boto3.client('cloudformation')
+    cf_client = boto3.client('cloudformation')
     try:
-        # Initiate the delete operation
+        # Initiate the delete operation add timeout
         logging.info(f"Removing cloudformation stack: {stack_name}")
-        response = client.delete_stack(StackName=stack_name)
-        logging.info(f'Delete stack RESPONSE: {response}')
+        waiter_config = {
+            'Delay': 30,       # Time (in seconds) to wait between attempts
+            'MaxAttempts': 10  # Maximum number of attempts (30s * 40 = 1200s or 20 minutes)
+        }
+        waiter = cf_client.get_waiter('stack_delete_complete')
+        print(f"Waiting for stack {stack_name} to be deleted...")
+        response = cf_client.delete_stack(StackName=stack_name)
+        waiter.wait(StackName=stack_name, WaiterConfig=waiter_config)
     except ClientError as e:
         logging.info(f"Error deleting stack: {e}")
 
-def force_delete_stack(stack_name):
-    client = boto3.client('cloudformation')
+def delete_stack_resources(stack_name):
+    cf_client = boto3.client('cloudformation')
+    iam_client = boto3.client('iam')
     try:
-        # Get the list of stack resources
-        resources = client.describe_stack_resources(StackName=stack_name)
-
-        # Loop through each resource
+        resources = cf_client.describe_stack_resources(StackName=stack_name)
         for resource in resources['StackResources']:
-
             resource_id = resource['PhysicalResourceId']
             resource_type = resource['ResourceType']
             try:
-                # Attempt to delete each resource individually
-                logging.info(f"Attempting to delete resource: {resource_id} of type: {resource_type}")
-                response = client.delete_stack(StackName=resource_id)
-                sleep(5)
+                print(f"Attempting to delete resource: {resource_id} of type: {resource_type}")
+                if resource_type == 'AWS::IAM::Role':
+                    iam_client.delete_role(RoleName=resource_id)
+                elif resource_type == 'AWS::IAM::Policy':
+                    iam_client.delete_policy(PolicyArn=resource_id)
+                sleep(2)  # Sleep to avoid hitting rate limits
             except ClientError as e:
-                logging.info(f"Failed to delete resource: {resource_id}. Error: {e}")
-
-        # Delete the stack itself
-        delete_stack(stack_name)
-        response_desc = client.describe_stacks(StackName=stack_name)
+                print(f"Failed to delete resource: {resource_id}. Error: {e}")
     except ClientError as e:
-        logging.info(f"Error describing stack resources: {e}")
-
+        print(f"Error describing stack resources: {e}")
 
 def lambda_handler(event, context):
     aws_regions = get_regions_list()
@@ -86,8 +86,8 @@ def lambda_handler(event, context):
         for cloudformation_stack in cloudformation_stacks:
             try:
                 logging.info(f"Deleting cloudformation stacks.")
-                force_delete_stack(cloudformation_stack)
-
+                delete_stack_resources(cloudformation_stack)
+                delete_stack(cloudformation_stack)
             except ClientError as e:
                 logging.info(f"Failed to delete resource: {resource_id}. Error: {e}")
                 continue
