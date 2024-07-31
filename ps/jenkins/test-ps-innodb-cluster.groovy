@@ -6,7 +6,7 @@ library changelog: false, identifier: 'lib@add-dist', retriever: modernSCM([
 void installDependencies() {
     sh """
         sudo apt update -y
-        sudo apt install -y python3 python3-pip python3-dev python3-venv
+        sudo apt install -y python3 python3-pip python3-dev python3-venv jq tar
         python3 -m venv virtenv
         . virtenv/bin/activate
         python3 --version
