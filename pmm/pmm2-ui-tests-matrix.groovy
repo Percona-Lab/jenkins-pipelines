@@ -149,7 +149,7 @@ pipeline {
                     }
                 }
                 stage('Run stanity tests for pmm-client docker container on arm64'){
-                    steps {
+//                    steps {
                         stagingJob = build job: 'aws-staging-start', parameters: [
                             string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
                             string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -168,7 +168,7 @@ pipeline {
 //                        script {
 //                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@client-docker-multi-arch', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '', 'agent-arm64');
 //                        }
-                    }
+//                    }
                 }
             }
         }
