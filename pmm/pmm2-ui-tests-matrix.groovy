@@ -166,7 +166,7 @@ pipeline {
                 }
                 stage('Run stanity tests for pmm-client docker container on arm64'){
                     steps {
-                        runStaging(String DOCKER_VERSION, CLIENT_VERSION, '') {
+                        runStaging(String DOCKER_VERSION, CLIENT_VERSION, '')
 //                        script {
 //                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@client-docker-multi-arch', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '', 'agent-arm64');
 //                        }
