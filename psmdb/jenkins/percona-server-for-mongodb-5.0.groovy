@@ -177,6 +177,19 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Noble(22.04)') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:noble", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Buster(10)') {
                     agent {
                         label 'docker-32gb'
@@ -216,16 +229,30 @@ pipeline {
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Centos 7 debug binary tarball(glibc2.17)') {
+                stage('Oraclelinux 8 binary tarball(glibc2.28)') {
                     agent {
                         label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--debug=1")
+                        buildStage("oraclelinux:8", "--debug=1")
 
-                        pushArtifactFolder("debug/", AWS_STASH_PATH)
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Ubuntu Focal(20.04) binary tarball(glibc2.31)') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:focal", "--build_tarball=1")
+
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Ubuntu Jammy(22.04) binary tarball(glibc2.35)') {
@@ -235,22 +262,49 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--build_tarball=1")
+                        buildStage("ubuntu:jammy", "--debug=1")
 
                         pushArtifactFolder("tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-                stage('Ubuntu Jammy(22.04) debug binary tarball(glibc2.35)') {
+                stage('Ubuntu Noble(24.04) binary tarball(glibc2.39)') {
                     agent {
                         label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--debug=1")
+                        buildStage("ubuntu:noble", "--debug=1")
 
-                        pushArtifactFolder("debug/", AWS_STASH_PATH)
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Debian Buster(10) binary tarball(glibc2.28)') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:buster", "--debug=1")
+
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Debian Bullseye(11) binary tarball(glibc2.31)') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:bullseye", "--debug=1")
+
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
             }
