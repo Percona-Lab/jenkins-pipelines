@@ -49,8 +49,8 @@ void runAMIStagingStart(String AMI_ID) {
     ]
     env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
     env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
-    env.VM_IP = amiStagingJob.buildVariables.IP
-    env.VM_NAME = amiStagingJob.buildVariables.VM_NAME
+    env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
+    env.VM_NAME = amiStagingJob.buildVariables.INSTANCE_ID
     env.PMM_URL = "http://admin:admin@${AMI_INSTANCE_IP}"
     env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}"
 }
