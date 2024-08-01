@@ -123,7 +123,7 @@ pipeline {
                     sh """
                         # This fails sometimes, so we want to isolate this step
                         sleep 180
-                        curl -k --user admin:admin -X PUT https://${IP}/v1/server/settings --data '{"ssh_key": "'"\${DEFAULT_SSH_KEYS}"'"}'
+                        curl -k --user admin:admin -X PUT https://${IP}/v1/server/settings --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
                     """
                 }
             }
