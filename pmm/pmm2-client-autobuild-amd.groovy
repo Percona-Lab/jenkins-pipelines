@@ -47,7 +47,6 @@ pipeline {
                         script {
                             def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
                             if (params.DESTINATION == "testing") {
-                                env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}-amd64"
                                 env.DOCKER_RC_TAG = "${versionTag}-rc-amd64"
                             } else {
                                 env.DOCKER_LATEST_TAG = "dev-latest-amd64"

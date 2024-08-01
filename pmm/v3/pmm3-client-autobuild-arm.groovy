@@ -48,7 +48,6 @@ pipeline {
                 script {
                     def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
                     if (params.DESTINATION == "testing") {
-                        env.DOCKER_LATEST_TAG = "${versionTag}-rc${BUILD_NUMBER}-arm64"
                         env.DOCKER_RC_TAG = "${versionTag}-rc-arm64"
                     } else {
                         env.DOCKER_LATEST_TAG = "3-dev-latest-arm64"
