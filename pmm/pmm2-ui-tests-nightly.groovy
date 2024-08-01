@@ -43,6 +43,18 @@ void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
     env.ADMIN_PASSWORD = "admin"
 }
 
+void runAMIStagingStart(String AMI_ID) {
+    amiStagingJob = build job: 'pmm2-ami-staging-start', parameters: [
+        string(name: 'AMI_ID', value: AMI_ID)
+    ]
+    env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
+    env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
+    env.VM_IP = amiStagingJob.buildVariables.IP
+    env.VM_NAME = amiStagingJob.buildVariables.VM_NAME
+    env.PMM_URL = "http://admin:admin@${AMI_INSTANCE_IP}"
+    env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}"
+}
+
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
@@ -316,6 +328,14 @@ pipeline {
                         runOVFStagingStart(DOCKER_VERSION, PMM_QA_GIT_BRANCH)
                     }
                 }
+                stage('Setup AMI Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "ami" }
+                    }
+                    steps {
+                        runAMIStagingStart(DOCKER_VERSION)
+                    }
+                }
             }
         }
         stage('Setup PMM Clients') {
@@ -448,7 +468,12 @@ pipeline {
                         string(name: 'VM', value: env.OVF_INSTANCE_NAME),
                     ]
                 }
-                if(env.VM_NAME && !env.SERVER_TYPE == "ovf")
+                if (env.SERVER_TYPE == "ami") {
+                    amiStagingStopJob = build job: 'pmm2-ami-staging-stop', parameters: [
+                        string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
+                    ]
+                }
+                if(env.VM_NAME && env.SERVER_TYPE == "docker")
                 {
                     destroyStaging(VM_NAME)
                 }
