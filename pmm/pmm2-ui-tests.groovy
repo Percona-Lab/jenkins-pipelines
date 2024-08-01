@@ -258,7 +258,6 @@ pipeline {
                         sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
                     popd
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
-                    sudo dnf install -y chromium
                 '''
                 script {
                     if (ARCHITECTURE == "agent-amd64") {
