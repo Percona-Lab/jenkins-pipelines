@@ -393,6 +393,20 @@ pipeline {
                 sleep 300
             }
         }
+        stage('Provide AMI id for AMI instance') {
+            when {
+                expression { env.SERVER_TYPE == "ami" }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        export PWD=\$(pwd);
+                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep 'Add AMI Instance ID @ami-upgrade' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
+                    """
+                }
+            }
+        }
         stage('Run Tests') {
             parallel {
                 stage('Run UI - Tests') {
