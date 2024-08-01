@@ -402,7 +402,7 @@ pipeline {
                     sh """
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
-                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep 'Add AMI Instance ID @ami-upgrade' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
+                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep 'Add AMI Instance ID on first start of AMI instance.' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
                     """
                 }
             }
