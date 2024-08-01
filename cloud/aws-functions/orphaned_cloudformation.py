@@ -8,12 +8,18 @@ from utils import get_regions_list
 from time import sleep
 
 def is_stack_to_terminate(stack):
-    tags = stack.tags
-    tags_dict = {item['Key']: item['Value'] for item in tags}
-
-    if 'team' not in tags_dict.keys() or ('team' in tags_dict.keys() and tags_dict['team'] != 'cloud'):
+#     tags = stack.tags
+#     tags_dict = {item['Key']: item['Value'] for item in tags}
+    cf_client = boto3.client('cloudformation')
+    try:
+        tags = cf_client.describe_stacks(StackName=stack)['Stacks']['Tags']
+    except ClientError as e:
+        print(e)
         return False
-    if 'delete-cluster-after-hours' not in tags_dict.keys():
+
+    if 'team' not in tags.keys() or ('team' in tags.keys() and tags['team'] != 'cloud'):
+        return False
+    if 'delete-cluster-after-hours' not in tags.keys():
         return True
 
     stack_lifetime = float(tags_dict['delete-cluster-after-hours'])
@@ -25,10 +31,10 @@ def is_stack_to_terminate(stack):
     return False
 
 def get_cloudformation_to_terminate(aws_region):
-    cf_client = boto3.resource('cloudformation')
-    statuses = ['ROLLBACK_COMPLETE', 'CREATE_COMPLETE', 'UPDATE_COMPLETE', 'DELETE_FAILED']
+    cf_client = boto3.client('cloudformation')
+
     stacks_for_deletion = []
-    cloudformation_stacks = [stack for stack in cf_client.stacks.all() if stack.stack_status in statuses]
+    cloudformation_stacks = [stack['StackName'] for stack in cf_client.list_stacks()['StackSummaries']]
     if not cloudformation_stacks:
         logging.info(f"There are no cloudformation_stacks in cloud")
 
