@@ -180,9 +180,13 @@ pipeline {
             defaultValue: '',
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
+        choice(
+            choices: ['docker', 'ovf', 'ami'],
+            description: "Use this instance only as a client host",
+            name: 'SERVER_TYPE')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: 'PMM Server docker container version (image-name:version-tag)',
+            description: 'PMM Server docker container version (image-name:version-tag), or OVF/AMI tags dependent on setup selected.',
             name: 'DOCKER_VERSION')
         string(
             defaultValue: 'dev-latest',
@@ -281,8 +285,15 @@ pipeline {
             }
         }
         stage('Start Server') {
-            steps {
-                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service', CLIENT_INSTANCE, '127.0.0.1', ADMIN_PASSWORD)
+            parallel {
+                stage('Setup Docker Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "docker" }
+                    }
+                    steps {
+                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service', CLIENT_INSTANCE, '127.0.0.1', ADMIN_PASSWORD)
+                    }
+                }
             }
         }
         stage('Setup PMM Clients') {
