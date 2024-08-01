@@ -30,7 +30,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
 }
 
 void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
-    ovfStagingJob = build job: 'pmm-ovf-staging-start', parameters: [
+    ovfStagingJob = build job: 'pmm2-ovf-staging-start', parameters: [
         string(name: 'OVA_VERSION', value: SERVER_VERSION),      
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
     ]
