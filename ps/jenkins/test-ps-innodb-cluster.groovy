@@ -118,7 +118,8 @@ pipeline {
                 'rhel-8',
                 'rhel-9',
                 'rhel-9-arm',
-                'debian-12-arm' 
+                'debian-12-arm',
+                'ubuntu-noble-arm' 
             ],
             description: 'Distribution to run test'
         )
