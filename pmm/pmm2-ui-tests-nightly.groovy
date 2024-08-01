@@ -29,6 +29,17 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
+void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
+    ovfStagingJob = build job: 'pmm-ovf-staging-start', parameters: [
+        string(name: 'OVA_VERSION', value: SERVER_VERSION),      
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
+    ]
+    env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
+    env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
+    env.PMM_URL = "http://admin:admin@${OVF_INSTANCE_IP}"
+    env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}"
+}
+
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
@@ -294,6 +305,14 @@ pipeline {
                         runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service', CLIENT_INSTANCE, '127.0.0.1', ADMIN_PASSWORD)
                     }
                 }
+                stage('Setup OVF Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "ovf" }
+                    }
+                    steps {
+                        runOVFStagingStart(DOCKER_VERSION, PMM_QA_GIT_BRANCH)
+                    }
+                }
             }
         }
         stage('Setup PMM Clients') {
@@ -421,7 +440,12 @@ pipeline {
             ])
             */
             script {
-                if(env.VM_NAME)
+                if (env.SERVER_TYPE == "ovf") {
+                    ovfStagingStopJob = build job: 'pmm-ovf-staging-stop', parameters: [
+                        string(name: 'VM', value: env.OVF_INSTANCE_NAME),
+                    ]
+                }
+                if(env.VM_NAME && !env.SERVER_TYPE == "ovf")
                 {
                     destroyStaging(VM_NAME)
                 }
