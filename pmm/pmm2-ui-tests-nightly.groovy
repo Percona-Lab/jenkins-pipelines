@@ -36,6 +36,8 @@ void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
     ]
     env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
     env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
+    env.VM_IP = ovfStagingJob.buildVariables.IP
+    env.VM_NAME = ovfStagingJob.buildVariables.VM_NAME
     env.PMM_URL = "http://admin:admin@${OVF_INSTANCE_IP}"
     env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}"
 }
