@@ -117,12 +117,5 @@ pipeline {
                 }
             }
          }
-  }
-#    post {
-#        always {
-#          script {
-#              moleculeParallelPostDestroy(pdpsOperatingSystems(), env.MOLECULE_DIR)
-#         }
-#      }
-#   }
+    }
 }
