@@ -79,7 +79,7 @@ pipeline {
                             sleep 5
                         done
 
-                        echo "${DEFAULT_SSH_KEYS}" >> /root/.ssh/authorized_keys
+                        echo "$DEFAULT_SSH_KEYS" | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@${PUBLIC_IP} 'cat - >> /root/.ssh/authorized_keys'
                         if [ -n "$SSH_KEY" ]; then
                             echo "$SSH_KEY" | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@${PUBLIC_IP} 'cat - >> /root/.ssh/authorized_keys'
                         fi
