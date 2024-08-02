@@ -121,6 +121,8 @@ pipeline {
                 'debian-12-arm',
                 'ubuntu-noble-arm',
                 'rhel-8-arm',
+                'ubuntu-jammy-arm',
+                'debian-11-arm'
             ],
             description: 'Distribution to run test'
         )
