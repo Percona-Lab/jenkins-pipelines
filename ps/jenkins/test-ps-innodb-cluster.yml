@@ -53,6 +53,7 @@
                 - 'rhel-8-arm'
                 - 'ubuntu-jammy-arm'
                 - 'debian-11-arm'
+                - 'ubuntu-focal-arm'
             description: "Distribution to run test"
         - choice:
             name: INSTALL_REPO

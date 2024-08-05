@@ -122,7 +122,8 @@ pipeline {
                 'ubuntu-noble-arm',
                 'rhel-8-arm',
                 'ubuntu-jammy-arm',
-                'debian-11-arm'
+                'debian-11-arm',
+                'ubuntu-focal-arm'
             ],
             description: 'Distribution to run test'
         )
