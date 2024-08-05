@@ -68,7 +68,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(pdpsOperatingSystems() + ['rocky-8', 'rocky-9'], env.MOLECULE_DIR)
+                    moleculeParallelTest(ps80telemOperatingSystems.groovy() + ['rocky-8', 'rocky-9'], env.MOLECULE_DIR)
                 }
             }
          }
@@ -76,11 +76,11 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(pdpsOperatingSystems() + ['rocky-8', 'rocky-9'], env.MOLECULE_DIR)
+              moleculeParallelPostDestroy(ps80telemOperatingSystems.groovy() + ['rocky-8', 'rocky-9'], env.MOLECULE_DIR)
          }
       }
    }
 }
 
 List operating_systems = []
-operating_systems = pdpsOperatingSystems() + ['rocky-8', 'rocky-9']
+operating_systems = ps80telemOperatingSystems.groovy() + ['rocky-8', 'rocky-9']
