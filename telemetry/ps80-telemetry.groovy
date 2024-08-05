@@ -4,7 +4,7 @@ library changelog: false, identifier: "lib@telem_ph1", retriever: modernSCM([
 ])
 
 List operating_systems = []
-operating_systems = ps80telemOperatingSystems.groovy() + ['rocky-8', 'rocky-9']
+operating_systems = ps80telemOperatingSystems() + ['rocky-8', 'rocky-9']
 
 pipeline {
     agent {
