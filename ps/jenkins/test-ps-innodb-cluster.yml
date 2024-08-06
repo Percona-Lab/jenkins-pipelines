@@ -41,19 +41,18 @@
                 - 'ubuntu-focal'
                 - 'debian-12'
                 - 'debian-11'
-                - 'debian-10'
                 - 'centos-7'
                 - 'oracle-8'
                 - 'oracle-9'
                 - 'rhel-8'
                 - 'rhel-9'
-                - 'rhel-9-arm'
-                - 'debian-12-arm'
-                - 'ubuntu-noble-arm'
                 - 'rhel-8-arm'
-                - 'ubuntu-jammy-arm'
+                - 'rhel-9-arm'
                 - 'debian-11-arm'
+                - 'debian-12-arm'
                 - 'ubuntu-focal-arm'
+                - 'ubuntu-jammy-arm'
+                - 'ubuntu-noble-arm'
             description: "Distribution to run test"
         - choice:
             name: INSTALL_REPO
