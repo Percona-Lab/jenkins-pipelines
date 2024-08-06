@@ -8,7 +8,6 @@ pipeline {
       label 'min-ol-8-x64'
   }
   environment {
-      DESTROY_ENV = "no"
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
       MOLECULE_DIR = "molecule/pdmysql/${SCENARIO}";
 
@@ -117,5 +116,12 @@ pipeline {
                 }
             }
          }
-    }
-}
+  }
+    post {
+        always {
+          script {
+              moleculeParallelPostDestroy(pdpsOperatingSystems(), env.MOLECULE_DIR)
+         }
+      }
+   }
+}       
