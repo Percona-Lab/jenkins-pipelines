@@ -19,7 +19,7 @@ void installDependencies() {
 
     sh '''
         rm -rf package-testing
-        git clone -b add-dist https://github.com/kaushikpuneet07/package-testing
+        git clone https://github.com/Percona-QA/package-testing
     '''
 }
 
