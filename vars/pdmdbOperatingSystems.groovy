@@ -1,4 +1,6 @@
 def call(String version = 'default', String newVersion = null, String gatedBuild = 'false') {
+    Boolean isGatedBuild = gatedBuild.toLowerCase() == 'true'
+
     def switchValues = [
         (~/(p.mdb-)?4(\.)?0.*/):  ['centos-7', 'debian-10', 'debian-11', 'ubuntu-focal', 'rhel8', 'ubuntu-jammy'],
         (~/(p.mdb-)?5(\.)?0.*/):  ['centos-7', 'debian-10', 'debian-11', 'ubuntu-focal', 'rhel8', 'ubuntu-jammy','ubuntu-noble'],
@@ -11,9 +13,5 @@ def call(String version = 'default', String newVersion = null, String gatedBuild
     def versionValues = switchValues.find { key, value -> version ==~ key }?.value ?: switchValues['default']
     def newVersionValues = switchValues.find { key, value -> newVersion ==~ key }?.value ?: versionValues
 
-    Boolean isGatedBuild = gatedBuild.toLowerCase() == 'true'
-    if (isGatedBuild && version ==~ /^(p\.mdb-)?6(\.)?0.*/) {
-        versionValues.add('ubuntu-bionic')
-    }
     return versionValues.intersect(newVersionValues)
 }
