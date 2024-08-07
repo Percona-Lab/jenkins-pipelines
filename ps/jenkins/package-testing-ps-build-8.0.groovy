@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@add-dist', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 setup_rhel_package_tests = { ->
@@ -55,7 +55,6 @@ setup_ubuntu_package_tests = { ->
 }
 
 node_setups = [
-    "min-buster-x64": setup_debian_package_tests,
     "min-bullseye-x64": setup_debian_package_tests,
     "min-bookworm-x64": setup_debian_package_tests,
     "min-ol-8-x64": setup_rhel8_package_tests,
