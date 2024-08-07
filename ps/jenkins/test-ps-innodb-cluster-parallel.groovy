@@ -4,14 +4,23 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 List all_nodes = [
+    'ubuntu-noble',
     'ubuntu-focal',
     'ubuntu-jammy',
-    'debian-10',
     'debian-11',
     'debian-12',
     'centos-7',
     'oracle-8',
-    'oracle-9'
+    'oracle-9',
+    'rhel-8',
+    'rhel-9',
+    'rhel-8-arm',
+    'rhel-9-arm',
+    'debian-11-arm',
+    'debian-12-arm',
+    'ubuntu-focal-arm',
+    'ubuntu-jammy-arm',
+    'ubuntu-noble-arm'
 ]
 
 List TEST_DISTS = []
@@ -61,14 +70,23 @@ pipeline {
             name: 'TEST_DIST',
             choices: [
                 'all',
+                'ubuntu-noble',
                 'ubuntu-focal',
                 'ubuntu-jammy',
-                'debian-10',
                 'debian-11',
                 'debian-12',
                 'centos-7',
                 'oracle-8',
-                'oracle-9'
+                'oracle-9',
+                'rhel-8',
+                'rhel-9',
+                'rhel-8-arm',
+                'rhel-9-arm',
+                'debian-11-arm',
+                'debian-12-arm',
+                'ubuntu-focal-arm',
+                'ubuntu-jammy-arm',
+                'ubuntu-noble-arm'
             ],
             description: 'Distribution to run test'
         )
@@ -95,6 +113,19 @@ pipeline {
 
         stage("Run parallel") {
             parallel {
+           
+                stage("Ubuntu Noble") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("ubuntu-noble")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("ubuntu-noble")
+                    }
+                }
+
                 stage("Ubuntu Focal") {
                     when {
                         expression {
@@ -119,15 +150,39 @@ pipeline {
                     }
                 }
 
-                stage("Debian Buster") {
+                stage("Ubuntu Noble ARM") {
                     when {
                         expression {
-                            TEST_DISTS.contains("debian-10")
+                            TEST_DISTS.contains("ubuntu-noble-arm")
                         }
                     }
 
                     steps {
-                        runNodeBuild("debian-10")
+                        runNodeBuild("ubuntu-noble-arm")
+                    }
+                }
+
+                stage("Ubuntu Jammy ARM") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("ubuntu-jammy-arm")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("ubuntu-jammy-arm")
+                    }
+                }
+
+                stage("Ubuntu Focal ARM") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("ubuntu-focal-arm")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("ubuntu-focal-arm")
                     }
                 }
 
@@ -143,6 +198,18 @@ pipeline {
                     }
                 }
 
+                stage("Debian Bullseye ARM") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("debian-11-arm")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("debian-11-arm")
+                    }
+                }
+
                 stage("Debian Bookworm") {
                     when {
                         expression {
@@ -152,6 +219,18 @@ pipeline {
 
                     steps {
                         runNodeBuild("debian-12")
+                    }
+                }
+
+                stage("Debian Bookworm-arm") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("debian-12-arm")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("debian-12-arm")
                     }
                 }
 
@@ -188,6 +267,59 @@ pipeline {
 
                     steps {
                         runNodeBuild("oracle-9")
+    
+                    }
+                }
+
+                stage("Rhel-8") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("rhel-8")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("rhel-8")
+
+                    }
+                }
+
+                stage("Rhel-8-arm") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("rhel-8-arm")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("rhel-8-arm")
+
+                    }
+                }
+
+                stage("Rhel-9") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("rhel-9")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("rhel-9")
+
+                    }
+                }
+
+                stage("Rhel-9-arm") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("rhel-9-arm")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("rhel-9-arm")
+
                     }
                 }
             }
