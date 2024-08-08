@@ -17,8 +17,8 @@
     }
     parameters {
         choice(
-            choices: ['pxb_80', 'pxb_innovation_lts'],
-            description: 'Choose the product version to test: PXB8.0 OR pxb_innovation_lts',
+            choices: ['pxb_80', 'pxb_innovation_lts', 'pxb_84'],
+            description: 'Choose the product version to test: PXB8.0, PXB8.4 OR pxb_innovation_lts',
             name: 'product_to_test'
         )
         choice(
@@ -37,7 +37,9 @@
                 'ps_innovation_lts',
                 'ms_innovation_lts',
                 'ps-80',
-                'ms-80'
+                'ms-80',
+                'ps-84',
+                'ms-84'
             ],
             description: 'Server to test',
             name: 'server_to_test'
