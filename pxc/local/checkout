@@ -30,36 +30,13 @@ if [ "$SOURCE_NAME" == 'PXC80' -o "$SOURCE_NAME" == 'ALL' ]; then
 
     sudo rm -rf ${PXC_ROOT_DIR}
 
-    git clone "${GIT_REPO:-https://github.com/percona/percona-xtradb-cluster}" "${PXC_ROOT_DIR}"
+    git clone --depth 1 "${GIT_REPO:-https://github.com/percona/percona-xtradb-cluster}" "${PXC_ROOT_DIR}" -b "${BRANCH}"
 
     pushd $PXC_ROOT_DIR
-        if [ -n "${GIT_REPO}" ]; then
-            git remote set-url origin "${GIT_REPO}"
-            git fetch --all
-        fi
-         
         git reset --hard
         git clean -xdf
 
         mkdir ./target
-
-        if [[ ${USE_PR} == "true" ]]; then
-            git fetch origin pull/${BRANCH}/merge:pr-${BRANCH}
-        fi
-        if [ -n "${BRANCH}" ]; then
-            if [[ ${USE_PR} == "true" ]]; then
-                git checkout pr-${BRANCH}
-            else      
-                git checkout "${BRANCH}"
-            fi
-        fi
-        if [ -n "${GIT_REPO}" -a -n "${BRANCH}" ]; then
-            if [[ ${USE_PR} == "true" ]]; then
-                git pull origin pull/${BRANCH}/merge:pr-${BRANCH}
-            else
-                git pull origin ${BRANCH}
-            fi
-        fi
 
         if [ -n "${PXC_GALERA_REPO}" ]; then
             git config -f .gitmodules submodule.percona-xtradb-cluster-galera.url "${PXC_GALERA_REPO}"

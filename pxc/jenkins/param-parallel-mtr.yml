@@ -36,10 +36,6 @@
         name: CUSTOM_BUILD_NAME
         default: ""
         description: Custom string that will be appended to the build name visible in Jenkins
-    - bool:
-        name: USE_PR
-        default: false
-        description: "Check only if you pass PR number to BRANCH field"
     - string:
         name: PXB_PREV_LTS_VERSION_URL
         default: "https://downloads.percona.com/downloads/Percona-XtraBackup-8.0/Percona-XtraBackup-8.0.35-31/binary/tarball/percona-xtrabackup-8.0.35-31-Linux-x86_64.glibc2.17-minimal.tar.gz"
