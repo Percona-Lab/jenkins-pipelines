@@ -782,9 +782,17 @@ parameters {
                         }
                     } else {
                         if (env.FIPSMODE == 'YES') {
-                            sync2PrivateProdAutoBuild("ps-80-innovation-pro", COMPONENT)
+                            if ("${MYSQL_VERSION_MINOR}" == "4") {
+                                sync2PrivateProdAutoBuild("ps-84-lts-pro", COMPONENT)
+                            } else {
+                                sync2PrivateProdAutoBuild("ps-8x-innovation-pro", COMPONENT)
+                            }
                         } else {
-                            sync2ProdAutoBuild("ps-8x-innovation", COMPONENT)
+                            if ("${MYSQL_VERSION_MINOR}" == "4") {
+                                sync2ProdAutoBuild("ps-84-lts", COMPONENT)
+                            } else {
+                                sync2ProdAutoBuild("ps-8x-innovation", COMPONENT)
+                            }
                         }
                     }
                 }
@@ -845,7 +853,12 @@ parameters {
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                                sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile
+                                if [ ${PS_MAJOR_RELEASE} == "84" ]; then
+                                    sed -i "s/percona-release enable ps-80/percona-release enable ps-84-lts/g" Dockerfile
+                                    sed -i "s/percona-release enable mysql-shell/PS_REPO=\"experimental\";percona-release enable mysql-shell/g" Dockerfile
+                                else
+                                    sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile
+                                fi
                             fi
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile.aarch64
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile.aarch64
@@ -859,9 +872,11 @@ parameters {
                             sed -i "s/ENV ROUTE_VERSION.*/ENV ROUTE_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                                sed -i "s/percona-release setup pdps-.*/percona-release enable ps-8x-innovation testing/g" Dockerfile
-                            else
-                                sed -i "s/percona-release setup pdps-8.0/percona-release enable ps-80 testing/g" Dockerfile
+                                if [ ${PS_MAJOR_RELEASE} == "84" ]; then
+                                    sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-84-lts testing/g" Dockerfile
+                                else
+                                    sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-8x-innovation testing/g" Dockerfile
+                                fi
                             fi
                             sudo docker build -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE} .
                             sudo docker images
