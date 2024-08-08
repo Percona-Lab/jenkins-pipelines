@@ -506,6 +506,106 @@ parameters {
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Focal(20.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
+
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Ubuntu Jammy(22.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:jammy", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:jammy", "--build_deb=1 --with_zenfs=1")
+                            }
+                        }
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Noble(24.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:noble", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:noble", "--build_deb=1 --with_zenfs=1")
+                            }
+                        }
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Bullseye(11) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                buildStage("debian:bullseye", "--build_deb=1 --with_zenfs=1")
+
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Debian Bookworm(12) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("debian:bookworm", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:bookworm", "--build_deb=1 --with_zenfs=1")
+                            }
+                        }
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Centos 7 binary tarball') {
                     agent {
                         label 'min-centos-7-x64'
