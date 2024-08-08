@@ -36,12 +36,13 @@ docker run --rm --shm-size=24G \
     export MTR_STANDALONE_TESTS_PARALLEL='${MTR_STANDALONE_TESTS_PARALLEL}'
     export CI_FS_MTR='${CI_FS_MTR}'
     export DOCKER_OS='${DOCKER_OS//:/-}'
+    export PXB_PREV_LTS_TARGET_DIR='${PXB_PREV_LTS_VERSION_TARGET_DIR}'
     export PXB_A_TARGET_DIR='${PXB_PREV_VERSION_TARGET_DIR}'
     export PXB_B_TARGET_DIR='${PXB_THIS_VERSION_TARGET_DIR}'
 
     mkdir /tmp/results
     cp /tmp/pxc/results/*.tar.gz /tmp/results
-    cp -ra /tmp/pxc/results/pxb80 /tmp/results/pxb80
+    cp -ra /tmp/pxc/results/pxb_prev_LTS /tmp/results/pxb_prev_LTS
     cp -ra /tmp/pxc/results/pxb_A /tmp/results/pxb_A ||:
     cp -ra /tmp/pxc/results/pxb_B /tmp/results/pxb_B ||:
 

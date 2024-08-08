@@ -40,34 +40,30 @@
         name: USE_PR
         default: false
         description: "Check only if you pass PR number to BRANCH field"
-    - bool:
-        name: PXB80_LATEST
-        default: true
-        description: "If checked, the PXB80_BRANCH will be ignored and latest available version will be used"
     - string:
-        name: PXB80_REPO
-        default: https://github.com/percona/percona-xtrabackup
-        description: URL to PXB80 repository
+        name: PXB_PREV_LTS_VERSION_URL
+        default: "https://downloads.percona.com/downloads/Percona-XtraBackup-8.0/Percona-XtraBackup-8.0.35-31/binary/tarball/percona-xtrabackup-8.0.35-31-Linux-x86_64.glibc2.17-minimal.tar.gz"
+        description: PXB package URL pointing to previous LTS version. glibc version will be auto-adjusted by Jenkins script depending on platform. This will be stored in pxc_extra/PXB_PREV_LTS_VERSION_TARGET_DIR
     - string:
-        name: PXB80_BRANCH
-        default: percona-xtrabackup-8.0.27-19
-        description: Tag/Branch for PXB80 repository
+        name: PXB_PREV_LTS_VERSION_TARGET_DIR
+        default: "pxb-8.0"
+        description: PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_PREV_LTS_VERSION_TARGET_DIR
     - string:
         name: PXB_PREV_VERSION_URL
-        default: "https://downloads.percona.com/downloads/Percona-XtraBackup-innovative-release/Percona-XtraBackup-8.1.0-1/binary/tarball/percona-xtrabackup-8.1.0-1-Linux-x86_64.glibc2.17-minimal.tar.gz"
-        description: Additional PXB package URL to be available in pxc_extra/PXB_A_TARGET_PATH
+        default: "https://downloads.percona.com/downloads/Percona-XtraBackup-innovative-release/Percona-XtraBackup-8.3.0-1/binary/tarball/percona-xtrabackup-8.3.0-1-Linux-x86_64.glibc2.17-minimal.tar.gz"
+        description: PXB package URL pointing to previous version. glibc version will be auto-adjusted by Jenkins script depending on platform. This will be stored in pxc_extra/PXB_PREV_VERSION_TARGET_DIR
     - string:
         name: PXB_PREV_VERSION_TARGET_DIR
-        default: "pxb-8.1"
-        description: Additional PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_A_TARGET_PATH
+        default: "pxb-8.3"
+        description: PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_PREV_VERSION_TARGET_DIR
     - string:
         name: PXB_THIS_VERSION_URL
-        default: "https://downloads.percona.com/downloads/Percona-XtraBackup-innovative-release/Percona-XtraBackup-8.2.0-1/binary/tarball/percona-xtrabackup-8.2.0-1-Linux-x86_64.glibc2.17-minimal.tar.gz"
-        description: Additional PXB package URL to be available in pxc_extra/PXB_A_TARGET_PATH
+        default: "https://downloads.percona.com/downloads/Percona-XtraBackup-innovative-release/Percona-XtraBackup-8.3.0-1/binary/tarball/percona-xtrabackup-8.3.0-1-Linux-x86_64.glibc2.17-minimal.tar.gz"
+        description: PXB package URL pointing to this version. glibc version will be auto-adjusted by Jenkins script depending on platform. This will be stored in pxc_extra/PXB_THIS_VERSION_TARGET_DIR
     - string:
         name: PXB_THIS_VERSION_TARGET_DIR
-        default: "pxb-8.2"
-        description: Additional PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_A_TARGET_PATH
+        default: "pxb-8.4"
+        description: Additional PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_THIS_VERSION_TARGET_DIR
     - choice:
         name: JOB_CMAKE
         choices:
