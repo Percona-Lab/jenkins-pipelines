@@ -55,12 +55,11 @@ setup_ubuntu_package_tests = { ->
 }
 
 node_setups = [
-    "min-buster-x64": setup_debian_package_tests,
     "min-bullseye-x64": setup_debian_package_tests,
     "min-bookworm-x64": setup_debian_package_tests,
     "min-ol-8-x64": setup_rhel8_package_tests,
     "min-centos-7-x64": setup_rhel_package_tests,
-    "min-bionic-x64": setup_ubuntu_package_tests,
+    "min-noble-x64": setup_ubuntu_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
     "min-amazon-2-x64": setup_amazon_package_tests,
     "min-jammy-x64": setup_ubuntu_package_tests,

@@ -4,15 +4,18 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 void installDependencies() {
-    sh '''
-        export PATH=${PATH}:~/.local/bin
-        sudo yum install -y git python3-pip jq tar
-        sudo amazon-linux-extras install  python3.8 ansible2
-        python3 -m venv venv
-        source venv/bin/activate
-        python3 -m pip install --upgrade pip setuptools wheel
-        python3 -m pip install molecule==2.22 boto boto3 paramiko testinfra
-    '''
+    sh """
+        sudo apt update -y
+        sudo apt install -y python3 python3-pip python3-dev python3-venv jq tar
+        python3 -m venv virtenv
+        . virtenv/bin/activate
+        python3 --version
+        python3 -m pip install --upgrade pip
+        python3 -m pip install --upgrade setuptools
+        python3 -m pip install --upgrade setuptools-rust
+        python3 -m pip install --upgrade PyYaml==5.3.1 molecule==3.3.0 testinfra pytest molecule-ec2==0.3 molecule[ansible] "ansible<10.0.0" "ansible-lint>=5.1.1,<6.0.0" boto3 boto
+       
+       """
 
     sh '''
         rm -rf package-testing
@@ -37,7 +40,7 @@ void runMoleculeAction(String action, String scenario) {
 
     withCredentials(awsCredentials) {
         sh """
-            source venv/bin/activate
+            . virtenv/bin/activate
             cd package-testing/molecule/ps-innodb-cluster
             cd server
             export INSTANCE_PRIVATE_IP=\${SERVER_INSTANCE_PRIVATE_IP}
@@ -72,7 +75,7 @@ void setInstancePrivateIPEnvironment() {
 
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'min-bookworm-x64'
     }
 
     options {
@@ -103,14 +106,23 @@ pipeline {
         choice(
             name: 'TEST_DIST',
             choices: [
-                'ubuntu-focal',
+                'ubuntu-noble',
                 'ubuntu-jammy',
+                'ubuntu-focal',  
                 'debian-12',
                 'debian-11',
-                'debian-10',
                 'centos-7',
                 'oracle-8',
-                'oracle-9'
+                'oracle-9',
+                'rhel-8',
+                'rhel-9',
+                'rhel-8-arm',
+                'rhel-9-arm',
+                'debian-11-arm',
+                'debian-12-arm',
+                'ubuntu-focal-arm',
+                'ubuntu-jammy-arm',
+                'ubuntu-noble-arm'
             ],
             description: 'Distribution to run test'
         )

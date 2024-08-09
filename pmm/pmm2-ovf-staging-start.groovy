@@ -20,7 +20,7 @@ void enableRepo(String REPO, String PUBLIC_IP) {
             ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${PUBLIC_IP} '
                 sudo yum update -y percona-release || true
                 sudo sed -i'' -e 's^/release/^/${REPO}/^' /etc/yum.repos.d/pmm2-server.repo
-                sudo percona-release enable pmm2-server ${REPO}
+                sudo percona-release enable pmm2-components ${REPO}
                 sudo yum clean all
             '
         """
@@ -79,7 +79,7 @@ pipeline {
                         # - image id: is set to `pmm-agent-jdk11`
                         # - ssh-key name: is set to `Jenkins`
                         # - firewall name: is set to `pmm-firewall`
-                        
+
                         set -o xtrace
 
                         SSH_KEY_ID=$(doctl compute ssh-key list -o json | jq -r '.[] | select(.name=="Jenkins") | .id')
@@ -91,7 +91,7 @@ pipeline {
                         set -x
                         FIREWALL_ID=$(doctl compute firewall list -o json | jq -r '.[] | select(.name=="pmm-firewall") | .id')
                         doctl compute firewall add-droplets $FIREWALL_ID --droplet-ids $DROPLET_ID
-                        
+
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@$PUBLIC_IP; do
                             sleep 5
                         done
@@ -212,8 +212,8 @@ pipeline {
             script {
                 wrap([$class: 'BuildUser']) {
                     env.OWNER_SLACK = slackUserIdFromEmail(
-                        botUser: true, 
-                        email: env.BUILD_USER_EMAIL, 
+                        botUser: true,
+                        email: env.BUILD_USER_EMAIL,
                         tokenCredentialId: 'JenkinsCI-SlackBot-v2'
                     )
                 }
