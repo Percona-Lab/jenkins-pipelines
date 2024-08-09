@@ -78,7 +78,7 @@ pipeline {
         choice(
             choices: ['dev','prod'],
             description: 'Prod or Dev version service',
-            name: 'VERSION_SERVICE_VERSION')            
+            name: 'VERSION_SERVICE_VERSION')
         string(
             defaultValue: '',
             description: 'Custom build description',
@@ -90,7 +90,7 @@ pipeline {
         choice(
             choices: ['Experimental', 'Testing', 'Release'],
             description: "Select Testing (RC Tesing), Experimental (dev-latest testing) or Release (latest released)",
-            name: 'PMM_REPOSITORY')            
+            name: 'PMM_REPOSITORY')
     }
     options {
         skipDefaultCheckout()
@@ -185,7 +185,7 @@ pipeline {
                     sh """
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                             docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                            docker exec ${VM_NAME}-server percona-release enable percona testing
+                            docker exec ${VM_NAME}-server percona-release enable pmm2-components testing
                             docker exec ${VM_NAME}-server yum clean all
                         '
                     """
@@ -202,7 +202,7 @@ pipeline {
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                             docker exec ${VM_NAME}-server yum update -y percona-release
                             docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                            docker exec ${VM_NAME}-server percona-release enable percona experimental
+                            docker exec ${VM_NAME}-server percona-release enable pmm2-components experimental
                             docker exec ${VM_NAME}-server yum clean all
                         '
                     """
