@@ -11,7 +11,6 @@ pipeline {
     environment {
         CLIENT_IMAGE     = "perconalab/pmm-client:${VERSION}-rc"
         SERVER_IMAGE     = "perconalab/pmm-server:${VERSION}-rc"
-        SERVER_IMAGE_EL7 = "perconalab/pmm-server:${VERSION}-rc-el7"
         PATH_TO_CLIENT   = "testing/pmm-client-autobuilds/pmm/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT}"
     }
 
@@ -47,7 +46,7 @@ pipeline {
                                 cd /srv/UPLOAD/${PATH_TO_CLIENT}
 
                                 # getting the list of RH systems
-                                RHVERS=\$(ls -1 binary/redhat | grep -v 6)
+                                RHVERS=\$(ls -1 binary/redhat | grep -v 6 | grep -v 7)
 
                                 # source processing
                                 if [ -d source/redhat ]; then
@@ -273,7 +272,7 @@ ENDSSH
                     MID_TAG="\$TOP_TAG.\$MID_TAG"
                     sg docker -c "
                         set -ex
-                        # push pmm-server el9
+                        # push pmm-server
                         docker pull \${SERVER_IMAGE}
 
                         docker tag \${SERVER_IMAGE} percona/pmm-server:\${TOP_TAG}
