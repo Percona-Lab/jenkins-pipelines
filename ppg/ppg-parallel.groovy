@@ -31,7 +31,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'ppg-11.9',
+            defaultValue: 'ppg-16.4',
             description: 'PG version for test',
             name: 'VERSION'
         )
@@ -81,7 +81,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(ppgOperatingSystems(), env.MOLECULE_DIR)
+                    moleculeParallelTest(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -89,7 +89,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(ppgOperatingSystems(), env.MOLECULE_DIR)
+              moleculeParallelPostDestroy(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
               sendSlackNotification(env.SCENARIO, env.VERSION)
          }
       }
