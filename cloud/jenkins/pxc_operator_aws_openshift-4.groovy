@@ -152,19 +152,11 @@ void createCluster(String CLUSTER_SUFFIX){
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
-            if echo -e "4.12.0\\n\$USED_PLATFORM_VER" | sort -C -V; then
-                POLICY="additionalTrustBundlePolicy: Proxyonly"
-                NETWORK_TYPE="OVNKubernetes"
-            else
-                POLICY=""
-                NETWORK_TYPE="OpenShiftSDN"
-            fi
-
             mkdir -p openshift/$CLUSTER_SUFFIX
             timestamp="\$(date +%s)"
 tee openshift/$CLUSTER_SUFFIX/install-config.yaml << EOF
-\$POLICY
 additionalTrustBundlePolicy: Proxyonly
+credentialsMode: Mint
 apiVersion: v1
 baseDomain: cd.percona.com
 compute:
@@ -174,7 +166,7 @@ compute:
   platform:
     aws:
       type: m5.2xlarge
-  replicas: 1
+  replicas: 3
 controlPlane:
   architecture: amd64
   hyperthreading: Enabled
@@ -190,7 +182,7 @@ networking:
     hostPrefix: 23
   machineNetwork:
   - cidr: 10.0.0.0/16
-  networkType: \$NETWORK_TYPE
+  networkType: OVNKubernetes
   serviceNetwork:
   - 172.30.0.0/16
 platform:

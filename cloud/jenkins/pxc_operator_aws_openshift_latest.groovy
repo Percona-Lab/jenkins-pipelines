@@ -156,6 +156,7 @@ void createCluster(String CLUSTER_SUFFIX){
             timestamp="\$(date +%s)"
 tee openshift/$CLUSTER_SUFFIX/install-config.yaml << EOF
 additionalTrustBundlePolicy: Proxyonly
+credentialsMode: Mint
 apiVersion: v1
 baseDomain: cd.percona.com
 compute:
@@ -165,7 +166,7 @@ compute:
   platform:
     aws:
       type: m5.2xlarge
-  replicas: 1
+  replicas: 3
 controlPlane:
   architecture: amd64
   hyperthreading: Enabled
