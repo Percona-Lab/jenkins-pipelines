@@ -29,6 +29,33 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
+void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
+    ovfStagingJob = build job: 'pmm2-ovf-staging-start', parameters: [
+        string(name: 'OVA_VERSION', value: SERVER_VERSION),      
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
+    ]
+    env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
+    env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
+    env.VM_IP = ovfStagingJob.buildVariables.IP
+    env.VM_NAME = ovfStagingJob.buildVariables.VM_NAME
+    env.PMM_URL = "http://admin:admin@${OVF_INSTANCE_IP}"
+    env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}"
+    env.ADMIN_PASSWORD = "admin"
+}
+
+void runAMIStagingStart(String AMI_ID) {
+    amiStagingJob = build job: 'pmm2-ami-staging-start', parameters: [
+        string(name: 'AMI_ID', value: AMI_ID)
+    ]
+    env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
+    env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
+    env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
+    env.VM_NAME = amiStagingJob.buildVariables.INSTANCE_ID
+    env.PMM_URL = "http://admin:admin@${AMI_INSTANCE_IP}"
+    env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}"
+    env.ADMIN_PASSWORD = "admin"
+}
+
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
@@ -180,9 +207,13 @@ pipeline {
             defaultValue: '',
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
+        choice(
+            choices: ['docker', 'ovf', 'ami'],
+            description: "Use this instance only as a client host",
+            name: 'SERVER_TYPE')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: 'PMM Server docker container version (image-name:version-tag)',
+            description: 'PMM Server docker container version (image-name:version-tag), or OVF/AMI tags dependent on setup selected.',
             name: 'DOCKER_VERSION')
         string(
             defaultValue: 'dev-latest',
@@ -281,8 +312,31 @@ pipeline {
             }
         }
         stage('Start Server') {
-            steps {
-                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service', CLIENT_INSTANCE, '127.0.0.1', ADMIN_PASSWORD)
+            parallel {
+                stage('Setup Docker Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "docker" }
+                    }
+                    steps {
+                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--addclient=haproxy,1 --setup-alertmanager --setup-external-service', CLIENT_INSTANCE, '127.0.0.1', ADMIN_PASSWORD)
+                    }
+                }
+                stage('Setup OVF Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "ovf" }
+                    }
+                    steps {
+                        runOVFStagingStart(DOCKER_VERSION, PMM_QA_GIT_BRANCH)
+                    }
+                }
+                stage('Setup AMI Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "ami" }
+                    }
+                    steps {
+                        runAMIStagingStart(DOCKER_VERSION)
+                    }
+                }
             }
         }
         stage('Setup PMM Clients') {
@@ -337,6 +391,20 @@ pipeline {
         stage('Sleep') {
             steps {
                 sleep 300
+            }
+        }
+        stage('Provide AMI id for AMI instance') {
+            when {
+                expression { env.SERVER_TYPE == "ami" }
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        export PWD=\$(pwd);
+                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep 'Add AMI Instance ID on first start of AMI instance.' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
+                    """
+                }
             }
         }
         stage('Run Tests') {
@@ -410,7 +478,17 @@ pipeline {
             ])
             */
             script {
-                if(env.VM_NAME)
+                if (env.SERVER_TYPE == "ovf") {
+                    ovfStagingStopJob = build job: 'pmm-ovf-staging-stop', parameters: [
+                        string(name: 'VM', value: env.OVF_INSTANCE_NAME),
+                    ]
+                }
+                if (env.SERVER_TYPE == "ami") {
+                    amiStagingStopJob = build job: 'pmm2-ami-staging-stop', parameters: [
+                        string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
+                    ]
+                }
+                if(env.VM_NAME && env.SERVER_TYPE == "docker")
                 {
                     destroyStaging(VM_NAME)
                 }
