@@ -1,4 +1,4 @@
-location='westeurope'
+location='useast'
 tests=[]
 clusters=[]
 
@@ -33,8 +33,7 @@ void prepareNode() {
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        USED_PLATFORM_VER = "1.30"
-//         sh(script: "az aks get-versions --location $location --output json | jq -r '.values | max_by(.patchVersions) | .patchVersions | keys[]' | sort --version-sort | tail -1", , returnStdout: true).trim()
+        USED_PLATFORM_VER = sh(script: "az aks get-versions --location $location --output json | jq -r '.values | max_by(.patchVersions) | .patchVersions | keys[]' | sort --version-sort | tail -1", , returnStdout: true).trim()
     } else {
         USED_PLATFORM_VER="$PLATFORM_VER"
     }
@@ -177,7 +176,8 @@ void createCluster(String CLUSTER_SUFFIX) {
             --generate-ssh-keys \
             --enable-cluster-autoscaler \
             --outbound-type loadbalancer \
-            --kubernetes-version $USED_PLATFORM_VER
+            --kubernetes-version $USED_PLATFORM_VER \
+            -l $location
         az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-$CLUSTER_SUFFIX --overwrite-existing
     """
 }
