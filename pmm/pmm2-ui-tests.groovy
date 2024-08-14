@@ -175,7 +175,7 @@ pipeline {
             description: "Run Specified Tagged Tests",
             name: 'RUN_TAGGED_TEST')
         choice(
-            choices: ['agent-amd64', 'agent-arm64'],
+            choices: ['agent-amd64', 'agent-arm64-ol9'],
             description: 'Enable Pull Mode, if you are using this instance as Client Node',
             name: 'ARCHITECTURE')
         choice(
@@ -321,7 +321,7 @@ pipeline {
                 }
                 stage('Setup PMM Server on amd-64') {
                     when {
-                        expression { env.ARCHITECTURE == 'agent-arm64'}
+                        expression { env.ARCHITECTURE == 'agent-arm64-ol9'}
                     }
                     steps {
                         runStagingServer(DOCKER_VERSION, CLIENT_VERSION, CLIENTS, ADMIN_PASSWORD)
