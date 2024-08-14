@@ -4,16 +4,15 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 List all_nodes = [
-    "min-buster-x64",
     "min-bullseye-x64",
     "min-bookworm-x64",
     "min-centos-7-x64",
     "min-ol-8-x64",
-    "min-bionic-x64",
-    "min-focal-x64",
-    "min-amazon-2-x64",
-    "min-jammy-x64",
     "min-ol-9-x64",
+    "min-focal-x64",
+    "min-jammy-x64",
+    "min-noble-x64",
+    "min-amazon-2-x64",
 ]
 
 product_to_test = params.product_to_test
@@ -95,18 +94,6 @@ pipeline {
 
         stage("Run parallel") {
             parallel {
-                stage("Debian Buster") {
-                    when {
-                        expression {
-                            nodes_to_test.contains("min-buster-x64")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("min-buster-x64")
-                    }
-                }
-
                 stage("Debian Bullseye") {
                     when {
                         expression {
@@ -155,17 +142,17 @@ pipeline {
                     }
                 }
 
-                stage("Ubuntu Bionic") {
+                stage("Oracle Linux 9") {
                     when {
                         expression {
-                            nodes_to_test.contains("min-bionic-x64")
+                            nodes_to_test.contains("min-ol-9-x64")
                         }
                     }
 
                     steps {
-                        runNodeBuild("min-bionic-x64")
+                        runNodeBuild("min-ol-9-x64")
                     }
-                }
+                } 
 
                 stage("Ubuntu Focal") {
                     when {
@@ -179,17 +166,6 @@ pipeline {
                     }
                 }
 
-                stage("Amazon Linux") {
-                    when {
-                        expression {
-                            nodes_to_test.contains("min-amazon-2-x64")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("min-amazon-2-x64")
-                    }
-                }
                 stage("Ubuntu Jammy") {
                     when {
                         expression {
@@ -201,15 +177,28 @@ pipeline {
                         runNodeBuild("min-jammy-x64")
                     }
                 }
-                stage("Oracle Linux 9") {
+
+                stage("Ubuntu Noble") {
                     when {
                         expression {
-                            nodes_to_test.contains("min-ol-9-x64")
+                            nodes_to_test.contains("min-noble-x64")
                         }
                     }
 
                     steps {
-                        runNodeBuild("min-ol-9-x64")
+                        runNodeBuild("min-noble-x64")
+                    }
+                }
+
+                stage("Amazon Linux") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("min-amazon-2-x64")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("min-amazon-2-x64")
                     }
                 }
             }

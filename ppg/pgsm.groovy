@@ -12,7 +12,7 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: ppgOperatingSystems()
+            choices: ppgOperatingSystemsALL()
         )
         choice(
             name: 'REPO',
@@ -34,7 +34,7 @@ pipeline {
             name: 'PGSM_BRANCH'
         )
         string(
-            defaultValue: 'ppg-16.2',
+            defaultValue: 'ppg-16.4',
             description: 'Server PG version for test, including major and minor version, e.g ppg-16.2, ppg-15.5',
             name: 'VERSION'
         )

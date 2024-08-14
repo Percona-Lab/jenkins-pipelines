@@ -15,7 +15,7 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: ppgOperatingSystems()
+            choices: ppgOperatingSystemsAMD()
         )
         choice(
             name: 'FROM_REPO',
@@ -36,12 +36,12 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'ppg-11.9',
+            defaultValue: 'ppg-15.7',
             description: 'From this version PPG will be updated',
             name: 'FROM_VERSION'
         )
         string(
-            defaultValue: 'ppg-11.9',
+            defaultValue: 'ppg-16.4',
             description: 'To this version PPG will be updated',
             name: 'VERSION'
         )

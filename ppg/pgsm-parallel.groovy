@@ -40,7 +40,7 @@ pipeline {
             name: 'PGSM_BRANCH'
         )
         string(
-            defaultValue: 'ppg-16.2',
+            defaultValue: 'ppg-16.4',
             description: 'Server PG version for test, including major and minor version, e.g ppg-16.2, ppg-15.5',
             name: 'VERSION'
         )
@@ -95,7 +95,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(ppgOperatingSystems(), env.MOLECULE_DIR)
+                    moleculeParallelTest(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -103,7 +103,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(ppgOperatingSystems(), env.MOLECULE_DIR)
+              moleculeParallelPostDestroy(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
               sendSlackNotification(env.PGSM_REPO, env.PGSM_BRANCH, env.PGSM_PACKAGE_INSTALL, env.VERSION, env.REPO, env.MAJOR_REPO)
          }
       }

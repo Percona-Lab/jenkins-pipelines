@@ -237,7 +237,7 @@ pipeline {
                         sudo amazon-linux-extras enable php7.4
                         sudo yum --enablerepo epel install php -y
 
-                        sudo yum install sysbench mysql-client -y
+                        sudo yum install sysbench mysql -y
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
                             sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .

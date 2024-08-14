@@ -54,7 +54,7 @@ Resources:
   JVPC: # separate virtual network for jenkins instances
     Type: AWS::EC2::VPC
     Properties:
-      CidrBlock: 10.177.0.0/22
+      CidrBlock: 10.155.0.0/22
       EnableDnsSupport: true
       EnableDnsHostnames: true
       InstanceTenancy: default
@@ -83,7 +83,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref JVPC
-      CidrBlock: 10.177.1.0/24
+      CidrBlock: 10.155.1.0/24
       MapPublicIpOnLaunch: true
       AvailabilityZone:
         Fn::Select: [ 1, !GetAZs '' ]
@@ -97,7 +97,7 @@ Resources:
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref JVPC
-      CidrBlock: 10.177.2.0/24
+      CidrBlock: 10.155.2.0/24
       MapPublicIpOnLaunch: true
       AvailabilityZone:
         Fn::Select: [ 2, !GetAZs '' ]
