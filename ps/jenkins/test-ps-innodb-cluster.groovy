@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@fix-noble', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 void installDependencies() {
@@ -19,7 +19,7 @@ void installDependencies() {
 
     sh '''
         rm -rf package-testing
-        git clone https://github.com/Percona-QA/package-testing
+        git clone -b fix-noble https://github.com/kaushikpuneet07/package-testing
     '''
 }
 
