@@ -179,7 +179,7 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu 20.04') {
+                stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'docker-64gb-aarch64'
                     }
@@ -198,7 +198,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu 22.04') {
+                stage('Ubuntu Jammy(22.04)') {
                     agent {
                         label 'docker-64gb-aarch64'
                     }
@@ -210,6 +210,25 @@ pipeline {
                                 buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("ubuntu:jammy", "--build_deb=1")
+                            }
+                        }
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Noble(24.04)') {
+                    agent {
+                        label 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:noble", "--build_deb=1")
                             }
                         }
 

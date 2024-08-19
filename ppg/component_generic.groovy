@@ -3,14 +3,14 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotification(componentName, ppgVersion, componentVersion)
+def sendSlackNotification(componentName, ppgVersion, componentVersion, osArchitecture)
 {
  if ( currentBuild.result == "SUCCESS" ) {
-  buildSummary = "Job: ${env.JOB_NAME}\nComponent: ${componentName}\nComponent Version: ${componentVersion}\nPPG Version: ${ppgVersion}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
+  buildSummary = "Job: ${env.JOB_NAME}\nComponent: ${componentName}\nComponent Version: ${componentVersion}\nPPG Version: ${ppgVersion}\nArchitecture: ${osArchitecture}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
   slackSend color : "good", message: "${buildSummary}", channel: '#postgresql-test'
  }
  else {
-  buildSummary = "Job: ${env.JOB_NAME}\nComponent: ${componentName}\nComponent Version: ${componentVersion}\nPPG Version: ${ppgVersion}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
+  buildSummary = "Job: ${env.JOB_NAME}\nComponent: ${componentName}\nComponent Version: ${componentVersion}\nPPG Version: ${ppgVersion}\nArchitecture: ${osArchitecture}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
   slackSend color : "danger", message: "${buildSummary}", channel: '#postgresql-test'
  }
 }
@@ -34,22 +34,27 @@ pipeline {
             defaultValue: 'main',
             description: 'Branch for tests',
             name: 'TEST_BRANCH'
-         )
+        )
+        choice(
+            name: 'PLATFORM',
+            description: 'For what platform architecture (amd or arm) need to test',
+            choices: ppgArchitectures()
+        )
         string(
             defaultValue: 'https://github.com/pgaudit/pgaudit.git',
             description: 'Component repo for test',
             name: 'COMPONENT_REPO'
-         )
+        )
         string(
             defaultValue: 'master',
             description: 'Component version for test',
             name: 'COMPONENT_VERSION'
-         )
+        )
         string(
             defaultValue: 'ppg-16.4',
             description: 'PPG version for test',
             name: 'VERSION'
-         )
+        )
         choice(
             name: 'PRODUCT',
             description: 'Product to test',
@@ -64,11 +69,6 @@ pipeline {
                       'pgbadger',
                       'pgbouncer',
                       'wal2json']
-            )
-        choice(
-            name: 'SCENARIO',
-            description: 'PPG major version to test',
-            choices: ['ppg-11', 'ppg-12', 'ppg-13', 'ppg-14', 'ppg-15', 'ppg-16']
         )
         string(
             defaultValue: 'yes',
@@ -78,7 +78,7 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "${PRODUCT}/${SCENARIO}";
+      MOLECULE_DIR = "${PRODUCT}/setup";
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
@@ -88,7 +88,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.SCENARIO}-${env.PRODUCT}-${env.BUILD_NUMBER}"
+                    currentBuild.displayName = "${env.VERSION}-${env.PRODUCT}-${env.BUILD_NUMBER}"
                 }
             }
         }
@@ -108,7 +108,7 @@ pipeline {
     stage ('Run tests') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "test", "default")
+              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "test", env.PLATFORM)
             }
         }
     }
@@ -117,9 +117,9 @@ pipeline {
     always {
           script {
              if (env.DESTROY_ENV == "yes") {
-             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "default")
+             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
              }
-             sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION)
+             sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION, env.PLATFORM)
         }
     }
   }
