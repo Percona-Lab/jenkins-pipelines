@@ -231,6 +231,7 @@ pipeline {
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
                             sudo yum update -y percona-release
                             sudo sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
+                            sudo percona-release enable pmm2-client testing
                             sudo yum clean all
                         '
                     '''
@@ -247,6 +248,7 @@ pipeline {
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
                             sudo yum update -y percona-release
                             sudo sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
+                            sudo percona-release enable pmm2-client experimental
                             sudo yum clean all
                         '
                     '''

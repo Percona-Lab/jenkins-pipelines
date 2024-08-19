@@ -353,6 +353,7 @@ pipeline {
                                 docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
                                 docker exec ${VM_NAME}-server yum update -y percona-release
                                 docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec ${VM_NAME}-server percona-release enable pmm2-client testing
                                 docker exec ${VM_NAME}-server yum clean all
                             """
                         }
@@ -374,6 +375,7 @@ pipeline {
                                 docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
                                 docker exec ${VM_NAME}-server yum update -y percona-release
                                 docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec ${VM_NAME}-server percona-release enable pmm2-client experimental
                                 docker exec ${VM_NAME}-server yum clean all
                             """
                         }
