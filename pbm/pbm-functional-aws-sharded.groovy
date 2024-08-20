@@ -16,10 +16,10 @@ pipeline {
     }
     parameters {
         string(name: 'BRANCH',description: 'PBM repo branch',defaultValue: 'main')
-        choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-60','psmdb-44','psmdb-50','psmdb-70'])
+        choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-70','psmdb-60','psmdb-50'])
         choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['i3.large','i3en.large','t2.micro','i3.xlarge','i3en.xlarge'])
         choice(name: 'BACKUP_TYPE',description: 'Backup type',choices: ['physical','logical'])        
-        choice(name: 'STORAGE',description: 'Storage for PBM',choices: ['aws','gcp'])
+        choice(name: 'STORAGE',description: 'Storage for PBM',choices: ['aws','gcp','azure'])
         string(name: 'TIMEOUT',description: 'Timeout for backup/restore',defaultValue: '3600')
         string(name: 'SIZE',description: 'Data size for test collection',defaultValue: '1000')
         string(name: 'EXISTING_BACKUP',description: 'If defined, the tests will skip backup process, but backup must exist on the remote storage',defaultValue: 'no')
@@ -57,16 +57,6 @@ pipeline {
                 }
             }
         }
-        stage ('Install build tools') {
-            steps {
-                sh """
-                    curl "https://raw.githubusercontent.com/percona/percona-backup-mongodb/${params.BRANCH}/packaging/scripts/mongodb-backup_builder.sh" -o "mongodb-backup_builder.sh"
-                    chmod +x mongodb-backup_builder.sh
-                    mkdir -p /tmp/builddir
-                    sudo ./mongodb-backup_builder.sh --builddir=/tmp/builddir --install_deps=1
-                """
-            }
-        }
         stage ('Create instances') {
             steps {
                 script{
@@ -83,8 +73,12 @@ pipeline {
         }
         stage ('Create infrastructure') {
             steps {
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'), file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML')]) {
                     script{
+                        sh """
+                            cp $PBM_GCS_S3_YML /tmp/pbm-agent-storage-gcp.conf
+                            cp $PBM_AZURE_YML /tmp/pbm-agent-storage-azure.conf
+                        """
                         moleculeExecuteActionWithScenario(moleculeDir, "converge", env.SCENARIO)
                     }
                 }
@@ -108,6 +102,10 @@ pipeline {
     post {
         always {
             script {
+                sh """
+                    rm -f /tmp/pbm-agent-storage-gcp.conf
+                    rm -f /tmp/pbm-agent-storage-azure.conf
+                """
                 moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.SCENARIO)
             }
             junit testResults: "**/report.xml", keepLongStdio: true
