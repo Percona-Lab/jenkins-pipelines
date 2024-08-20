@@ -146,6 +146,9 @@ pipeline {
                     script {
                         // Abort the job
                         currentBuild.result = 'ABORTED'
+
+                        // Exit the script to prevent further execution
+                        return
                     }
                 }
         }
