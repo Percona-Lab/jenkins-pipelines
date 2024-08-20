@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ppg/component_generic.groovy
+      script-path: ppg/component-generic.groovy
