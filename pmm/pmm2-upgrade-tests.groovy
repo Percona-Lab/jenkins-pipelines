@@ -138,20 +138,6 @@ pipeline {
         skipDefaultCheckout()
     }
     stages {
-        stage("Cancel UI way upgrade tests for <= 2.37") {
-                when {
-                    expression { getMinorVersion(DOCKER_VERSION) <= 37 && env.PERFORM_DOCKER_WAY_UPGRADE == "no" }
-                }
-                steps {
-                    script {
-                        // Abort the job
-                        currentBuild.result = 'ABORTED'
-
-                        // Exit the script to prevent further execution
-                        return
-                    }
-                }
-        }
         stage('Prepare') {
             steps {
                 script {
@@ -159,7 +145,14 @@ pipeline {
                         currentBuild.description = "Docker way upgrade from ${env.DOCKER_VERSION} to ${env.PMM_SERVER_LATEST}"
                     } else {
                         currentBuild.description = "UI way upgrade from ${env.DOCKER_VERSION} to ${env.PMM_SERVER_LATEST}"
+
+                        if(getMinorVersion(DOCKER_VERSION) <= 37) {
+                            echo "UI way upgrade tests are not supported for versions <= 2.37"
+                            currentBuild.result = 'ABORTED'
+                            return
+                        }
                     }
+
                 }
                 // fetch pmm-ui-tests repository
                 git poll: false,
