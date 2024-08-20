@@ -30,6 +30,10 @@ pipeline {
             defaultValue: '',
             description: 'Commit hash for pmm-qa branch',
             name: 'PMM_QA_GIT_COMMIT_HASH')
+        string(
+            defaultValue: '',
+            description: 'public ssh key, please set if you need ssh access, it will set this ssh key to host machine for "root" user and "admin" user in VM',
+            name: 'SSH_KEY')
     }
     options {
         skipDefaultCheckout()
@@ -39,6 +43,7 @@ pipeline {
     environment {
         VM_MEMORY = "10240"
         OVF_PUBLIC_KEY=credentials('OVF_STAGING_PUB_KEY_QA')
+        DEFAULT_SSH_KEYS = getSHHKeysPMM()
     }
     stages {
         stage('Run staging server') {
@@ -69,10 +74,15 @@ pipeline {
                         set -x
                         FIREWALL_ID=$(doctl compute firewall list -o json | jq -r '.[] | select(.name=="pmm-firewall") | .id')
                         doctl compute firewall add-droplets $FIREWALL_ID --droplet-ids $DROPLET_ID
-                        
+
                         until ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null root@$PUBLIC_IP; do
                             sleep 5
                         done
+
+                        echo "$DEFAULT_SSH_KEYS" | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@${PUBLIC_IP} 'cat - >> /root/.ssh/authorized_keys'
+                        if [ -n "$SSH_KEY" ]; then
+                            echo "$SSH_KEY" | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@${PUBLIC_IP} 'cat - >> /root/.ssh/authorized_keys'
+                        fi
                         echo "$PUBLIC_IP" | tee IP
                     '''
                 }
@@ -112,6 +122,8 @@ pipeline {
                         for p in \$(seq 0 30); do
                             VBoxManage modifyvm ${VM_NAME} --natpf1 "guestexporters\$p,tcp,,4200\$p,,4200\$p"
                         done
+                        VBoxManage modifyvm ${VM_NAME} --vrde on
+                        VBoxManage modifyvm ${VM_NAME} --vrdeport 5000
                         VBoxManage startvm --type headless ${VM_NAME}
                         cat /tmp/${VM_NAME}-console.log
                         timeout 100 bash -c 'until curl --insecure -LI https://${IP}; do sleep 5; done' || true
@@ -119,34 +131,51 @@ pipeline {
                     sh """
                         # This fails sometimes, so we want to isolate this step
                         sleep 180
-                        curl -k --user admin:admin https://${IP}/v1/Settings/Change --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
+                        curl -k --user admin:admin -X PUT https://${IP}/v1/server/settings --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
                     """
                 }
             }
         }
-        // stage('Setup QA Repo on OVF VM') {
-        //     steps {
-        //         node(env.VM_NAME) {
-        //             withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        //                 sh """
-        //                     ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
-        //                         export PMM_QA_GIT_BRANCH=${PMM_QA_GIT_BRANCH}
-        //                         export PMM_QA_GIT_COMMIT_HASH=${PMM_QA_GIT_COMMIT_HASH}
-        //                         sudo yum install -y wget git
-        //                         sudo mkdir -p /srv/pmm-qa || :
-        //                         pushd /srv/pmm-qa
-        //                             sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-        //                             sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
-        //                             sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
-        //                             sudo chmod 755 get_download_link.sh
-        //                         popd
-        //                         sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
-        //                     '
-        //                 """
-        //             }
-        //         }
-        //     }
-        // }
+        stage('Setup QA Repo on OVF VM') {
+            steps {
+                node(env.VM_NAME) {
+                    withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                        sh """
+                            ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
+                                export PMM_QA_GIT_BRANCH=${PMM_QA_GIT_BRANCH}
+                                export PMM_QA_GIT_COMMIT_HASH=${PMM_QA_GIT_COMMIT_HASH}
+                                sudo yum install -y wget git
+                                sudo mkdir -p /srv/pmm-qa || :
+                                pushd /srv/pmm-qa
+                                    sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                                    sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
+                                    sudo curl -O https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
+                                    sudo chmod 755 get_download_link.sh
+                                popd
+                                sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
+                            '
+                        """
+                    }
+                }
+            }
+        }
+        stage('Setup user SSH key') {
+            steps {
+                node(env.VM_NAME) {
+                    withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                        sh """
+                            ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
+                                echo "${DEFAULT_SSH_KEYS}" >> /home/admin/.ssh/authorized_keys
+                                if [ -n "$SSH_KEY" ]; then
+                                    echo "$SSH_KEY" | sudo tee -a /home/admin/.ssh/authorized_keysj
+                                fi
+                            '
+                        """
+                    }
+                }
+            }
+
+        }
     }
     post {
         success {
@@ -169,6 +198,7 @@ pipeline {
         }
         failure {
             withCredentials([string(credentialsId: 'f5415992-e274-45c2-9eb9-59f9e8b90f43', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+                node(env.VM_NAME){
                 sh '''
                     set -o xtrace
 
@@ -176,6 +206,7 @@ pipeline {
                     DROPLET_ID=$(curl -s http://169.254.169.254/metadata/v1/id)
                     doctl compute droplet delete $DROPLET_ID
                 '''
+                }
             }
         }
         cleanup {

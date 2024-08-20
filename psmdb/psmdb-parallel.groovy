@@ -86,7 +86,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                     script {
-                        moleculeParallelTest(pdmdbOperatingSystems(PSMDB_VERSION), moleculeDir)
+                        moleculeParallelTest(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION,GATED_BUILD), moleculeDir)
                     }
                 }
             }
@@ -106,7 +106,7 @@ pipeline {
         }
         always {
             script {
-                moleculeParallelPostDestroy(pdmdbOperatingSystems(PSMDB_VERSION), moleculeDir)
+                moleculeParallelPostDestroy(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION,GATED_BUILD), moleculeDir)
             }
         }
     }

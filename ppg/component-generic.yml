@@ -1,9 +1,8 @@
 - job:
-    name: psmdb80-autobuild
+    name: component_generic
     project-type: pipeline
     description: |
         Do not edit this job through the web!
-        Check PSMDB repo for new release branches to build packages
     pipeline-scm:
       scm:
         - git:
@@ -12,6 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: psmdb/jenkins/get-psmdb-branches-8.0.groovy
-    triggers:
-      - timed: "H/15 * * * *"
+      script-path: ppg/component-generic.groovy

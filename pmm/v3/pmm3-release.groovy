@@ -11,7 +11,6 @@ pipeline {
     environment {
         CLIENT_IMAGE     = "perconalab/pmm-client:${VERSION}-rc"
         SERVER_IMAGE     = "perconalab/pmm-server:${VERSION}-rc"
-        SERVER_IMAGE_EL7 = "perconalab/pmm-server:${VERSION}-rc-el7"
         PATH_TO_CLIENT   = "testing/pmm-client-autobuilds/pmm/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT}"
     }
 
@@ -47,7 +46,7 @@ pipeline {
                                 cd /srv/UPLOAD/${PATH_TO_CLIENT}
 
                                 # getting the list of RH systems
-                                RHVERS=\$(ls -1 binary/redhat | grep -v 6)
+                                RHVERS=\$(ls -1 binary/redhat | grep -v 6 | grep -v 7)
 
                                 # source processing
                                 if [ -d source/redhat ]; then
@@ -239,16 +238,12 @@ ENDSSH
                                 done
                             fi
 
-                            #
                             cd \${RELEASEDIR}/..
-                            #
                             ln -s \${RELEASE} LATEST
-                            #
                             cd /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
 
                             rsync -avt -e "ssh -p 2222" --bwlimit=50000 --exclude="*yassl*" --progress \${PRODUCT} jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/
 
-                            #
                             rm -fr /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
 ENDSSH
                 """
@@ -277,10 +272,8 @@ ENDSSH
                     MID_TAG="\$TOP_TAG.\$MID_TAG"
                     sg docker -c "
                         set -ex
-                        # push pmm-server el9
+                        # push pmm-server
                         docker pull \${SERVER_IMAGE}
-                        docker tag \${SERVER_IMAGE} percona/pmm-server:latest
-                        docker push percona/pmm-server:latest
 
                         docker tag \${SERVER_IMAGE} percona/pmm-server:\${TOP_TAG}
                         docker tag \${SERVER_IMAGE} percona/pmm-server:\${MID_TAG}
@@ -300,8 +293,6 @@ ENDSSH
 
                         # push pmm-client
                         docker pull \${CLIENT_IMAGE}
-                        docker tag \${CLIENT_IMAGE} percona/pmm-client:latest
-                        docker push percona/pmm-client:latest
 
                         docker tag \${CLIENT_IMAGE} percona/pmm-client:\${TOP_TAG}
                         docker tag \${CLIENT_IMAGE} percona/pmm-client:\${MID_TAG}

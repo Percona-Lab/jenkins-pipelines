@@ -224,7 +224,6 @@ pipeline {
                         set -o xtrace
                         docker exec pmm-server yum update -y percona-release || true
                         docker exec pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                        docker exec pmm-server percona-release enable percona testing
                         docker exec pmm-server yum clean all
                         docker exec pmm-server yum clean metadata
                     """
@@ -243,7 +242,6 @@ pipeline {
                         set -o xtrace
                         docker exec pmm-server yum update -y percona-release || true
                         docker exec pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                        docker exec pmm-server percona-release enable percona experimental
                         docker exec pmm-server yum clean all
                         docker exec pmm-server yum clean metadata
                     """

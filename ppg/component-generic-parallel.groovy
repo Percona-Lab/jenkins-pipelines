@@ -34,22 +34,22 @@ pipeline {
             defaultValue: 'main',
             description: 'Branch for tests',
             name: 'TEST_BRANCH'
-         )
+        )
         string(
             defaultValue: 'https://github.com/pgaudit/pgaudit.git',
             description: 'Component repo for test',
             name: 'COMPONENT_REPO'
-         )
+        )
         string(
             defaultValue: 'master',
             description: 'Component version for test',
             name: 'COMPONENT_VERSION'
-         )
+        )
         string(
             defaultValue: 'ppg-16.4',
             description: 'PPG version for test',
             name: 'VERSION'
-         )
+        )
         choice(
             name: 'PRODUCT',
             description: 'Product to test',
@@ -64,11 +64,6 @@ pipeline {
                       'pgbadger',
                       'pgbouncer',
                       'wal2json']
-            )
-        choice(
-            name: 'SCENARIO',
-            description: 'PPG major version to test',
-            choices: ['ppg-11', 'ppg-12', 'ppg-13', 'ppg-14', 'ppg-15', 'ppg-16']
         )
         string(
             defaultValue: 'yes',
@@ -78,7 +73,7 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "${PRODUCT}/${SCENARIO}";
+      MOLECULE_DIR = "${PRODUCT}/setup";
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
@@ -88,7 +83,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.SCENARIO}-${env.PRODUCT}-${env.BUILD_NUMBER}"
+                    currentBuild.displayName = "${env.VERSION}-${env.PRODUCT}-parallel-${env.BUILD_NUMBER}"
                 }
             }
         }
@@ -105,22 +100,21 @@ pipeline {
             }
         }
     }
-    stage ('Run tests') {
-      steps {
-          script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "test", "default")
+    stage('Test') {
+          steps {
+                script {
+                    moleculeParallelTest(ppgArchitectures(), env.MOLECULE_DIR)
+                }
             }
-        }
-    }
+         }
   }
-  post {
-    always {
+    post {
+        always {
           script {
-             if (env.DESTROY_ENV == "yes") {
-             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "default")
-             }
-             sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION)
+            moleculeParallelPostDestroy(ppgArchitectures(), env.MOLECULE_DIR)
+            sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION)
         }
     }
   }
 }
+
