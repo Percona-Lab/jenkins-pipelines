@@ -22,6 +22,7 @@ void enableRepo(String REPO, String PUBLIC_IP) {
                 sudo sed -i'' -e 's^/release/^/${REPO}/^' /etc/yum.repos.d/pmm2-server.repo
                 sudo percona-release enable pmm2-client ${REPO}
                 sudo yum clean all
+                sudo yum clean metadata
             '
         """
     }

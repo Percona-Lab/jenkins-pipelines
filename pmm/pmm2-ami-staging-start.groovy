@@ -250,6 +250,7 @@ pipeline {
                             sudo sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                             sudo percona-release enable pmm2-client experimental
                             sudo yum clean all
+                            sudo yum clean metadata
                         '
                     '''
                 }
