@@ -149,7 +149,8 @@ pipeline {
                         if(getMinorVersion(DOCKER_VERSION) <= 37) {
                             echo "UI way upgrade tests are not supported for versions <= 2.37"
                             currentBuild.result = 'ABORTED'
-                            throw new org.jenkinsci.plugins.workflow.steps.FlowInterruptedException(hudson.model.Result.ABORTED)
+
+                            return
                         }
                     }
 
