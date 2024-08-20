@@ -138,6 +138,17 @@ pipeline {
         skipDefaultCheckout()
     }
     stages {
+        stage("Cancel UI way upgrade tests for <= 2.37") {
+                when {
+                    expression { getMinorVersion(DOCKER_VERSION) <= 37 && env.PERFORM_DOCKER_WAY_UPGRADE == "no" }
+                }
+                steps {
+                    script {
+                        // Abort the job
+                        currentBuild.result = 'ABORTED'
+                    }
+                }
+        }
         stage('Prepare') {
             steps {
                 script {
