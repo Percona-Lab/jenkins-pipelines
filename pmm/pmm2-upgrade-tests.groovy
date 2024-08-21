@@ -150,9 +150,7 @@ pipeline {
                             echo "UI way upgrade tests are not supported for versions <= 2.37"
                             currentBuild.result = 'ABORTED'
 
-                            currentBuild.rawBuild.doStop()
-
-                            return
+                            error("Stopping pipeline execution due to unsupported Docker version.")
                         }
                     }
 
