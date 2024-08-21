@@ -145,7 +145,15 @@ pipeline {
                         currentBuild.description = "Docker way upgrade from ${env.DOCKER_VERSION} to ${env.PMM_SERVER_LATEST}"
                     } else {
                         currentBuild.description = "UI way upgrade from ${env.DOCKER_VERSION} to ${env.PMM_SERVER_LATEST}"
+
+                        if(getMinorVersion(DOCKER_VERSION) <= 37) {
+                            echo "UI way upgrade tests are not supported for versions <= 2.37"
+                            currentBuild.result = 'ABORTED'
+
+                            error("Stopping pipeline execution due to unsupported Docker version.")
+                        }
                     }
+
                 }
                 // fetch pmm-ui-tests repository
                 git poll: false,
