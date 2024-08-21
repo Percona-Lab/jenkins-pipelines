@@ -25,7 +25,7 @@ pipeline {
         )
         choice(
             name: 'TA_UPDATE',
-            description: 'Destroy VM after tests',
+            description: 'Set yes for update of Telemetry Agent',
             choices: [
                 'yes',
                 'no'
@@ -33,7 +33,7 @@ pipeline {
         )
         choice(
             name: 'TA_INSTALL_REPO',
-            description: 'Destroy VM after tests',
+            description: 'Select repo for Telemetry Agent installation',
             choices: [
                 'experimental',
                 'testing',
@@ -42,7 +42,7 @@ pipeline {
         )
         choice(
             name: 'PS_INSTALL_REPO',
-            description: 'Destroy VM after tests',
+            description: 'Select repo for Percona Server installation',
             choices: [
                 'release',
                 'testing',
