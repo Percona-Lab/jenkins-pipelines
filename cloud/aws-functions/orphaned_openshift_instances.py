@@ -21,7 +21,10 @@ def is_instance_to_terminate(instance):
 
     instance_lifetime = float(tags_dict['delete-cluster-after-hours'])
     current_time = datetime.datetime.now().timestamp()
-    creation_time = instance.launch_time.timestamp()
+    try:
+        creation_time = int(tags_dict['creation-time'])
+    except KeyError as e:
+        return False
 
     if (current_time - creation_time) / 3600 > instance_lifetime:
         return True
