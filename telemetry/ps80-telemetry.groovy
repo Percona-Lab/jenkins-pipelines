@@ -21,7 +21,7 @@ pipeline {
             choices: operating_systems
         )
         string(
-            defaultValue: '1.0.1',
+            defaultValue: '1.0.1-2',
             description: 'Telemetry Agent version',
             name: 'VERSION'
         )
@@ -29,6 +29,24 @@ pipeline {
             defaultValue: 'ee4825e',
             description: 'Telemetry Agent revision',
             name: 'REVISION'
+        )
+        choice(
+            name: 'TA_INSTALL_REPO',
+            description: 'Destroy VM after tests',
+            choices: [
+                'experimental',
+                'testing',
+                'main'
+            ]
+        )
+        choice(
+            name: 'PS_INSTALL_REPO',
+            description: 'Destroy VM after tests',
+            choices: [
+                'main',
+                'testing',
+                'experimental'
+            ]
         )
         choice(
             name: 'SCENARIO',

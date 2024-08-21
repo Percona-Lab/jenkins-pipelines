@@ -14,14 +14,32 @@ pipeline {
   }
   parameters {
         string(
-            defaultValue: '1.0.1',
-            description: 'Telemetry Agent version',
+            defaultValue: '1.0.1-2',
+            description: 'Telemetry Agent version with package version',
             name: 'VERSION'
         )
         string(
-            defaultValue: 'ee4825e',
+            defaultValue: '5b8049c',
             description: 'Telemetry Agent revision',
             name: 'REVISION'
+        )
+        choice(
+            name: 'TA_INSTALL_REPO',
+            description: 'Destroy VM after tests',
+            choices: [
+                'experimental',
+                'testing',
+                'main'
+            ]
+        )
+        choice(
+            name: 'PS_INSTALL_REPO',
+            description: 'Destroy VM after tests',
+            choices: [
+                'main',
+                'testing',
+                'experimental'
+            ]
         )
         choice(
             name: 'SCENARIO',
