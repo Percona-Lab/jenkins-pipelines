@@ -24,19 +24,27 @@ pipeline {
             name: 'REVISION'
         )
         choice(
+            name: 'TA_UPDATE',
+            description: 'Destroy VM after tests',
+            choices: [
+                'yes',
+                'no'
+            ]
+        )
+        choice(
             name: 'TA_INSTALL_REPO',
             description: 'Destroy VM after tests',
             choices: [
                 'experimental',
                 'testing',
-                'main'
+                'release'
             ]
         )
         choice(
             name: 'PS_INSTALL_REPO',
             description: 'Destroy VM after tests',
             choices: [
-                'main',
+                'release',
                 'testing',
                 'experimental'
             ]
