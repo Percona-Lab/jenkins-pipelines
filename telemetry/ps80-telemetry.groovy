@@ -87,8 +87,8 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.SCENARIO}"
-                    currentBuild.description = "${env.VERSION}-${env.TESTING_BRANCH}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-TA_UPDATE_${env.TA_UPDATE}"
+                    currentBuild.description = "${env.VERSION}-TA_REPO_${env.VERSION}-PS_REPO_${env.VERSION}"
                 }
             }
         }
