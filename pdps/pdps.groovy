@@ -6,7 +6,7 @@ library changelog: false, identifier: "lib@fix-noble", retriever: modernSCM([
 
 pipeline {
     agent {
-    label 'min-bookworm-x64'
+    label 'min-ol-9-x64'
     }
     environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
