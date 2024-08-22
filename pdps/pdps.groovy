@@ -6,7 +6,7 @@ library changelog: false, identifier: "lib@fix-noble", retriever: modernSCM([
 
 pipeline {
     agent {
-    label 'min-focal-x64'
+    label 'min-bookworm-x64'
     }
     environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
@@ -118,7 +118,7 @@ pipeline {
         stage ('Prepare') {
             steps {
                 script {
-                    installMolecule()
+                    installMoleculeBookworm()
                 }
             }
         }
