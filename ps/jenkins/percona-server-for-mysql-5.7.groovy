@@ -169,7 +169,7 @@ parameters {
                 }
                 stage('Centos 8') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -327,7 +327,7 @@ parameters {
                 }
                 stage('Centos 8 tarball') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -340,7 +340,7 @@ parameters {
                 }
                 stage('Centos 8 debug tarball') {
                     agent {
-                        label 'min-centos-8-x64'
+                        label 'min-ol-8-x64'
                     }
                     steps {
                         cleanUpWS()
