@@ -58,8 +58,8 @@ pipeline {
             name: 'PSMDB_REPO')
         choice(
             choices: 'no\nyes',
-            description: 'Enable fipsmode',
-            name: 'FIPSMODE')
+            description: 'Enable all pro features',
+            name: 'FULL_FEATURED')
         choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
@@ -107,8 +107,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("oraclelinux:8", "--build_src_rpm=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("oraclelinux:8", "--build_src_rpm=1 --full_featured=1")
                             } else {
                                 buildStage("oraclelinux:8", "--build_src_rpm=1")
                             }
@@ -126,8 +126,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:focal", "--build_src_deb=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("ubuntu:focal", "--build_src_deb=1 --full_featured=1")
                             } else {
                                 buildStage("ubuntu:focal", "--build_src_deb=1")
                             }
@@ -149,8 +149,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("oraclelinux:8", "--build_rpm=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("oraclelinux:8", "--build_rpm=1 --full_featured=1")
                             } else {
                                 buildStage("oraclelinux:8", "--build_rpm=1")
                             }
@@ -168,8 +168,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("oraclelinux:9", "--build_rpm=1 --full_featured=1")
                             } else {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
                             }
@@ -187,8 +187,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:focal", "--build_deb=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("ubuntu:focal", "--build_deb=1 --full_featured=1")
                             } else {
                                 buildStage("ubuntu:focal", "--build_deb=1")
                             }
@@ -206,8 +206,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("ubuntu:jammy", "--build_deb=1 --full_featured=1")
                             } else {
                                 buildStage("ubuntu:jammy", "--build_deb=1")
                             }
@@ -225,8 +225,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("ubuntu:noble", "--build_deb=1 --full_featured=1")
                             } else {
                                 buildStage("ubuntu:noble", "--build_deb=1")
                             }
@@ -249,7 +249,7 @@ pipeline {
             steps {
                 // sync packages
                 script {
-                    if (env.FIPSMODE == 'yes') {
+                    if (env.FULL_FEATURED == 'yes') {
                         sync2PrivateProdAutoBuild(PSMDB_REPO+"-pro", COMPONENT)
                     } else {
                         sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
@@ -261,12 +261,12 @@ pipeline {
     post {
          success {
              script {
-                if (env.FIPSMODE == 'YES') {
+                if (env.FULL_FEATURED == 'YES') {
                     slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: PRO build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
                 } else {
                     slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
                 }
-                if (env.FIPSMODE == 'YES') {
+                if (env.FULL_FEATURED == 'YES') {
                     currentBuild.description = "!!! PRO Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
                 } else {
                     currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
