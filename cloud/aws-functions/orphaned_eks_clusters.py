@@ -78,7 +78,11 @@ def delete_nodegroup(aws_region):
                     cluster_lifetime = float(tag['Value'])
 
                 if tag['Key'] == 'creation-time' and tag['Value']:
-                    creation_time = float(tag['Value'])
+                    try:
+                        creation_time = float(tag['Value'])
+                    except ValueError as e:
+                       logging.error(f"Could not get creation_time for {auto_scaling_group} failed with error: {e}")
+
 
             current_time = datetime.datetime.now().timestamp()
 
