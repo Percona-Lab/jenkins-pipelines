@@ -185,7 +185,7 @@ pipeline {
                     sh """
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                             docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                            docker exec ${VM_NAME}-server percona-release enable pmm2-components testing
+                            docker exec ${VM_NAME}-server percona-release enable pmm2-client testing
                             docker exec ${VM_NAME}-server yum clean all
                         '
                     """
@@ -202,7 +202,7 @@ pipeline {
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_IP} '
                             docker exec ${VM_NAME}-server yum update -y percona-release
                             docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                            docker exec ${VM_NAME}-server percona-release enable pmm2-components experimental
+                            docker exec ${VM_NAME}-server percona-release enable pmm2-client experimental
                             docker exec ${VM_NAME}-server yum clean all
                         '
                     """

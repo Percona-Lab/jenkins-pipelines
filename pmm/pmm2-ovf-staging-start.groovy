@@ -20,8 +20,9 @@ void enableRepo(String REPO, String PUBLIC_IP) {
             ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${PUBLIC_IP} '
                 sudo yum update -y percona-release || true
                 sudo sed -i'' -e 's^/release/^/${REPO}/^' /etc/yum.repos.d/pmm2-server.repo
-                sudo percona-release enable pmm2-components ${REPO}
+                sudo percona-release enable pmm2-client ${REPO}
                 sudo yum clean all
+                sudo yum clean metadata
             '
         """
     }
