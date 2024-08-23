@@ -15,8 +15,10 @@ setup_rhel_package_tests = { ->
 setup_rhel_8_package_tests = { ->
     sh '''
         sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+        sudo yum install -y python3-pip
         sudo yum -y update
-        sudo yum install -y ansible git wget
+        sudo pip3 install ansible==2.10.0
+        sudo yum install -y  git wget tar
     '''
 }
 
