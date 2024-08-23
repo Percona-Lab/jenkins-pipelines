@@ -72,6 +72,7 @@ ReposPathMap = [
     'PgBadger':             "${GitHubURL}/darold/pgbadger",
     'PgBouncer':            "${GitHubURL}/pgbouncer/pgbouncer",
     'Wal2Json':             "${GitHubURL}/eulerto/wal2json",
+    'Valkey':               "${GitHubURL}/valkey-io/valkey",
     'PostgreSQL-Common':    "https://salsa.debian.org/postgresql/postgresql-common",
     'PostgreSQL':           "git://git.postgresql.org/git/postgresql"
     ]
@@ -106,7 +107,8 @@ ReposSlackMap = [
     'PgBouncer':            "#postgresql-build",
     'Wal2Json':             "#postgresql-build",
     'PostgreSQL-Common':    "#postgresql-build",
-    'PostgreSQL':           "#postgresql-build"
+    'PostgreSQL':           "#postgresql-build",
+    'Valkey':               "#valkey"
     ]
 
 pipeline {

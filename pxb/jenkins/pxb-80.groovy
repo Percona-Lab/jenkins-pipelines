@@ -161,7 +161,7 @@ pipeline {
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         choice(
-            choices: 'pxb-80\npxb-8x-innovation\npxb-8x-lts\npxb-9x-innovation\npxb-9x-lts',
+            choices: 'pxb-80\npxb-8x-innovation\npxb-84-lts\npxb-9x-innovation\npxb-9x-lts',
             description: 'PXB repo name',
             name: 'PXB_REPO')
         choice(
