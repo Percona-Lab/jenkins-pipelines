@@ -74,7 +74,7 @@ pipeline {
           steps {
                 script {
                     currentBuild.displayName = "${env.BUILD_NUMBER}-TA_UPDATE_${env.TA_UPDATE}"
-                    currentBuild.description = "${env.VERSION}-TA_REPO_${env.VERSION}-PS_REPO_${env.VERSION}"
+                    currentBuild.description = "${env.VERSION}-TA_REPO_${env.TA_INSTALL_REPO}-PS_REPO_${env.PS_INSTALL_REPO}"
                 }
             }
         }
