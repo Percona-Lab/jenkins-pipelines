@@ -5,7 +5,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 pipeline {
   agent {
-      label 'min-ol-8-x64'
+      label 'min-bookworm-x64'
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
@@ -98,14 +98,13 @@ pipeline {
         stage('Check version param and checkout') {
             steps {
                 deleteDir()
-                checkOrchVersionParam()
                 git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
             }
         }
         stage ('Prepare') {
           steps {
                 script {
-                   installMolecule()
+                   installMoleculeBookworm()
              }
            }
         }
