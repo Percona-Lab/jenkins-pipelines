@@ -49,7 +49,6 @@ def pmm_submodules() {
         "grafana",
         "node_exporter",
         "postgres_exporter",
-        "clickhouse_exporter",
         "proxysql_exporter",
         "rds_exporter",
         "azure_metrics_exporter",

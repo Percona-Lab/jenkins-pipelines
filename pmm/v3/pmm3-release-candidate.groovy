@@ -13,7 +13,6 @@ def pmm_submodules() {
         "mysqld_exporter",
         "node_exporter",
         "postgres_exporter",
-        "clickhouse_exporter",
         "proxysql_exporter",
         "rds_exporter",
         "azure_metrics_exporter",
