@@ -158,16 +158,16 @@ pipeline {
                         }
                     }
                 }
-                stage('Run stanity tests for pmm-client docker container on amd64'){
+                stage('Run sanity tests for pmm-client docker container on amd64'){
                     steps {
                         script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@client-docker-multi-arch', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '', 'agent-amd64');
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@docker-client-multi-arch', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '', 'agent-amd64');
                         }
                     }
                 }
-                stage('Run stanity tests for pmm-client docker container on arm64'){
+                stage('Run sanity tests for pmm-client docker container on arm64'){
                     steps {
-                        runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@client-docker-multi-arch', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '', 'agent-arm64-ol9');
+                        runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@docker-client-multi-arch', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '', 'agent-arm64-ol9');
                     }
                 }
             }
