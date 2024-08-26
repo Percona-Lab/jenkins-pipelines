@@ -111,11 +111,6 @@ pipeline {
         stage('Check version param and checkout') {
             steps {
                 deleteDir()
-                script {
-                    if (env.SCENARIO != 'ubuntu-noble') {
-                        checkOrchVersionParam()
-                    }
-                }                
                 git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
             }
         }
