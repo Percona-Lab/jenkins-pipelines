@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'ovf-do'
+        label 'ovf-do-el9'
     }
     parameters {
         string(
