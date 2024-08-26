@@ -11,7 +11,7 @@ def getMinorVersion(VERSION) {
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-amd64-ol9'
     }
     environment {
         PORTAL_USER_EMAIL=credentials('PORTAL_USER_EMAIL')

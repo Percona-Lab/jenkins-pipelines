@@ -24,7 +24,7 @@ void addComment(String COMMENT) {
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-amd64-ol9'
     }
     parameters {
         string(
@@ -390,14 +390,17 @@ pipeline {
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                     slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
+                    if (env.API_TESTS_RESULT.equals("SUCCESS") && env.API_TESTS_URL) {
+                      addComment("API tests have succeded: ${API_TESTS_URL}")
+                    }
                 }
             }
         }
         always {
             script {
                 if (currentBuild.result != 'SUCCESS') {
-                    if (env.API_TESTS_RESULT != "SUCCESS" && env.API_TESTS_URL) {
-                        addComment("API tests have failed. Please check: ${API_TESTS_URL}")
+                    if (!env.API_TESTS_RESULT.equals("SUCCESS") && env.API_TESTS_URL) {
+                        addComment("API tests have failed: ${API_TESTS_URL}")
                     }
                     slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
                 }

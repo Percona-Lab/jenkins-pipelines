@@ -7,6 +7,10 @@ pipeline {
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm repository',
             name: 'PMM_BRANCH')
+        string(
+            defaultValue: 'docker.io/percona/pmm-server:3-dev-latest',
+            description: 'Docker image for PMM Server running in the AMI',
+            name: 'PMM_SERVER_IMAGE')
         choice(
             choices: ['no', 'yes'],
             description: "Build Release Candidate?",
@@ -30,6 +34,9 @@ pipeline {
                     if (params.RELEASE_CANDIDATE == 'yes') {
                         // release branch should be in the format: pmm-3.x.y
                         env.PMM_VERSION = PMM_BRANCH.split('-')[1] 
+                    }
+                    if (params.PMM_BRANCH != 'v3') {
+                        env.PMM_VERSION = '3-dev-' + PMM_BRANCH
                     }
                 }
                 withCredentials([string(credentialsId: 'f5415992-e274-45c2-9eb9-59f9e8b90f43', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
@@ -65,9 +72,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     dir('build') {
-                        sh '''
-                            make pmm-ovf
-                        '''
+                        sh "PMM_SERVER_IMAGE=${PMM_SERVER_IMAGE}  make pmm-ovf"
                     }
                 }
                 sh 'ls */*/PMM3-Server-*.ova | cut -d "/" -f 2 > IMAGE'

@@ -17,8 +17,8 @@ logger.info("Cloud init started")
 Jenkins jenkins = Jenkins.getInstance()
 
 netMap = [:]
-netMap['us-west-2b'] = 'subnet-0c0b7f0b15c1d68be'
-netMap['us-west-2c'] = 'subnet-024be5829372c4f38'
+netMap['us-west-2b'] = 'subnet-028f5265edd1581c3'
+netMap['us-west-2c'] = 'subnet-0fe430aa745b0116f'
 
 imageMap = [:]
 imageMap['us-west-2a.docker']            = 'ami-0f3b366cff2e46862'
@@ -135,11 +135,11 @@ imageMap['us-west-2d.docker-32gb-aarch64'] = imageMap['us-west-2a.docker-32gb-aa
 
 priceMap = [:]
 priceMap['t2.medium'] = '0.07'   // type=t2.medium, vCPU=2, memory=4GiB, saving=69%, interruption='<5%', price=0.032000
-priceMap['c5.4xlarge'] = '0.35'  // type=c5.4xlarge, vCPU=16, memory=32GiB, saving=62%, interruption='<5%', price=0.272000
+priceMap['c5d.4xlarge'] = '0.40'  // type=c5d.4xlarge, vCPU=16, memory=32GiB, saving=62%, interruption='<5%', price=0.272000
 priceMap['r5a.4xlarge'] = '0.65' // type=r5a.4xlarge, vCPU=16, memory=128GiB, saving=67%, interruption='<5%', price=0.583900
-priceMap['m5dn.2xlarge'] = '0.37' // type=m5dn.2xlarge, vCPU=8, memory=32GiB, saving=64%, interruption='<5%', price=0.201900
+priceMap['m5n.2xlarge'] = '0.37' // type=m5n.2xlarge, vCPU=8, memory=32GiB, saving=64%, interruption='<5%', price=0.201900
 
-priceMap['r6gd.2xlarge'] = '0.34'
+priceMap['i4g.2xlarge'] = '0.34' // aarch
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -236,7 +236,7 @@ initMap['docker'] = '''
             echo try again
         done
 
-        7za -o/tmp x /tmp/awscliv2.zip 
+        7za -o/tmp x /tmp/awscliv2.zip
         cd /tmp/aws && sudo ./install
     fi
 
@@ -306,7 +306,7 @@ initMap['docker-32gb-hirsute'] = '''
             echo try again
         done
 
-        unzip -o /tmp/awscliv2.zip -d /tmp 
+        unzip -o /tmp/awscliv2.zip -d /tmp
         cd /tmp/aws && sudo ./install
     fi
 
@@ -376,7 +376,7 @@ initMap['docker-32gb-bullseye'] = '''
             echo try again
         done
 
-        unzip -o /tmp/awscliv2.zip -d /tmp 
+        unzip -o /tmp/awscliv2.zip -d /tmp
         cd /tmp/aws && sudo ./install
     fi
 
@@ -456,7 +456,7 @@ initMap['min-centos-6-x64'] = '''
         echo try again
     done
 
-    until sudo yum -y install epel-release centos-release-scl; do    
+    until sudo yum -y install epel-release centos-release-scl; do
         sleep 1
         echo try again
     done
@@ -549,15 +549,15 @@ initMap['min-bookworm-x64'] = initMap['min-buster-x64']
 initMap['docker-32gb-aarch64'] = initMap['docker']
 
 capMap = [:]
-capMap['c5.4xlarge'] = '80'
+capMap['c5d.4xlarge'] = '80'
 capMap['r5a.4xlarge'] = '60'
-capMap['m5dn.2xlarge'] = '60'
-capMap['r6gd.2xlarge'] = '40'
+capMap['m5n.2xlarge'] = '60'
+capMap['i4g.2xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.medium'
-typeMap['docker']            = 'm5dn.2xlarge'
-typeMap['docker-32gb']       = 'c5.4xlarge'
+typeMap['docker']            = 'm5n.2xlarge'
+typeMap['docker-32gb']       = 'c5d.4xlarge'
 typeMap['docker-32gb-hirsute']  = 'r5a.4xlarge'
 typeMap['docker-32gb-jammy']    = 'r5a.4xlarge'
 typeMap['docker-32gb-noble']    = 'r5a.4xlarge'
@@ -574,14 +574,14 @@ typeMap['min-noble-x64']     = 'r5a.4xlarge'
 typeMap['min-focal-x64']     = typeMap['docker']
 typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
-typeMap['min-centos-6-x64']  = 'm5dn.2xlarge'
+typeMap['min-centos-6-x64']  = 'm5n.2xlarge'
 typeMap['min-stretch-x64']   = typeMap['docker']
 typeMap['min-xenial-x64']    = typeMap['docker']
 typeMap['min-amazon-2-x64']  = typeMap['docker']
 typeMap['min-bullseye-x64']  = typeMap['docker']
 typeMap['min-bookworm-x64']  = typeMap['docker']
 
-typeMap['docker-32gb-aarch64'] = 'r6gd.2xlarge'
+typeMap['docker-32gb-aarch64'] = 'i4g.2xlarge'
 
 execMap = [:]
 execMap['docker']            = '1'
@@ -792,7 +792,7 @@ String region = 'us-west-2'
             getTemplate('min-bullseye-x64',     "${region}${it}"),
             getTemplate('min-bookworm-x64',     "${region}${it}"),
             getTemplate('docker-32gb-aarch64',  "${region}${it}"),
-        ],                                       // List<? extends SlaveTemplate> templates 
+        ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
     )
