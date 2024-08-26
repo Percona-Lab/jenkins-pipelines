@@ -32,7 +32,7 @@ pipeline {
     stages {
         stage('Build PMM Client') {
             agent {
-                label 'agent-amd64'
+                label 'agent-amd64-ol9'
             }
             stages {
                 stage('Prepare') {

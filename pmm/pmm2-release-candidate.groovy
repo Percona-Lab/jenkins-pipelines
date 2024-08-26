@@ -157,7 +157,7 @@ String DEFAULT_BRANCH = 'PMM-2.0'
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-amd64-ol9'
     }
     parameters {
         string(
