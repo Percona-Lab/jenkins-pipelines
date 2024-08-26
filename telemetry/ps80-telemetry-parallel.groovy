@@ -19,7 +19,7 @@ pipeline {
             name: 'VERSION'
         )
         string(
-            defaultValue: '5b8049c',
+            defaultValue: '5da6a8b',
             description: 'Telemetry Agent revision',
             name: 'REVISION'
         )
@@ -87,7 +87,7 @@ pipeline {
         stage ('Prepare') {
           steps {
                 script {
-                   installMoleculeBookworm()
+                   installMoleculeBookwormold()
              }
            }
         }
