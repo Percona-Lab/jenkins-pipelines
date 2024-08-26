@@ -21,7 +21,7 @@ pipeline {
     stages {
         stage('Build PMM Client') {
             agent {
-                label 'agent-arm64'
+                label 'agent-arm64-ol9'
             }
             stages {
                 stage('Prepare') {

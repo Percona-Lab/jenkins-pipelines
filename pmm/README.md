@@ -12,8 +12,8 @@ We build the custom image for agents and you can find Packer and Ansible files i
 
 You can use the following tags for agents:
 
-- `agent-amd64` - short-lived agent based on Amazon Linux 2. After completing one task, the agent dies and a new one is started
-- `agent-arm64` - the same as previous but arm64 arch
+- `agent-amd64-ol9` - short-lived agent based on Oracle Linux 9. After completing one task, the agent dies and a new one is started
+- `agent-arm64-ol9` - the same as previous but arm64 arch
 - `cli` - long-lived agents for tasks that do not require interaction with the file system. For example: run awc-cli command. These agents used ARM64 arch and read-only filesystem.
 
 ## Tips
