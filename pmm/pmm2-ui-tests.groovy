@@ -175,7 +175,7 @@ pipeline {
             description: "Run Specified Tagged Tests",
             name: 'RUN_TAGGED_TEST')
         choice(
-            choices: ['agent-amd64', 'agent-arm64-ol9'],
+            choices: ['agent-amd64-ol9', 'agent-arm64-ol9'],
             description: 'Enable Pull Mode, if you are using this instance as Client Node',
             name: 'ARCHITECTURE')
         choice(
@@ -260,7 +260,7 @@ pipeline {
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
                 script {
-                    if (ARCHITECTURE == "agent-amd64") {
+                    if (ARCHITECTURE == "agent-amd64-ol9") {
                         sh '''
                             /srv/pmm-qa/pmm-tests/install_k8s_tools.sh --kubectl --sudo
                         '''
@@ -280,7 +280,7 @@ pipeline {
             parallel {
                 stage('Setup Server Instance') {
                     when {
-                        expression { env.CLIENT_INSTANCE == "no" && env.ARCHITECTURE == 'agent-amd64'}
+                        expression { env.CLIENT_INSTANCE == "no" && env.ARCHITECTURE == 'agent-amd64-ol9'}
                     }
                     steps {
                         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
