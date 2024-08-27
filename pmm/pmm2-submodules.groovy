@@ -54,6 +54,7 @@ pipeline {
                     git submodule status
 
                     if [ -s ci.yml ]; then
+                        source /home/ec2-user/venv/bin/activate
                         python3 ci.py
                         . ./.git-sources
                         echo $pmm_commit > apiCommitSha
