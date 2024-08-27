@@ -135,7 +135,7 @@ currentBuild.description = "AMI: $amiID"
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-amd64-ol9'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -248,12 +248,12 @@ pipeline {
                         # we only want to see the http code to improve troubleshooting
                         HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" --connect-timeout 5 ${PMM_URL}/ping)
                         set +x
-                    
+
                         if [[ $HTTP_CODE == "200" ]]; then
                             RET_VAL=0
                             break
                         fi
-                        
+
                         # 000 means the host is unreachable
                         # curl is set to timeout in 5 secs if the host is unreachable, so we only sleep if otherwise
                         [ $HTTP_CODE != "000" ] && sleep 5
