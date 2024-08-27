@@ -255,10 +255,6 @@ pipeline {
                 deleteDir()
                 script {
                     currentBuild.description = "$VERSION"
-                    slackSend botUser: true,
-                        channel: '#pmm-dev',
-                        color: '#0892d0',
-                        message: "Release candidate PMM $VERSION build has started. You can check progress at: ${BUILD_URL}"
                     env.EXIST = sh (
                         script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules pmm-\${VERSION} | wc -l',
                         returnStdout: true
@@ -364,22 +360,6 @@ pipeline {
                     }
                 }
             }
-        }
-    }
-    post {
-        success {
-            slackSend botUser: true,
-                      channel: '#pmm-dev',
-                      color: '#00FF00',
-                      message: """New Release Candidate is out :rocket:
-Server: perconalab/pmm-server:${VERSION}-rc
-Client: perconalab/pmm-client:${VERSION}-rc
-OVA: https://percona-vm.s3.amazonaws.com/PMM2-Server-${VERSION}.ova
-AMI: ${env.AMI_ID}
-Tarball: ${env.TARBALL_URL}
-${env.TEST_URL}
-${env.SCAN_REPORT_URL}
-                      """
         }
     }
 }
