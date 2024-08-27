@@ -17,9 +17,9 @@ pipeline {
         disableConcurrentBuilds()
         parallelsAlwaysFailFast()
     }
-    // triggers {
-    //     upstream upstreamProjects: 'pmm3-submodules-rewind', threshold: hudson.model.Result.SUCCESS
-    // }
+    triggers {
+        upstream upstreamProjects: 'pmm3-submodules-rewind', threshold: hudson.model.Result.SUCCESS
+    }
     stages {
         stage('Prepare') {
             steps {
@@ -51,7 +51,7 @@ pipeline {
             parallel {
                 stage('Build pmm3 client for amd64') {
                     steps {
-                        build job: 'tbr-pmm3-client-autobuild-amd', parameters: [
+                        build job: 'pmm3-client-autobuild-amd', parameters: [
                             string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
                             string(name: 'DESTINATION', value: params.DESTINATION)
                         ]
@@ -59,7 +59,7 @@ pipeline {
                 }
                 stage('Build pmm3 client for arm64') {
                     steps {
-                        build job: 'tbr-pmm3-client-autobuild-arm', parameters: [
+                        build job: 'pmm3-client-autobuild-arm', parameters: [
                             string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
                             string(name: 'DESTINATION', value: params.DESTINATION)
                         ]
@@ -75,23 +75,23 @@ pipeline {
                         set -o xtrace
 
                         if [ -n "${DOCKER_RC_TAG}" ]; then
-                            docker manifest create perconalab/pmm-client-test:${DOCKER_RC_TAG} \
-                                --amend perconalab/pmm-client-test:${DOCKER_RC_TAG}-amd64 \
-                                --amend perconalab/pmm-client-test:${DOCKER_RC_TAG}-arm64
+                            docker manifest create perconalab/pmm-client:${DOCKER_RC_TAG} \
+                                --amend perconalab/pmm-client:${DOCKER_RC_TAG}-amd64 \
+                                --amend perconalab/pmm-client:${DOCKER_RC_TAG}-arm64
 
-                            docker manifest annotate --arch amd64 perconalab/pmm-client-test:${DOCKER_RC_TAG} perconalab/pmm-client-test:${DOCKER_RC_TAG}-amd64
-                            docker manifest annotate --arch arm64 perconalab/pmm-client-test:${DOCKER_RC_TAG} perconalab/pmm-client-test:${DOCKER_RC_TAG}-arm64
+                            docker manifest annotate --arch amd64 perconalab/pmm-client:${DOCKER_RC_TAG} perconalab/pmm-client:${DOCKER_RC_TAG}-amd64
+                            docker manifest annotate --arch arm64 perconalab/pmm-client:${DOCKER_RC_TAG} perconalab/pmm-client:${DOCKER_RC_TAG}-arm64
 
-                            docker manifest push perconalab/pmm-client-test:${DOCKER_RC_TAG}
+                            docker manifest push perconalab/pmm-client:${DOCKER_RC_TAG}
                         else
-                            docker manifest create perconalab/pmm-client-test:${DOCKER_LATEST_TAG} \
-                                --amend perconalab/pmm-client-test:${DOCKER_LATEST_TAG}-amd64 \
-                                --amend perconalab/pmm-client-test:${DOCKER_LATEST_TAG}-arm64
+                            docker manifest create perconalab/pmm-client:${DOCKER_LATEST_TAG} \
+                                --amend perconalab/pmm-client:${DOCKER_LATEST_TAG}-amd64 \
+                                --amend perconalab/pmm-client:${DOCKER_LATEST_TAG}-arm64
 
-                            docker manifest annotate --arch amd64 perconalab/pmm-client-test:${DOCKER_LATEST_TAG} perconalab/pmm-client-test:${DOCKER_LATEST_TAG}-amd64
-                            docker manifest annotate --arch arm64 perconalab/pmm-client-test:${DOCKER_LATEST_TAG} perconalab/pmm-client-test:${DOCKER_LATEST_TAG}-arm64
+                            docker manifest annotate --arch amd64 perconalab/pmm-client:${DOCKER_LATEST_TAG} perconalab/pmm-client:${DOCKER_LATEST_TAG}-amd64
+                            docker manifest annotate --arch arm64 perconalab/pmm-client:${DOCKER_LATEST_TAG} perconalab/pmm-client:${DOCKER_LATEST_TAG}-arm64
 
-                            docker manifest push perconalab/pmm-client-test:${DOCKER_LATEST_TAG}
+                            docker manifest push perconalab/pmm-client:${DOCKER_LATEST_TAG}
                         fi
                     '''
                 }
