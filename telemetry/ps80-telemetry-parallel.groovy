@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@telem_ph1", retriever: modernSCM([
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/eleo007/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
 pipeline {
@@ -35,17 +35,17 @@ pipeline {
             name: 'TA_INSTALL_REPO',
             description: 'Select repo for Telemetry Agent installation',
             choices: [
-                'experimental',
                 'testing',
-                'release'
+                'release',
+                'experimental'
             ]
         )
         choice(
             name: 'PS_INSTALL_REPO',
             description: 'Select repo for Percona Server installation',
             choices: [
-                'release',
                 'testing',
+                'release',
                 'experimental'
             ]
         )
@@ -55,12 +55,12 @@ pipeline {
             choices: ['telemetry-ps',]
         )
         string(
-            defaultValue: 'telemetry_ph1',
+            defaultValue: 'master',
             description: 'Branch for package-testing repository',
             name: 'TESTING_BRANCH'
         )
         string(
-            defaultValue: 'eleo007',
+            defaultValue: 'Percona-QA',
             description: 'Git account for package-testing repository',
             name: 'TESTING_GIT_ACCOUNT'
         )
