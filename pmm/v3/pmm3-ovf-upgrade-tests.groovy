@@ -139,7 +139,7 @@ def versionsList = pmmVersion('ovf')
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-amd64-ol9'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
