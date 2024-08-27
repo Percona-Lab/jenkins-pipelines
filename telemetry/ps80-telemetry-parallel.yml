@@ -6,9 +6,9 @@
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/eleo007/jenkins-pipelines.git
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'telem_ph1'
+            - 'master'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: telemetry/ps80-telemetry-parallel.groovy
