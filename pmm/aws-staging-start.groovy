@@ -26,7 +26,7 @@ def DEFAULT_SSH_KEYS = getSHHKeysPMM()
 
 pipeline {
     agent {
-        label 'cli'
+        label 'agent-amd64-ol9'
     }
     parameters {
         string(
