@@ -94,7 +94,7 @@ pipeline {
                                 docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_LATEST_TAG}
                                 docker push perconalab/pmm-client:${DOCKER_LATEST_TAG}
                             fi
-                            
+
                             docker push $DOCKER_CLIENT_TAG
                         '''
                     }
