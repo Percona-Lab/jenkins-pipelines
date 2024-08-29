@@ -48,9 +48,9 @@ Mappings:
     us-east-1:
       x64: ami-0d887a308369b6881
     us-east-2:
-      x64: ami-0e534f3e5321ed9ed
+      x64: ami-09e5a7cd9561f8ea9
     us-west-2:
-      x64: ami-0044a0897b53acfb6
+      x64: ami-08578967e04feedea
 
 Resources:
 
@@ -522,13 +522,13 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !GetAtt JMasterTemplate.LatestVersionNumber
           Overrides:
-          - InstanceType: c5d.xlarge
+          - InstanceType: m6id.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5a.xlarge
+          - InstanceType: m5n.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c6a.xlarge
+          - InstanceType: m6a.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
 
@@ -564,6 +564,8 @@ Resources:
         ImageId: !FindInMap [AmazonLinux2, !Ref 'AWS::Region', x64]
         Monitoring:
           Enabled: false
+        MetadataOptions:
+          HttpTokens: "optional"  # Allows both IMDSv1 and IMDSv2
         UserData:
             Fn::Base64: !Sub |
               #!/bin/bash
@@ -622,7 +624,7 @@ Resources:
                   amazon-linux-extras install epel -y
                   amazon-linux-extras install java-openjdk11 -y
                   yum -y update --security
-                  yum -y install jenkins-2.426.3 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install jenkins-2.462.1 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf

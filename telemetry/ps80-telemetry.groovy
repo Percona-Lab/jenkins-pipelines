@@ -3,6 +3,8 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
+List operating_systems = []
+operating_systems = ps80telemOperatingSystems() + ['rocky-8', 'rocky-9']
 
 pipeline {
     agent {
@@ -10,62 +12,54 @@ pipeline {
     }
     environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "molecule/pdmysql/${SCENARIO}";
+      MOLECULE_DIR = "molecule/telemetry/${SCENARIO}";
     }
     parameters {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: pdpsOperatingSystems()
-        )
-        choice(
-            name: 'REPO',
-            description: 'Repo for testing',
-            choices: [
-                'testing',
-                'experimental',
-                'release'
-            ]
+            choices: operating_systems
         )
         string(
-            defaultValue: '8.0.37-29',
-            description: 'Percona Server version for test. Possible values are with and without percona release and build: 8.0.32, 8.0.32-24 OR 8.0.32-24.2',
+            defaultValue: '1.0.1-2',
+            description: 'Telemetry Agent version',
             name: 'VERSION'
         )
         string(
-            defaultValue: '',
-            description: 'Percona Server revision for test. Empty by default (not checked).',
-            name: 'PS_REVISION'
+            defaultValue: '5da6a8b',
+            description: 'Telemetry Agent revision',
+            name: 'REVISION'
         )
-        string(
-            defaultValue: '2.6.3',
-            description: 'Proxysql version for test',
-            name: 'PROXYSQL_VERSION'
+        choice(
+            name: 'TA_UPDATE',
+            description: 'Set yes for update of Telemetry Agent',
+            choices: [
+                'yes',
+                'no'
+            ]
         )
-        string(
-            defaultValue: '8.0.35-31',
-            description: 'PXB version for test. Possible values are with and without percona release and build: 8.0.32, 8.0.32-25 OR 8.0.32-25.1',
-            name: 'PXB_VERSION'
+        choice(
+            name: 'TA_INSTALL_REPO',
+            description: 'Select repo for Telemetry Agent installation',
+            choices: [
+                'testing',
+                'release',
+                'experimental'
+            ]
         )
-        string(
-            defaultValue: '3.6.0',
-            description: 'Percona toolkit version for test',
-            name: 'PT_VERSION'
-        )
-        string(
-            defaultValue: '3.2.6-13',
-            description: 'Percona Orchestrator version for test',
-            name: 'ORCHESTRATOR_VERSION'
-        )
-        string(
-            defaultValue: '',
-            description: 'Orchestrator revision for version from https://github.com/percona/orchestrator . Empty by default (not checked).',
-            name: 'ORCHESTRATOR_REVISION'
+        choice(
+            name: 'PS_INSTALL_REPO',
+            description: 'Select repo for Percona Server installation',
+            choices: [
+                'testing',
+                'release',
+                'experimental'
+            ]
         )
         choice(
             name: 'SCENARIO',
             description: 'Scenario for test',
-            choices: pdpsScenarios()
+            choices: ['telemetry-ps',]
         )
         string(
             defaultValue: 'master',
@@ -76,15 +70,6 @@ pipeline {
             defaultValue: 'Percona-QA',
             description: 'Git account for package-testing repository',
             name: 'TESTING_GIT_ACCOUNT'
-        )
-        string(
-            defaultValue: 'master',
-            description: 'Tests will be run from branch of  https://github.com/percona/orchestrator',
-            name: 'ORCHESTRATOR_TESTS_VERSION'
-        )
-        booleanParam(
-            name: 'MAJOR_REPO',
-            description: "Enable to use major (pdps-8.0) repo instead of pdps-8.0.XX"
         )
         choice(
             name: 'DESTROY_ENV',
@@ -97,28 +82,26 @@ pipeline {
     }
     options {
           withCredentials(moleculePdpsJenkinsCreds())
-          disableConcurrentBuilds()
     }
     stages {
         stage('Set build name'){
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.SCENARIO}"
-                    currentBuild.description = "${env.VERSION}-${env.REPO}-${env.TESTING_BRANCH}-${env.MAJOR_REPO}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-TA_UPDATE_${env.TA_UPDATE}"
+                    currentBuild.description = "${env.VERSION}-TA_REPO_${env.TA_INSTALL_REPO}-PS_REPO_${env.PS_INSTALL_REPO}"
                 }
             }
         }
         stage('Check version param and checkout') {
             steps {
                 deleteDir()
-                checkOrchVersionParam()
                 git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
             }
         }
         stage ('Prepare') {
             steps {
                 script {
-                    installMoleculeBookworm()
+                    installMoleculeBookwormold()
                 }
             }
         }
@@ -162,3 +145,4 @@ pipeline {
         }
     }
 }
+

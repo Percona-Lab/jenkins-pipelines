@@ -30,8 +30,6 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 RHEL=$(rpm --eval '%{rhel}')
                 if [ "$RHEL" -eq 9 ]; then
                   sudo yum -y install https://repo.percona.com/pmm3-client/yum/experimental/9/RPMS/x86_64/pmm-client-3.0.0-6.el9.x86_64.rpm
-                elif [ "$RHEL" -eq 7 ]; then
-                  sudo yum -y install https://repo.percona.com/pmm3-client/yum/experimental/7/RPMS/x86_64/pmm-client-3.0.0-6.el7.x86_64.rpm
                 else
                   echo "Fatal: pmm3-client has no compatible RPM version to install. Exiting..."
                   exit 1

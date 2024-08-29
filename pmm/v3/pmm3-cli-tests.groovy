@@ -84,13 +84,13 @@ void runPlaywrightTests() {
 
         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
             sh '''
-                set -ex 
+                set -ex
                 node -e "console.log('Running Node.js ' + process.version)"
 
                 cd cli
                 npm install
                 npx playwright install
-                
+
                 if [[ ${CLIENT_VERSION} == http* ]]; then
                     export PATH="/home/ec2-user/workspace/aws-staging-start-pmm3/pmm-client/bin:$PATH"
                 fi
@@ -132,7 +132,7 @@ def latestVersion = pmmVersion()
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-amd64-ol9'
     }
     parameters {
         string(

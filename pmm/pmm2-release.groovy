@@ -256,7 +256,7 @@ ENDSSH
 
         stage('Get Docker RPMs') {
             agent {
-                label 'min-rhel-7-x64'
+                label 'min-ol-9-x64'
             }
             steps {
                 installDocker()
@@ -341,7 +341,7 @@ ENDSSH
 
         stage('Set Docker Tag') {
             agent {
-                label 'min-rhel-7-x64'
+                label 'min-ol-9-x64'
             }
             steps {
                 installDocker()

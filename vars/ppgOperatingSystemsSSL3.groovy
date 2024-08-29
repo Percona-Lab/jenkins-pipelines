@@ -1,5 +1,3 @@
 def call() {
-  // centos8 - centos8.3
-  // rhel8 - rhel 8.0
-  return ['ol-9', 'debian-12', 'ubuntu-jammy', 'ubuntu-noble']
+  return ['ol-9', 'debian-12', 'ubuntu-jammy', 'ubuntu-noble', 'ol-9-arm', 'debian-12-arm', 'ubuntu-jammy-arm', 'ubuntu-noble-arm']
 }
