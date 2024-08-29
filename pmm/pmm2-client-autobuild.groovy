@@ -47,24 +47,20 @@ pipeline {
                 }
             }
         }
-        stage('Build multi-arch pmm2 client') {
-            parallel {
-                stage('Build pmm2 client for amd64') {
-                    steps {
-                        build job: 'pmm2-client-autobuilds-amd', parameters: [
-                            string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
-                            string(name: 'DESTINATION', value: params.DESTINATION)
-                        ]
-                    }
-                }
-                stage('Build pmm2 client for arm64') {
-                    steps {
-                        build job: 'pmm2-client-autobuilds-arm', parameters: [
-                            string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
-                            string(name: 'DESTINATION', value: params.DESTINATION)
-                        ]
-                    }
-                }
+        stage('Build pmm2 client for amd64') {
+            steps {
+                build job: 'pmm2-client-autobuilds-amd', parameters: [
+                    string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                    string(name: 'DESTINATION', value: params.DESTINATION)
+                ]
+            }
+        }
+        stage('Build pmm2 client for arm64') {
+            steps {
+                build job: 'pmm2-client-autobuilds-arm', parameters: [
+                    string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                    string(name: 'DESTINATION', value: params.DESTINATION)
+                ]
             }
         }
         stage('Push pmm2 client multi-arch images') {
