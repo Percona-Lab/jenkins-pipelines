@@ -72,7 +72,7 @@ pipeline {
     stages {
         stage('Create orchestrator source tarball') {
             steps {
-                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 buildStage("oraclelinux:8", "--get_sources=1")
                 sh '''
@@ -235,7 +235,7 @@ pipeline {
         success {
             slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH} by ${PACKAGE_REPO_BRANCH}"
+                currentBuild.description = "Built on ${BRANCH} by ${PACKAGE_REPO_BRANCH}"
             }
             deleteDir()
         }
