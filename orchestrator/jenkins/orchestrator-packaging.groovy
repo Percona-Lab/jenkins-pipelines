@@ -233,14 +233,14 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH}"
+                currentBuild.description = "Built on ${GIT_BRANCH} by ${PACKAGE_REPO_BRANCH}"
             }
             deleteDir()
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {
