@@ -38,7 +38,7 @@ void prepareNode() {
     if ("$IMAGE_PXC") {
         currentBuild.description = "$GIT_BRANCH-$USED_PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_PXC".split(":")[1]
     }
-    
+
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
