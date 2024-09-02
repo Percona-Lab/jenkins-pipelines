@@ -30,7 +30,7 @@ def generateStage(VERSION) {
                 VERSION,
                 PMM_SERVER_LATEST,
                 ENABLE_TESTING_REPO,
-                ENABLE_EXPERIMENTAL_REPO
+                ENABLE_EXPERIMENTAL_REPO,
                 PMM_QA_GIT_BRANCH
             )
         }
@@ -59,7 +59,7 @@ pipeline {
             description: 'Enable Testing Repo for RC',
             name: 'ENABLE_TESTING_REPO')
         choice(
-            choices: ['no', 'yes'],
+            choices: ['yes', 'no'],
             description: 'Enable Experimental Repo for dev-latest',
             name: 'ENABLE_EXPERIMENTAL_REPO')
     }
