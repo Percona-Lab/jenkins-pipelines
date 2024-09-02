@@ -221,7 +221,7 @@ pipeline {
                     currentBuild.description = "VM_NAME: ${VM_NAME}, IP: ${PUBLIC_IP}, OWNER: ${OWNER}"
                 }
 
-                setupPMMClient(env.PUBLIC_IP, params.CLIENT_VERSION, 'pmm2', 'yes', 'no', 'yes', 'ovf_setup', env.ADMIN_PASSWORD)
+                setupPMMClient(env.PUBLIC_IP, params.CLIENT_VERSION, 'pmm2', 'yes', 'experimental', 'yes', 'ovf_setup', env.ADMIN_PASSWORD)
 
                 sh """
                     set -o errexit

@@ -1,4 +1,4 @@
-def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENABLE_PULL_MODE, String ENABLE_TESTING_REPO, String CLIENT_INSTANCE, String SETUP_TYPE, String ADMIN_PASSWORD, String ENABLE_EXPERIMENTAL_REPO = 'yes') {
+def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENABLE_PULL_MODE, String REPO_TO_ENABLE, String CLIENT_INSTANCE, String SETUP_TYPE, String ADMIN_PASSWORD) {
    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh '''
             set -o errexit
@@ -9,8 +9,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             export SERVER_IP=${SERVER_IP}
             export CLIENT_VERSION=${CLIENT_VERSION}
             export ENABLE_PULL_MODE=${ENABLE_PULL_MODE}
-            export ENABLE_TESTING_REPO=${ENABLE_TESTING_REPO}
-            export ENABLE_EXPERIMENTAL_REPO=${ENABLE_EXPERIMENTAL_REPO}
+            export REPO_TO_ENABLE=${REPO_TO_ENABLE}
             export CLIENT_INSTANCE=${CLIENT_INSTANCE}
             export SETUP_TYPE=${SETUP_TYPE}
             export ADMIN_PASSWORD=${ADMIN_PASSWORD}
@@ -45,13 +44,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 sudo percona-release enable-only pmm2-client experimental
             elif [[ "$CLIENT_VERSION" = 2* ]]; then
                 sudo yum -y install "pmm2-client-$CLIENT_VERSION-6.el9.x86_64"
-                if [[ "$ENABLE_TESTING_REPO" = yes ]]; then
-                    sudo percona-release enable-only pmm2-client testing
-                elif [[ "$ENABLE_TESTING_REPO" = no ]] && [[ "$ENABLE_EXPERIMENTAL_REPO" = yes ]]; then
-                    sudo percona-release enable-only pmm2-client experimental
-                else
-                    sudo percona-release enable-only pmm2-client release
-                fi
+                sudo percona-release enable-only pmm2-client ${REPO_TO_ENABLE}
                 sleep 10
             else
                 if [[ "$CLIENT_VERSION" = http* ]]; then

@@ -9,12 +9,11 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO) {
+void runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH, REPO_TO_ENABLE) {
     ovfStagingJob = build job: 'pmm2-ovf-staging-start', parameters: [
         string(name: 'OVA_VERSION', value: SERVER_VERSION),
-        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
+        string(name: 'REPO_TO_ENABLE', value: REPO_TO_ENABLE),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: ENABLE_EXPERIMENTAL_REPO)
     ]
     env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
     env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
@@ -36,13 +35,13 @@ void customSetupOVFInstance(INSTANCE_IP, OVF_INSTANCE_NAME) {
     }
 }
 
-void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, NODE_TYPE) {
+void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, REPO_TO_ENABLE, NODE_TYPE) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
+        string(name: 'REPO_TO_ENABLE', value: REPO_TO_ENABLE),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
@@ -195,13 +194,9 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo, for RC testing',
-            name: 'ENABLE_TESTING_REPO')
-        choice(
-            choices: ['yes', 'no'],
-            description: 'Enable Experimental, for Dev Latest testing',
-            name: 'ENABLE_EXPERIMENTAL_REPO')
+            choices: ['experimental', 'testing', 'release'],
+            description: 'Repo to enable (experimental - dev-latest, testing - rc, release - stable)',
+            name: 'REPO_TO_ENABLE')
         choice(
             choices: ['true', 'false'],
             description: 'Enable to setup Docker-compose for remote instances',
@@ -232,7 +227,7 @@ pipeline {
         }
         stage('Start OVF Server') {
             steps {
-                runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO)
+                runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH, REPO_TO_ENABLE)
                 script {
                     SSHLauncher ssh_connection = new SSHLauncher(OVF_INSTANCE_IP, 22, 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e')
                     DumbSlave node = new DumbSlave(OVF_INSTANCE_NAME, "OVA staging instance: ${OVF_INSTANCE_NAME}", "/root", "1", Mode.EXCLUSIVE, "", ssh_connection, RetentionStrategy.INSTANCE)
@@ -250,12 +245,12 @@ pipeline {
             parallel {
                 stage('Start Client Instance Remote Instance') {
                     steps {
-                        runStagingClient(CLIENT_VERSION, '--setup-remote-db', 'yes', OVF_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 'remote-node')
+                        runStagingClient(CLIENT_VERSION, '--setup-remote-db', 'yes', OVF_INSTANCE_IP, PMM_QA_GIT_BRANCH, REPO_TO_ENABLE, 'remote-node')
                     }
                 }
                 stage('Start Client Instance DB connect Instance') {
                     steps {
-                        runStagingClient(CLIENT_VERSION, '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-queries', 'yes', OVF_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 'db-node')
+                        runStagingClient(CLIENT_VERSION, '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-queries', 'yes', OVF_INSTANCE_IP, PMM_QA_GIT_BRANCH, REPO_TO_ENABLE, 'db-node')
                     }
                 }
             }

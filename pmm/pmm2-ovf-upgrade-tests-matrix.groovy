@@ -8,8 +8,7 @@ void runOVFUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_
         string(name: 'SERVER_VERSION', value: PMM_VERSION),
         string(name: 'CLIENT_VERSION', value: PMM_VERSION),
         string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
-        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
-        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
+        string(name: 'REPO_TO_ENABLE', value: REPO_TO_ENABLE),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH)
     ]
 }
@@ -29,7 +28,7 @@ def generateStage(VERSION) {
                 GIT_BRANCH,
                 VERSION,
                 PMM_SERVER_LATEST,
-                ENABLE_TESTING_REPO,
+                REPO_TO_ENABLE,
                 PMM_QA_GIT_BRANCH
             )
         }
@@ -54,9 +53,9 @@ pipeline {
             description: 'dev-latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo for RC',
-            name: 'ENABLE_TESTING_REPO')
+            choices: ['experimental', 'testing', 'release'],
+            description: 'Repo to enable (experimental - dev-latest, testing - rc, release - stable)',
+            name: 'REPO_TO_ENABLE')
     }
     options {
         skipDefaultCheckout()

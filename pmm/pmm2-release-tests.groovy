@@ -15,8 +15,7 @@ void runPackageTest(String PMM_VERSION, String REPO) {
 
 void runUpgradeTest(String FROM_VERSION, String CURRENT_VERSION) {
     build job: 'pmm2-upgrade-tests', propagate: false, parameters: [
-        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
-        string(name: 'ENABLE_TESTING_REPO', value: 'no'),
+        string(name: 'REPO_TO_ENABLE', value: 'release'),
         string(name: 'DOCKER_VERSION', value: FROM_VERSION),
         string(name: 'CLIENT_VERSION', value: FROM_VERSION),
         string(name: 'PMM_SERVER_LATEST', value: CURRENT_VERSION),
@@ -69,7 +68,7 @@ pipeline {
                 }
                 stage('Test: Upgrade from pmm2-client-main repo') {
                     steps {
-                        runPackageTest(VERSION, 'pmm2-client-main')
+                        runPackageTest(VERSION, 'pmm2-client')
                     }
                 }
             }

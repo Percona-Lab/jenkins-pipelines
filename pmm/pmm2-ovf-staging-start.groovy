@@ -38,13 +38,9 @@ pipeline {
             description: 'OVA Image version, for installing already released version, pass 2.x.y ex. 2.28.0',
             name: 'OVA_VERSION')
         choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo, for RC testing',
-            name: 'ENABLE_TESTING_REPO')
-        choice(
-            choices: ['yes', 'no'],
-            description: 'Enable Experimental, for Dev Latest testing',
-            name: 'ENABLE_EXPERIMENTAL_REPO')
+            choices: ['experimental', 'testing', 'release'],
+            description: 'Repo to enable (experimental - dev-latest, testing - rc, release - stable)',
+            name: 'REPO_TO_ENABLE')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
@@ -147,40 +143,10 @@ pipeline {
                 }
             }
         }
-        stage('Enable Testing Repo') {
-            when {
-                expression { env.ENABLE_TESTING_REPO == "yes" && env.ENABLE_EXPERIMENTAL_REPO == "no" }
-            }
+        stage("Enable ${env.REPO_TO_ENABLE} Repo") {
             steps {
                 node(env.VM_NAME){
-                    enableRepo('testing', env.IP)
-                }
-            }
-        }
-        stage('Enable Experimental Repo') {
-            when {
-                expression { env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
-            }
-            steps {
-                node(env.VM_NAME){
-                    enableRepo('experimental', env.IP)
-                }
-            }
-        }
-        stage('Enable Release Repo') {
-            when {
-                expression { env.ENABLE_EXPERIMENTAL_REPO == "no" && env.ENABLE_TESTING_REPO == "no" }
-            }
-            steps {
-                node(env.VM_NAME) {
-                    withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                        sh '''
-                            ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
-                                sudo yum update -y percona-release || true
-                                sudo yum clean all
-                            '
-                        '''
-                    }
+                    enableRepo(env.REPO_TO_ENABLE, env.IP)
                 }
             }
         }

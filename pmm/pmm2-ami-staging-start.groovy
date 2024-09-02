@@ -23,13 +23,9 @@ pipeline {
             description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
             name: 'DAYS')
         choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo, for RC testing',
-            name: 'ENABLE_TESTING_REPO')
-        choice(
-            choices: ['yes', 'no'],
-            description: 'Enable Experimental Repo, for dev-latest',
-            name: 'ENABLE_EXPERIMENTAL_REPO')
+            choices: ['experimental', 'testing', 'release'],
+            description: 'Repo to enable (experimental - dev-latest, testing - rc, release - stable)',
+            name: 'REPO_TO_ENABLE')
         choice(
             choices: ['false', 'true'],
             description: 'Enable to setup Docker-compose for remote instances',
@@ -221,34 +217,14 @@ pipeline {
                 archiveArtifacts 'INSTANCE_ID'
             }
         }
-        stage('Enable Testing Repo') {
-            when {
-                expression { env.ENABLE_TESTING_REPO == "yes" }
-            }
+        stage("Enable ${env.REPO_TO_ENABLE} Repo") {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
                             sudo yum update -y percona-release
-                            sudo sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                            sudo percona-release enable pmm2-client testing
-                            sudo yum clean all
-                        '
-                    '''
-                }
-            }
-        }
-        stage('Enable Experimental Repo') {
-            when {
-                expression { env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
-            }
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh '''
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} '
-                            sudo yum update -y percona-release
-                            sudo sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                            sudo percona-release enable pmm2-client experimental
+                            sudo sed -i'' -e 's^/release/^/${REPO_TO_ENABLE}/^' /etc/yum.repos.d/pmm2-server.repo
+                            sudo percona-release enable pmm2-client ${REPO_TO_ENABLE}
                             sudo yum clean all
                             sudo yum clean metadata
                         '

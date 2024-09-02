@@ -50,13 +50,9 @@ pipeline {
             description: 'Which Version of PMM-Server',
             name: 'PMM_VERSION')
         choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo, for RC testing',
-            name: 'ENABLE_TESTING_REPO')
-        choice(
-            choices: ['yes', 'no'],
-            description: 'Enable Experimental Repo, for dev-latest',
-            name: 'ENABLE_EXPERIMENTAL_REPO')
+            choices: ['experimental', 'testing', 'release'],
+            description: 'Repo to enable (experimental - dev-latest, testing - rc, release - stable)',
+            name: 'REPO_TO_ENABLE')
         choice(
             choices: ['no', 'yes'],
             description: 'Enable Pull Mode, if you are using this instance as Client Node',
@@ -328,9 +324,9 @@ pipeline {
                 }
             }
         }
-        stage('Enable Testing Repo') {
+        stage("Enable ${env.REPO_TO_ENABLE} Repo") {
             when {
-                expression { env.ENABLE_TESTING_REPO == "yes" && env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" }
+                expression { env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" }
             }
             steps {
                 script {
@@ -343,31 +339,8 @@ pipeline {
                                 # exclude unavailable mirrors
                                 docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
                                 docker exec ${VM_NAME}-server yum update -y percona-release
-                                docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                                docker exec ${VM_NAME}-server percona-release enable pmm2-client testing
-                                docker exec ${VM_NAME}-server yum clean all
-                                docker exec ${VM_NAME}-server yum clean metadata
-                            """
-                        }
-                    }
-                }
-            }
-        }
-        stage('Enable Experimental Repo') {
-            when {
-                expression { env.PMM_VERSION == "pmm2" && env.CLIENT_INSTANCE == "no" && env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
-            }
-            steps {
-                script {
-                    withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
-                        node(env.VM_NAME){
-                            sh """
-                                set -o errexit
-                                set -o xtrace
-                                docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
-                                docker exec ${VM_NAME}-server yum update -y percona-release
-                                docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                                docker exec ${VM_NAME}-server percona-release enable pmm2-client experimental
+                                docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/${REPO_TO_ENABLE}/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec ${VM_NAME}-server percona-release enable pmm2-client ${REPO_TO_ENABLE}
                                 docker exec ${VM_NAME}-server yum clean all
                                 docker exec ${VM_NAME}-server yum clean metadata
                             """
@@ -379,7 +352,7 @@ pipeline {
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
-                    setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), PMM_VERSION, ENABLE_PULL_MODE, ENABLE_TESTING_REPO, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
+                    setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), PMM_VERSION, ENABLE_PULL_MODE, REPO_TO_ENABLE, CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD)
                     script {
                         env.PMM_REPO="experimental"
                         if(env.CLIENT_VERSION == "pmm2-rc") {
