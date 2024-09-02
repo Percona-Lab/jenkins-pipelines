@@ -3,10 +3,10 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runAMIStagingStart(AMI_ID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, AMI_UPGRADE_TESTING_INSTANCE) {
+void runAMIStagingStart(AMI_ID, PMM_QA_GIT_BRANCH, REPO_TO_ENABLE, AMI_UPGRADE_TESTING_INSTANCE) {
     amiStagingJob = build job: 'pmm2-ami-staging-start', parameters: [
         string(name: 'AMI_ID', value: AMI_ID),
-        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
+        string(name: 'REPO_TO_ENABLE', value: REPO_TO_ENABLE),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'AMI_UPGRADE_TESTING_INSTANCE', value: AMI_UPGRADE_TESTING_INSTANCE)
     ]
@@ -34,13 +34,13 @@ void customSetupAMIInstance(INSTANCE_IP) {
     }
 }
 
-void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, NODE_TYPE) {
+void runStagingClient(CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, REPO_TO_ENABLE, NODE_TYPE) {
     stagingJob = build job: 'aws-staging-start', parameters: [
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
+        string(name: 'REPO_TO_ENABLE', value: REPO_TO_ENABLE),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
@@ -195,9 +195,9 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo, for RC testing',
-            name: 'ENABLE_TESTING_REPO')
+            choices: ['experimental', 'testing', 'release'],
+            description: 'Repo to enable (experimental - dev-latest, testing - rc, release - stable)',
+            name: 'REPO_TO_ENABLE')
         choice(
             choices: ['true', 'false'],
             description: 'Enable to setup Docker-compose for remote instances',
@@ -232,7 +232,7 @@ pipeline {
         }
         stage('Start AMI Server') {
             steps {
-                runAMIStagingStart(amiID, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, AMI_UPGRADE_TESTING_INSTANCE)
+                runAMIStagingStart(amiID, PMM_QA_GIT_BRANCH, REPO_TO_ENABLE, AMI_UPGRADE_TESTING_INSTANCE)
                 customSetupAMIInstance(AMI_INSTANCE_IP)
             }
         }
@@ -250,12 +250,12 @@ pipeline {
             parallel {
                 stage('Start Client Instance Remote Instance') {
                     steps {
-                        runStagingClient(CLIENT_VERSION, '--setup-remote-db', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 'remote-node')
+                        runStagingClient(CLIENT_VERSION, '--setup-remote-db', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, REPO_TO_ENABLE, 'remote-node')
                     }
                 }
                 stage('Start Client Instance DB connect Instance') {
                     steps {
-                        runStagingClient(CLIENT_VERSION, '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-queries', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, 'db-node')
+                        runStagingClient(CLIENT_VERSION, '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-queries', 'yes', AMI_INSTANCE_IP, PMM_QA_GIT_BRANCH, REPO_TO_ENABLE, 'db-node')
                     }
                 }
             }

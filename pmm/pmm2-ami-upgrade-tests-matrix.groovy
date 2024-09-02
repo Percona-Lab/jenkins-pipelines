@@ -3,13 +3,13 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, String PMM_VERSION, String PMM_SERVER_LATEST, String ENABLE_TESTING_REPO, PMM_QA_BRANCH) {
+void runAMIUpgradeJob(String PMM_UI_TESTS_BRANCH, String PMM_VERSION, String PMM_SERVER_LATEST, String REPO_TO_ENABLE, PMM_QA_BRANCH) {
     upgradeJob = build job: 'pmm2-ami-upgrade-tests', parameters: [
         string(name: 'GIT_BRANCH', value: PMM_UI_TESTS_BRANCH),
         string(name: 'CLIENT_VERSION', value: PMM_VERSION),
         string(name: 'SERVER_VERSION', value: PMM_VERSION),
         string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
-        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
+        string(name: 'REPO_TO_ENABLE', value: REPO_TO_ENABLE),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_BRANCH)
     ]
 }
@@ -19,20 +19,13 @@ String pmmServerLatestVersion
 List amiVersions = pmmVersion('ami').keySet() as List
 List versions = amiVersions[-5..-1]
 def parallelStagesMatrix = versions.collectEntries {String it ->
-    if ("${params.UPGRADE_TO}" == "dev-latest") {
-        enableTestingRepo = 'no'
-        pmmServerLatestVersion = pmmVersion()
-    } else {
-        enableTestingRepo = 'yes'
-        pmmServerLatestVersion = pmmVersion('rc')
-    }
-    ["${it} -> ${pmmServerLatestVersion}" : generateStage(it, pmmServerLatestVersion, enableTestingRepo)]
+    ["${it} -> ${pmmServerLatestVersion}" : generateStage(it, PMM_SERVER_LATEST, REPO_TO_ENABLE)]
 }
 
-def generateStage(String version, String latest, String enableRepo) {
+def generateStage(String version, String latest, String repoToEnable) {
     return {
         stage("${version}") {
-            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, version, latest, enableRepo, PMM_QA_BRANCH)
+            runAMIUpgradeJob(PMM_UI_TESTS_BRANCH, version, latest, repoToEnable, PMM_QA_BRANCH)
         }
     }
 }
@@ -50,10 +43,14 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_BRANCH')
+        string(
+            defaultValue: latestVersion,
+            description: 'latest PMM Server Version',
+            name: 'PMM_SERVER_LATEST')
         choice(
-            choices: ['dev-latest', 'release candidate'],
-            description: 'Upgrade to:',
-            name: 'UPGRADE_TO')
+            choices: ['experimental', 'testing', 'release'],
+            description: 'Repo to enable (experimental - dev-latest, testing - rc, release - stable)',
+            name: 'REPO_TO_ENABLE')
     }
     options {
         skipDefaultCheckout()

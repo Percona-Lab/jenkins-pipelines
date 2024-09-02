@@ -107,13 +107,9 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo, for RC testing',
-            name: 'ENABLE_TESTING_REPO')
-        choice(
-            choices: ['yes', 'no'],
-            description: 'Enable Experimental, for Dev Latest testing',
-            name: 'ENABLE_EXPERIMENTAL_REPO')
+            choices: ['experimental', 'testing', 'release'],
+            description: 'Repo to enable (experimental - dev-latest, testing - rc, release - stable)',
+            name: 'REPO_TO_ENABLE')
         choice(
             choices: ['no', 'yes'],
             description: 'Perform Docker-way Upgrade?',
@@ -221,58 +217,19 @@ pipeline {
                 '''
             }
         }
-        stage('Enable Testing Repo') {
-            when {
-                expression { env.ENABLE_TESTING_REPO == "yes" && env.ENABLE_EXPERIMENTAL_REPO == "no" }
-            }
+        stage("Enable ${env.REPO_TO_ENABLE} Repo") {
             steps {
                 script {
                     sh """
                         set -o errexit
                         set -o xtrace
                         docker exec pmm-server yum update -y percona-release || true
-                        docker exec pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                        docker exec pmm-server percona-release enable pmm2-client testing
+                        docker exec pmm-server sed -i'' -e 's^/release/^/${REPO_TO_ENABLE}/^' /etc/yum.repos.d/pmm2-server.repo
+                        docker exec pmm-server percona-release enable pmm2-client ${REPO_TO_ENABLE}
                         docker exec pmm-server yum clean all
                         docker exec pmm-server yum clean metadata
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'yes', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
-                }
-            }
-        }
-        stage('Enable Experimental Repo') {
-            when {
-                expression { env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
-            }
-            steps {
-                script {
-                    sh """
-                        set -o errexit
-                        set -o xtrace
-                        docker exec pmm-server yum update -y percona-release || true
-                        docker exec pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                        docker exec pmm-server percona-release enable pmm2-client experimental
-                        docker exec pmm-server yum clean all
-                        docker exec pmm-server yum clean metadata
-                    """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
-                }
-            }
-        }
-        stage('Enable Release Repo') {
-            when {
-                expression { env.ENABLE_EXPERIMENTAL_REPO == "no" && env.ENABLE_TESTING_REPO == "no" }
-            }
-            steps {
-                script {
-                    sh """
-                        set -o errexit
-                        set -o xtrace
-                        docker exec pmm-server yum update -y percona-release || true
-                        docker exec pmm-server yum clean all
-                        docker exec pmm-server yum clean metadata
-                    """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup', params.ADMIN_PASSWORD, 'no')
+                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', env.REPO_TO_ENABLE, 'yes', 'compose_setup', params.ADMIN_PASSWORD)
                 }
             }
         }
