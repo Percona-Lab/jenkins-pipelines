@@ -86,7 +86,7 @@ pipeline {
                                     docker login -u '${USER}' -p '${PASS}'
                                     docker buildx create --use
 
-                                    DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
+                                    DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' make build-docker-image
 
                                     docker logout
                                "
