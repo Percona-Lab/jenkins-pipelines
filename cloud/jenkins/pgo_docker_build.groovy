@@ -84,7 +84,7 @@ pipeline {
 
                             docker login -u '${USER}' -p '${PASS}'
 
-                            make build-docker-image
+                            ./e2e-tests/build
 
                             docker logout
                         "
