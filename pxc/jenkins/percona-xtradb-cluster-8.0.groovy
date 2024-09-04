@@ -295,6 +295,21 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+                stage('Debian Bullseye(11) tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-80.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:bullseye", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
                 stage('Ubuntu Jammy(22.04) tarball') {
                     agent {
                         label 'docker-32gb'
