@@ -83,7 +83,7 @@ pipeline {
         stage('Build client docker') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    withEnv(['PATH_TO_SCRIPTS=' + env.PATH_TO_SCRIPTS]) {
+                    withEnv(['PATH_TO_SCRIPTS=' + env.PATH_TO_SCRIPTS, 'DOCKER_RC_TAG=' + env.DOCKER_RC_TAG, 'DOCKER_LATEST_TAG=' + env.DOCKER_LATEST_TAG]) {
                         sh '''
                             echo "${PASS}" | docker login -u "${USER}" --password-stdin
                             set -o xtrace
@@ -96,10 +96,12 @@ pipeline {
                             if [ -n "${DOCKER_RC_TAG}" ]; then
                                 docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_RC_TAG}
                                 docker push perconalab/pmm-client:${DOCKER_RC_TAG}
+                            else
+                                docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_LATEST_TAG}
+                                docker push perconalab/pmm-client:${DOCKER_LATEST_TAG}
                             fi
-                            docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_LATEST_TAG}
+
                             docker push $DOCKER_CLIENT_TAG
-                            docker push perconalab/pmm-client:${DOCKER_LATEST_TAG}
                         '''
                     }
                 }
@@ -208,7 +210,7 @@ pipeline {
                     script {
                         sh '''
                             ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
-                                scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${UPLOAD_PATH}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
+                                scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${UPLOAD_PATH}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm-arm/
                             "
                         '''
                     }

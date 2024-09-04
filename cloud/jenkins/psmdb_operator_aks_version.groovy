@@ -28,6 +28,10 @@ void prepareNode() {
         """
     }
 
+    if ("$IMAGE_MONGOD") {
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
+    }
+
     if ("$PLATFORM_VER" == "latest") {
         USED_PLATFORM_VER = sh(script: "az aks get-versions --location $location --output json | jq -r '.values | max_by(.patchVersions) | .patchVersions | keys[]' | sort --version-sort | tail -1", , returnStdout: true).trim()
     } else {
