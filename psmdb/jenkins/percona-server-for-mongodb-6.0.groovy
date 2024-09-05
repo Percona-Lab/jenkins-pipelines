@@ -194,21 +194,6 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Bionic(18.04)') {
-                    when {
-                        expression { env.FULL_FEATURED == 'yes' }
-                    }
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "--build_deb=1 --full_featured=1")
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'docker-64gb'
