@@ -199,6 +199,7 @@ pipeline {
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum repolist
                         sudo yum install ansible -y
+                        sudo yum install sysbench mysql -y
                     '''
                 }
             }
