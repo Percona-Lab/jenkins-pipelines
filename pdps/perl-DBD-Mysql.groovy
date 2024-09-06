@@ -7,8 +7,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget \$(echo ${PACKAGE_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${PACKAGE_REPO_BRANCH}/orchestrator_builder.sh -O builder.sh
-        sed -i "s:RELEASE='6':RELEASE='${RPM_RELEASE}':" builder.sh
+        wget \$(echo ${PACKAGE_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${PACKAGE_REPO_BRANCH}/perldbd_builder.sh -O builder.sh
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
@@ -34,31 +33,31 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'https://github.com/percona/orchestrator.git',
-            description: 'URL for orchestrator repository',
+            defaultValue: 'https://github.com/perl5-dbi/DBD-mysql.git',
+            description: 'URL for perl-DBD-MySQL repository',
             name: 'REPO')
         string(
-            defaultValue: 'master',
+            defaultValue: '4_050',
             description: 'Tag/Branch for orchestartor repository',
             name: 'BRANCH')
         string(
-            defaultValue: 'https://github.com/percona/orchestrator-packaging',
-            description: 'URL for orchestrator repository',
+            defaultValue: 'https://github.com/EvgeniyPatlan/perl-DBD-mysql-packaging.git',
+            description: 'URL for packaging perl-DBD-MySQL repository',
             name: 'PACKAGE_REPO')
         string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for orchestrator packaging repository',
+            defaultValue: 'master',
+            description: 'Tag/Branch for perl-DBD-MySQL packaging repository',
             name: 'PACKAGE_REPO_BRANCH')
         string(
-            defaultValue: '3.2.6',
+            defaultValue: '4_050',
             description: 'General version of the product',
             name: 'VERSION')
         string(
-            defaultValue: '14',
+            defaultValue: '1',
             description: 'RPM release value (e.g. custom build -> 1.1custom124)',
             name: 'RPM_RELEASE')
         string(
-            defaultValue: '14',
+            defaultValue: '1',
             description: 'DEB release value (e.g. custom build -> 1.1custom124)',
             name: 'DEB_RELEASE')
         choice(
@@ -72,17 +71,17 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
     }
     stages {
-        stage('Create orchestrator source tarball') {
+        stage('Create perl-DBD-MySQL source tarball') {
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 buildStage("oraclelinux:8", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/orchestrator.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/perl-DBD-MySQL.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/orchestrator.properties
+                   cat test/perl-DBD-MySQL.properties
                    cat uploadPath
                 '''
                 script {
@@ -93,9 +92,9 @@ pipeline {
                 uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
-        stage('Build orchestrator generic source packages') {
+        stage('Build perl-DBD-MySQL generic source packages') {
             parallel {
-                stage('Build orchestrator generic source rpm') {
+                stage('Build perl-DBD-MySQL generic source rpm') {
                     agent {
                         label 'docker'
                     }
@@ -108,7 +107,7 @@ pipeline {
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Build orchestrator generic source deb') {
+                stage('Build perl-DBD-MySQL generic source deb') {
                     agent {
                         label 'docker'
                     }
@@ -123,7 +122,7 @@ pipeline {
                 }
             }  //parallel
         } // stage
-        stage('Build orchestrator RPMs/DEBs/Binary tarballs') {
+        stage('Build perl-DBD-MySQL RPMs/DEBs/Binary tarballs') {
             parallel {
                 stage('Oracle Linux 8') {
                     agent {
