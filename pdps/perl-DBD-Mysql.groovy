@@ -77,11 +77,11 @@ pipeline {
                 cleanUpWS()
                 buildStage("oraclelinux:8", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/perl-DBD-MySQL.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/perldbd.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/perl-DBD-MySQL.properties
+                   cat test/perldbd.properties
                    cat uploadPath
                 '''
                 script {
