@@ -304,7 +304,7 @@ pipeline {
                 }
                 stage('Debian Bullseye(11) binary tarball(glibc2.31)') {
                     when {
-                        expression { env.FULL_FEATURED != 'yes' }
+                        expression { env.FIPSMODE != 'yes' }
                     }
                     agent {
                         label 'docker-64gb'
