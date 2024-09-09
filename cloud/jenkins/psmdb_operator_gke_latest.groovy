@@ -34,7 +34,7 @@ EOF
     }
 
     if ("$IMAGE_MONGOD") {
-        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CHANNEL-$GKE_RELEASE_CHANNEL-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
     }
 
     if ("$PLATFORM_VER" == "latest") {
@@ -59,7 +59,7 @@ EOF
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -167,7 +167,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             exitCode=1
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                    --release-channel rapid \
+                    --release-channel $GKE_RELEASE_CHANNEL \
                     --zone $region \
                     --cluster-version $USED_PLATFORM_VER \
                     --preemptible \
@@ -191,6 +191,11 @@ void createCluster(String CLUSTER_SUFFIX) {
             if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
         """
    }
+}
+
+void getImages() {
+    
+
 }
 
 void runTest(Integer TEST_ID) {
@@ -316,6 +321,10 @@ pipeline {
             defaultValue: 'latest',
             description: 'GKE kubernetes version',
             name: 'PLATFORM_VER')
+        choice(
+            choices: 'rapid\nstable\nregular',
+            description: 'GKE release channel',
+            name: 'GKE_RELEASE_CHANNEL')
         choice(
             choices: 'YES\nNO',
             description: 'Run tests in cluster wide mode',
