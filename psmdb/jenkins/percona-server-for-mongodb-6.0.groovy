@@ -58,8 +58,8 @@ pipeline {
             name: 'PSMDB_REPO')
         choice(
             choices: 'no\nyes',
-            description: 'Enable all pro features',
-            name: 'FULL_FEATURED')
+            description: 'Enable fipsmode',
+            name: 'FIPSMODE')
         choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
@@ -104,8 +104,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("centos:7", "--build_src_rpm=1 --full_featured=1")
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("centos:7", "--build_src_rpm=1")
                             }
@@ -123,8 +123,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("debian:buster", "--build_src_deb=1 --full_featured=1")
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("debian:buster", "--build_src_deb=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("debian:buster", "--build_src_deb=1")
                             }
@@ -146,8 +146,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("centos:7", "--build_rpm=1 --full_featured=1")
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("centos:7", "--build_rpm=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("centos:7", "--build_rpm=1")
                             }
@@ -165,8 +165,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("oraclelinux:8", "--build_rpm=1 --full_featured=1")
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("oraclelinux:8", "--build_rpm=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("oraclelinux:8", "--build_rpm=1")
                             }
@@ -184,14 +184,29 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("oraclelinux:9", "--build_rpm=1 --full_featured=1")
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
                             }
                         }
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Bionic(18.04)') {
+                    when {
+                        expression { env.FIPSMODE == 'yes' }
+                    }
+                    agent {
+                        label 'docker-64gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:bionic", "--build_deb=1 --enable_fipsmode=1")
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal(20.04)') {
@@ -202,8 +217,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("ubuntu:focal", "--build_deb=1 --full_featured=1")
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("ubuntu:focal", "--build_deb=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("ubuntu:focal", "--build_deb=1")
                             }
@@ -221,8 +236,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("ubuntu:jammy", "--build_deb=1 --full_featured=1")
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("ubuntu:jammy", "--build_deb=1")
                             }
@@ -240,8 +255,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("ubuntu:noble", "--build_deb=1 --full_featured=1")
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("ubuntu:noble", "--build_deb=1")
                             }
@@ -259,8 +274,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("debian:buster", "--build_deb=1 --full_featured=1")
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("debian:buster", "--build_deb=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("debian:buster", "--build_deb=1")
                             }
@@ -278,8 +293,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("debian:bullseye", "--build_deb=1 --full_featured=1")
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("debian:bullseye", "--build_deb=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("debian:bullseye", "--build_deb=1")
                             }
@@ -291,7 +306,7 @@ pipeline {
                 }
                 stage('Centos 7 binary tarball(glibc2.17)') {
                     when {
-                        expression { env.FULL_FEATURED != 'yes' }
+                        expression { env.FIPSMODE != 'yes' }
                     }
                     agent {
                         label 'docker-64gb'
@@ -313,9 +328,9 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
+                            if (env.FIPSMODE == 'yes') {
                                 echo "The step is skipped ..."
-                                buildStage("centos:7", "--debug=1 --full_featured=1")
+                                buildStage("centos:7", "--debug=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("centos:7", "--debug=1")
                             }
@@ -333,8 +348,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("oraclelinux:8", "--build_tarball=1 --full_featured=1")
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("oraclelinux:8", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("oraclelinux:8", "--build_tarball=1")
                             }
@@ -351,8 +366,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("oraclelinux:9", "--build_tarball=1 --full_featured=1")
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("oraclelinux:9", "--build_tarball=1")
                             }
@@ -363,7 +378,7 @@ pipeline {
                 }
                 stage('Ubuntu Focal(20.04) binary tarball(glibc2.31)') {
                     when {
-                        expression { env.FULL_FEATURED != 'yes' }
+                        expression { env.FIPSMODE != 'yes' }
                     }
                     agent {
                         label 'docker-64gb'
@@ -384,8 +399,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("ubuntu:jammy", "--build_tarball=1 --full_featured=1")
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("ubuntu:jammy", "--build_tarball=1")
                             }
@@ -402,8 +417,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("ubuntu:noble", "--build_tarball=1 --full_featured=1")
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("ubuntu:noble", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("ubuntu:noble", "--build_tarball=1")
                             }
@@ -421,9 +436,9 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
+                            if (env.FIPSMODE == 'yes') {
                                 echo "The step is skipped ..."
-                                buildStage("ubuntu:jammy", "--debug=1 --full_featured=1")
+                                buildStage("ubuntu:jammy", "--debug=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("ubuntu:jammy", "--debug=1")
                             }
@@ -435,7 +450,7 @@ pipeline {
 */
                 stage('Debian Buster(10) binary tarball(glibc2.28)') {
                     when {
-                        expression { env.FULL_FEATURED != 'yes' }
+                        expression { env.FIPSMODE != 'yes' }
                     }
                     agent {
                         label 'docker-64gb'
@@ -450,7 +465,7 @@ pipeline {
                 }
                 stage('Debian Bullseye(11) binary tarball(glibc2.31)') {
                     when {
-                        expression { env.FULL_FEATURED != 'yes' }
+                        expression { env.FIPSMODE != 'yes' }
                     }
                     agent {
                         label 'docker-64gb'
@@ -475,7 +490,7 @@ pipeline {
             steps {
                 // sync packages
                 script {
-                    if (env.FULL_FEATURED == 'yes') {
+                    if (env.FIPSMODE == 'yes') {
                         // Replace by a new procedure when it's ready
                         sync2PrivateProdAutoBuild(PSMDB_REPO+"-pro", COMPONENT)
                     } else {
@@ -487,7 +502,7 @@ pipeline {
         stage('Push Tarballs to TESTING download area') {
             steps {
                 script {
-                    if (env.FULL_FEATURED == 'yes') {
+                    if (env.FIPSMODE == 'yes') {
                         try {
                             uploadTarballToDownloadsTesting("psmdb-gated", "${PSMDB_VERSION}")
                         }
