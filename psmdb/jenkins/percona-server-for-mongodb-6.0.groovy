@@ -302,6 +302,21 @@ pipeline {
                         uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+                stage('Debian Bullseye(11) binary tarball(glibc2.31)') {
+                    when {
+                        expression { env.FULL_FEATURED != 'yes' }
+                    }
+                    agent {
+                        label 'docker-64gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:bullseye", "--build_tarball=1")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
                 stage('Ubuntu Jammy(22.04) binary tarball(glibc2.35)') {
                     agent {
                         label 'docker-64gb'
