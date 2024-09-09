@@ -131,6 +131,9 @@ fi
 # ------------------------------------------------------------------------------
 pushd ${SOURCEDIR}
     export SUDO=$(which sudo)
+    if [[ ${RHVER} -eq 7 ]]; then
+        SUDO="/usr/bin/sudo"
+    fi
     if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
         $SUDO -E bash -x ./build-ps/build-binary.sh -d ./target
     else
