@@ -75,7 +75,7 @@ pipeline {
         stage('Set build name'){
           steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-pg_stat_monitor-${env.VERSION}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-pgsm-${env.VERSION}"
                     }
                 }
             }

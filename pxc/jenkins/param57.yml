@@ -35,7 +35,7 @@
         description: URL to PXB24 repository
     - string:
         name: PXB24_BRANCH
-        default: percona-xtrabackup-2.4.27
+        default: percona-xtrabackup-2.4.29
         description: Tag/Branch for PXC repository
     - choice:
         name: JOB_CMAKE
