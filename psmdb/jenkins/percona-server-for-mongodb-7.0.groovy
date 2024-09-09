@@ -310,21 +310,18 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Focal(20.04) binary tarball(glibc2.31)') {
+                    when {
+                        expression { env.FIPSMODE != 'yes' }
+                    }
                     agent {
                         label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:focal", "--build_tarball=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("ubuntu:focal", "--build_tarball=1")
-                            }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        }
+                        buildStage("ubuntu:focal", "--build_tarball=1")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Ubuntu Jammy(22.04) binary tarball(glibc2.35)') {
@@ -364,21 +361,18 @@ pipeline {
                     }
                 }
                 stage('Debian Bullseye(11) binary tarball(glibc2.31)') {
+                    when {
+                        expression { env.FIPSMODE != 'yes' }
+                    }
                     agent {
                         label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("debian:bullseye", "--build_tarball=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("debian:bullseye", "--build_tarball=1")
-                            }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        }
+                        buildStage("debian:bullseye", "--build_tarball=1")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Debian Bookworm(12) binary tarball(glibc2.36)') {
