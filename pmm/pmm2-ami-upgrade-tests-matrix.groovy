@@ -18,6 +18,7 @@ String enableTestingRepo
 String pmmServerLatestVersion
 List amiVersions = pmmVersion('ami').keySet() as List
 List versions = amiVersions[-5..-1]
+def latestVersion = pmmVersion()
 def parallelStagesMatrix = versions.collectEntries {String it ->
     // Skip versions "2.40.1" and "2.42.0"
     if (it == "2.40.1" || it == "2.42.0") {
@@ -25,12 +26,10 @@ def parallelStagesMatrix = versions.collectEntries {String it ->
     }
     if ("${params.UPGRADE_TO}" == "dev-latest") {
         enableTestingRepo = 'no'
-        pmmServerLatestVersion = pmmVersion()
     } else {
         enableTestingRepo = 'yes'
-        pmmServerLatestVersion = pmmVersion('rc')
     }
-    ["${it} -> ${pmmServerLatestVersion}" : generateStage(it, pmmServerLatestVersion, enableTestingRepo)]
+    ["${it} -> ${pmmServerLatestVersion}" : generateStage(it, PMM_SERVER_LATEST, enableTestingRepo)]
 }
 
 def generateStage(String version, String latest, String enableRepo) {
@@ -54,6 +53,10 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_BRANCH')
+        string(
+            defaultValue: latestVersion,
+            description: 'latest PMM Server Version',
+            name: 'PMM_SERVER_LATEST')
         choice(
             choices: ['dev-latest', 'release candidate'],
             description: 'Upgrade to:',
