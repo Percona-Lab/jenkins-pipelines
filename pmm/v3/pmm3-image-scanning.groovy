@@ -4,7 +4,7 @@ This job helps run an image scan with LaceWork (security and best practice)
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-amd64-ol9'
     }
     environment {
         LW_ACCOUNT_NAME=credentials('LW_ACCOUNT_NAME')

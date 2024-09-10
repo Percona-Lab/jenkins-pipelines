@@ -9,7 +9,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
             export OWNER=\$(cat OWNER_FULL)
             export INSTANCE_TYPE=${INSTANCE_TYPE}
             export VOLUME=${VOLUME}
-            export IMAGE_ID=\$(aws ec2 describe-images --owners self --filters "Name=tag:iit-billing-tag,Values=pmm-worker" "Name=architecture,Values=x86_64"  --region us-east-2 | jq -r '.Images[0].ImageId')
+            export IMAGE_ID=\$(aws ec2 describe-images --owners self --filters "Name=tag:iit-billing-tag,Values=pmm-worker-3" "Name=architecture,Values=x86_64"  --region us-east-2 | jq -r '.Images[0].ImageId')
 
             export SUBNET=\$(
                 aws ec2 describe-subnets \

@@ -82,7 +82,7 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                        currentBuild.displayName = "${env.VERSION}-component-multi-parallel-${env.BUILD_NUMBER}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-component-multi-parallel"
                 }
             }
         }

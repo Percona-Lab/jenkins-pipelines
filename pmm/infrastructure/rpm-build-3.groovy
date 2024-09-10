@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label "agent-amd64"
+        label "agent-amd64-ol9"
     }
     parameters {
         string(
@@ -19,10 +19,34 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                deleteDir()              
+                deleteDir()
                 script {
                     sh '''
                         git clone --single-branch --no-tags --branch ${PMM_GIT_BRANCH} --depth=1 https://github.com/percona/pmm.git .
+                    '''
+                }
+            }
+        }
+        stage('Setup Buildx') {
+            steps {
+                script {
+                    sh '''
+                        # Ensure Buildx is available and create a new builder with the docker-container driver
+                        docker buildx create --use --name pmmbuilder --driver docker-container || true
+                        docker buildx inspect pmmbuilder --bootstrap
+                    '''
+                }
+            }
+        }
+        stage('Login to ECR') {
+            steps {
+                withCredentials([[
+                    $class: 'AmazonWebServicesCredentialsBinding',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    credentialsId: 'ECRRWUser',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh '''
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin ${IMAGE_REGISTRY}
                     '''
                 }
             }
@@ -31,18 +55,8 @@ pipeline {
             steps {
                 sh '''
                     cd build/docker/rpmbuild/
-                    docker buildx build --tag ${IMAGE_REGISTRY}/${DOCKER_TAG} -f Dockerfile.el9 .
+                    docker buildx build --pull --platform linux/amd64,linux/arm64 --tag ${IMAGE_REGISTRY}/${DOCKER_TAG} -f Dockerfile.el9 --push .
                 '''
-                withCredentials([[
-                    $class: 'AmazonWebServicesCredentialsBinding',
-                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                    credentialsId: 'ECRRWUser',
-                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin ${IMAGE_REGISTRY}
-                        docker push ${IMAGE_REGISTRY}/${DOCKER_TAG}
-                    '''
-                }
             }
         }
     }

@@ -24,7 +24,7 @@ void addComment(String COMMENT) {
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-amd64-ol9'
     }
     parameters {
         string(
@@ -62,6 +62,7 @@ pipeline {
                     git submodule status
 
                     if [ -s ci.yml ]; then
+                        source /home/ec2-user/venv/bin/activate
                         python3 ci.py
                         cat .git-sources
                         . ./.git-sources

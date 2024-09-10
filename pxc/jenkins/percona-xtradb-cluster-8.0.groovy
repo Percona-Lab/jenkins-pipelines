@@ -221,28 +221,6 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Buster(10)') {
-                    agent {
-                        label 'docker-32gb'
-                    }
-                    steps {
-                        script {
-                            PXC_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${GIT_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                            if ("${PXC_MAJOR_RELEASE}" == "80") {
-                                cleanUpWS()
-                                unstash 'pxc-80.properties'
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                                buildStage("debian:buster", "--build_deb=1")
-
-                                stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                            } else {
-                                echo "The step is skipped"
-                            }
-                        }
-                    }
-                }
                 stage('Debian Bullseye(11)') {
                     agent {
                         label 'docker-32gb'
@@ -302,7 +280,22 @@ pipeline {
                         pushArtifactFolder("debug/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 9 tarball') {
+                stage('Centos 8 tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-80.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("centos:8", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Oracle Linux 9 tarball') {
                     agent {
                         label 'docker-32gb'
                     }
@@ -311,6 +304,21 @@ pipeline {
                         unstash 'pxc-80.properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Debian Bullseye(11) tarball') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-80.properties'
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:bullseye", "--build_tarball=1")
 
                         stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
                         pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
@@ -400,8 +408,8 @@ pipeline {
                     sudo docker build --no-cache --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug .
 
                     cd ../percona-xtradb-cluster-8.0-backup
-                    sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
-                    sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile
+                    sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION=${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
+                    sed -i "s/ENV PXC_REPO.*/ENV PXC_REPO=testing/g" Dockerfile
                     if [ ${PXC_MAJOR_RELEASE} != "80" ]; then
                         sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                         sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
