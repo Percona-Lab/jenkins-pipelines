@@ -136,6 +136,8 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
+                        echo "The step is skipped"
+/*
                         cleanUpWS()
                         unstash 'pxc-80.properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
@@ -144,6 +146,7 @@ pipeline {
                         stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+*/
                     }
                 }
                 stage('Centos 8') {
