@@ -144,6 +144,7 @@ void initTests() {
             chmod 600 source/e2e-tests/conf/cloud-secret-minio-gw.yml
         """
     }
+    stash includes: "source/**", name: "sourceFILES"
 }
 
 void clusterRunner(String cluster) {
@@ -365,7 +366,7 @@ pipeline {
     stages {
         stage('Prepare node') {
             steps {
-                prepareNode()
+                // prepareNode()
                 prepareSources()
             }
         }
@@ -382,28 +383,43 @@ pipeline {
         stage('Run Tests') {
             parallel {
                 stage('cluster1') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
                 }
                 stage('cluster2') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
                 }
                 stage('cluster3') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareNode()
+                        unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
                 }
                 stage('cluster4') {
-                    steps {
-                        clusterRunner('cluster4')
+                    agent {
+                        label 'docker'
                     }
-                }
-                stage('cluster5') {
                     steps {
-                        clusterRunner('cluster5')
+                        prepareNode()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster4')
                     }
                 }
             }
@@ -420,9 +436,9 @@ pipeline {
             archiveArtifacts '*.xml'
 
             script {
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
-                }
+                // if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
+                //     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                // }
 
                 clusters.each { shutdownCluster(it) }
             }
