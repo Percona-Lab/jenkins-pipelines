@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@proxy-noble', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 void runNodeBuild(String node_to_test) {
@@ -107,6 +107,18 @@ pipeline {
                                 echo 'Proxysql is not available for Ubuntu Jammy'
                             } else {
                                 runNodeBuild('min-jammy-x64')
+                            }
+                        }
+                    }
+                }
+
+                stage('Ubuntu Noble') {
+                    steps {
+                        script{
+                            if (env.product_to_test == 'proxysql') {
+                                echo 'Proxysql is not available for Ubuntu Noble'
+                            } else {
+                                runNodeBuild('min-noble-x64')
                             }
                         }
                     }

@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@proxy-noble', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 product_action_playbooks = [
@@ -65,6 +65,7 @@ node_setups = [
     "min-ol-9-x64": setup_centos_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
     "min-jammy-x64": setup_ubuntu_package_tests,
+    "min-noble-x64": setup_ubuntu_package_tests,
     "min-bookworm-x64": setup_buster_bullseye_package_tests,
 ]
 
@@ -77,7 +78,7 @@ void runPlaybook(String action_to_test) {
     def playbook_path = "package-testing/playbooks/${playbook}"
 
     sh '''
-        git clone --depth 1 "${git_repo}"
+        git clone --depth 1 -b proxy-noble "${git_repo}"
     '''
 
     setup_package_tests()
@@ -112,6 +113,7 @@ pipeline {
                 'min-ol-9-x64',
                 'min-focal-x64',
                 'min-jammy-x64',
+                'min-noble-x64',
                 'min-buster-x64',
                 'min-bullseye-x64',
                 'min-bookworm-x64'
