@@ -43,11 +43,11 @@ Parameters:
 Mappings:
   AmazonLinux2:
     eu-west-1:
-      x64: ami-081fb62c8453b9056
+      x64: ami-01fe8a5feb270c44b
     eu-central-1:
-      x64: ami-089ef08b563ccf2bf
+      x64: ami-0857949e0aef0e356
     us-west-2:
-      x64: ami-06ca2a69bfc9aa4ec
+      x64: ami-08578967e04feedea
 
 Resources:
 
@@ -496,6 +496,8 @@ Resources:
         ImageId: !FindInMap [AmazonLinux2, !Ref 'AWS::Region', x64]
         Monitoring:
           Enabled: false
+        MetadataOptions:
+          HttpTokens: "optional"  # Allows both IMDSv1 and IMDSv2
         UserData:
             Fn::Base64: !Sub |
               #!/bin/bash
@@ -553,7 +555,7 @@ Resources:
                   amazon-linux-extras install epel -y
                   amazon-linux-extras install java-openjdk11 -y
                   yum -y update --security
-                  yum -y install jenkins-2.426.3 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install jenkins-2.462.1 certbot git yum-cron aws-cli xfsprogs openresty
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf

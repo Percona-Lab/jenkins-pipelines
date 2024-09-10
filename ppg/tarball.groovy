@@ -12,7 +12,7 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: ppgOperatingSystemsAMD()
+            choices: ppgOperatingSystemsALL()
         )
         choice(
             name: 'SSL_VERSION',
@@ -55,7 +55,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.PLATFORM}"
                 }
             }
         }

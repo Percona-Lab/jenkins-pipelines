@@ -6,7 +6,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 pipeline {
     agent {
-    label 'min-ol-8-x64'
+    label 'min-bookworm-x64'
     }
     environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
@@ -28,7 +28,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '8.0.33-25',
+            defaultValue: '8.0.37-29',
             description: 'Percona Server version for test. Possible values are with and without percona release and build: 8.0.32, 8.0.32-24 OR 8.0.32-24.2',
             name: 'VERSION'
         )
@@ -38,22 +38,22 @@ pipeline {
             name: 'PS_REVISION'
         )
         string(
-            defaultValue: '2.5.1',
+            defaultValue: '2.6.3',
             description: 'Proxysql version for test',
             name: 'PROXYSQL_VERSION'
         )
         string(
-            defaultValue: '8.0.33-27',
+            defaultValue: '8.0.35-31',
             description: 'PXB version for test. Possible values are with and without percona release and build: 8.0.32, 8.0.32-25 OR 8.0.32-25.1',
             name: 'PXB_VERSION'
         )
         string(
-            defaultValue: '3.5.3',
+            defaultValue: '3.6.0',
             description: 'Percona toolkit version for test',
             name: 'PT_VERSION'
         )
         string(
-            defaultValue: '3.2.6-9',
+            defaultValue: '3.2.6-13',
             description: 'Percona Orchestrator version for test',
             name: 'ORCHESTRATOR_VERSION'
         )
@@ -118,7 +118,7 @@ pipeline {
         stage ('Prepare') {
             steps {
                 script {
-                    installMolecule()
+                    installMoleculeBookworm()
                 }
             }
         }

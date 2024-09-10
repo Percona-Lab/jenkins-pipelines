@@ -16,6 +16,10 @@ void prepareNode() {
         curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
     """
 
+    if ("$IMAGE_MONGOD") {
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
+    }
+
     if ("$PLATFORM_VER" == "latest") {
         USED_PLATFORM_VER = sh(script: "eksctl version -ojson | jq -r '.EKSServerSupportedVersions | max'", , returnStdout: true).trim()
     } else {

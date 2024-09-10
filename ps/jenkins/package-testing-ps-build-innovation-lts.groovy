@@ -6,16 +6,20 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 setup_rhel_package_tests = { ->
     sh '''
         sudo yum install -y epel-release
+        sudo yum install -y python3-pip
         sudo yum -y update
-        sudo yum install -y ansible git wget tar
+        sudo pip3 install ansible==2.10.0
+        sudo yum install -y git wget tar
     '''
 }
 
 setup_rhel8_package_tests = { ->
     sh '''
         sudo yum install -y epel-release
+        sudo yum install -y python3-pip
         sudo yum -y update
-        sudo yum install -y ansible-2.9.27 git wget tar
+        sudo pip3 install ansible==2.10.0
+        sudo yum install -y git wget tar
     '''
 }
 
