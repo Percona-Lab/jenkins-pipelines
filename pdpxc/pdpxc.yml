@@ -1,14 +1,14 @@
 - job:
-    name: pdpxc-test
+    name: pdpxc
     project-type: pipeline
     description: |
         Do not edit this job through the web!
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/panchal-yash/jenkins-pipelines.git
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'pdpxc-pt-noble'
+            - 'master'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pdpxc/pdpxc.groovy
