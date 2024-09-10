@@ -53,7 +53,7 @@ pipeline {
             description: 'BIN release value',
             name: 'BIN_RELEASE')
         choice(
-            choices: 'pxc-80\npxc-8x-innovation',
+            choices: 'pxc-80\npxc-8x-innovation\npxc-84-lts',
             description: 'PXC repo name',
             name: 'PXC_REPO')
         choice(
