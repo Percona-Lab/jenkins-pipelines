@@ -628,9 +628,13 @@ pipeline {
                                     script{
                                         def param_test_type = "install" 
                                         echo "Always INSTALL"
-                                        echo "3. Take Backups of the Logs.. PXC INSTALL tests.."
-                                        setInventories("install")
-                                        runlogsbackup(params.product_to_test, "install")
+                                        try{
+                                            echo "3. Take Backups of the Logs.. PXC INSTALL tests.."
+                                            setInventories("install")
+                                            runlogsbackup(params.product_to_test, "install")
+                                        }catch(Exception e){
+                                            echo Failed during logs backup""
+                                        }
                                         echo "4. Destroy the Molecule instances for the PXC INSTALL tests.."
                                         runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes")
                                     }
@@ -643,7 +647,7 @@ pipeline {
                             }
                 }
 
-                stage("MIN UPGRADE") {
+                stage("MIN UPGRADE PXC 80") {
                             when {
                                 allOf{
                                     expression{params.test_type == "min_upgrade" || params.test_type == "install_and_upgrade"}
@@ -669,6 +673,7 @@ pipeline {
 
                                 JENWORKSPACE = "${env.WORKSPACE}"
 
+                                MIN_UPGRADE_TEST = "PXC80_MINOR_UPGRADE"
                             }
 
                             options {
@@ -699,11 +704,16 @@ pipeline {
                                 always{
                                     script{
                                         def param_test_type = "min_upgrade"
-                                        echo "4. Take Backups of the Logs.. for PXC UPGRADE tests"
-                                        setInventories("min_upgrade")
-                                        runlogsbackup(params.product_to_test, "min_upgrade")
+                                        try{
+                                            echo "4. Take Backups of the Logs.. for PXC UPGRADE tests"
+                                            setInventories("min_upgrade")
+                                            runlogsbackup(params.product_to_test, "min_upgrade")
+                                        }catch(Exception e){
+                                            echo "Failed during logs backup"
+                                        }
                                         echo "5. Destroy the Molecule instances for PXC UPGRADE tests.."
                                         runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
+
                                     }
                                     catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
                                         archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
@@ -747,22 +757,32 @@ pipeline {
 
                             steps {
                                 setup()
-                                script{
-
+                                script {
                                     echo "UPGRADE STAGE INSIDE"
-                                    def param_test_type = "min_upgrade"   
+                                    def param_test_type = "min_upgrade"
                                     echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
                                     runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
                                     setInventories("min_upgrade")
+                                    
                                     echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
-                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-                                        }
-                                    echo "3. Run UPGRADE scripts and playbooks for running PXC UPGRADE tests.. Molecule side-effect step"
-                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                    def convergeSuccess = true // Flag to track the success of the converge step
+
+                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                                        runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
+                                    }.catch {
+                                        convergeSuccess = false // If the converge step fails, set the flag to false
+                                    }
+
+                                    if (convergeSuccess) {
+                                        echo "3. Run UPGRADE scripts and playbooks for running PXC UPGRADE tests.. Molecule side-effect step"
+                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                                             runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
                                         }
+                                    } else {
+                                        echo "Skipping side-effect step due to failure in converge step."
+                                    }
                                 }
+
                             }
                             post{
                                 always{
