@@ -366,7 +366,7 @@ pipeline {
     stages {
         stage('Prepare node') {
             steps {
-                // prepareNode()
+                prepareNode()
                 prepareSources()
             }
         }
