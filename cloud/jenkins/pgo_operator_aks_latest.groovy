@@ -82,7 +82,7 @@ void dockerBuildPush() {
                     docker buildx create --use
                     docker login -u '$USER' -p '$PASS'
                     export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
-                    e2e-tests/build
+                    make build-docker-image
                     docker logout
                 "
                 sudo rm -rf build
