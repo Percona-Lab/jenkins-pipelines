@@ -81,7 +81,7 @@ void dockerBuildPush() {
                 sg docker -c "
                     docker buildx create --use
                     docker login -u '$USER' -p '$PASS'
-                    export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                    export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                     e2e-tests/build
                     docker logout
                 "
