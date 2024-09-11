@@ -273,19 +273,23 @@ ENDSSH
                     sg docker -c "
                         set -ex
                         # push pmm-server
-                        docker buildx imagetools create \${SERVER_IMAGE} --tag percona/pmm-server:\${TOP_TAG}
-                        docker buildx imagetools create \${SERVER_IMAGE} --tag percona/pmm-server:\${MID_TAG}
-                        docker buildx imagetools create \${SERVER_IMAGE} --tag percona/pmm-server:\${VERSION}
+                        docker pull \${SERVER_IMAGE}
 
-                        docker buildx imagetools create \${SERVER_IMAGE} --tag perconalab/pmm-server:\${TOP_TAG}
-                        docker buildx imagetools create \${SERVER_IMAGE} --tag perconalab/pmm-server:\${MID_TAG}
-                        docker buildx imagetools create \${SERVER_IMAGE} --tag perconalab/pmm-server:\${VERSION}
+                        docker tag \${SERVER_IMAGE} percona/pmm-server:\${TOP_TAG}
+                        docker tag \${SERVER_IMAGE} percona/pmm-server:\${MID_TAG}
+                        docker tag \${SERVER_IMAGE} percona/pmm-server:\${VERSION}
+                        docker push percona/pmm-server:\${TOP_TAG}
+                        docker push percona/pmm-server:\${MID_TAG}
+                        docker push percona/pmm-server:\${VERSION}
 
-                        docker pull --platform linux/amd64 percona/pmm-server:\${VERSION}
-                        docker save percona/pmm-server:\${VERSION} | xz > pmm-server:\${VERSION}-amd64.docker
+                        docker tag \${SERVER_IMAGE} perconalab/pmm-server:\${TOP_TAG}
+                        docker tag \${SERVER_IMAGE} perconalab/pmm-server:\${MID_TAG}
+                        docker tag \${SERVER_IMAGE} perconalab/pmm-server:\${VERSION}
+                        docker push perconalab/pmm-server:\${TOP_TAG}
+                        docker push perconalab/pmm-server:\${MID_TAG}
+                        docker push perconalab/pmm-server:\${VERSION}
 
-                        docker pull --platform linux/arm64 percona/pmm-server:\${VERSION}
-                        docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}-arm64.docker
+                        docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
 
                         # push pmm-client
                         docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${TOP_TAG}
@@ -306,8 +310,7 @@ ENDSSH
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         set -ex
-                        aws s3 cp --only-show-errors pmm-server-${VERSION}-amd64.docker s3://percona-vm/pmm-server-${VERSION}-amd64.docker
-                        aws s3 cp --only-show-errors pmm-server-${VERSION}-arm64.docker s3://percona-vm/pmm-server-${VERSION}-arm64.docker
+                        aws s3 cp --only-show-errors pmm-server-${VERSION}.docker s3://percona-vm/pmm-server-${VERSION}.docker
 
                         aws s3 cp --only-show-errors pmm-client-${VERSION}-amd64.docker s3://percona-vm/pmm-client-${VERSION}-amd64.docker
                         aws s3 cp --only-show-errors pmm-client-${VERSION}-arm64.docker s3://percona-vm/pmm-client-${VERSION}-arm64.docker
@@ -321,8 +324,7 @@ ENDSSH
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         set -ex
-                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}-amd64.docker pmm-server-${VERSION}-amd64.docker
-                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}-arm64.docker pmm-server-${VERSION}-arm64.docker
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}.docker pmm-server-${VERSION}.docker
 
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}-amd64.docker pmm-client-${VERSION}-amd64.docker
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}-arm64.docker pmm-client-${VERSION}-arm64.docker
@@ -330,8 +332,7 @@ ENDSSH
                 }
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
-                        sha256sum pmm-server-${VERSION}-amd64.docker | tee pmm-server-${VERSION}-amd64.sha256sum
-                        sha256sum pmm-server-${VERSION}-arm64.docker | tee pmm-server-${VERSION}-arm64.sha256sum
+                        sha256sum pmm-server-${VERSION}.docker | tee pmm-server-${VERSION}.sha256sum
 
                         sha256sum pmm-client-${VERSION}-amd64.docker | tee pmm-client-${VERSION}-amd64.sha256sum
                         sha256sum pmm-client-${VERSION}-arm64.docker | tee pmm-client-${VERSION}-arm64.sha256sum
@@ -340,8 +341,7 @@ ENDSSH
 
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm/${VERSION}/docker"
 
-                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}-amd64.docker pmm-server-${VERSION}-amd64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm/${VERSION}/docker/
-                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}-arm64.docker pmm-server-${VERSION}-arm64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm/${VERSION}/docker/
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.docker pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm/${VERSION}/docker/
 
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}-amd64.docker pmm-client-${VERSION}-amd64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm/${VERSION}/docker/
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}-arm64.docker pmm-client-${VERSION}-arm64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm/${VERSION}/docker/
