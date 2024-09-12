@@ -130,10 +130,14 @@ fi
 # Finaly, compile!
 # ------------------------------------------------------------------------------
 pushd ${SOURCEDIR}
+    export SUDO=$(which sudo)
+    if [[ ${RHVER} -eq 7 ]]; then
+        SUDO="/usr/bin/sudo"
+    fi
     if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
-        sudo -E bash -x ./build-ps/build-binary.sh -d ./target
+        $SUDO -E bash -x ./build-ps/build-binary.sh -d ./target
     else
-        sudo -E bash -x ./build-ps/build-binary.sh ./target
+        $SUDO -E bash -x ./build-ps/build-binary.sh ./target
     fi
 popd
 

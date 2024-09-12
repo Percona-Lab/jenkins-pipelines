@@ -224,20 +224,11 @@ pipeline {
                             echo '${SSH_KEY}' >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
-                        sudo yum-config-manager --disable hashicorp
-                        sudo amazon-linux-extras install epel -y
                         sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum repolist
 
-                        # exclude unavailable mirrors
-                        echo "exclude=mirror.es.its.nyu.edu" | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
-
-                        sudo amazon-linux-extras enable epel
-                        sudo amazon-linux-extras enable php7.4
-                        sudo yum --enablerepo epel install php -y
-
-                        sudo yum install sysbench mysql-client -y
+                        sudo yum install sysbench mysql -y
                         sudo mkdir -p /srv/pmm-qa || :
                         pushd /srv/pmm-qa
                             sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
@@ -353,8 +344,9 @@ pipeline {
                                 docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
                                 docker exec ${VM_NAME}-server yum update -y percona-release
                                 docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                                docker exec ${VM_NAME}-server percona-release enable pmm2-components testing
+                                docker exec ${VM_NAME}-server percona-release enable pmm2-client testing
                                 docker exec ${VM_NAME}-server yum clean all
+                                docker exec ${VM_NAME}-server yum clean metadata
                             """
                         }
                     }
@@ -375,8 +367,9 @@ pipeline {
                                 docker exec ${VM_NAME}-server bash -c "echo exclude=mirror.es.its.nyu.edu | tee -a /etc/yum/pluginconf.d/fastestmirror.conf"
                                 docker exec ${VM_NAME}-server yum update -y percona-release
                                 docker exec ${VM_NAME}-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                                docker exec ${VM_NAME}-server percona-release enable pmm2-components experimental
+                                docker exec ${VM_NAME}-server percona-release enable pmm2-client experimental
                                 docker exec ${VM_NAME}-server yum clean all
+                                docker exec ${VM_NAME}-server yum clean metadata
                             """
                         }
                     }
@@ -392,7 +385,7 @@ pipeline {
                         if(env.CLIENT_VERSION == "pmm2-rc") {
                             env.PMM_REPO="testing"
                         }
-                        
+
                     }
                     sh '''
                         set -o errexit

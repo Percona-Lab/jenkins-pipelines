@@ -41,11 +41,11 @@ Parameters:
     ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
 
 Mappings:
-  AmazonLinux2:
+  AmazonLinux2023:
     eu-west-1:
-      x64: ami-0e8b5d4aece7e1ce8
+      x64: ami-0c27e7b62088f2235
     eu-central-1:
-      x64: ami-0d8f9265cd415c863
+      x64: ami-0caadd9d179fc9c54
 
 Resources:
 
@@ -491,9 +491,11 @@ Resources:
             Arn: !GetAtt JMasterProfile.Arn
         EbsOptimized: true
         KeyName: !Ref MasterKeyName
-        ImageId: !FindInMap [AmazonLinux2, !Ref 'AWS::Region', x64]
+        ImageId: !FindInMap [AmazonLinux2023, !Ref 'AWS::Region', x64]
         Monitoring:
           Enabled: false
+        MetadataOptions:
+          HttpTokens: "optional"  # Allows both IMDSv1 and IMDSv2
         UserData:
             Fn::Base64: !Sub |
               #!/bin/bash
@@ -544,19 +546,20 @@ Resources:
                       echo try again
                   done
 
-                  yum-config-manager --add-repo "https://openresty.org/package/rhel/7/x86_64"
+                  yum -y install yum-utils wget cronie rsync bc
+                  yum-config-manager --add-repo "https://openresty.org/package/amazon/2023/x86_64/"
                   rpm --import https://openresty.org/package/pubkey.gpg
                   wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+                  # rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
-                  amazon-linux-extras install epel -y
-                  amazon-linux-extras install java-openjdk11 -y
+                  yum -y install java-17-amazon-corretto
                   yum -y update --security
-                  yum -y install jenkins-2.426.3 certbot git yum-cron aws-cli xfsprogs openresty
+                  yum -y install jenkins-2.462.1 certbot git dnf-automatic aws-cli xfsprogs openresty
 
-                  sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
-                  sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
-                  echo "exclude=java*" >> /etc/yum/yum-cron.conf
-                  systemctl enable --now yum-cron
+                  sed -i 's/upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf
+                  sed -i 's/apply_updates = no/apply_updates = yes/'         /etc/dnf/automatic.conf
+                  echo "exclude=java-17-amazon-corretto" >> /etc/dnf/automatic.conf
+                  systemctl enable --now dnf-automatic.timer
               }
 
               volume_state() {

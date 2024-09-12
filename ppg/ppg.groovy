@@ -12,7 +12,7 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: ppgOperatingSystems()
+            choices: ppgOperatingSystemsALL()
         )
         choice(
             name: 'REPO',
@@ -24,7 +24,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'ppg-11.9',
+            defaultValue: 'ppg-16.4',
             description: 'PG version for test',
             name: 'VERSION'
          )

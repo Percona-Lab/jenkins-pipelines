@@ -43,7 +43,7 @@ def getMinorVersion(VERSION) {
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-amd64-ol9'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -145,7 +145,15 @@ pipeline {
                         currentBuild.description = "Docker way upgrade from ${env.DOCKER_VERSION} to ${env.PMM_SERVER_LATEST}"
                     } else {
                         currentBuild.description = "UI way upgrade from ${env.DOCKER_VERSION} to ${env.PMM_SERVER_LATEST}"
+
+                        if(getMinorVersion(DOCKER_VERSION) <= 37) {
+                            echo "UI way upgrade tests are not supported for versions <= 2.37"
+                            currentBuild.result = 'ABORTED'
+
+                            error("Stopping pipeline execution due to unsupported Docker version.")
+                        }
                     }
+
                 }
                 // fetch pmm-ui-tests repository
                 git poll: false,
@@ -224,7 +232,7 @@ pipeline {
                         set -o xtrace
                         docker exec pmm-server yum update -y percona-release || true
                         docker exec pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                        docker exec pmm-server percona-release enable percona testing
+                        docker exec pmm-server percona-release enable pmm2-client testing
                         docker exec pmm-server yum clean all
                         docker exec pmm-server yum clean metadata
                     """
@@ -243,7 +251,7 @@ pipeline {
                         set -o xtrace
                         docker exec pmm-server yum update -y percona-release || true
                         docker exec pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                        docker exec pmm-server percona-release enable percona experimental
+                        docker exec pmm-server percona-release enable pmm2-client experimental
                         docker exec pmm-server yum clean all
                         docker exec pmm-server yum clean metadata
                     """

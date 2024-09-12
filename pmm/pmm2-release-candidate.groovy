@@ -49,7 +49,6 @@ def pmm_submodules() {
         "grafana",
         "node_exporter",
         "postgres_exporter",
-        "clickhouse_exporter",
         "proxysql_exporter",
         "rds_exporter",
         "azure_metrics_exporter",
@@ -157,7 +156,7 @@ String DEFAULT_BRANCH = 'PMM-2.0'
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-amd64-ol9'
     }
     parameters {
         string(

@@ -4,25 +4,32 @@ clusters=[]
 
 void prepareNode() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
+    if ("$PLATFORM_VER" == "latest") {
+        OC_VER = "4.15.25"
+        USED_PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", , returnStdout: true).trim()
+    } else {
+        USED_PLATFORM_VER="$PLATFORM_VER"
+        OC_VER="$PLATFORM_VER"
+    }
+    echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
+    echo "OC_VER=$OC_VER"
+
     sh """
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
 
         curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
-        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
-        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OC_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$USED_PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
 
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
     """
 
-    if ("$PLATFORM_VER" == "latest") {
-        USED_PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", , returnStdout: true).trim()
-    } else {
-        USED_PLATFORM_VER="$PLATFORM_VER"
+    if ("$IMAGE_MONGOD") {
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
     }
-    echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
@@ -141,18 +148,11 @@ void createCluster(String CLUSTER_SUFFIX) {
 
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
-            if echo -e "4.12.0\\n\$USED_PLATFORM_VER" | sort -C -V; then
-                POLICY="additionalTrustBundlePolicy: Proxyonly"
-                NETWORK_TYPE="OVNKubernetes"
-            else
-                POLICY=""
-                NETWORK_TYPE="OpenShiftSDN"
-            fi
-
             mkdir -p openshift/$CLUSTER_SUFFIX
             timestamp="\$(date +%s)"
 tee openshift/$CLUSTER_SUFFIX/install-config.yaml << EOF
-\$POLICY
+additionalTrustBundlePolicy: Proxyonly
+credentialsMode: Mint
 apiVersion: v1
 baseDomain: cd.percona.com
 compute:
@@ -162,7 +162,7 @@ compute:
   platform:
     aws:
       type: m5.2xlarge
-  replicas: 1
+  replicas: 3
 controlPlane:
   architecture: amd64
   hyperthreading: Enabled
@@ -178,7 +178,7 @@ networking:
     hostPrefix: 23
   machineNetwork:
   - cidr: 10.0.0.0/16
-  networkType: \$NETWORK_TYPE
+  networkType: OVNKubernetes
   serviceNetwork:
   - 172.30.0.0/16
 platform:
@@ -200,10 +200,6 @@ EOF
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
                 export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
-
-                machineset=`oc get machineset  -n openshift-machine-api | awk 'NR==2 {print \$1; exit}'`
-                oc get machineset \$machineset -o yaml -n openshift-machine-api | yq eval '.spec.template.spec.providerSpec.value.spotMarketOptions = {}' | oc apply -f -
-                oc scale machineset --replicas=3  \$machineset -n openshift-machine-api
 
             """
         }

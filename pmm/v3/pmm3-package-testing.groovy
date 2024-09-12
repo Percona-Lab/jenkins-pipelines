@@ -73,7 +73,7 @@ def latestVersion = pmmVersion()
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-amd64-ol9'
     }
     parameters {
         string(
@@ -121,20 +121,6 @@ pipeline {
         }
         stage('Execute Package Tests') {
             parallel {
-                stage('centos-7-x64') {
-                    agent {
-                        label 'min-centos-7-x64'
-                    }
-                    steps{
-                        setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
                 stage('ol-8-x64') {
                     agent {
                         label 'min-ol-8-x64'

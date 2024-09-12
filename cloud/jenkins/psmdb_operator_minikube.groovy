@@ -1,21 +1,9 @@
 tests=[]
 
-void prepareNode() {
-    echo "=========================[ Installing tools on the Jenkins executor ]========================="
-    sh """
-        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
-        kubectl version --client --output=yaml
-
-        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-
-        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
-        sudo chmod +x /usr/local/bin/yq
-
-        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
-        sudo chmod +x /usr/local/bin/jq
-
-        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
-    """
+void checkoutSources() {
+    if ("$IMAGE_MONGOD") {
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
+    }
 
     echo "USED_PLATFORM_VER=$PLATFORM_VER"
 
@@ -31,10 +19,8 @@ void prepareNode() {
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
 
-    script {
-        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
-    }
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -42,7 +28,7 @@ void dockerBuildPush() {
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$OPERATOR_IMAGE" ]]; then
-                echo "SKIP: Build is not needed, PSMDB operator image was set!"
+                echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
                 sg docker -c "
@@ -89,7 +75,7 @@ void initTests() {
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
@@ -108,6 +94,24 @@ void initTests() {
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
         """
     }
+}
+
+void installToolsOnNode() {
+    echo "=========================[ Installing tools on the Jenkins executor ]========================="
+    sh """
+        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+        kubectl version --client --output=yaml
+
+        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+
+        sudo sh -c "curl -s -L https://github.com/mikefarah/yq/releases/download/v4.35.1/yq_linux_amd64 > /usr/local/bin/yq"
+        sudo chmod +x /usr/local/bin/yq
+
+        sudo sh -c "curl -s -L https://github.com/jqlang/jq/releases/download/jq-1.6/jq-linux64 > /usr/local/bin/jq"
+        sudo chmod +x /usr/local/bin/jq
+
+        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
+    """
 }
 
 void clusterRunner(String cluster) {
@@ -135,23 +139,21 @@ void runTest(Integer TEST_ID) {
             echo "The $testName test was started !"
             tests[TEST_ID]["result"] = "failure"
 
-            timeout(time: 90, unit: 'MINUTES') {
-                sh """
-                    cd source
+            sh """
+                cd source
 
-                    export DEBUG_TESTS=1
-                    [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=psmdb-operator
-                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
-                    export IMAGE_MONGOD=$IMAGE_MONGOD
-                    export IMAGE_BACKUP=$IMAGE_BACKUP
-                    export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
-                    export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+                export DEBUG_TESTS=1
+                [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=psmdb-operator
+                [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                export IMAGE_MONGOD=$IMAGE_MONGOD
+                export IMAGE_BACKUP=$IMAGE_BACKUP
+                export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
 
-                    sudo rm -rf /tmp/hostpath-provisioner/*
-                    e2e-tests/$testName/run
-                """
-            }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+                sudo rm -rf /tmp/hostpath-provisioner/*
+                e2e-tests/$testName/run
+            """
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -201,8 +203,9 @@ void makeReport() {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        MDB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
+        DB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
     }
+
     parameters {
         choice(
             choices: ['run-minikube.csv', 'run-distro.csv'],
@@ -230,7 +233,7 @@ pipeline {
             description: 'Minikube kubernetes version',
             name: 'PLATFORM_VER')
         choice(
-            choices: 'YES\nNO',
+            choices: 'NO\nYES',
             description: 'Run tests in cluster wide mode',
             name: 'CLUSTER_WIDE')
         string(
@@ -254,17 +257,20 @@ pipeline {
             description: 'PMM server image: perconalab/pmm-server:dev-latest',
             name: 'IMAGE_PMM_SERVER')
     }
+
     agent {
         label 'docker-32gb'
     }
+
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
     }
+
     stages {
-        stage('Prepare node') {
+        stage('Checkout sources') {
             steps {
-                prepareNode()
+                checkoutSources()
             }
         }
         stage('Docker Build and Push') {
@@ -278,11 +284,16 @@ pipeline {
             }
         }
         stage('Run Tests') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             steps {
+                installToolsOnNode()
                 clusterRunner('cluster1')
             }
         }
     }
+
     post {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
@@ -292,17 +303,8 @@ pipeline {
             """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml'
-
-            script {
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
-                }
-            }
-
             sh """
                 /usr/local/bin/minikube delete || true
-                sudo docker system prune --volumes -af
-                sudo rm -rf *
             """
             deleteDir()
         }

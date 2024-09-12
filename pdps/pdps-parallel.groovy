@@ -5,7 +5,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 pipeline {
   agent {
-      label 'min-ol-8-x64'
+      label 'min-bookworm-x64'
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
@@ -105,7 +105,7 @@ pipeline {
         stage ('Prepare') {
           steps {
                 script {
-                   installMolecule()
+                   installMoleculeBookworm()
              }
            }
         }

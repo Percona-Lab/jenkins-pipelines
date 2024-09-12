@@ -15,8 +15,10 @@ setup_rhel_package_tests = { ->
 setup_rhel_8_package_tests = { ->
     sh '''
         sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
+        sudo yum install -y python3-pip
         sudo yum -y update
-        sudo yum install -y ansible git wget
+        sudo pip3 install ansible==2.10.0
+        sudo yum install -y  git wget tar
     '''
 }
 
@@ -114,7 +116,7 @@ void runPlaybook(String action_to_test) {
     setup_package_tests()
 
     sh '''
-        git clone --depth 1 https://github.com/Percona-QA/package-testing
+        git clone --depth 1 -b master https://github.com/Percona-QA/package-testing
     '''
     withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
     sh """

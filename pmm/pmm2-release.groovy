@@ -11,7 +11,6 @@ pipeline {
     environment {
         CLIENT_IMAGE     = "perconalab/pmm-client:${VERSION}-rc"
         SERVER_IMAGE     = "perconalab/pmm-server:${VERSION}-rc"
-        SERVER_IMAGE_EL7 = "perconalab/pmm-server:${VERSION}-rc-el7"
         PATH_TO_CLIENT   = "testing/pmm2-client-autobuilds/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT}"
     }
 
@@ -47,7 +46,7 @@ pipeline {
                                 cd /srv/UPLOAD/${PATH_TO_CLIENT}
 
                                 # getting the list of RH systems
-                                RHVERS=\$(ls -1 binary/redhat | grep -v 6)
+                                RHVERS=\$(ls -1 binary/redhat | grep -v 6 | grep -v 7)
 
                                 # source processing
                                 if [ -d source/redhat ]; then
@@ -257,14 +256,13 @@ ENDSSH
 
         stage('Get Docker RPMs') {
             agent {
-                label 'min-rhel-7-x64'
+                label 'min-ol-9-x64'
             }
             steps {
                 installDocker()
                 slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: release started - ${BUILD_URL}"
                 sh "sg docker -c 'docker run ${SERVER_IMAGE} /usr/bin/rpm -qa' > rpms.list"
-                sh "sg docker -c 'docker run ${SERVER_IMAGE_EL7} /usr/bin/rpm -qa' > rpms-el7.list"
-                stash includes: 'rpms.list, rpms-el7.list', name: 'rpms-stash'
+                stash includes: 'rpms.list', name: 'rpms-stash'
             }
         }
 
@@ -282,19 +280,9 @@ ENDSSH
                             | sort \
                             | tee copy.list
                     '''
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            ls /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64 > repo-el7.list
-                        cat rpms-el7.list \
-                            | grep -v 'pmm2-client' \
-                            | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
-                            | xargs -n 1 -I {} grep "^{}.rpm" repo-el7.list \
-                            | sort \
-                            | tee copy-el7.list
-                    '''
                 }
-                stash includes: 'copy.list, copy-el7.list', name: 'copy-stash'
-                archiveArtifacts 'copy*.list'
+                stash includes: 'copy.list', name: 'copy-stash'
+                archiveArtifacts 'copy.list'
             }
         }
         // Publish RPMs to repo.ci.percona.com
@@ -306,10 +294,6 @@ ENDSSH
                         cat copy.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                             "cat - | xargs -I{} cp -v /srv/repo-copy/pmm2-components/yum/testing/9/RPMS/x86_64/{} /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/{}"
                     '''
-                    sh '''
-                        cat copy-el7.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            "cat - | xargs -I{} cp -v /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64/{} /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/{}"
-                    '''
                 }
             }
         }
@@ -319,18 +303,12 @@ ENDSSH
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh """
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
-                            createrepo --update /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/
-                            if [ -f /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc ]; then
-                                rm -f /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc
-                            fi
-
                             createrepo --update /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/
                             if [ -f /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml.asc ]; then
                                     rm -f /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml.asc
                             fi
 
                             export SIGN_PASSWORD=\${SIGN_PASSWORD}
-                            gpg --detach-sign --armor --passphrase \${SIGN_PASSWORD} /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml
                             gpg --detach-sign --armor --passphrase \${SIGN_PASSWORD} /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml
                         "
                     """
@@ -357,7 +335,7 @@ ENDSSH
 
         stage('Set Docker Tag') {
             agent {
-                label 'min-rhel-7-x64'
+                label 'min-ol-9-x64'
             }
             steps {
                 installDocker()
@@ -397,49 +375,31 @@ ENDSSH
 
                         docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
 
-                        # push pmm-server el7
-                        docker pull \${SERVER_IMAGE_EL7}
-
-                        docker tag \${SERVER_IMAGE_EL7} percona/pmm-server:\${DOCKER_MID}-el7
-                        docker tag \${SERVER_IMAGE_EL7} percona/pmm-server:\${VERSION}-el7
-                        docker push percona/pmm-server:\${DOCKER_MID}-el7
-                        docker push percona/pmm-server:\${VERSION}-el7
-
-                        docker tag \${SERVER_IMAGE_EL7} perconalab/pmm-server:\${DOCKER_MID}-el7
-                        docker tag \${SERVER_IMAGE_EL7} perconalab/pmm-server:\${VERSION}-el7
-                        docker push perconalab/pmm-server:\${DOCKER_MID}-el7
-                        docker push perconalab/pmm-server:\${VERSION}-el7
-
-                        docker save percona/pmm-server:\${VERSION}-el7 | xz > pmm-server-\${VERSION}-el7.docker
-
                         # push pmm-client
-                        docker pull \${CLIENT_IMAGE}
-                        docker tag \${CLIENT_IMAGE} percona/pmm-client:latest
-                        docker push percona/pmm-client:latest
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:latest
 
-                        docker tag \${CLIENT_IMAGE} percona/pmm-client:\${TOP_VER}
-                        docker tag \${CLIENT_IMAGE} percona/pmm-client:\${DOCKER_MID}
-                        docker tag \${CLIENT_IMAGE} percona/pmm-client:\${VERSION}
-                        docker push percona/pmm-client:\${TOP_VER}
-                        docker push percona/pmm-client:\${DOCKER_MID}
-                        docker push percona/pmm-client:\${VERSION}
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${TOP_VER}
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${DOCKER_MID}
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${VERSION}
 
-                        docker tag \${CLIENT_IMAGE} perconalab/pmm-client:\${TOP_VER}
-                        docker tag \${CLIENT_IMAGE} perconalab/pmm-client:\${DOCKER_MID}
-                        docker tag \${CLIENT_IMAGE} perconalab/pmm-client:\${VERSION}
-                        docker push perconalab/pmm-client:\${TOP_VER}
-                        docker push perconalab/pmm-client:\${DOCKER_MID}
-                        docker push perconalab/pmm-client:\${VERSION}
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag perconalab/pmm-client:\${TOP_VER}
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag perconalab/pmm-client:\${DOCKER_MID}
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag perconalab/pmm-client:\${VERSION}
 
-                        docker save percona/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}.docker
+                        docker pull --platform linux/amd64 percona/pmm-client:\${VERSION}
+                        docker save percona/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}-amd64.docker
+
+                        docker pull --platform linux/arm64 percona/pmm-client:\${VERSION}
+                        docker save percona/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}-arm64.docker
                     "
                 """
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         set -ex
                         aws s3 cp --only-show-errors pmm-server-${VERSION}.docker s3://percona-vm/pmm-server-${VERSION}.docker
-                        aws s3 cp --only-show-errors pmm-server-${VERSION}-el7.docker s3://percona-vm/pmm-server-${VERSION}-el7.docker
-                        aws s3 cp --only-show-errors pmm-client-${VERSION}.docker s3://percona-vm/pmm-client-${VERSION}.docker
+
+                        aws s3 cp --only-show-errors pmm-client-${VERSION}-amd64.docker s3://percona-vm/pmm-client-${VERSION}-amd64.docker
+                        aws s3 cp --only-show-errors pmm-client-${VERSION}-arm64.docker s3://percona-vm/pmm-client-${VERSION}-arm64.docker
                     '''
                 }
                 deleteDir()
@@ -451,20 +411,27 @@ ENDSSH
                     sh '''
                         set -ex
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}.docker pmm-server-${VERSION}.docker
-                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}-el7.docker pmm-server-${VERSION}-el7.docker
-                        aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}.docker pmm-client-${VERSION}.docker
+
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}-amd64.docker pmm-client-${VERSION}-amd64.docker
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}-arm64.docker pmm-client-${VERSION}-arm64.docker
                     '''
                 }
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         sha256sum pmm-server-${VERSION}.docker | tee pmm-server-${VERSION}.sha256sum
-                        sha256sum pmm-server-${VERSION}-el7.docker | tee pmm-server-${VERSION}-el7.sha256sum
-                        sha256sum pmm-client-${VERSION}.docker | tee pmm-client-${VERSION}.sha256sum
+
+                        sha256sum pmm-client-${VERSION}-amd64.docker | tee pmm-client-${VERSION}-amd64.sha256sum
+                        sha256sum pmm-client-${VERSION}-arm64.docker | tee pmm-client-${VERSION}-arm64.sha256sum
+
                         export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/docker"
+
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.docker pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
-                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}-el7.docker pmm-server-${VERSION}-el7.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
-                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}.docker pmm-client-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
+
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}-amd64.docker pmm-client-${VERSION}-amd64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}-arm64.docker pmm-client-${VERSION}-arm64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
+
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "ls -l /data/downloads/pmm2/${VERSION}/docker"
                     '''
                 }
