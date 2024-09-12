@@ -4,6 +4,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 List all_nodes = [
+                'ubuntu-noble',
                 'ubuntu-jammy',
                 'ubuntu-focal',
                 'debian-12',
