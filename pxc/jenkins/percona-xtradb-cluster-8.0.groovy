@@ -361,7 +361,7 @@ pipeline {
                         sync2ProdAutoBuild(PXC_REPO, COMPONENT)
                     } else {
                         if ("${PXC_VERSION_MINOR}" == "4") {
-                            sync2ProdAutoBuild("pxc-8x-lts", COMPONENT)
+                            sync2ProdAutoBuild("pxc-84-lts", COMPONENT)
                         } else {
                             sync2ProdAutoBuild("pxc-8x-innovation", COMPONENT)
                         }
