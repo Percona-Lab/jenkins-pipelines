@@ -21,9 +21,7 @@ def is_stack_to_terminate(stack, aws_region):
 
     tags_dict = {item["Key"]: item["Value"] for item in tags}
 
-    if "team" not in tags_dict.keys() or (
-        "team" in tags_dict.keys() and tags_dict["team"] != "cloud"
-    ):
+    if "team" not in tags_dict.keys() or tags_dict.get("team") != "cloud":
         return False
     if "delete-cluster-after-hours" not in tags_dict.keys():
         return True

@@ -9,10 +9,7 @@ from utils import get_regions_list
 
 def is_cluster_to_terminate(cluster, eks_client):
     cluster = eks_client.describe_cluster(name=cluster)
-    if "team" not in cluster["cluster"]["tags"].keys() or (
-        "team" in cluster["cluster"]["tags"].keys()
-        and cluster["cluster"]["tags"]["team"] != "cloud"
-    ):
+    if "team" not in cluster["cluster"]["tags"].keys() or cluster["cluster"]["tags"].get("team") != "cloud":
         return False
 
     if "delete-cluster-after-hours" not in cluster["cluster"]["tags"].keys():
