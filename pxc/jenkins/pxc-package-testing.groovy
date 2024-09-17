@@ -309,8 +309,8 @@ void setInventories(String param_test_type){
                     def KEYPATH_COMMON
                     def SSH_USER
 
-                    KEYPATH_BOOTSTRAP="/home/centos/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
-                    KEYPATH_COMMON="/home/centos/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
+                    KEYPATH_BOOTSTRAP="/home/admin/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
+                    KEYPATH_COMMON="/home/admin/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
 
 
                     if(("${params.node_to_test}" == "ubuntu-focal")  ||  ("${params.node_to_test}" == "ubuntu-jammy")){
@@ -513,10 +513,8 @@ def setup(){
                     }                
                 }   
                 echo "${JENWORKSPACE}"
-                installMolecule()
+                installMoleculeBookworm()
                     sh '''
-                        sudo yum install -y epel-release 
-                        sudo yum install -y git jq
                         rm -rf package-testing                    
                         git clone https://github.com/Percona-QA/package-testing --branch master
                     '''
@@ -539,6 +537,7 @@ pipeline {
         choice(
             name: 'node_to_test',
             choices: [
+                'ubuntu-noble',
                 'ubuntu-jammy',
                 'ubuntu-focal',
                 'debian-12',
@@ -593,7 +592,7 @@ pipeline {
                             }
 
                             agent {
-                                label 'min-centos-7-x64'
+                                label 'min-bookworm-x64'
                             }
                             environment {
 
@@ -652,14 +651,15 @@ pipeline {
                                 allOf{
                                     expression{params.test_type == "min_upgrade" || params.test_type == "install_and_upgrade"}
                                     expression{params.test_repo != "main"}
-                                    expression{params.pxc57_repo != "EOL"}                
+                                    expression{params.pxc57_repo != "EOL"}
+                                    expression{params.product_to_test == "pxc80"}                
                                 }
                             }
 
 
 
                             agent {
-                                label 'min-centos-7-x64'
+                                label 'min-bookworm-x64'
                             }
 
 
@@ -733,7 +733,7 @@ pipeline {
                             }
 
                             agent {
-                                label 'min-centos-7-x64'
+                                label 'min-bookworm-x64'
                             }
 
                             environment {
@@ -814,7 +814,7 @@ pipeline {
 
 
                             agent {
-                                label 'min-centos-7-x64'
+                                label 'min-bookworm-x64'
                             }
 
 
@@ -885,7 +885,7 @@ pipeline {
 
 
                             agent {
-                                label 'min-centos-7-x64'
+                                label 'min-bookworm-x64'
                             }
 
                             environment {
