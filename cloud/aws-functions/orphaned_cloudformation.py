@@ -14,9 +14,8 @@ def is_stack_to_terminate(stack, aws_region):
     try:
         stack_desc = cf_client.describe_stacks(StackName=stack)["Stacks"][0]
         tags = stack_desc["Tags"]
-
     except ClientError as e:
-        print(e)
+        logging.error(f"Client error {e}")
         return False
 
     tags_dict = {item["Key"]: item["Value"] for item in tags}
@@ -79,7 +78,7 @@ def delete_stack(stack_name, aws_region):
         response = cf_client.delete_stack(StackName=stack_name)
         waiter.wait(StackName=stack_name, WaiterConfig=waiter_config)
     except ClientError as e:
-        logging.info(f"Error deleting stack: {e}")
+        logging.error(f"Error deleting stack: {e}")
 
 
 def delete_stack_resources(stack_name, aws_region):
@@ -91,7 +90,6 @@ def delete_stack_resources(stack_name, aws_region):
         for resource in resources["StackResources"]:
             resource_id = resource["PhysicalResourceId"]
             resource_type = resource["ResourceType"]
-            print(f"resource_type {resource_type} stack_name {stack_name}")
             try:
                 print(
                     f"Attempting to delete resource: {resource_id} of type: {resource_type}"
@@ -115,22 +113,19 @@ def delete_stack_resources(stack_name, aws_region):
                                     InstanceProfileName=resource_id, RoleName=role
                                 )
                         else:
-                            print(
-                                f"No roles are attached to instance profile {instance_profile_name}."
-                            )
+                            logging.info(f"No roles are attached to instance profile {instance_profile_name}.")
+
                     except iam_client.exceptions.NoSuchEntityException:
-                        print(
-                            f"Instance profile {instance_profile_name} does not exist."
-                        )
+                        logging.error( f"Instance profile {instance_profile_name} does not exist.")
                     except Exception as e:
-                        print(f"An error occurred: {e}")
+                        logging.error(f"An error occurred: {e}")
                     iam_client.delete_instance_profile(InstanceProfileName=resource_id)
 
                 sleep(2)  # Sleep to avoid hitting rate limits
             except ClientError as e:
-                print(f"Failed to delete resource: {resource_id}. Error: {e}")
+                logging.error(f"Failed to delete resource: {resource_id}. Error: {e}")
     except ClientError as e:
-        print(f"Error describing stack resources: {e}")
+        logging.error(f"Error describing stack resources: {e}")
 
 
 def lambda_handler(event, context):
