@@ -180,23 +180,6 @@ pipeline {
                         }
                     }
                 }
-                stage('buster-arm64') {
-                    agent {
-                        label 'min-buster-arm64'
-                    }
-                    when {
-                        expression { env.TESTS == "pmm-client" }
-                    }
-                    steps{
-                        setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
                 stage('bullseye-arm64') {
                     agent {
                         label 'min-bullseye-arm64'
