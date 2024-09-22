@@ -390,7 +390,7 @@ pipeline {
                 echo "====> Build docker containers"
                 cleanUpWS()
                 sh '''
-                   sleep 900
+                   sleep 1200
                 '''
                 unstash 'pxc-80.properties'
                 sh '''
