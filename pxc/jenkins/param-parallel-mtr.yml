@@ -37,10 +37,6 @@
         default: ""
         description: Custom string that will be appended to the build name visible in Jenkins
     - bool:
-        name: USE_PR
-        default: false
-        description: "Check only if you pass PR number to BRANCH field"
-    - bool:
         name: PXB80_LATEST
         default: true
         description: "If checked, the PXB80_BRANCH will be ignored and latest available version will be used"

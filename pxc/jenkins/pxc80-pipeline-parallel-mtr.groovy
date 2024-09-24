@@ -336,17 +336,6 @@ void validatePxcBranch() {
             sudo apt-get update
         fi
 
-        if [[ ${USE_PR} == "true" ]]; then
-            if [ -f /usr/bin/yum ]; then
-                sudo yum -y install jq
-            else
-                sudo apt-get install -y jq
-            fi
-
-            GIT_REPO=\$(curl https://api.github.com/repos/percona/percona-xtradb-cluster/pulls/${BRANCH} | jq -r '.head.repo.html_url')
-            BRANCH=\$(curl https://api.github.com/repos/percona/percona-xtradb-cluster/pulls/${BRANCH} | jq -r '.head.ref')
-        fi
-
         RAW_VERSION_LINK=\$(echo \${GIT_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
         REPLY=\$(curl -Is \${RAW_VERSION_LINK}/\${BRANCH}/MYSQL_VERSION | head -n 1 | awk '{print \$2}')
         if [[ \${REPLY} != 200 ]]; then
@@ -500,10 +489,6 @@ pipeline {
             description: 'Custom string that will be appended to the build name visible in Jenkins',
             name: 'CUSTOM_BUILD_NAME',
             trim: true)
-        booleanParam(
-            defaultValue: false,
-            description: 'Check only if you pass PR number to BRANCH field',
-            name: 'USE_PR')
         booleanParam(
             defaultValue: true,
             description: 'If checked, the PXB80_BRANCH will be ignored and latest available version will be used',
