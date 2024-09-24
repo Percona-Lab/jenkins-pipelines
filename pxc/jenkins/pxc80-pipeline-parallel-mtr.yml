@@ -61,7 +61,7 @@
         description: path to cmake binary
     - string:
         name: CMAKE_OPTS
-        default:
+        default: "-DWITH_PERCONA_TELEMETRY=ON"
         description: cmake options
     - string:
         name: MAKE_OPTS

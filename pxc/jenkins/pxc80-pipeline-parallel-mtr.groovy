@@ -530,7 +530,7 @@ pipeline {
             description: 'Type of build to produce',
             name: 'CMAKE_BUILD_TYPE')
         string(
-            defaultValue: '',
+            defaultValue: '-DWITH_PERCONA_TELEMETRY=ON',
             description: 'cmake options',
             name: 'CMAKE_OPTS')
         string(

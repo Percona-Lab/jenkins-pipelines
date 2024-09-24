@@ -67,7 +67,7 @@
         description: path to cmake binary
     - string:
         name: CMAKE_OPTS
-        default:
+        default: "-DWITH_PERCONA_TELEMETRY=ON"
         description: cmake options
     - string:
         name: MAKE_OPTS
@@ -143,6 +143,14 @@
         name: MTR_ARGS
         default: --unit-tests-report --big-test --mem
         description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
+    - string:
+        name: MTR_STANDALONE_TESTS
+        default:
+        description: "Space-separated test names to be executed. Worker 1 handles this request."
+    - string:
+        name: MTR_STANDALONE_TESTS_PARALLEL
+        default: 1
+        description: "MTR workers count for standalone tests"
     - bool:
         name: ALLOW_ABORTED_WORKERS_RERUN
         default: true
