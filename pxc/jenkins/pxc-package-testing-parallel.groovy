@@ -67,7 +67,7 @@ pipeline {
         )
 
         choice(
-	        name: 'test_repo',
+            name: 'test_repo',
             choices: [
                 'testing',
                 'main',
@@ -185,6 +185,20 @@ pipeline {
                     }
                 }
 
+                stage("ubuntu-noble") {
+                    when {
+                        expression {
+                            allOf{                            
+                                nodes_to_test.contains("ubuntu-noble")
+
+                            }
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("ubuntu-noble")
+                    }
+                }
 
                 stage("ubuntu-jammy") {
                     when {
@@ -217,18 +231,18 @@ pipeline {
                     }
                 }
 
-	            stage("min-amazon-2") {	
-                    when {	
-                        expression {	
+                stage("min-amazon-2") { 
+                    when {  
+                        expression {    
                             allOf{
-                                nodes_to_test.contains("min-amazon-2")	
+                                nodes_to_test.contains("min-amazon-2")  
 
                             }
-                        }	
-                    }	
-                    steps {	
-                        runNodeBuild("min-amazon-2")	
-                    }	
+                        }   
+                    }   
+                    steps { 
+                        runNodeBuild("min-amazon-2")    
+                    }   
                 }
             }
         }
