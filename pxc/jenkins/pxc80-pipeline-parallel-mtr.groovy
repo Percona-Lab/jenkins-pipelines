@@ -20,7 +20,7 @@ OsToGlibcMap = [
     "oraclelinux:9": "2.34",
     "ubuntu:focal" : "2.31",
     "ubuntu:jammy" : "2.35",
-    "ubuntu:noble" : "2.39",
+    "ubuntu:noble" : "2.35",
     "debian:bullseye" : "2.31",
     "debian:bookworm" : "2.35" ]
 
