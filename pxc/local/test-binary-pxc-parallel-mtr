@@ -96,15 +96,22 @@ if [[ "${MTR_ARGS}" == *"--suite=max_parts"* ]]; then
     TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 3))
 fi
 
+PARALLEL=$(grep -c ^processor /proc/cpuinfo)
 #
 # asan/valgrind
 if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
   MTR_ARGS+=" --valgrind --valgrind-clients --valgrind-option=--leak-check=full --valgrind-option=--show-leak-kinds=all"
   [[ ${OPENSSL_VER} < '1.0.2' ]] && export OPENSSL_ia32cap=~0x200000000000000
   TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 2))
-#  if [[ ${PARALLEL} -gt 1 ]]; then
-#    PARALLEL=$((PARALLEL/3))
-#  fi
+  if [[ ${PARALLEL} -gt 1 ]]; then
+    PARALLEL=$((PARALLEL/3))
+  fi
+fi
+
+# hack for too big instances ;)
+if [[ ${PARALLEL} -gt 10 ]]; then
+  echo "Limit parallel ${PARALLEL} -> 10"
+  PARALLEL=10
 fi
 
 if [[ "${ANALYZER_OPTS}" == *WITH_*SAN*=ON* ]]; then
@@ -206,10 +213,24 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
     fi
 
     if [[ "$suite" == *"galera"* ]]; then
-        WORKER=$GALERA_PARALLEL_RUN
+        WORKERS=${GALERA_PARALLEL_RUN}
     else
-        WORKER=$(grep -c ^processor /proc/cpuinfo)
+        WORKERS=${PARALLEL}
     fi
+
+    ONLY_COMBINATIONS=
+    # our implementation of GCache encryption is not compatible with Valgrind. We heavily use sigsegv signal and Valgrind does the same.
+    if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
+      if [[ "$suite" == "galera_encryption" ]]; then
+        echo "Skipping $suite suite for Valgrind build"
+        continue
+      fi
+      if [[ "${suite}" == "galera" || "${suite}" == "galera_3nodes" || "${suite}" == "galera_3nodes_nbo" || "${suite}" == "galera_3nodes_sr" || "${suite}" == "galera_nbo" || "${suite}" == "galera_sr" ]]; then
+        echo "Adding MTR option ${ONLY_COMBINATIONS} for suite ${suite}"
+        ONLY_COMBINATIONS=--only-combinations=enc_off     
+      fi
+    fi
+
     suiteNoSlash=${suite//"/"/"_"}
     echo "Running MTR suite: $suite (noslash: $suiteNoSlash)"
 
@@ -235,10 +256,11 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
             --result-file --suite=$suite \
             --force ${MYSQLD_ENV} \
             --max-test-fail=0 \
-            --suite-timeout=9999 --parallel $WORKER \
+            --suite-timeout=9999 --parallel=${WORKERS} \
             --port-group-size=20 \
             --testcase-timeout=${TESTCASE_TIMEOUT} \
             ${MTR_ARGS_NORMAL} \
+            ${ONLY_COMBINATIONS} \
             --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
             --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" || true
 
@@ -268,10 +290,11 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
             --result-file --suite=$suite \
             --force ${MYSQLD_ENV} \
             --max-test-fail=0 \
-            --suite-timeout=9999 --parallel $WORKER \
+            --suite-timeout=9999 --parallel=${WORKERS} \
             --port-group-size=20 \
             --testcase-timeout=${TESTCASE_TIMEOUT_BIG} \
             ${MTR_ARGS_BIG} \
+            ${ONLY_COMBINATIONS} \
             --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
             --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" || true
 
@@ -325,7 +348,7 @@ if [[ "${CI_FS_MTR}" = 'yes' ]]; then
         --force ${MYSQLD_ENV} \
         --max-test-fail=0 \
         --suite-timeout=9999 \
-        --parallel=$(nproc) \
+        --parallel=${PARALLEL} \
         --testcase-timeout=${TESTCASE_TIMEOUT} \
         ${MTR_ARGS} \
         --tmpdir="/tmp/ps_mtr_tempdir" \
@@ -344,9 +367,8 @@ fi
 #
 # standalone tests
 if [[ -n "${MTR_STANDALONE_TESTS}" ]]; then
-    echo "Running standalone no CI_FS tests"
+    echo "Running standalone tests"
     MTR_ARGS+=" --big-test"
-    WORKER=2
     suiteNoSlash="standalone_tests"
 
     start=`date +%s`
@@ -363,7 +385,7 @@ if [[ -n "${MTR_STANDALONE_TESTS}" ]]; then
         --result-file \
         --force ${MYSQLD_ENV} \
         --max-test-fail=0 \
-        --suite-timeout=9999 --parallel ${MTR_STANDALONE_TESTS_PARALLEL} \
+        --suite-timeout=9999 --parallel=${MTR_STANDALONE_TESTS_PARALLEL} \
         --port-group-size=20 \
         --testcase-timeout=${TESTCASE_TIMEOUT} \
         ${MTR_ARGS_NORMAL} \
