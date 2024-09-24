@@ -7,9 +7,9 @@
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            url: https://github.com/kamil-holubicki/jenkins-pipelines.git
             branches:
-            - 'master'
+            - 'pxc-8.0'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pxc/jenkins/pxc80-pipeline-parallel-mtr.groovy

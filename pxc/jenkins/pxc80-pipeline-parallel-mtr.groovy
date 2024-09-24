@@ -1,6 +1,6 @@
 PIPELINE_TIMEOUT = 10
-JENKINS_SCRIPTS_BRANCH = 'master'
-JENKINS_SCRIPTS_REPO = 'https://github.com/Percona-Lab/jenkins-pipelines'
+JENKINS_SCRIPTS_BRANCH = 'pxc-8.0'
+JENKINS_SCRIPTS_REPO = 'https://github.com/kamil-holubicki/jenkins-pipelines'
 AWS_CREDENTIALS_ID = 'c42456e5-c28d-4962-b32c-b75d161bff27'
 MAX_S3_RETRIES = 12
 S3_ROOT_DIR = 's3://pxc-build-cache'
