@@ -41,9 +41,7 @@ void prepareNode() {
     if ("$PGO_POSTGRES_IMAGE") {
         currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$PGO_POSTGRES_IMAGE".split(":")[1]
     }
-}
 
-void prepareSources() {
     if ("$PLATFORM_VER" == "latest") {
         USED_PLATFORM_VER = sh(script: "az aks get-versions --location $location --output json | jq -r '.values | max_by(.patchVersions) | .patchVersions | keys[]' | sort --version-sort | tail -1", , returnStdout: true).trim()
     } else {
@@ -367,7 +365,6 @@ pipeline {
         stage('Prepare node') {
             steps {
                 prepareNode()
-                prepareSources()
             }
         }
         stage('Docker Build and Push') {
