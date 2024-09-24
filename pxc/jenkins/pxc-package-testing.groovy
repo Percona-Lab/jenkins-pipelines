@@ -15,7 +15,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
         ),
         aws(
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27',
+            credentialsId: '7e252458-7ef8-4d0e-a4d5-5773edcbfa5e',
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         )
     ]
@@ -28,7 +28,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
             mkdir -p "${WORKSPACE}/${product_to_test}/${params.node_to_test}/${param_test_type}/"
             """
 
-	        if(param_test_type == "install"){   
+            if(param_test_type == "install"){   
                 def install_repo="${test_repo}"
                 def check_version="${version_check}"
                 def pxc57repo = "${params.pxc57_repo}"
@@ -309,8 +309,8 @@ void setInventories(String param_test_type){
                     def KEYPATH_COMMON
                     def SSH_USER
 
-                    KEYPATH_BOOTSTRAP="/home/centos/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
-                    KEYPATH_COMMON="/home/centos/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
+                    KEYPATH_BOOTSTRAP="/home/admin/.cache/molecule/${product_to_test}-bootstrap-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
+                    KEYPATH_COMMON="/home/admin/.cache/molecule/${product_to_test}-common-${param_test_type}/${params.node_to_test}/ssh_key-us-west-1"
 
 
                     if(("${params.node_to_test}" == "ubuntu-focal")  ||  ("${params.node_to_test}" == "ubuntu-jammy")){
@@ -473,7 +473,7 @@ void runlogsbackup(String product_to_test, String param_test_type) {
         ),
         aws(
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27',
+            credentialsId: '7e252458-7ef8-4d0e-a4d5-5773edcbfa5e',
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         )
     ]
@@ -513,10 +513,8 @@ def setup(){
                     }                
                 }   
                 echo "${JENWORKSPACE}"
-                installMolecule()
+                installMoleculeBookworm()
                     sh '''
-                        sudo yum install -y epel-release 
-                        sudo yum install -y git jq
                         rm -rf package-testing                    
                         git clone https://github.com/Percona-QA/package-testing --branch master
                     '''
@@ -539,6 +537,7 @@ pipeline {
         choice(
             name: 'node_to_test',
             choices: [
+                'ubuntu-noble',
                 'ubuntu-jammy',
                 'ubuntu-focal',
                 'debian-12',
@@ -552,7 +551,7 @@ pipeline {
             description: 'Distribution to run test'
         )
         choice(
-	        name: 'test_repo',
+            name: 'test_repo',
             choices: [
                 'testing',
                 'main',
@@ -593,7 +592,7 @@ pipeline {
                             }
 
                             agent {
-                                label 'min-centos-7-x64'
+                                label 'min-bookworm-x64'
                             }
                             environment {
 
@@ -652,14 +651,15 @@ pipeline {
                                 allOf{
                                     expression{params.test_type == "min_upgrade" || params.test_type == "install_and_upgrade"}
                                     expression{params.test_repo != "main"}
-                                    expression{params.pxc57_repo != "EOL"}                
+                                    expression{params.pxc57_repo != "EOL"}
+                                    expression{params.product_to_test == "pxc80"}                
                                 }
                             }
 
 
 
                             agent {
-                                label 'min-centos-7-x64'
+                                label 'min-bookworm-x64'
                             }
 
 
@@ -733,7 +733,7 @@ pipeline {
                             }
 
                             agent {
-                                label 'min-centos-7-x64'
+                                label 'min-bookworm-x64'
                             }
 
                             environment {
@@ -814,7 +814,7 @@ pipeline {
 
 
                             agent {
-                                label 'min-centos-7-x64'
+                                label 'min-bookworm-x64'
                             }
 
 
@@ -885,7 +885,7 @@ pipeline {
 
 
                             agent {
-                                label 'min-centos-7-x64'
+                                label 'min-bookworm-x64'
                             }
 
                             environment {
