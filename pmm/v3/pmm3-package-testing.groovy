@@ -150,9 +150,6 @@ pipeline {
                     }
                 }
                 stage('focal-arm64') {
-                    when {
-                        expression { env.TESTS == "pmm-client" || env.TESTS == "pmm-client_upgrade" }
-                    }
                     agent {
                         label 'min-focal-arm64'
                     }
@@ -195,9 +192,6 @@ pipeline {
                     }
                 }
                 stage('noble-arm64') {
-                    when {
-                        expression { env.TESTS == "pmm-client" || env.TESTS == "pmm-client_upgrade" }
-                    }
                     agent {
                         label 'min-noble-arm64'
                     }
