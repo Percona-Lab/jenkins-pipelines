@@ -19,6 +19,10 @@ String pmmServerLatestVersion
 List amiVersions = pmmVersion('ami').keySet() as List
 List versions = amiVersions[-5..-1]
 def parallelStagesMatrix = versions.collectEntries {String it ->
+    // Skip versions "2.40.1" and "2.42.0"
+    if (it == "2.40.1" || it == "2.42.0") {
+        return [:]
+    }
     if ("${params.UPGRADE_TO}" == "dev-latest") {
         enableTestingRepo = 'no'
         pmmServerLatestVersion = pmmVersion()

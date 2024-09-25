@@ -2,14 +2,14 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
-void runOVFUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, PMM_QA_GIT_BRANCH) {
+void runOVFUpgradeJob(String GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO, PMM_QA_GIT_BRANCH) {
     upgradeJob = build job: 'pmm2-ovf-upgrade-tests', parameters: [
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
         string(name: 'SERVER_VERSION', value: PMM_VERSION),
         string(name: 'CLIENT_VERSION', value: PMM_VERSION),
         string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
         string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
-        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: 'no'),
+        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: ENABLE_EXPERIMENTAL_REPO),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH)
     ]
 }
@@ -30,6 +30,7 @@ def generateStage(VERSION) {
                 VERSION,
                 PMM_SERVER_LATEST,
                 ENABLE_TESTING_REPO,
+                ENABLE_EXPERIMENTAL_REPO,
                 PMM_QA_GIT_BRANCH
             )
         }
@@ -57,6 +58,10 @@ pipeline {
             choices: ['no', 'yes'],
             description: 'Enable Testing Repo for RC',
             name: 'ENABLE_TESTING_REPO')
+        choice(
+            choices: ['yes', 'no'],
+            description: 'Enable Experimental Repo for dev-latest',
+            name: 'ENABLE_EXPERIMENTAL_REPO')
     }
     options {
         skipDefaultCheckout()
