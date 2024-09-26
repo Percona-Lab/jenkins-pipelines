@@ -64,7 +64,7 @@ priceMap['m4.xlarge'] = '0.15' // type=m4.xlarge, vCPU=4, memory=16GiB, saving=6
 priceMap['m1.medium'] = '0.13' // centos6
 priceMap['c5.2xlarge'] = '0.28' // type=c5.2xlarge, vCPU=8, memory=16GiB, saving=53%, interruption='<5%', price=0.216700
 priceMap['r3.2xlarge'] = '0.21' // centos6
-priceMap['r5a.2xlarge'] = '0.25' // type=r5a.2xlarge, vCPU=8, memory=64GiB, saving=65%, interruption='<5%', price=0.200200
+priceMap['c5.4xlarge'] = '0.40' // type=c5.4xlarge, vCPU=16, memory=64GiB, saving=65%, interruption='<5%', price=0.200200
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -432,13 +432,13 @@ initMap['performance-centos-6-x64']  = '''
 
 capMap = [:]
 capMap['c5.2xlarge'] = '40'
-capMap['r5a.2xlarge'] = '40'
+capMap['c5.4xlarge'] = '80'
 capMap['r3.2xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 'm4.xlarge'
 typeMap['docker']       = 'c5.2xlarge'
-typeMap['docker-32gb']  = 'r5a.2xlarge'
+typeMap['docker-32gb']  = 'c5.4xlarge'
 
 typeMap['performance-centos-6-x64'] = typeMap['docker-32gb']
 
