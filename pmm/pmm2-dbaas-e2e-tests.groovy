@@ -45,7 +45,7 @@ void destroyStaging(IP) {
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-amd64-ol9'
     }
     parameters {
         string(
@@ -75,7 +75,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Custom build description',
-            name: 'BUILD_DESC')    
+            name: 'BUILD_DESC')
         choice(
             choices: ['no', 'yes'],
             description: "Use this instance only as a client host",

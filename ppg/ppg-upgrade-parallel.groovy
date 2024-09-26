@@ -39,12 +39,12 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'ppg-11.9',
+            defaultValue: 'ppg-15.7',
             description: 'From this version PPG will be updated',
             name: 'FROM_VERSION'
         )
         string(
-            defaultValue: 'ppg-11.9',
+            defaultValue: 'ppg-16.4',
             description: 'To this version PPG will be updated',
             name: 'VERSION'
         )
@@ -90,7 +90,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(ppgOperatingSystems(), env.MOLECULE_DIR)
+                    moleculeParallelTest(ppgOperatingSystemsAMD(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -98,7 +98,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(ppgOperatingSystems(), env.MOLECULE_DIR)
+              moleculeParallelPostDestroy(ppgOperatingSystemsAMD(), env.MOLECULE_DIR)
               sendSlackNotification(env.SCENARIO, env.FROM_VERSION, env.VERSION)
          }
       }

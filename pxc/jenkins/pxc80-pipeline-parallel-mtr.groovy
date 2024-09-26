@@ -13,6 +13,17 @@ PXB80_PACKAGE_TO_DOWNLOAD = ''
 
 def LABEL = 'docker-32gb'
 
+// We need this map to construct proper pxb tarball name
+OsToGlibcMap = [
+    "centos:7" : "2.17",
+    "centos:8" : "2.28",
+    "oraclelinux:9": "2.34",
+    "ubuntu:focal" : "2.31",
+    "ubuntu:jammy" : "2.35",
+    "ubuntu:noble" : "2.39",
+    "debian:bullseye" : "2.31",
+    "debian:bookworm" : "2.35" ]
+
 void uploadFileToS3(String SRC_FILE_PATH, String DST_DIRECTORY, String DST_FILE_NAME) {
     echo "Upload ${SRC_FILE_PATH} file to S3 ${S3_ROOT_DIR}/${DST_DIRECTORY}/${DST_FILE_NAME}. Max retries: ${MAX_S3_RETRIES}"
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: AWS_CREDENTIALS_ID, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -65,12 +76,20 @@ String getLatestPxbPackageName(String PXB_VER, String GLIBC_VER) {
     return ''
 }
 
+String getGlibcVersion() {
+    if (OsToGlibcMap[env.DOCKER_OS]) {
+        return OsToGlibcMap[env.DOCKER_OS]
+    }
+    // Fallback to something, probably will not work anyway.
+    return "2.35"
+}
+
 void checkIfPxbPackagesDownloadable() {
     if (env.PXB24_LATEST == "true") {
         PXB24_PACKAGE_TO_DOWNLOAD = getLatestPxbPackageName("2.4", "2.17")
     }
     if (env.PXB80_LATEST == "true") {
-        PXB80_PACKAGE_TO_DOWNLOAD = getLatestPxbPackageName("8.0", "2.17")
+        PXB80_PACKAGE_TO_DOWNLOAD = getLatestPxbPackageName("8.0", getGlibcVersion())
     }
 }
 
@@ -94,7 +113,7 @@ void downloadFilesForTests() {
     }
 
     if (PXB80_PACKAGE_TO_DOWNLOAD) {
-        downloadLatestPxbPackage("8.0", PXB80_PACKAGE_TO_DOWNLOAD, "2.17", "./pxc/sources/pxc/results/pxb80/pxb80.tar.gz")
+        downloadLatestPxbPackage("8.0", PXB80_PACKAGE_TO_DOWNLOAD, getGlibcVersion(), "./pxc/sources/pxc/results/pxb80/pxb80.tar.gz")
     } else {
         downloadFileFromS3("${BUILD_TAG_BINARIES}", "pxb80.tar.gz", "./pxc/sources/pxc/results/pxb80/pxb80.tar.gz")
     }

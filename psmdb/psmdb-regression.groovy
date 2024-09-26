@@ -16,6 +16,7 @@ pipeline {
         string(name: 'branch', defaultValue: 'v6.0', description: 'Repo branch for build image from sources')
         string(name: 'version', defaultValue: '6.0.3', description: 'Version for build tag (psm_ver) to build image from sources')
         string(name: 'release', defaultValue: '3', description: 'Release for build tag (psm_release) to build image from sources')
+        booleanParam(name: 'build_pro_version',defaultValue: false, description: 'Build PSMDB pro version')
         string(name: 'mongo_tools', defaultValue: '100.6.0', description: 'Mongo tools tag (mongo_tools_tag) to build image from sources')
         string(name: 'srctarball', defaultValue: 'https://downloads.percona.com/downloads/percona-server-mongodb-LATEST/percona-server-mongodb-4.4.9-10/source/tarball/percona-server-mongodb-4.4.9-10.tar.gz', description: 'Tarball with sources to build image from ready tarballs')
         string(name: 'bintarball', defaultValue: 'https://downloads.percona.com/downloads/percona-server-mongodb-LATEST/percona-server-mongodb-4.4.9-10/binary/tarball/percona-server-mongodb-4.4.9-10-x86_64.glibc2.17.tar.gz', description: 'Tarball with binaries to build image from ready tarballs')
@@ -28,7 +29,7 @@ pipeline {
         booleanParam(name: 'unittests',defaultValue: false, description: 'Check if list of suites contains unittests')
         booleanParam(name: 'integrationtests',defaultValue: false, description: 'Check if list of suites contains integration tests')
         booleanParam(name: 'benchmarktests',defaultValue: false, description: 'Check if list of suites contains benchmark tests')
-        string(name: 'scons_params', defaultValue: 'CC=/usr/bin/gcc-8 CXX=/usr/bin/g++-8 --disable-warnings-as-errors --release --ssl --opt=size -j6 --use-sasl-client --wiredtiger --audit --inmemory --hotbackup CPPPATH=/usr/local/include LIBPATH=/usr/local/lib', description: 'Parameters for scons')
+        string(name: 'scons_params', defaultValue: 'CC=/usr/bin/gcc-10 CXX=/usr/bin/g++-10 --disable-warnings-as-errors --release --ssl --opt=size -j6 --use-sasl-client --wiredtiger --audit --inmemory --hotbackup CPPPATH=/usr/local/include LIBPATH=/usr/local/lib', description: 'Parameters for scons')
         string(name: 'resmoke_params', defaultValue: '--excludeWithAnyTags=featureFlagColumnstoreIndexes,featureFlagUpdateOneWithoutShardKey,featureFlagGlobalIndexesShardingCatalog,featureFlagGlobalIndexes,featureFlagTelemetry,featureFlagAuditConfigClusterParameter,serverless,does_not_support_config_fuzzer,featureFlagDeprioritizeLowPriorityOperations,featureFlagSbeFull,featureFlagQueryStats,featureFlagTransitionToCatalogShard,requires_latch_analyzer', description: 'Extra params passed to resmoke.py')
     }
     options {
@@ -65,22 +66,22 @@ pipeline {
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
                          curl -o Dockerfile ${params.dockerfile}
                          VER=\$(echo ${params.version} | cut -d"." -f1)
+                         build_args="--build-arg branch=${params.branch} \
+                             --build-arg psm_ver=${params.version} \
+                             --build-arg psm_release=${params.release} \
+                             --build-arg mongo_tools_tag=${params.mongo_tools}"
+
+                         if [ "${params.build_pro_version}" = "true" ]; then
+                             build_args="\${build_args} --build-arg pro=--full-featured"
+                         fi
+
                          if [ \$VER -ge 6 ]; then
-                             docker build . -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \
-                                --build-arg branch=${params.branch} \
-                                --build-arg psm_ver=${params.version} \
-                                --build-arg psm_release=${params.release} \
-                                --build-arg mongo_tools_tag=${params.mongo_tools}
-                             docker push public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} 
-                         else  
-                             docker build . -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \
-                                --build-arg branch=${params.branch} \
-                                --build-arg psm_ver=${params.version} \
-                                --build-arg psm_release=${params.release} \
-                                --build-arg mongo_tools_tag=${params.mongo_tools} \
-                                --build-arg special_targets=dbtest 
-                             docker push public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} 
-                         fi    
+                             docker build . -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \${build_args}
+                         else
+                             build_args="\${build_args} --build-arg special_targets=dbtest"
+                             docker build . -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \${build_args}
+                         fi
+                         docker push public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag}
                      """
                 }    
             }

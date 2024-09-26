@@ -1,12 +1,16 @@
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-amd64-ol9'
     }
     parameters {
         string(
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm repository',
             name: 'PMM_BRANCH')
+        string(
+            defaultValue: 'docker.io/percona/pmm-server:3-dev-latest',
+            description: 'Docker image for PMM Server running in the AMI',
+            name: 'PMM_SERVER_IMAGE')
         choice(
             choices: ['no', 'yes'],
             description: "Build a Release Candidate?",
@@ -36,7 +40,7 @@ pipeline {
         stage('Build PMM AMI Image') {
             steps {
                 dir("build") {
-                    sh 'make pmm-ami'
+                    sh "PMM_SERVER_IMAGE=${PMM_SERVER_IMAGE}  make pmm-ami"
                 }
                 script {
                     env.AMI_ID = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true)

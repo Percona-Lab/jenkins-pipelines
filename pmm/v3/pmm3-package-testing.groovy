@@ -73,7 +73,7 @@ def latestVersion = pmmVersion()
 
 pipeline {
     agent {
-        label 'agent-arm64'
+        label 'agent-amd64-ol9'
     }
     parameters {
         string(

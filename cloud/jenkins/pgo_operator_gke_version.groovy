@@ -42,11 +42,13 @@ EOF
             gcloud config set project $GCP_PROJECT
         """
     }
-}
 
-void prepareSources() {
+    if ("$PGO_POSTGRES_IMAGE") {
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$PGO_POSTGRES_IMAGE".split(":")[1]
+    }
+
     if ("$PLATFORM_VER" == "latest") {
-        USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
+        USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d '.' -f 1,2", , returnStdout: true).trim()
     } else {
         USED_PLATFORM_VER="$PLATFORM_VER"
     }
@@ -83,7 +85,7 @@ void dockerBuildPush() {
                     docker buildx create --use
                     docker login -u '$USER' -p '$PASS'
                     export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
-                    e2e-tests/build
+                    make build-docker-image
                     docker logout
                 "
                 sudo rm -rf build
@@ -373,7 +375,6 @@ pipeline {
         stage('Prepare node') {
             steps {
                 prepareNode()
-                prepareSources()
             }
         }
         stage('Docker Build and Push') {

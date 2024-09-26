@@ -7,7 +7,7 @@ def moleculeDir = "pbm-functional/manual"
 
 pipeline {
     agent {
-    label 'min-bookworm-x64'
+        label 'min-bookworm-x64'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -16,7 +16,7 @@ pipeline {
     }
     parameters {
         string(name: 'BRANCH',description: 'PBM repo branch',defaultValue: 'main')
-        choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-60','psmdb-44','psmdb-50','psmdb-70'])
+        choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-70','psmdb-80','psmdb-60','psmdb-50'])
         choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['t2.micro','i3.large','i3en.large','i3.xlarge','i3en.xlarge'])
         choice(name: 'LAYOUT',description: 'Layout',choices: ['replicaset','sharded'])        
         string(name: 'TIMEOUT',description: 'Timeout for the job',defaultValue: '3600')
@@ -50,16 +50,6 @@ pipeline {
                 }
             }
         }
-        stage ('Install build tools') {
-            steps {
-                sh """
-                    curl "https://raw.githubusercontent.com/percona/percona-backup-mongodb/${params.BRANCH}/packaging/scripts/mongodb-backup_builder.sh" -o "mongodb-backup_builder.sh"
-                    chmod +x mongodb-backup_builder.sh
-                    mkdir -p /tmp/builddir
-                    sudo ./mongodb-backup_builder.sh --builddir=/tmp/builddir --install_deps=1
-                """
-            }
-        }
         stage ('Create instances') {
             steps {
                 script{
@@ -76,8 +66,12 @@ pipeline {
         }
         stage ('Create infrastructure') {
             steps {
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'), file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML')]) {
                     script{
+                        sh """
+                            cp $PBM_GCS_S3_YML /tmp/pbm-agent-storage-gcp.conf
+                            cp $PBM_AZURE_YML /tmp/pbm-agent-storage-azure.conf
+                        """
                         moleculeExecuteActionWithScenario(moleculeDir, "converge", params.LAYOUT)
                     }
                 }
@@ -101,6 +95,10 @@ pipeline {
     post {
         always {
             script {
+                sh """
+                    rm -f /tmp/pbm-agent-storage-gcp.conf
+                    rm -f /tmp/pbm-agent-storage-azure.conf
+                """
                 moleculeExecuteActionWithScenario(moleculeDir, "destroy", params.LAYOUT)
             }
         }

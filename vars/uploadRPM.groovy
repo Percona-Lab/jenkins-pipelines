@@ -20,13 +20,24 @@ def call() {
                 # Upload binary packages
                 RHEL=("6" "7" "8" "9")
                 for rhel in \${RHEL[*]}; do
-                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                        mkdir -p \${path_to_build}/binary/redhat/\${rhel}/x86_64
-                    if [ `find . -name "*.el\${rhel}.noarch.rpm" -o -name "*.el\${rhel}.x86_64.rpm" | wc -l` -gt 0 ]; then
-                        scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                            `find . -name "*.el\${rhel}.noarch.rpm" -o -name "*.el\${rhel}.x86_64.rpm"` \
-                            ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/\${rhel}/x86_64/
-                    fi
+                    for rpm in \$(find . -name "*.el\${rhel}.*.rpm"); do
+                        arch=\$(echo \${rpm} | sed -re "s/.*\\.el\${rhel}\\.(noarch|x86_64|aarch64)\\.rpm/\\1/")
+                        if [ "\${arch}" = "x86_64" ] || [ "\${arch}" = "aarch64" ]; then
+                            path_to_dist=\${path_to_build}/binary/redhat/\${rhel}/\${arch}
+                            ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                                mkdir -p \${path_to_dist}
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \${rpm} ${USER}@repo.ci.percona.com:\${path_to_dist}/
+                        elif [ "\${arch}" = "noarch" ]; then
+                            path_to_dist_x86=\${path_to_build}/binary/redhat/\${rhel}/x86_64
+                            path_to_dist_aarch=\${path_to_build}/binary/redhat/\${rhel}/aarch64
+                            ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                                mkdir -p \${path_to_dist_x86}
+                            ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                                mkdir -p \${path_to_dist_aarch}
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \${rpm} ${USER}@repo.ci.percona.com:\${path_to_dist_x86}/
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \${rpm} ${USER}@repo.ci.percona.com:\${path_to_dist_aarch}/
+                        fi
+                    done
                 done
             """
         }

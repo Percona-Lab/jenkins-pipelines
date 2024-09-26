@@ -9,10 +9,10 @@ pipeline {
     }
 
     environment {
-        CLIENT_IMAGE     = "perconalab/pmm-client:${VERSION}-rc"
-        SERVER_IMAGE     = "perconalab/pmm-server:${VERSION}-rc"
-        SERVER_IMAGE_EL7 = "perconalab/pmm-server:${VERSION}-rc-el7"
-        PATH_TO_CLIENT   = "testing/pmm2-client-autobuilds/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT}"
+        CLIENT_IMAGE            = "perconalab/pmm-client:${VERSION}-rc"
+        SERVER_IMAGE            = "perconalab/pmm-server:${VERSION}-rc"
+        PATH_TO_CLIENT_AMD64    = "testing/pmm2-client-autobuilds-amd/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT_AMD64}"
+        PATH_TO_CLIENT_ARM64    = "testing/pmm2-client-autobuilds-arm/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT_ARM64}"
     }
 
     parameters {
@@ -22,17 +22,21 @@ pipeline {
             name: 'VERSION')
         string(
             defaultValue: '',
-            description: 'Path to client packages in testing repo. Example: 12aec0c9/3052',
-            name: 'PATH_TO_CLIENT')
+            description: 'Path to amd64 client packages in testing repo. Example: 12aec0c9/3052',
+            name: 'PATH_TO_CLIENT_AMD64')
+        string(
+            defaultValue: '',
+            description: 'Path to arm64 client packages in testing repo. Example: 12aec0c9/3052',
+            name: 'PATH_TO_CLIENT_ARM64')
     }
 
     stages {
-        stage('Push PRM client to public repository') {
+        stage('Push client RPMs to public repository') {
             steps {
                 script {
-                    currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>PATH_TO_CLIENT: ${PATH_TO_CLIENT}"
-                    if (!params.PATH_TO_CLIENT) {
-                        error("ERROR: empty parameter PATH_TO_CLIENT")
+                    currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>PATH_TO_CLIENT_AMD64: ${PATH_TO_CLIENT_AMD64}<br>PATH_TO_CLIENT_ARM64: ${PATH_TO_CLIENT_ARM64}"
+                    if (!params.PATH_TO_CLIENT_AMD64 || !params.PATH_TO_CLIENT_ARM64) {
+                        error("ERROR: empty parameter(s) PATH_TO_CLIENT_AMD64 or PATH_TO_CLIENT_ARM64")
                     }
                 }
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
@@ -41,23 +45,17 @@ pipeline {
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                                 set -x
                                 set -e
-                                #
-                                REPOS='PERCONA TOOLS PMM2-CLIENT'
 
-                                for REPOSITORY in \$REPOS; do
-                                    if [[ \${REPOSITORY} = PERCONA ]]; then
-                                        REPOPATH=repo-copy/percona/yum
-                                    fi
-                                    if [[ \${REPOSITORY} = TOOLS ]]; then
-                                        REPOPATH=repo-copy/tools/yum
-                                    fi
-                                    if [[ \${REPOSITORY} = PMM2-CLIENT ]]; then
-                                        REPOPATH=repo-copy/pmm2-client/yum
-                                    fi
-                                    cd /srv/UPLOAD/${PATH_TO_CLIENT}
+                                # We are only pushing to 'pmm2-client' repository
+                                REPOPATH=repo-copy/pmm2-client/yum
+
+                                # List of architectures and their corresponding paths
+                                for ARCH_PATH in ${PATH_TO_CLIENT_AMD64} ${PATH_TO_CLIENT_ARM64}; do
+
+                                    cd /srv/UPLOAD/\${ARCH_PATH}
 
                                     # getting the list of RH systems
-                                    RHVERS=\$(ls -1 binary/redhat | grep -v 6)
+                                    RHVERS=\$(ls -1 binary/redhat | grep -v 6 | grep -v 7)
 
                                     # source processing
                                     if [ -d source/redhat ]; then
@@ -81,8 +79,8 @@ pipeline {
                                             mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}
                                             cp -av redhat/\${rhel}/\${arch}/*.rpm /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
                                             createrepo --update /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
-                                            if [ -f  /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc ]; then
-                                                rm -f  /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc
+                                            if [ -f /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc ]; then
+                                                rm -f /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc
                                             fi
                                             gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml
                                         done
@@ -102,26 +100,17 @@ ENDSSH
                         sh """
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                                 set -e
-                                #
-                                #
-                                REPOS='PERCONA TOOLS PMM2-CLIENT'
-                                for REPOSITORY in \$REPOS; do
-                                    if [[ \${REPOSITORY} = PERCONA ]]; then
-                                        REPOPATH=/srv/repo-copy/percona/apt
-                                        export PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/opt/puppetlabs/bin
-                                    fi
-                                    #
-                                    if [[ \${REPOSITORY} = TOOLS ]]; then
-                                        REPOPATH=/srv/repo-copy/tools/apt
-                                        export PATH=/usr/local/reprepro5/bin:\${PATH}
-                                    fi
-                                    #
-                                    if [[ \${REPOSITORY} = PMM2-CLIENT ]]; then
-                                        REPOPATH=/srv/repo-copy/pmm2-client/apt
-                                        export PATH=/usr/local/reprepro5/bin:\${PATH}
-                                    fi
-                                    echo reprepro binary is \$(which reprepro)
-                                    pushd /srv/UPLOAD/${PATH_TO_CLIENT}/binary/debian
+
+                                # We are only pushing to 'pmm2-client' repository
+                                REPOPATH=/srv/repo-copy/pmm2-client/apt
+                                export PATH=/usr/local/reprepro5/bin:\${PATH}
+
+                                echo reprepro binary is \$(which reprepro)
+
+                                # List of architectures and their corresponding paths
+                                for ARCH_PATH in ${PATH_TO_CLIENT_AMD64} ${PATH_TO_CLIENT_ARM64}; do
+
+                                    pushd /srv/UPLOAD/\${ARCH_PATH}/binary/debian
                                         echo Looking for Debian build directories...
                                         CODENAMES=\$(ls -1 | egrep -v 'cosmic|disco')
                                         echo Distributions are: \${CODENAMES}
@@ -132,8 +121,8 @@ ENDSSH
                                     #######################################
 
                                     # pushing sources
-                                    if  [ -d /srv/UPLOAD/${PATH_TO_CLIENT}/source/debian ]; then
-                                        cd /srv/UPLOAD/${PATH_TO_CLIENT}/source/debian
+                                    if  [ -d /srv/UPLOAD/\${ARCH_PATH}/source/debian ]; then
+                                        cd /srv/UPLOAD/\${ARCH_PATH}/source/debian
                                         DSC=\$(find . -type f -name '*.dsc')
                                         for DSC_FILE in \${DSC}; do
                                             echo DSC file is \${DSC_FILE}
@@ -151,17 +140,16 @@ ENDSSH
                                     #######################################
                                     # binary pushing                      #
                                     #######################################
-                                    cd /srv/UPLOAD/$PATH_TO_CLIENT/binary/debian
 
+                                    cd /srv/UPLOAD/\${ARCH_PATH}/binary/debian
                                     for _codename in \${CODENAMES}; do
                                         pushd \${_codename}
-                                            DEBS=\$(find . -type f -name '*.*deb' )
+                                            DEBS=\$(find . -type f -name '*.*deb')
                                             for _deb in \${DEBS}; do
-                                                repopush --gpg-pass=$SIGN_PASSWORD --package=\${_deb} --repo-path=\${REPOPATH} --component=main --codename=\${_codename} --verbose
+                                                repopush --gpg-pass=${SIGN_PASSWORD} --package=\${_deb} --repo-path=\${REPOPATH} --component=main --codename=\${_codename} --verbose
                                             done
                                         popd
                                     done
-                                    #
                                 done
 ENDSSH
                         """
@@ -178,16 +166,12 @@ ENDSSH
                         set -x
                         set -e
 
-                        REPOS='PERCONA TOOLS PMM2-CLIENT'
-
-                        for REPOSITORY in \$REPOS; do
-                            cd /srv/repo-copy
-                            REPO=\$(echo \${REPOSITORY} | tr '[:upper:]' '[:lower:]' )
-                            date +%s > /srv/repo-copy/version
-                            RSYNC_TRANSFER_OPTS=" -avt --delete --delete-excluded --delete-after --progress"
-                            rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.30.9.32:/www/repo.percona.com/htdocs/\${REPO}/
-                            rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/version 10.30.9.32:/www/repo.percona.com/htdocs/
-                        done
+                        cd /srv/repo-copy
+                        REPO=pmm2-client
+                        date +%s > /srv/repo-copy/version
+                        RSYNC_TRANSFER_OPTS=" -avt --delete --delete-excluded --delete-after --progress"
+                        rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.30.9.32:/www/repo.percona.com/htdocs/\${REPO}/
+                        rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/version 10.30.9.32:/www/repo.percona.com/htdocs/
 ENDSSH
                     """
                 }
@@ -200,85 +184,108 @@ ENDSSH
                     sh """
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                             set -e
-                            cd  /srv/UPLOAD/${PATH_TO_CLIENT}/
-                            #
-                            PRODUCT=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$3}')
-                            RELEASE=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$4}')
-                            REVISION=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$6}')
-                            #
-                            RELEASEDIR="/srv/UPLOAD/${PATH_TO_CLIENT}/.tmp/\${PRODUCT}/\${RELEASE}"
-                            rm -fr /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
-                            mkdir -p \${RELEASEDIR}
-                            cp -av ./* \${RELEASEDIR}
-                            #####################
-                            # create RedHat tar bundles
-                            #
-                            cd \${RELEASEDIR}/binary/redhat
-                            for _dist in *; do
-                                cd \${_dist}
-                                for _arch in *; do
-                                    cd \${_arch}
-                                    # don't create bundle if there's only 1 package inside directory
-                                    NUM_PACKAGES=\$(find . -maxdepth 1 -type f -name '*.rpm'|wc -l)
-                                    if [ \${NUM_PACKAGES} -gt 1 ]; then
-                                        tar --owner=0 --group=0 -cf \${RELEASE}-r\${REVISION}-el\${_dist}-\${_arch}-bundle.tar  *.rpm
-                                    fi
+
+                            # Loop through both architectures
+                            for ARCH_PATH in ${PATH_TO_CLIENT_AMD64} ${PATH_TO_CLIENT_ARM64}; do
+
+                                cd /srv/UPLOAD/\${ARCH_PATH}/
+
+                                PRODUCT=\$(echo \${ARCH_PATH} | awk -F '/' '{print \$3}')
+                                RELEASE=\$(echo \${ARCH_PATH} | awk -F '/' '{print \$4}')
+                                REVISION=\$(echo \${ARCH_PATH} | awk -F '/' '{print \$6}')
+
+                                RELEASEDIR="/srv/UPLOAD/\${ARCH_PATH}/.tmp/\${PRODUCT}/\${RELEASE}"
+                                rm -fr /srv/UPLOAD/\${ARCH_PATH}/.tmp
+                                mkdir -p \${RELEASEDIR}
+                                cp -av ./* \${RELEASEDIR}
+
+                                #######################################
+                                # create RedHat tar bundles           #
+                                #######################################
+
+                                cd \${RELEASEDIR}/binary/redhat
+                                for _dist in *; do
+                                    cd \${_dist}
+                                    for _arch in *; do
+                                        cd \${_arch}
+                                        # don't create bundle if there's only 1 package inside directory
+                                        NUM_PACKAGES=\$(find . -maxdepth 1 -type f -name '*.rpm' | wc -l)
+                                        if [ \${NUM_PACKAGES} -gt 1 ]; then
+                                            tar --owner=0 --group=0 -cf \${RELEASE}-r\${REVISION}-el\${_dist}-\${_arch}-bundle.tar *.rpm
+                                        fi
+                                        cd ..
+                                    done
                                     cd ..
                                 done
-                                cd ..
-                            done
-                            #####################
-                            # create Debian tar bundles
-                            #
-                            cd \${RELEASEDIR}/binary/debian
-                            for _dist in *; do
-                                cd \${_dist}
-                                for _arch in *; do
-                                    cd \${_arch}
-                                    # don't create bundle if there's only 1 package inside directory
-                                    NUM_PACKAGES=\$(find . -maxdepth 1 -type f -name '*.deb'|wc -l)
-                                    if [ \${NUM_PACKAGES} -gt 1 ]; then
-                                        tar --owner=0 --group=0 -cf \${RELEASE}-r\${REVISION}-\${_dist}-\${_arch}-bundle.tar *.deb
-                                    fi
+
+                                #######################################
+                                # create Debian tar bundles           #
+                                #######################################
+
+                                cd \${RELEASEDIR}/binary/debian
+                                for _dist in *; do
+                                    cd \${_dist}
+                                    for _arch in *; do
+                                        cd \${_arch}
+                                        # don't create bundle if there's only 1 package inside directory
+                                        NUM_PACKAGES=\$(find . -maxdepth 1 -type f -name '*.deb' | wc -l)
+                                        if [ \${NUM_PACKAGES} -gt 1 ]; then
+                                            tar --owner=0 --group=0 -cf \${RELEASE}-r\${REVISION}-\${_dist}-\${_arch}-bundle.tar *.deb
+                                        fi
+                                        cd ..
+                                    done
                                     cd ..
                                 done
-                                cd ..
-                            done
-                            #####################
-                            # generate sha256sum for sources
-                            #
-                            cd \${RELEASEDIR}/source/tarball
-                            if [ -d source_tarball ]; then
-                                mv source_tarball/* ./
-                                rm -rf source_tarball
-                            fi
-                            for _tar in *tar.*; do
-                                sha256sum \${_tar} > \${_tar}.sha256sum
-                            done
-                            #####################
-                            # generate sha256sum for binary tarballs
-                            #
-                            if [ -d \${RELEASEDIR}/binary/tarball ]; then 
-                                cd \${RELEASEDIR}/binary/tarball
-                                for _tar in *.tar.*; do
-                                    # don't do it for symlinks (we have those in percona-agent)
-                                    if [ ! -h \${_tar} ]; then
-                                        sha256sum \${_tar} > \${_tar}.sha256sum
-                                    fi
+
+                                #######################################
+                                # generate sha256sum for sources      #
+                                #######################################
+
+                                cd \${RELEASEDIR}/source/tarball
+                                if [ -d source_tarball ]; then
+                                    mv source_tarball/* ./
+                                    rm -rf source_tarball
+                                fi
+                                for _tar in *tar.*; do
+                                    sha256sum \${_tar} > \${_tar}.sha256sum
                                 done
-                            fi
 
-                            #
-                            cd \${RELEASEDIR}/..
-                            #
-                            ln -s \${RELEASE} LATEST
-                            #
-                            cd /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
+                                #######################################
+                                # generate sha256sum for binary       #
+                                #######################################
 
-                            rsync -avt -e "ssh -p 2222" --bwlimit=50000 --exclude="*yassl*" --progress \${PRODUCT} jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/
+                                if [ -d \${RELEASEDIR}/binary/tarball ]; then
+                                    if [ "\${ARCH_PATH}" == "${PATH_TO_CLIENT_AMD64}" ]; then
+                                        ARCH_SUFFIX="x86_64"
+                                    elif [ "\${ARCH_PATH}" == "${PATH_TO_CLIENT_ARM64}" ]; then
+                                        ARCH_SUFFIX="aarch64"
+                                    fi
 
-                            #
-                            rm -fr /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
+                                    cd \${RELEASEDIR}/binary/tarball
+
+                                    for _tar in *.tar.*; do
+                                        # don't do it for symlinks (we have those in percona-agent)
+                                        if [ ! -h \${_tar} ]; then
+                                            # Rename the tarball with architecture-specific suffix
+                                            TAR_NAME=\$(basename \${_tar} .tar.gz)-\${ARCH_SUFFIX}.tar.gz
+                                            mv \${_tar} \${TAR_NAME}
+
+                                            # Generate sha256sum for the renamed tarball
+                                            sha256sum \${TAR_NAME} > \${TAR_NAME}.sha256sum
+                                        fi
+                                    done
+                                fi
+
+                                cd \${RELEASEDIR}/..
+
+                                ln -s \${RELEASE} LATEST
+
+                                cd /srv/UPLOAD/\${ARCH_PATH}/.tmp
+
+                                rsync -avt -e "ssh -p 2222" --bwlimit=50000 --exclude="*yassl*" --progress \${PRODUCT} jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/
+
+                                rm -fr /srv/UPLOAD/\${ARCH_PATH}/.tmp
+                            done
 ENDSSH
                 """
                 }
@@ -287,14 +294,13 @@ ENDSSH
 
         stage('Get Docker RPMs') {
             agent {
-                label 'min-rhel-7-x64'
+                label 'min-ol-9-x64'
             }
             steps {
                 installDocker()
                 slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: release started - ${BUILD_URL}"
                 sh "sg docker -c 'docker run ${SERVER_IMAGE} /usr/bin/rpm -qa' > rpms.list"
-                sh "sg docker -c 'docker run ${SERVER_IMAGE_EL7} /usr/bin/rpm -qa' > rpms-el7.list"
-                stash includes: 'rpms.list, rpms-el7.list', name: 'rpms-stash'
+                stash includes: 'rpms.list', name: 'rpms-stash'
             }
         }
 
@@ -312,19 +318,9 @@ ENDSSH
                             | sort \
                             | tee copy.list
                     '''
-                    sh '''
-                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            ls /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64 > repo-el7.list
-                        cat rpms-el7.list \
-                            | grep -v 'pmm2-client' \
-                            | sed -e 's/[^A-Za-z0-9\\._+-]//g' \
-                            | xargs -n 1 -I {} grep "^{}.rpm" repo-el7.list \
-                            | sort \
-                            | tee copy-el7.list
-                    '''
                 }
-                stash includes: 'copy.list, copy-el7.list', name: 'copy-stash'
-                archiveArtifacts 'copy*.list'
+                stash includes: 'copy.list', name: 'copy-stash'
+                archiveArtifacts 'copy.list'
             }
         }
         // Publish RPMs to repo.ci.percona.com
@@ -336,10 +332,6 @@ ENDSSH
                         cat copy.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                             "cat - | xargs -I{} cp -v /srv/repo-copy/pmm2-components/yum/testing/9/RPMS/x86_64/{} /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/{}"
                     '''
-                    sh '''
-                        cat copy-el7.list | ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            "cat - | xargs -I{} cp -v /srv/repo-copy/pmm2-components/yum/testing/7/RPMS/x86_64/{} /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/{}"
-                    '''
                 }
             }
         }
@@ -349,18 +341,12 @@ ENDSSH
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh """
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
-                            createrepo --update /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/
-                            if [ -f /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc ]; then
-                                rm -f /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml.asc
-                            fi
-
                             createrepo --update /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/
                             if [ -f /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml.asc ]; then
                                     rm -f /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml.asc
                             fi
 
                             export SIGN_PASSWORD=\${SIGN_PASSWORD}
-                            gpg --detach-sign --armor --passphrase \${SIGN_PASSWORD} /srv/repo-copy/pmm2-components/yum/release/7/RPMS/x86_64/repodata/repomd.xml
                             gpg --detach-sign --armor --passphrase \${SIGN_PASSWORD} /srv/repo-copy/pmm2-components/yum/release/9/RPMS/x86_64/repodata/repomd.xml
                         "
                     """
@@ -387,7 +373,7 @@ ENDSSH
 
         stage('Set Docker Tag') {
             agent {
-                label 'min-rhel-7-x64'
+                label 'min-ol-9-x64'
             }
             steps {
                 installDocker()
@@ -427,49 +413,31 @@ ENDSSH
 
                         docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
 
-                        # push pmm-server el7
-                        docker pull \${SERVER_IMAGE_EL7}
-
-                        docker tag \${SERVER_IMAGE_EL7} percona/pmm-server:\${DOCKER_MID}-el7
-                        docker tag \${SERVER_IMAGE_EL7} percona/pmm-server:\${VERSION}-el7
-                        docker push percona/pmm-server:\${DOCKER_MID}-el7
-                        docker push percona/pmm-server:\${VERSION}-el7
-
-                        docker tag \${SERVER_IMAGE_EL7} perconalab/pmm-server:\${DOCKER_MID}-el7
-                        docker tag \${SERVER_IMAGE_EL7} perconalab/pmm-server:\${VERSION}-el7
-                        docker push perconalab/pmm-server:\${DOCKER_MID}-el7
-                        docker push perconalab/pmm-server:\${VERSION}-el7
-
-                        docker save percona/pmm-server:\${VERSION}-el7 | xz > pmm-server-\${VERSION}-el7.docker
-
                         # push pmm-client
-                        docker pull \${CLIENT_IMAGE}
-                        docker tag \${CLIENT_IMAGE} percona/pmm-client:latest
-                        docker push percona/pmm-client:latest
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:latest
 
-                        docker tag \${CLIENT_IMAGE} percona/pmm-client:\${TOP_VER}
-                        docker tag \${CLIENT_IMAGE} percona/pmm-client:\${DOCKER_MID}
-                        docker tag \${CLIENT_IMAGE} percona/pmm-client:\${VERSION}
-                        docker push percona/pmm-client:\${TOP_VER}
-                        docker push percona/pmm-client:\${DOCKER_MID}
-                        docker push percona/pmm-client:\${VERSION}
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${TOP_VER}
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${DOCKER_MID}
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${VERSION}
 
-                        docker tag \${CLIENT_IMAGE} perconalab/pmm-client:\${TOP_VER}
-                        docker tag \${CLIENT_IMAGE} perconalab/pmm-client:\${DOCKER_MID}
-                        docker tag \${CLIENT_IMAGE} perconalab/pmm-client:\${VERSION}
-                        docker push perconalab/pmm-client:\${TOP_VER}
-                        docker push perconalab/pmm-client:\${DOCKER_MID}
-                        docker push perconalab/pmm-client:\${VERSION}
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag perconalab/pmm-client:\${TOP_VER}
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag perconalab/pmm-client:\${DOCKER_MID}
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag perconalab/pmm-client:\${VERSION}
 
-                        docker save percona/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}.docker
+                        docker pull --platform linux/amd64 percona/pmm-client:\${VERSION}
+                        docker save percona/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}-amd64.docker
+
+                        docker pull --platform linux/arm64 percona/pmm-client:\${VERSION}
+                        docker save percona/pmm-client:\${VERSION} | xz > pmm-client-\${VERSION}-arm64.docker
                     "
                 """
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         set -ex
                         aws s3 cp --only-show-errors pmm-server-${VERSION}.docker s3://percona-vm/pmm-server-${VERSION}.docker
-                        aws s3 cp --only-show-errors pmm-server-${VERSION}-el7.docker s3://percona-vm/pmm-server-${VERSION}-el7.docker
-                        aws s3 cp --only-show-errors pmm-client-${VERSION}.docker s3://percona-vm/pmm-client-${VERSION}.docker
+
+                        aws s3 cp --only-show-errors pmm-client-${VERSION}-amd64.docker s3://percona-vm/pmm-client-${VERSION}-amd64.docker
+                        aws s3 cp --only-show-errors pmm-client-${VERSION}-arm64.docker s3://percona-vm/pmm-client-${VERSION}-arm64.docker
                     '''
                 }
                 deleteDir()
@@ -481,20 +449,27 @@ ENDSSH
                     sh '''
                         set -ex
                         aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}.docker pmm-server-${VERSION}.docker
-                        aws s3 cp --only-show-errors s3://percona-vm/pmm-server-${VERSION}-el7.docker pmm-server-${VERSION}-el7.docker
-                        aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}.docker pmm-client-${VERSION}.docker
+
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}-amd64.docker pmm-client-${VERSION}-amd64.docker
+                        aws s3 cp --only-show-errors s3://percona-vm/pmm-client-${VERSION}-arm64.docker pmm-client-${VERSION}-arm64.docker
                     '''
                 }
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         sha256sum pmm-server-${VERSION}.docker | tee pmm-server-${VERSION}.sha256sum
-                        sha256sum pmm-server-${VERSION}-el7.docker | tee pmm-server-${VERSION}-el7.sha256sum
-                        sha256sum pmm-client-${VERSION}.docker | tee pmm-client-${VERSION}.sha256sum
+
+                        sha256sum pmm-client-${VERSION}-amd64.docker | tee pmm-client-${VERSION}-amd64.sha256sum
+                        sha256sum pmm-client-${VERSION}-arm64.docker | tee pmm-client-${VERSION}-arm64.sha256sum
+
                         export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/docker"
+
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.docker pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
-                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}-el7.docker pmm-server-${VERSION}-el7.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
-                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}.docker pmm-client-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
+
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}-amd64.docker pmm-client-${VERSION}-amd64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}-arm64.docker pmm-client-${VERSION}-arm64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/docker/
+
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "ls -l /data/downloads/pmm2/${VERSION}/docker"
                     '''
                 }

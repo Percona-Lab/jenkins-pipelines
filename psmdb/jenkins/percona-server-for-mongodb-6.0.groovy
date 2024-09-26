@@ -76,7 +76,7 @@ pipeline {
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                buildStage("centos:7", "--get_sources=1")
+                buildStage("oraclelinux:8", "--get_sources=1")
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-60.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -105,9 +105,9 @@ pipeline {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
+                                buildStage("oraclelinux:8", "--build_src_rpm=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("centos:7", "--build_src_rpm=1")
+                                buildStage("oraclelinux:8", "--build_src_rpm=1")
                             }
                         }
 
@@ -124,9 +124,9 @@ pipeline {
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
-                                buildStage("debian:buster", "--build_src_deb=1 --enable_fipsmode=1")
+                                buildStage("ubuntu:focal", "--build_src_deb=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("debian:buster", "--build_src_deb=1")
+                                buildStage("ubuntu:focal", "--build_src_deb=1")
                             }
                         }
 
@@ -138,25 +138,6 @@ pipeline {
         } // stage
         stage('Build PSMDB RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Centos 7') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("centos:7", "--build_rpm=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("centos:7", "--build_rpm=1")
-                            }
-                        }
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Oracle Linux 8') {
                     agent {
                         label 'docker-64gb'
@@ -192,23 +173,6 @@ pipeline {
                         }
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Ubuntu Bionic(18.04)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:bionic", "--build_deb=1 --enable_fipsmode=1")
-                            }
-                        }
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal(20.04)') {
@@ -268,25 +232,6 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Buster(10)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("debian:buster", "--build_deb=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("debian:buster", "--build_deb=1")
-                            }
-                        }
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Debian Bullseye(11)') {
                     agent {
                         label 'docker-64gb'
@@ -306,45 +251,6 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 7 binary tarball(glibc2.17)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                            } else {
-                                buildStage("centos:7", "--build_tarball=1")
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                            }
-                        }
-                    }
-                }
-/*
-                stage('Centos 7 debug binary tarball(glibc2.17)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                                buildStage("centos:7", "--debug=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("centos:7", "--debug=1")
-                            }
-                        }
-
-                        pushArtifactFolder("debug/", AWS_STASH_PATH)
-                    }
-                }
-*/
                 stage('Centos 8 binary tarball(glibc2.28)') {
                     agent {
                         label 'docker-64gb'
@@ -373,8 +279,6 @@ pipeline {
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                             } else {
                                 buildStage("oraclelinux:9", "--build_tarball=1")
                             }
@@ -384,19 +288,33 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Focal(20.04) binary tarball(glibc2.31)') {
+                    when {
+                        expression { env.FIPSMODE != 'yes' }
+                    }
                     agent {
                         label 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE != 'yes') {
-                                buildStage("ubuntu:focal", "--build_tarball=1")
-                            }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        }
+                        buildStage("ubuntu:focal", "--build_tarball=1")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
+                stage('Debian Bullseye(11) binary tarball(glibc2.31)') {
+                    when {
+                        expression { env.FIPSMODE != 'yes' }
+                    }
+                    agent {
+                        label 'docker-64gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:bullseye", "--build_tarball=1")
+                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Ubuntu Jammy(22.04) binary tarball(glibc2.35)') {
@@ -429,59 +347,6 @@ pipeline {
                                 buildStage("ubuntu:noble", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("ubuntu:noble", "--build_tarball=1")
-                            }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        }
-                    }
-                }
-/*
-                stage('Ubuntu Jammy(22.04) debug binary tarball(glibc2.35)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'yes') {
-                                echo "The step is skipped ..."
-                                buildStage("ubuntu:jammy", "--debug=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("ubuntu:jammy", "--debug=1")
-                            }
-                        }
-
-                        pushArtifactFolder("debug/", AWS_STASH_PATH)
-                    }
-                }
-*/
-                stage('Debian Buster(10) binary tarball(glibc2.28)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE != 'yes') {
-                                buildStage("debian:buster", "--build_tarball=1")
-                            }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
-                        }
-                    }
-                }
-                stage('Debian Bullseye(11) binary tarball(glibc2.31)') {
-                    agent {
-                        label 'docker-64gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE != 'yes') {
-                                buildStage("debian:bullseye", "--build_tarball=1")
                             }
                             pushArtifactFolder("tarball/", AWS_STASH_PATH)
                             uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')

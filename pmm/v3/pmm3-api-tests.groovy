@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'agent-amd64'
+        label 'agent-amd64-ol9'
     }
     parameters {
         string(
@@ -92,7 +92,7 @@ pipeline {
                     -v ${PWD}/managed/testdata/checks:/srv/checks \
                     ${DOCKER_VERSION}
 
-                    docker build -t percona/pmm-api-tests .
+                    docker build -t local/pmm-api-tests .
                     cd api-tests
                     docker-compose up test_db
                     # MYSQL_IMAGE=${MYSQL_IMAGE} docker-compose up -d mysql
@@ -126,7 +126,7 @@ pipeline {
                                -e PMM_RUN_STT_TESTS=0 \
                                --name ${BUILD_TAG} \
                                --network host \
-                               percona/pmm-api-tests
+                               local/pmm-api-tests
                 '''
             }
         }
@@ -136,14 +136,13 @@ pipeline {
             sh '''
                 docker cp ${BUILD_TAG}:/go/src/github.com/percona/pmm/api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-                sudo chown -R ec2-user:ec2-user api-tests || true
             '''
             script {
                 if (fileExists("${BUILD_TAG}.xml")) {
-                  junit "${BUILD_TAG}.xml"
+                    junit testResults: "${BUILD_TAG}.xml", skipPublishingChecks: true
                 }
-                if (fileExists("logz.zip")) {
-                  archiveArtifacts artifacts: 'logs.zip'
+                if (fileExists("logs.zip")) {
+                    archiveArtifacts artifacts: 'logs.zip'
                 }
                 if (currentBuild.result != 'SUCCESS') {
                     slackSend botUser: true,
