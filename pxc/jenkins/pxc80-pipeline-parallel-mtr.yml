@@ -105,7 +105,7 @@
         description: Enable code checking
     - string:
         name: GALERA_PARALLEL_RUN
-        default: "2"
+        default: "4"
         description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera specific test suites."
     - choice:
         name: FULL_MTR

@@ -550,7 +550,7 @@ pipeline {
             description: 'Run case-insensetive MTR tests',
             name: 'CI_FS_MTR')
         string(
-            defaultValue: '2',
+            defaultValue: '4',
             description: 'mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera specific test suites.',
             name: 'GALERA_PARALLEL_RUN')
         choice(
