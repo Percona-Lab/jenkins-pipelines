@@ -50,7 +50,7 @@ pipeline {
         stage('Build pmm2 client for amd64') {
             steps {
                 script {
-                    def pmm2ClientAmd64 = build job: 'pmm2-client-autobuilds-amd', parameters: [
+                    pmm2ClientAmd64 = build job: 'pmm2-client-autobuilds-amd', parameters: [
                         string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
                         string(name: 'DESTINATION', value: params.DESTINATION)
                     ]
@@ -61,7 +61,7 @@ pipeline {
         stage('Build pmm2 client for arm64') {
             steps {
                 script {
-                    def pmm2ClientArm64 = build job: 'pmm2-client-autobuilds-arm', parameters: [
+                    pmm2ClientArm64 = build job: 'pmm2-client-autobuilds-arm', parameters: [
                         string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
                         string(name: 'DESTINATION', value: params.DESTINATION)
                     ]
