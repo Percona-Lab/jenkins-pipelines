@@ -71,6 +71,16 @@ if [[ -f /opt/rh/devtoolset-8/enable ]]; then
     source /opt/rh/devtoolset-8/enable
 fi
 
+# If we are on ubuntu:noble, we need the following hack for PXB-2.4 tarballs
+# In official PXC release we have a special build of pxb-2.4 for noble, but unfortunately
+# no tarballs available
+if [ -f /usr/bin/apt-get ]; then
+  DIST=$(lsb_release -sc)
+  if [[ ${DIST} == "noble" ]]; then
+    sudo ln -s /usr/lib/x86_64-linux-gnu/libaio.so.1t64 /usr/lib/x86_64-linux-gnu/libaio.so.1
+  fi
+fi
+
 #
 # Determine what we've got in the environent
 JEMALLOC=$(find /lib* /usr/lib* /usr/local/lib* -type f -name 'libjemalloc.so*' | head -n1)
