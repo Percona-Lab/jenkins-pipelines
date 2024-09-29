@@ -932,7 +932,7 @@ parameters {
                         cleanUpWS()
                         installCli("deb")
                         sh '''
-                           sleep 900
+                           sleep 1200
                         '''
                         unstash 'properties'
                         sh '''
@@ -940,10 +940,10 @@ parameters {
                             PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
                                 MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                                MYSQL_SHELL_RELEASE="8.4.1"
                                 MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
                             else
                                 MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
-                                MYSQL_SHELL_RELEASE="8.4.1"
                                 MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
                             fi
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
