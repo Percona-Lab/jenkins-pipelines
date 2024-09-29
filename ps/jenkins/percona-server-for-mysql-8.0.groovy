@@ -943,6 +943,7 @@ parameters {
                                 MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
                             else
                                 MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                                MYSQL_SHELL_RELEASE="8.4.1"
                                 MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
                             fi
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
@@ -964,7 +965,7 @@ parameters {
                                 else
                                     sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile
                                 fi
-                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"experimental\";percona-release enable mysql-shell/g" Dockerfile
+                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"testing\";percona-release enable mysql-shell/g" Dockerfile
                             fi
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile.aarch64
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile.aarch64
@@ -976,7 +977,7 @@ parameters {
                                 else
                                     sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile.aarch64
                                 fi
-                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"experimental\";percona-release enable mysql-shell/g" Dockerfile.aarch64
+                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"testing\";percona-release enable mysql-shell/g" Dockerfile.aarch64
                             fi
                             sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} .
                             sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 -f Dockerfile.aarch64 .
