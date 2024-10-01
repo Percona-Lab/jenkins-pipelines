@@ -23,9 +23,9 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-    triggers {
-        upstream upstreamProjects: 'pmm3-submodules-rewind', threshold: hudson.model.Result.SUCCESS
-    }
+    // triggers {
+    //     upstream upstreamProjects: 'pmm3-submodules-rewind', threshold: hudson.model.Result.SUCCESS
+    // }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
     }
@@ -52,14 +52,14 @@ pipeline {
                         env.DOCKER_LATEST_TAG     = "${VERSION}-rc${BUILD_NUMBER}"
                         env.DOCKER_RC_TAG         = "${VERSION}-rc"
                     } else {
-                        env.DOCKER_LATEST_TAG     = "3-dev-latest"
+                        env.DOCKER_LATEST_TAG     = "3-dev-latest-fips"
                     }
                 }
 
                 archiveArtifacts 'uploadPath'
                 stash includes: 'uploadPath', name: 'uploadPath'
                 archiveArtifacts 'shortCommit'
-                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                // slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
         stage('Build client source') {
@@ -141,12 +141,12 @@ pipeline {
                     # Build a docker image
                     ${PATH_TO_SCRIPTS}/build-server-docker
 
-                    if [ -n "${DOCKER_RC_TAG}" ]; then
-                        docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
-                        docker push perconalab/pmm-server:${DOCKER_RC_TAG}
-                    fi
+                    ##if [ -n "${DOCKER_RC_TAG}" ]; then
+                    ##    docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_RC_TAG}
+                    ##    docker push perconalab/pmm-server:${DOCKER_RC_TAG}
+                    ##fi
                     docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                    docker push ${DOCKER_TAG}
+                    ##docker push ${DOCKER_TAG}
                     docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
                     echo "${DOCKER_LATEST_TAG}" > DOCKER_TAG
                 '''
@@ -155,45 +155,45 @@ pipeline {
                 }
             }
         }
-        stage('Trigger a devcontainer build') {
-            when {
-                // a guard to avoid unnecessary builds
-                expression { params.GIT_BRANCH == "v3" && params.DESTINATION == "experimental" }
-            }          
-            steps {
-                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                    sh '''
-                        # 'ref' is a required parameter, it should always equal 'v3' (or 'main' for v2)
-                        curl -L -X POST \
-                            -H "Accept: application/vnd.github+json" \
-                            -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                            "https://api.github.com/repos/percona/pmm/actions/workflows/devcontainer.yml/dispatches" \
-                            -d '{"ref":"v3"}'
-                    '''
-                }
-            }
-        }
-        stage('Start API Tests') {
-            steps {
-                build job: 'pmm3-api-tests', propagate: false
-            }
-        }
+        // stage('Trigger a devcontainer build') {
+        //     when {
+        //         // a guard to avoid unnecessary builds
+        //         expression { params.GIT_BRANCH == "v3" && params.DESTINATION == "experimental" }
+        //     }
+        //     steps {
+        //         withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+        //             sh '''
+        //                 # 'ref' is a required parameter, it should always equal 'v3' (or 'main' for v2)
+        //                 curl -L -X POST \
+        //                     -H "Accept: application/vnd.github+json" \
+        //                     -H "Authorization: token ${GITHUB_API_TOKEN}" \
+        //                     "https://api.github.com/repos/percona/pmm/actions/workflows/devcontainer.yml/dispatches" \
+        //                     -d '{"ref":"v3"}'
+        //             '''
+        //         }
+        //     }
+        // }
+        // stage('Start API Tests') {
+        //     steps {
+        //         build job: 'pmm3-api-tests', propagate: false
+        //     }
+        // }
     }
     post {        
         success {
             script {
-                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}, URL: ${BUILD_URL}"
+                // slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}, URL: ${BUILD_URL}"
                 if (params.DESTINATION == "testing") {
                     currentBuild.description = "RC Build v3, Image:" + env.IMAGE
-                    slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: RC build finished - ${IMAGE}, URL: ${BUILD_URL}"
+                    // slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: RC build finished - ${IMAGE}, URL: ${BUILD_URL}"
                 }
             }
         }
         failure {
             script {
                 echo "Pipeline failed"
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
-                slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
+                // slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
+                // slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
         }
     }
