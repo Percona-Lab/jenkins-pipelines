@@ -274,7 +274,8 @@ pipeline {
                                 string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
                                 string(name: 'DESTINATION', value: 'testing')
                             ]
-                            env.TARBALL_URL = pmmClient.buildVariables.TARBALL_URL
+                            env.TARBALL_AMD64_URL = pmmClient.buildVariables.TARBALL_AMD64_URL
+                            env.TARBALL_ARM64_URL = pmmClient.buildVariables.TARBALL_ARM64_URL
                         }
                     }
                 }
@@ -364,7 +365,8 @@ Server: perconalab/pmm-server:${VERSION}-rc
 Client: perconalab/pmm-client:${VERSION}-rc
 OVA: https://percona-vm.s3.amazonaws.com/PMM3-Server-${VERSION}.ova
 AMI: ${env.AMI_ID}
-Tarball: ${env.TARBALL_URL}
+Tarball AMD64: ${env.TARBALL_AMD64_URL}
+Tarball ARM64: ${env.TARBALL_ARM64_URL}
 ${env.SCAN_REPORT_URL}
                       """
         }

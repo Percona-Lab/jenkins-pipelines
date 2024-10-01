@@ -42,9 +42,11 @@ EOF
             gcloud config set project $GCP_PROJECT
         """
     }
-}
 
-void prepareSources() {
+    if ("$PGO_POSTGRES_IMAGE") {
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$PGO_POSTGRES_IMAGE".split(":")[1]
+    }
+
     if ("$PLATFORM_VER" == "latest") {
         USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d '.' -f 1,2", , returnStdout: true).trim()
     } else {
@@ -368,7 +370,6 @@ pipeline {
         stage('Prepare node') {
             steps {
                 prepareNode()
-                prepareSources()
             }
         }
         stage('Docker Build and Push') {

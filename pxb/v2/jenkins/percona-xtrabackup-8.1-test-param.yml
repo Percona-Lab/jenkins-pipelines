@@ -79,7 +79,7 @@
         type: user-defined
         values:
         - innodb80
-#        - xtradb80
+        - xtradb80
     builders:
     - trigger-builds:
       - project: percona-xtrabackup-8.1-test-pipeline

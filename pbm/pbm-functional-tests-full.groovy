@@ -36,7 +36,7 @@ pipeline {
                     }
                     axis {
                         name 'PSMDB'
-                        values '5.0', '6.0', '7.0'
+                        values '5.0', '6.0', '7.0', '8.0'
                     }
                 }
                 stages {
@@ -60,10 +60,10 @@ pipeline {
                                 git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                                 sh """
                                     cd pbm-functional/pytest
-                                    PSMDB=percona/percona-server-mongodb:${PSMDB}-multi docker-compose build
-                                    docker-compose up -d
-                                    docker-compose run test pytest -s --junitxml=junit.xml -k ${TEST} || true
-                                    docker-compose down -v --remove-orphans
+                                    PSMDB=perconalab/percona-server-mongodb:${PSMDB} docker compose build
+                                    docker compose up -d
+                                    docker compose run test pytest -s --junitxml=junit.xml -k ${TEST} || true
+                                    docker compose down -v --remove-orphans
                                     curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PBM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PBM branch": "${PBM_BRANCH}","PSMDB docker image": "percona/percona-server-mongodb:${PSMDB}-multi","instance": "${instance}"}};type=application/json' -i || true
                                 """
                             }
