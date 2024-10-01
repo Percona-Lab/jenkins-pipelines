@@ -116,6 +116,9 @@ if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
   if [[ ${PARALLEL} -gt 1 ]]; then
     PARALLEL=$((PARALLEL/3))
   fi
+  if [[ ${GALERA_PARALLEL_RUN} -gt 1 ]]; then
+    GALERA_PARALLEL_RUN=$((GALERA_PARALLEL_RUN/3))
+  fi
 fi
 
 # hack for too big instances ;)
@@ -222,7 +225,7 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
         big_tests_this=0
     fi
 
-    if [[ "$suite" == *"galera"* ]]; then
+    if [[ "$suite" == *"galera"* || "${suite}" == "wsrep" ]]; then
         WORKERS=${GALERA_PARALLEL_RUN}
     else
         WORKERS=${PARALLEL}
