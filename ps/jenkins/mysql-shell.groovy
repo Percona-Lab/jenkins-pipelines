@@ -279,30 +279,6 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-/*
-                stage('Debian Buster (10)') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        script {
-                            cleanUpWS()
-                            PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                            if ("${PS_MAJOR_RELEASE}" == "80") {
-                                //popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                                //buildStage("debian:buster", "--build_deb=1")
-
-                                //pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                //uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-
-                                echo "The step is skipped"
-                            } else {
-                                echo "The step is skipped"
-                            }
-                        }
-                    }
-                }
-*/
                 stage('Debian Bullseye (11)') {
                     agent {
                         label 'docker'
@@ -316,9 +292,35 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Debian Bullseye (11) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bullseye", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Bookworm (12)') {
                     agent {
                         label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bookworm", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Bookworm (12) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
