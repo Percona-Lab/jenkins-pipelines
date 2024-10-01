@@ -21,12 +21,12 @@ pipeline {
   }
   parameters {
         string(
-            defaultValue: '16.2-multi',
+            defaultValue: '17.0-multi',
             description: 'TAG of the docker to test. For example, 16, 16.1, 16.1-multi.',
             name: 'DOCKER_TAG'
         )
         string(
-            defaultValue: '16.0',
+            defaultValue: '17.0',
             description: 'Docker PG version to test, including both major and minor version. For example, 15.4.',
             name: 'SERVER_VERSION'
         )
