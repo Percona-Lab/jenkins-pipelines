@@ -1001,8 +1001,12 @@ parameters {
                         sh '''
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                             PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                            MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
                             PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
+                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                            else
+                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                            fi
                             sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}
                             sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                             sudo docker push perconalab/percona-server:${PS_RELEASE}
