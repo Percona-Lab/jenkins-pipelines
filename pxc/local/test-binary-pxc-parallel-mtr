@@ -235,7 +235,7 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
         echo "Skipping $suite suite for Valgrind build"
         continue
       fi
-      if [[ "${suite}" == "galera" || "${suite}" == "galera_3nodes" || "${suite}" == "galera_3nodes_nbo" || "${suite}" == "galera_3nodes_sr" || "${suite}" == "galera_nbo" || "${suite}" == "galera_sr" ]]; then
+      if [[ "${suite}" == "galera" || "${suite}" == "galera_3nodes" || "${suite}" == "galera_3nodes_nbo" || "${suite}" == "galera_3nodes_sr" || "${suite}" == "galera_nbo" || "${suite}" == "galera_sr" || "${suite}" == "wsrep" ]]; then
         echo "Adding MTR option ${ONLY_COMBINATIONS} for suite ${suite}"
         ONLY_COMBINATIONS=--only-combinations=enc_off     
       fi
