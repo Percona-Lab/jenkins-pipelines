@@ -31,9 +31,6 @@ pipeline {
     agent {
         label 'docker'
     }
-    triggers {
-        cron('H/05 * * * *')
-    }
     parameters {
         string(
             defaultValue: 'https://github.com/percona/postgres-packaging.git',
