@@ -12,4 +12,5 @@
             wipe-workspace: false
       lightweight-checkout: true
       script-path: ppg/pg_tde_nightly.groovy
-
+    triggers:
+      - timed: "0 0 * * *"
