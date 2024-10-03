@@ -241,15 +241,10 @@ pipeline {
                             echo "${SSH_KEY}" >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
-                        sudo yum-config-manager --disable hashicorp
-                        sudo amazon-linux-extras install epel -y
                         sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum repolist
-
-                        sudo amazon-linux-extras enable epel php8.2
-                        sudo yum --enablerepo epel install php -y
-                        sudo yum install sysbench mysql-client -y
+                        sudo yum install sysbench mysql -y
                     '''
                 }
             }

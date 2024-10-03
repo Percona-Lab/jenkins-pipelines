@@ -23,12 +23,12 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'ppg-16.3',
+            defaultValue: 'ppg-17.0',
             description: 'PG version for test',
             name: 'VERSION'
         )
         string(
-            defaultValue: 'https://downloads.percona.com/downloads/TESTING/pg_tarballs-16.3/percona-postgresql-16.3-ssl1.1-linux-x86_64.tar.gz',
+            defaultValue: 'https://downloads.percona.com/downloads/TESTING/pg_tarballs-17.0/percona-postgresql-17.0-ssl1.1-linux-x86_64.tar.gz',
             description: 'URL for tarball.',
             name: 'TARBALL_URL'
         )
@@ -55,7 +55,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.PLATFORM}"
                 }
             }
         }

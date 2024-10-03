@@ -112,6 +112,18 @@ pipeline {
                     }
                 }
 
+                stage('Ubuntu Noble') {
+                    steps {
+                        script{
+                            if (env.product_to_test == 'proxysql') {
+                                echo 'Proxysql is not available for Ubuntu Noble'
+                            } else {
+                                runNodeBuild('min-noble-x64')
+                            }
+                        }
+                    }
+                }
+
                 stage('Centos 7') {
                     steps {
                         runNodeBuild('min-centos-7-x64')

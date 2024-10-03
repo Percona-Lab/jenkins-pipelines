@@ -51,7 +51,7 @@ pipeline {
             name: 'COMPONENT_VERSION'
         )
         string(
-            defaultValue: 'ppg-16.4',
+            defaultValue: 'ppg-17.0',
             description: 'PPG version for test',
             name: 'VERSION'
         )
@@ -88,7 +88,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.VERSION}-${env.PLATFORM}-${env.PRODUCT}-${env.BUILD_NUMBER}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.PLATFORM}-${env.PRODUCT}"
                 }
             }
         }

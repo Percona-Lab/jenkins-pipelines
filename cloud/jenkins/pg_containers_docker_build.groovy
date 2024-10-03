@@ -1,3 +1,48 @@
+void buildUpgrade(String IMAGE_POSTFIX){
+    sh """
+        PG_VER='16'
+        IMAGE_POSTFIX='upgrade'
+        cd ./source/
+        docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} --build-arg PGO_TAG=\${GIT_PD_BRANCH} \
+          -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+          -f ./postgresql-containers/build/${IMAGE_POSTFIX}/Dockerfile ./postgresql-containers
+    """
+}
+void checkUpgradeImage(String IMAGE_POSTFIX){
+     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        withEnv(["SOME_IMAGE_POSTFIX=${IMAGE_POSTFIX}"]) {
+            sh '''
+                sg docker -c "
+                    IMAGE_NAME='percona-postgresql-operator'
+                    docker login -u '${USER}' -p '${PASS}'
+
+                    TrivyLog="$WORKSPACE/trivy-hight-\\${IMAGE_NAME}-\\${SOME_IMAGE_POSTFIX}.xml"
+                    /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \\${TrivyLog} --ignore-unfixed --timeout 20m --exit-code 0 \
+                        --severity HIGH,CRITICAL perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}
+                "
+            '''
+        }
+    }
+}
+
+void pushUpgradeImageToDockerHub(String IMAGE_POSTFIX){
+     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),
+                      [$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        withEnv(["SOME_IMAGE_POSTFIX=${IMAGE_POSTFIX}"]) {
+            sh '''
+                sg docker -c "
+                    IMAGE_NAME='percona-postgresql-operator'
+                    docker login -u '${USER}' -p '${PASS}'
+                    aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR
+                    docker push perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}
+                    docker tag perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX} $ECR/perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}
+                    docker push $ECR/perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}
+                    docker logout
+                "
+            '''
+        }
+    }
+}
 void build(String IMAGE_POSTFIX){
     sh """
         cd ./source/
@@ -28,7 +73,7 @@ void checkImageForDocker(String IMAGE_POSTFIX){
     }
 }
 
-void pushImageToDocker(String IMAGE_POSTFIX){
+void pushImageToDockerHub(String IMAGE_POSTFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),
                       [$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         withEnv(["SOME_IMAGE_POSTFIX=${IMAGE_POSTFIX}"]) {
@@ -106,16 +151,10 @@ pipeline {
                    ./cloud/local/checkout
                 """
                 retry(3) {
-                    build('pgbackrest-repo')
-                }
-                retry(3) {
                     build('pgbackrest')
                 }
                 retry(3) {
                     build('pgbouncer')
-                }
-                retry(3) {
-                    build('postgres-ha')
                 }
                 retry(3) {
                     build('postgres')
@@ -124,37 +163,21 @@ pipeline {
                     build('postgres-gis')
                 }
                 retry(3) {
-                    build('pgbadger')
-                }
-                retry(3) {
-                    build('upgrade')
+                    buildUpgrade('upgrade')
                 }
             }
         }
         stage('Push Images to Docker registry') {
             steps {
-                pushImageToDocker('pgbackrest-repo')
-                pushImageToDocker('pgbackrest')
-                pushImageToDocker('pgbouncer')
-                pushImageToDocker('postgres-ha')
-                pushImageToDocker('postgres')
-                pushImageToDocker('postgres-gis')
-                pushImageToDocker('pgbadger')
-                pushImageToDocker('upgrade')
+                pushImageToDockerHub('pgbackrest')
+                pushImageToDockerHub('pgbouncer')
+                pushImageToDockerHub('postgres')
+                pushImageToDockerHub('postgres-gis')
+                pushUpgradeImageToDockerHub('upgrade')
             }
         }
         stage('Trivy Checks') {
             parallel {
-                stage('pgbackrest-repo'){
-                    steps {
-                        checkImageForDocker('pgbackrest-repo')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgbackrest-repo.xml"
-                        }
-                    }
-                }
                 stage('pgbackrest'){
                     steps {
                         checkImageForDocker('pgbackrest')
@@ -172,16 +195,6 @@ pipeline {
                     post {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgbouncer.xml"
-                        }
-                    }
-                }
-                stage('postgres-ha'){
-                    steps {
-                        checkImageForDocker('postgres-ha')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-postgres-ha.xml"
                         }
                     }
                 }
@@ -205,19 +218,9 @@ pipeline {
                         }
                     }
                 }
-                stage('pgbadger'){
-                    steps {
-                        checkImageForDocker('pgbadger')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pgbadger.xml"
-                        }
-                    }
-                }
                 stage('upgrade'){
                     steps {
-                        checkImageForDocker('upgrade')
+                        checkUpgradeImage('upgrade')
                     }
                     post {
                         always {

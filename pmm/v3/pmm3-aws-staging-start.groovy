@@ -198,9 +198,8 @@ pipeline {
                         sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo yum repolist
-
-                        sudo yum install sysbench mysql-client -y
                         sudo yum install ansible -y
+                        sudo yum install sysbench mysql -y
                     '''
                 }
             }
