@@ -14,7 +14,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             cd \${build_dir}
             sed -i "s/^RPM_RELEASE=.*/RPM_RELEASE=${RPM_RELEASE}/g" builder.sh
             sed -i "s/^DEB_RELEASE=.*/DEB_RELEASE=${DEB_RELEASE}/g" builder.sh
-            bash -x ./builder.sh --builddir=\${build_dir}/test --install_deps=1
+            bash -x ./builder.sh --builddir=\${build_dir}/test --package_repo=${PACKAGE_REPO} --package_repo_branch=${PACKAGE_REPO_BRANCH} --install_deps=1
             bash -x ./builder.sh --builddir=\${build_dir}/test --repo=${REPO} --branch=${BRANCH} --package_repo=${PACKAGE_REPO} --package_repo_branch=${PACKAGE_REPO_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }
