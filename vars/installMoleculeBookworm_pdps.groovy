@@ -2,7 +2,7 @@ def call() {
         sh """
             sudo apt update -y
             sudo apt install -y python3 python3-pip python3-dev python3-venv
-            python3 -m venv /opt/virtenv
+            python3 -m venv ~/virtenv
             . ~/virtenv/bin/activate
             python3 --version
             python3 -m pip install --upgrade pip
