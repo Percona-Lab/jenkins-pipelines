@@ -28,7 +28,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
 }
-
+ 
 void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
     ovfStagingJob = build job: 'pmm2-ovf-staging-start', parameters: [
         string(name: 'OVA_VERSION', value: SERVER_VERSION),      
@@ -209,7 +209,7 @@ pipeline {
             name: 'GIT_COMMIT_HASH')
         choice(
             choices: ['docker', 'ovf', 'ami'],
-            description: "Use this instance only as a client host",
+            description: "",
             name: 'SERVER_TYPE')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',

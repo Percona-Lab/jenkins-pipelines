@@ -30,6 +30,33 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
+void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
+    ovfStagingJob = build job: 'pmm3-ovf-staging-start', parameters: [
+        string(name: 'OVA_VERSION', value: SERVER_VERSION),      
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
+    ]
+    env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
+    env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
+    env.VM_IP = ovfStagingJob.buildVariables.IP
+    env.VM_NAME = ovfStagingJob.buildVariables.VM_NAME
+    env.PMM_URL = "http://admin:admin@${OVF_INSTANCE_IP}"
+    env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}"
+    env.ADMIN_PASSWORD = "admin"
+}
+
+void runAMIStagingStart(String AMI_ID) {
+    amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
+        string(name: 'AMI_ID', value: AMI_ID)
+    ]
+    env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
+    env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
+    env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
+    env.VM_NAME = amiStagingJob.buildVariables.INSTANCE_ID
+    env.PMM_URL = "http://admin:admin@${AMI_INSTANCE_IP}"
+    env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}"
+    env.ADMIN_PASSWORD = "admin"
+}
+
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION,
 PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'pmm3-aws-staging-start-temp', parameters: [
@@ -144,6 +171,10 @@ pipeline {
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
+        choice(
+            choices: ['docker', 'ovf', 'ami'],
+            description: "",
+            name: 'SERVER_TYPE')
         string(
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
@@ -217,8 +248,31 @@ pipeline {
             }
         }
         stage('Start Server') {
-            steps {
-                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--database external --database haproxy', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
+            parallel {
+                stage('Setup Docker Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "docker" }
+                    }
+                    steps {
+                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--database external --database haproxy', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
+                    }
+                }
+                stage('Setup OVF Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "ovf" }
+                    }
+                    steps {
+                        runOVFStagingStart(DOCKER_VERSION, PMM_QA_GIT_BRANCH)
+                    }
+                }
+                stage('Setup AMI Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "ami" }
+                    }
+                    steps {
+                        runAMIStagingStart(DOCKER_VERSION)
+                    }
+                }
             }
         }
         stage('Setup PMM Clients') {
@@ -336,3 +390,4 @@ pipeline {
         }
     }
 }
+ 
