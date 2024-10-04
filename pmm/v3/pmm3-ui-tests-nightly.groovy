@@ -361,7 +361,17 @@ pipeline {
                 }
             }
             script {
-                if(env.VM_NAME)
+                if (env.SERVER_TYPE == "ovf") {
+                    ovfStagingStopJob = build job: 'pmm-ovf-staging-stop', parameters: [
+                        string(name: 'VM', value: env.OVF_INSTANCE_NAME),
+                    ]
+                }
+                if (env.SERVER_TYPE == "ami") {
+                    amiStagingStopJob = build job: 'pmm2-ami-staging-stop', parameters: [
+                        string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
+                    ]
+                }
+                if(env.VM_NAME && env.SERVER_TYPE == "docker")
                 {
                     destroyStaging(VM_NAME)
                 }
@@ -390,4 +400,4 @@ pipeline {
         }
     }
 }
- 
+  
