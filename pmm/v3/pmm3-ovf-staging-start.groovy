@@ -114,10 +114,10 @@ pipeline {
                             --memory ${VM_MEMORY} \
                             --audio none \
                             --cpus 6 \
-                            --natpf1 "guestweb,tcp,,80,,80" \
+                            --natpf1 "guestweb,tcp,,80,,8080" \
                             --uart1 0x3F8 4 --uartmode1 file /tmp/${VM_NAME}-console.log \
                             --groups "/pmm"
-                        VBoxManage modifyvm ${VM_NAME} --natpf1 "guesthttps,tcp,,443,,443"
+                        VBoxManage modifyvm ${VM_NAME} --natpf1 "guesthttps,tcp,,443,,8443"
                         VBoxManage modifyvm ${VM_NAME} --natpf1 "guestssh,tcp,,3022,,22"
                         for p in \$(seq 0 30); do
                             VBoxManage modifyvm ${VM_NAME} --natpf1 "guestexporters\$p,tcp,,4200\$p,,4200\$p"
