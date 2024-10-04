@@ -44,7 +44,7 @@ void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
 }
 
 void runAMIStagingStart(String AMI_ID) {
-    amiStagingJob = build job: 'pmm2-ami-staging-start', parameters: [
+    amiStagingJob = build job: 'pmm2-ami-staging-start', parameters: [ 
         string(name: 'AMI_ID', value: AMI_ID)
     ]
     env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
@@ -365,7 +365,10 @@ pipeline {
         }
         stage('Sanity check') {
             steps {
-                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                sh """
+                    echo ${PMM_URL}
+                    timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false
+                """
             }
         }
         stage('Setup Node') {
