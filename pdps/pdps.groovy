@@ -112,7 +112,7 @@ pipeline {
             steps {
                 script {
                     deleteDir()
-                    installMoleculeBookworm()
+                    installMoleculeBookworm_pdps()
                 }
             }
         }
@@ -125,28 +125,28 @@ pipeline {
         stage ('Create virtual machines') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", env.PLATFORM)
+                    moleculeExecuteActionWithScenarioPDPS(env.MOLECULE_DIR, "create", env.PLATFORM)
                 }
             }
         }
         stage ('Run playbook for test') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
+                    moleculeExecuteActionWithScenarioPDPS(env.MOLECULE_DIR, "converge", env.PLATFORM)
                 }
             }
         }
         stage ('Start testinfra tests') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
+                    moleculeExecuteActionWithScenarioPDPS(env.MOLECULE_DIR, "verify", env.PLATFORM)
                 }
             }
         }
         stage ('Start Cleanup ') {
             steps {
                 script {
-                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
+                    moleculeExecuteActionWithScenarioPDPS(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
                 }
             }
         }
