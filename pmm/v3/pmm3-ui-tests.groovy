@@ -212,6 +212,7 @@ pipeline {
                         waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
                         sh '''
                             docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
+                            sleep 60
                             bash -x testdata/db_setup.sh
                         '''
                         script {
