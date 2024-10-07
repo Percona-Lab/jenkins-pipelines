@@ -12,7 +12,22 @@ void runTest() {
 
 void verifyParams() {
     if ("$RELEASE_RUN" == "YES" && (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD")){
-        echo "This is RELEASE_RUN and either PILLAR_VERSION or IMAGE_MONGOD is provided"
+        error("This is RELEASE_RUN and either PILLAR_VERSION or IMAGE_MONGOD is not provided")
+    }
+}
+
+void getImage(String IMAGE_NAME) {
+    versions_file="https://raw.githubusercontent.com/percona/percona-server-mongodb-operator/K8SPSMDB-1136_images_file/e2e-tests/release_images"
+    IMAGE = """${sh(
+        returnStdout: true,
+        script: "curl -s ${versions_file} | egrep \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "
+    )}"""
+    if ("$IMAGE") {
+        return "$IMAGE"
+    }
+    else{
+        error("Empty image is returned for $IMAGE_NAME. Check PILLAR_VERSION or content of file with images")
+
     }
 }
 
@@ -23,52 +38,36 @@ void getImages() {
             echo "OPERATOR_IMAGE was provided. Not doing anything"}
         else{
             echo "OPERATOR_IMAGE was NOT provided. Will use file params!"
-            OPERATOR_IMAGE="""${sh(
-                returnStdout: true,
-                script: "curl -s ${versions_file} | egrep \"OPERATOR_IMAGE=\" | cut -d = -f 2 | tr -d \'\"\' "
-            )}"""
+            OPERATOR_IMAGE = getImage("OPERATOR_IMAGE")
             echo "OPERATOR_IMAGE is $OPERATOR_IMAGE "
         }
         if ("$IMAGE_MONGOD") {
             echo "IMAGE_MONGOD was provided. Not doing anything"}
         else{
             echo "IMAGE_MONGOD was NOT provided. Will use file params!"
-            IMAGE_MONGOD="""${sh(
-                returnStdout: true,
-                script: "curl -s ${versions_file} | egrep \"IMAGE_MONGOD${PILLAR_VERSION}=\" | cut -d = -f 2 | tr -d \'\"\' "
-            )}"""
+            IMAGE_MONGOD = getImage("IMAGE_MONGOD${PILLAR_VERSION}")
             echo "IMAGE_MONGOD is $IMAGE_MONGOD "
         }
         if ("$IMAGE_BACKUP") {
             echo "IMAGE_BACKUP was provided. Not doing anything"}
         else{
             echo "IMAGE_BACKUP was NOT provided. Will use file params!"
-            IMAGE_BACKUP="""${sh(
-                returnStdout: true,
-                script: "curl -s ${versions_file} | egrep \"IMAGE_BACKUP=\" | cut -d = -f 2 | tr -d \'\"\' "
-            )}"""
+            IMAGE_BACKUP  =getImage("IMAGE_BACKUP")
             echo "IMAGE_BACKUP is $IMAGE_BACKUP "
         }
         if ("$IMAGE_PMM_CLIENT") {
             echo "IMAGE_PMM_CLIENT was provided. Not doing anything"}
         else{
             echo "IMAGE_PMM_CLIENT was NOT provided. Will use file params!"
-            IMAGE_PMM_CLIENT="""${sh(
-                returnStdout: true,
-                script: "curl -s ${versions_file} | egrep \"IMAGE_PMM_CLIENT=\" | cut -d = -f 2 | tr -d \'\"\' "
-            )}"""
+            IMAGE_PMM_CLIENT = getImage("IMAGE_PMM_CLIENT")
             echo "IMAGE_PMM_CLIENT is $IMAGE_PMM_CLIENT "
         }
         if ("$IMAGE_PMM_SERVER") {
             echo "IMAGE_PMM_SERVER was provided. Not doing anything"}
         else{
             echo "IMAGE_PMM_SERVER was NOT provided. Will use file params!"
-            IMAGE_PMM_SERVER="""${sh(
-                returnStdout: true,
-                script: "curl -s ${versions_file} | egrep \"IMAGE_PMM_SERVER=\" | cut -d = -f 2 | tr -d \'\"\' "
-            )}"""
+            IMAGE_PMM_SERVER = getImage("IMAGE_PMM_SERVER")
             echo "IMAGE_PMM_SERVER is $IMAGE_PMM_SERVER "
-    //echo '{"foo": 0}' | jq .foo
         }
     } else {
         echo "This is not release run. Using params only!"
@@ -96,7 +95,7 @@ pipeline {
             name: 'IGNORE_PREVIOUS_RUN'
         )
         choice(
-            choices: 'YES\nNo',
+            choices: 'YES\nNO',
             description: 'Release run?',
             name: 'RELEASE_RUN'
         )
