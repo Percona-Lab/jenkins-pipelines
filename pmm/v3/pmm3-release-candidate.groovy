@@ -136,11 +136,11 @@ pipeline {
             description: 'Recreate Release branches, Option to be used only to recreate release branches',
             name: 'REMOVE_RELEASE_BRANCH'
         )
-        string(
-            defaultValue: '#pmm-dev',
-            description: 'Channel to send notifications to',
-            name: 'NOTIFICATION_CHANNEL'
-        )
+        // string(
+        //     defaultValue: '#pmm-dev',
+        //     description: 'Channel to send notifications to',
+        //     name: 'NOTIFICATION_CHANNEL'
+        // )
     }
     stages {
         stage('Update API descriptors') {
