@@ -284,7 +284,7 @@ pipeline {
             name: 'IGNORE_PREVIOUS_RUN'
         )
         choice(
-            choices: 'YES\nNO',
+            choices: 'NO\nYES',
             description: 'Release run?',
             name: 'RELEASE_RUN'
         )
