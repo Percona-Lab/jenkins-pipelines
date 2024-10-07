@@ -112,7 +112,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(pdpsOperatingSystems(), env.MOLECULE_DIR)
+                    moleculeParallelTestPDPS(pdpsOperatingSystems(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -120,7 +120,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(pdpsOperatingSystems(), env.MOLECULE_DIR)
+              moleculeParallelPostDestroyPDPS(pdpsOperatingSystems(), env.MOLECULE_DIR)
          }
       }
    }
