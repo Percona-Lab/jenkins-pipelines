@@ -2,6 +2,27 @@ region='eu-west-3'
 tests=[]
 clusters=[]
 
+void verifyParams() {
+    if ("$RELEASE_RUN" == "YES" && (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD")){
+        error("This is RELEASE_RUN. Either PILLAR_VERSION or IMAGE_MONGOD should be provided")
+    }
+}
+
+void getImage(String IMAGE_NAME) {
+    versions_file="source/e2e-tests/release_images"
+    IMAGE = """${sh(
+        returnStdout: true,
+        script: "cat ${versions_file} | egrep \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "
+    ).trim()}"""
+    if ("$IMAGE") {
+        return "$IMAGE"
+    }
+    else{
+        error("Empty image is returned for $IMAGE_NAME. Check PILLAR_VERSION or content of file with images")
+
+    }
+}
+
 void prepareNode() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     if ("$PLATFORM_VER" == "latest") {
@@ -27,10 +48,6 @@ void prepareNode() {
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
     """
 
-    if ("$IMAGE_MONGOD") {
-        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
-    }
-
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
@@ -42,6 +59,51 @@ void prepareNode() {
         sudo rm -rf source
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
+
+    echo "=========================[ Assigning images for release test ]========================="
+    if ("$RELEASE_RUN" == "YES") {
+        if ("$OPERATOR_IMAGE") {
+            echo "OPERATOR_IMAGE was provided. Not doing anything"}
+        else{
+            echo "OPERATOR_IMAGE was NOT provided. Will use file params!"
+            OPERATOR_IMAGE = getImage("OPERATOR_IMAGE")
+            echo "OPERATOR_IMAGE is $OPERATOR_IMAGE "
+        }
+        if ("$IMAGE_MONGOD") {
+            echo "IMAGE_MONGOD was provided. Not doing anything"}
+        else{
+            echo "IMAGE_MONGOD was NOT provided. Will use file params!"
+            IMAGE_MONGOD = getImage("IMAGE_MONGOD${PILLAR_VERSION}")
+            echo "IMAGE_MONGOD is $IMAGE_MONGOD "
+        }
+        if ("$IMAGE_BACKUP") {
+            echo "IMAGE_BACKUP was provided. Not doing anything"}
+        else{
+            echo "IMAGE_BACKUP was NOT provided. Will use file params!"
+            IMAGE_BACKUP  =getImage("IMAGE_BACKUP")
+            echo "IMAGE_BACKUP is $IMAGE_BACKUP "
+        }
+        if ("$IMAGE_PMM_CLIENT") {
+            echo "IMAGE_PMM_CLIENT was provided. Not doing anything"}
+        else{
+            echo "IMAGE_PMM_CLIENT was NOT provided. Will use file params!"
+            IMAGE_PMM_CLIENT = getImage("IMAGE_PMM_CLIENT")
+            echo "IMAGE_PMM_CLIENT is $IMAGE_PMM_CLIENT "
+        }
+        if ("$IMAGE_PMM_SERVER") {
+            echo "IMAGE_PMM_SERVER was provided. Not doing anything"}
+        else{
+            echo "IMAGE_PMM_SERVER was NOT provided. Will use file params!"
+            IMAGE_PMM_SERVER = getImage("IMAGE_PMM_SERVER")
+            echo "IMAGE_PMM_SERVER is $IMAGE_PMM_SERVER "
+        }
+    } else {
+        echo "This is not release run. Using params only!"
+    }
+
+    if ("$IMAGE_MONGOD") {
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
+    }
 
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
@@ -322,6 +384,16 @@ pipeline {
             description: 'Ignore passed tests in previous run (run all)',
             name: 'IGNORE_PREVIOUS_RUN'
         )
+        choice(
+            choices: 'YES\nNO',
+            description: 'Release run?',
+            name: 'RELEASE_RUN'
+        )
+        string(
+            defaultValue: '70',
+            description: 'For RELEASE_RUN only. Major version like 70,60, etc',
+            name: 'PILLAR_VERSION'
+        )
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
@@ -371,6 +443,7 @@ pipeline {
     stages {
         stage('Prepare node') {
             steps {
+                verifyParams()
                 prepareNode()
             }
         }
