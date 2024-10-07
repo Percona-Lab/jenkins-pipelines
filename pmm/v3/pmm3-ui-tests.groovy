@@ -184,7 +184,6 @@ pipeline {
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 sh '''
-                    /srv/pmm-qa/pmm-tests/install_k8s_tools.sh --kubectl --sudo
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
