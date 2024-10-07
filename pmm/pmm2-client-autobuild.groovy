@@ -49,18 +49,24 @@ pipeline {
         }
         stage('Build pmm2 client for amd64') {
             steps {
-                build job: 'pmm2-client-autobuilds-amd', parameters: [
-                    string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
-                    string(name: 'DESTINATION', value: params.DESTINATION)
-                ]
+                script {
+                    pmm2ClientAmd64 = build job: 'pmm2-client-autobuilds-amd', parameters: [
+                        string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                        string(name: 'DESTINATION', value: params.DESTINATION)
+                    ]
+                    env.TARBALL_AMD64_URL = pmm2ClientAmd64.buildVariables.TARBALL_URL
+                }
             }
         }
         stage('Build pmm2 client for arm64') {
             steps {
-                build job: 'pmm2-client-autobuilds-arm', parameters: [
-                    string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
-                    string(name: 'DESTINATION', value: params.DESTINATION)
-                ]
+                script {
+                    pmm2ClientArm64 = build job: 'pmm2-client-autobuilds-arm', parameters: [
+                        string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                        string(name: 'DESTINATION', value: params.DESTINATION)
+                    ]
+                    env.TARBALL_ARM64_URL = pmm2ClientArm64.buildVariables.TARBALL_URL
+                }
             }
         }
         stage('Push pmm2 client multi-arch images') {

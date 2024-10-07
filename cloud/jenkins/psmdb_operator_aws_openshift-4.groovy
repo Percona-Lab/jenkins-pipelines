@@ -171,7 +171,7 @@ controlPlane:
   replicas: 1
 metadata:
   creationTimestamp: null
-  name: openshift-v2-ver-pg-jenkins-$CLUSTER_SUFFIX
+  name: openshift-psmdb-jenkins-$CLUSTER_SUFFIX
 networking:
   clusterNetwork:
   - cidr: 10.128.0.0/14
