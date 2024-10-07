@@ -21,7 +21,7 @@ void getImage(String IMAGE_NAME) {
     IMAGE = """${sh(
         returnStdout: true,
         script: "curl -s ${versions_file} | egrep \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "
-    )}"""
+    ).trim()}"""
     if ("$IMAGE") {
         return "$IMAGE"
     }
@@ -72,7 +72,9 @@ void getImages() {
     } else {
         echo "This is not release run. Using params only!"
     }
-    runTest()
+    script {
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GKE_RELEASE_CHANNEL-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+    }
 }
 
 pipeline {
@@ -100,7 +102,7 @@ pipeline {
             name: 'RELEASE_RUN'
         )
         string(
-            defaultValue: '57',
+            defaultValue: '60',
             description: 'Major version like 70,60, etc',
             name: 'PILLAR_VERSION'
         )
@@ -162,7 +164,7 @@ pipeline {
         stage('Docker Build and Push') {
             steps {
                 echo "This is Build and Pus tests stage"
-                //dockerBuildPush()
+                runTest()
             }
         }
         stage('Init tests') {
