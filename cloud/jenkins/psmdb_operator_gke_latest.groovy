@@ -261,11 +261,6 @@ void createCluster(String CLUSTER_SUFFIX) {
    }
 }
 
-void getImages() {
-    
-
-}
-
 void runTest(Integer TEST_ID) {
     def retryCount = 0
     def testName = tests[TEST_ID]["name"]
