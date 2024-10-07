@@ -124,7 +124,7 @@ pipeline {
             description: 'Percona Server Docker Container Image',
             name: 'MYSQL_IMAGE')
         string(
-            defaultValue: 'perconalab/percona-distribution-postgresql:16.0',
+            defaultValue: 'perconalab/percona-distribution-postgresql:16.1',
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
         string(
@@ -132,7 +132,7 @@ pipeline {
             description: 'Percona Server MongoDb Docker Container Image',
             name: 'MONGO_IMAGE')
         string(
-            defaultValue: 'proxysql/proxysql:2.1.1',
+            defaultValue: 'proxysql/proxysql:2.3.0',
             description: 'ProxySQL Docker Container Image',
             name: 'PROXYSQL_IMAGE')
         string(
