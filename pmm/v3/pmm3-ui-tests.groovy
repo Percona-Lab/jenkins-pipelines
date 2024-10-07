@@ -120,10 +120,6 @@ pipeline {
             description: 'Enable Pull Mode, if you are using this instance as Client Node',
             name: 'ENABLE_PULL_MODE')
         string(
-            defaultValue: 'percona:5.7',
-            description: 'Percona Server Docker Container Image',
-            name: 'MYSQL_IMAGE')
-        string(
             defaultValue: 'perconalab/percona-distribution-postgresql:16.1',
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
@@ -203,7 +199,7 @@ pipeline {
                         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                             sh """
                                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-                                PWD=\$(pwd) MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
+                                PWD=\$(pwd) MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
                             """
                         }
                         waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
