@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@fix-pd", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 pipeline {
@@ -95,19 +95,19 @@ pipeline {
                 }
             }
         }
-        stage('Check version param and checkout') {
-            steps {
-                deleteDir()
-                checkOrchVersionParam()
-                git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
-            }
-        }
         stage ('Prepare') {
           steps {
                 script {
-                   installMoleculeBookworm()
+                   deleteDir()
+                   installMoleculeBookworm_pdps()
              }
            }
+        }
+        stage('Check version param and checkout') {
+            steps {
+                checkOrchVersionParam()
+                git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
+            }
         }
         stage('Test') {
           steps {
