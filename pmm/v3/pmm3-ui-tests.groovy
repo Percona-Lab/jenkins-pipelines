@@ -206,9 +206,10 @@ pipeline {
                         waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
                         waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                         waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
+//                         sh '''
+//                             docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
+//                         '''
                         sh '''
-                            docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
-                            sleep 60
                             bash -x testdata/db_setup.sh
                         '''
                         script {
