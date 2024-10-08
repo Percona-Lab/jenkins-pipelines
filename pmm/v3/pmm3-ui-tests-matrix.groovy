@@ -57,7 +57,7 @@ pipeline {
             name: 'PROXYSQL_IMAGE')
         string(
             defaultValue: 'v3',
-            description: 'Tag/Branch for pmm-qa repository',
+            description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH')
     }
     options {
