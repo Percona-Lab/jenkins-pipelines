@@ -52,7 +52,7 @@ pipeline {
             description: 'Percona Server MongoDb Docker Container Image',
             name: 'MONGO_IMAGE')
         string(
-            defaultValue: 'proxysql/proxysql:3.3.0',
+            defaultValue: 'proxysql/proxysql:2.3.0',
             description: 'ProxySQL Docker Container Image',
             name: 'PROXYSQL_IMAGE')
         string(
