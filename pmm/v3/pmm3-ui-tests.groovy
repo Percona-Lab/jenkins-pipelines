@@ -112,7 +112,7 @@ pipeline {
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '',
+            defaultValue: '@bm-mongo',
             description: "Run Tests for Specific Areas or cloud providers example: @gcp|@aws|@instances",
             name: 'TAG')
         choice(
@@ -136,7 +136,7 @@ pipeline {
             description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH')
         text(
-            defaultValue: '--database ps',
+            defaultValue: '--database psmdb,COMPOSE_PROFILES=extra',
             description: '''
             Configure PMM Clients:
             --database ps - Percona Server for MySQL (ex: --database ps=5.7,QUERY_SOURCE=perfschema)
