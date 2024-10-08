@@ -214,9 +214,9 @@ pipeline {
                         sh '''
                             docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
                         '''
-//                         sh '''
-//                             bash -x testdata/db_setup.sh
-//                         '''
+                        sh '''
+                            bash -x testdata/db_setup.sh
+                        '''
                         script {
                             env.SERVER_IP = "127.0.0.1"
                             env.PMM_UI_URL = "http://${env.SERVER_IP}/"
