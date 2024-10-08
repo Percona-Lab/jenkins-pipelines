@@ -125,6 +125,10 @@ pipeline {
             description: 'Enable Pull Mode, if you are using this instance as Client Node',
             name: 'ENABLE_PULL_MODE')
         string(
+            defaultValue: 'percona:5.7',
+            description: 'Percona Server Docker Container Image',
+            name: 'MYSQL_IMAGE')
+        string(
             defaultValue: 'perconalab/percona-distribution-postgresql:16.1',
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
