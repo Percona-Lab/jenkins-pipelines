@@ -302,7 +302,10 @@ pipeline {
         }
         stage('Sanity check') {
             steps {
-                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                sh '''
+                    echo "${PMM_URL}/ping"
+                    timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false
+                '''
             }
         }
         stage('Setup Node') {
