@@ -187,7 +187,7 @@ pipeline {
     }
 parameters {
         string(defaultValue: 'https://github.com/percona/percona-server.git', description: 'github repository for build', name: 'GIT_REPO')
-        string(defaultValue: 'release-9.0.28-19', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
+        string(defaultValue: 'release-9.0.1-1', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
         choice(
