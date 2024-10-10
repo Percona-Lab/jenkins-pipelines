@@ -344,7 +344,7 @@ pipeline {
                 sudo chown -R ec2-user:ec2-user . || true
             '''
             script {
-                env.PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
+                env.PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'
