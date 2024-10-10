@@ -841,6 +841,7 @@ parameters {
             }
         }
 */
+      }
     }
     post {
         success {
@@ -855,7 +856,6 @@ parameters {
             unstash 'properties'
             script {
                 currentBuild.description = "Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
-/*
                 REVISION = sh(returnStdout: true, script: "grep REVISION test/percona-server-9.0.properties | awk -F '=' '{ print\$2 }'").trim()
                 PS_RELEASE = sh(returnStdout: true, script: "echo ${BRANCH} | sed 's/release-//g'").trim()
                 PS8_RELEASE_VERSION = sh(returnStdout: true, script: """ echo ${BRANCH} | sed -nE '/release-(8\\.[0-9]{1})\\..*/s//\\1/p' """).trim()
@@ -919,7 +919,6 @@ parameters {
                     error "Skipping MINITESTS and Other Triggers as invalid RELEASE VERSION FOR THIS JOB"
                     slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: Skipping MINITESTS and Other Triggers as invalid RELEASE VERSION FOR THIS JOB ${BRANCH} - [${BUILD_URL}]")
                 }
-*/
             }
             deleteDir()
         }
