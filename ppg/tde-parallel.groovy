@@ -95,7 +95,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(ppgOperatingSystemsAMD(), env.MOLECULE_DIR)
+                    moleculeParallelTest(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -103,7 +103,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(ppgOperatingSystemsAMD(), env.MOLECULE_DIR)
+              moleculeParallelPostDestroy(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
               sendSlackNotification(env.TDE_REPO, env.TDE_BRANCH, env.TDE_PACKAGE_INSTALL, env.VERSION, env.REPO, env.MAJOR_REPO)
          }
       }
