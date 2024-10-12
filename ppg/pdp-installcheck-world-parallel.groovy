@@ -99,7 +99,7 @@ pipeline {
         always {
           script {
               moleculeParallelPostDestroy(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-              // sendSlackNotification(env.PDP_REPO, env.PDP_BRANCH, env.VERSION, env.TESTSUITE, env.WITH_TDE_HEAP)
+              sendSlackNotification(env.PDP_REPO, env.PDP_BRANCH, env.VERSION, env.TESTSUITE, env.WITH_TDE_HEAP)
          }
       }
    }
