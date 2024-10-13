@@ -7,15 +7,15 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-replication-manager_builder.sh -O percona-replication-manager_builder.sh
-        pwd -P
-        ls -laR
+        wget \$(echo ${PACKAGE_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${PACKAGE_REPO_BRANCH}/perldbd_builder.sh -O builder.sh
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./percona-replication-manager_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./percona-replication-manager_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --prm_ver=${PRM_VERSION} --prm_release=${PRM_RELEASE} ${STAGE_PARAM}"
+            sed -i "s/^RPM_RELEASE=.*/RPM_RELEASE=${RPM_RELEASE}/g" builder.sh
+            sed -i "s/^DEB_RELEASE=.*/DEB_RELEASE=${DEB_RELEASE}/g" builder.sh
+            bash -x ./builder.sh --builddir=\${build_dir}/test --package_repo=${PACKAGE_REPO} --package_repo_branch=${PACKAGE_REPO_BRANCH} --install_deps=1
+            bash -x ./builder.sh --builddir=\${build_dir}/test --repo=${REPO} --branch=${BRANCH} --package_repo=${PACKAGE_REPO} --package_repo_branch=${PACKAGE_REPO_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -29,29 +29,37 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'docker'
     }
     parameters {
         string(
-            defaultValue: 'https://github.com/percona/replication-manager.git',
-            description: 'URL for  percona-replication-manager repository',
-            name: 'GIT_REPO')
+            defaultValue: 'https://github.com/perl5-dbi/DBD-mysql.git',
+            description: 'URL for perl-DBD-MySQL repository',
+            name: 'REPO')
         string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for percona-replication-manager repository',
-            name: 'GIT_BRANCH')
+            defaultValue: '4_050',
+            description: 'Tag/Branch for orchestartor repository',
+            name: 'BRANCH')
         string(
-            defaultValue: '1.0',
-            description: 'PRM release value',
-            name: 'PRM_VERSION')
+            defaultValue: 'https://github.com/EvgeniyPatlan/perl-DBD-mysql-packaging.git',
+            description: 'URL for packaging perl-DBD-MySQL repository',
+            name: 'PACKAGE_REPO')
+        string(
+            defaultValue: 'master',
+            description: 'Tag/Branch for perl-DBD-MySQL packaging repository',
+            name: 'PACKAGE_REPO_BRANCH')
+        string(
+            defaultValue: '4_050',
+            description: 'General version of the product',
+            name: 'VERSION')
         string(
             defaultValue: '1',
-            description: 'PRM release value',
-            name: 'PRM_RELEASE')
+            description: 'RPM release value (e.g. custom build -> 1.1custom124)',
+            name: 'RPM_RELEASE')
         string(
-            defaultValue: 'pdpxc-8.0',
-            description: 'PRM repo name',
-            name: 'PRM_REPO')
+            defaultValue: '1',
+            description: 'DEB release value (e.g. custom build -> 1.1custom124)',
+            name: 'DEB_RELEASE')
         choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
@@ -61,25 +69,20 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
-        timestamps ()
     }
     stages {
-        stage('Create PRM source tarball') {
-             agent {
-                 label 'docker'
-             }
+        stage('Create perl-DBD-MySQL source tarball') {
             steps {
-                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                buildStage("centos:7", "--get_sources=1")
+                buildStage("oraclelinux:8", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/replication-manager.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/perldbd.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/replication-manager.properties
+                   cat test/perldbd.properties
                    cat uploadPath
-                   cat awsUploadPath
                 '''
                 script {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
@@ -89,29 +92,29 @@ pipeline {
                 uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
-        stage('Build PRM generic source packages') {
+        stage('Build perl-DBD-MySQL generic source packages') {
             parallel {
-                stage('Build PRM generic source rpm') {
+                stage('Build perl-DBD-MySQL generic source rpm') {
                     agent {
                         label 'docker'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_src_rpm=1")
+                        buildStage("oraclelinux:8", "--build_src_rpm=1")
 
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Build PRM generic source deb') {
+                stage('Build perl-DBD-MySQL generic source deb') {
                     agent {
                         label 'docker'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:xenial", "--build_src_deb=1")
+                        buildStage("ubuntu:focal", "--build_source_deb=1")
 
                         pushArtifactFolder("source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
@@ -119,29 +122,29 @@ pipeline {
                 }
             }  //parallel
         } // stage
-        stage('Build PRM RPMs/DEBs/Binary tarballs') {
+        stage('Build perl-DBD-MySQL RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Centos 7') {
+                stage('Oracle Linux 8') {
                     agent {
                         label 'docker'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_rpm=1")
+                        buildStage("oraclelinux:8", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 8') {
+                stage('Oracle Linux 8 ARM') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:8", "--build_rpm=1")
+                        buildStage("oraclelinux:8", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
@@ -150,6 +153,19 @@ pipeline {
                 stage('Oracle Linux 9') {
                     agent {
                         label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Oracle Linux 9 ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -173,9 +189,35 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Focal(20.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:focal", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
                         label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Jammy(22.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -199,14 +241,14 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Buster(10)') {
+                stage('Ubuntu Noble(24.04) ARM') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:buster", "--build_deb=1")
+                        buildStage("ubuntu:noble", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
@@ -215,6 +257,19 @@ pipeline {
                 stage('Debian Bullseye(11)') {
                     agent {
                         label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bullseye", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Bullseye(11) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -238,6 +293,19 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Debian Bookworm(12) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bookworm", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
             }
         }
 
@@ -250,21 +318,21 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(PRM_REPO, COMPONENT)
+                sync2ProdAutoBuild("tools", COMPONENT)
             }
         }
 
     }
     post {
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
+                currentBuild.description = "Built on ${BRANCH} by ${PACKAGE_REPO_BRANCH}"
             }
             deleteDir()
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {

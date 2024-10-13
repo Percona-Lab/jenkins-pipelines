@@ -20,7 +20,11 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
 String getPostgreSQLVersion(String BRANCH_NAME, String configureFileName) {
     def packageVersion = sh(script: """
         # Download the configure file
-        wget https://raw.githubusercontent.com/postgres/postgres/${BRANCH_NAME}/configure -O ${configureFileName}
+        if [[ "${BRANCH_NAME}" == *TDE* ]]; then
+            wget https://raw.githubusercontent.com/Percona-Lab/postgres/${BRANCH_NAME}/configure -O ${configureFileName}
+        else
+            wget https://raw.githubusercontent.com/postgres/postgres/${BRANCH_NAME}/configure -O ${configureFileName}
+        fi
         # Read the PACKAGE_VERSION value from the configure file
         packageVersion=\$(grep -r 'PACKAGE_VERSION=' ${configureFileName} | tr -dc '[. [:digit:]]')
 

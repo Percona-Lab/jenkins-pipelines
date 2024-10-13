@@ -306,6 +306,7 @@ parameters {
         } // stage
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             parallel {
+/*
                 stage('Centos 7') {
                     agent {
                         label 'min-centos-7-x64'
@@ -326,6 +327,7 @@ parameters {
                         }
                     }
                 }
+*/
                 stage('Oracle Linux 8') {
                     agent {
                         label 'min-ol-8-x64'
@@ -606,6 +608,7 @@ parameters {
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
+/*
                 stage('Centos 7 binary tarball') {
                     agent {
                         label 'min-centos-7-x64'
@@ -646,6 +649,7 @@ parameters {
                         }
                     }
                 }
+*/
                 stage('Oracle Linux 8 binary tarball') {
                     agent {
                         label 'min-ol-8-x64'
@@ -928,7 +932,7 @@ parameters {
                         cleanUpWS()
                         installCli("deb")
                         sh '''
-                           sleep 900
+                           sleep 1200
                         '''
                         unstash 'properties'
                         sh '''
@@ -936,6 +940,7 @@ parameters {
                             PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
                                 MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                                MYSQL_SHELL_RELEASE="8.4.1"
                                 MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
                             else
                                 MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
@@ -950,7 +955,9 @@ parameters {
                             cd percona-docker/percona-server-8.0
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile
-                            sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
+                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
+                            fi
                             sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
                                 if [ ${PS_MAJOR_RELEASE} = "84" ]; then
@@ -958,22 +965,21 @@ parameters {
                                 else
                                     sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile
                                 fi
-                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"experimental\";percona-release enable mysql-shell/g" Dockerfile
+                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"testing\";percona-release enable mysql-shell/g" Dockerfile
                             fi
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile.aarch64
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile.aarch64
                             sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile.aarch64
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                                sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile.aarch64
                                 if [ ${PS_MAJOR_RELEASE} = "84" ]; then
                                     sed -i "s/percona-release enable ps-80/percona-release enable ps-84-lts/g" Dockerfile.aarch64
                                 else
                                     sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile.aarch64
                                 fi
-                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"experimental\";percona-release enable mysql-shell/g" Dockerfile.aarch64
+                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"testing\";percona-release enable mysql-shell/g" Dockerfile.aarch64
                             fi
                             sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} .
-                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 -f Dockerfile.aarch64 .
+                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 --platform="linux/arm64" -f Dockerfile.aarch64 .
                             cd ../mysql-router
                             sed -i "s/ENV ROUTE_VERSION.*/ENV ROUTE_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
@@ -995,8 +1001,12 @@ parameters {
                         sh '''
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                             PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                            MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
                             PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
+                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                            else
+                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                            fi
                             sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}
                             sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                             sudo docker push perconalab/percona-server:${PS_RELEASE}

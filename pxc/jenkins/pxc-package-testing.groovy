@@ -15,7 +15,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
         ),
         aws(
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27',
+            credentialsId: '7e252458-7ef8-4d0e-a4d5-5773edcbfa5e',
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         )
     ]
@@ -28,7 +28,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
             mkdir -p "${WORKSPACE}/${product_to_test}/${params.node_to_test}/${param_test_type}/"
             """
 
-	        if(param_test_type == "install"){   
+            if(param_test_type == "install"){   
                 def install_repo="${test_repo}"
                 def check_version="${version_check}"
                 def pxc57repo = "${params.pxc57_repo}"
@@ -473,7 +473,7 @@ void runlogsbackup(String product_to_test, String param_test_type) {
         ),
         aws(
             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-            credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27',
+            credentialsId: '7e252458-7ef8-4d0e-a4d5-5773edcbfa5e',
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         )
     ]
@@ -551,7 +551,7 @@ pipeline {
             description: 'Distribution to run test'
         )
         choice(
-	        name: 'test_repo',
+            name: 'test_repo',
             choices: [
                 'testing',
                 'main',

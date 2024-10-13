@@ -27,16 +27,16 @@ pipeline {
             choices: repoList()
         )
         string(
-            defaultValue: 'ppg-13.3',
+            defaultValue: 'ppg-17.0',
             description: 'PPG version for test',
             name: 'VERSION'
          )
         string(
-            defaultValue: 'ppg-13.4',
+            defaultValue: 'ppg-17.0',
             description: 'PPG Version for minor upgradetests',
             name: 'FROM_MINOR_VERSION')
         string(
-            defaultValue: 'ppg-12.8',
+            defaultValue: 'ppg-16.4',
             description: 'PPG Version for major upgrade tests',
             name: 'FROM_MAJOR_VERSION')
         string(
@@ -44,7 +44,7 @@ pipeline {
             description: 'base Branch for upgrade test',
             name: 'TESTING_BRANCH')
         string(
-            defaultValue: '13',
+            defaultValue: '17',
             description: 'PPG Major Version to test',
             name: 'MAJOR_VERSION')
   }

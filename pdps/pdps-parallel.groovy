@@ -95,24 +95,24 @@ pipeline {
                 }
             }
         }
+        stage ('Prepare') {
+          steps {
+                script {
+                   deleteDir()
+                   installMoleculeBookworm_pdps()
+             }
+           }
+        }
         stage('Check version param and checkout') {
             steps {
-                deleteDir()
                 checkOrchVersionParam()
                 git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
             }
         }
-        stage ('Prepare') {
-          steps {
-                script {
-                   installMoleculeBookworm()
-             }
-           }
-        }
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(pdpsOperatingSystems(), env.MOLECULE_DIR)
+                    moleculeParallelTestPDPS(pdpsOperatingSystems(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -120,7 +120,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(pdpsOperatingSystems(), env.MOLECULE_DIR)
+              moleculeParallelPostDestroyPDPS(pdpsOperatingSystems(), env.MOLECULE_DIR)
          }
       }
    }

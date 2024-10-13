@@ -57,7 +57,8 @@ fi
 
 if [[ ${WITH_KMIP_TESTS} == "true" ]]; then
     check_pxb_network
-    docker run -d --security-opt seccomp=unconfined --cap-add=NET_ADMIN --rm -p 5696:5696 ${DOCKER_NETWORK_FLAG} --name kmip altmannmarcelo/kmip:latest
+    # The certificate expires on Sep 23 15:02:39 2025 GMT and then docker image should be rebuilt.
+    docker run -d --security-opt seccomp=unconfined --cap-add=NET_ADMIN --rm -p 5696:5696 ${DOCKER_NETWORK_FLAG} --name kmip satyapercona/kmip:latest
 
     docker cp kmip:/opt/certs/root_certificate.pem ${ROOT_DIR}
     docker cp kmip:/opt/certs/client_key_jane_doe.pem ${ROOT_DIR}
