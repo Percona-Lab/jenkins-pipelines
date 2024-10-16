@@ -58,6 +58,8 @@ pipeline {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                 sh '''
                     set -o errexit
+                    git submodule update --init --jobs 10
+                    git submodule status
 
                     ${PATH_TO_SCRIPTS}/build-submodules
                 '''
