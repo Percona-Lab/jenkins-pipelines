@@ -880,22 +880,22 @@ parameters {
                     // sync packages
                     if ("${MYSQL_VERSION_MINOR}" == "0") {
                         if (env.FIPSMODE == 'YES') {
-                            sync2PrivateProdAutoBuild("ps-90-pro", COMPONENT)
+                            sync2PrivateProdAutoBuild("ps-80-pro", COMPONENT)
                         } else {
-                            sync2ProdAutoBuild("ps-9x-innovation", COMPONENT)
+                            sync2ProdAutoBuild("ps-80", COMPONENT)
                         }
                     } else {
                         if (env.FIPSMODE == 'YES') {
-                            if ("${MYSQL_VERSION_MINOR}" == "7") {
-                                sync2PrivateProdAutoBuild("ps-97-lts-pro", COMPONENT)
+                            if ("${MYSQL_VERSION_MINOR}" == "4") {
+                                sync2PrivateProdAutoBuild("ps-84-lts-pro", COMPONENT)
                             } else {
-                                sync2PrivateProdAutoBuild("ps-9x-innovation-pro", COMPONENT)
+                                sync2PrivateProdAutoBuild("ps-8x-innovation-pro", COMPONENT)
                             }
                         } else {
-                            if ("${MYSQL_VERSION_MINOR}" == "7") {
-                                sync2ProdAutoBuild("ps-97-lts", COMPONENT)
+                            if ("${MYSQL_VERSION_MINOR}" == "4") {
+                                sync2ProdAutoBuild("ps-84-lts", COMPONENT)
                             } else {
-                                sync2ProdAutoBuild("ps-9x-innovation", COMPONENT)
+                                sync2ProdAutoBuild("ps-8x-innovation", COMPONENT)
                             }
                         }
                     }
