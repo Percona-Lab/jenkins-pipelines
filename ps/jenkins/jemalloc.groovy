@@ -13,8 +13,28 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 cd test
                 export build_dir=\$(pwd -P)
                 docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -x -c "
-                    yum -y install git
+                    export ARCH=\\\$(arch)
+                    export RHEL=\\\$(rpm --eval %rhel)
+                    if [ \\\${RHEL} = 8 ]; then
+                        sed -i 's/mirrorlist=/#mirrorlist=/g' /etc/yum.repos.d/CentOS-*
+                        sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+                    fi
+
+                    yum -y install rpm-build gcc gcc-c++ make automake autoconf libxslt wget
+                    wget --no-check-certificate \${JEMALLOC_RPM_SOURCE}
+
                     cd \${build_dir}
+
+                    rpm2cpio jemalloc-3.6.0-1.el7.src.rpm | cpio -id
+
+                    tar -xvf jemalloc-3.6.0.tar.bz2
+                    sed -i 's/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g' jemalloc-3.6.0/Makefile.in
+                    rm -rf jemalloc-3.6.0.tar.bz2
+                    tar -cjf jemalloc-3.6.0.tar.bz2 jemalloc-3.6.0/
+                    rm -rf jemalloc-3.6.0/
+
+                    #yum -y install git
+                    #cd \${build_dir}
                     ls -la
                     #git clone \${BUILD_URL}
                     #cd jemalloc-packaging
@@ -30,7 +50,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     echo \"UPLOAD=UPLOAD/experimental/BUILDS/jemalloc/${VERSION}-${RELEASE}/${BUILD_ID}\" >> jemalloc.properties
 
                     mkdir -p source_tarball
-                    cp jemalloc.properties source_tarball
+                    cp jemalloc-3.6.0.tar.bz2 source_tarball
                 "
             """
             break
@@ -193,7 +213,7 @@ pipeline {
          stage('Create jemalloc source tarball') {
             steps {
                 cleanUpWS()
-                buildStage("centos:7", "SOURCE")
+                buildStage("centos:8", "SOURCE")
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/jemalloc.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
