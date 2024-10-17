@@ -222,7 +222,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                       # popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "RPM")
                         sh '''
                             pwd
@@ -243,7 +243,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                      #  popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "RPM")
                         sh '''
                             pwd
@@ -264,7 +264,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                      #  popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "RPM")
                         sh '''
                             pwd
@@ -285,7 +285,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                      #  popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "RPM")
                         sh '''
                             pwd
@@ -306,7 +306,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                      #  popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:buster", "DEB")
                         sh '''
                             pwd
@@ -324,7 +324,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                      #  popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "DEB")
                         sh '''
                             pwd
@@ -342,7 +342,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                      #  popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "DEB")
                         sh '''
                             pwd
@@ -360,7 +360,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                      #  popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "DEB")
                         sh '''
                             pwd
@@ -378,7 +378,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                      #  popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "DEB")
                         sh '''
                             pwd
@@ -396,7 +396,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                      #  popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:noble", "DEB")
                         sh '''
                             pwd
