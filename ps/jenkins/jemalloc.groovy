@@ -58,7 +58,16 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
 
                     yum -y install rpm-build gcc gcc-c++ make automake autoconf libxslt wget
                     wget --no-check-certificate \${JEMALLOC_RPM_SOURCE}
-                    ls -la
+
+                    cd \${build_dir}
+
+                    rpm2cpio jemalloc-3.6.0-1.el7.src.rpm | cpio -id
+
+                    tar -xvf jemalloc-3.6.0.tar.bz2
+                    sed -i 's/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g' jemalloc-3.6.0/Makefile.in
+                    rm -rf jemalloc-3.6.0.tar.bz2
+                    tar -cjf jemalloc-3.6.0.tar.bz2 jemalloc-3.6.0/
+                    rm -rf jemalloc-3.6.0/
                 "
             """
             break
@@ -89,7 +98,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     tar -cjf jemalloc-3.6.0.tar.bz2 jemalloc-3.6.0/
                     rm -rf jemalloc-3.6.0/
 
-                    rm -fr \${build_dir}/rpmbuild
                     mkdir -p \${build_dir}/rpmbuild/{RPMS/\${ARCH},SOURCES,SRPMS,SPECS,BUILD}
 
                     mv jemalloc.spec rpmbuild/SPECS/
