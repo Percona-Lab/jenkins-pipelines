@@ -21,9 +21,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     fi
 
                     yum -y install rpm-build gcc gcc-c++ make automake autoconf libxslt wget
-                    wget --no-check-certificate \${JEMALLOC_RPM_SOURCE}
 
                     cd \${build_dir}
+                    wget --no-check-certificate \${JEMALLOC_RPM_SOURCE}
 
                     rpm2cpio jemalloc-3.6.0-1.el7.src.rpm | cpio -id
 
@@ -57,9 +57,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     fi
 
                     yum -y install rpm-build gcc gcc-c++ make automake autoconf libxslt wget
-                    wget --no-check-certificate \${JEMALLOC_RPM_SOURCE}
 
                     cd \${build_dir}
+                    wget --no-check-certificate \${JEMALLOC_RPM_SOURCE}
 
                     rpm2cpio jemalloc-3.6.0-1.el7.src.rpm | cpio -id
 
@@ -68,6 +68,16 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     rm -rf jemalloc-3.6.0.tar.bz2
                     tar -cjf jemalloc-3.6.0.tar.bz2 jemalloc-3.6.0/
                     rm -rf jemalloc-3.6.0/
+
+                    mkdir -p \${build_dir}/rpmbuild/{RPMS/\${ARCH},SOURCES,SRPMS,SPECS,BUILD}
+
+                    mv jemalloc.spec rpmbuild/SPECS/
+                    mv jemalloc* rpmbuild/SOURCES/
+
+                    rpmbuild -ba --define \\"debug_package %{nil}\\" rpmbuild/SPECS/jemalloc.spec --define \\"_topdir \$PWD/rpmbuild\\"
+                    rpmbuild -bs --define \\"_topdir ${build_dir}/rpmbuild\\" --define \\"dist .generic\\" rpmbuild/SPECS/jemalloc.spec
+                    mkdir -p srpm
+                    cp rpmbuild/SRPMS/*.rpm srpm
                 "
             """
             break
