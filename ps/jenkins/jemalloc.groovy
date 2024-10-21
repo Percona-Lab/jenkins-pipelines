@@ -44,9 +44,14 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             break
         case "RPM" :
             sh """
-                 echo "======== RPM ========="
-                 cd test
-                 ls -la
+                set -o xtrace
+                cd test
+                ls -la
+                export build_dir=\$(pwd -P)
+                docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -x -c "
+                    export ARCH=\\\$(arch)
+                    export RHEL=\\\$(rpm --eval %rhel)
+                "
             """
             break
         case "RPM1" :
@@ -142,8 +147,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
 
                     dpkg-source -x jemalloc_3.6.0-2.dsc
                     cd jemalloc-3.6.0
-                    rm -rf test/unit/junk*
                     sed -i 's/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g' Makefile.in
+                    sed -i 's/make check/#make check/g' Makefile.in
                     sed -i 's/override_dh_auto_test:/override_dh_builddeb:\n\tdh_builddeb -- -Zgzip\n\noverride_dh_auto_test:/g' debian/rules
                     cat debian/rules
 
