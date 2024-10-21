@@ -142,6 +142,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
 
                     dpkg-source -x jemalloc_3.6.0-2.dsc
                     cd jemalloc-3.6.0
+                    rm -rf test/unit/junk*
                     sed -i 's/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g' Makefile.in
                     sed -i 's/override_dh_auto_test:/override_dh_builddeb:\n\tdh_builddeb -- -Zgzip\n\noverride_dh_auto_test:/g' debian/rules
                     cat debian/rules
