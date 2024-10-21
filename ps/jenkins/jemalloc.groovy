@@ -33,20 +33,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     tar -cjf jemalloc-3.6.0.tar.bz2 jemalloc-3.6.0/
                     rm -rf jemalloc-3.6.0/
 
-                    #yum -y install git
-                    #cd \${build_dir}
                     ls -la
-                    #git clone \${BUILD_URL}
-                    #cd jemalloc-packaging
-                    #git clean -fd
-                    #git reset --hard
-                    #git checkout \${BUILD_BRANCH}
                     echo \${VERSION} \${RELEASE}
-                    #sed -i 's/Version:.*/Version:        \"${VERSION}\"/g' \${build_dir}/jemalloc-packaging/rpm/SPECS/jemalloc.spec
-                    #sed -i 's/Release:.*/Release:        \"${RELEASE}\"%{?dist}/g' \${build_dir}/jemalloc-packaging/rpm/SPECS/jemalloc.spec
-                    #cat \${build_dir}/jemalloc-packaging/rpm/SPECS/jemalloc.spec
-                    #cd ..
-                    #tar --owner=0 --group=0 -czf jemalloc-packaging.tar.gz jemalloc-packaging
                     echo \"UPLOAD=UPLOAD/experimental/BUILDS/jemalloc/${VERSION}-${RELEASE}/${BUILD_ID}\" >> jemalloc.properties
 
                     mkdir -p source_tarball
@@ -56,11 +44,17 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             break
         case "RPM" :
             sh """
+                 echo "======== RPM ========="
+                 cd test
+                 ls -la
+            """
+            break
+        case "RPM1" :
+            sh """
                 set -o xtrace
                 cd test
                 ls -la
                 export build_dir=\$(pwd -P)
-/*
                 docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -x -c "
                     export ARCH=\\\$(arch)
                     export RHEL=\\\$(rpm --eval %rhel)
@@ -100,7 +94,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     mkdir -p rpm
                     cp rpmbuild/RPMS/*/*.rpm rpm/
                 "
-*/
              """
              break
         case "DEB" :
@@ -149,8 +142,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
 
                     dpkg-source -x jemalloc_3.6.0-2.dsc
                     cd jemalloc-3.6.0
-                    sed -i \\"s/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g\\" Makefile.in
-                    sed -i \\"s|override_dh_auto_test:|override_dh_builddeb:\n\tdh_builddeb -- -Zgzip\n\noverride_dh_auto_test:|g\\" debian/rules
+                    sed -i 's/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g' Makefile.in
+                    sed -i 's/override_dh_auto_test:/override_dh_builddeb:\n\tdh_builddeb -- -Zgzip\n\noverride_dh_auto_test:/g' debian/rules
                     cat debian/rules
 
                     dch -m -D \\"\$(lsb_release -sc)\\" --force-distribution -v \\"\${VERSION}-\${RELEASE}.\\\$(lsb_release -sc)\\" \\"Update jemalloc distribution\\"
