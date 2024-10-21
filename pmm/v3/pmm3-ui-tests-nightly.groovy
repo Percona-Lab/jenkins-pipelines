@@ -35,7 +35,6 @@ void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
         string(name: 'OVA_VERSION', value: SERVER_VERSION),      
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
     ]
-    echo ovfStagingJob.buildVariables
     env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
     env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
     env.VM_IP = ovfStagingJob.buildVariables.IP
