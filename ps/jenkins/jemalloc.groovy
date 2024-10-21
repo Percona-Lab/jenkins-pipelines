@@ -58,7 +58,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             sh """
                 set -o xtrace
                 cd test
-                #cp ../source_tarball/jemalloc-packaging.tar.gz .
                 ls -la
                 export build_dir=\$(pwd -P)
                 docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -x -c "
@@ -120,7 +119,11 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     done
                     export DEBIAN_VERSION=\\\$(lsb_release -sc)
                     DEBIAN_FRONTEND=noninteractive apt-get -y purge eatmydata || true
-                    PKGLIST=\\"gcc-9\\"
+                    if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = noble ]; then
+                        PKGLIST=\\"gcc-9\\"
+                    else
+                        PKGLIST=\\"gcc-11\\"
+                    fi
                     if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = bookworm -o  \\\$DEBIAN_VERSION = noble ]; then
                         PKGLIST=\\"\\\${PKGLIST} python3-mysqldb\\"
                     else
@@ -128,7 +131,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     fi
                     DEBIAN_FRONTEND=noninteractive apt-get -y install \\\${PKGLIST}
 
-                    if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = bookworm -o  \\\$DEBIAN_VERSION = noble ]; then
+                    if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = noble ]; then
                          ln -s -f /usr/bin/g++-9 /usr/bin/g++
                          ln -s -f /usr/bin/gcc-9 /usr/bin/gcc
                          ln -s -f /usr/bin/gcc-ar-9 /usr/bin/gcc-ar
@@ -144,9 +147,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
 
                     dpkg-source -x jemalloc_3.6.0-2.dsc
                     cd jemalloc-3.6.0
-                    sed -i 's/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g' Makefile.in
-
-                    sed -i 's|override_dh_auto_test:|override_dh_builddeb:\n\tdh_builddeb -- -Zgzip\n\noverride_dh_auto_test:|' debian/rules
+                    sed -i \\"s/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g\\" Makefile.in
+                    sed -i \\"s|override_dh_auto_test:|override_dh_builddeb:\n\tdh_builddeb -- -Zgzip\n\noverride_dh_auto_test:|g\\" debian/rules
                     cat debian/rules
 
                     dch -m -D \\"\$(lsb_release -sc)\\" --force-distribution -v \\"\${VERSION}-\${RELEASE}.\\\$(lsb_release -sc)\\" \\"Update jemalloc distribution\\"
