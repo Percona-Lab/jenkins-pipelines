@@ -20,26 +20,26 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
-        env.PMM_UI_URL = "http://${SERVER_IP}/"
+        env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
+        env.PMM_UI_URL = "https://${SERVER_IP}/"
     }
     else
     {
-        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
-        env.PMM_UI_URL = "http://${VM_IP}/"
+        env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${VM_IP}"
+        env.PMM_UI_URL = "https://${VM_IP}/"
     }
 }
 
 void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
     ovfStagingJob = build job: 'pmm3-ovf-staging-start', parameters: [
-        string(name: 'OVA_VERSION', value: SERVER_VERSION),      
+        string(name: 'OVA_VERSION', value: SERVER_VERSION),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
     ]
     env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
     env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
     env.VM_IP = ovfStagingJob.buildVariables.IP
     env.VM_NAME = ovfStagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "http://admin:admin@${OVF_INSTANCE_IP}"
+    env.PMM_URL = "https://admin:admin@${OVF_INSTANCE_IP}"
     env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}"
     env.ADMIN_PASSWORD = "admin"
 }
@@ -52,7 +52,7 @@ void runAMIStagingStart(String AMI_ID) {
     env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
     env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
     env.VM_NAME = amiStagingJob.buildVariables.INSTANCE_ID
-    env.PMM_URL = "http://admin:admin@${AMI_INSTANCE_IP}"
+    env.PMM_URL = "https://admin:admin@${AMI_INSTANCE_IP}"
     env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}"
     env.ADMIN_PASSWORD = "admin"
 }
@@ -102,13 +102,13 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
     }
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
-        env.PMM_UI_URL = "http://${SERVER_IP}/"
+        env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
+        env.PMM_UI_URL = "https://${SERVER_IP}/"
     }
     else
     {
-        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
-        env.PMM_UI_URL = "http://${VM_IP}/"
+        env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${VM_IP}"
+        env.PMM_UI_URL = "https://${VM_IP}/"
     }
 }
 
@@ -173,7 +173,7 @@ pipeline {
             name: 'GIT_BRANCH')
         choice(
             choices: ['docker', 'ovf', 'ami'],
-            description: "",
+            description: "PMM Server installation type.",
             name: 'SERVER_TYPE')
         string(
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
@@ -335,7 +335,7 @@ pipeline {
                     steps {
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh """
-                                sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                                sed -i 's+https://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                                 export PWD=\$(pwd);
                                 npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
                             """
@@ -403,4 +403,3 @@ pipeline {
         }
     }
 }
-  

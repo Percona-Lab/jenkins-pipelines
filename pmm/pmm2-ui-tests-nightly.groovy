@@ -28,7 +28,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
 }
- 
+
 void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
     ovfStagingJob = build job: 'pmm2-ovf-staging-start', parameters: [
         string(name: 'OVA_VERSION', value: SERVER_VERSION),      
@@ -44,7 +44,7 @@ void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
 }
 
 void runAMIStagingStart(String AMI_ID) {
-    amiStagingJob = build job: 'pmm2-ami-staging-start', parameters: [ 
+    amiStagingJob = build job: 'pmm2-ami-staging-start', parameters: [
         string(name: 'AMI_ID', value: AMI_ID)
     ]
     env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
@@ -209,7 +209,7 @@ pipeline {
             name: 'GIT_COMMIT_HASH')
         choice(
             choices: ['docker', 'ovf', 'ami'],
-            description: "",
+            description: "PMM Server installation type.",
             name: 'SERVER_TYPE')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
