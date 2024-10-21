@@ -62,6 +62,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     wget --no-check-certificate \${JEMALLOC_RPM_SOURCE}
 
                     rpm2cpio jemalloc-3.6.0-1.el7.src.rpm | cpio -id
+                    tree
 
                     tar -xvf jemalloc-3.6.0.tar.bz2
                     sed -i 's/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g' jemalloc-3.6.0/Makefile.in
@@ -70,6 +71,21 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     rm -rf jemalloc-3.6.0/
 
                     mkdir -p \${build_dir}/rpmbuild/{RPMS/\\\${ARCH},SOURCES,SRPMS,SPECS,BUILD}
+
+                    mv jemalloc.spec rpmbuild/SPECS/
+                    mv jemalloc* rpmbuild/SOURCES/
+
+                    rpmbuild -ba --define \\"debug_package %{nil}\\" rpmbuild/SPECS/jemalloc.spec --define \\"_topdir \$PWD/rpmbuild\\"
+                    rpmbuild -bs --define \\"_topdir ${build_dir}/rpmbuild\\" --define \\"dist .generic\\" rpmbuild/SPECS/jemalloc.spec
+                    mkdir -p srpm
+                    cp rpmbuild/SRPMS/*.rpm srpm
+
+                    rm -rf rpmbuild
+                    mkdir rpmbuild
+
+                    rpmbuild --define \\"_topdir ${build_dir}/rpmbuild\\" --rebuild jemalloc-*.src.rpm
+                    mkdir -p rpm
+                    cp rpmbuild/RPMS/*/*.rpm rpm/
                 "
             """
             break
