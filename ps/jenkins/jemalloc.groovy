@@ -51,6 +51,14 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -x -c "
                     export ARCH=\\\$(arch)
                     export RHEL=\\\$(rpm --eval %rhel)
+                    if [ \\\${RHEL} = 8 ]; then
+                        sed -i 's/mirrorlist=/#mirrorlist=/g' /etc/yum.repos.d/CentOS-*
+                        sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+                    fi
+
+                    yum -y install rpm-build gcc gcc-c++ make automake autoconf libxslt wget
+                    wget --no-check-certificate \${JEMALLOC_RPM_SOURCE}
+                    ls -la
                 "
             """
             break
@@ -148,8 +156,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     dpkg-source -x jemalloc_3.6.0-2.dsc
                     cd jemalloc-3.6.0
                     sed -i 's/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g' Makefile.in
-                    sed -i 's/make check/#make check/g' Makefile.in
-                    sed -i 's/override_dh_auto_test:/override_dh_builddeb:\n\tdh_builddeb -- -Zgzip\n\noverride_dh_auto_test:/g' debian/rules
+                    sed -i 's/make check/#make check/g' debian/rules
+                    sed -i 's/override_dh_auto_test:/override_dh_builddeb:\\n\\tdh_builddeb -- -Zgzip\n\noverride_dh_auto_test:/g' debian/rules
                     cat debian/rules
 
                     dch -m -D \\"\$(lsb_release -sc)\\" --force-distribution -v \\"\${VERSION}-\${RELEASE}.\\\$(lsb_release -sc)\\" \\"Update jemalloc distribution\\"
