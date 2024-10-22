@@ -293,6 +293,14 @@ pipeline {
             steps {
                 sh '''
                     echo "${PMM_URL}/ping"
+                    while [ $a -lt 20 ]
+                    do
+                        curl -i -s --insecure -w \'\'%{http_code}\'\' \${PMM_URL}/ping
+                        sleep 5
+                        echo $a
+                        a=`expr $a + 1`
+                    done
+
                     timeout 100 bash -c \'while [[ "$(curl -i -s --insecure -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false
                 '''
             }
