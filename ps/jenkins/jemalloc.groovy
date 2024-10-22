@@ -92,52 +92,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 "
             """
             break
-        case "RPM1" :
-            sh """
-                set -o xtrace
-                cd test
-                ls -la
-                export build_dir=\$(pwd -P)
-                docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -x -c "
-                    export ARCH=\\\$(arch)
-                    export RHEL=\\\$(rpm --eval %rhel)
-                    if [ \\\${RHEL} = 8 ]; then
-                        sed -i 's/mirrorlist=/#mirrorlist=/g' /etc/yum.repos.d/CentOS-*
-                        sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
-                    fi
-
-                    yum -y install rpm-build gcc gcc-c++ make automake autoconf libxslt wget
-                    wget --no-check-certificate \${JEMALLOC_RPM_SOURCE} 
-
-                    cd \${build_dir}
-
-                    rpm2cpio jemalloc-3.6.0-1.el7.src.rpm | cpio -id
-
-                    tar -xvf jemalloc-3.6.0.tar.bz2
-                    sed -i 's/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g' jemalloc-3.6.0/Makefile.in
-                    rm -rf jemalloc-3.6.0.tar.bz2
-                    tar -cjf jemalloc-3.6.0.tar.bz2 jemalloc-3.6.0/
-                    rm -rf jemalloc-3.6.0/
-
-                    mkdir -p \${build_dir}/rpmbuild/{RPMS/\${ARCH},SOURCES,SRPMS,SPECS,BUILD}
-
-                    mv jemalloc.spec rpmbuild/SPECS/
-                    mv jemalloc* rpmbuild/SOURCES/
-
-                    rpmbuild -ba --define \\"debug_package %{nil}\\" rpmbuild/SPECS/jemalloc.spec --define \\"_topdir \$PWD/rpmbuild\\"
-                    rpmbuild -bs --define \\"_topdir \${build_dir}/rpmbuild\\" --define \\"dist .generic\\" rpmbuild/SPECS/jemalloc.spec
-                    mkdir -p srpm
-                    cp rpmbuild/SRPMS/*.rpm srpm
-
-                    rm -rf rpmbuild
-                    mkdir rpmbuild
-
-                    rpmbuild --define \\"_topdir \${build_dir}/rpmbuild\\" --rebuild jemalloc-*.src.rpm
-                    mkdir -p rpm
-                    cp rpmbuild/RPMS/*/*.rpm rpm/
-                "
-             """
-             break
         case "DEB" :
              sh """
                 set -o xtrace
@@ -185,7 +139,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     dpkg-source -x jemalloc_3.6.0-2.dsc
                     cd jemalloc-3.6.0
                     sed -i 's/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g' Makefile.in
-                    sed -i 's/make check/#make check/g' debian/rules
+                    if [ \\\$DEBIAN_VERSION = bookworm -a \\\$ARCH = aarch64 ]; then
+                        sed -i 's/make check/#make check/g' debian/rules
+                    fi
                     sed -i 's/override_dh_auto_test:/override_dh_builddeb:\\n\\tdh_builddeb -- -Zgzip\n\noverride_dh_auto_test:/g' debian/rules
                     cat debian/rules
 
