@@ -71,6 +71,11 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     rm -rf jemalloc-3.6.0/
 
                     mkdir -p \${build_dir}/rpmbuild/{RPMS/\\\${ARCH},SOURCES,SRPMS,SPECS,BUILD}
+
+                    mv jemalloc.spec rpmbuild/SPECS/
+                    mv jemalloc* rpmbuild/SOURCES/
+
+                    rpmbuild -ba --define \\"debug_package %{nil}\\" rpmbuild/SPECS/jemalloc.spec --define \\"_topdir \${build_dir}/rpmbuild\\"
                 "
             """
             break
