@@ -303,7 +303,7 @@ pipeline {
             steps {
                 sh '''
                     echo "${PMM_URL}/ping"
-                    timeout 100 bash -c \'while [[ "$(curl -s --insecure -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false
+                    timeout 100 bash -c \'while [[ "$(curl -i -s --insecure -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false
                 '''
             }
         }
