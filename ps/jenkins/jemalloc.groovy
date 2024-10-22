@@ -579,7 +579,7 @@ pipeline {
     post {
         success {
             script {
-                currentBuild.description = "Built on ${BUILD_BRANCH}, path to packages: experimental/${AWS_STASH_PATH}"
+                currentBuild.description = "${VERSION}-${RELEASE}, path to packages: experimental/${AWS_STASH_PATH}"
             }
             deleteDir()
         }
