@@ -100,16 +100,6 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
         env.VM_CLIENT_IP_MONGO = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_MONGO = stagingJob.buildVariables.VM_NAME
     }
-    def clientInstance = "yes";
-    if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
-        env.PMM_UI_URL = "http://${SERVER_IP}/"
-    }
-    else
-    {
-        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
-        env.PMM_UI_URL = "http://${VM_IP}/"
-    }
 }
 
 void destroyStaging(IP) {
