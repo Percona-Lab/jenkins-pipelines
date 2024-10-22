@@ -78,6 +78,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     \\\$(echo \\"Epoch: 1\\" && cat rpmbuild/SPECS/jemalloc.spec ) > file && mv file rpmbuild/SPECS/jemalloc.spec
 
                     rpmbuild -bs --define \\"dist .generic\\" rpmbuild/SPECS/jemalloc.spec --define \\"_topdir \${build_dir}/rpmbuild\\"
+                    mkdir -p srpm
+                    cp rpmbuild/SRPMS/*.rpm srpm
                     mv rpmbuild/SRPMS/* ./
 
                     rm -rf rpmbuild
