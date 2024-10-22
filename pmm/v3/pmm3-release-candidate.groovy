@@ -142,6 +142,9 @@ pipeline {
             name: 'NOTIFICATION_CHANNEL'
         )
     }
+    options {
+        skipStagesAfterUnstable()
+    }
     stages {
         stage('Update API descriptors') {
             when {
@@ -212,7 +215,7 @@ pipeline {
                 deleteReleaseBranches(env.SUBMODULES_GIT_BRANCH)
                 script {
                     currentBuild.description = "Release branches were deleted: ${env.SUBMODULES_GIT_BRANCH}"
-                    return
+                    currentBuild.result = 'UNSTABLE'
                 }
             }
         }
