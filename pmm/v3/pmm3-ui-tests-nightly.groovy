@@ -39,8 +39,8 @@ void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
     env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
     env.VM_IP = ovfStagingJob.buildVariables.IP
     env.VM_NAME = ovfStagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "http://admin:admin@${OVF_INSTANCE_IP}"
-    env.PMM_UI_URL = "http://${OVF_INSTANCE_IP}"
+    env.PMM_URL = "https://admin:admin@${OVF_INSTANCE_IP}"
+    env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}"
     env.ADMIN_PASSWORD = "admin"
 }
 
@@ -52,8 +52,8 @@ void runAMIStagingStart(String AMI_ID) {
     env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
     env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
     env.VM_NAME = amiStagingJob.buildVariables.INSTANCE_ID
-    env.PMM_URL = "http://admin:admin@${AMI_INSTANCE_IP}"
-    env.PMM_UI_URL = "http://${AMI_INSTANCE_IP}"
+    env.PMM_URL = "https://admin:admin@${AMI_INSTANCE_IP}"
+    env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}"
     env.ADMIN_PASSWORD = "admin"
 }
 
@@ -303,7 +303,7 @@ pipeline {
             steps {
                 sh '''
                     echo "${PMM_URL}/ping"
-                    timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false
+                    timeout 100 bash -c \'while [[ "$(curl -s --insecure -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false
                 '''
             }
         }
