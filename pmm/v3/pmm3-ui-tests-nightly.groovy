@@ -265,6 +265,23 @@ pipeline {
                 }
             }
         }
+        stage('Sanity check') {
+            steps {
+                sh '''
+                    echo "${PMM_URL}/ping"
+                    a=0
+                    while [ $a -lt 20 ]
+                    do
+                        curl -i -s --insecure -w "%{http_code}" ${PMM_URL}/ping
+                        sleep 5
+                        echo $a
+                        a=$(( a + 1 ))
+                    done
+
+                    timeout 100 bash -c 'while [[ ! "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)" =~ "200" ]]; do sleep 5; echo "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)"; done' || false
+                '''
+            }
+        }
         stage('Setup PMM Clients') {
             parallel {
                 stage('ps-group-replication client') {
@@ -287,23 +304,6 @@ pipeline {
                         runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pdpgsql --database pgsql --database mysql', 'yes', env.VM_IP, 'postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
                     }
                 }
-            }
-        }
-        stage('Sanity check') {
-            steps {
-                sh '''
-                    echo "${PMM_URL}/ping"
-                    a=0
-                    while [ $a -lt 20 ]
-                    do
-                        curl -i -s --insecure -w "%{http_code}" ${PMM_URL}/ping
-                        sleep 5
-                        echo $a
-                        a=$(( a + 1 ))
-                    done
-
-                    timeout 100 bash -c \'while [[ "$(curl -i -s --insecure -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false
-                '''
             }
         }
         stage('Setup Node') {
