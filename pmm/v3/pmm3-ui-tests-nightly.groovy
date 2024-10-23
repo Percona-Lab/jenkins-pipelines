@@ -268,16 +268,6 @@ pipeline {
         stage('Sanity check') {
             steps {
                 sh '''
-                    echo "${PMM_URL}/ping"
-                    a=0
-                    while [ $a -lt 20 ]
-                    do
-                        curl -i -s --insecure -w "%{http_code}" ${PMM_URL}/ping
-                        sleep 5
-                        echo $a
-                        a=$(( a + 1 ))
-                    done
-
                     timeout 100 bash -c 'while [[ ! "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)" =~ "200" ]]; do sleep 5; echo "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)"; done' || false
                 '''
             }
