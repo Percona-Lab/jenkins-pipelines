@@ -40,7 +40,7 @@ void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
     env.VM_IP = ovfStagingJob.buildVariables.IP
     env.VM_NAME = ovfStagingJob.buildVariables.VM_NAME
     env.PMM_URL = "https://admin:admin@${OVF_INSTANCE_IP}"
-    env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}"
+    env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}/"
     env.ADMIN_PASSWORD = "admin"
 }
 
@@ -53,7 +53,7 @@ void runAMIStagingStart(String AMI_ID) {
     env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
     env.VM_NAME = amiStagingJob.buildVariables.INSTANCE_ID
     env.PMM_URL = "https://admin:admin@${AMI_INSTANCE_IP}"
-    env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}"
+    env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}/"
     env.ADMIN_PASSWORD = "admin"
 }
 
