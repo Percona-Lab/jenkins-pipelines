@@ -53,38 +53,7 @@ pipeline {
                     git submodule update --init --jobs 10
                     git submodule status
 
-                    if [ -s ci.yml ]; then
-                        source /home/ec2-user/venv/bin/activate
-                        python3 ci.py
-                        . ./.git-sources
-                        echo $pmm_commit > apiCommitSha
-                        echo $pmm_branch > apiBranch
-                        echo $pmm_url > apiURL
-                        echo $pmm_qa_branch > pmmQABranch
-                        echo $pmm_qa_commit > pmmQACommitSha
-                        echo $pmm_ui_tests_branch > pmmUITestBranch
-                        echo $pmm_ui_tests_commit > pmmUITestsCommitSha
-                    else
-                        export commit_sha=$(git submodule status | grep 'pmm-managed' | awk -F ' ' '{print $1}')
-                        export api_tests_commit_sha=$(git submodule status | grep 'sources/pmm/src' | awk -F ' ' '{print $1}')
-                        export api_tests_branch=$(git config -f .gitmodules submodule.pmm.branch)
-                        export api_tests_url=$(git config -f .gitmodules submodule.pmm.url)
-                        echo $api_tests_commit_sha > apiCommitSha
-                        echo $api_tests_branch > apiBranch
-                        echo $api_tests_url > apiURL
-                        cat apiBranch
-                        cat apiURL
-                        export pmm_qa_commit_sha=$(git submodule status | grep 'pmm-qa' | awk -F ' ' '{print $1}')
-                        export pmm_qa_branch=$(git config -f .gitmodules submodule.pmm-qa.branch)
-                        echo $pmm_qa_branch > pmmQABranch
-                        echo $pmm_qa_commit_sha > pmmQACommitSha
-                        export pmm_ui_tests_commit_sha=$(git submodule status | grep 'pmm-ui-tests' | awk -F ' ' '{print $1}')
-                        export pmm_ui_tests_branch=$(git config -f .gitmodules submodule.pmm-ui-tests.branch)
-                        echo $pmm_ui_tests_branch > pmmUITestBranch
-                        echo $pmm_ui_tests_commit_sha > pmmUITestsCommitSha
-                    fi
-                    export fb_commit_sha=$(git rev-parse HEAD)
-                    echo $fb_commit_sha > fbCommitSha
+                    ${PATH_TO_SCRIPTS}/build-submodules
                 '''
                 }
                 script {

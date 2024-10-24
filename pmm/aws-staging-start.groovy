@@ -82,7 +82,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['16.1','15.5', '14.10', '13.13', '12.17', '11.22'],
+            choices: ['17', '16.1','15.5', '14.10', '13.13', '12.17', '11.22'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -90,7 +90,7 @@ pipeline {
             description: "MariaDB Server version",
             name: 'MD_VERSION')
         choice(
-            choices: ['7.0', '6.0', '5.0', '4.4'],
+            choices: ['7.0', '8.0', '6.0', '5.0', '4.4'],
             description: "Percona Server for MongoDB version",
             name: 'MO_VERSION')
         choice(
