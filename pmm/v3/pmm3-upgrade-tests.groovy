@@ -95,43 +95,29 @@ pipeline {
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: 'perconalab/pmm-server:3-dev-latest',
-            description: 'PMM Server Tag to be upgraded to via container replacement',
-            name: 'PMM_SERVER_TAG')
-        string(
-            defaultValue: 'admin-password',
-            description: 'pmm-server admin user default password',
-            name: 'ADMIN_PASSWORD')
-        string(
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
-        choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo, for RC testing',
-            name: 'ENABLE_TESTING_REPO')
-        choice(
-            choices: ['yes', 'no'],
-            description: 'Enable Experimental, for Dev Latest testing',
-            name: 'ENABLE_EXPERIMENTAL_REPO')
-        choice(
-            choices: ['no', 'yes'],
-            description: 'Perform Docker-way Upgrade?',
-            name: 'PERFORM_DOCKER_WAY_UPGRADE')
         text(
-            defaultValue: '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-settings --setup-alertmanager --setup-external-service --setup-ssl-services --mongo-replica-for-backup',
+            defaultValue: '--database psmdb=latest --database pgsql=latest --database ps=latest --database external',
             description: '''
-            Configure PMM Clients
-            ms - MySQL (ex. --addclient=ms,1),
-            ps - Percona Server for MySQL (ex. --addclient=ps,1),
-            pxc - Percona XtraDB Cluster, --with-proxysql (to be used with proxysql only ex. --addclient=pxc,1 --with-proxysql),
-            md - MariaDB Server (ex. --addclient=md,1),
-            mo - Percona Server for MongoDB(ex. --addclient=mo,1),
-            modb - Official MongoDB version from MongoDB Inc (ex. --addclient=modb,1),
-            pgsql - Postgre SQL Server (ex. --addclient=pgsql,1)
-            pdpgsql - Percona Distribution for PostgreSQL (ex. --addclient=pdpgsql,1)
-            An example: --addclient=ps,1 --addclient=mo,1 --addclient=md,1 --addclient=pgsql,2 --addclient=modb,2
-            ''',
+            Configure PMM Clients:
+            --database ps - Percona Server for MySQL (ex: --database ps=5.7,QUERY_SOURCE=perfschema)
+            Additional options:
+                QUERY_SOURCE=perfschema|slowlog
+                SETUP_TYPE=replica(Replication)|gr(Group Replication)|(single node if no option passed)
+            --database mysql - Official MySQL (ex: --database mysql,QUERY_SOURCE=perfschema)
+            Additional options:
+                QUERY_SOURCE=perfschema|slowlog
+            --database psmdb - Percona Server for MongoDB (ex: --database psmdb=latest,SETUP_TYPE=pss)
+            Additional options:
+                SETUP_TYPE=pss(Primary-Secondary-Secondary)|psa(Primary-Secondary-Arbiter)|shards(Sharded cluster)
+            --database pdpgsql - Percona Distribution for PostgreSQL (ex: --database pdpgsql=16)
+            --database pgsql - Official PostgreSQL Distribution (ex: --database pgsql=16)
+            --database pxc - Percona XtraDB Cluster, (to be used with proxysql only, ex: --database pxc)
+            -----
+            Example: --database ps=5.7,QUERY_SOURCE=perfschema --database psmdb,SETUP_TYPE=pss
+            ''',,
             name: 'CLIENTS')
     }
     options {
@@ -188,13 +174,20 @@ pipeline {
                 sh """
                     set -o errexit
                     set -o xtrace
-                    export PATH=$PATH:/usr/sbin
-                    export PMM_CLIENT_VERSION=${CLIENT_VERSION}
-                    bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
-                        --download \
-                        ${CLIENTS} \
-                        --pmm
-                    sleep 20
+                    pushd /srv/qa-integration
+                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+                    popd
+                    pushd /srv/qa-integration/pmm_qa
+                        echo "Setting docker based PMM clients"
+                        python3 -m venv virtenv
+                        . virtenv/bin/activate
+                        pip install --upgrade pip
+                        pip install -r requirements.txt
+
+                        python pmm-framework.py --v \
+                        --client-version=${PMM_CLIENT_VERSION} \
+                        ${EXTERNAL_PMM_SERVER_FLAG} ${CLIENTS}
+                    popd
                 """
             }
         }
