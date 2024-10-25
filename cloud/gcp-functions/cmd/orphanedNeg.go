@@ -19,13 +19,13 @@ func CleanOrphanedNEG(w http.ResponseWriter, r *http.Request) {
 	// Initialize the client for Network Endpoint Groups, Backend Services, and getting Zones list.
 	negClient, err := compute.NewNetworkEndpointGroupsRESTClient(ctx)
 	if err != nil {
-		log.Fatalf("Failed to create NEG client: %v", err)
+		log.Fatal("Failed to create NEG client: %v", err)
 	}
 	defer negClient.Close()
 
 	backendClient, err := compute.NewBackendServicesRESTClient(ctx)
 	if err != nil {
-		log.Fatalf("Failed to create BackendService client: %v", err)
+		log.Fatal("Failed to create BackendService client: %v", err)
 	}
 	defer backendClient.Close()
 
@@ -50,16 +50,16 @@ func CleanOrphanedNEG(w http.ResponseWriter, r *http.Request) {
 					break
 				}
 				if err != nil {
-					log.Fatalf("Failed to list NEGs: %v", err)
+					log.Fatal("Failed to list NEGs: %v", err)
 				}
 
-				log.Printf("Checking NEG: %s\n", neg.GetName())
+				log.Print("Checking NEG: %s\n", neg.GetName())
 
 				// Check if the NEG is attached to any Backend Service
 				if isNEGUsedByBackendService(ctx, backendClient, project, neg.GetSelfLink()) {
-					log.Printf("NEG %s is in use by a backend service.\n", neg.GetName())
+					log.Print("NEG %s is in use by a backend service.\n", neg.GetName())
 				} else {
-					log.Printf("NEG %s is NOT in use, it can be deleted.\n", neg.GetName())
+					log.Print("NEG %s is NOT in use, it can be deleted.\n", neg.GetName())
 
 					deleteReq := &computepb.DeleteNetworkEndpointGroupRequest{
 						Project:              project,
@@ -68,9 +68,9 @@ func CleanOrphanedNEG(w http.ResponseWriter, r *http.Request) {
 					}
 					op, err := negClient.Delete(ctx, deleteReq)
 					if err != nil {
-						log.Printf("Failed to delete NEG %s: %v", neg.Name, err)
+						log.Print("Failed to delete NEG %s: %v", neg.Name, err)
 					} else {
-						log.Printf("Deleted unused NEG: %s, Operation: %v\n", neg.Name, op)
+						log.Print("Deleted unused NEG: %s, Operation: %v\n", neg.Name, op)
 					}
 
 				}
@@ -95,11 +95,11 @@ func isNEGUsedByBackendService(ctx context.Context, client *compute.BackendServi
 			break
 		}
 		if err != nil {
-			log.Fatalf("Failed to list backend services: %v", err)
+			log.Fatal("Failed to list backend services: %v", err)
 		}
 
 		for _, service := range backend.Value.BackendServices {
-			log.Printf("Backend Service: %s, SelfLink: %s\n", service.GetName(), service.GetSelfLink())
+			log.Print("Backend Service: %s, SelfLink: %s\n", service.GetName(), service.GetSelfLink())
 			if service.GetSelfLink() == negSelfLink {
 				return true
 			}
