@@ -89,7 +89,7 @@ pipeline {
         choice(
             choices: versionsList,
             description: 'PMM Client Version to test for Upgrade',
-            name: 'CLIENT_VERSION')
+            name: 'PMM_CLIENT_VERSION')
         string(
             defaultValue: latestVersion,
             description: 'latest PMM Server Version',
@@ -171,7 +171,7 @@ pipeline {
                 }
             }
         }
-        stage('Setup Client for PMM-Server') {
+        stage('Setup Databases for PMM-Server') {
             steps {
                 sh """
                     set -o errexit
