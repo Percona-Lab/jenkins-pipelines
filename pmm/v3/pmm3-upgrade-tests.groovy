@@ -137,16 +137,35 @@ pipeline {
         stage('Start Server Instance') {
             steps {
                 sh '''
-                    PWD=$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:${DOCKER_TAG} docker-compose up -d
+                    echo "Upgrading to: ${{ steps.pmm_server_to_image.outputs.IMAGE }}"
+
+                    docker network create pmm-network
+                    docker volume create pmm-volume
+
+                    docker run --detach --restart always \
+                        --network="pmm-network" \
+                        -e WATCHTOWER_DEBUG=1 \
+                        -e WATCHTOWER_HTTP_API_TOKEN=testUpgradeToken \
+                        -e WATCHTOWER_HTTP_API_UPDATE=1 \
+                        --volume /var/run/docker.sock:/var/run/docker.sock \
+                        --name watchtower \
+                        perconalab/watchtower:PMM-13202-fix-double-unlock
+
+                    sleep 10
+
+                    docker run --detach --restart always \
+                        --network="pmm-network" \
+                        -e PMM_DEBUG=1 \
+                        -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
+                        -e PMM_WATCHTOWER_TOKEN=testUpgradeToken \
+                        --publish 80:8080 --publish 443:8443 \
+                        --volume pmm-volume \
+                        --name pmm-server \
+                        ${{ inputs.pmm_server_start_version }}
+
                 '''
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
-                waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
-                waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
-                waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
-                sleep 20
-                sh """
-                    bash -x testdata/db_setup.sh
-                """
+                waitForContainer('pmm-server', 'The HTTP API is enabled at :8080.')
                 script {
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "http://${env.SERVER_IP}/"
