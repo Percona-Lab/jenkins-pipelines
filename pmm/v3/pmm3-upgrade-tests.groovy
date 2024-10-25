@@ -99,7 +99,7 @@ pipeline {
             description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH')
         text(
-            defaultValue: '--database psmdb=latest --database pgsql=latest --database ps=latest --database external',
+            defaultValue: '--database psmdb=latest',
             description: '''
                 Configure PMM Clients:
             ''',,
