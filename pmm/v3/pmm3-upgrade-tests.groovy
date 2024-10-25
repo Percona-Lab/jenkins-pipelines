@@ -136,9 +136,7 @@ pipeline {
         }
         stage('Start Server Instance') {
             steps {
-                sh '''
-                    echo "Upgrading to: ${{ steps.pmm_server_to_image.outputs.IMAGE }}"
-
+                sh """
                     docker network create pmm-network
                     docker volume create pmm-volume
 
@@ -161,9 +159,9 @@ pipeline {
                         --publish 80:8080 --publish 443:8443 \
                         --volume pmm-volume \
                         --name pmm-server \
-                        ${{ inputs.pmm_server_start_version }}
+                        ${DOCKER_TAG}
 
-                '''
+                """
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
                 waitForContainer('pmm-server', 'The HTTP API is enabled at :8080.')
                 script {
