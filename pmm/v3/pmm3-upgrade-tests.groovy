@@ -188,7 +188,7 @@ pipeline {
 
                         python pmm-framework.py --v \
                         --client-version=${PMM_CLIENT_VERSION} \
-                        ${EXTERNAL_PMM_SERVER_FLAG} ${CLIENTS}
+                        ${CLIENTS}
                     popd
                 """
             }
