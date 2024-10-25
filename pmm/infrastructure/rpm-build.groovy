@@ -53,14 +53,6 @@ pipeline {
                 }
             }
         }
-        stage('Build rpmbuild images el7') {
-            steps {
-                sh '''
-                    cd build/docker/rpmbuild/
-                    docker buildx build --pull --platform linux/amd64,linux/arm64 --tag ${IMAGE_REGISTRY}/${DOCKER_TAG}:2 --push .
-                '''
-            }
-        }
         stage('Build rpmbuild images ol9') {
             steps {
                 sh '''
