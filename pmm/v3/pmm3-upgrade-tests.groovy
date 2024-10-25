@@ -217,9 +217,7 @@ pipeline {
                     sh """
                         export PMM_VERSION=\$(curl --location 'http://localhost/v1/server/version' --header 'Authorization: Basic YWRtaW46YWRtaW4=' | jq -r '.version' | awk -F "-" \'{print \$1}\')
                         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                        echo \$PMM_VERSION
-                        echo $PRE_POST
-                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p ${PRE_POST}
+                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
                     """
                 }
             }
