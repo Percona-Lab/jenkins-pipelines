@@ -96,7 +96,7 @@ pipeline {
             name: 'PMM_SERVER_LATEST')
         string(
             defaultValue: 'v3',
-            description: 'Tag/Branch for pmm-qa repository',
+            description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH')
         text(
             defaultValue: '--database psmdb=latest --database pgsql=latest --database ps=latest --database external',
@@ -186,10 +186,10 @@ pipeline {
                     popd
                     pushd /srv/qa-integration/pmm_qa
                         echo "Setting docker based PMM clients"
-                        python3 -m venv virtenv
+                        sudo python3 -m venv virtenv
                         . virtenv/bin/activate
-                        pip install --upgrade pip
-                        pip install -r requirements.txt
+                        sudo pip install --upgrade pip
+                        sudo pip install -r requirements.txt
 
                         python pmm-framework.py --v \
                         --client-version=${PMM_CLIENT_VERSION} \
