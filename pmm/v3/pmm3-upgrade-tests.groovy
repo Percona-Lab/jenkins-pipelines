@@ -214,6 +214,9 @@ pipeline {
         stage('Check Packages before Upgrade') {
             steps {
                 script {
+                    sh """
+                        curl --location '${PMM_URL}/v1/server/version' --header 'Authorization: Basic YWRtaW46YWRtaW4=' | grep "version" | head -1
+                    """
                     checkUpgrade(DOCKER_TAG, "pre")
                 }
             }
