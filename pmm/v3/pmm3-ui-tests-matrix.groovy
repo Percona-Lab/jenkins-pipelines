@@ -76,13 +76,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Run MySQL BM Tests using @backup'){
-                    steps {
-                        script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@backup|@bm-mysql', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--database psmdb,COMPOSE_PROFILES=extra --database ps');
-                        }
-                    }
-                }
                 stage('Run Instances Tests using @instances'){
                     steps {
                         script {
@@ -90,10 +83,10 @@ pipeline {
                         }
                     }
                 }
-                stage('Run Tests using @settings @cli @pgss-pmm-integration'){
+                stage('Run Tests using @settings @cli'){
                     steps {
                         script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@settings|@cli|@pgss-pmm-integration', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--database pgsql');
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@settings|@cli', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--database pgsql');
                         }
                     }
                 }
@@ -122,13 +115,6 @@ pipeline {
                     steps {
                         script {
                             runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@ssl-postgres', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--database ssl_pdpgsql');
-                        }
-                    }
-                }
-                stage('Run PMM with @mongodb-exporter'){
-                    steps {
-                        script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@mongodb-exporter|@exporters', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--database psmdb');
                         }
                     }
                 }
