@@ -184,12 +184,15 @@ pipeline {
                     pushd /srv/qa-integration
                         sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
                     popd
+
+                    sudo chown ec2-user -R /srv/qa-integration
+
                     pushd /srv/qa-integration/pmm_qa
                         echo "Setting docker based PMM clients"
-                        sudo python3 -m venv virtenv
+                        python3 -m venv virtenv
                         . virtenv/bin/activate
-                        sudo pip install --upgrade pip
-                        sudo pip install -r requirements.txt
+                        pip install --upgrade pip
+                        pip install -r requirements.txt
 
                         python pmm-framework.py --v \
                         --client-version=${PMM_CLIENT_VERSION} \
