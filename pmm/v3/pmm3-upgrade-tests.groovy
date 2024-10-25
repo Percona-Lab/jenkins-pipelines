@@ -87,7 +87,7 @@ pipeline {
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
         choice(
-            choices: ['3.0.0']
+            choices: ["3.0.0"]
             description: 'PMM Client Version to test for Upgrade',
             name: 'PMM_CLIENT_VERSION')
         string(
