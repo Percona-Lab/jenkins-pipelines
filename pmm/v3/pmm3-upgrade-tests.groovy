@@ -83,9 +83,9 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         choice(
-            choices: versionsList,
+            defaultValue: 'perconalab/pmm-server:3-dev-latest',
             description: 'PMM Server Version to test for Upgrade',
-            name: 'DOCKER_VERSION')
+            name: 'DOCKER_TAG')
         choice(
             choices: versionsList,
             description: 'PMM Client Version to test for Upgrade',
@@ -142,9 +142,9 @@ pipeline {
             steps {
                 script {
                     if(env.PERFORM_DOCKER_WAY_UPGRADE == "yes") {
-                        currentBuild.description = "Docker way upgrade from ${env.DOCKER_VERSION} to ${env.PMM_SERVER_LATEST}"
+                        currentBuild.description = "Docker way upgrade from ${env.DOCKER_TAG} to ${env.PMM_SERVER_LATEST}"
                     } else {
-                        currentBuild.description = "UI way upgrade from ${env.DOCKER_VERSION} to ${env.PMM_SERVER_LATEST}"
+                        currentBuild.description = "UI way upgrade from ${env.DOCKER_TAG} to ${env.PMM_SERVER_LATEST}"
                     }
                 }
                 // fetch pmm-ui-tests repository
@@ -166,7 +166,7 @@ pipeline {
         stage('Start Server Instance') {
             steps {
                 sh '''
-                    PWD=$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:${DOCKER_VERSION} docker-compose up -d
+                    PWD=$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:${DOCKER_TAG} docker-compose up -d
                 '''
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
                 waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
@@ -180,91 +180,6 @@ pipeline {
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "http://${env.SERVER_IP}/"
                     env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
-                }
-            }
-        }
-        stage('Change admin password for >= 2.27') {
-            when {
-                expression { getMinorVersion(DOCKER_VERSION) >= 27 }
-            }
-            steps {
-                sh '''
-                    docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
-                '''
-            }
-        }
-        stage('Change admin password for <= 2.26') {
-            when {
-                expression { getMinorVersion(DOCKER_VERSION) <= 26 }
-            }
-            steps {
-                sh '''
-                    docker exec pmm-server grafana-cli --homepath /usr/share/grafana --configOverrides cfg:default.paths.data=/srv/grafana admin reset-admin-password ${ADMIN_PASSWORD}
-                '''
-            }
-        }
-        stage('Upgrade workaround for nginx package') {
-            when {
-                expression { getMinorVersion(DOCKER_VERSION) <= 32 }
-            }
-            steps {
-                sh '''
-                    docker exec pmm-server sed -i 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
-                '''
-            }
-        }
-        stage('Enable Testing Repo') {
-            when {
-                expression { env.ENABLE_TESTING_REPO == "yes" && env.ENABLE_EXPERIMENTAL_REPO == "no" }
-            }
-            steps {
-                script {
-                    sh """
-                        set -o errexit
-                        set -o xtrace
-                        docker exec pmm-server yum update -y percona-release || true
-                        docker exec pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm-server.repo
-                        docker exec pmm-server percona-release enable pmm2-client testing
-                        docker exec pmm-server yum clean all
-                        docker exec pmm-server yum clean metadata
-                    """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm', 'no', 'yes', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
-                }
-            }
-        }
-        stage('Enable Experimental Repo') {
-            when {
-                expression { env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
-            }
-            steps {
-                script {
-                    sh """
-                        set -o errexit
-                        set -o xtrace
-                        docker exec pmm-server yum update -y percona-release || true
-                        docker exec pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm-server.repo
-                        docker exec pmm-server percona-release enable pmm2-client experimental
-                        docker exec pmm-server yum clean all
-                        docker exec pmm-server yum clean metadata
-                    """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm', 'no', 'no', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
-                }
-            }
-        }
-        stage('Enable Release Repo') {
-            when {
-                expression { env.ENABLE_EXPERIMENTAL_REPO == "no" && env.ENABLE_TESTING_REPO == "no" }
-            }
-            steps {
-                script {
-                    sh """
-                        set -o errexit
-                        set -o xtrace
-                        docker exec pmm-server yum update -y percona-release || true
-                        docker exec pmm-server yum clean all
-                        docker exec pmm-server yum clean metadata
-                    """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm', 'no', 'release', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
                 }
             }
         }
@@ -296,7 +211,7 @@ pipeline {
         stage('Check Packages before Upgrade') {
             steps {
                 script {
-                    checkUpgrade(DOCKER_VERSION, "pre")
+                    checkUpgrade(DOCKER_TAG, "pre")
                 }
             }
         }
@@ -314,36 +229,6 @@ pipeline {
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
                     '''
-                }
-            }
-        }
-        stage('Run Docker Way Upgrade Tests') {
-            when {
-                expression { env.PERFORM_DOCKER_WAY_UPGRADE == "yes" }
-            }
-            steps {
-                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                    # run pre-upgrade tests
-                    npm ci
-                    envsubst < env.list > env.generated.list
-                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    export PWD=$(pwd)
-                    export CHROMIUM_PATH=/usr/bin/chromium
-                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@pre-upgrade'
-                '''
-                    sh '''
-                    # run the upgrade script
-                    sudo chmod 755 /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh
-                    bash -xe /srv/pmm-qa/pmm-tests/docker_way_upgrade.sh ${PMM_SERVER_TAG}
-                '''
-                    sh '''
-                    # run post-upgrade tests
-                    export PWD=$(pwd)
-                    export CHROMIUM_PATH=/usr/bin/chromium
-                    sleep 30
-                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@post-upgrade'
-                '''
                 }
             }
         }
@@ -428,7 +313,7 @@ pipeline {
             archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
             slackSend channel: '#pmm-ci',
                       color: '#FF0000',
-                      message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, ver: ${DOCKER_VERSION}"
+                      message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, ver: ${DOCKER_TAG}"
         }
     }
 }
