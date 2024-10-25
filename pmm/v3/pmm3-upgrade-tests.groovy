@@ -101,22 +101,7 @@ pipeline {
         text(
             defaultValue: '--database psmdb=latest --database pgsql=latest --database ps=latest --database external',
             description: '''
-            Configure PMM Clients:
-            --database ps - Percona Server for MySQL (ex: --database ps=5.7,QUERY_SOURCE=perfschema)
-            Additional options:
-                QUERY_SOURCE=perfschema|slowlog
-                SETUP_TYPE=replica(Replication)|gr(Group Replication)|(single node if no option passed)
-            --database mysql - Official MySQL (ex: --database mysql,QUERY_SOURCE=perfschema)
-            Additional options:
-                QUERY_SOURCE=perfschema|slowlog
-            --database psmdb - Percona Server for MongoDB (ex: --database psmdb=latest,SETUP_TYPE=pss)
-            Additional options:
-                SETUP_TYPE=pss(Primary-Secondary-Secondary)|psa(Primary-Secondary-Arbiter)|shards(Sharded cluster)
-            --database pdpgsql - Percona Distribution for PostgreSQL (ex: --database pdpgsql=16)
-            --database pgsql - Official PostgreSQL Distribution (ex: --database pgsql=16)
-            --database pxc - Percona XtraDB Cluster, (to be used with proxysql only, ex: --database pxc)
-            -----
-            Example: --database ps=5.7,QUERY_SOURCE=perfschema --database psmdb,SETUP_TYPE=pss
+                Configure PMM Clients:
             ''',,
             name: 'CLIENTS')
     }
