@@ -215,9 +215,10 @@ pipeline {
             steps {
                 script {
                     sh """
-                        curl --location '${PMM_URL}/v1/server/version' --header 'Authorization: Basic YWRtaW46YWRtaW4=' | grep "version" | head -1
+                        export PMM_VERSION=$(curl --location 'http://localhost/v1/server/version' --header 'Authorization: Basic YWRtaW46YWRtaW4=' | jq -r '.version' | awk -F "-" \'{print \$1}\')
+                        echo \$PMM_VERSION
                     """
-                    checkUpgrade(DOCKER_TAG, "pre")
+                    checkUpgrade(env.PMM_VERSION, "pre")
                 }
             }
         }
