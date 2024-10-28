@@ -99,7 +99,7 @@ pipeline {
             description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD"],
+            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS"],
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
     }
@@ -178,7 +178,7 @@ pipeline {
                 }
                 stage('Select Custom dashboards Tests') {
                     when {
-                        expression { env.UPGRADE_FLAG == "CUSTOM PASSWORD" }
+                        expression { env.UPGRADE_FLAG == "CUSTOM DASHBOARDS" }
                     }
                     steps {
                          script {
