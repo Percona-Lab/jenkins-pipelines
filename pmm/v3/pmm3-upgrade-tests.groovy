@@ -99,7 +99,7 @@ pipeline {
             description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ["SSL", "EXTERNAL SERVICES"],
+            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP"],
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
     }
@@ -154,6 +154,18 @@ pipeline {
                             env.PRE_UPGRADE_FLAG = "@pre-external-upgrade"
                             env.POST_UPGRADE_FLAG = "@post-external-upgrade"
                             env.PMM_CLIENTS = "--database external"
+                         }
+                    }
+                }
+                stage('Select External Services Tests') {
+                    when {
+                        expression { env.UPGRADE_FLAG == "MONGO BACKUP" }
+                    }
+                    steps {
+                         script {
+                            env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
+                            env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
+                            env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss"
                          }
                     }
                 }
