@@ -135,13 +135,21 @@ pipeline {
                     popd
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
-
-                sh '''
-                    if [[ \${UPGRADE_FLAG} == "SSL" ]]; then
-                        export PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
-                        export POST_UPGRADE_FLAG = "@post-ssl-upgrade"
-                    fi
-                '''
+            }
+        }
+        stage('Select subset of tests') {
+            parallel {
+                stage('Select SSL Tests') {
+                    when {
+                        expression { env.UPGRADE_FLAG == "SSL" }
+                    }
+                    steps {
+                         script {
+                            env.PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
+                            env.POST_UPGRADE_FLAG = "@post-ssl-upgrade"
+                            env.PMM_CLIENTS = ""
+                    }
+                }
             }
         }
         stage('Start Server Instance') {
