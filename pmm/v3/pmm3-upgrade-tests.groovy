@@ -217,6 +217,17 @@ pipeline {
                 }
             }
         }
+         stage('Setup PMM Client') {
+            steps {
+                sh """
+                pushd /srv/qa-integration/pmm_qa
+                    sudo bash -x pmm3-client-setup.sh --pmm_server_ip 127.0.01 --client_version ${PMM_CLIENT_VERSION} --admin_password admin --use_metrics_mode no
+                popd
+                """
+            }
+         }
+
+
         stage('Setup Databases for PMM-Server') {
             steps {
                 sh """
