@@ -104,6 +104,10 @@ pipeline {
                 Configure PMM Clients:
             ''',,
             name: 'CLIENTS')
+        choice(
+            defaultValue: ["SSL"],
+            description: 'Subset Of tests for the upgrade',
+            name: 'UPGRADE_FLAG')
     }
     options {
         skipDefaultCheckout()
@@ -131,6 +135,13 @@ pipeline {
                     popd
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
+
+                sh """
+                    if [[ ${UPGRADE_FLAG} == "SSL" ]]; then
+                        export PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
+                        export POST_UPGRADE_FLAG = "@post-ssl-upgrade"
+                    fi
+                """
             }
         }
         stage('Start Server Instance') {
@@ -155,6 +166,7 @@ pipeline {
                         -e PMM_DEBUG=1 \
                         -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
                         -e PMM_WATCHTOWER_TOKEN=testUpgradeToken \
+                        -e PMM_ENABLE_UPDATES=1 \
                         --publish 80:8080 --publish 443:8443 \
                         --volume pmm-volume \
                         --name pmm-server \
@@ -234,6 +246,16 @@ pipeline {
 //             }
 //         }
         stage('Run pre upgrade UI tests') {
+            steps {
+                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh '''
+                    echo \$PRE_UPGRADE_FLAG
+                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '\$PRE_UPGRADE_FLAG'
+                    '''
+                }
+            }
+        }
+        stage('Run UI upgrade') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
