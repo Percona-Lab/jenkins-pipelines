@@ -187,11 +187,11 @@ pipeline {
                     popd
                     sudo chown ec2-user -R /srv/qa-integration
 
-                    docker network create pmm-network
+                    docker network create pmm-qa
                     docker volume create pmm-volume
 
                     docker run --detach --restart always \
-                        --network="pmm-network" \
+                        --network="pmm-qa" \
                         -e WATCHTOWER_DEBUG=1 \
                         -e WATCHTOWER_HTTP_API_TOKEN=testUpgradeToken \
                         -e WATCHTOWER_HTTP_API_UPDATE=1 \
@@ -202,7 +202,7 @@ pipeline {
                     sleep 10
 
                     docker run --detach --restart always \
-                        --network="pmm-network" \
+                        --network="pmm-qa" \
                         -e PMM_DEBUG=1 \
                         -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
                         -e PMM_WATCHTOWER_TOKEN=testUpgradeToken \
