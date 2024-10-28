@@ -105,7 +105,7 @@ pipeline {
             ''',,
             name: 'CLIENTS')
         choice(
-            defaultValue: ["SSL"],
+            choices: ["SSL"],
             description: 'Subset Of tests for the upgrade',
             name: 'UPGRADE_FLAG')
     }
