@@ -176,6 +176,18 @@ pipeline {
                          }
                     }
                 }
+                stage('Select Custom dashboards Tests') {
+                    when {
+                        expression { env.UPGRADE_FLAG == "CUSTOM PASSWORD" }
+                    }
+                    steps {
+                         script {
+                            env.PRE_UPGRADE_FLAG = "@pre-dashboards-upgrade"
+                            env.POST_UPGRADE_FLAG = "@post-dashboards-upgrade"
+                            env.PMM_CLIENTS = "--help"
+                         }
+                    }
+                }
             }
         }
         stage('Start Server Instance') {
