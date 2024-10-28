@@ -43,7 +43,7 @@ def getMinorVersion(VERSION) {
 
 pipeline {
     agent {
-        label 'min-focal-x64'
+        label 'agent-amd64-ol9'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -226,9 +226,9 @@ pipeline {
                         sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
                 popd
                 sudo chown ec2-user -R /srv/qa-integration
-                pushd /srv/qa-integration/pmm_qa
-                    sudo bash -x pmm3-client-setup.sh --pmm_server_ip 127.0.01 --client_version ${PMM_CLIENT_VERSION} --admin_password admin --use_metrics_mode no
-                popd
+                wget https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                sudo rpm -i percona-release-latest.noarch.rpm
+                yum install -y pmm-client
                 """
             }
          }
