@@ -252,6 +252,7 @@ pipeline {
                             sudo rpm -i percona-release-latest.noarch.rpm
                             sudo percona-release enable-only pmm3-client experimental
                             sudo yum install -y pmm-client
+                            pmm-agent setup --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml --server-address=127.0.0.1:443 --server-insecure-tls --metrics-mode=auto --server-username=admin --server-password=admin
                         """
                     }
                 }
