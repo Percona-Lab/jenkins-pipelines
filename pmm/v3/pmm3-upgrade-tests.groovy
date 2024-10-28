@@ -79,11 +79,11 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
+            defaultValue: 'PMM-7-upgrade-job-pmm3',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
-            defaultValue: 'perconalab/pmm-server:3-dev-latest',
+            defaultValue: 'perconalab/pmm-server:202410251936',
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
         choice(
@@ -106,7 +106,7 @@ pipeline {
             name: 'CLIENTS')
         choice(
             choices: ["SSL"],
-            description: 'Subset Of tests for the upgrade',
+            description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
     }
     options {
