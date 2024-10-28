@@ -220,29 +220,24 @@ pipeline {
          stage('Setup PMM Client') {
             steps {
                 sh """
+                set -o errexit
+                set -o xtrace
+                sudo mkdir -p /srv/qa-integration || true
+                pushd /srv/qa-integration
+                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+                popd
+                sudo chown ec2-user -R /srv/qa-integration
                 pushd /srv/qa-integration/pmm_qa
                     sudo bash -x pmm3-client-setup.sh --pmm_server_ip 127.0.01 --client_version ${PMM_CLIENT_VERSION} --admin_password admin --use_metrics_mode no
                 popd
                 """
             }
          }
-
-
         stage('Setup Databases for PMM-Server') {
             steps {
                 sh """
                     set -o errexit
                     set -o xtrace
-
-                    sudo mkdir -p /srv/qa-integration || true
-
-                    ls /home/
-
-                    pushd /srv/qa-integration
-                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                    popd
-
-                    sudo chown ec2-user -R /srv/qa-integration
 
                     pushd /srv/qa-integration/pmm_qa
                         echo "Setting docker based PMM clients"
