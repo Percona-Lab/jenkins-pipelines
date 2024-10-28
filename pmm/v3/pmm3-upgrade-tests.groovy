@@ -269,10 +269,10 @@ pipeline {
         stage('Run pre upgrade UI tests') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                    echo \$PRE_UPGRADE_FLAG
-                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '\$PRE_UPGRADE_FLAG'
-                    '''
+                    sh """
+                    echo ${PRE_UPGRADE_FLAG}
+                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep ${PRE_UPGRADE_FLAG}
+                    """
                 }
             }
         }
