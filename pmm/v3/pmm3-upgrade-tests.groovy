@@ -216,40 +216,45 @@ pipeline {
                 }
             }
         }
-         stage('Setup PMM Client') {
-            steps {
-                sh """
-                set -o errexit
-                set -o xtrace
-                sudo mkdir -p /srv/qa-integration || true
-                pushd /srv/qa-integration
-                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                popd
-                sudo chown ec2-user -R /srv/qa-integration
-                wget https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-                sudo rpm -i percona-release-latest.noarch.rpm
-                sudo yum install -y pmm-client
-                """
-            }
-         }
-        stage('Setup Databases for PMM-Server') {
-            steps {
-                sh """
-                    set -o errexit
-                    set -o xtrace
 
-                    pushd /srv/qa-integration/pmm_qa
-                        echo "Setting docker based PMM clients"
-                        python3 -m venv virtenv
-                        . virtenv/bin/activate
-                        pip install --upgrade pip
-                        pip install -r requirements.txt
+        stage('Setup Databases  and PMM Client for PMM-Server') {
+            parallel {
+                stage('Setup Databases for PMM-Server') {
+                    steps {
+                        sh """
+                            set -o errexit
+                            set -o xtrace
 
-                        python pmm-framework.py --v \
-                        --client-version=${PMM_CLIENT_VERSION} \
-                        ${PMM_CLIENTS}
-                    popd
-                """
+                            pushd /srv/qa-integration/pmm_qa
+                                echo "Setting docker based PMM clients"
+                                python3 -m venv virtenv
+                                . virtenv/bin/activate
+                                pip install --upgrade pip
+                                pip install -r requirements.txt
+
+                                python pmm-framework.py --v \
+                                --client-version=${PMM_CLIENT_VERSION} \
+                                ${PMM_CLIENTS}
+                            popd
+                        """
+                    }
+                    stage('Setup PMM Client') {
+                        steps {
+                            sh """
+                                set -o errexit
+                                set -o xtrace
+                                sudo mkdir -p /srv/qa-integration || true
+                                pushd /srv/qa-integration
+                                    sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+                                popd
+                                sudo chown ec2-user -R /srv/qa-integration
+                                wget https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                                sudo rpm -i percona-release-latest.noarch.rpm
+                                sudo yum install -y pmm-client
+                            """
+                        }
+                    }
+                }
             }
         }
         stage('Sanity check') {
