@@ -98,12 +98,6 @@ pipeline {
             defaultValue: 'v3',
             description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH')
-        text(
-            defaultValue: '--database psmdb=latest',
-            description: '''
-                Configure PMM Clients:
-            ''',,
-            name: 'CLIENTS')
         choice(
             choices: ["SSL", "EXTERNAL SERVICES"],
             description: 'Subset of tests for the upgrade',
@@ -147,7 +141,7 @@ pipeline {
                          script {
                             env.PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
                             env.POST_UPGRADE_FLAG = "@post-ssl-upgrade"
-                            env.PMM_CLIENTS = ""
+                            env.PMM_CLIENTS = "--help"
                          }
                     }
                 }
@@ -159,7 +153,7 @@ pipeline {
                          script {
                             env.PRE_UPGRADE_FLAG = "@pre-external-upgrade"
                             env.POST_UPGRADE_FLAG = "@post-external-upgrade"
-                            env.PMM_CLIENTS = ""
+                            env.PMM_CLIENTS = "--database external"
                          }
                     }
                 }
@@ -228,7 +222,7 @@ pipeline {
 
                         python pmm-framework.py --v \
                         --client-version=${PMM_CLIENT_VERSION} \
-                        ${CLIENTS}
+                        ${PMM_CLIENTS}
                     popd
                 """
             }
