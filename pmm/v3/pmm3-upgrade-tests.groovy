@@ -44,6 +44,7 @@ def getMinorVersion(VERSION) {
 pipeline {
     agent {
         label 'agent-amd64-ol9'
+        // min-focal-x64
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -99,7 +100,7 @@ pipeline {
             description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP"],
+            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD"],
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
     }
@@ -166,6 +167,18 @@ pipeline {
                             env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
                             env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
                             env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss"
+                         }
+                    }
+                }
+                stage('Select Custom Password Tests') {
+                    when {
+                        expression { env.UPGRADE_FLAG == "CUSTOM PASSWORD" }
+                    }
+                    steps {
+                         script {
+                            env.PRE_UPGRADE_FLAG = "@pre-custom-password-upgrade"
+                            env.POST_UPGRADE_FLAG = "@post-custom-password-upgrade"
+                            env.PMM_CLIENTS = "--database ps --database pgsql --database psmdb"
                          }
                     }
                 }
