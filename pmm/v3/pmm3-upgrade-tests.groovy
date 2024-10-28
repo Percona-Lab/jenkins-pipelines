@@ -181,6 +181,12 @@ pipeline {
         stage('Start Server Instance') {
             steps {
                 sh """
+                    sudo mkdir -p /srv/qa-integration || true
+                    pushd /srv/qa-integration
+                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+                    popd
+                    sudo chown ec2-user -R /srv/qa-integration
+
                     docker network create pmm-network
                     docker volume create pmm-volume
 
@@ -242,13 +248,6 @@ pipeline {
                 stage('Setup PMM Client') {
                     steps {
                         sh """
-                            set -o errexit
-                            set -o xtrace
-                            sudo mkdir -p /srv/qa-integration || true
-                            pushd /srv/qa-integration
-                                sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                            popd
-                            sudo chown ec2-user -R /srv/qa-integration
                             wget https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                             sudo rpm -i percona-release-latest.noarch.rpm
                             sudo percona-release enable-only pmm3-client experimental
