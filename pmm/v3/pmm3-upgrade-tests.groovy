@@ -141,7 +141,7 @@ pipeline {
                          script {
                             env.PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
                             env.POST_UPGRADE_FLAG = "@post-ssl-upgrade"
-                            env.PMM_CLIENTS = "--help"
+                            env.PMM_CLIENTS = "--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql"
                          }
                     }
                 }
