@@ -238,21 +238,21 @@ pipeline {
                             popd
                         """
                     }
-                    stage('Setup PMM Client') {
-                        steps {
-                            sh """
-                                set -o errexit
-                                set -o xtrace
-                                sudo mkdir -p /srv/qa-integration || true
-                                pushd /srv/qa-integration
-                                    sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                                popd
-                                sudo chown ec2-user -R /srv/qa-integration
-                                wget https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-                                sudo rpm -i percona-release-latest.noarch.rpm
-                                sudo yum install -y pmm-client
-                            """
-                        }
+                }
+                stage('Setup PMM Client') {
+                    steps {
+                        sh """
+                            set -o errexit
+                            set -o xtrace
+                            sudo mkdir -p /srv/qa-integration || true
+                            pushd /srv/qa-integration
+                                sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+                            popd
+                            sudo chown ec2-user -R /srv/qa-integration
+                            wget https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                            sudo rpm -i percona-release-latest.noarch.rpm
+                            sudo yum install -y pmm-client
+                        """
                     }
                 }
             }
