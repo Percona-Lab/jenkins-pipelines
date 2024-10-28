@@ -142,6 +142,9 @@ pipeline {
             name: 'NOTIFICATION_CHANNEL'
         )
     }
+    options {
+        skipStagesAfterUnstable()
+    }
     stages {
         stage('Update API descriptors') {
             when {
@@ -165,7 +168,7 @@ pipeline {
                             docker run --rm -v $PWD/.:/pmm public.ecr.aws/e7j3v3n0/rpmbuild:3 sh -c '
                                 cd /pmm
                                 make init
-                                make descriptors
+                                make -C api descriptors
                             '
 
                             API_DESCRIPTOR=$(git diff --text | grep -q 'descriptor\\.bin' && echo "CHANGED" || echo "NOT_CHANGED")
@@ -212,7 +215,7 @@ pipeline {
                 deleteReleaseBranches(env.SUBMODULES_GIT_BRANCH)
                 script {
                     currentBuild.description = "Release branches were deleted: ${env.SUBMODULES_GIT_BRANCH}"
-                    return
+                    currentBuild.result = 'UNSTABLE'
                 }
             }
         }
