@@ -157,7 +157,7 @@ pipeline {
                          }
                     }
                 }
-                stage('Select External Services Tests') {
+                stage('Select Mongo Backup Tests') {
                     when {
                         expression { env.UPGRADE_FLAG == "MONGO BACKUP" }
                     }
