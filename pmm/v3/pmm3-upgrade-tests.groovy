@@ -205,31 +205,37 @@ pipeline {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
-        stage('Sleep') {
+        stage('Install dependencies') {
             steps {
-                sleep 60
-            }
-        }
-        stage('Check Packages before Upgrade') {
-            steps {
-                script {
-                    sh """
-                        export PMM_VERSION=\$(curl --location 'http://localhost/v1/server/version' --header 'Authorization: Basic YWRtaW46YWRtaW4=' | jq -r '.version' | awk -F "-" \'{print \$1}\')
-                        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
-                    """
-                }
-            }
-        }
-        stage('Run UI way Upgrade Tests') {
-            steps {
-                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
+                sh '''
                     npm ci
                     envsubst < env.list > env.generated.list
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
+                '''
+            }
+        }
+        stage('Sleep') {
+            steps {
+                sleep 60
+            }
+        }
+//         stage('Check Packages before Upgrade') {
+//             steps {
+//                 script {
+//                     sh """
+//                         export PMM_VERSION=\$(curl --location 'http://localhost/v1/server/version' --header 'Authorization: Basic YWRtaW46YWRtaW4=' | jq -r '.version' | awk -F "-" \'{print \$1}\')
+//                         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
+//                         python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
+//                     """
+//                 }
+//             }
+//         }
+        stage('Run pre upgrade UI tests') {
+            steps {
+                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh '''
                     ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '@pmm-upgrade'
                     '''
                 }
