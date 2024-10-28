@@ -136,12 +136,12 @@ pipeline {
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
 
-                sh """
-                    if [[ ${UPGRADE_FLAG} == "SSL" ]]; then
+                sh '''
+                    if [[ \${UPGRADE_FLAG} == "SSL" ]]; then
                         export PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
                         export POST_UPGRADE_FLAG = "@post-ssl-upgrade"
                     fi
-                """
+                '''
             }
         }
         stage('Start Server Instance') {
