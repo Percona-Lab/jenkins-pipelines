@@ -148,6 +148,7 @@ pipeline {
                             env.PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
                             env.POST_UPGRADE_FLAG = "@post-ssl-upgrade"
                             env.PMM_CLIENTS = ""
+                         }
                     }
                 }
             }
