@@ -251,6 +251,7 @@ pipeline {
                             sudo chown ec2-user -R /srv/qa-integration
                             wget https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                             sudo rpm -i percona-release-latest.noarch.rpm
+                            sudo percona-release enable-only pmm3-client experimental
                             sudo yum install -y pmm-client
                         """
                     }
