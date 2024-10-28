@@ -105,7 +105,7 @@ pipeline {
             ''',,
             name: 'CLIENTS')
         choice(
-            choices: ["SSL"],
+            choices: ["SSL", "EXTERNAL SERVICES"],
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
     }
@@ -147,6 +147,18 @@ pipeline {
                          script {
                             env.PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
                             env.POST_UPGRADE_FLAG = "@post-ssl-upgrade"
+                            env.PMM_CLIENTS = ""
+                         }
+                    }
+                }
+                stage('Select External Services Tests') {
+                    when {
+                        expression { env.UPGRADE_FLAG == "EXTERNAL SERVICES" }
+                    }
+                    steps {
+                         script {
+                            env.PRE_UPGRADE_FLAG = "@pre-external-upgrade"
+                            env.POST_UPGRADE_FLAG = "@post-external-upgrade"
                             env.PMM_CLIENTS = ""
                          }
                     }
