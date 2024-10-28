@@ -111,9 +111,8 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    currentBuild.description = "UI way upgrade from ${env.DOCKER_TAG} to ${env.PMM_SERVER_LATEST} running tests ${env.UPGRADE_FLAG}"
+                    currentBuild.description = "PMM Server upgrade from ${env.DOCKER_TAG} to ${env.PMM_SERVER_LATEST} running tests ${env.UPGRADE_FLAG}"
                 }
-                // fetch pmm-ui-tests repository
                 git poll: false,
                     branch: PMM_UI_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
