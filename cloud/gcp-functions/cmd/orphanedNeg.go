@@ -25,7 +25,7 @@ func CleanOrphanedNEG(w http.ResponseWriter, r *http.Request) {
 
 	backendClient, err := compute.NewBackendServicesRESTClient(ctx)
 	if err != nil {
-		log.Fatal("Failed to create BackendService client: %v", err)
+		log.Fatalf("Failed to create BackendService client: %v", err)
 	}
 	defer backendClient.Close()
 
@@ -50,16 +50,16 @@ func CleanOrphanedNEG(w http.ResponseWriter, r *http.Request) {
 					break
 				}
 				if err != nil {
-					log.Fatal("Failed to list NEGs: %v", err)
+					log.Fatalf("Failed to list NEGs: %v", err)
 				}
 
 				log.Printf("Checking NEG: %s", neg.GetName())
 
 				// Check if the NEG is attached to any Backend Service
 				if isNEGUsedByBackendService(ctx, backendClient, project, neg.GetSelfLink()) {
-					log.Print("NEG %s is in use by a backend service.\n", neg.GetName())
+					log.Printf("NEG %s is in use by a backend service.", neg.GetName())
 				} else {
-					log.Print("NEG %s is NOT in use, it can be deleted.\n", neg.GetName())
+					log.Printf("NEG %s is NOT in use, it can be deleted.", neg.GetName())
 
 					deleteReq := &computepb.DeleteNetworkEndpointGroupRequest{
 						Project:              project,
@@ -68,9 +68,9 @@ func CleanOrphanedNEG(w http.ResponseWriter, r *http.Request) {
 					}
 					op, err := negClient.Delete(ctx, deleteReq)
 					if err != nil {
-						log.Print("Failed to delete NEG %s: %v", neg.Name, err)
+						log.Printf("Failed to delete NEG %s: %v", neg.Name, err)
 					} else {
-						log.Print("Deleted unused NEG: %s, Operation: %v\n", neg.Name, op)
+						log.Printf("Deleted unused NEG: %s, Operation: %v", neg.Name, op)
 					}
 
 				}
@@ -95,11 +95,11 @@ func isNEGUsedByBackendService(ctx context.Context, client *compute.BackendServi
 			break
 		}
 		if err != nil {
-			log.Fatal("Failed to list backend services: %v", err)
+			log.Fatalf("Failed to list backend services: %v", err)
 		}
 
 		for _, service := range backend.Value.BackendServices {
-			log.Print("Backend Service: %s, SelfLink: %s\n", service.GetName(), service.GetSelfLink())
+			log.Printf("Backend Service: %s, SelfLink: %s", service.GetName(), service.GetSelfLink())
 			if service.GetSelfLink() == negSelfLink {
 				return true
 			}
