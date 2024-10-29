@@ -222,6 +222,15 @@ pipeline {
                                     docker network create pmm-qa || true
                                     docker volume create pmm-data
 
+                                    docker run --detach --restart always \
+                                        --network="pmm-qa" \
+                                        -e WATCHTOWER_DEBUG=1 \
+                                        -e WATCHTOWER_HTTP_API_TOKEN=testUpgradeToken \
+                                        -e WATCHTOWER_HTTP_API_UPDATE=1 \
+                                        --volume /var/run/docker.sock:/var/run/docker.sock \
+                                        --name watchtower \
+                                        perconalab/watchtower:latest
+
                                     docker run -d \
                                         -p 80:8080 \
                                         -p 443:8443 \
