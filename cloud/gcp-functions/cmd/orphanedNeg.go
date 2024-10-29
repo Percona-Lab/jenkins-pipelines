@@ -19,7 +19,7 @@ func CleanOrphanedNEG(w http.ResponseWriter, r *http.Request) {
 	// Initialize the client for Network Endpoint Groups, Backend Services, and getting Zones list.
 	negClient, err := compute.NewNetworkEndpointGroupsRESTClient(ctx)
 	if err != nil {
-		log.Fatal("Failed to create NEG client: %v", err)
+		log.Fatalf("Failed to create NEG client: %v", err)
 	}
 	defer negClient.Close()
 
@@ -53,7 +53,7 @@ func CleanOrphanedNEG(w http.ResponseWriter, r *http.Request) {
 					log.Fatal("Failed to list NEGs: %v", err)
 				}
 
-				log.Print("Checking NEG: %s\n", neg.GetName())
+				log.Printf("Checking NEG: %s", neg.GetName())
 
 				// Check if the NEG is attached to any Backend Service
 				if isNEGUsedByBackendService(ctx, backendClient, project, neg.GetSelfLink()) {
