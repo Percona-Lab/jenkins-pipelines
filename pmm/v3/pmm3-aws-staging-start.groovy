@@ -74,11 +74,11 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['15','14', '13', '12', '11'],
+            choices: ['17', '16', '15','14', '13'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['16','15', '14', '13', '12'],
+            choices: ['17', '16','15', '14', '13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -252,7 +252,7 @@ pipeline {
                 node(env.VM_NAME){
                 setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), DOCKER_VERSION, ENABLE_PULL_MODE, 'no', CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD, 'no')
                 script {
-                        env.PMM_REPO = params.CLIENT_VERSION == "pmm-rc" ? "testing" : "experimental"
+                        env.PMM_REPO = params.CLIENT_VERSION == "pmm3-rc" ? "testing" : "experimental"
                     }
 
                     sh '''
