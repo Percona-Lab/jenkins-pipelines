@@ -225,7 +225,7 @@ pipeline {
                                     docker run --detach --restart always \
                                         --network="pmm-qa" \
                                         -e WATCHTOWER_DEBUG=1 \
-                                        -e WATCHTOWER_HTTP_API_TOKEN=testUpgradeToken \
+                                        -e WATCHTOWER_HTTP_API_TOKEN=testToken \
                                         -e WATCHTOWER_HTTP_API_UPDATE=1 \
                                         --volume /var/run/docker.sock:/var/run/docker.sock \
                                         --name watchtower \
@@ -240,6 +240,8 @@ pipeline {
                                         --hostname pmm-server \
                                         --network pmm-qa \
                                         --restart always \
+                                        -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
+                                        -e PMM_WATCHTOWER_TOKEN=testToken \
                                         ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 
