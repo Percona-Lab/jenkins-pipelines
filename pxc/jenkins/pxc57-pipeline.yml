@@ -1,5 +1,5 @@
 - job:
-    name: pxc-5.7-pipeline
+    name: pxc5.7-pipeline-private
     project-type: pipeline
     description: |
         Do not edit this job through the web!
