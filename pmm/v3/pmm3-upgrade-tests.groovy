@@ -268,23 +268,23 @@ pipeline {
                         """
                     }
                 }
+                stage('Install dependencies') {
+                    steps {
+                        sh '''
+                            npm ci
+                            npx playwright install
+                            envsubst < env.list > env.generated.list
+                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                            export PWD=$(pwd)
+                            export CHROMIUM_PATH=/usr/bin/chromium
+                        '''
+                    }
+                }
             }
         }
         stage('Sanity check') {
             steps {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
-            }
-        }
-        stage('Install dependencies') {
-            steps {
-                sh '''
-                    npm ci
-                    npx playwright install
-                    envsubst < env.list > env.generated.list
-                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    export PWD=$(pwd)
-                    export CHROMIUM_PATH=/usr/bin/chromium
-                '''
             }
         }
         stage('Sleep') {
