@@ -11,7 +11,7 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
         echo ${pmm_version}
         echo $PRE_POST
         pushd /srv/pmm-qa
-            echo $(git rev-parse --abbrev-ref HEAD)
+            echo \$(git rev-parse --abbrev-ref HEAD)
         popd
         cat /srv/pmm-qa/pmm-tests/check_upgrade.py
         python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v ${pmm_version} -p ${PRE_POST}
