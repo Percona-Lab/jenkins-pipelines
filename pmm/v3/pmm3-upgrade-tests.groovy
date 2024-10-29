@@ -10,6 +10,8 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
         echo ${pmm_version}
         echo $PRE_POST
+        docker exec pmm-server rpm -qa
+        docker exec pmm-server rpm -qa | grep pmm-client-
         python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v ${pmm_version} -p ${PRE_POST}
     """
 }
