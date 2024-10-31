@@ -63,35 +63,35 @@ void prepareNode() {
     echo "=========================[ Assigning images for release test ]========================="
     if ("$RELEASE_RUN" == "YES") {
         if ("$OPERATOR_IMAGE") {
-            echo "OPERATOR_IMAGE was provided. Not doing anything"}
+            echo "OPERATOR_IMAGE was provided. Using image from job params $OPERATOR_IMAGE"}
         else{
             echo "OPERATOR_IMAGE was NOT provided. Will use file params!"
             OPERATOR_IMAGE = getImage("OPERATOR_IMAGE")
             echo "OPERATOR_IMAGE is $OPERATOR_IMAGE "
         }
         if ("$IMAGE_MONGOD") {
-            echo "IMAGE_MONGOD was provided. Not doing anything"}
+            echo "IMAGE_MONGOD was provided. Using image from job params $IMAGE_MONGOD"}
         else{
             echo "IMAGE_MONGOD was NOT provided. Will use file params!"
             IMAGE_MONGOD = getImage("IMAGE_MONGOD${PILLAR_VERSION}")
             echo "IMAGE_MONGOD is $IMAGE_MONGOD "
         }
         if ("$IMAGE_BACKUP") {
-            echo "IMAGE_BACKUP was provided. Not doing anything"}
+            echo "IMAGE_BACKUP was provided. Using image from job params $IMAGE_BACKUP"}
         else{
             echo "IMAGE_BACKUP was NOT provided. Will use file params!"
             IMAGE_BACKUP  =getImage("IMAGE_BACKUP")
             echo "IMAGE_BACKUP is $IMAGE_BACKUP "
         }
         if ("$IMAGE_PMM_CLIENT") {
-            echo "IMAGE_PMM_CLIENT was provided. Not doing anything"}
+            echo "IMAGE_PMM_CLIENT was provided. Using image from job params $IMAGE_PMM_CLIENT"}
         else{
             echo "IMAGE_PMM_CLIENT was NOT provided. Will use file params!"
             IMAGE_PMM_CLIENT = getImage("IMAGE_PMM_CLIENT")
             echo "IMAGE_PMM_CLIENT is $IMAGE_PMM_CLIENT "
         }
         if ("$IMAGE_PMM_SERVER") {
-            echo "IMAGE_PMM_SERVER was provided. Not doing anything"}
+            echo "IMAGE_PMM_SERVER was provided. Using image from job params $IMAGE_PMM_SERVER"}
         else{
             echo "IMAGE_PMM_SERVER was NOT provided. Will use file params!"
             IMAGE_PMM_SERVER = getImage("IMAGE_PMM_SERVER")
