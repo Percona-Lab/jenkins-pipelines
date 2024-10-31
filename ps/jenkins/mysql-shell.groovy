@@ -221,17 +221,16 @@ pipeline {
                     steps {
                         script {
                             PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                            if ("${PS_MAJOR_RELEASE}" != "80") {
+                            if [ ${PS_MAJOR_RELEASE} == "80" ]; then
                                 cleanUpWS()
                                 popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_deb=1")
 
                                 pushArtifactFolder("deb/", AWS_STASH_PATH)
                                 uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                            }
-                            else {
+                            else
                                 echo "The step is skipped."
-                            }
+                            fi
                         }
                     }
                 }
@@ -307,17 +306,16 @@ pipeline {
                     steps {
                         script {
                             PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                            if ("${PS_MAJOR_RELEASE}" != "80") {
+                            if [ ${PS_MAJOR_RELEASE} == "80" ]; then
                                 cleanUpWS()
                                 popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_deb=1")
 
                                 pushArtifactFolder("deb/", AWS_STASH_PATH)
                                 uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                            }
-                            else {
+                            else
                                 echo "The step is skipped."
-                            }
+                            fi
                         }
                     }
                 }
