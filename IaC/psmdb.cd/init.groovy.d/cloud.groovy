@@ -45,7 +45,7 @@ imageMap['docker-64gb']      = imageMap['micro-amazon']
 imageMap['docker-64gb-aarch64'] = 'ami-055495e6fc65e4321'
 
 priceMap = [:]
-priceMap['m7i-flex.large']   = '0.13' // type=m7i-flex.large, vCPU=2, memory=4GiB, saving=29%, interruption='<5%', price=0.071400
+priceMap['m5d.large']   = '0.13' // type=m5d.large, vCPU=2, memory=4GiB, saving=29%, interruption='<5%', price=0.071400
 priceMap['c5a.2xlarge']  = '0.25'  //type=c5a.2xlarge, vCPU=8, memory=16GiB, saving=58%, interruption='<5%', price=0.182000
 priceMap['m5n.2xlarge'] = '0.33' //type=m5n.2xlarge, vCPU=8, memory=32GiB, saving=63%, interruption='<5%', price=0.20
 priceMap['i3en.3xlarge'] = '0.72' // type=i3en.3xlarge, vCPU=16, memory=64GiB, saving=70%, interruption='<5%'
@@ -295,7 +295,7 @@ capMap['i3en.3xlarge'] = '30'
 capMap['i4g.4xlarge'] = '20'
 
 typeMap = [:]
-typeMap['micro-amazon']      = 'm7i-flex.large'
+typeMap['micro-amazon']      = 'm5d.large'
 typeMap['docker']            = 'c5a.2xlarge'
 typeMap['docker-32gb']       = 'm5n.2xlarge'
 typeMap['docker-64gb']       = 'i3en.3xlarge'
