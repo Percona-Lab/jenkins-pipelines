@@ -304,6 +304,7 @@ void pushArtifactFile(String FILE_NAME) {
 
 TestsReport = '<testsuite name=\\"PSMDB-OpenShift-latest\\">\n'
 void makeReport() {
+    echo "=========================[ Generating Test Report ]========================="
     for (int i=0; i<tests.size(); i++) {
         def testResult = tests[i]["result"]
         def testTime = tests[i]["time"]
@@ -312,6 +313,14 @@ void makeReport() {
         TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
     TestsReport = TestsReport + '</testsuite>\n'
+
+    echo "=========================[ Generating Images Report ]========================="
+    TestsImages = "testsuite name='PSMDB-OpenShift-latest' \n" + \
+                    "OPERATOR_IMAGE=$OPERATOR_IMAGE \n" + \
+                    "IMAGE_MONGOD=$IMAGE_MONGOD \n" + \
+                    "IMAGE_BACKUP=$IMAGE_BACKUP \n" + \
+                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" + \
+                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER "
 }
 
 void runTest(Integer TEST_ID) {
@@ -500,9 +509,10 @@ pipeline {
             makeReport()
             sh """
                 echo "$TestsReport" > TestsReport.xml
+                echo "$TestsImages" > TestsImages.txt
             """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-            archiveArtifacts '*.xml'
+            archiveArtifacts '*.xml,*.txt'
 
             script {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {

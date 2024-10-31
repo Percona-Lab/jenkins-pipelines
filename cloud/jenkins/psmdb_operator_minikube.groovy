@@ -261,6 +261,14 @@ void makeReport() {
         TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
     TestsReport = TestsReport + '</testsuite>\n'
+
+    echo "=========================[ Generating Images Report ]========================="
+    TestsImages = "testsuite name='PSMDB-MiniKube' \n" + \
+                    "OPERATOR_IMAGE=$OPERATOR_IMAGE \n" + \
+                    "IMAGE_MONGOD=$IMAGE_MONGOD \n" + \
+                    "IMAGE_BACKUP=$IMAGE_BACKUP \n" + \
+                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" + \
+                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER "
 }
 
 pipeline {
@@ -373,9 +381,11 @@ pipeline {
             makeReport()
             sh """
                 echo "$TestsReport" > TestsReport.xml
+                echo "$TestsImages" > TestsImages.txt
             """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-            archiveArtifacts '*.xml'
+            archiveArtifacts '*.xml,*.txt'
+
             sh """
                 /usr/local/bin/minikube delete || true
             """
