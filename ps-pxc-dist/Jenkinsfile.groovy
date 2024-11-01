@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'source-builder'
+        label 'jenkins'
     }
     parameters {
         string(
