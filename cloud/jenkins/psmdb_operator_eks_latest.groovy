@@ -57,12 +57,12 @@ void prepareNode() {
 
     echo "=========================[ Assigning images for release test ]========================="
     if ("$RELEASE_RUN" == "YES") {
-        if ("$OPERATOR_IMAGE") {
-            echo "OPERATOR_IMAGE was provided. Using image from job params $OPERATOR_IMAGE"}
+        if ("$IMAGE_OPERATOR") {
+            echo "IMAGE_OPERATOR was provided. Using image from job params $IMAGE_OPERATOR"}
         else {
-            echo "OPERATOR_IMAGE was NOT provided. Will use file params!"
-            OPERATOR_IMAGE = getImage("OPERATOR_IMAGE")
-            echo "OPERATOR_IMAGE is $OPERATOR_IMAGE"
+            echo "IMAGE_OPERATOR was NOT provided. Will use file params!"
+            IMAGE_OPERATOR = getImage("IMAGE_OPERATOR")
+            echo "IMAGE_OPERATOR is $IMAGE_OPERATOR"
         }
         if ("$IMAGE_MONGOD") {
             echo "IMAGE_MONGOD was provided. Using image from job params $IMAGE_MONGOD"}
@@ -103,7 +103,7 @@ void prepareNode() {
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -111,7 +111,7 @@ void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            if [[ "$OPERATOR_IMAGE" ]]; then
+            if [[ "$IMAGE_OPERATOR" ]]; then
                 echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
@@ -280,7 +280,7 @@ void runTest(Integer TEST_ID) {
 
                         export DEBUG_TESTS=1
                         [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=psmdb-operator
-                        [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                        [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                         export IMAGE_MONGOD=$IMAGE_MONGOD
                         export IMAGE_BACKUP=$IMAGE_BACKUP
                         export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
@@ -339,7 +339,7 @@ void makeReport() {
 
     echo "=========================[ Generating Images Report ]========================="
     TestsImages = "testsuite name='PSMDB-EKS-latest'\n" +\
-                    "OPERATOR_IMAGE=$OPERATOR_IMAGE\n" +\
+                    "IMAGE_OPERATOR=$IMAGE_OPERATOR\n" +\
                     "IMAGE_MONGOD=$IMAGE_MONGOD\n" +\
                     "IMAGE_BACKUP=$IMAGE_BACKUP\n" +\
                     "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" +\
@@ -439,7 +439,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-            name: 'OPERATOR_IMAGE')
+            name: 'IMAGE_OPERATOR')
         string(
             defaultValue: '',
             description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
