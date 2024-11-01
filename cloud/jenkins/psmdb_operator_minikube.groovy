@@ -8,7 +8,7 @@ void verifyParams() {
 }
 
 void getImage(String IMAGE_NAME) {
-    versions_file="source/e2e-tests/release_images"
+    versions_file = "source/e2e-tests/release_images"
     IMAGE = """${sh(
         returnStdout: true,
         script: "cat ${versions_file} | egrep \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "
@@ -16,9 +16,8 @@ void getImage(String IMAGE_NAME) {
     if ("$IMAGE") {
         return "$IMAGE"
     }
-    else{
+    else {
         error("Empty image is returned for $IMAGE_NAME. Check PILLAR_VERSION or content of file with images")
-
     }
 }
 
@@ -41,38 +40,38 @@ void checkoutSources() {
     if ("$RELEASE_RUN" == "YES") {
         if ("$OPERATOR_IMAGE") {
             echo "OPERATOR_IMAGE was provided. Using image from job params $OPERATOR_IMAGE"}
-        else{
+        else {
             echo "OPERATOR_IMAGE was NOT provided. Will use file params!"
             OPERATOR_IMAGE = getImage("OPERATOR_IMAGE")
-            echo "OPERATOR_IMAGE is $OPERATOR_IMAGE "
+            echo "OPERATOR_IMAGE is $OPERATOR_IMAGE"
         }
         if ("$IMAGE_MONGOD") {
             echo "IMAGE_MONGOD was provided. Using image from job params $IMAGE_MONGOD"}
-        else{
+        else {
             echo "IMAGE_MONGOD was NOT provided. Will use file params!"
             IMAGE_MONGOD = getImage("IMAGE_MONGOD${PILLAR_VERSION}")
-            echo "IMAGE_MONGOD is $IMAGE_MONGOD "
+            echo "IMAGE_MONGOD is $IMAGE_MONGOD"
         }
         if ("$IMAGE_BACKUP") {
             echo "IMAGE_BACKUP was provided. Using image from job params $IMAGE_BACKUP"}
-        else{
+        else {
             echo "IMAGE_BACKUP was NOT provided. Will use file params!"
             IMAGE_BACKUP  =getImage("IMAGE_BACKUP")
-            echo "IMAGE_BACKUP is $IMAGE_BACKUP "
+            echo "IMAGE_BACKUP is $IMAGE_BACKUP"
         }
         if ("$IMAGE_PMM_CLIENT") {
             echo "IMAGE_PMM_CLIENT was provided. Using image from job params $IMAGE_PMM_CLIENT"}
-        else{
+        else {
             echo "IMAGE_PMM_CLIENT was NOT provided. Will use file params!"
             IMAGE_PMM_CLIENT = getImage("IMAGE_PMM_CLIENT")
-            echo "IMAGE_PMM_CLIENT is $IMAGE_PMM_CLIENT "
+            echo "IMAGE_PMM_CLIENT is $IMAGE_PMM_CLIENT"
         }
         if ("$IMAGE_PMM_SERVER") {
             echo "IMAGE_PMM_SERVER was provided. Using image from job params $IMAGE_PMM_SERVER"}
-        else{
+        else {
             echo "IMAGE_PMM_SERVER was NOT provided. Will use file params!"
             IMAGE_PMM_SERVER = getImage("IMAGE_PMM_SERVER")
-            echo "IMAGE_PMM_SERVER is $IMAGE_PMM_SERVER "
+            echo "IMAGE_PMM_SERVER is $IMAGE_PMM_SERVER"
         }
     } else {
         echo "This is not release run. Using params only!"
@@ -263,12 +262,12 @@ void makeReport() {
     TestsReport = TestsReport + '</testsuite>\n'
 
     echo "=========================[ Generating Images Report ]========================="
-    TestsImages = "testsuite name='PSMDB-MiniKube' \n" + \
-                    "OPERATOR_IMAGE=$OPERATOR_IMAGE \n" + \
-                    "IMAGE_MONGOD=$IMAGE_MONGOD \n" + \
-                    "IMAGE_BACKUP=$IMAGE_BACKUP \n" + \
-                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" + \
-                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER "
+    TestsImages = "testsuite name='PSMDB-MiniKube'\n" +\
+                    "OPERATOR_IMAGE=$OPERATOR_IMAGE\n" +\
+                    "IMAGE_MONGOD=$IMAGE_MONGOD\n" +\
+                    "IMAGE_BACKUP=$IMAGE_BACKUP\n" +\
+                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" +\
+                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER"
 }
 
 pipeline {

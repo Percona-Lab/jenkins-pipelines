@@ -17,9 +17,8 @@ void getImage(String IMAGE_NAME) {
     if ("$IMAGE") {
         return "$IMAGE"
     }
-    else{
+    else {
         error("Empty image is returned for $IMAGE_NAME. Check PILLAR_VERSION or content of file with images")
-
     }
 }
 
