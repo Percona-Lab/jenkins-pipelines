@@ -108,45 +108,45 @@ pipeline {
                 }
             }
         }
-        stage('Check version param and checkout') {
-            steps {
-                deleteDir()
-                checkOrchVersionParam()
-                git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
-            }
-        }
         stage ('Prepare') {
             steps {
                 script {
-                    installMoleculeBookworm()
+                    deleteDir()
+                    installMoleculeBookworm_pdps()
                 }
+            }
+        }
+        stage('Check version param and checkout') {
+            steps {
+                checkOrchVersionParam()
+                git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
             }
         }
         stage ('Create virtual machines') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", env.PLATFORM)
+                    moleculeExecuteActionWithScenarioPDPS(env.MOLECULE_DIR, "create", env.PLATFORM)
                 }
             }
         }
         stage ('Run playbook for test') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
+                    moleculeExecuteActionWithScenarioPDPS(env.MOLECULE_DIR, "converge", env.PLATFORM)
                 }
             }
         }
         stage ('Start testinfra tests') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
+                    moleculeExecuteActionWithScenarioPDPS(env.MOLECULE_DIR, "verify", env.PLATFORM)
                 }
             }
         }
         stage ('Start Cleanup ') {
             steps {
                 script {
-                    moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
+                    moleculeExecuteActionWithScenarioPDPS(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
                 }
             }
         }

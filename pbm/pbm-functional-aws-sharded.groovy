@@ -16,7 +16,7 @@ pipeline {
     }
     parameters {
         string(name: 'BRANCH',description: 'PBM repo branch',defaultValue: 'main')
-        choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-70','psmdb-60','psmdb-50'])
+        choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-70','psmdb-60','psmdb-50','psmdb-80'])
         choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['i3.large','i3en.large','t2.micro','i3.xlarge','i3en.xlarge'])
         choice(name: 'BACKUP_TYPE',description: 'Backup type',choices: ['physical','logical'])        
         choice(name: 'STORAGE',description: 'Storage for PBM',choices: ['aws','gcp','azure'])

@@ -8,7 +8,7 @@ pipeline {
             description: 'Tag/Branch for pmm repository',
             name: 'PMM_BRANCH')
         string(
-            defaultValue: 'docker.io/percona/pmm-server:3-dev-latest',
+            defaultValue: 'docker.io/perconalab/pmm-server:3-dev-latest',
             description: 'Docker image for PMM Server running in the AMI',
             name: 'PMM_SERVER_IMAGE')
         choice(
