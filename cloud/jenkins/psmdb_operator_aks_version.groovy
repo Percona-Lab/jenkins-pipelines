@@ -1,6 +1,7 @@
 location='eastus'
 tests=[]
 clusters=[]
+release_params="source/e2e-tests/release_params"
 
 void verifyParams() {
     if ("$RELEASE_RUN" == "YES" && (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD")){
@@ -9,7 +10,6 @@ void verifyParams() {
 }
 
 void getImage(String IMAGE_NAME) {
-    versions_file = "source/e2e-tests/release_images"
     IMAGE = """${sh(
         returnStdout: true,
         script: "cat ${versions_file} | egrep \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "

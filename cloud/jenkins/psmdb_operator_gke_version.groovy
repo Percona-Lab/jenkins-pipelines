@@ -1,7 +1,7 @@
 region='us-central1-a'
 tests=[]
 clusters=[]
-versions_file="source/e2e-tests/release_images"
+versions_file="source/e2e-tests/release_params"
 
 void verifyParams() {
     if ("$RELEASE_RUN" == "YES") {
