@@ -303,8 +303,12 @@ pipeline {
                     }
                 }
                 stage('Setup PMM Client') {
+                    sh """
+                        echo ${PMM_CLIENT_VERSION}
+                        echo ${PMM_CLIENT_VERSION.trim()}
+                    """
                     steps {
-                        setupPMM3Client(SERVER_IP, PMM_CLIENT_VERSION.trim(), DOCKER_TAG, 'no', 'no', 'no', 'upgrade', 'admin', 'no')
+                        setupPMM3Client(SERVER_IP, PMM_CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
                     }
 
                 }
