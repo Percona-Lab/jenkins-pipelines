@@ -12,7 +12,7 @@ void verifyParams() {
 void getImage(String IMAGE_NAME) {
     IMAGE = """${sh(
         returnStdout: true,
-        script: "cat ${versions_file} | egrep \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "
+        script: "cat ${versions_file} | egrep -i \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "
     ).trim()}"""
     if ("$IMAGE") {
         return "$IMAGE"
@@ -108,6 +108,11 @@ EOF
             IMAGE_PMM_SERVER = getImage("IMAGE_PMM_SERVER")
             echo "IMAGE_PMM_SERVER is $IMAGE_PMM_SERVER "
         }
+        if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
+            echo "PLATFORM_VER was NOT provided. Will use file params!"
+            PLATFORM_VER = getImage("GKE_${PLATFORM_VER}")
+            echo "PLATFORM_VER is $PLATFORM_VER"
+        }
     } else {
         echo "This is not release run. Using params only!"
     }
@@ -119,7 +124,7 @@ EOF
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-ver-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -227,7 +232,6 @@ void createCluster(String CLUSTER_SUFFIX) {
             exitCode=1
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                    --release-channel $GKE_RELEASE_CHANNEL \
                     --zone $region \
                     --cluster-version $USED_PLATFORM_VER \
                     --preemptible \
@@ -394,10 +398,6 @@ pipeline {
             defaultValue: 'latest',
             description: 'GKE kubernetes version',
             name: 'PLATFORM_VER')
-        choice(
-            choices: 'None\nstable\nregular\nrapid',
-            description: 'GKE release channel',
-            name: 'GKE_RELEASE_CHANNEL')
         choice(
             choices: 'YES\nNO',
             description: 'Run tests in cluster wide mode',
