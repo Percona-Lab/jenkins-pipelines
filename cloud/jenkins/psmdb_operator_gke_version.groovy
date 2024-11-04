@@ -4,21 +4,24 @@ clusters=[]
 versions_file="source/e2e-tests/release_images"
 
 void verifyParams() {
-    if ("$RELEASE_RUN" == "YES" && (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD")){
-        error("This is RELEASE_RUN. Either PILLAR_VERSION or IMAGE_MONGOD should be provided")
+    if ("$RELEASE_RUN" == "YES") {
+        echo "=========================[ RELEASE RUN ]========================="
+        if (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD") {
+            error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided!")
+        }
+        if ("$GKE_RELEASE_CHANNEL" != "STABLE".toLowerCase()) {
+            error("Only stable channel is supported for release run!")
+        }
     }
 }
 
-void getImage(String IMAGE_NAME) {
-    IMAGE = """${sh(
-        returnStdout: true,
-        script: "cat ${versions_file} | egrep -i \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "
-    ).trim()}"""
-    if ("$IMAGE") {
-        return "$IMAGE"
-    }
-    else {
-        error("Empty image is returned for $IMAGE_NAME. Check PILLAR_VERSION or content of file with images")
+void getParam(String PARAM_NAME) {
+    PARAM = sh(script: "cat $versions_file | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
+
+    if ("$PARAM") {
+        return "$PARAM"
+    } else {
+        error("$PARAM_NAME not found in params file $versions_file")
     }
 }
 
@@ -53,13 +56,6 @@ EOF
         """
     }
 
-    if ("$PLATFORM_VER" == "latest") {
-        USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
-    } else {
-        USED_PLATFORM_VER="$PLATFORM_VER"
-    }
-    echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
-
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
@@ -71,51 +67,58 @@ EOF
         sudo rm -rf source
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
+
     echo "=========================[ Assigning images for release test ]========================="
     if ("$RELEASE_RUN" == "YES") {
         if ("$IMAGE_OPERATOR") {
-            echo "IMAGE_OPERATOR was provided. Using image from job params $IMAGE_OPERATOR"}
-        else{
-            echo "IMAGE_OPERATOR was NOT provided. Will use file params!"
-            IMAGE_OPERATOR = getImage("IMAGE_OPERATOR")
-            echo "IMAGE_OPERATOR is $IMAGE_OPERATOR "
+            echo "IMAGE_OPERATOR=$IMAGE_OPERATOR (from job parameters)"
+        } else {
+            IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
+            echo "IMAGE_OPERATOR=$IMAGE_OPERATOR (from params file)"
         }
+
         if ("$IMAGE_MONGOD") {
-            echo "IMAGE_MONGOD was provided. Using image from job params $IMAGE_MONGOD"}
-        else{
-            echo "IMAGE_MONGOD was NOT provided. Will use file params!"
-            IMAGE_MONGOD = getImage("IMAGE_MONGOD${PILLAR_VERSION}")
-            echo "IMAGE_MONGOD is $IMAGE_MONGOD "
+            echo "IMAGE_MONGOD=$IMAGE_MONGOD (from job parameters)"
+        } else {
+            IMAGE_MONGOD = getParam("IMAGE_MONGOD${PILLAR_VERSION}")
+            echo "IMAGE_MONGOD=$IMAGE_MONGOD (from params file)"
         }
+
         if ("$IMAGE_BACKUP") {
-            echo "IMAGE_BACKUP was provided. Using image from job params $IMAGE_BACKUP"}
-        else{
-            echo "IMAGE_BACKUP was NOT provided. Will use file params!"
-            IMAGE_BACKUP  =getImage("IMAGE_BACKUP")
-            echo "IMAGE_BACKUP is $IMAGE_BACKUP "
+            echo "IMAGE_BACKUP=$IMAGE_BACKUP (from job parameters)"
+        } else {
+            IMAGE_BACKUP  =getParam("IMAGE_BACKUP")
+            echo "IMAGE_BACKUP=$IMAGE_BACKUP (from params file)"
         }
+
         if ("$IMAGE_PMM_CLIENT") {
-            echo "IMAGE_PMM_CLIENT was provided. Using image from job params $IMAGE_PMM_CLIENT"}
-        else{
-            echo "IMAGE_PMM_CLIENT was NOT provided. Will use file params!"
-            IMAGE_PMM_CLIENT = getImage("IMAGE_PMM_CLIENT")
-            echo "IMAGE_PMM_CLIENT is $IMAGE_PMM_CLIENT "
+            echo "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT (from job parameters)"
+        } else {
+            IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
+            echo "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT (from params file)"
         }
+
         if ("$IMAGE_PMM_SERVER") {
-            echo "IMAGE_PMM_SERVER was provided. Using image from job params $IMAGE_PMM_SERVER"}
-        else{
-            echo "IMAGE_PMM_SERVER was NOT provided. Will use file params!"
-            IMAGE_PMM_SERVER = getImage("IMAGE_PMM_SERVER")
-            echo "IMAGE_PMM_SERVER is $IMAGE_PMM_SERVER "
+            echo "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER (from job parameters)"
+        } else {
+            IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
+            echo "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER (from params file)"
         }
+
         if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
-            echo "PLATFORM_VER was NOT provided. Will use file params!"
-            PLATFORM_VER = getImage("GKE_${PLATFORM_VER}")
-            echo "PLATFORM_VER is $PLATFORM_VER"
+            PLATFORM_VER = getParam("GKE_${PLATFORM_VER}")
+            echo "PLATFORM_VER=$PLATFORM_VER (from params file)"
         }
     } else {
-        echo "This is not release run. Using params only!"
+        echo "This is not a release run. Using job params only!"
     }
+
+    if ("$PLATFORM_VER" == "latest") {
+        USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
+    } else {
+        USED_PLATFORM_VER="$PLATFORM_VER"
+    }
+    echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 
     if ("$IMAGE_MONGOD") {
         currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
@@ -124,7 +127,7 @@ EOF
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-ver-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -232,6 +235,8 @@ void createCluster(String CLUSTER_SUFFIX) {
             exitCode=1
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
+                    --release-channel $GKE_RELEASE_CHANNEL \
+                    --no-enable-autoupgrade \
                     --zone $region \
                     --cluster-version $USED_PLATFORM_VER \
                     --preemptible \
@@ -398,6 +403,10 @@ pipeline {
             defaultValue: 'latest',
             description: 'GKE kubernetes version',
             name: 'PLATFORM_VER')
+        choice(
+            choices: 'stable\nregular\nrapid\nNone',
+            description: 'GKE release channel',
+            name: 'GKE_RELEASE_CHANNEL')
         choice(
             choices: 'YES\nNO',
             description: 'Run tests in cluster wide mode',
