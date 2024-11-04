@@ -103,7 +103,7 @@ pipeline {
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(
-            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS"],
+            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS"],
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
     }
@@ -188,6 +188,42 @@ pipeline {
                          script {
                             env.PRE_UPGRADE_FLAG = "@pre-dashboards-upgrade"
                             env.POST_UPGRADE_FLAG = "@post-dashboards-upgrade"
+                            env.PMM_CLIENTS = "--help"
+                         }
+                    }
+                }
+                stage('Select Annotations and Prometheus Tests') {
+                    when {
+                        expression { env.UPGRADE_FLAG == "CUSTOM DASHBOARDS" }
+                    }
+                    steps {
+                         script {
+                            env.PRE_UPGRADE_FLAG = "@pre-annotations-prometheus-upgrade"
+                            env.POST_UPGRADE_FLAG = "@post-annotations-prometheus-upgrade"
+                            env.PMM_CLIENTS = "--help"
+                         }
+                    }
+                }
+                stage('Select Advisors and Alerting Tests') {
+                    when {
+                        expression { env.UPGRADE_FLAG == "CUSTOM DASHBOARDS" }
+                    }
+                    steps {
+                         script {
+                            env.PRE_UPGRADE_FLAG = "@pre-advisors-alerting-upgrade"
+                            env.POST_UPGRADE_FLAG = "@post-advisors-alerting-upgrade"
+                            env.PMM_CLIENTS = "--help"
+                         }
+                    }
+                }
+                stage('Select Settings and Metrics Tests') {
+                    when {
+                        expression { env.UPGRADE_FLAG == "CUSTOM DASHBOARDS" }
+                    }
+                    steps {
+                         script {
+                            env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade"
+                            env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade"
                             env.PMM_CLIENTS = "--help"
                          }
                     }
