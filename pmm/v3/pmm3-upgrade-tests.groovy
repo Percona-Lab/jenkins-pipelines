@@ -51,12 +51,14 @@ pipeline {
     triggers {
         cron('0 3 * * *')
     }
-    stages{
-        parallel {
-            stage('Run SSL upgrade tests tests'){
-                steps {
-                    script {
-                        runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'SSL');
+    stages {
+        stage('UI tests Upgrade Matrix') {
+            parallel {
+                stage('Run SSL upgrade tests tests'){
+                    steps {
+                        script {
+                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'SSL');
+                        }
                     }
                 }
             }
