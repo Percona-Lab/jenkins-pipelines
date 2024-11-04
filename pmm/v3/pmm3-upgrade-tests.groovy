@@ -200,7 +200,7 @@ pipeline {
                          script {
                             env.PRE_UPGRADE_FLAG = "@pre-annotations-prometheus-upgrade"
                             env.POST_UPGRADE_FLAG = "@post-annotations-prometheus-upgrade"
-                            env.PMM_CLIENTS = "--help"
+                            env.PMM_CLIENTS = "--database ps --database pgsql --database psmdb"
                          }
                     }
                 }
