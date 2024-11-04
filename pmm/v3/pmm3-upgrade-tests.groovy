@@ -85,7 +85,7 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
-            defaultValue: 'perconalab/pmm-server:202410251936',
+            defaultValue: 'perconalab/pmm-server:202410302129',
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
         choice(
