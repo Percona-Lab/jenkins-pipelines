@@ -339,6 +339,9 @@ pipeline {
         stage('Check Packages after Upgrade') {
             steps {
                 script {
+                    sh """
+                        docker exec pmm-server supervisorctl status
+                    """
                     checkUpgrade(PMM_SERVER_LATEST, "post")
                 }
             }
