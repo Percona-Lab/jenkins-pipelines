@@ -54,10 +54,17 @@ pipeline {
     stages {
         stage('UI tests Upgrade Matrix') {
             parallel {
-                stage('Run SSL upgrade tests tests'){
+                stage('Run SSL upgrade tests'){
                     steps {
                         script {
                             runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'SSL');
+                        }
+                    }
+                }
+                stage('Run custom password upgrade tests'){
+                    steps {
+                        script {
+                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'CUSTOM PASSWORD');
                         }
                     }
                 }
