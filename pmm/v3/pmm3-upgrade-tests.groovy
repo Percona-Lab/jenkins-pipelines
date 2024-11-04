@@ -298,7 +298,10 @@ pipeline {
                     }
                 }
                 stage('Setup PMM Client') {
-                    setupPMM3Client(SERVER_IP, PMM_CLIENT_VERSION.trim(), DOCKER_VERSION, ENABLE_PULL_MODE, 'no', 'no', 'upgrade', ADMIN_PASSWORD, 'no')
+                    steps {
+                        setupPMM3Client(SERVER_IP, PMM_CLIENT_VERSION.trim(), DOCKER_VERSION, ENABLE_PULL_MODE, 'no', 'no', 'upgrade', ADMIN_PASSWORD, 'no')
+                    }
+
                 }
                 stage('Install dependencies') {
                     steps {
