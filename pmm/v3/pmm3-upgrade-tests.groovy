@@ -103,7 +103,7 @@ pipeline {
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(
-            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS"],
+            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"],
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
     }
@@ -194,7 +194,7 @@ pipeline {
                 }
                 stage('Select Annotations and Prometheus Tests') {
                     when {
-                        expression { env.UPGRADE_FLAG == "CUSTOM DASHBOARDS" }
+                        expression { env.UPGRADE_FLAG == "ANNOTATIONS-PROMETHEUS" }
                     }
                     steps {
                          script {
@@ -206,7 +206,7 @@ pipeline {
                 }
                 stage('Select Advisors and Alerting Tests') {
                     when {
-                        expression { env.UPGRADE_FLAG == "CUSTOM DASHBOARDS" }
+                        expression { env.UPGRADE_FLAG == "ADVISORS-ALERTING" }
                     }
                     steps {
                          script {
@@ -218,7 +218,7 @@ pipeline {
                 }
                 stage('Select Settings and Metrics Tests') {
                     when {
-                        expression { env.UPGRADE_FLAG == "CUSTOM DASHBOARDS" }
+                        expression { env.UPGRADE_FLAG == "SETTINGS-METRICS" }
                     }
                     steps {
                          script {
