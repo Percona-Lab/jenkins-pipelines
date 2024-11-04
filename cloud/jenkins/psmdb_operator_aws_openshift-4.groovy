@@ -29,7 +29,11 @@ void prepareNode() {
         USED_PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", , returnStdout: true).trim()
     } else {
         USED_PLATFORM_VER="$PLATFORM_VER"
-        OC_VER="4.15.25"
+        if ("$PLATFORM_VER" <= "4.15.25") {
+            OC_VER="$USED_PLATFORM_VER"
+        } else {
+            OC_VER="4.15.25"
+        }
     }
     echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
     echo "OC_VER=$OC_VER"
