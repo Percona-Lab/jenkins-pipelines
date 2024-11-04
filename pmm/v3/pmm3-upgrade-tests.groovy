@@ -339,6 +339,9 @@ pipeline {
         stage('Check Packages after Upgrade') {
             steps {
                 script {
+                    sh """
+                        docker exec pmm-server pmm-admin --version | grep PMMVersion | awk -F  '{print \$2}'
+                    """
                     checkUpgrade(PMM_SERVER_LATEST, "post")
                 }
             }
