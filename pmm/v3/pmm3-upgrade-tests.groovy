@@ -308,7 +308,14 @@ pipeline {
                             echo ${CLIENT_VERSION}
                             echo ${CLIENT_VERSION.trim()}
                         """
-                        setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
+//                         setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
+                        sh """
+                            wget https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                            sudo rpm -i percona-release-latest.noarch.rpm
+                            sudo percona-release enable-only pmm3-client experimental
+                            sudo yum install -y pmm-client
+                            sudo pmm-agent setup --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml --server-address=127.0.0.1:443 --server-insecure-tls --metrics-mode=auto --server-username=admin --server-password=admin
+                        """
                     }
                 }
                 stage('Install dependencies') {
