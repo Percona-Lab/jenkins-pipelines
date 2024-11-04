@@ -2,6 +2,27 @@ region='us-central1-a'
 tests=[]
 clusters=[]
 
+
+void verifyParams() {
+    if ("$RELEASE_RUN" == "YES" && (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD")){
+        error("This is RELEASE_RUN. Either PILLAR_VERSION or IMAGE_MONGOD should be provided")
+    }
+}
+
+void getImage(String IMAGE_NAME) {
+    versions_file = "source/e2e-tests/release_images"
+    IMAGE = """${sh(
+        returnStdout: true,
+        script: "cat ${versions_file} | egrep \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "
+    ).trim()}"""
+    if ("$IMAGE") {
+        return "$IMAGE"
+    }
+    else {
+        error("Empty image is returned for $IMAGE_NAME. Check PILLAR_VERSION or content of file with images")
+    }
+}
+
 void prepareNode() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
@@ -34,7 +55,7 @@ EOF
     }
 
     if ("$IMAGE_MONGOD") {
-        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CHANNEL-$GKE_RELEASE_CHANNEL-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
     }
 
     if ("$PLATFORM_VER" == "latest") {
@@ -56,10 +77,55 @@ EOF
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
 
+    echo "=========================[ Assigning images for release test ]========================="
+    if ("$RELEASE_RUN" == "YES") {
+        if ("$IMAGE_OPERATOR") {
+            echo "IMAGE_OPERATOR was provided. Using image from job params $IMAGE_OPERATOR"}
+        else {
+            echo "IMAGE_OPERATOR was NOT provided. Will use file params!"
+            IMAGE_OPERATOR = getImage("IMAGE_OPERATOR")
+            echo "IMAGE_OPERATOR is $IMAGE_OPERATOR"
+        }
+        if ("$IMAGE_MONGOD") {
+            echo "IMAGE_MONGOD was provided. Using image from job params $IMAGE_MONGOD"}
+        else {
+            echo "IMAGE_MONGOD was NOT provided. Will use file params!"
+            IMAGE_MONGOD = getImage("IMAGE_MONGOD${PILLAR_VERSION}")
+            echo "IMAGE_MONGOD is $IMAGE_MONGOD"
+        }
+        if ("$IMAGE_BACKUP") {
+            echo "IMAGE_BACKUP was provided. Using image from job params $IMAGE_BACKUP"}
+        else {
+            echo "IMAGE_BACKUP was NOT provided. Will use file params!"
+            IMAGE_BACKUP  =getImage("IMAGE_BACKUP")
+            echo "IMAGE_BACKUP is $IMAGE_BACKUP"
+        }
+        if ("$IMAGE_PMM_CLIENT") {
+            echo "IMAGE_PMM_CLIENT was provided. Using image from job params $IMAGE_PMM_CLIENT"}
+        else {
+            echo "IMAGE_PMM_CLIENT was NOT provided. Will use file params!"
+            IMAGE_PMM_CLIENT = getImage("IMAGE_PMM_CLIENT")
+            echo "IMAGE_PMM_CLIENT is $IMAGE_PMM_CLIENT"
+        }
+        if ("$IMAGE_PMM_SERVER") {
+            echo "IMAGE_PMM_SERVER was provided. Using image from job params $IMAGE_PMM_SERVER"}
+        else {
+            echo "IMAGE_PMM_SERVER was NOT provided. Will use file params!"
+            IMAGE_PMM_SERVER = getImage("IMAGE_PMM_SERVER")
+            echo "IMAGE_PMM_SERVER is $IMAGE_PMM_SERVER"
+        }
+    } else {
+        echo "This is not release run. Using params only!"
+    }
+
+    if ("$IMAGE_MONGOD") {
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
+    }
+
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -67,7 +133,7 @@ void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            if [[ "$OPERATOR_IMAGE" ]]; then
+            if [[ "$IMAGE_OPERATOR" ]]; then
                 echo "SKIP: Build is not needed, PSMDB operator image was set!"
             else
                 cd source
@@ -167,7 +233,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             exitCode=1
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                    --release-channel rapid \
+                    --release-channel $GKE_RELEASE_CHANNEL \
                     --zone $region \
                     --cluster-version $USED_PLATFORM_VER \
                     --preemptible \
@@ -210,7 +276,7 @@ void runTest(Integer TEST_ID) {
 
                     export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=psmdb-operator
-                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                     export IMAGE_MONGOD=$IMAGE_MONGOD
                     export IMAGE_BACKUP=$IMAGE_BACKUP
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
@@ -265,6 +331,14 @@ void makeReport() {
         TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
     TestsReport = TestsReport + '</testsuite>\n'
+
+    echo "=========================[ Generating Images Report ]========================="
+    TestsImages = "testsuite name='PSMDB-GKE-latest'\n" +\
+                    "IMAGE_OPERATOR=$IMAGE_OPERATOR\n" +\
+                    "IMAGE_MONGOD=$IMAGE_MONGOD\n" +\
+                    "IMAGE_BACKUP=$IMAGE_BACKUP\n" +\
+                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" +\
+                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER"
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
@@ -304,6 +378,16 @@ pipeline {
             description: 'Ignore passed tests in previous run (run all)',
             name: 'IGNORE_PREVIOUS_RUN'
         )
+        choice(
+            choices: 'NO\nYES',
+            description: 'Release run?',
+            name: 'RELEASE_RUN'
+        )
+        string(
+            defaultValue: '70',
+            description: 'For RELEASE_RUN only. Major version like 70,60, etc',
+            name: 'PILLAR_VERSION'
+        )
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
@@ -317,13 +401,17 @@ pipeline {
             description: 'GKE kubernetes version',
             name: 'PLATFORM_VER')
         choice(
+            choices: 'rapid\nstable\nregular',
+            description: 'GKE release channel',
+            name: 'GKE_RELEASE_CHANNEL')
+        choice(
             choices: 'YES\nNO',
             description: 'Run tests in cluster wide mode',
             name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-            name: 'OPERATOR_IMAGE')
+            name: 'IMAGE_OPERATOR')
         string(
             defaultValue: '',
             description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
@@ -353,6 +441,7 @@ pipeline {
     stages {
         stage('Prepare node') {
             steps {
+                verifyParams()
                 prepareNode()
             }
         }
@@ -407,9 +496,10 @@ pipeline {
             makeReport()
             sh """
                 echo "$TestsReport" > TestsReport.xml
+                echo "$TestsImages" > TestsImages.txt
             """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-            archiveArtifacts '*.xml'
+            archiveArtifacts '*.xml,*.txt'
 
             script {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
