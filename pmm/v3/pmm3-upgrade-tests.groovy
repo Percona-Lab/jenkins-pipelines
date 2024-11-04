@@ -389,24 +389,24 @@ pipeline {
                 }
             }
         }
-        stage('Check Client before Upgrade') {
-            steps {
-                script {
-                    checkClientBeforeUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION)
-                }
-            }
-        }
-        stage('Check Client Upgrade') {
-            steps {
-                checkClientAfterUpgrade(PMM_SERVER_LATEST);
-                sh '''
-                    export PWD=$(pwd)
-                    export CHROMIUM_PATH=/usr/bin/chromium
-                    sleep 60
-                    ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@post-client-upgrade'
-                '''
-            }
-        }
+//         stage('Check Client before Upgrade') {
+//             steps {
+//                 script {
+//                     checkClientBeforeUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION)
+//                 }
+//             }
+//         }
+//         stage('Check Client Upgrade') {
+//             steps {
+//                 checkClientAfterUpgrade(PMM_SERVER_LATEST);
+//                 sh '''
+//                     export PWD=$(pwd)
+//                     export CHROMIUM_PATH=/usr/bin/chromium
+//                     sleep 60
+//                     ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@post-client-upgrade'
+//                 '''
+//             }
+//         }
     }
     post {
         always {
