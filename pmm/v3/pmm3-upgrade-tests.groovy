@@ -299,7 +299,7 @@ pipeline {
                 }
                 stage('Setup PMM Client') {
                     steps {
-                        setupPMM3Client(SERVER_IP, PMM_CLIENT_VERSION.trim(), DOCKER_TAG, 'no', 'no', 'no', 'upgrade', ADMIN_PASSWORD, 'no')
+                        setupPMM3Client(SERVER_IP, PMM_CLIENT_VERSION.trim(), DOCKER_TAG, 'no', 'no', 'no', 'upgrade', 'admin', 'no')
                     }
 
                 }
