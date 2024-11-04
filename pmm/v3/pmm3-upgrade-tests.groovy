@@ -86,8 +86,8 @@ pipeline {
             defaultValue: 'perconalab/pmm-server:202410302129',
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
-        choice(
-            choices: ["3.0.0"],
+        string(
+            choices: "3-dev-latest",
             description: 'PMM Client Version to test for Upgrade',
             name: 'PMM_CLIENT_VERSION')
         choice(
