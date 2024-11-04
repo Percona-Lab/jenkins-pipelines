@@ -236,7 +236,6 @@ void createCluster(String CLUSTER_SUFFIX) {
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
                     --release-channel $GKE_RELEASE_CHANNEL \
-                    --no-enable-autoupgrade \
                     --zone $region \
                     --cluster-version $USED_PLATFORM_VER \
                     --preemptible \
