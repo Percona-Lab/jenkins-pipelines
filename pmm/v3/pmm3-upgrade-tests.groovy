@@ -342,17 +342,17 @@ pipeline {
                 sleep 60
             }
         }
-//         stage('Check Packages before Upgrade') {
-//             steps {
-//                 script {
-//                     sh """
-//                         export PMM_VERSION=\$(curl --location 'http://localhost/v1/server/version' --header 'Authorization: Basic YWRtaW46YWRtaW4=' | jq -r '.version' | awk -F "-" \'{print \$1}\')
-//                         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-//                         python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
-//                     """
-//                 }
-//             }
-//         }
+        stage('Check Packages before Upgrade') {
+            steps {
+                script {
+                    sh """
+                        export PMM_VERSION=\$(curl --location 'http://localhost/v1/server/version' --header 'Authorization: Basic YWRtaW46YWRtaW4=' | jq -r '.version' | awk -F "-" \'{print \$1}\')
+                        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
+                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
+                    """
+                }
+            }
+        }
         stage('Run pre upgrade UI tests') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
