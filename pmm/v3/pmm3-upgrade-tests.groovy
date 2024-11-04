@@ -31,9 +31,9 @@ void checkClientAfterUpgrade(String PMM_SERVER_VERSION) {
     """
 }
 
-void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String PMM_CLIENT_VERSION) {
-    def pmm_server_version = PMM_SERVER_VERSION.trim();
-    def pmm_client_version = PMM_CLIENT_VERSION.trim();
+void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) {
+    def pmm_server_version = CLIENT_VERSION.trim();
+    def pmm_client_version = CLIENT_VERSION.trim();
     sh """
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
         bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${pmm_server_version} ${pmm_client_version}
@@ -94,7 +94,7 @@ pipeline {
         string(
             defaultValue: "3-dev-latest",
             description: 'PMM Client Version to test for Upgrade',
-            name: 'PMM_CLIENT_VERSION')
+            name: 'CLIENT_VERSION')
         choice(
             choices: ["3.0.0"],
             description: 'latest PMM Server Version',
@@ -296,7 +296,7 @@ pipeline {
                                 pip install -r requirements.txt
 
                                 python pmm-framework.py --v \
-                                --client-version=${PMM_CLIENT_VERSION} \
+                                --client-version=${CLIENT_VERSION} \
                                 ${PMM_CLIENTS}
                             popd
                         """
@@ -305,10 +305,10 @@ pipeline {
                 stage('Setup PMM Client') {
                     steps {
                         sh """
-                            echo ${PMM_CLIENT_VERSION}
-                            echo ${PMM_CLIENT_VERSION.trim()}
+                            echo ${CLIENT_VERSION}
+                            echo ${CLIENT_VERSION.trim()}
                         """
-                        setupPMM3Client(SERVER_IP, PMM_CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
+                        setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
                     }
                 }
                 stage('Install dependencies') {
@@ -385,7 +385,7 @@ pipeline {
         stage('Check Client before Upgrade') {
             steps {
                 script {
-                    checkClientBeforeUpgrade(PMM_SERVER_LATEST, PMM_CLIENT_VERSION)
+                    checkClientBeforeUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION)
                 }
             }
         }
