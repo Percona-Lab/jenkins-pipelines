@@ -516,7 +516,7 @@ def setup(){
                 installMoleculeBookworm()
                     sh '''
                         rm -rf package-testing                    
-                        git clone https://github.com/Percona-Lab/package-testing --branch master
+                        git clone https://github.com/Percona-QA/package-testing --branch master
                     '''
 }
 
