@@ -97,9 +97,13 @@ pipeline {
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'PMM-13481',
             description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH')
+        string(
+            defaultValue: 'v3',
+            description: 'Tag/Branch for qa-integration repository',
+            name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(
             choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS"],
             description: 'Subset of tests for the upgrade',
@@ -197,7 +201,7 @@ pipeline {
                 sh """
                     sudo mkdir -p /srv/qa-integration || true
                     pushd /srv/qa-integration
-                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+                        sudo git clone --single-branch --branch ${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
                     popd
                     sudo chown ec2-user -R /srv/qa-integration
 
