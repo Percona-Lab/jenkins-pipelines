@@ -52,25 +52,12 @@ pipeline {
         cron('0 3 * * *')
     }
     stages{
-        stage('UI tests Upgrade Matrix') {
-            parallel {
-                stage('Run SSL upgrade tests tests'){
-                    steps {
-                        script {
-                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'SSL');
-                        }
+        parallel {
+            stage('Run SSL upgrade tests tests'){
+                steps {
+                    script {
+                        runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'SSL');
                     }
-                }
-            }
-        }
-    }
-    post {
-        always {
-            script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
-                } else {
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
         }
