@@ -10,8 +10,8 @@ void verifyParams() {
             error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided for release run!")
         }
 
-        GKE_RELEASE_CHANNEL = "STABLE"
-        echo "Forcing GKE_RELEASE_CHANNEL=STABLE, because it's a release run!"
+        GKE_RELEASE_CHANNEL = "stable"
+        echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
     }
 }
 
@@ -232,12 +232,10 @@ void createCluster(String CLUSTER_SUFFIX) {
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             maxRetries=15
             exitCode=1
+
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
                     --release-channel $GKE_RELEASE_CHANNEL \
-                    --maintenance-window-start "00:00" \
-                    --maintenance-window-end "23:59" \
-                    --maintenance-window-recurrence "FREQ=DAILY" \
                     --zone $region \
                     --cluster-version $USED_PLATFORM_VER \
                     --preemptible \
@@ -259,6 +257,13 @@ void createCluster(String CLUSTER_SUFFIX) {
                 sleep 1
             done
             if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
+
+            CURRENT_TIME=\$(date --rfc-3339=seconds)
+            FUTURE_TIME=\$(date -d '6 hours' --rfc-3339=seconds)
+
+            gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \
+                --add-maintenance-exclusion-start "\$CURRENT_TIME" \
+                --add-maintenance-exclusion-end "\$FUTURE_TIME"
         """
    }
 }
