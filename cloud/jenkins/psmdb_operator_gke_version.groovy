@@ -7,7 +7,7 @@ void verifyParams() {
     if ("$RELEASE_RUN" == "YES") {
         echo "=========================[ RELEASE RUN ]========================="
         if (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD") {
-            error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided!")
+            error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided for release run!")
         }
         if ("$GKE_RELEASE_CHANNEL" != "STABLE".toLowerCase()) {
             error("Only stable channel is supported for release run!")
@@ -121,7 +121,7 @@ EOF
     echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 
     if ("$IMAGE_MONGOD") {
-        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CHANNEL-$GKE_RELEASE_CHANNEL-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
     }
 
     script {
@@ -260,7 +260,6 @@ void createCluster(String CLUSTER_SUFFIX) {
             done
             if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
         """
-        PARAM = sh(script: "gcloud container clusters describe $CLUSTER_NAME-$CLUSTER_SUFFIX --zone $region --format=\"value(currentMasterVersion)\"", , returnStdout: true).trim()
    }
 }
 
@@ -338,12 +337,12 @@ void makeReport() {
     TestsReport = TestsReport + '</testsuite>\n'
 
     echo "=========================[ Generating Images Report ]========================="
-    TestsImages = "testsuite name='PSMDB-GKE-versiont' \n" + \
-                    "IMAGE_OPERATOR=$IMAGE_OPERATOR \n" + \
-                    "IMAGE_MONGOD=$IMAGE_MONGOD \n" + \
-                    "IMAGE_BACKUP=$IMAGE_BACKUP \n" + \
-                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" + \
-                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER\n" + \
+    TestsImages = "testsuite name='PSMDB-GKE-version' \n" +\
+                    "IMAGE_OPERATOR=$IMAGE_OPERATOR\n" +\
+                    "IMAGE_MONGOD=$IMAGE_MONGOD\n" +\
+                    "IMAGE_BACKUP=$IMAGE_BACKUP\n" +\
+                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" +\
+                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER\n" +\
                     "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 }
 
