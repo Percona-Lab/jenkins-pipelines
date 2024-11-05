@@ -250,7 +250,7 @@ pipeline {
             name: 'PLATFORM_VER',
             trim: true)
         choice(
-            choices: 'NO\nYES',
+            choices: 'YES\nNO',
             description: 'Run tests in cluster wide mode',
             name: 'CLUSTER_WIDE')
         string(
