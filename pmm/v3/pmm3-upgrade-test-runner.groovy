@@ -264,7 +264,7 @@ pipeline {
                         -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
                         -e PMM_WATCHTOWER_TOKEN=testUpgradeToken \
                         -e PMM_ENABLE_UPDATES=1 \
-                        --publish 80:8080 --publish 443:8443 --publish 42200:42200 \
+                        --publish 80:8080 --publish 443:8443 \
                         --volume pmm-volume:/srv \
                         --name pmm-server \
                         ${DOCKER_TAG}
