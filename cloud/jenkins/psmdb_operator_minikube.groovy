@@ -11,7 +11,7 @@ void verifyParams() {
 void getImage(String IMAGE_NAME) {
     IMAGE = """${sh(
         returnStdout: true,
-        script: "cat ${versions_file} | egrep \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "
+        script: "cat ${release_params} | egrep \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "
     ).trim()}"""
     if ("$IMAGE") {
         return "$IMAGE"
