@@ -121,7 +121,9 @@ EOF
     echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 
     if ("$IMAGE_MONGOD") {
-        currentBuild.description = "RELEASE-$RELEASE_RUN-$GIT_BRANCH-$PLATFORM_VER-CHANNEL-$GKE_RELEASE_CHANNEL-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
+        release = ("$RELEASE_RUN" == "YES") ? "RELEASE" : ""
+        cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
+        currentBuild.description = "$release-$GIT_BRANCH-$PLATFORM_VER-$GKE_RELEASE_CHANNEL-$cw-" + "$IMAGE_MONGOD".split(":")[1]
     }
 
     script {
