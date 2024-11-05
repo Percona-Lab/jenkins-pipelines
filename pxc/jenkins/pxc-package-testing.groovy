@@ -679,7 +679,6 @@ pipeline {
                     }
                 }
 
-
                 stage("MIN UPGRADE PXC INNOVATION LTS") {
                             when {
                                 allOf{
@@ -754,7 +753,7 @@ pipeline {
                             }
                 }
 
-                stage("MIN UPGRADE PXC 80") {
+                stage("MIN UPGRADE PXC 80/84") {
                             when {
                                 allOf{
                                     expression{params.test_type == "min_upgrade" || params.test_type == "install_and_upgrade"}
