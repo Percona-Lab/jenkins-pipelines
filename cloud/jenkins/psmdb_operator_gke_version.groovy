@@ -1,7 +1,7 @@
 region='us-central1-a'
 tests=[]
 clusters=[]
-release_params="source/e2e-tests/release_params"
+release_versions="source/e2e-tests/release_versions"
 
 void verifyParams() {
     if ("$RELEASE_RUN" == "YES") {
@@ -16,12 +16,12 @@ void verifyParams() {
 }
 
 void getParam(String PARAM_NAME) {
-    PARAM = sh(script: "cat $release_params | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
+    PARAM = sh(script: "cat $release_versions | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
 
     if ("$PARAM") {
         return "$PARAM"
     } else {
-        error("$PARAM_NAME not found in params file $release_params")
+        error("$PARAM_NAME not found in params file $release_versions")
     }
 }
 
