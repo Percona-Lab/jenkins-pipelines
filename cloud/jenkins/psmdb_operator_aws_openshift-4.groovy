@@ -389,6 +389,7 @@ pipeline {
         CLEAN_NAMESPACE = 1
         MDB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
     }
+
     parameters {
         choice(
             choices: ['run-release.csv', 'run-distro.csv'],
@@ -426,7 +427,7 @@ pipeline {
             description: 'OpenShift version',
             name: 'PLATFORM_VER')
         choice(
-            choices: 'YES\nNO',
+            choices: 'NO\nYES',
             description: 'Run tests in cluster wide mode',
             name: 'CLUSTER_WIDE')
         string(
@@ -450,15 +451,18 @@ pipeline {
             description: 'PMM server image: perconalab/pmm-server:dev-latest',
             name: 'IMAGE_PMM_SERVER')
     }
+
     agent {
         label 'docker'
     }
+
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
         copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
+
     stages {
         stage('Prepare node') {
             steps {
@@ -513,6 +517,7 @@ pipeline {
             }
         }
     }
+
     post {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")

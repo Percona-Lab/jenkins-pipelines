@@ -3,27 +3,25 @@ tests=[]
 release_versions="source/e2e-tests/release_versions"
 
 void verifyParams() {
-    if ("$RELEASE_RUN" == "YES" && (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD")){
-        error("This is RELEASE_RUN. Either PILLAR_VERSION or IMAGE_MONGOD should be provided")
+    if ("$RELEASE_RUN" == "YES") {
+        echo "=========================[ RELEASE RUN ]========================="
+        if (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD") {
+            error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided for release run!")
+        }
     }
 }
 
-void getImage(String IMAGE_NAME) {
-    IMAGE = """${sh(
-        returnStdout: true,
-        script: "cat ${release_versions} | egrep \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "
-    ).trim()}"""
-    if ("$IMAGE") {
-        return "$IMAGE"
-    }
-    else {
-        error("Empty image is returned for $IMAGE_NAME. Check PILLAR_VERSION or content of file with images")
+void getParam(String PARAM_NAME) {
+    PARAM = sh(script: "cat $release_versions | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
+
+    if ("$PARAM") {
+        return "$PARAM"
+    } else {
+        error("$PARAM_NAME not found in params file $release_versions")
     }
 }
 
-void checkoutSources() {
-    echo "USED_PLATFORM_VER=$PLATFORM_VER"
-
+void prepareNode() {
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
@@ -39,46 +37,54 @@ void checkoutSources() {
     echo "=========================[ Assigning images for release test ]========================="
     if ("$RELEASE_RUN" == "YES") {
         if ("$IMAGE_OPERATOR") {
-            echo "IMAGE_OPERATOR was provided. Using image from job params $IMAGE_OPERATOR"}
-        else {
-            echo "IMAGE_OPERATOR was NOT provided. Will use file params!"
-            IMAGE_OPERATOR = getImage("IMAGE_OPERATOR")
-            echo "IMAGE_OPERATOR is $IMAGE_OPERATOR"
+            echo "IMAGE_OPERATOR=$IMAGE_OPERATOR (from job parameters)"
+        } else {
+            IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
+            echo "IMAGE_OPERATOR=$IMAGE_OPERATOR (from params file)"
         }
+
         if ("$IMAGE_MONGOD") {
-            echo "IMAGE_MONGOD was provided. Using image from job params $IMAGE_MONGOD"}
-        else {
-            echo "IMAGE_MONGOD was NOT provided. Will use file params!"
-            IMAGE_MONGOD = getImage("IMAGE_MONGOD${PILLAR_VERSION}")
-            echo "IMAGE_MONGOD is $IMAGE_MONGOD"
+            echo "IMAGE_MONGOD=$IMAGE_MONGOD (from job parameters)"
+        } else {
+            IMAGE_MONGOD = getParam("IMAGE_MONGOD${PILLAR_VERSION}")
+            echo "IMAGE_MONGOD=$IMAGE_MONGOD (from params file)"
         }
+
         if ("$IMAGE_BACKUP") {
-            echo "IMAGE_BACKUP was provided. Using image from job params $IMAGE_BACKUP"}
-        else {
-            echo "IMAGE_BACKUP was NOT provided. Will use file params!"
-            IMAGE_BACKUP  =getImage("IMAGE_BACKUP")
-            echo "IMAGE_BACKUP is $IMAGE_BACKUP"
+            echo "IMAGE_BACKUP=$IMAGE_BACKUP (from job parameters)"
+        } else {
+            IMAGE_BACKUP  =getParam("IMAGE_BACKUP")
+            echo "IMAGE_BACKUP=$IMAGE_BACKUP (from params file)"
         }
+
         if ("$IMAGE_PMM_CLIENT") {
-            echo "IMAGE_PMM_CLIENT was provided. Using image from job params $IMAGE_PMM_CLIENT"}
-        else {
-            echo "IMAGE_PMM_CLIENT was NOT provided. Will use file params!"
-            IMAGE_PMM_CLIENT = getImage("IMAGE_PMM_CLIENT")
-            echo "IMAGE_PMM_CLIENT is $IMAGE_PMM_CLIENT"
+            echo "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT (from job parameters)"
+        } else {
+            IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
+            echo "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT (from params file)"
         }
+
         if ("$IMAGE_PMM_SERVER") {
-            echo "IMAGE_PMM_SERVER was provided. Using image from job params $IMAGE_PMM_SERVER"}
-        else {
-            echo "IMAGE_PMM_SERVER was NOT provided. Will use file params!"
-            IMAGE_PMM_SERVER = getImage("IMAGE_PMM_SERVER")
-            echo "IMAGE_PMM_SERVER is $IMAGE_PMM_SERVER"
+            echo "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER (from job parameters)"
+        } else {
+            IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
+            echo "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER (from params file)"
+        }
+
+        if ("$PLATFORM_VER" == "rel".toLowerCase()) {
+            PLATFORM_VER = getParam("MINIKUBE_${PLATFORM_VER}")
+            echo "PLATFORM_VER=$PLATFORM_VER (from params file)"
         }
     } else {
-        echo "This is not release run. Using params only!"
+        echo "This is not a release run. Using job params only!"
     }
 
+    echo "USED_PLATFORM_VER=$PLATFORM_VER"
+
     if ("$IMAGE_MONGOD") {
-        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
+        release = ("$RELEASE_RUN" == "YES") ? "RELEASE" : ""
+        cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
+        currentBuild.description = "$release-$GIT_BRANCH-$PLATFORM_VER-$cw-" + "$IMAGE_MONGOD".split(":")[1]
     }
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
@@ -348,9 +354,10 @@ pipeline {
     }
 
     stages {
-        stage('Checkout sources') {
+        stage('Prepare node') {
             steps {
-                checkoutSources()
+                verifyParams()
+                prepareNode()
             }
         }
         stage('Docker Build and Push') {
@@ -384,6 +391,14 @@ pipeline {
             """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml,*.txt'
+
+            script {
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
+                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                }
+
+                clusters.each { shutdownCluster(it) }
+            }
 
             sh """
                 /usr/local/bin/minikube delete || true
