@@ -49,8 +49,7 @@ void prepareNode() {
         IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
         if ("$PLATFORM_VER" == "rel".toLowerCase()) {
-            PLATFORM_VER = getParam("OPENSHIFT_${PLATFORM_VER}")
-            echo "PLATFORM_VER=$PLATFORM_VER (from params file)"
+            PLATFORM_VER = getParam("MINIKUBE_${PLATFORM_VER}")
         }
     } else {
         echo "This is not a release run. Using job params only!"

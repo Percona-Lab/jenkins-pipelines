@@ -51,7 +51,6 @@ void prepareNode() {
         IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
         if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
             PLATFORM_VER = getParam("OPENSHIFT_${PLATFORM_VER}")
-            echo "PLATFORM_VER=$PLATFORM_VER (from params file)"
         }
     } else {
         echo "This is not a release run. Using job params only!"
