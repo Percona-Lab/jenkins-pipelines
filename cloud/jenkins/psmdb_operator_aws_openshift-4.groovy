@@ -4,25 +4,82 @@ clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
 void verifyParams() {
-    if ("$RELEASE_RUN" == "YES" && (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD")){
-        error("This is RELEASE_RUN. Either PILLAR_VERSION or IMAGE_MONGOD should be provided")
+    if ("$RELEASE_RUN" == "YES") {
+        echo "=========================[ RELEASE RUN ]========================="
+        if (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD") {
+            error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided for release run!")
+        }
     }
 }
 
-void getImage(String IMAGE_NAME) {
-    IMAGE = """${sh(
-        returnStdout: true,
-        script: "cat ${release_versions} | egrep \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "
-    ).trim()}"""
-    if ("$IMAGE") {
-        return "$IMAGE"
-    }
-    else {
-        error("Empty image is returned for $IMAGE_NAME. Check PILLAR_VERSION or content of file with images")
+void getParam(String PARAM_NAME) {
+    PARAM = sh(script: "cat $release_versions | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
+
+    if ("$PARAM") {
+        return "$PARAM"
+    } else {
+        error("$PARAM_NAME not found in params file $release_versions")
     }
 }
 
 void prepareNode() {
+    echo "=========================[ Cloning the sources ]========================="
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    sh """
+        # sudo is needed for better node recovery after compilation failure
+        # if building failed on compilation stage directory will have files owned by docker user
+        sudo sudo git config --global --add safe.directory '*'
+        sudo git reset --hard
+        sudo git clean -xdf
+        sudo rm -rf source
+        cloud/local/checkout $GIT_REPO $GIT_BRANCH
+    """
+
+    echo "=========================[ Assigning images for release test ]========================="
+    if ("$RELEASE_RUN" == "YES") {
+        if ("$IMAGE_OPERATOR") {
+            echo "IMAGE_OPERATOR=$IMAGE_OPERATOR (from job parameters)"
+        } else {
+            IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
+            echo "IMAGE_OPERATOR=$IMAGE_OPERATOR (from params file)"
+        }
+
+        if ("$IMAGE_MONGOD") {
+            echo "IMAGE_MONGOD=$IMAGE_MONGOD (from job parameters)"
+        } else {
+            IMAGE_MONGOD = getParam("IMAGE_MONGOD${PILLAR_VERSION}")
+            echo "IMAGE_MONGOD=$IMAGE_MONGOD (from params file)"
+        }
+
+        if ("$IMAGE_BACKUP") {
+            echo "IMAGE_BACKUP=$IMAGE_BACKUP (from job parameters)"
+        } else {
+            IMAGE_BACKUP  =getParam("IMAGE_BACKUP")
+            echo "IMAGE_BACKUP=$IMAGE_BACKUP (from params file)"
+        }
+
+        if ("$IMAGE_PMM_CLIENT") {
+            echo "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT (from job parameters)"
+        } else {
+            IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
+            echo "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT (from params file)"
+        }
+
+        if ("$IMAGE_PMM_SERVER") {
+            echo "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER (from job parameters)"
+        } else {
+            IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
+            echo "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER (from params file)"
+        }
+
+        if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
+            PLATFORM_VER = getParam("OPENSHIFT_${PLATFORM_VER}")
+            echo "PLATFORM_VER=$PLATFORM_VER (from params file)"
+        }
+    } else {
+        echo "This is not a release run. Using job params only!"
+    }
+
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     if ("$PLATFORM_VER" == "latest") {
         OC_VER = "4.15.25"
@@ -51,60 +108,10 @@ void prepareNode() {
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
     """
 
-    echo "=========================[ Cloning the sources ]========================="
-    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-    sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo sudo git config --global --add safe.directory '*'
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf source
-        cloud/local/checkout $GIT_REPO $GIT_BRANCH
-    """
-    echo "=========================[ Assigning images for release test ]========================="
-    if ("$RELEASE_RUN" == "YES") {
-        if ("$IMAGE_OPERATOR") {
-            echo "IMAGE_OPERATOR was provided. Using image from job params $IMAGE_OPERATOR"}
-        else {
-            echo "IMAGE_OPERATOR was NOT provided. Will use file params!"
-            IMAGE_OPERATOR = getImage("IMAGE_OPERATOR")
-            echo "IMAGE_OPERATOR is $IMAGE_OPERATOR"
-        }
-        if ("$IMAGE_MONGOD") {
-            echo "IMAGE_MONGOD was provided. Using image from job params $IMAGE_MONGOD"}
-        else {
-            echo "IMAGE_MONGOD was NOT provided. Will use file params!"
-            IMAGE_MONGOD = getImage("IMAGE_MONGOD${PILLAR_VERSION}")
-            echo "IMAGE_MONGOD is $IMAGE_MONGOD"
-        }
-        if ("$IMAGE_BACKUP") {
-            echo "IMAGE_BACKUP was provided. Using image from job params $IMAGE_BACKUP"}
-        else {
-            echo "IMAGE_BACKUP was NOT provided. Will use file params!"
-            IMAGE_BACKUP  =getImage("IMAGE_BACKUP")
-            echo "IMAGE_BACKUP is $IMAGE_BACKUP"
-        }
-        if ("$IMAGE_PMM_CLIENT") {
-            echo "IMAGE_PMM_CLIENT was provided. Using image from job params $IMAGE_PMM_CLIENT"}
-        else {
-            echo "IMAGE_PMM_CLIENT was NOT provided. Will use file params!"
-            IMAGE_PMM_CLIENT = getImage("IMAGE_PMM_CLIENT")
-            echo "IMAGE_PMM_CLIENT is $IMAGE_PMM_CLIENT"
-        }
-        if ("$IMAGE_PMM_SERVER") {
-            echo "IMAGE_PMM_SERVER was provided. Using image from job params $IMAGE_PMM_SERVER"}
-        else {
-            echo "IMAGE_PMM_SERVER was NOT provided. Will use file params!"
-            IMAGE_PMM_SERVER = getImage("IMAGE_PMM_SERVER")
-            echo "IMAGE_PMM_SERVER is $IMAGE_PMM_SERVER"
-        }
-    } else {
-        echo "This is not release run. Using params only!"
-    }
-
     if ("$IMAGE_MONGOD") {
-        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
+        release = ("$RELEASE_RUN" == "YES") ? "RELEASE" : ""
+        cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
+        currentBuild.description = "$release-$GIT_BRANCH-$PLATFORM_VER-$cw-" + "$IMAGE_MONGOD".split(":")[1]
     }
 
     script {
@@ -119,7 +126,7 @@ void dockerBuildPush() {
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$IMAGE_OPERATOR" ]]; then
-                echo "SKIP: Build is not needed, PSMDB operator image was set!"
+                echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
                 sg docker -c "
@@ -235,7 +242,7 @@ controlPlane:
   replicas: 1
 metadata:
   creationTimestamp: null
-  name: openshift-psmdb-jenkins-$CLUSTER_SUFFIX
+  name: openshift4-ver-psmdb-jenkins-$CLUSTER_SUFFIX
 networking:
   clusterNetwork:
   - cidr: 10.128.0.0/14
@@ -268,60 +275,6 @@ EOF
             """
         }
     }
-}
-
-void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
-        sshagent(['aws-openshift-41-key']) {
-            sh """
-                export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
-                for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                    kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete services --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
-                done
-                kubectl get svc --all-namespaces || true
-
-                /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
-            """
-        }
-    }
-}
-
-void pushArtifactFile(String FILE_NAME) {
-    echo "Push $FILE_NAME file to S3!"
-
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            touch $FILE_NAME
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
-            aws s3 ls \$S3_PATH/$FILE_NAME || :
-            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
-        """
-    }
-}
-
-TestsReport = '<testsuite name=\\"PSMDB-OpenShift-version\\">\n'
-void makeReport() {
-    for (int i=0; i<tests.size(); i++) {
-        def testResult = tests[i]["result"]
-        def testTime = tests[i]["time"]
-        def testName = tests[i]["name"]
-
-        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
-    }
-    TestsReport = TestsReport + '</testsuite>\n'
-
-    echo "=========================[ Generating Images Report ]========================="
-    TestsImages = "testsuite name='PSMDB-OpenShift-latest'\n" +\
-                    "IMAGE_OPERATOR=$IMAGE_OPERATOR\n" +\
-                    "IMAGE_MONGOD=$IMAGE_MONGOD\n" +\
-                    "IMAGE_BACKUP=$IMAGE_BACKUP\n" +\
-                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" +\
-                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER"
 }
 
 void runTest(Integer TEST_ID) {
@@ -370,6 +323,62 @@ void runTest(Integer TEST_ID) {
             def durationSec = (timeStop - timeStart) / 1000
             tests[TEST_ID]["time"] = durationSec
             echo "The $testName test was finished!"
+        }
+    }
+}
+
+void pushArtifactFile(String FILE_NAME) {
+    echo "Push $FILE_NAME file to S3!"
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            touch $FILE_NAME
+            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
+            aws s3 ls \$S3_PATH/$FILE_NAME || :
+            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
+        """
+    }
+}
+
+TestsReport = '<testsuite name=\\"PSMDB-OpenShift-version\\">\n'
+void makeReport() {
+    echo "=========================[ Generating Test Report ]========================="
+    for (int i=0; i<tests.size(); i++) {
+        def testResult = tests[i]["result"]
+        def testTime = tests[i]["time"]
+        def testName = tests[i]["name"]
+
+        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
+    }
+    TestsReport = TestsReport + '</testsuite>\n'
+
+    echo "=========================[ Generating Images Report ]========================="
+    TestsImages = "testsuite name='PSMDB-OpenShift-version'\n" +\
+                    "IMAGE_OPERATOR=$IMAGE_OPERATOR\n" +\
+                    "IMAGE_MONGOD=$IMAGE_MONGOD\n" +\
+                    "IMAGE_BACKUP=$IMAGE_BACKUP\n" +\
+                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" +\
+                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER\n" +\
+                    "USED_PLATFORM_VER=$USED_PLATFORM_VER"
+}
+
+void shutdownCluster(String CLUSTER_SUFFIX) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+        sshagent(['aws-openshift-41-key']) {
+            sh """
+                export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                    kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+                done
+                kubectl get svc --all-namespaces || true
+
+                /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
+            """
         }
     }
 }
@@ -467,7 +476,7 @@ pipeline {
                 initTests()
             }
         }
-        stage('Run tests') {
+        stage('Run Tests') {
             parallel {
                 stage('cluster1') {
                     options {
@@ -499,14 +508,6 @@ pipeline {
                     }
                     steps {
                         clusterRunner('cluster4')
-                    }
-                }
-                stage('cluster5') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
-                    }
-                    steps {
-                        clusterRunner('cluster5')
                     }
                 }
             }
