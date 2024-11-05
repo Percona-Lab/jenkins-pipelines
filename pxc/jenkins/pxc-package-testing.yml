@@ -34,9 +34,13 @@
             choices:
                 - 'ubuntu-noble'
                 - 'ubuntu-jammy'
+                - 'ubuntu-noble-arm'
+                - 'ubuntu-jammy-arm'
                 - 'ubuntu-focal'
                 - 'debian-12'
                 - 'debian-11'
+                - 'debian-12-arm'
+                - 'debian-11-arm'
                 - 'debian-10'
                 - 'centos-7'
                 - 'ol-8'
