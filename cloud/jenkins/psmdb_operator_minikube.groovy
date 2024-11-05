@@ -53,7 +53,7 @@ void prepareNode() {
         if ("$IMAGE_BACKUP") {
             echo "IMAGE_BACKUP=$IMAGE_BACKUP (from job parameters)"
         } else {
-            IMAGE_BACKUP  =getParam("IMAGE_BACKUP")
+            IMAGE_BACKUP = getParam("IMAGE_BACKUP")
             echo "IMAGE_BACKUP=$IMAGE_BACKUP (from params file)"
         }
 
