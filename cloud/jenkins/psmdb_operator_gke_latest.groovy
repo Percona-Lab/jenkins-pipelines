@@ -406,7 +406,7 @@ pipeline {
             description: 'GKE kubernetes version',
             name: 'PLATFORM_VER')
         choice(
-            choices: 'stable\nregular\nrapid\nNone',
+            choices: 'rapid\nstable\nregular\nNone',
             description: 'GKE release channel',
             name: 'GKE_RELEASE_CHANNEL')
         choice(
