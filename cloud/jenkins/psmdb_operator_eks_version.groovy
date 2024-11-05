@@ -12,13 +12,20 @@ void verifyParams() {
     }
 }
 
-void getParam(String PARAM_NAME) {
-    PARAM = sh(script: "cat $release_versions | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
+String getParam(String PARAM_NAME) {
+    def param = "${params[PARAM_NAME]}"
 
-    if ("$PARAM") {
-        return "$PARAM"
+    if ("$param" && "$param" != "null" && param != "") {
+        echo "$PARAM_NAME=$param (from job parameters)"
+        return param
     } else {
-        error("$PARAM_NAME not found in params file $release_versions")
+        param = sh(script: "cat $release_versions | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
+        if ("$param") {
+            echo "$PARAM_NAME=$param (from params file)"
+            return param
+        } else {
+            error("$PARAM_NAME not found in params file $release_versions")
+        }
     }
 }
 
@@ -37,44 +44,13 @@ void prepareNode() {
 
     echo "=========================[ Assigning images for release test ]========================="
     if ("$RELEASE_RUN" == "YES") {
-        if ("$IMAGE_OPERATOR") {
-            echo "IMAGE_OPERATOR=$IMAGE_OPERATOR (from job parameters)"
-        } else {
-            IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
-            echo "IMAGE_OPERATOR=$IMAGE_OPERATOR (from params file)"
-        }
-
-        if ("$IMAGE_MONGOD") {
-            echo "IMAGE_MONGOD=$IMAGE_MONGOD (from job parameters)"
-        } else {
-            IMAGE_MONGOD = getParam("IMAGE_MONGOD${PILLAR_VERSION}")
-            echo "IMAGE_MONGOD=$IMAGE_MONGOD (from params file)"
-        }
-
-        if ("$IMAGE_BACKUP") {
-            echo "IMAGE_BACKUP=$IMAGE_BACKUP (from job parameters)"
-        } else {
-            IMAGE_BACKUP = getParam("IMAGE_BACKUP")
-            echo "IMAGE_BACKUP=$IMAGE_BACKUP (from params file)"
-        }
-
-        if ("$IMAGE_PMM_CLIENT") {
-            echo "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT (from job parameters)"
-        } else {
-            IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
-            echo "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT (from params file)"
-        }
-
-        if ("$IMAGE_PMM_SERVER") {
-            echo "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER (from job parameters)"
-        } else {
-            IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
-            echo "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER (from params file)"
-        }
-
+        IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
+        IMAGE_MONGOD = getParam("IMAGE_MONGOD${PILLAR_VERSION}")
+        IMAGE_BACKUP = getParam("IMAGE_BACKUP")
+        IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
         if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
             PLATFORM_VER = getParam("EKS_${PLATFORM_VER}")
-            echo "PLATFORM_VER=$PLATFORM_VER (from params file)"
         }
     } else {
         echo "This is not a release run. Using job params only!"
@@ -103,7 +79,7 @@ void prepareNode() {
     if ("$IMAGE_MONGOD") {
         release = ("$RELEASE_RUN" == "YES") ? "RELEASE-" : ""
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-        currentBuild.description = "${release}$GIT_BRANCH-$PLATFORM_VER-$GKE_RELEASE_CHANNEL-$cw-" + "$IMAGE_MONGOD".split(":")[1]
+        currentBuild.description = "${release}$GIT_BRANCH-$PLATFORM_VER-$cw-" + "$IMAGE_MONGOD".split(":")[1]
     }
 
     script {
