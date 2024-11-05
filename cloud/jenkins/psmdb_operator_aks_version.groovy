@@ -73,7 +73,7 @@ void prepareNode() {
         }
 
         if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
-            PLATFORM_VER = getParam("EKS_${PLATFORM_VER}")
+            PLATFORM_VER = getParam("AKS_${PLATFORM_VER}")
             echo "PLATFORM_VER=$PLATFORM_VER (from params file)"
         }
     } else {
