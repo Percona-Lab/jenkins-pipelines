@@ -262,6 +262,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             FUTURE_TIME=\$(date -d '6 hours' --rfc-3339=seconds)
 
             gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \
+                --zone $region \
                 --add-maintenance-exclusion-start "\$CURRENT_TIME" \
                 --add-maintenance-exclusion-end "\$FUTURE_TIME"
         """
