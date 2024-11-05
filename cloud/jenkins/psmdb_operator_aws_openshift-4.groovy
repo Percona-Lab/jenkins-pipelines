@@ -385,7 +385,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 
 pipeline {
     environment {
-        TF_IN_AUTOMATION = 'true'
         CLEAN_NAMESPACE = 1
         MDB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
     }
