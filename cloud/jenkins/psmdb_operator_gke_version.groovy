@@ -138,7 +138,7 @@ void dockerBuildPush() {
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             if [[ "$IMAGE_OPERATOR" ]]; then
-                echo "SKIP: Build is not needed, PSMDB operator image was set!"
+                echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
                 sg docker -c "
