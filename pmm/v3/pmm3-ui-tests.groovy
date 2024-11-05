@@ -251,7 +251,7 @@ pipeline {
                         export PATH=$PATH:/usr/sbin
                         export PMM_CLIENT_VERSION=${CLIENT_VERSION}
                         if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
-                            export PMM_CLIENT_VERSION="latest"
+                            export PMM_CLIENT_VERSION="3-dev-latest"
                         fi
 
                         docker network create pmm-qa || true
