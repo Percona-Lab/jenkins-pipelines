@@ -15,17 +15,17 @@ void verifyParams() {
     }
 }
 
-void getParam(String PARAM_NAME) {
+String getParam(String PARAM_NAME) {
     def param = "${params[PARAM_NAME]}"
 
-    if ("$param") {
+    if ("$param" && "$param" != "null") {
         echo "$PARAM_NAME=$param (from job parameters)"
-        return $param
+        return param
     } else {
         param = sh(script: "cat $release_versions | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
         if ("$param") {
-            echo "PARAM_NAME=$param (from params file)"
-            return $param
+            echo "$PARAM_NAME=$param (from params file)"
+            return param
         } else {
             error("$PARAM_NAME not found in params file $release_versions")
         }
@@ -48,7 +48,6 @@ void prepareNode() {
     echo "=========================[ Assigning images for release test ]========================="
     if ("$RELEASE_RUN" == "YES") {
         IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
-        echo "IMAGE_OPERATOR=$IMAGE_OPERATOR"
         IMAGE_MONGOD = getParam("IMAGE_MONGOD${PILLAR_VERSION}")
         IMAGE_BACKUP = getParam("IMAGE_BACKUP")
         IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
