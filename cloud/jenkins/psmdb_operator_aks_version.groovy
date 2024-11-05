@@ -4,21 +4,21 @@ clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
 void verifyParams() {
-    if ("$RELEASE_RUN" == "YES" && (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD")){
-        error("This is RELEASE_RUN. Either PILLAR_VERSION or IMAGE_MONGOD should be provided")
+    if ("$RELEASE_RUN" == "YES") {
+        echo "=========================[ RELEASE RUN ]========================="
+        if (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD") {
+            error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided for release run!")
+        }
     }
 }
 
-void getImage(String IMAGE_NAME) {
-    IMAGE = """${sh(
-        returnStdout: true,
-        script: "cat ${release_versions} | egrep \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "
-    ).trim()}"""
-    if ("$IMAGE") {
-        return "$IMAGE"
-    }
-    else {
-        error("Empty image is returned for $IMAGE_NAME. Check PILLAR_VERSION or content of file with images")
+void getParam(String PARAM_NAME) {
+    PARAM = sh(script: "cat $release_versions | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
+
+    if ("$PARAM") {
+        return "$PARAM"
+    } else {
+        error("$PARAM_NAME not found in params file $release_versions")
     }
 }
 
@@ -109,7 +109,9 @@ void prepareNode() {
     }
 
     if ("$IMAGE_MONGOD") {
-        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
+        release = ("$RELEASE_RUN" == "YES") ? "RELEASE" : ""
+        cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
+        currentBuild.description = "$release-$GIT_BRANCH-$PLATFORM_VER-$GKE_RELEASE_CHANNEL-$cw-" + "$IMAGE_MONGOD".split(":")[1]
     }
 
     script {
@@ -163,8 +165,8 @@ void initTests() {
     }
 
     echo "Marking passed tests in the tests map!"
-    if ("$IGNORE_PREVIOUS_RUN" == "NO") {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        if ("$IGNORE_PREVIOUS_RUN" == "NO") {
             sh """
                 aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
             """
@@ -178,9 +180,7 @@ void initTests() {
                     tests[i]["result"] = "passed"
                 }
             }
-        }
-    } else {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        } else {
             sh """
                 aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
             """
@@ -318,7 +318,8 @@ void makeReport() {
                     "IMAGE_MONGOD=$IMAGE_MONGOD\n" +\
                     "IMAGE_BACKUP=$IMAGE_BACKUP\n" +\
                     "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" +\
-                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER"
+                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER\n" +\
+                    "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
