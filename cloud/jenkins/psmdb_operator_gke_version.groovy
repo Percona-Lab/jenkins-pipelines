@@ -230,12 +230,8 @@ void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-
-            CURRENT_TIME=\$(date --rfc-3339=seconds)
-            FUTURE_TIME=\$(date -d '6 hours' --rfc-3339=seconds)
             maxRetries=15
             exitCode=1
-
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
                     --release-channel $GKE_RELEASE_CHANNEL \
