@@ -96,39 +96,46 @@ pipeline {
                     currentBuild.displayName = "${BUILD_NUMBER} ${CMAKE_BUILD_TYPE}/${DOCKER_OS}"
                 }
 
-                sh 'echo Prepare: \$(date -u "+%s")'
-                echo 'Checking PXC branch version'
-                sh '''
-                    MY_BRANCH_BASE_MAJOR=5
-                    MY_BRANCH_BASE_MINOR=7
+		withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'PXC_SECRET_TOKEN')]) {
+                            sh 'echo Prepare: \$(date -u "+%s")'
+                            echo 'Checking PXC branch version'
+                            sh '''
+                                MY_BRANCH_BASE_MAJOR=5
+                                MY_BRANCH_BASE_MINOR=7
 
-                    if [[ ${USE_PR} == "true" ]]; then
-                        if [ -f /usr/bin/yum ]; then
-                            sudo yum -y install jq
-                        else
-                            sudo apt-get install -y jq
-                        fi
+                            if [[ ${USE_PR} == "true" ]]; then
+                                if [ -f /usr/bin/yum ]; then
+                                    sudo yum -y install jq
+                                else
+                                    sudo apt-get install -y jq
+                                fi
 
-                        PXC57_REPO=$(curl https://api.github.com/repos/percona/percona-xtradb-cluster/pulls/${PXC57_BRANCH} | jq -r '.head.repo.html_url')
-                        PXC57_BRANCH=$(curl https://api.github.com/repos/percona/percona-xtradb-cluster/pulls/${PXC57_BRANCH} | jq -r '.head.ref')
-                    fi
-
-                    RAW_VERSION_LINK=$(echo ${PXC57_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
-                    REPLY=$(curl -Is ${RAW_VERSION_LINK}/${PXC57_BRANCH}/MYSQL_VERSION | head -n 1 | awk '{print $2}')
-                    if [[ ${REPLY} != 200 ]]; then
-                        wget ${RAW_VERSION_LINK}/${PXC57_BRANCH}/VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
-                    else
-                        wget ${RAW_VERSION_LINK}/${PXC57_BRANCH}/MYSQL_VERSION -O ${WORKSPACE}/VERSION-${BUILD_NUMBER}
-                    fi
-                    source ${WORKSPACE}/VERSION-${BUILD_NUMBER}
-                    if [[ ${MYSQL_VERSION_MAJOR} -lt ${MY_BRANCH_BASE_MAJOR} ]] ; then
-                        echo "Are you trying to build wrong branch?"
-                        echo "You are trying to build ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR} instead of ${MY_BRANCH_BASE_MAJOR}.${MY_BRANCH_BASE_MINOR}!"
-                        rm -f ${WORKSPACE}/VERSION-${BUILD_NUMBER}
-                        exit 1
-                    fi
-                    rm -f ${WORKSPACE}/VERSION-${BUILD_NUMBER}
-                '''
+                               PXC57_REPO=$(curl https://api.github.com/repos/percona/percona-xtradb-cluster/pulls/${PXC57_BRANCH} | jq -r '.head.repo.html_url')
+                               PXC57_BRANCH=$(curl https://api.github.com/repos/percona/percona-xtradb-cluster/pulls/${PXC57_BRANCH} | jq -r '.head.ref')
+                            fi
+		            GIT_REPO_LINK=${PXC57_REPO}
+                                if [[ "${PXC57_REPO}" =~ "private" ]]; then
+                                    GIT_REPO_LINK=$(echo ${PXC57_REPO} | sed -e "s|github|x-access-token:${PXC_SECRET_TOKEN}@github|g")
+                                fi
+                            RAW_VERSION_LINK=$(echo ${GIT_REPO_LINK%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
+                            REPLY=$(curl -Is ${RAW_VERSION_LINK}/${PXC57_BRANCH}/MYSQL_VERSION | head -n 1 | awk '{print $2}')
+                            if [[ ${REPLY} != 200 ]]; then
+                                curl ${RAW_VERSION_LINK}/${PXC57_BRANCH}/VERSION -o ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                            else
+                                curl ${RAW_VERSION_LINK}/${PXC57_BRANCH}/MYSQL_VERSION -o ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                            fi
+                            source ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                            if [[ ${MYSQL_VERSION_MAJOR} -lt ${MY_BRANCH_BASE_MAJOR} ]] ; then
+                                echo "Are you trying to build wrong branch?"
+                                echo "You are trying to build ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR} instead of ${MY_BRANCH_BASE_MAJOR}.${MY_BRANCH_BASE_MINOR}!"
+                                rm -f ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                                exit 1
+                            fi
+                            rm -f ${WORKSPACE}/VERSION-${BUILD_NUMBER}
+                        '''
+		        }
+		}
             }
         }
         stage('Check out and Build PXB') {
@@ -176,35 +183,37 @@ pipeline {
                 steps {
                     git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
                     echo 'Checkout PXC57 sources'
-                    sh '''
-                        # sudo is needed for better node recovery after compilation failure
-                        # if building failed on compilation stage directory will have files owned by docker user
-                        sudo git reset --hard
-                        sudo git clean -xdf
-                        sudo rm -rf sources
-                        ./pxc/local/checkout57 PXC57
-                    '''
+		    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'PXC_SECRET_TOKEN')]) {
+                            sh '''
+                            # sudo is needed for better node recovery after compilation failure
+                            # if building failed on compilation stage directory will have files owned by docker user
+                            sudo git reset --hard
+                            sudo git clean -xdf
+                            sudo rm -rf sources
+                            ./pxc/local/checkout57 PXC57
+                            '''
 
-                    echo 'Build PXC57'
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                        sh '''							
-                            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-                            sg docker -c "
-                                if [ \$(docker ps -q | wc -l) -ne 0 ]; then
-                                    docker ps -q | xargs docker stop --time 1 || :
-                                fi
-                                ./pxc/docker/run-build-pxc57 ${DOCKER_OS}
-                            " 2>&1 | tee build.log
+                            echo 'Build PXC57'
+                            sh '''
+                                aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                                sg docker -c "
+                                    if [ \$(docker ps -q | wc -l) -ne 0 ]; then
+                                        docker ps -q | xargs docker stop --time 1 || :
+                                    fi
+                                    ./pxc/docker/run-build-pxc57 ${DOCKER_OS}
+                                " 2>&1 | tee build.log
                           
-                            if [[ -f \$(ls pxc/sources/pxc57/results/*.tar.gz | head -1) ]]; then
-                                until aws s3 cp --no-progress --acl public-read pxc/sources/pxc57/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc57.tar.gz; do
-                                    sleep 5
-                                done
-                            else
-                                echo cannot find compiled archive
-                                exit 1
-                            fi
-                        '''
+                                if [[ -f \$(ls pxc/sources/pxc57/results/*.tar.gz | head -1) ]]; then
+                                    until aws s3 cp --no-progress --acl public-read pxc/sources/pxc57/results/*.tar.gz s3://pxc-build-cache/${BUILD_TAG}/pxc57.tar.gz; do
+                                        sleep 5
+                                    done
+                                else
+                                    echo cannot find compiled archive
+                                    exit 1
+                                fi
+                            '''
+			}
                    }
                 }
         }
@@ -236,9 +245,9 @@ pipeline {
                                 ./pxc/docker/run-test57 ${DOCKER_OS}
                             "
                         '''
-                    }
-                    step([$class: 'JUnitResultArchiver', testResults: 'pxc/sources/pxc/results/*.xml', healthScaleFactor: 1.0])
-                    archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/pxc57-test-mtr_logs.tar.gz'
+			}
+                        step([$class: 'JUnitResultArchiver', testResults: 'pxc/sources/pxc/results/*.xml', healthScaleFactor: 1.0])
+                        archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/pxc57-test-mtr_logs.tar.gz'
                 }
         }
     }

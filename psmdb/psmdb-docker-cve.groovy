@@ -31,6 +31,9 @@ pipeline {
                 stages {
                     stage ('Run tests') {
                         steps {
+                         script {
+                          retry(3) {
+                           try {
                             sh """
                                 TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
                                 wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
@@ -40,6 +43,13 @@ pipeline {
                                 /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
                                          --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona/percona-server-mongodb:${PSMDB_VERSION}
                             """
+                           } catch (Exception e) {
+                                echo "Attempt failed: ${e.message}"
+                                sleep 15
+                                throw e
+                           }
+                          }
+                         }
                         }
                         post {
                             always {
