@@ -9,9 +9,9 @@ void verifyParams() {
         if (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD") {
             error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided for release run!")
         }
-        if ("$GKE_RELEASE_CHANNEL" != "STABLE".toLowerCase()) {
-            error("Only stable channel is supported for release run!")
-        }
+
+        GKE_RELEASE_CHANNEL = "STABLE"
+        echo "Forcing GKE_RELEASE_CHANNEL=STABLE, because it's a release run!"
     }
 }
 
