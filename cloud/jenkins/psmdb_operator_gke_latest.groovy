@@ -18,7 +18,7 @@ void verifyParams() {
 String getParam(String PARAM_NAME) {
     def param = "${params[PARAM_NAME]}"
 
-    if ("$param" && "$param" != "null") {
+    if ("$param" && "$param" != "null" && param != "") {
         echo "$PARAM_NAME=$param (from job parameters)"
         return param
     } else {
