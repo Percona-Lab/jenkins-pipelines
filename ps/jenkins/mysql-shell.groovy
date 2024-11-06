@@ -80,11 +80,11 @@ pipeline {
                 script {
                     cleanUpWS()
                     PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                    if ("${PS_MAJOR_RELEASE}" == "80") {
-                        buildStage("debian:buster", "--get_sources=1")
-                    } else {
-                        buildStage("ubuntu:focal", "--get_sources=1")
-                    }
+                    //if ("${PS_MAJOR_RELEASE}" == "80") {
+                    //    buildStage("debian:buster", "--get_sources=1")
+                    //} else {
+                    buildStage("ubuntu:focal", "--get_sources=1")
+                    //}
                 }
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/mysql-shell.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
@@ -134,6 +134,7 @@ pipeline {
         } // stage
         stage('Build MYSQL-SHELL RPMs/DEBs/Binary tarballs') {
             parallel {
+/*
                 stage('Centos 7') {
                     agent {
                         label 'docker'
@@ -147,6 +148,7 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
+*/
                 stage('Oracle Linux 8') {
                     agent {
                         label 'docker'
@@ -212,9 +214,42 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Focal (20.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
+                            if ("${PS_MAJOR_RELEASE}" == "80") {
+                                cleanUpWS()
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                buildStage("ubuntu:focal", "--build_deb=1")
+
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            } else {
+                                echo "The step is skipped."
+                            }
+                        }
+                    }
+                }
                 stage('Ubuntu Jammy (22.04)') {
                     agent {
                         label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Jammy (22.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -238,26 +273,17 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Buster (10)') {
+                stage('Ubuntu Noble (24.04) ARM') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
-                        script {
-                            cleanUpWS()
-                            PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                            if ("${PS_MAJOR_RELEASE}" == "80") {
-                                //popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                                //buildStage("debian:buster", "--build_deb=1")
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:noble", "--build_deb=1")
 
-                                //pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                //uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-
-                                echo "The step is skipped"
-                            } else {
-                                echo "The step is skipped"
-                            }
-                        }
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bullseye (11)') {
@@ -273,9 +299,42 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Debian Bullseye (11) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
+                            if ("${PS_MAJOR_RELEASE}" == "80") {
+                                cleanUpWS()
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                buildStage("debian:bullseye", "--build_deb=1")
+
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            } else {
+                                echo "The step is skipped."
+                            }
+                        }
+                    }
+                }
                 stage('Debian Bookworm (12)') {
                     agent {
                         label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bookworm", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Bookworm (12) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -312,6 +371,7 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+/*
                 stage('Debian Buster (10) tarball') {
                     agent {
                         label 'docker-32gb'
@@ -325,6 +385,7 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+*/
                 stage('Debian Bullseye (11) tarball') {
                     agent {
                         label 'docker-32gb'

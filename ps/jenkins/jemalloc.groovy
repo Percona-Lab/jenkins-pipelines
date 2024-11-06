@@ -13,24 +13,32 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 cd test
                 export build_dir=\$(pwd -P)
                 docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -x -c "
-                    yum -y install git
+                    export ARCH=\\\$(arch)
+                    export RHEL=\\\$(rpm --eval %rhel)
+                    if [ \\\${RHEL} = 8 ]; then
+                        sed -i 's/mirrorlist=/#mirrorlist=/g' /etc/yum.repos.d/CentOS-*
+                        sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+                    fi
+
+                    yum -y install rpm-build gcc gcc-c++ make automake autoconf libxslt wget
+
                     cd \${build_dir}
+                    wget --no-check-certificate \${JEMALLOC_RPM_SOURCE}
+
+                    rpm2cpio jemalloc-3.6.0-1.el7.src.rpm | cpio -id
+
+                    tar -xvf jemalloc-3.6.0.tar.bz2
+                    sed -i 's/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g' jemalloc-3.6.0/Makefile.in
+                    rm -rf jemalloc-3.6.0.tar.bz2
+                    tar -cjf jemalloc-3.6.0.tar.bz2 jemalloc-3.6.0/
+                    rm -rf jemalloc-3.6.0/
+
                     ls -la
-                    git clone \${BUILD_URL}
-                    cd qpress-packaging
-                    git clean -fd
-                    git reset --hard
-                    git checkout \${BUILD_BRANCH}
                     echo \${VERSION} \${RELEASE}
-                    sed -i 's/Version:.*/Version:        \"${VERSION}\"/g' \${build_dir}/qpress-packaging/rpm/SPECS/qpress.spec
-                    sed -i 's/Release:.*/Release:        \"${RELEASE}\"%{?dist}/g' \${build_dir}/qpress-packaging/rpm/SPECS/qpress.spec
-                    cat \${build_dir}/qpress-packaging/rpm/SPECS/qpress.spec
-                    cd ..
-                    tar --owner=0 --group=0 -czf qpress-packaging.tar.gz qpress-packaging
-                    echo \"UPLOAD=UPLOAD/experimental/BUILDS/qpress/${BUILD_BRANCH}/${BUILD_ID}\" >> qpress.properties
+                    echo \"UPLOAD=UPLOAD/experimental/BUILDS/jemalloc/${VERSION}-${RELEASE}/${BUILD_ID}\" >> jemalloc.properties
 
                     mkdir -p source_tarball
-                    cp qpress-packaging.tar.gz source_tarball
+                    cp jemalloc-3.6.0.tar.bz2 source_tarball
                 "
             """
             break
@@ -38,55 +46,56 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             sh """
                 set -o xtrace
                 cd test
-                cp ../source_tarball/qpress-packaging.tar.gz .
                 ls -la
                 export build_dir=\$(pwd -P)
                 docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -x -c "
                     export ARCH=\\\$(arch)
                     export RHEL=\\\$(rpm --eval %rhel)
+                    if [ \\\${RHEL} = 8 ]; then
+                        sed -i 's/mirrorlist=/#mirrorlist=/g' /etc/yum.repos.d/CentOS-*
+                        sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+                    fi
 
-                    yum -y install wget gcc gcc-c++ rpm-build make git
+                    yum -y install rpm-build gcc gcc-c++ make automake autoconf libxslt wget tree
 
                     cd \${build_dir}
+                    wget --no-check-certificate \${JEMALLOC_RPM_SOURCE}
 
-                    #git clone ${BUILD_URL}
-                    #cd qpress-packaging
+                    rpm2cpio jemalloc-3.6.0-1.el7.src.rpm | cpio -id
+                    tree
 
-                    tar xvf qpress-packaging.tar.gz
-                    cd qpress-packaging
+                    tar -xvf jemalloc-3.6.0.tar.bz2
+                    sed -i 's/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g' jemalloc-3.6.0/Makefile.in
+                    rm -rf jemalloc-3.6.0.tar.bz2
+                    tar -cjf jemalloc-3.6.0.tar.bz2 jemalloc-3.6.0/
+                    rm -rf jemalloc-3.6.0/
 
-                    wget \"${QPRESS_SOURCE}\"
-                    tar -xvzf 20220819.tar.gz
-                    cd qpress-20220819
-                    zip -q qpress-11-source.zip *
-                    mv qpress-11-source.zip ../
-                    cd ../
-                    rm -rf qpress-20220819 20220819.tar.gz
-                    rm -rf deb
+                    mkdir -p \${build_dir}/rpmbuild/{RPMS/\\\${ARCH},SOURCES,SRPMS,SPECS,BUILD}
 
-                    rm -fr \${build_dir}/rpmbuild
-                    mkdir -p \${build_dir}/rpmbuild/{RPMS/\${ARCH},SOURCES,SRPMS,SPECS,BUILD}
-                    cp -av \${build_dir}/qpress-packaging/rpm/SOURCES/* \${build_dir}/rpmbuild/SOURCES
-                    cp -av \${build_dir}/qpress-packaging/rpm/SPECS/* \${build_dir}/rpmbuild/SPECS
-                    cp -av \${build_dir}/qpress-packaging/qpress-11-source.zip \${build_dir}/rpmbuild/SOURCES
-                    cd ..
+                    mv jemalloc.spec rpmbuild/SPECS/
+                    mv jemalloc* rpmbuild/SOURCES/
 
-                    rpmbuild -ba --define \\"debug_package %{nil}\\" rpmbuild/SPECS/qpress.spec --define \\"_topdir \$PWD/rpmbuild\\"
+                    sed -i '1i Epoch: 1' rpmbuild/SPECS/jemalloc.spec
+                    head -10 rpmbuild/SPECS/jemalloc.spec 
 
+                    rpmbuild -bs --define \\"dist .generic\\" rpmbuild/SPECS/jemalloc.spec --define \\"_topdir \${build_dir}/rpmbuild\\"
                     mkdir -p srpm
                     cp rpmbuild/SRPMS/*.rpm srpm
+                    mv rpmbuild/SRPMS/* ./
 
+                    rm -rf rpmbuild
+                    mkdir rpmbuild
+
+                    rpmbuild --define \\"_topdir \${build_dir}/rpmbuild\\" --rebuild jemalloc-*.src.rpm
                     mkdir -p rpm
                     cp rpmbuild/RPMS/*/*.rpm rpm/
                 "
-             """
-             break
+            """
+            break
         case "DEB" :
              sh """
                 set -o xtrace
                 cd test
-                cp ../source_tarball/qpress-packaging.tar.gz .
-                ls -la
                 export build_dir=\$(pwd -P)
                 docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -x -c "
                     export ARCH=\\\$(arch)
@@ -95,17 +104,17 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                         echo \\"waiting\\"
                         sleep 10
                     done
-                    until DEBIAN_FRONTEND=noninteractive apt-get -y install lsb-release gnupg2; do
+                    until DEBIAN_FRONTEND=noninteractive apt-get -y install dpkg-dev wget debhelper docbook-xsl xsltproc devscripts automake; do
                         echo \\"waiting\\"
                         sleep 10
                     done
                     export DEBIAN_VERSION=\\\$(lsb_release -sc)
                     DEBIAN_FRONTEND=noninteractive apt-get -y purge eatmydata || true
-                    PKGLIST=\\"bzr curl bison cmake perl libssl-dev gcc g++ libaio-dev libldap2-dev libwrap0-dev gdb unzip gawk\\"
-	            PKGLIST=\\"\\\${PKGLIST} libmecab-dev libncurses5-dev libreadline-dev libpam-dev zlib1g-dev libcurl4-openssl-dev\\"
-                    PKGLIST=\\"\\\${PKGLIST} libldap2-dev libnuma-dev libjemalloc-dev libc6-dbg valgrind libjson-perl\\"
-                    PKGLIST=\\"\\\${PKGLIST} libmecab2 mecab mecab-ipadic zip unzip wget\\"
-                    PKGLIST=\\"\\\${PKGLIST} build-essential debhelper devscripts lintian diffutils patch patchutils\\"
+                    if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = noble ]; then
+                        PKGLIST=\\"gcc-9\\"
+                    else
+                        PKGLIST=\\"gcc-11\\"
+                    fi
                     if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = bookworm -o  \\\$DEBIAN_VERSION = noble ]; then
                         PKGLIST=\\"\\\${PKGLIST} python3-mysqldb\\"
                     else
@@ -113,17 +122,32 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     fi
                     DEBIAN_FRONTEND=noninteractive apt-get -y install \\\${PKGLIST}
 
-                    wget \\"\${QPRESS_SOURCE}\\"
-                    tar -xvzf 20220819.tar.gz
-                    cd qpress-20220819
-                    zip -q qpress-11-source.zip *
-                    mv qpress-11-source.zip ../
-                    cd ../
-                    unzip ./qpress-11-source.zip
-                    tar xvf qpress-packaging.tar.gz
-                    mv qpress-packaging/deb/debian .
-                    dch -m -D \\"\$(lsb_release -sc)\\" --force-distribution -v \\"\${VERSION}-\${RELEASE}.\\\$(lsb_release -sc)\\" \\"Update qpress distribution\\"
-                    dpkg-buildpackage -sa -uc -us -b
+                    if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = noble ]; then
+                         ln -s -f /usr/bin/g++-9 /usr/bin/g++
+                         ln -s -f /usr/bin/gcc-9 /usr/bin/gcc
+                         ln -s -f /usr/bin/gcc-ar-9 /usr/bin/gcc-ar
+                         ln -s -f /usr/bin/gcc-nm-9 /usr/bin/gcc-nm
+                         ln -s -f /usr/bin/gcc-ranlib-9 /usr/bin/gcc-ranlib
+                         ln -s -f /usr/bin/x86_64-linux-gnu-g++-9 /usr/bin/x86_64-linux-gnu-g++
+                         ln -s -f /usr/bin/x86_64-linux-gnu-gcc-9 /usr/bin/x86_64-linux-gnu-gcc
+                         ln -s -f /usr/bin/x86_64-linux-gnu-gcc-ar-9 /usr/bin/x86_64-linux-gnu-gcc-ar
+                         ln -s -f /usr/bin/x86_64-linux-gnu-gcc-nm-9 /usr/bin/x86_64-linux-gnu-gcc-nm
+                         ln -s -f /usr/bin/x86_64-linux-gnu-gcc-ranlib-9 /usr/bin/x86_64-linux-gnu-gcc-ranlib
+                    fi
+                    wget \${JEMALLOC_DEB_SOURCE}/jemalloc_3.6.0-2.debian.tar.xz \${JEMALLOC_DEB_SOURCE}/jemalloc_3.6.0-2.dsc \${JEMALLOC_DEB_SOURCE}/jemalloc_3.6.0.orig.tar.bz2
+
+                    dpkg-source -x jemalloc_3.6.0-2.dsc
+                    cd jemalloc-3.6.0
+                    sed -i 's/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g' Makefile.in
+                    if [ \\\$DEBIAN_VERSION = bookworm -a \\\$ARCH = aarch64 ]; then
+                        sed -i 's/make check/#make check/g' debian/rules
+                    fi
+                    sed -i 's/override_dh_auto_test:/override_dh_builddeb:\\n\\tdh_builddeb -- -Zgzip\n\noverride_dh_auto_test:/g' debian/rules
+                    cat debian/rules
+
+                    dch -m -D \\"\$(lsb_release -sc)\\" --force-distribution -v \\"\${VERSION}-\${RELEASE}.\\\$(lsb_release -sc)\\" \\"Update jemalloc distribution\\"
+                    dpkg-buildpackage -rfakeroot -us -uc -b
+
                     mkdir -p \${build_dir}/deb
                     cp ../*.deb \${build_dir}/deb/
                 "
@@ -145,24 +169,30 @@ pipeline {
         label 'docker'
     }
     parameters {
+/*
         string(
-            defaultValue: 'https://github.com/percona-lab/qpress-packaging.git',
-            description: 'URL for qpress packaging repository',
+            defaultValue: 'https://github.com/percona-lab/jemalloc-packaging.git',
+            description: 'URL for jemalloc packaging repository',
             name: 'BUILD_URL')
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for qpress packaging repository',
+            description: 'Tag/Branch for jemalloc packaging repository',
             name: 'BUILD_BRANCH')
+*/
         string(
-            defaultValue: 'https://github.com/EvgeniyPatlan/qpress/archive/refs/tags/20220819.tar.gz',
-            description: 'Source for qpress',
-            name: 'QPRESS_SOURCE')
+            defaultValue: 'https://downloads.percona.com/downloads/packaging/yum-repo/jemalloc-3.6.0-1.el7.src.rpm',
+            description: 'Source for jemalloc',
+            name: 'JEMALLOC_RPM_SOURCE')
         string(
-            defaultValue: '11',
+            defaultValue: 'https://repo.percona.com/apt/pool/main/j/jemalloc/',
+            description: 'Source for jemalloc. Next files are expected jemalloc_3.6.0-2.debian.tar.xz, jemalloc_3.6.0-2.dsc, jemalloc_3.6.0.orig.tar.bz2',
+            name: 'JEMALLOC_DEB_SOURCE')
+        string(
+            defaultValue: '3.6.0',
             description: 'Version value',
             name: 'VERSION')
         string(
-            defaultValue: '3',
+            defaultValue: '2',
             description: 'Release value',
             name: 'RELEASE')
         choice(
@@ -176,16 +206,16 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '15', artifactNumToKeepStr: '15'))
     }
     stages {
-         stage('Create qpress source tarball') {
+         stage('Create jemalloc source tarball') {
             steps {
                 cleanUpWS()
-                buildStage("centos:7", "SOURCE")
+                buildStage("centos:8", "SOURCE")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/qpress.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/jemalloc.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/qpress.properties
+                   cat test/jemalloc.properties
                    cat uploadPath
                    pwd
                    ls -la test
@@ -200,7 +230,7 @@ pipeline {
                 uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
-        stage('Build qpress packages') {
+        stage('Build jemalloc packages') {
             parallel {
                 stage('Oracle Linux 8') {
                     agent {
@@ -209,6 +239,9 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        sh '''
+                           echo "============>"
+                        '''
                         buildStage("oraclelinux:8", "RPM")
                         sh '''
                             pwd
@@ -322,7 +355,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-		stage('Ubuntu Focal (20.04) ARM') {
+                stage('Ubuntu Focal (20.04) ARM') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -358,7 +391,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-		stage('Debian Bullseye (11) ARM') {
+                stage('Debian Bullseye (11) ARM') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -394,7 +427,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-		stage('Ubuntu Jammy (22.04) ARM') {
+                stage('Ubuntu Jammy (22.04) ARM') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -430,7 +463,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-		stage('Debian Bookworm (12) ARM') {
+                stage('Debian Bookworm (12) ARM') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -466,7 +499,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-		stage('Ubuntu Noble (24.04) ARM') {
+                stage('Ubuntu Noble (24.04) ARM') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -503,7 +536,7 @@ pipeline {
     post {
         success {
             script {
-                currentBuild.description = "Built on ${BUILD_BRANCH}, path to packages: experimental/${AWS_STASH_PATH}"
+                currentBuild.description = "${VERSION}-${RELEASE}, path to packages: experimental/${AWS_STASH_PATH}"
             }
             deleteDir()
         }

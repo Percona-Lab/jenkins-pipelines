@@ -74,11 +74,11 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['15','14', '13', '12', '11'],
+            choices: ['17', '16', '15','14', '13'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['16','15', '14', '13', '12'],
+            choices: ['17', '16','15', '14', '13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -222,6 +222,15 @@ pipeline {
                                     docker network create pmm-qa || true
                                     docker volume create pmm-data
 
+                                    docker run --detach --restart always \
+                                        --network="pmm-qa" \
+                                        -e WATCHTOWER_DEBUG=1 \
+                                        -e WATCHTOWER_HTTP_API_TOKEN=testToken \
+                                        -e WATCHTOWER_HTTP_API_UPDATE=1 \
+                                        --volume /var/run/docker.sock:/var/run/docker.sock \
+                                        --name watchtower \
+                                        perconalab/watchtower:latest
+
                                     docker run -d \
                                         -p 80:8080 \
                                         -p 443:8443 \
@@ -231,6 +240,8 @@ pipeline {
                                         --hostname pmm-server \
                                         --network pmm-qa \
                                         --restart always \
+                                        -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
+                                        -e PMM_WATCHTOWER_TOKEN=testToken \
                                         ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 
@@ -252,7 +263,7 @@ pipeline {
                 node(env.VM_NAME){
                 setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), DOCKER_VERSION, ENABLE_PULL_MODE, 'no', CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD, 'no')
                 script {
-                        env.PMM_REPO = params.CLIENT_VERSION == "pmm-rc" ? "testing" : "experimental"
+                        env.PMM_REPO = params.CLIENT_VERSION == "pmm3-rc" ? "testing" : "experimental"
                     }
 
                     sh '''

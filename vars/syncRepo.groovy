@@ -1,5 +1,5 @@
 def call(String REPO_NAME) {
-    node('source-builder') {
+    node('jenkins') {
         withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
             sh """
                 ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com ' \
