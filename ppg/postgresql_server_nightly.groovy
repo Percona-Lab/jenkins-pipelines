@@ -73,7 +73,7 @@ pipeline {
             steps {
                 script {
                     // Fetch the latest commit hash from the repository
-                    def latestCommit = sh(returnStdout: true, script: 'git ls-remote <REPO_URL> HEAD').split()[0]
+                    def latestCommit = sh(returnStdout: true, script: "git ls-remote https://github.com/Percona-Lab/postgres.git ${PG_BRANCH}").split()[0]
                     def lastBuildCommit = currentBuild.previousBuild?.description
 
                     if (latestCommit == lastBuildCommit) {
