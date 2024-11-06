@@ -35,10 +35,10 @@ pipeline {
               echo "BRANCH_NAME=\${BRANCH_NAME}" > branch_commit_id_84.properties
               echo "COMMIT_ID=\${COMMIT_ID}" >> branch_commit_id_84.properties
 
-              aws s3 cp branch_commit_id_81.properties s3://percona-jenkins-artifactory/percona-server/
+              aws s3 cp branch_commit_id_84.properties s3://percona-jenkins-artifactory/percona-server/
                           echo "START_NEW_BUILD=NO" > startBuild
             else
-                          aws s3 cp s3://percona-jenkins-artifactory/percona-server/branch_commit_id_81.properties .
+                          aws s3 cp s3://percona-jenkins-artifactory/percona-server/branch_commit_id_84.properties .
               source ./branch_commit_id_84.properties
               cat ./branch_commit_id_84.properties
 
