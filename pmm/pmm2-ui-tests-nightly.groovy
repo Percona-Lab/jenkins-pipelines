@@ -210,7 +210,7 @@ pipeline {
             name: 'GIT_COMMIT_HASH')
         choice(
             choices: ['docker', 'ovf', 'ami'],
-            description: "Use this instance only as a client host",
+            description: "PMM Server installation type.",
             name: 'SERVER_TYPE')
         string(
             defaultValue: 'perconalab/pmm-server:dev-latest',
