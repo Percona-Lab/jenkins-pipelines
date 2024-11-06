@@ -380,7 +380,7 @@ pipeline {
                     ]
                 }
                 if (env.SERVER_TYPE == "ami") {
-                    amiStagingStopJob = build job: 'pmm2-ami-staging-stop', parameters: [
+                    amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
                     ]
                 }
