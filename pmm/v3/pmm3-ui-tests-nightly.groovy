@@ -272,34 +272,6 @@ pipeline {
                 '''
             }
         }
-        stage('Setup Node') {
-            steps {
-                sh """
-                    curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
-                    sudo bash nodesource_setup.sh
-                    sudo apt install nodejs
-                    sudo apt-get install -y gettext
-                    npm ci
-                    npx playwright install
-                    sudo npx playwright install-deps
-                    envsubst < env.list > env.generated.list
-                """
-            }
-        }
-        stage('Provide AMI id for AMI instance') {
-            when {
-                expression { env.SERVER_TYPE == "ami" }
-            }
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        export PWD=\$(pwd);
-                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep 'Test AMI login with ID'
-                    """
-                }
-            }
-        }
         stage('Setup PMM Clients') {
             parallel {
                 stage('ps-group-replication client') {
@@ -328,6 +300,20 @@ pipeline {
             steps {
                 sh """
                     curl --location -i --insecure --request PUT "\${PMM_URL}/v1/server/settings' --header 'Content-Type: application/json' --data '{ "enable_updates": false }"
+                """
+            }
+        }
+        stage('Setup Node') {
+            steps {
+                sh """
+                    curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
+                    sudo bash nodesource_setup.sh
+                    sudo apt install nodejs
+                    sudo apt-get install -y gettext
+                    npm ci
+                    npx playwright install
+                    sudo npx playwright install-deps
+                    envsubst < env.list > env.generated.list
                 """
             }
         }
