@@ -96,6 +96,14 @@ EOF
     }
     echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 
+    if ("$ARCH" == "amd64") {
+        MACHINE_TYPE="n1-standard-4"
+    } else if ("$ARCH" == "arm64") {
+        MACHINE_TYPE="t2a-standard-4"
+    } else {
+        error("Unknown architecture $ARCH")
+    }
+
     if ("$IMAGE_MONGOD") {
         release = ("$RELEASE_RUN" == "YES") ? "RELEASE-" : ""
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
@@ -218,7 +226,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --cluster-version $USED_PLATFORM_VER \
                     --preemptible \
                     --disk-size 30 \
-                    --machine-type n1-standard-4 \
+                    --machine-type $MACHINE_TYPE \
                     --num-nodes=4 \
                     --min-nodes=4 \
                     --max-nodes=6 \
@@ -371,6 +379,11 @@ pipeline {
             choices: 'NO\nYES',
             description: 'Release run?',
             name: 'RELEASE_RUN'
+        )
+        choice(
+            choices: 'amd64\narm64',
+            description: 'Architecture',
+            name: 'ARCH'
         )
         string(
             defaultValue: '70',
