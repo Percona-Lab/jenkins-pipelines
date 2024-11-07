@@ -1,28 +1,61 @@
 location='eastus'
 tests=[]
 clusters=[]
+release_versions="source/e2e-tests/release_versions"
 
 void verifyParams() {
-    if ("$RELEASE_RUN" == "YES" && (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD")){
-        error("This is RELEASE_RUN. Either PILLAR_VERSION or IMAGE_MONGOD should be provided")
+    if ("$RELEASE_RUN" == "YES") {
+        echo "=========================[ RELEASE RUN ]========================="
+        if (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD") {
+            error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided for release run!")
+        }
     }
 }
 
-void getImage(String IMAGE_NAME) {
-    versions_file = "source/e2e-tests/release_images"
-    IMAGE = """${sh(
-        returnStdout: true,
-        script: "cat ${versions_file} | egrep \"${IMAGE_NAME}=\" | cut -d = -f 2 | tr -d \'\"\' "
-    ).trim()}"""
-    if ("$IMAGE") {
-        return "$IMAGE"
-    }
-    else {
-        error("Empty image is returned for $IMAGE_NAME. Check PILLAR_VERSION or content of file with images")
+String getParam(String PARAM_NAME) {
+    def param = "${params[PARAM_NAME]}"
+
+    if ("$param" && "$param" != "null" && param != "") {
+        echo "$PARAM_NAME=$param (from job parameters)"
+        return param
+    } else {
+        param = sh(script: "cat $release_versions | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
+        if ("$param") {
+            echo "$PARAM_NAME=$param (from params file)"
+            return param
+        } else {
+            error("$PARAM_NAME not found in params file $release_versions")
+        }
     }
 }
 
 void prepareNode() {
+    echo "=========================[ Cloning the sources ]========================="
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    sh """
+        # sudo is needed for better node recovery after compilation failure
+        # if building failed on compilation stage directory will have files owned by docker user
+        sudo git config --global --add safe.directory '*'
+        sudo git reset --hard
+        sudo git clean -xdf
+        sudo rm -rf source
+        cloud/local/checkout $GIT_REPO $GIT_BRANCH
+    """
+
+    echo "=========================[ Assigning images for release test ]========================="
+    if ("$RELEASE_RUN" == "YES") {
+        IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
+        IMAGE_MONGOD = getParam("IMAGE_MONGOD${PILLAR_VERSION}")
+        IMAGE_BACKUP = getParam("IMAGE_BACKUP")
+        IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
+        if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
+            PLATFORM_VER = getParam("AKS_${PLATFORM_VER}")
+        }
+    } else {
+        echo "This is not a release run. Using job params only!"
+    }
+
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
@@ -55,61 +88,10 @@ void prepareNode() {
     }
     echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 
-    echo "=========================[ Cloning the sources ]========================="
-    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-    sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo sudo git config --global --add safe.directory '*'
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf source
-        cloud/local/checkout $GIT_REPO $GIT_BRANCH
-    """
-
-    echo "=========================[ Assigning images for release test ]========================="
-    if ("$RELEASE_RUN" == "YES") {
-        if ("$IMAGE_OPERATOR") {
-            echo "IMAGE_OPERATOR was provided. Using image from job params $IMAGE_OPERATOR"}
-        else {
-            echo "IMAGE_OPERATOR was NOT provided. Will use file params!"
-            IMAGE_OPERATOR = getImage("IMAGE_OPERATOR")
-            echo "IMAGE_OPERATOR is $IMAGE_OPERATOR"
-        }
-        if ("$IMAGE_MONGOD") {
-            echo "IMAGE_MONGOD was provided. Using image from job params $IMAGE_MONGOD"}
-        else {
-            echo "IMAGE_MONGOD was NOT provided. Will use file params!"
-            IMAGE_MONGOD = getImage("IMAGE_MONGOD${PILLAR_VERSION}")
-            echo "IMAGE_MONGOD is $IMAGE_MONGOD"
-        }
-        if ("$IMAGE_BACKUP") {
-            echo "IMAGE_BACKUP was provided. Using image from job params $IMAGE_BACKUP"}
-        else {
-            echo "IMAGE_BACKUP was NOT provided. Will use file params!"
-            IMAGE_BACKUP  =getImage("IMAGE_BACKUP")
-            echo "IMAGE_BACKUP is $IMAGE_BACKUP"
-        }
-        if ("$IMAGE_PMM_CLIENT") {
-            echo "IMAGE_PMM_CLIENT was provided. Using image from job params $IMAGE_PMM_CLIENT"}
-        else {
-            echo "IMAGE_PMM_CLIENT was NOT provided. Will use file params!"
-            IMAGE_PMM_CLIENT = getImage("IMAGE_PMM_CLIENT")
-            echo "IMAGE_PMM_CLIENT is $IMAGE_PMM_CLIENT"
-        }
-        if ("$IMAGE_PMM_SERVER") {
-            echo "IMAGE_PMM_SERVER was provided. Using image from job params $IMAGE_PMM_SERVER"}
-        else {
-            echo "IMAGE_PMM_SERVER was NOT provided. Will use file params!"
-            IMAGE_PMM_SERVER = getImage("IMAGE_PMM_SERVER")
-            echo "IMAGE_PMM_SERVER is $IMAGE_PMM_SERVER"
-        }
-    } else {
-        echo "This is not release run. Using params only!"
-    }
-
     if ("$IMAGE_MONGOD") {
-        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
+        release = ("$RELEASE_RUN" == "YES") ? "RELEASE-" : ""
+        cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
+        currentBuild.description = "${release}$GIT_BRANCH-$PLATFORM_VER-$cw-" + "$IMAGE_MONGOD".split(":")[1]
     }
 
     script {
@@ -163,8 +145,8 @@ void initTests() {
     }
 
     echo "Marking passed tests in the tests map!"
-    if ("$IGNORE_PREVIOUS_RUN" == "NO") {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        if ("$IGNORE_PREVIOUS_RUN" == "NO") {
             sh """
                 aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
             """
@@ -178,9 +160,7 @@ void initTests() {
                     tests[i]["result"] = "passed"
                 }
             }
-        }
-    } else {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        } else {
             sh """
                 aws s3 rm "s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/" --recursive --exclude "*" --include "*-$PARAMS_HASH" || :
             """
@@ -318,7 +298,8 @@ void makeReport() {
                     "IMAGE_MONGOD=$IMAGE_MONGOD\n" +\
                     "IMAGE_BACKUP=$IMAGE_BACKUP\n" +\
                     "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" +\
-                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER"
+                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER\n" +\
+                    "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
