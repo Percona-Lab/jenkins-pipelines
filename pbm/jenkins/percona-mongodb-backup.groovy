@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -29,7 +29,7 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'micro-amazon'
+        label 'launcher-x64'
     }
     parameters {
         string(
@@ -37,7 +37,7 @@ pipeline {
             description: 'URL for percona-mongodb-backup repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'master',
+            defaultValue: 'dev',
             description: 'Tag/Branch for percona-mongodb-backup repository',
             name: 'GIT_BRANCH')
         string(
@@ -49,7 +49,7 @@ pipeline {
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
-            defaultValue: '1.3.2',
+            defaultValue: '2.7.0',
             description: 'VERSION value',
             name: 'VERSION')
         string(
@@ -57,7 +57,7 @@ pipeline {
             description: 'PBM repo name',
             name: 'PBM_REPO')
         choice(
-            choices: 'laboratory\ntesting\nexperimental',
+            choices: 'experimental\nlaboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }
@@ -70,7 +70,7 @@ pipeline {
     stages {
         stage('Create PBM source tarball') {
             agent {
-                label 'docker'
+                label 'docker-x64'
             }
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
@@ -96,7 +96,7 @@ pipeline {
             parallel {
                 stage('Build PBM generic source rpm') {
                     agent {
-                        label 'docker'
+                        label 'docker-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -109,7 +109,7 @@ pipeline {
                 }
                 stage('Build PBM generic source deb') {
                     agent {
-                        label 'docker'
+                        label 'docker-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -126,7 +126,7 @@ pipeline {
             parallel {
                 stage('Oracle Linux 8') {
                     agent {
-                        label 'docker'
+                        label 'docker-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -139,7 +139,7 @@ pipeline {
                 }
                 stage('Oracle Linux 9') {
                     agent {
-                        label 'docker'
+                        label 'docker-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -165,7 +165,7 @@ pipeline {
                 }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
-                        label 'docker'
+                        label 'docker-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -178,7 +178,7 @@ pipeline {
                 }
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
-                        label 'docker'
+                        label 'docker-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -191,7 +191,7 @@ pipeline {
                 }
                 stage('Ubuntu Noble(24.04)') {
                     agent {
-                        label 'docker'
+                        label 'docker-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -204,7 +204,7 @@ pipeline {
                 }
                 stage('Debian Bullseye(11)') {
                     agent {
-                        label 'docker'
+                        label 'docker-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -217,7 +217,7 @@ pipeline {
                 }
                 stage('Debian Bookworm(12)') {
                     agent {
-                        label 'docker'
+                        label 'docker-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -230,7 +230,7 @@ pipeline {
                 }
                 stage('Oraclelinux 8 tarball') {
                     agent {
-                        label 'docker'
+                        label 'docker-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -260,7 +260,7 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
                 currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
             }
