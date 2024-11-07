@@ -1,5 +1,5 @@
 - job:
-    name: pbm-autobuild
+    name: hetzner-pbm-autobuild
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -9,7 +9,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+            - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pbm/jenkins/get-pbm-branches.groovy
