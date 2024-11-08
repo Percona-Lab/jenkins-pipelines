@@ -99,7 +99,7 @@ def templates = [
 ]
 
 templates.each { it -> 
-                       def sshConnector = new SshConnectorAsRoot("hz.jenkins-main.cd")
+                       def sshConnector = new SshConnectorAsRoot("htz.cd.key")
                        sshConnector.setConnectionMethod(new PublicAddressOnly())  // Replace with the desired method
                        it.setConnector(sshConnector)
                        // it.setConnector(new SshConnectorAsRoot("hz.psmdb.cd"))
@@ -112,7 +112,7 @@ templates.each { it ->
                        it.userData = initMap[tmplName]
                }
 
-def cloud = new HetznerCloud(cloudName, "psmdb.cd.hz", "10", templates)
+def cloud = new HetznerCloud(cloudName, "htz.cd.token", "10", templates)
 
 def jenkins = Jenkins.get()
 
