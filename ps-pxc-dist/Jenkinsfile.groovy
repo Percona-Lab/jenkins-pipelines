@@ -225,15 +225,15 @@ pipeline {
                 expression { params.SKIP_PRODUCTION_REFRESH == false }
             }
             steps {
-                sh """
-                    if [ "\${COMPONENT}" == "RELEASE" ]; then
-                        sudo apt-get update
-                        sudo apt-get -y install curl
-                        if [[ "\${COMPONENT}" == "RELEASE" ]]; then
-                            wget https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory -O crawl_directory
-                        fi
-                    fi
-                """
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh """
+                       ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
+                           if [ ${COMPONENT} = RELEASE ]; then
+                               curl -k https://www.percona.com/admin/config/percona/percona_downloads/crawl_directory
+                           fi
+ENDSSH
+                    """
+                }
             }
         }
     }
