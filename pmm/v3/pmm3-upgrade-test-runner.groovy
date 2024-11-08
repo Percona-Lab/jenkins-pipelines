@@ -229,7 +229,7 @@ pipeline {
                          script {
                             env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade"
                             env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade"
-                            env.PMM_CLIENTS = "--help"
+                            env.PMM_CLIENTS = "--database ps --database pgsql --database psmdb"
                          }
                     }
                 }
