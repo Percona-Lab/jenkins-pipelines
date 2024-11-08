@@ -8,7 +8,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         set -o xtrace
         mkdir test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/postgres/ppg_builder.sh -O ppg-server_builder.sh
-        sed -i 's|#git submodule update --init|git submodule update --init|g' ppg-server_builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
