@@ -246,6 +246,9 @@ ENDSSH
             slackSend channel: '#releases-ci', color: '#FF0000', message: "${REPOSITORY} distribution: job failed"
         }
         always {
+            script {
+                currentBuild.description = "Repo: ${REPOSITORY}-${REPOSITORY_VERSION}/${COMPONENT}"
+            }
             deleteDir()
         }
     }
