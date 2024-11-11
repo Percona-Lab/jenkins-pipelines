@@ -459,7 +459,7 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     options {
-                        timeout(time: 3, unit: 'HOURS')
+                        timeout(time: 5, unit: 'HOURS')
                     }
                     steps {
                         clusterRunner('cluster1')
@@ -467,7 +467,7 @@ pipeline {
                 }
                 stage('cluster2') {
                     options {
-                        timeout(time: 3, unit: 'HOURS')
+                        timeout(time: 5, unit: 'HOURS')
                     }
                     steps {
                         clusterRunner('cluster2')
@@ -475,7 +475,7 @@ pipeline {
                 }
                 stage('cluster3') {
                     options {
-                        timeout(time: 3, unit: 'HOURS')
+                        timeout(time: 5, unit: 'HOURS')
                     }
                     steps {
                         clusterRunner('cluster3')
@@ -483,10 +483,18 @@ pipeline {
                 }
                 stage('cluster4') {
                     options {
-                        timeout(time: 3, unit: 'HOURS')
+                        timeout(time: 5, unit: 'HOURS')
                     }
                     steps {
                         clusterRunner('cluster4')
+                    }
+                }
+                stage('cluster5') {
+                    options {
+                        timeout(time: 5, unit: 'HOURS')
+                    }
+                    steps {
+                        clusterRunner('cluster5')
                     }
                 }
             }
