@@ -38,7 +38,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-            name: 'OPERATOR_IMAGE')
+            name: 'IMAGE_OPERATOR')
         string(
             defaultValue: '',
             description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
@@ -76,7 +76,7 @@ pipeline {
                     steps {
                         script {
                             for (int i = 1; i <= 3; i++) {
-                                build job: 'psmdb-operator-aks-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),text(name: 'TEST_LIST',value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'CLUSTER_WIDE', value: "${CLUSTER_WIDE}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'IMAGE_MONGOD', value: "${IMAGE_MONGOD}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_SERVER}")]
+                                build job: 'psmdb-operator-aks-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),text(name: 'TEST_LIST',value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'CLUSTER_WIDE', value: "${CLUSTER_WIDE}"),string(name: 'IMAGE_OPERATOR', value: "${IMAGE_OPERATOR}"),string(name: 'IMAGE_MONGOD', value: "${IMAGE_MONGOD}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_SERVER}")]
                             }   
                         }
                     }
@@ -86,7 +86,7 @@ pipeline {
                     steps {
                         script {
                             for (int i = 1; i <= 3; i++) {
-                                build job: 'psmdb-operator-gke-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),text(name: 'TEST_LIST',value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'CLUSTER_WIDE', value: "${CLUSTER_WIDE}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'IMAGE_MONGOD', value: "${IMAGE_MONGOD}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_SERVER}")]
+                                build job: 'psmdb-operator-gke-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),text(name: 'TEST_LIST',value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'CLUSTER_WIDE', value: "${CLUSTER_WIDE}"),string(name: 'IMAGE_OPERATOR', value: "${IMAGE_OPERATOR}"),string(name: 'IMAGE_MONGOD', value: "${IMAGE_MONGOD}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_SERVER}")]
                             }
                         }
                     }
@@ -96,7 +96,7 @@ pipeline {
                     steps {
                         script {
                             for (int i = 1; i <= 3; i++) {
-                                build job: 'psmdb-operator-eks-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),text(name: 'TEST_LIST',value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'CLUSTER_WIDE', value: "${CLUSTER_WIDE}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'IMAGE_MONGOD', value: "${IMAGE_MONGOD}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_SERVER}")]
+                                build job: 'psmdb-operator-eks-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),text(name: 'TEST_LIST',value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'CLUSTER_WIDE', value: "${CLUSTER_WIDE}"),string(name: 'IMAGE_OPERATOR', value: "${IMAGE_OPERATOR}"),string(name: 'IMAGE_MONGOD', value: "${IMAGE_MONGOD}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_SERVER}")]
                             }
                         }
                     }
@@ -106,7 +106,7 @@ pipeline {
                     steps {
                         script {
                             for (int i = 1; i <= 3; i++) {
-                                build job: 'psmdb-operator-aws-openshift-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),text(name: 'TEST_LIST',value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'CLUSTER_WIDE', value: "${CLUSTER_WIDE}"),string(name: 'OPERATOR_IMAGE', value: "${OPERATOR_IMAGE}"),string(name: 'IMAGE_MONGOD', value: "${IMAGE_MONGOD}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_SERVER}")]
+                                build job: 'psmdb-operator-aws-openshift-latest', propagate: false, wait: true, parameters: [string(name: 'TEST_SUITE', value: "${TEST_SUITE}"),text(name: 'TEST_LIST',value: "${TEST_LIST}"),string(name: 'IGNORE_PREVIOUS_RUN', value: "${IGNORE_PREVIOUS_RUN}"),string(name: 'GIT_REPO', value: "${GIT_REPO}"),string(name: 'GIT_BRANCH', value: "${GIT_BRANCH}"),string(name: 'PLATFORM_VER', value: "${PLATFORM_VER}"),string(name: 'CLUSTER_WIDE', value: "${CLUSTER_WIDE}"),string(name: 'IMAGE_OPERATOR', value: "${IMAGE_OPERATOR}"),string(name: 'IMAGE_MONGOD', value: "${IMAGE_MONGOD}"),string(name: 'IMAGE_BACKUP', value: "${IMAGE_BACKUP}"),string(name: 'IMAGE_PMM_CLIENT', value: "${IMAGE_PMM_CLIENT}"),string(name: 'IMAGE_PMM_SERVER', value: "${IMAGE_PMM_SERVER}")]
                             }
                         }
                     }

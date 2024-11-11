@@ -112,7 +112,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_src_rpm=1")
+                        buildStage("oraclelinux:8", "--build_src_rpm=1")
 
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
@@ -148,6 +148,19 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
+		stage('Oracle Linux 8 ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:8", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Oracle Linux 9') {
                     agent {
                         label 'docker'
@@ -161,22 +174,35 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 } 
-                stage('Ubuntu Bionic(18.04)') {
+		stage('Oracle Linux 9 ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'docker'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "--build_deb=1")
+                        buildStage("ubuntu:focal", "--build_deb=1")
 
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Focal(20.04)') {
+		stage('Ubuntu Focal(20.04) ARM') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -200,6 +226,19 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+		stage('Ubuntu Jammy(22.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Ubuntu Noble(24.04)') {
                     agent {
                         label 'docker'
@@ -213,6 +252,19 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+		stage('Ubuntu Noble(24.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:noble", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }	
                 stage('Debian Buster(10)') {
                     agent {
                         label 'docker'
@@ -239,9 +291,35 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+		stage('Debian Bullseye(11) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bullseye", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Bookworm(12)') {
                     agent {
                         label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bullseye", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+		stage('Debian Bookworm(12) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
