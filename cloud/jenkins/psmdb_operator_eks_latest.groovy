@@ -488,6 +488,11 @@ pipeline {
                         clusterRunner('cluster4')
                     }
                 }
+                stage('cluster5') {
+                    steps {
+                        clusterRunner('cluster5')
+                    }
+                }
             }
         }
     }
