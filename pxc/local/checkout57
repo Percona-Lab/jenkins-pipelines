@@ -23,7 +23,9 @@ if [ "$SOURCE_NAME" == 'PXC57' -o "$SOURCE_NAME" == 'ALL' ]; then
     PXC_ROOT_DIR="${ROOT_DIR}/pxc57"
 
     sudo rm -rf ${PXC_ROOT_DIR}
-
+    if [[ "${PXC57_REPO}" =~ "private" ]]; then
+        PXC57_REPO=$(echo ${PXC57_REPO} | sed -e "s|github|${PXC_SECRET_TOKEN}@github|")
+    fi
     git clone "${PXC57_REPO:-https://github.com/percona/percona-xtradb-cluster}" "${PXC_ROOT_DIR}"
 
     pushd $PXC_ROOT_DIR

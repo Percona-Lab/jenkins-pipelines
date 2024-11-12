@@ -1,33 +1,77 @@
+
 tests=[]
+release_versions="source/e2e-tests/release_versions"
 
-void checkoutSources() {
-    if ("$IMAGE_MONGOD") {
-        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
+void verifyParams() {
+    if ("$RELEASE_RUN" == "YES") {
+        echo "=========================[ RELEASE RUN ]========================="
+        if (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD") {
+            error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided for release run!")
+        }
     }
+}
 
-    echo "USED_PLATFORM_VER=$PLATFORM_VER"
+String getParam(String PARAM_NAME) {
+    def param = "${params[PARAM_NAME]}"
 
+    if ("$param" && "$param" != "null" && param != "") {
+        echo "$PARAM_NAME=$param (from job parameters)"
+        return param
+    } else {
+        param = sh(script: "cat $release_versions | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
+        if ("$param") {
+            echo "$PARAM_NAME=$param (from params file)"
+            return param
+        } else {
+            error("$PARAM_NAME not found in params file $release_versions")
+        }
+    }
+}
+
+void prepareNode() {
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
         # sudo is needed for better node recovery after compilation failure
         # if building failed on compilation stage directory will have files owned by docker user
-        sudo sudo git config --global --add safe.directory '*'
+        sudo git config --global --add safe.directory '*'
         sudo git reset --hard
         sudo git clean -xdf
         sudo rm -rf source
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
 
+    echo "=========================[ Assigning images for release test ]========================="
+    if ("$RELEASE_RUN" == "YES") {
+        IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
+        IMAGE_MONGOD = getParam("IMAGE_MONGOD${PILLAR_VERSION}")
+        IMAGE_BACKUP = getParam("IMAGE_BACKUP")
+        IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
+        if ("$PLATFORM_VER" == "rel".toLowerCase()) {
+            PLATFORM_VER = getParam("MINIKUBE_${PLATFORM_VER}")
+        }
+    } else {
+        echo "This is not a release run. Using job params only!"
+    }
+
+    echo "USED_PLATFORM_VER=$PLATFORM_VER"
+
+    if ("$IMAGE_MONGOD") {
+        release = ("$RELEASE_RUN" == "YES") ? "RELEASE-" : ""
+        cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
+        currentBuild.description = "${release}$GIT_BRANCH-$PLATFORM_VER-$cw-" + "$IMAGE_MONGOD".split(":")[1]
+    }
+
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            if [[ "$OPERATOR_IMAGE" ]]; then
+            if [[ "$IMAGE_OPERATOR" ]]; then
                 echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
@@ -144,7 +188,7 @@ void runTest(Integer TEST_ID) {
 
                 export DEBUG_TESTS=1
                 [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=psmdb-operator
-                [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                 export IMAGE_MONGOD=$IMAGE_MONGOD
                 export IMAGE_BACKUP=$IMAGE_BACKUP
                 export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
@@ -198,6 +242,14 @@ void makeReport() {
         TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
     TestsReport = TestsReport + '</testsuite>\n'
+
+    echo "=========================[ Generating Images Report ]========================="
+    TestsImages = "testsuite name='PSMDB-MiniKube'\n" +\
+                    "IMAGE_OPERATOR=$IMAGE_OPERATOR\n" +\
+                    "IMAGE_MONGOD=$IMAGE_MONGOD\n" +\
+                    "IMAGE_BACKUP=$IMAGE_BACKUP\n" +\
+                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" +\
+                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER"
 }
 
 pipeline {
@@ -220,6 +272,16 @@ pipeline {
             description: 'Ignore passed tests in previous run (run all)',
             name: 'IGNORE_PREVIOUS_RUN'
         )
+        choice(
+            choices: 'NO\nYES',
+            description: 'Release run?',
+            name: 'RELEASE_RUN'
+        )
+        string(
+            defaultValue: '70',
+            description: 'For RELEASE_RUN only. Major version like 70,60, etc',
+            name: 'PILLAR_VERSION'
+        )
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
@@ -233,13 +295,13 @@ pipeline {
             description: 'Minikube kubernetes version',
             name: 'PLATFORM_VER')
         choice(
-            choices: 'NO\nYES',
+            choices: 'YES\nNO',
             description: 'Run tests in cluster wide mode',
             name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-            name: 'OPERATOR_IMAGE')
+            name: 'IMAGE_OPERATOR')
         string(
             defaultValue: '',
             description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
@@ -268,9 +330,10 @@ pipeline {
     }
 
     stages {
-        stage('Checkout sources') {
+        stage('Prepare node') {
             steps {
-                checkoutSources()
+                verifyParams()
+                prepareNode()
             }
         }
         stage('Docker Build and Push') {
@@ -300,9 +363,17 @@ pipeline {
             makeReport()
             sh """
                 echo "$TestsReport" > TestsReport.xml
+                echo "$TestsImages" > TestsImages.txt
             """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-            archiveArtifacts '*.xml'
+            archiveArtifacts '*.xml,*.txt'
+
+            script {
+                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
+                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                }
+            }
+
             sh """
                 /usr/local/bin/minikube delete || true
             """

@@ -892,7 +892,7 @@ parameters {
                     } else {
                         if (env.FIPSMODE == 'YES') {
                             if ("${MYSQL_VERSION_MINOR}" == "4") {
-                                sync2PrivateProdAutoBuild("ps-84-lts-pro", COMPONENT)
+                                sync2PrivateProdAutoBuild("ps-84-pro", COMPONENT)
                             } else {
                                 sync2PrivateProdAutoBuild("ps-8x-innovation-pro", COMPONENT)
                             }
