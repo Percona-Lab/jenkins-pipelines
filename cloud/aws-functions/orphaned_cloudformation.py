@@ -107,16 +107,16 @@ def delete_stack_resources(stack_name, aws_region):
                         if roles:
                             for role in roles:
                                 print(
-                                    f"Role attached to instance profile {instance_profile_name}: {role['RoleName']}"
+                                    f"Role attached to instance profile {resource_id}: {role['RoleName']}"
                                 )
                                 iam_client.remove_role_from_instance_profile(
                                     InstanceProfileName=resource_id, RoleName=role
                                 )
                         else:
-                            logging.info(f"No roles are attached to instance profile {instance_profile_name}.")
+                            logging.info(f"No roles are attached to instance profile {resource_id}.")
 
                     except iam_client.exceptions.NoSuchEntityException:
-                        logging.error( f"Instance profile {instance_profile_name} does not exist.")
+                        logging.error( f"Instance profile {resource_id} does not exist.")
                     except Exception as e:
                         logging.error(f"An error occurred: {e}")
                     iam_client.delete_instance_profile(InstanceProfileName=resource_id)
