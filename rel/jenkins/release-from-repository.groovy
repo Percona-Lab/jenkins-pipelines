@@ -13,7 +13,7 @@ pipeline {
             description: 'PATH_TO_BUILD must be in form $DESTINATION/**release**/$revision',
             name: 'PATH_TO_BUILD')
         string(
-            defaultValue: 'INNOVATION',
+            defaultValue: 'PERCONA',
             description: 'separate repository to push to. Please use CAPS letters.',
             name: 'REPOSITORY')
         booleanParam(name: 'REVERSE', defaultValue: false, description: 'please use reverse sync if you want to fix repo copy on signing server. it will be overwritten with known working copy from production')
@@ -318,7 +318,7 @@ ENDSSH
                                     rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${PRO_FOLDER}version 10.30.9.32:/www/repo.percona.com/htdocs/\${PRO_FOLDER}
                                 fi
                                 if [ ${PROBUILD} = YES ]; then
-                                    rsync ${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/private/qa-test/* 10.30.9.32:/www/repo.percona.com/htdocs/private/qa-test/
+                                    rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/private/qa-test/* 10.30.9.32:/www/repo.percona.com/htdocs/private/qa-test/
                                 fi
 ENDSSH
                         else
