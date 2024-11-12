@@ -283,8 +283,9 @@ ENDSSH
                                    rm -fr /srv/UPLOAD/\${PATH_TO_BUILD}/.tmp
                                else
                                    if [ ${PROBUILD} = YES ]; then
-                                       mkdir -p /srv/repo-copy/private/qa-test/\${LCREPOSITORY}/\${RELEASE}
-                                       cp \${RELEASEDIR}/binary/tarball/* /srv/repo-copy/private/qa-test/\${LCREPOSITORY}/\${RELEASE}/
+                                       echo "Tarballs are uploaded by a build job into qa-test folder."
+                                       #mkdir -p /srv/repo-copy/private/qa-test/\${LCREPOSITORY}/\${RELEASE}
+                                       #cp \${RELEASEDIR}/binary/tarball/* /srv/repo-copy/private/qa-test/\${LCREPOSITORY}/\${RELEASE}/
                                    fi
                                fi
 ENDSSH
