@@ -281,6 +281,11 @@ ENDSSH
                                        rsync -avt -e "ssh -p 2222" --bwlimit=50000 --exclude="*yassl*" --progress \${PRODUCT} jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/
                                    fi
                                    rm -fr /srv/UPLOAD/\${PATH_TO_BUILD}/.tmp
+                               else
+                                   if [ ${PROBUILD} = YES ]; then
+                                       mkdir -p /srv/repo-copy/private/qa-test/\${LCREPOSITORY}/\${RELEASE}
+                                       cp \${RELEASEDIR}/binary/tarball/* /srv/repo-copy/private/qa-test/\${LCREPOSITORY}/\${RELEASE}/
+                                   fi
                                fi
 ENDSSH
                        else
@@ -311,6 +316,9 @@ ENDSSH
                                 else
                                     rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${PRO_FOLDER}\${LCREPOSITORY}/* 10.30.9.32:/www/repo.percona.com/htdocs/\${PRO_FOLDER}\${LCREPOSITORY}/
                                     rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${PRO_FOLDER}version 10.30.9.32:/www/repo.percona.com/htdocs/\${PRO_FOLDER}
+                                fi
+                                if [ ${PROBUILD} = YES ]; then
+                                    rsync ${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/private/qa-test/* 10.30.9.32:/www/repo.percona.com/htdocs/private/qa-test/
                                 fi
 ENDSSH
                         else
