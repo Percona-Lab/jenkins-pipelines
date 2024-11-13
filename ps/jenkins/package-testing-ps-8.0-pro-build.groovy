@@ -1,4 +1,4 @@
-library changelog: false, identifier: "lib@add-ps84-pro", retriever: modernSCM([
+library changelog: false, identifier: "lib@add-84-pro", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
