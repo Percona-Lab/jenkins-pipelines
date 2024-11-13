@@ -212,6 +212,10 @@ parameters {
         string(defaultValue: '0', description: 'TokuBackup repository', name: 'TOKUBACKUP_REPO')
         string(defaultValue: 'Percona-Server-8.0.27-18', description: 'Tag/Branch for TokuBackup repository', name: 'TOKUBACKUP_BRANCH')
         choice(
+            choices: 'NO\nYES',
+            description: 'Prepare packages and tarballs for Centos 7',
+            name: 'ENABLE_EL7')
+        choice(
             choices: 'ON\nOFF',
             description: 'Compile with ZenFS support?, only affects Ubuntu Hirsute',
             name: 'ENABLE_ZENFS')
@@ -311,14 +315,13 @@ parameters {
         } // stage
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             parallel {
-/*
                 stage('Centos 7') {
                     agent {
                         label 'min-centos-7-x64'
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
+                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -332,7 +335,6 @@ parameters {
                         }
                     }
                 }
-*/
                 stage('Oracle Linux 8') {
                     agent {
                         label 'min-ol-8-x64'
@@ -613,14 +615,13 @@ parameters {
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
-/*
                 stage('Centos 7 binary tarball') {
                     agent {
                         label 'min-centos-7-x64'
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
+                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -640,7 +641,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
+                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -654,7 +655,6 @@ parameters {
                         }
                     }
                 }
-*/
                 stage('Oracle Linux 8 binary tarball') {
                     agent {
                         label 'min-ol-8-x64'
