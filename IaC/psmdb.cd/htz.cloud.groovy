@@ -32,7 +32,7 @@ jvmOptsMap['launcher-x64']  = jvmOptsMap['deb12']
 labelMap = [:]
 labelMap['deb12-x64']     = 'docker-x64 docker-deb12-x64 deb12-x64'
 labelMap['deb12-aarch64'] = 'docker-aarch64 docker-deb12-aarch64 deb12-aarch64'
-labelMap['launcher-x64']  = 'launcher-x64 master'
+labelMap['launcher-x64']  = 'launcher-x64'
 
 networkMap = [:]
 networkMap['percona-vpc'] = '3907773' // percona-vpc
