@@ -16,6 +16,7 @@ void verifyParams() {
 }
 
 String getParam(String PARAM_NAME) {
+    echo "=========================[ Getting parameters for release test ]========================="
     def param = "${params[PARAM_NAME]}"
 
     if ("$param" && "$param" != "null" && param != "") {
@@ -45,7 +46,6 @@ void prepareNode() {
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
 
-    echo "=========================[ Assigning images for release test ]========================="
     if ("$RELEASE_RUN" == "YES") {
         IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
         IMAGE_MONGOD = getParam("IMAGE_MONGOD${PILLAR_VERSION}")
@@ -56,7 +56,7 @@ void prepareNode() {
             PLATFORM_VER = getParam("GKE_${PLATFORM_VER}")
         }
     } else {
-        echo "This is not a release run. Using job params only!"
+        echo "=========================[ Not a release run. Using job params only! ]========================="
     }
 
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
@@ -251,6 +251,11 @@ void createCluster(String CLUSTER_SUFFIX) {
                 --zone $region \
                 --add-maintenance-exclusion-start "\$CURRENT_TIME" \
                 --add-maintenance-exclusion-end "\$FUTURE_TIME"
+
+            # Remove node taints to allow for scheduling pods on arm64 nodes
+            for node in $(kubectl get nodes -o custom-columns=NAME:.metadata.name --no-headers); do
+                kubectl taint nodes $node kubernetes.io/arch=arm64:NoSchedule-
+            done
         """
    }
 }
