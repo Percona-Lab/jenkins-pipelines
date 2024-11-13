@@ -181,7 +181,7 @@ pipeline {
                          script {
                             env.PRE_UPGRADE_FLAG = "@pre-custom-password-upgrade"
                             env.POST_UPGRADE_FLAG = "@post-custom-password-upgrade"
-                            env.PMM_CLIENTS = "--database ps --database pgsql --database psmdb"
+                            env.PMM_CLIENTS = "--database ps --database pgsql=16 --database psmdb"
                          }
                     }
                 }
