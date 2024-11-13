@@ -101,7 +101,7 @@ pipeline {
             name: 'PMM_SERVER_LATEST')
         string(
             defaultValue: 'PMM-13481',
-            description: 'Tag/Branch for qa-integration repository',
+            description: 'Tag/Branch for pmm qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
             defaultValue: 'v3',
