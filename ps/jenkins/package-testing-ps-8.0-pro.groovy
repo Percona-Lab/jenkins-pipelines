@@ -61,7 +61,7 @@ pipeline {
     )
     choice(
       name: "product_to_test",
-      choices: ["ps80"],
+      choices: ["ps80", "ps84"],
       description: "Product for which the packages will be tested"
     )
     choice(

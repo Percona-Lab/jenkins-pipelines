@@ -102,7 +102,7 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                currentBuild.displayName = "${env.BUILD_NUMBER}-${env.cur_action_to_test}-${env.node_to_test}"
+                currentBuild.displayName = "${env.BUILD_NUMBER}-${env.cur_action_to_test}-${env.node_to_test}-${env.product_to_test}"
                 currentBuild.description = "${env.install_repo}-${env.TESTING_BRANCH}"
                 }
             }
