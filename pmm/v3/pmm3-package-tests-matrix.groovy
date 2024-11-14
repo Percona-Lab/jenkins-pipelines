@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 void runPackageTestingJob(String GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, TESTS, METRICS_MODE, INSTALL_REPO) {
-    upgradeJob = build job: 'pmm-package-testing', parameters: [
+    upgradeJob = build job: 'pmm3-package-testing-arm', parameters: [
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'PMM_VERSION', value: PMM_VERSION),
