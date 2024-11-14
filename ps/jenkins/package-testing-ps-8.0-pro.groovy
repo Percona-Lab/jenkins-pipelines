@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@add-84-pro", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 List all_actions = [
@@ -98,7 +98,7 @@ pipeline {
         stage("Prepare") {
             steps {
                 script {
-                    currentBuild.displayName = "#${BUILD_NUMBER}-${cur_action_to_test}-${params.install_repo}"
+                    currentBuild.displayName = "#${BUILD_NUMBER}-${cur_action_to_test}-${product_to_test}-${params.install_repo}"
                     currentBuild.description = "action: ${params.action_to_test} node: ${params.node_to_test}"
                 }
             }
