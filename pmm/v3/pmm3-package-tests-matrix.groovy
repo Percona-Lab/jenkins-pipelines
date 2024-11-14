@@ -60,7 +60,7 @@ pipeline {
         stage('Integration Playbook'){
             steps {
                 script {
-                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, 'pmm-client_integration', METRICS_MODE, INSTALL_REPO);
+                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, 'pmm3-client_integration', METRICS_MODE, INSTALL_REPO);
                 }
             }
         }
