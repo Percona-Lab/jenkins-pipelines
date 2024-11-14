@@ -22,7 +22,9 @@ def is_ip_to_release(client, ip):
     try:
         creation_time = int(tags_dict["creation-time"])
     except KeyError as e:
-        return False
+        return True
+    except ValueError as e:
+        return True
 
     instance_lifetime = float(tags_dict["delete-cluster-after-hours"])
     current_time = datetime.datetime.now().timestamp()
