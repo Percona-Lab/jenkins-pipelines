@@ -40,7 +40,7 @@ imageMap['eu-west-1c.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
 priceMap = [:]
 priceMap['t2.small'] = '0.02'     // type=t2.small, vCPU=1, memory=2GiB, saving=64%, interruption='<5%', price=0.009200
 priceMap['c5.xlarge'] = '0.15'    // type=c5.xlarge, vCPU=4, memory=8GiB, saving=52%, interruption='<5%', price=0.096000
-priceMap['m7a.2xlarge'] = '0.33' // type=m7a.2xlarge, vCPU=8, memory=32GiB, saving=59%, interruption='<5%', price=0.254900
+priceMap['m5n.2xlarge'] = '0.33' // type=m5n.2xlarge, vCPU=8, memory=32GiB, saving=59%, interruption='<5%', price=0.254900
 priceMap['r7a.4xlarge'] = '0.60'  // type=r7a.4xlarge, vCPU=16, memory=128GiB, saving=67%, interruption='<5%', price=0.532900
 
 userMap = [:]
@@ -210,13 +210,13 @@ initMap['micro-amazon'] = '''
 
 capMap = [:]
 capMap['c5.xlarge'] = '40'
-capMap['m7a.2xlarge'] = '40'
+capMap['m5n.2xlarge'] = '40'
 capMap['r7a.4xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
 typeMap['docker'] = 'c5.xlarge'
-typeMap['docker-32gb'] = 'm7a.2xlarge'
+typeMap['docker-32gb'] = 'm5n.2xlarge'
 typeMap['docker2'] = 'r7a.4xlarge'
 
 execMap = [:]
