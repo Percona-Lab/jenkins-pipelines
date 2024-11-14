@@ -86,6 +86,7 @@
           - centos:8
           - ubuntu:jammy
           - ubuntu:focal
+          - ubuntu:noble
           - debian:buster
           - debian:bullseye
           - debian:bookworm  
