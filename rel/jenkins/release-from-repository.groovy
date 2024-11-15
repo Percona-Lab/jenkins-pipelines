@@ -25,6 +25,10 @@ pipeline {
             name: 'COMPONENT')
         choice(
             choices: 'NO\nYES',
+            description: 'show telemetry agent packages listing for corresponding product',
+            name: 'COPY_TELEMETRY')
+        choice(
+            choices: 'NO\nYES',
             description: 'PRO build',
             name: 'PROBUILD')
         booleanParam(name: 'SKIP_RPM_PUSH', defaultValue: false, description: 'Skip push to RPM repository')
@@ -278,6 +282,9 @@ ENDSSH
                                        mkdir -p /srv/repo-copy/private/\${LCREPOSITORY}/tarballs/\${RELEASE}
                                        cp \${RELEASEDIR}/binary/tarball/* /srv/repo-copy/private/\${LCREPOSITORY}/tarballs/\${RELEASE}/
                                    else
+                                       if [ ${COPY_TELEMETRY} = YES ]; then
+                                           touch \${RELEASEDIR}/binary/telemetry-enhanced.json
+                                       fi
                                        rsync -avt -e "ssh -p 2222" --bwlimit=50000 --exclude="*yassl*" --progress \${PRODUCT} jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/
                                    fi
                                    rm -fr /srv/UPLOAD/\${PATH_TO_BUILD}/.tmp
