@@ -63,6 +63,7 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
         export install_repo=\${INSTALL_REPO}
         git clone https://github.com/Percona-QA/ppg-testing
         ansible-playbook \
+        -vvv \
         --connection=local \
         --inventory 127.0.0.1, \
         --limit 127.0.0.1 playbooks/\${TESTS}.yml
