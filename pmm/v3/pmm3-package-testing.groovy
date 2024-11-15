@@ -30,7 +30,7 @@ void setup_rhel_package_tests()
     sh '''
         sudo yum install -y epel-release
         sudo yum -y update
-        sudo yum install -y ansible-core git wget
+        sudo yum install -y ansible-core git wget dpkg
     '''
 }
 
