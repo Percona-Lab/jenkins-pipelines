@@ -219,7 +219,6 @@ nodeGroups:
         - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
         - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-        - arn:aws:iam::aws:policy/AmazonS3FullAccess
       instancesDistribution:
         maxPrice: 0.15
         instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
