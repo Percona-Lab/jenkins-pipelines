@@ -63,11 +63,11 @@ pipeline {
     options {
         skipDefaultCheckout()
     }
-//     triggers {
-//         upstream upstreamProjects: 'pmm3-server-autobuild', threshold: hudson.model.Result.SUCCESS
-//     }
+    triggers {
+        upstream upstreamProjects: 'pmm3-server-autobuild', threshold: hudson.model.Result.SUCCESS
+    }
     stages{
-        stage('UI tests Upgrade Matrix') {
+        stage('UI tests Matrix') {
             parallel {
                 stage('@ia'){
                     steps {
