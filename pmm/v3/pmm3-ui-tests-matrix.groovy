@@ -69,6 +69,13 @@ pipeline {
     stages{
         stage('UI tests Upgrade Matrix') {
             parallel {
+                stage('@ia'){
+                    steps {
+                        script {
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@ia', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
+                        }
+                    }
+                }
                 stage('@instances'){
                     steps {
                         script {
