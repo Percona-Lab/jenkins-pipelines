@@ -35,7 +35,7 @@ pipeline {
         stage('Scan Image') {
             steps {
                 script {
-                    def status = sh(
+                    sh(
                         script: "./snyk container test --severity-threshold=high --json-file-output=report.json ${params.IMAGE}:${params.TAG}",
                         returnStatus: true
                     )
