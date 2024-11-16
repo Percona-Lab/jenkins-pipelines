@@ -153,11 +153,6 @@ pipeline {
                 }
                 stage('Build client binary debs') {
                     parallel {
-                        stage('Build client binary deb Buster') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:buster"
-                            }
-                        }
                         stage('Build client binary deb Bullseye') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
