@@ -71,7 +71,7 @@ pipeline {
                         script {
                             sh '''
                                 echo "Waiting for other playbooks to start"
-                                sleep 15
+                                sleep 10
                             '''
                         }
                         script {
@@ -84,7 +84,7 @@ pipeline {
                         script {
                             sh '''
                                 echo "Waiting for other playbooks to start"
-                                sleep 15
+                                sleep 20
                             '''
                         }
                         script {
