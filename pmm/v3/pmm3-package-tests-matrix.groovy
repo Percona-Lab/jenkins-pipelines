@@ -57,40 +57,24 @@ pipeline {
         cron('0 4 * * *')
     }
     stages{
-        stage('UI tests Upgrade Matrix') {
-            parallel {
-                stage('Integration Playbook'){
-                    steps {
-                        script {
-                            runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, 'pmm3-client_integration', METRICS_MODE, INSTALL_REPO);
-                        }
-                    }
+        stage('Integration Playbook'){
+            steps {
+                script {
+                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, 'pmm3-client_integration', METRICS_MODE, INSTALL_REPO);
                 }
-                stage('Integration Playbook with custom path'){
-                    steps {
-                        script {
-                            sh '''
-                                echo "Waiting for other playbooks to start"
-                                sleep 10
-                            '''
-                        }
-                        script {
-                            runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, 'pmm3-client_integration_custom_path', METRICS_MODE, INSTALL_REPO);
-                        }
-                    }
+            }
+        }
+        stage('Integration Playbook with custom path'){
+            steps {
+                script {
+                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, 'pmm3-client_integration_custom_path', METRICS_MODE, INSTALL_REPO);
                 }
-                stage('Integration Playbook with custom port'){
-                    steps {
-                        script {
-                            sh '''
-                                echo "Waiting for other playbooks to start"
-                                sleep 20
-                            '''
-                        }
-                        script {
-                            runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, 'pmm3-client_integration_custom_port', METRICS_MODE, INSTALL_REPO);
-                        }
-                    }
+            }
+        }
+        stage('Integration Playbook with custom port'){
+            steps {
+                script {
+                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, 'pmm3-client_integration_custom_port', METRICS_MODE, INSTALL_REPO);
                 }
             }
         }
