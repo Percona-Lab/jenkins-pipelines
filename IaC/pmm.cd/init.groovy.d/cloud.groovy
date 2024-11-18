@@ -83,6 +83,7 @@ priceMap['t2.large']   = '0.045'
 priceMap['t3.xlarge']  = '0.065'
 priceMap['t3.large']   = '0.035'
 priceMap['m4.large']   = '0.060'
+priceMap['m6a.large']  = '0.060'
 priceMap['m7g.large']  = '0.035' // arm64 instancey type
 
 userMap = [:]
@@ -246,9 +247,10 @@ capMap['t2.large']   = '20'
 capMap['t3.xlarge']  = '20'
 capMap['t3.large']   = '20'
 capMap['m4.large']   = '10'
+capMap['m6a.large']  = '15'
 
 typeMap = [:]
-typeMap['min-rhel-8-x64']     = 'm4.large'
+typeMap['min-rhel-8-x64']     = 'm6a.large'
 typeMap['min-ol-8-x64']       = typeMap['min-rhel-8-x64']
 typeMap['min-rhel-9-x64']     = typeMap['min-rhel-8-x64']
 typeMap['min-ol-9-x64']       = typeMap['min-rhel-8-x64']
