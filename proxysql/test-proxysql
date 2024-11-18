@@ -112,9 +112,48 @@ function detect_platform {
   fi
 }
 
+# Function to check if percona-release is installed
+check_percona_release() {
+    if command -v percona-release &>/dev/null; then
+        echo "percona-release is already installed."
+        return 0
+    else
+        echo "percona-release is not installed."
+        return 1
+    fi
+}
+
+# Function to install percona-release on Debian-based systems
+install_debian() {
+    echo "Installing percona-release for Debian-based system..."
+    sudo curl -O https://repo.percona.com/apt/percona-release_latest.generic_all.deb
+    sudo apt install -y gnupg2 lsb-release ./percona-release_latest.generic_all.deb
+}
+
+# Function to install percona-release on RHEL-based systems
+install_rhel() {
+    echo "Installing percona-release for RHEL-based system..."
+    sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+}
+
 platform=$(detect_platform)
 glibc_version=$(get_glibc_version "$platform")
 echo "The required glibc version for $platform is $glibc_version"
+
+if ! check_percona_release; then
+    if [ -f /etc/debian_version ]; then
+        # Debian-based system
+        install_debian
+    elif [ -f /etc/redhat-release ] || [ -f /etc/centos-release ]; then
+        # RHEL-based system
+        install_rhel
+    else
+        echo "Unsupported operating system."
+        exit 1
+    fi
+else
+    echo "No installation needed."
+fi
 
 WORKDIR_ABS=$(cd ${1:-./build/proxysql}; pwd -P)
 rm -rf ${WORKDIR_ABS}/WORKDIR ${WORKDIR_ABS}/PROXY_ADMIN
