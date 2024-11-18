@@ -76,7 +76,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     mv jemalloc* rpmbuild/SOURCES/
 
                     sed -i '1i Epoch: 1' rpmbuild/SPECS/jemalloc.spec
-                    head -10 rpmbuild/SPECS/jemalloc.spec 
+                    sed -i 's/Requires:       %{name} = /Requires:       %{name} = 1:/g' rpmbuild/SPECS/jemalloc.spec
 
                     rpmbuild -bs --define \\"dist .generic\\" rpmbuild/SPECS/jemalloc.spec --define \\"_topdir \${build_dir}/rpmbuild\\"
                     mkdir -p srpm

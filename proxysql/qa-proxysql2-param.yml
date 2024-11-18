@@ -56,6 +56,7 @@
         choices:
         - PXC57
         - PXC80
+        - PXC84
         description: PXC version to test proxysql-admin suite
     - choice:
         name: JOB_CMAKE
@@ -85,6 +86,7 @@
           - centos:8
           - ubuntu:jammy
           - ubuntu:focal
+          - ubuntu:noble
           - debian:buster
           - debian:bullseye
           - debian:bookworm  

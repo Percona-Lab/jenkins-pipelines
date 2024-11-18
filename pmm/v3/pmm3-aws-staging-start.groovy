@@ -24,7 +24,7 @@ pipeline {
             name: 'DOCKER_VERSION'
         )
         string(
-            defaultValue: 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz',
+            defaultValue: '3-dev-latest',
             description: 'PMM Client version ("3-dev-latest" for main branch, "latest" or "X.X.X" for released version, "pmm3-rc" for Release Candidate, "http://..." for feature build)',
             name: 'CLIENT_VERSION'
         )
