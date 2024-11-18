@@ -1,0 +1,14 @@
+- job:
+    name: psmdb-docker-pro
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/vorsel/jenkins-pipelines.git
+            branches:
+            - 'PSMDB-1553_build_psmdb_pro_dockers'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: psmdb/psmdb-docker-pro.groovy
