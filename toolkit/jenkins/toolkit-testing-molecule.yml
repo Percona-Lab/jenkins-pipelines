@@ -1,0 +1,18 @@
+- job:
+    name: toolkit-package-testing-molecule
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    properties:
+        - build-discarder:
+            num-to-keep: 15
+    concurrent: true
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'toolkit-pt-molecule'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: toolkit/jenkins/toolkit-testing-molecule.groovy
