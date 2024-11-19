@@ -198,11 +198,11 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['16', '15','14', '13'],
+            choices: ['16', '17', '15', '14', '13'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['16', '15','14', '13'],
+            choices: ['16', '17', '15', '14', '13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -210,7 +210,7 @@ pipeline {
             description: "MariaDB Server version",
             name: 'MD_VERSION')
         choice(
-            choices: ['7.0.7-4', '6.0.14-11', '5.0.26-22', '4.4.29-28'],
+            choices: ['8.0.1-1', '7.0.7-4', '6.0.14-11', '5.0.26-22', '4.4.29-28'],
             description: "Percona Server for MongoDB version",
             name: 'PSMDB_VERSION')
         choice(
