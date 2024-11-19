@@ -14,8 +14,6 @@ pipeline {
         choice(name: 'PSMDB_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PSMDB_VERSION', defaultValue: '6.0.2-1', description: 'PSMDB version')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
-        choice(name: 'DEBUG', choices: ['no','yes'], description: 'Additionally build debug image')
-        choice(name: 'TESTS', choices: ['yes','no'], description: 'Run tests after building')
     }
     options {
         disableConcurrentBuilds()
@@ -41,9 +39,9 @@ pipeline {
                         sed -E "s|ENV PSMDB_VERSION (.+)|ENV PSMDB_VERSION ${params.PSMDB_VERSION}|" -i Dockerfile
                         sed -E "s|ENV PSMDB_REPO (.+)|ENV PSMDB_REPO ${params.PSMDB_REPO}|" -i Dockerfile
                         sed -E "s|(psmdb-[0-9]{2})|\\1-pro|g" -i Dockerfile
-                        sed -E "s|(.*)(\$\\{FULL_PERCONA_VERSION\\})|\\1pro-\\2|g" -i Dockerfile
-                        sed -E "s|(enable psmdb-70-pro)|\\1 --user_name='${USERNAME}' --repo_token='${PASSWORD}'|" -i Dockerfile
-                        sed -E "s|(repo\\.percona\\.com/psmdb-70-pro)|repo.percona.com/private/'${USERNAME}'-'${PASSWORD}'/psmdb-70-pro|" -i Dockerfile
+                        sed -E 's:(percona-server-mongodb-(server|mongos)):\\1-pro:g' -i Dockerfile
+                        sed -E "s|(enable psmdb-[0-9]{2}-pro)|\\1 --user_name='${USERNAME}' --repo_token='${PASSWORD}'|" -i Dockerfile
+                        sed -E "s|(repo\\.percona\\.com/)(psmdb-[0-9]{2}-pro)|\\1private/'${USERNAME}'-'${PASSWORD}'/\\2|" -i Dockerfile
                         docker build . -t percona-server-mongodb-pro:${params.PSMDB_VERSION}
                         docker save -o percona-server-mongodb-pro-${params.PSMDB_VERSION}.tar percona-server-mongodb-pro:${params.PSMDB_VERSION}
                         gzip percona-server-mongodb-pro-${params.PSMDB_VERSION}.tar
@@ -64,10 +62,10 @@ pipeline {
                     curl https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/docker/trivyignore -o ".trivyignore"
                     if [ ${params.PSMDB_REPO} = "release" ]; then
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-server-mongodb-pro
+                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-server-mongodb-pro:${params.PSMDB_VERSION}
                     else
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-server-mongodb-pro
+                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-server-mongodb-pro:${params.PSMDB_VERSION}
                     fi
                """
                } catch (Exception e) {
