@@ -34,6 +34,7 @@
             choices:
                 - "pxc57"
                 - "pxc80"
+                - "pxc84"
                 - "ps57"
                 - "ps80"
                 - "ps84"
