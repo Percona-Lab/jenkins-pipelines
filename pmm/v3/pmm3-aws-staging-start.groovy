@@ -78,7 +78,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['17', '16','15', '14', '13'],
+            choices: ['16', '17', '15', '14', '13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
