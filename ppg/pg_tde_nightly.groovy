@@ -41,7 +41,7 @@ pipeline {
             description: 'Tag/Branch for pg_tde repository',
             name: 'PG_BRANCH')
         string(
-            defaultValue: '17.1',
+            defaultValue: '17.0',
             description: 'Tag/Branch for pg_tde packaging repository',
             name: 'GIT_BRANCH')
         string(
@@ -53,7 +53,7 @@ pipeline {
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
-            defaultValue: 'ppg-17.1',
+            defaultValue: 'ppg-17.0',
             description: 'PPG repo name',
             name: 'PPG_REPO')
         choice(
