@@ -61,7 +61,7 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
     git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/package-testing'
     sh '''
         export install_repo=\${INSTALL_REPO}
-        export tarball_link=\${TARBALL}
+        export TARBALL_LINK=\${TARBALL}
         git clone https://github.com/Percona-QA/ppg-testing
         ansible-playbook \
         -vvv \
