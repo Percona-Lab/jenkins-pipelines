@@ -44,6 +44,10 @@ pipeline {
             choices: ['experimental', 'testing', 'main', 'pmm-client-main'],
             description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM Client tarball link or FB-code',
+            name: 'TARBALL')
         choice(
             choices: ['auto', 'push', 'pull'],
             description: 'Select the Metrics Mode for Client',

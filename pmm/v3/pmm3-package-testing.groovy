@@ -61,6 +61,7 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
     git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/package-testing'
     sh '''
         export install_repo=\${INSTALL_REPO}
+        export tarball_link=\${TARBALL}
         git clone https://github.com/Percona-QA/ppg-testing
         ansible-playbook \
         -vvv \
@@ -106,6 +107,10 @@ pipeline {
             choices: ['experimental', 'testing', 'main', 'pmm-client-main'],
             description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM Client tarball link or FB-code',
+            name: 'TARBALL')
         choice(
             choices: ['auto', 'push', 'pull'],
             description: 'Select the Metrics Mode for Client',
