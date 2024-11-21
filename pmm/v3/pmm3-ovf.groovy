@@ -31,12 +31,12 @@ pipeline {
             steps {
                 script {
                     env.PMM_VERSION = '3-dev-latest'
+                    if (params.PMM_BRANCH != 'v3') {
+                        env.PMM_VERSION = '3-dev-' + PMM_BRANCH
+                    }
                     if (params.RELEASE_CANDIDATE == 'yes') {
                         // release branch should be in the format: pmm-3.x.y
                         env.PMM_VERSION = PMM_BRANCH.split('-')[1] 
-                    }
-                    if (params.PMM_BRANCH != 'v3') {
-                        env.PMM_VERSION = '3-dev-' + PMM_BRANCH
                     }
                 }
                 withCredentials([string(credentialsId: 'f5415992-e274-45c2-9eb9-59f9e8b90f43', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
