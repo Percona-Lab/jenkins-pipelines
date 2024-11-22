@@ -229,6 +229,21 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
     else
         WORKERS=${PARALLEL}
     fi
+
+    # For replication suites, use less workers. Let's say 3 cpus per worker...
+    if [[ "${suite}" == "group_replication" || "${suite}" == *rpl* ]]; then
+        if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
+          echo "Limiting workers count for suite ${suite} skipped. Already limited for Valgrind to ${WORKERS}"        
+        else
+          WORKERS=$((PARALLEL/3))        
+          # ...but not less than GALERA_PARALLEL_RUN (to have it still configurable via Jenkins UI)
+          if [[ ${PARALLEL} -lt ${GALERA_PARALLEL_RUN} ]]; then
+            WORKERS=${GALERA_PARALLEL_RUN}
+          fi
+          echo "Limiting workers count for suite ${suite} to ${WORKERS}"
+        fi
+    fi
+    
     
     ONLY_COMBINATIONS=
     # our implementation of GCache encryption is not compatible with Valgrind. We heavily use sigsegv signal and Valgrind does the same.
