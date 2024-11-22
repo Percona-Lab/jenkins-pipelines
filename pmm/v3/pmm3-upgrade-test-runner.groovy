@@ -262,18 +262,30 @@ pipeline {
 
                     sleep 10
 
-                    docker run --detach --restart always \
-                        --network="pmm-qa" \
-                        -e PMM_DEBUG=1 \
-                        -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
-                        -e PMM_WATCHTOWER_TOKEN=testUpgradeToken \
-                        -e PMM_ENABLE_UPDATES=1 \
-                        -e PMM_DEV_UPDATE_DOCKER_IMAGE=${DOCKER_TAG_UPGRADE} \
-                        --publish 80:8080 --publish 443:8443 \
-                        --volume pmm-volume:/srv \
-                        --name pmm-server \
-                        ${DOCKER_TAG}
-
+                    if [[ -z ${DOCKER_TAG_UPGRADE} ]]; then
+                        docker run --detach --restart always \
+                            --network="pmm-qa" \
+                            -e PMM_DEBUG=1 \
+                            -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
+                            -e PMM_WATCHTOWER_TOKEN=testUpgradeToken \
+                            -e PMM_ENABLE_UPDATES=1 \
+                            --publish 80:8080 --publish 443:8443 \
+                            --volume pmm-volume:/srv \
+                            --name pmm-server \
+                            ${DOCKER_TAG}
+                    else
+                        docker run --detach --restart always \
+                            --network="pmm-qa" \
+                            -e PMM_DEBUG=1 \
+                            -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
+                            -e PMM_WATCHTOWER_TOKEN=testUpgradeToken \
+                            -e PMM_ENABLE_UPDATES=1 \
+                            -e PMM_DEV_UPDATE_DOCKER_IMAGE=${DOCKER_TAG_UPGRADE} \
+                            --publish 80:8080 --publish 443:8443 \
+                            --volume pmm-volume:/srv \
+                            --name pmm-server \
+                            ${DOCKER_TAG}
+                    fi
                 """
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
                 waitForContainer('pmm-server', 'The HTTP API is enabled at :8080.')
