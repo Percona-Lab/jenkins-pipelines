@@ -196,6 +196,7 @@ fi
 if [[ -f /etc/redhat-release ]]; then
     sudo yum install -y net-tools
 else
+    sudo apt update
     sudo apt install -y net-tools
 fi
 ifconfig
