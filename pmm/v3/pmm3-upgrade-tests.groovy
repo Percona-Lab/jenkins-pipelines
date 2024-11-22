@@ -3,10 +3,11 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, UPGRADE_FLAG) {
+void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, UPGRADE_FLAG) {
     upgradeJob = build job: 'pmm3-upgrade-test-runner', parameters: [
         string(name: 'PMM_UI_GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
         string(name: 'DOCKER_TAG', value: DOCKER_TAG),
+        string(name: 'DOCKER_TAG_UPGRADE', value: DOCKER_TAG_UPGRADE),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
@@ -28,6 +29,10 @@ pipeline {
             defaultValue: 'perconalab/pmm-server:202410302129',
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
+        string(
+            defaultValue: '',
+            description: 'PMM Server Version to upgrade to',
+            name: 'DOCKER_TAG_UPGRADE')
         string(
             defaultValue: "3-dev-latest",
             description: 'PMM Client Version to test for Upgrade',
@@ -57,21 +62,21 @@ pipeline {
                 stage('Run SSL upgrade tests'){
                     steps {
                         script {
-                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'SSL');
+                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'SSL');
                         }
                     }
                 }
                 stage('Run custom password upgrade tests'){
                     steps {
                         script {
-                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'CUSTOM PASSWORD');
+                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'CUSTOM PASSWORD');
                         }
                     }
                 }
                 stage('Run custom dashboards upgrade tests'){
                     steps {
                         script {
-                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'CUSTOM DASHBOARDS');
+                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'CUSTOM DASHBOARDS');
                         }
                     }
                 }
@@ -79,3 +84,4 @@ pipeline {
         }
     }
 }
+
