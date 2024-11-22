@@ -262,7 +262,11 @@ pipeline {
 
                     sleep 10
 
-                    if [[ -z ${DOCKER_TAG_UPGRADE} ]]; then
+                    echo $DOCKER_TAG_UPGRADE
+                    export DOCKER_TAG_UPGRADE=${DOCKER_TAG_UPGRADE}
+                    echo $DOCKER_TAG_UPGRADE
+
+                    if [[ -z \$DOCKER_TAG_UPGRADE ]]; then
                         docker run --detach --restart always \
                             --network="pmm-qa" \
                             -e PMM_DEBUG=1 \
