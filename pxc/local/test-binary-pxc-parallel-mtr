@@ -238,7 +238,7 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
         else
           WORKERS=$((PARALLEL/3))        
           # ...but not less than GALERA_PARALLEL_RUN (to have it still configurable via Jenkins UI)
-          if [[ ${PARALLEL} -lt ${GALERA_PARALLEL_RUN} ]]; then
+          if [[ ${WORKERS} -lt ${GALERA_PARALLEL_RUN} ]]; then
             WORKERS=${GALERA_PARALLEL_RUN}
           fi
           echo "Limiting workers count for suite ${suite} to ${WORKERS}"
