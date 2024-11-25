@@ -16,7 +16,7 @@ pipeline {
   }
   environment {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-    MOLECULE_DIR = "molecule/ps-80-pro/${cur_action_to_test}";
+    MOLECULE_DIR = "molecule/${params.product_to_test == 'ps84' ? 'ps-84-pro' : 'ps-80-pro'}/${cur_action_to_test}";
   }
   parameters {
     choice(
@@ -36,7 +36,7 @@ pipeline {
     )    
     choice(
       name: "product_to_test",
-      choices: ["ps80"],
+      choices: ["ps80", "ps84"],
       description: "Product for which the packages will be tested"
     )
     choice(
@@ -80,7 +80,7 @@ pipeline {
     stage('Set build name'){
       steps {
         script {
-          currentBuild.displayName = "${env.BUILD_NUMBER}--${env.node_to_test}-${env.cur_action_to_test}"
+          currentBuild.displayName = "${env.BUILD_NUMBER}--${env.node_to_test}-${env.cur_action_to_test}--${env.product_to_test}"
           currentBuild.description = "${env.install_repo}-${env.TESTING_BRANCH}"
         }
       }

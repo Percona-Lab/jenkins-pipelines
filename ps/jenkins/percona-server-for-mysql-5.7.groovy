@@ -37,20 +37,24 @@ void installCli32(String PLATFORM) {
     """
 }
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
-    sh """
-        set -o xtrace
-        mkdir -p test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-5.7_builder.sh -o ps_builder.sh
-        pwd -P
-        export build_dir=\$(pwd -P)
-        set -o xtrace
-        cd \${build_dir}
-        if [ -f ./test/percona-server-5.7.properties ]; then
-            . ./test/percona-server-5.7.properties
-        fi
-        sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-        bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+        sh """
+            set -o xtrace
+            mkdir -p test
+            wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O ps_builder.sh \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/percona-server-5.7_builder.sh?ref=${BRANCH}
+            sed -i "s|git clone \\\"\\\$REPO\\\"|git clone \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-server|g" ps_builder.sh
+            grep "git clone" ps_builder.sh
+            pwd -P
+            export build_dir=\$(pwd -P)
+            set -o xtrace
+            cd \${build_dir}
+            if [ -f ./test/percona-server-5.7.properties ]; then
+                . ./test/percona-server-5.7.properties
+            fi
+            sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
+            bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
     """
+    }
 }
 
 void cleanUpWS() {
@@ -66,8 +70,8 @@ pipeline {
         label 'docker'
     }
 parameters {
-        string(defaultValue: 'https://github.com/percona/percona-server.git', description: 'github repository for build', name: 'GIT_REPO')
-        string(defaultValue: 'release-5.7.32-35', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
+        string(defaultValue: 'https://github.com/percona/percona-server-private.git', description: 'github repository for build', name: 'GIT_REPO')
+        string(defaultValue: 'release-5.7.44-52', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
         string(defaultValue: '0', description: 'PerconaFT repository', name: 'PERCONAFT_REPO')
         string(defaultValue: 'Percona-Server-5.7.32-35', description: 'Tag/Branch for PerconaFT repository', name: 'PERCONAFT_BRANCH')
         string(defaultValue: '0', description: 'TokuBackup repository', name: 'TOKUBACKUP_REPO')

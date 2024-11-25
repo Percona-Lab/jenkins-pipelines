@@ -61,7 +61,7 @@ pipeline {
     )
     choice(
       name: "product_to_test",
-      choices: ["ps80"],
+      choices: ["ps80", "ps84"],
       description: "Product for which the packages will be tested"
     )
     choice(
@@ -98,7 +98,7 @@ pipeline {
         stage("Prepare") {
             steps {
                 script {
-                    currentBuild.displayName = "#${BUILD_NUMBER}-${cur_action_to_test}-${params.install_repo}"
+                    currentBuild.displayName = "#${BUILD_NUMBER}-${cur_action_to_test}-${product_to_test}-${params.install_repo}"
                     currentBuild.description = "action: ${params.action_to_test} node: ${params.node_to_test}"
                 }
             }

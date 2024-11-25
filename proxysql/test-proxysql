@@ -112,85 +112,89 @@ function detect_platform {
   fi
 }
 
+# Function to check if percona-release is installed
+check_percona_release() {
+    if command -v percona-release &>/dev/null; then
+        echo "percona-release is already installed."
+        return 0
+    else
+        echo "percona-release is not installed."
+        return 1
+    fi
+}
+
+# Function to install percona-release on Debian-based systems
+install_debian() {
+    echo "Installing percona-release for Debian-based system..."
+    sudo curl -O https://repo.percona.com/apt/percona-release_latest.generic_all.deb
+    sudo apt install -y gnupg2 lsb-release ./percona-release_latest.generic_all.deb
+}
+
+# Function to install percona-release on RHEL-based systems
+install_rhel() {
+    echo "Installing percona-release for RHEL-based system..."
+    sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+}
+
 platform=$(detect_platform)
 glibc_version=$(get_glibc_version "$platform")
 echo "The required glibc version for $platform is $glibc_version"
+
+if ! check_percona_release; then
+    if [ -f /etc/debian_version ]; then
+        # Debian-based system
+        install_debian
+    elif [ -f /etc/redhat-release ] || [ -f /etc/centos-release ]; then
+        # RHEL-based system
+        install_rhel
+    else
+        echo "Unsupported operating system."
+        exit 1
+    fi
+else
+    echo "No installation needed."
+fi
 
 WORKDIR_ABS=$(cd ${1:-./build/proxysql}; pwd -P)
 rm -rf ${WORKDIR_ABS}/WORKDIR ${WORKDIR_ABS}/PROXY_ADMIN
 mkdir -p ${WORKDIR_ABS}/PROXY_ADMIN ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/usr/bin ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/etc
 
-if [ -f /usr/bin/yum ]; then
-# Installing proxysql 2.0.latest package
-  enable_repo proxysql testing
-  install_package proxysql2
-
-  if [[ "${PXC_VERSION}" == "PXC84" ]]; then
-    # Downloading PXC-8.4 tarball package
-
-    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_8.4.0-1.1_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-84/Percona-XtraDB-Cluster-8.4.0/binary/tarball/Percona-XtraDB-Cluster_8.4.0-1.1_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz
-
-    # Installing PXC-8.4 client package
-    enable_repo pxc-84-lts release
-    install_package percona-xtradb-cluster-client
-
-  elif [[ "${PXC_VERSION}" == "PXC80" ]]; then
-    # Downloading PXC-8.0 tarball package
-    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_8.0.36-28.1_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-80/Percona-XtraDB-Cluster-8.0.36/binary/tarball/Percona-XtraDB-Cluster_8.0.36-28.1_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz
-
-    # Installing PXC-8.0 client package
-    enable_repo pxc-80 release
-    install_package percona-xtradb-cluster-client
-
-  elif [[ "${PXC_VERSION}" == "PXC57" ]]; then
-    # Downloading PXC-5.7 tarball package
-    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster-5.7.44-rel48-65.1.Linux.x86_64.glibc2.17-minimal.tar.gz  https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.44/binary/tarball/Percona-XtraDB-Cluster-5.7.44-rel48-65.1.Linux.x86_64.glibc2.17-minimal.tar.gz
-
-    # Installing PXC-5.7 client package
-    enable_repo pxc-57 release
-    install_package Percona-XtraDB-Cluster-client-57
-
-    # Installing PXB-2.4 (only required in case of PXC-5.7)
-    enable_repo pxb-24 release
-    install_package percona-xtrabackup-24
-  fi
-
-elif [ -f /usr/bin/apt ]; then
+if [ -f /usr/bin/apt ]; then
   # In Linux distributions that rely on dpkg, the packages wget, gnupg2, curl and lsb-release are already installed. However, these packages may be missing from Docker base images. In this case, install them manually before running dpkg
   install_package wget gnupg2 lsb-release curl
+fi
 
-  # Installing proxysql 2.0.latest package
-  enable_repo proxysql testing
-  install_package proxysql2
+# Installing proxysql 2.0.latest package
+enable_repo proxysql testing
+install_package proxysql2
 
-  if [[ "${PXC_VERSION}" == "PXC84" ]]; then
-    # Downloading PXC-8.4 tarball package
-    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_8.4.0-1.1_Linux.x86_64.glibc2.17-minimal.tar.gz https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-84/Percona-XtraDB-Cluster-8.4.0/binary/tarball/Percona-XtraDB-Cluster_8.4.0-1.1_Linux.x86_64.glibc2.17-minimal.tar.gz
+if [[ "${PXC_VERSION}" == "PXC84" ]]; then
+  # Downloading PXC-8.4 tarball package
+  sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_8.4.0-1.1_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-84/Percona-XtraDB-Cluster-8.4.0/binary/tarball/Percona-XtraDB-Cluster_8.4.0-1.1_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz
 
-    # Installing PXC-8.4 client package
-    enable_repo pxc-84-lts release
-    install_package percona-xtradb-cluster-client
-  elif [[ "${PXC_VERSION}" == "PXC80" ]]; then
+  # Installing PXC-8.4 client package
+  enable_repo pxc-84-lts release
+  install_package percona-xtradb-cluster-client
+elif [[ "${PXC_VERSION}" == "PXC80" ]]; then
 
-    # Downloading PXC-8.0 tarball package
-    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_8.0.36-28.1_Linux.x86_64.glibc2.17-minimal.tar.gz https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-80/Percona-XtraDB-Cluster-8.0.36/binary/tarball/Percona-XtraDB-Cluster_8.0.36-28.1_Linux.x86_64.glibc2.17-minimal.tar.gz
+  # Downloading PXC-8.0 tarball package
+  sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_8.0.36-28.1_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-80/Percona-XtraDB-Cluster-8.0.36/binary/tarball/Percona-XtraDB-Cluster_8.0.36-28.1_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz
 
-    # Installing PXC-8.0 client package
-    enable_repo pxc-80 release
-    install_package percona-xtradb-cluster-client
-  elif [[ "${PXC_VERSION}" == "PXC57" ]]; then
+  # Installing PXC-8.0 client package
+  enable_repo pxc-80 release
+  install_package percona-xtradb-cluster-client
+elif [[ "${PXC_VERSION}" == "PXC57" ]]; then
 
-    # Downloading PXC-5.7 tarball package
-    sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster-5.7.44-rel48-65.1.Linux.x86_64.glibc2.17-minimal.tar.gz  https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.44/binary/tarball/Percona-XtraDB-Cluster-5.7.44-rel48-65.1.Linux.x86_64.glibc2.17-minimal.tar.gz
+  # Downloading PXC-5.7 tarball package
+  sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster-5.7.44-rel48-65.1.Linux.x86_64.glibc2.17-minimal.tar.gz  https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-57/Percona-XtraDB-Cluster-5.7.44/binary/tarball/Percona-XtraDB-Cluster-5.7.44-rel48-65.1.Linux.x86_64.glibc2.17-minimal.tar.gz
 
-    # Installing PXC-5.7 client
-    enable_repo pxc-57 release
-    install_package percona-xtradb-cluster-client-5.7
+  # Installing PXC-5.7 client
+  enable_repo pxc-57 release
+  install_package percona-xtradb-cluster-client-5.7
 
-    # Installing PXB-2.4 (only required in case of PXC-5.7)
-    enable_repo pxb-24 release
-    install_package percona-xtrabackup-24
-  fi
+  # Installing PXB-2.4 (only required in case of PXC-5.7)
+  enable_repo pxb-24 release
+  install_package percona-xtrabackup-24
 fi
 
 pushd ${WORKDIR_ABS}/WORKDIR
