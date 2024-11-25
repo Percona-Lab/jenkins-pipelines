@@ -82,18 +82,20 @@ void runPlaybook(String action_to_test) {
     '''
 
     setup_package_tests()
-
+    withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]){
     sh """
         export install_repo="\${install_repo}"
         export client_to_test="\${client_to_test}"
         export repo_for_client_to_test="\${repo_for_client_to_test}"
-
+        export PASSWORD="\${PASSWORD}"
+        export USERNAME="\${USERNAME}"
         ansible-playbook \
         --connection=local \
         --inventory 127.0.0.1, \
         --limit 127.0.0.1 \
         ${playbook_path}
     """
+    }
 }
 
 
