@@ -252,10 +252,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                 --add-maintenance-exclusion-start "\$CURRENT_TIME" \
                 --add-maintenance-exclusion-end "\$FUTURE_TIME"
 
-            # Remove node taints to allow for scheduling pods on arm64 nodes
-            for node in \$(kubectl get nodes -o custom-columns=NAME:.metadata.name --no-headers); do
-                kubectl taint nodes \$node kubernetes.io/arch=arm64:NoSchedule- || true
-            done
+            kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints,AGE:.metadata.creationTimestamp"
         """
    }
 }
