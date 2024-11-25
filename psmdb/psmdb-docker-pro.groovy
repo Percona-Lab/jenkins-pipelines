@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@PSMDB-1553_build_psmdb_pro_dockers", retriever: modernSCM([
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/vorsel/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
 pipeline {
@@ -103,13 +103,13 @@ pipeline {
             deleteDir()
         }
         success {
-            slackNotify("@alex.miroshnychenko", "#00FF00", "[${JOB_NAME}]: Building of PSMDB ${PSMDB_VERSION} repo ${PSMDB_REPO} succeed")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of PSMDB ${PSMDB_VERSION} repo ${PSMDB_REPO} succeed")
         }
         unstable {
-            slackNotify("@alex.miroshnychenko", "#F6F930", "[${JOB_NAME}]: Building of PSMDB ${PSMDB_VERSION} repo ${PSMDB_REPO} unstable - [${BUILD_URL}testReport/]")
+            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of PSMDB ${PSMDB_VERSION} repo ${PSMDB_REPO} unstable - [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("@alex.miroshnychenko", "#FF0000", "[${JOB_NAME}]: Building of PSMDB ${PSMDB_VERSION} repo ${PSMDB_REPO} failed - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of PSMDB ${PSMDB_VERSION} repo ${PSMDB_REPO} failed - [${BUILD_URL}]")
         }
     }
 }

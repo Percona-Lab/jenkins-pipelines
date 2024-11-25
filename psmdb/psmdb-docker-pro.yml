@@ -6,9 +6,9 @@
     pipeline-scm:
       scm:
         - git:
-            url: https://github.com/vorsel/jenkins-pipelines.git
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'PSMDB-1553_build_psmdb_pro_dockers'
+            - 'master'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: psmdb/psmdb-docker-pro.groovy
