@@ -580,6 +580,9 @@ pipeline {
             sh '''
                 sudo rm -rf ./*
             '''
+            script {
+                currentBuild.description = "Built on ${GIT_BRANCH} - [${BUILD_URL}]"
+            }
             deleteDir()
         }
     }
