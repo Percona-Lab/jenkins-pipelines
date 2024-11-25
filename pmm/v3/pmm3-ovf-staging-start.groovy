@@ -204,7 +204,7 @@ pipeline {
 
                     # https://docs.digitalocean.com/products/droplets/how-to/retrieve-droplet-metadata/
                     DROPLET_ID=$(curl -s http://169.254.169.254/metadata/v1/id)
-                    doctl compute droplet delete $DROPLET_ID
+                    doctl compute droplet delete $DROPLET_ID --force
                 '''
                 }
             }
