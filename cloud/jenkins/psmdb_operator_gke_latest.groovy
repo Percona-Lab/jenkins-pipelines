@@ -16,6 +16,7 @@ void verifyParams() {
 }
 
 String getParam(String PARAM_NAME) {
+    echo "=========================[ Getting parameters for release test ]========================="
     def param = "${params[PARAM_NAME]}"
 
     if ("$param" && "$param" != "null" && param != "") {
@@ -45,7 +46,6 @@ void prepareNode() {
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
 
-    echo "=========================[ Assigning images for release test ]========================="
     if ("$RELEASE_RUN" == "YES") {
         IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
         IMAGE_MONGOD = getParam("IMAGE_MONGOD${PILLAR_VERSION}")
@@ -56,7 +56,7 @@ void prepareNode() {
             PLATFORM_VER = getParam("GKE_${PLATFORM_VER}")
         }
     } else {
-        echo "This is not a release run. Using job params only!"
+        echo "=========================[ Not a release run. Using job params only! ]========================="
     }
 
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
@@ -96,16 +96,24 @@ EOF
     }
     echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 
+    if ("$ARCH" == "amd64") {
+        MACHINE_TYPE="n1-standard-4"
+    } else if ("$ARCH" == "arm64") {
+        MACHINE_TYPE="t2a-standard-4"
+    } else {
+        error("Unknown architecture $ARCH")
+    }
+
     if ("$IMAGE_MONGOD") {
         release = ("$RELEASE_RUN" == "YES") ? "RELEASE-" : ""
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-        currentBuild.description = "${release}$GIT_BRANCH-$PLATFORM_VER-$GKE_RELEASE_CHANNEL-$cw-" + "$IMAGE_MONGOD".split(":")[1]
+        currentBuild.description = "${release}$GIT_BRANCH-$ARCH-$PLATFORM_VER-$GKE_RELEASE_CHANNEL-$cw-" + "$IMAGE_MONGOD".split(":")[1]
     }
 
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$ARCH-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -218,7 +226,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --cluster-version $USED_PLATFORM_VER \
                     --preemptible \
                     --disk-size 30 \
-                    --machine-type n1-standard-4 \
+                    --machine-type $MACHINE_TYPE \
                     --num-nodes=4 \
                     --min-nodes=4 \
                     --max-nodes=6 \
@@ -243,6 +251,8 @@ void createCluster(String CLUSTER_SUFFIX) {
                 --zone $region \
                 --add-maintenance-exclusion-start "\$CURRENT_TIME" \
                 --add-maintenance-exclusion-end "\$FUTURE_TIME"
+
+            kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints,AGE:.metadata.creationTimestamp"
         """
    }
 }
@@ -371,6 +381,11 @@ pipeline {
             choices: 'NO\nYES',
             description: 'Release run?',
             name: 'RELEASE_RUN'
+        )
+        choice(
+            choices: 'amd64\narm64',
+            description: 'Architecture',
+            name: 'ARCH'
         )
         string(
             defaultValue: '70',
