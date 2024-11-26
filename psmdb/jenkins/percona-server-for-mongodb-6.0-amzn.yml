@@ -1,5 +1,5 @@
 - job:
-    name: psmdb60-autobuild-RELEASE
+    name: psmdb60-autobuild-RELEASE-amzn
     project-type: pipeline
     description: |
         Do not edit this job through the web!
