@@ -66,7 +66,7 @@ pipeline {
             description: 'Postgre SQL Server version',
             name: 'PGSQL_VERSION')
         string(
-            defaultValue: '--addclient=haproxy,1 --setup-external-service --mongo-replica-for-backup --setup-bm-mysql',
+            defaultValue: '--addclient=haproxy,1 --setup-external-service --mo-version "8.0" --mongo-replica-for-backup --setup-bm-mysql',
             description: 'Configure PMM Clients. ps - Percona Server for MySQL, pxc - Percona XtraDB Cluster, ms - MySQL Community Server, md - MariaDB Server, MO - Percona Server for MongoDB, pgsql - Postgre SQL Server',
             name: 'CLIENTS')
         choice(

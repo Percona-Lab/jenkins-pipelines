@@ -90,7 +90,7 @@ pipeline {
             description: "MariaDB Server version",
             name: 'MD_VERSION')
         choice(
-            choices: ['7.0', '8.0', '6.0', '5.0', '4.4'],
+            choices: ['8.0', '7.0', '6.0', '5.0', '4.4'],
             description: "Percona Server for MongoDB version",
             name: 'MO_VERSION')
         choice(
