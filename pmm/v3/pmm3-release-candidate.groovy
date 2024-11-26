@@ -294,6 +294,7 @@ pipeline {
                         script {
                             pmmAMI = build job: 'pmm3-ami', parameters: [
                                 string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
+                                string(name: 'PMM_SERVER_IMAGE', value: "docker.io/perconalab/pmm-server:${VERSION}-rc"),
                                 string(name: 'RELEASE_CANDIDATE', value: "yes")
                             ]
                             env.AMI_ID = pmmAMI.buildVariables.AMI_ID
@@ -305,6 +306,7 @@ pipeline {
                         script {
                             pmmOVF = build job: 'pmm3-ovf', parameters: [
                                 string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
+                                string(name: 'PMM_SERVER_IMAGE', value: "docker.io/perconalab/pmm-server:${VERSION}-rc"),
                                 string(name: 'RELEASE_CANDIDATE', value: 'yes')
                             ]
                         }
