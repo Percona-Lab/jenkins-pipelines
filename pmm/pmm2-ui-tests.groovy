@@ -265,7 +265,7 @@ pipeline {
                             bash -x testdata/db_setup.sh
                         """
                         script {
-                            env.SERVER_IP = "127.0.0.1"
+                            env.SERVER_IP = sh(script: 'curl -s ifconfig.me', returnStdout: true).trim()
                             env.PMM_UI_URL = "http://${env.SERVER_IP}/"
                             env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
                         }
