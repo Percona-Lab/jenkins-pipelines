@@ -128,13 +128,7 @@ pipeline {
                 sh '''
                     set -o errexit
 
-                    # TODO: DOCKER_TAG for RC should be a real version, not a date
-                    if [ -n "${DOCKER_RC_TAG}" ]; then
-                        export DOCKER_TAG=perconalab/pmm-server:${VERSION}
-                    else
-                        export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
-                    fi
-
+                    export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
                     export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3
                     export RPMBUILD_DIST="el9"
                     export DOCKERFILE=Dockerfile.el9
