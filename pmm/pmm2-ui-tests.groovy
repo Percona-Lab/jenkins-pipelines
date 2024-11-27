@@ -288,8 +288,8 @@ pipeline {
             steps {
                 setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', ENABLE_PULL_MODE, 'no', 'yes', 'compose_setup', ADMIN_PASSWORD)
                   script {
-                           env.SERVER_IP = sh(script: 'curl -s ifconfig.me', returnStdout: true).trim()
-                          }
+                      env.SERVER_IP = sh(script: 'curl -s ifconfig.me', returnStdout: true).trim()
+                  }
                 sh """
                     set -o errexit
                     set -o xtrace
