@@ -291,11 +291,11 @@ pipeline {
                     set -o errexit
                     set -o xtrace
                     export PATH=\$PATH:/usr/sbin
+                    export SERVER_IP=$(curl -s ifconfig.me)
                     if [[ \$CLIENT_VERSION != dev-latest ]]; then
                         export PATH="`pwd`/pmm2-client/bin:$PATH"
                     fi
                     export PMM_REPO=${env.PMM_REPO}
-                    export SERVER_IP=$(curl -s ifconfig.me)
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
                         ${CLIENTS} \
