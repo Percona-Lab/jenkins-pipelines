@@ -192,7 +192,7 @@ pipeline {
                             docker run --rm -v $PWD/.:/pmm public.ecr.aws/e7j3v3n0/rpmbuild:ol9 sh -c '
                                 cd /pmm
                                 make init
-                                make descriptors
+                                make -C api descriptors
                             '
 
                             API_DESCRIPTOR=$(git diff --text | grep -q 'descriptor\\.bin' && echo "CHANGED" || echo "NOT_CHANGED")
