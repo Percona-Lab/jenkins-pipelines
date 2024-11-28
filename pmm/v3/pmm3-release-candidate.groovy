@@ -267,6 +267,7 @@ pipeline {
                                 string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
                                 string(name: 'DESTINATION', value: 'testing')
                             ]
+                            env.PMM_SERVER_IMAGE = pmmServer.buildVariables.TIMESTAMP_TAG
                         }
                     }
                 }
@@ -294,6 +295,7 @@ pipeline {
                         script {
                             pmmAMI = build job: 'pmm3-ami', parameters: [
                                 string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
+                                string(name: 'PMM_SERVER_IMAGE', value: "docker.io/${PMM_SERVER_IMAGE}"),
                                 string(name: 'RELEASE_CANDIDATE', value: "yes")
                             ]
                             env.AMI_ID = pmmAMI.buildVariables.AMI_ID
@@ -305,6 +307,7 @@ pipeline {
                         script {
                             pmmOVF = build job: 'pmm3-ovf', parameters: [
                                 string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
+                                string(name: 'PMM_SERVER_IMAGE', value: "docker.io/${PMM_SERVER_IMAGE}"),
                                 string(name: 'RELEASE_CANDIDATE', value: 'yes')
                             ]
                         }

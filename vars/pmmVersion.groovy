@@ -57,7 +57,8 @@ def call(String type='dev-latest') {
     '2.41.2': 'ami-040faf3a8c1457f16',
     '2.42.0': 'ami-0f299ef1ae868dde9',
     '2.43.0': 'ami-07bcd3776893ec84e',
-    '2.43.1': 'ami-01b23410650c83949'
+    '2.43.1': 'ami-01b23410650c83949',
+    '2.43.2': 'ami-0c6791218db11d10e'
   ]
   List<String> versionsList = amiVersions.keySet() as List<String>;
   // Grab 5 latest versions
