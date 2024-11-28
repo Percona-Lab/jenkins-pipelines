@@ -77,13 +77,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Run MySQL BM Tests using @bm-mysql'){
-                    steps {
-                        script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@bm-mysql', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--mo-version "8.0" --mongo-replica-for-backup --setup-bm-mysql');
-                        }"
-                    }
-                }
                 stage('Run Instances Tests using @instances'){
                     steps {
                         script {
