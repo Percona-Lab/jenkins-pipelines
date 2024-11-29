@@ -22,13 +22,13 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
 def matrixVariant = generateVariants();
 
 def generateVariants() {
-    def results = [ : ];
+    def results = new HashMap<>();
     def labels = ["min-bookworm-arm64", "min-bullseye-arm64", "min-noble-arm64", "min-jammy-arm64", "min-focal-arm64", "min-ol-9-arm64", "min-ol-8-arm64"]
     def playbooks = ["pmm3-client_integration", "pmm3-client_integration_custom_path", "pmm3-client_integration_custom_port"]
 
     for(label in labels) {
         for(playbook in playbooks) {
-            results.put(["label": label, "playbook": playbook])
+            results.put([label, playbook])
         }
     }
 
