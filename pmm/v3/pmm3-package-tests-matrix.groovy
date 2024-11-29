@@ -28,7 +28,7 @@ def generateVariants() {
 
     for(label in labels) {
         for(playbook in playbooks) {
-            results.put(label, playbook)
+            results.put("${label}-${playbook}", generateStage(label, playbook))
         }
     }
 
@@ -36,6 +36,22 @@ def generateVariants() {
 
     return results;
 }
+
+def generateStage(LABEL, PLAYBOOK) {
+    return {
+        stage("${LABEL}-${PLAYBOOK}") {
+            agent {
+                label "${LABEL}"
+            }
+            run_package_tests(
+                GIT_BRANCH,
+                PLAYBOOK,
+                INSTALL_REPO,
+            )
+        }
+    }
+}
+
 def latestVersion = pmmVersion()
 
 pipeline {
