@@ -28,7 +28,7 @@ def generateVariants() {
 
     for(label in labels) {
         for(playbook in playbooks) {
-         results.putAll(["label": label, "playbook": playbook])
+            results.put(["label": label, "playbook": playbook])
         }
     }
 
