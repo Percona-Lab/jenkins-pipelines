@@ -78,6 +78,14 @@ def generateStage(LABEL, PLAYBOOK) {
     }
 }
 
+void setup_rhel_package_tests()
+{
+    sh '''
+        DISTRIBUTION=$(lsb_release -a | grep Description)
+        echo "$DISTRIBUTION"
+    '''
+}
+
 def latestVersion = pmmVersion()
 
 pipeline {
