@@ -19,6 +19,22 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
     '''
 }
 
+void runStaging(String DOCKER_VERSION, CLIENTS) {
+    stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
+        string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
+        string(name: 'CLIENT_VERSION', value: '3-dev-latest'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_ENABLE_TELEMETRY=false -e PMM_DATA_RETENTION=48h -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX'),
+        string(name: 'CLIENTS', value: CLIENTS),
+        string(name: 'NOTIFY', value: 'false'),
+        string(name: 'DAYS', value: '1')
+    ]
+    env.VM_IP = stagingJob.buildVariables.IP
+    env.PMM_SERVER_IP = stagingJob.buildVariables.IP
+    env.VM_NAME = stagingJob.buildVariables.VM_NAME
+    env.ADMIN_PASSWORD = stagingJob.buildVariables.ADMIN_PASSWORD
+    env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
+}
+
 def matrixVariant = generateVariants();
 
 def generateVariants() {
