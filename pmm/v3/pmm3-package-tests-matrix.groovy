@@ -105,6 +105,13 @@ pipeline {
                 runStaging(DOCKER_VERSION, '--help')
             }
         }
+        stage('Setup Server Instance') {
+            steps {
+                script {
+                    parallel matrixVariant
+                }
+            }
+        }
     }
     post {
         always {
