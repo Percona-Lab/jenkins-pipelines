@@ -51,7 +51,7 @@ void prepareNode() {
         IMAGE_PXC = getParam("IMAGE_PXC${PILLAR_VERSION}")
         IMAGE_PROXY = getParam("IMAGE_PROXY")
         IMAGE_HAPROXY = getParam("IMAGE_HAPROXY")
-        IMAGE_BACKUP = getParam("IMAGE_BACKUP"${PILLAR_VERSION})
+        IMAGE_BACKUP = getParam("IMAGE_BACKUP${PILLAR_VERSION}")
         IMAGE_LOGCOLLECTOR = getParam("IMAGE_LOGCOLLECTOR")
         IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
