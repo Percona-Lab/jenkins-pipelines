@@ -22,12 +22,12 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
 def matrixVariant = generateVariants();
 
 def generateVariants() {
-    def results = [];
+    def results = [ : ];
     def labels = ["min-bookworm-arm64", "min-bullseye-arm64", "min-noble-arm64", "min-jammy-arm64", "min-focal-arm64", "min-ol-9-arm64", "min-ol-8-arm64"]
     def playbooks = ["pmm3-client_integration", "pmm3-client_integration_custom_path", "pmm3-client_integration_custom_port"]
     labels.each { labelsKey, labelsValue ->
         playbooks.each { playbooksKey, playbooksValue ->
-            results.addAll(["label": labelsValue, "playbook": playbooksValue])
+            results.putAll(["label": labelsValue, "playbook": playbooksValue])
         }
     }
 
