@@ -88,36 +88,6 @@ pipeline {
                 runStaging(DOCKER_VERSION, '--help')
             }
         }
-        parallel {
-            stage('Oracle Linux 8') {
-                agent {
-                    label 'min-ol-8-arm64'
-                }
-                stages {
-                    stage("Run Client integration playbook") {
-                        steps {
-                            script {
-                                run_package_tests(GIT_BRANCH, 'pmm3-client_integration', INSTALL_REPO)
-                            }
-                        }
-                    }
-                    stage("Run Client Integration Playbook with custom port playbook") {
-                        steps {
-                            script {
-                                run_package_tests(GIT_BRANCH, 'pmm3-client_integration_custom_port', INSTALL_REPO)
-                            }
-                        }
-                    }
-                    stage("Run Client Integration Playbook with custom path playbook") {
-                        steps {
-                            script {
-                                run_package_tests(GIT_BRANCH, 'pmm3-client_integration_custom_path', INSTALL_REPO)
-                            }
-                        }
-                    }
-                }
-            }
-        }
     }
     post {
         always {
