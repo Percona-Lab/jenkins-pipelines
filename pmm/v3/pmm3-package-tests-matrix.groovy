@@ -56,16 +56,23 @@ def generateVariants() {
 def generateStage(LABEL, PLAYBOOK) {
     return {
         stage("${LABEL}-${PLAYBOOK}") {
-            agent {
-                label "${LABEL}"
-            }
-            steps {
+            node(LABEL) {
                 run_package_tests(
                     GIT_BRANCH,
                     PLAYBOOK,
                     INSTALL_REPO,
                 )
             }
+//             agent {
+//                 label "${LABEL}"
+//             }
+//             steps {
+//                 run_package_tests(
+//                     GIT_BRANCH,
+//                     PLAYBOOK,
+//                     INSTALL_REPO,
+//                 )
+//             }
         }
     }
 }
