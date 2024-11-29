@@ -59,11 +59,13 @@ def generateStage(LABEL, PLAYBOOK) {
             agent {
                 label "${LABEL}"
             }
-            run_package_tests(
-                GIT_BRANCH,
-                PLAYBOOK,
-                INSTALL_REPO,
-            )
+            steps {
+                run_package_tests(
+                    GIT_BRANCH,
+                    PLAYBOOK,
+                    INSTALL_REPO,
+                )
+            }
         }
     }
 }
