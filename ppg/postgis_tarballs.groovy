@@ -6,8 +6,8 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 void buildStage(String PG_VERION, String DOCKER_OS, String ARCH) {
     sh """
         set -o xtrace
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/postgis_rpms.sh -O postgis_rpms.sh
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/postgis_debians.sh -O postgis_debians.sh
+        git clone ${GIT_REPO}
+        cd postgis-tarballs
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
