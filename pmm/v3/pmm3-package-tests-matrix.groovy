@@ -82,6 +82,13 @@ pipeline {
                 }
             }
         }
+        stage('Integration Playbook with auth config'){
+            steps {
+                script {
+                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, 'pmm3-client_integration_auth_config', METRICS_MODE, INSTALL_REPO);
+                }
+            }
+        }
     }
     post {
         always {
