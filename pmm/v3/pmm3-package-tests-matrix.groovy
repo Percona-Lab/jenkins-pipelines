@@ -19,6 +19,22 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
     '''
 }
 
+def matrixVariant = generateVariants();
+
+def generateVariants() {
+    def results = [];
+    def labels = ["min-bookworm-arm64", "min-bullseye-arm64", "min-noble-arm64", "min-jammy-arm64", "min-focal-arm64", "min-ol-9-arm64", "min-ol-8-arm64"]
+    def playbooks = ["pmm3-client_integration", "pmm3-client_integration_custom_path", "pmm3-client_integration_custom_port"]
+    labels.each { labelsKey, labelsValue ->
+        playbooks.each { playbooksKey, playbooksValue ->
+            results.putAll([label: labelsValue, playbook: playbooksValue])
+        }
+    }
+
+    println results
+
+    return results;
+}
 def latestVersion = pmmVersion()
 
 pipeline {
@@ -66,7 +82,7 @@ pipeline {
     triggers {
         cron('0 4 * * *')
     }
-    stages{
+    stages {
         stage('Setup Server Instance') {
             steps {
                 runStaging(DOCKER_VERSION, '--help')
@@ -75,13 +91,10 @@ pipeline {
         parallel {
             stage('Oracle Linux 8') {
                 agent {
-                    label 'cli'
+                    label 'min-ol-8-arm64'
                 }
                 stages {
                     stage("Run Client integration playbook") {
-                        agent {
-                            label 'min-ol-8-arm64'
-                        }
                         steps {
                             script {
                                 run_package_tests(GIT_BRANCH, 'pmm3-client_integration', INSTALL_REPO)
@@ -89,9 +102,6 @@ pipeline {
                         }
                     }
                     stage("Run Client Integration Playbook with custom port playbook") {
-                        agent {
-                            label 'min-ol-8-arm64'
-                        }
                         steps {
                             script {
                                 run_package_tests(GIT_BRANCH, 'pmm3-client_integration_custom_port', INSTALL_REPO)
@@ -99,9 +109,6 @@ pipeline {
                         }
                     }
                     stage("Run Client Integration Playbook with custom path playbook") {
-                        agent {
-                            label 'min-ol-8-arm64'
-                        }
                         steps {
                             script {
                                 run_package_tests(GIT_BRANCH, 'pmm3-client_integration_custom_path', INSTALL_REPO)
