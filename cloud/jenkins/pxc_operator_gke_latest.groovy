@@ -55,7 +55,6 @@ void prepareNode() {
         IMAGE_LOGCOLLECTOR = getParam("IMAGE_LOGCOLLECTOR")
         IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
-        USED_PLATFORM_VER = getParam("USED_PLATFORM_VER")
         if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
             PLATFORM_VER = getParam("GKE_${PLATFORM_VER}")
         }
