@@ -47,7 +47,7 @@ void prepareNode() {
     """
 
     if ("$RELEASE_RUN" == "YES") {
-        OPERATOR_IMAGE = getParam("OPERATOR_IMAGE")
+        IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
         IMAGE_PXC = getParam("IMAGE_PXC${PILLAR_VERSION}")
         IMAGE_PROXY = getParam("IMAGE_PROXY")
         IMAGE_HAPROXY = getParam("IMAGE_HAPROXY")
@@ -120,7 +120,7 @@ EOF
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$ARCH-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$ARCH-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -128,7 +128,7 @@ void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            if [[ "$OPERATOR_IMAGE" ]]; then
+            if [[ "$IMAGE_OPERATOR" ]]; then
                 echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
@@ -281,7 +281,7 @@ void runTest(Integer TEST_ID) {
 
                     export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pxc-operator
-                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
                     export IMAGE_PXC=$IMAGE_PXC
                     export IMAGE_PROXY=$IMAGE_PROXY
                     export IMAGE_HAPROXY=$IMAGE_HAPROXY
@@ -342,7 +342,7 @@ void makeReport() {
 
     echo "=========================[ Generating Images Report ]========================="
     TestsImages = "testsuite name='PSMDB-GKE-latest'\n" +\
-                    "OPERATOR_IMAGE=$OPERATOR_IMAGE\n" +\
+                    "IMAGE_OPERATOR=$IMAGE_OPERATOR\n" +\
                     "IMAGE_PXC=$IMAGE_PXC\n" +\
                     "IMAGE_PROXY=$IMAGE_PROXY\n" +\
                     "IMAGE_HAPROXY=$IMAGE_HAPROXY\n" +\
@@ -428,7 +428,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-xtradb-cluster-operator:main',
-            name: 'OPERATOR_IMAGE')
+            name: 'IMAGE_OPERATOR')
         string(
             defaultValue: '',
             description: 'PXC image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0',
