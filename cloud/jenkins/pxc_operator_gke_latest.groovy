@@ -402,8 +402,8 @@ pipeline {
             name: 'ARCH'
         )
         string(
-            defaultValue: '70',
-            description: 'For RELEASE_RUN only. Major version like 70,60, etc',
+            defaultValue: '80',
+            description: 'For RELEASE_RUN only. Major version like 80, 57, etc',
             name: 'PILLAR_VERSION'
         )
         string(
