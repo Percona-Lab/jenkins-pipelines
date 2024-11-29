@@ -60,6 +60,7 @@ def generateStage(LABEL, PLAYBOOK) {
                 label "${LABEL}"
             }
             node(LABEL) {
+                setup_package_tests()
                 run_package_tests(
                     GIT_BRANCH,
                     PLAYBOOK,
@@ -78,8 +79,7 @@ def generateStage(LABEL, PLAYBOOK) {
     }
 }
 
-void setup_rhel_package_tests()
-{
+void setup_package_tests() {
     sh '''
         DISTRIBUTION=$(lsb_release -a | grep Description)
         echo "$DISTRIBUTION"
