@@ -105,7 +105,7 @@ pipeline {
                 runStaging(DOCKER_VERSION, '--help')
             }
         }
-        stage('Setup Server Instance') {
+        stage('Package tests matrix') {
             steps {
                 script {
                     parallel matrixVariant
