@@ -2,15 +2,21 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
-void runPackageTestingJob(String GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, TESTS, METRICS_MODE, INSTALL_REPO) {
-    upgradeJob = build job: 'pmm3-package-testing-arm', parameters: [
-        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
-        string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
-        string(name: 'PMM_VERSION', value: PMM_VERSION),
-        string(name: 'TESTS', value: TESTS),
-        string(name: 'INSTALL_REPO', value: INSTALL_REPO),
-        string(name: 'METRICS_MODE', value: METRICS_MODE)
-    ]
+
+void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
+{
+    deleteDir()
+    git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/package-testing'
+    sh '''
+        export install_repo=\${INSTALL_REPO}
+        export TARBALL_LINK=\${TARBALL}
+        git clone https://github.com/Percona-QA/ppg-testing
+        ansible-playbook \
+        -vvv \
+        --connection=local \
+        --inventory 127.0.0.1, \
+        --limit 127.0.0.1 playbooks/\${TESTS}.yml
+    '''
 }
 
 def latestVersion = pmmVersion()
@@ -61,31 +67,47 @@ pipeline {
         cron('0 4 * * *')
     }
     stages{
-        stage('Integration Playbook'){
+        stage('Setup Server Instance') {
             steps {
-                script {
-                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, 'pmm3-client_integration', METRICS_MODE, INSTALL_REPO);
-                }
+                runStaging(DOCKER_VERSION, '--help')
             }
         }
-        stage('Integration Playbook with custom path'){
-            steps {
-                script {
-                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, 'pmm3-client_integration_custom_path', METRICS_MODE, INSTALL_REPO);
+        parallel {
+            stage('Oracle Linux 8') {
+                agent {
+                    label 'cli'
                 }
-            }
-        }
-        stage('Integration Playbook with custom port'){
-            steps {
-                script {
-                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, 'pmm3-client_integration_custom_port', METRICS_MODE, INSTALL_REPO);
-                }
-            }
-        }
-        stage('Integration Playbook with auth config'){
-            steps {
-                script {
-                    runPackageTestingJob(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, 'pmm3-client_integration_auth_config', METRICS_MODE, INSTALL_REPO);
+                stages {
+                    stage("Run Client integration playbook") {
+                        agent {
+                            label 'min-ol-8-arm64'
+                        }
+                        steps {
+                            script {
+                                run_package_tests(GIT_BRANCH, 'pmm3-client_integration', INSTALL_REPO)
+                            }
+                        }
+                    }
+                    stage("Run Client Integration Playbook with custom port playbook") {
+                        agent {
+                            label 'min-ol-8-arm64'
+                        }
+                        steps {
+                            script {
+                                run_package_tests(GIT_BRANCH, 'pmm3-client_integration_custom_port', INSTALL_REPO)
+                            }
+                        }
+                    }
+                    stage("Run Client Integration Playbook with custom path playbook") {
+                        agent {
+                            label 'min-ol-8-arm64'
+                        }
+                        steps {
+                            script {
+                                run_package_tests(GIT_BRANCH, 'pmm3-client_integration_custom_path', INSTALL_REPO)
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -93,10 +115,10 @@ pipeline {
     post {
         always {
             script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
-                } else {
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                if(env.VM_NAME)
+                {
+                    archiveArtifacts artifacts: 'logs.zip'
+                    destroyStaging(VM_NAME)
                 }
             }
             deleteDir()
