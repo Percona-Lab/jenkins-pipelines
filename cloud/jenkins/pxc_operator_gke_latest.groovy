@@ -23,7 +23,7 @@ String getParam(String PARAM_NAME) {
         echo "$PARAM_NAME=$param (from job parameters)"
         return param
     } else {
-        param = sh(script: "grep -E '^\\s*$PARAM_NAME=' ~/work/percona-xtradb-cluster-operator/e2e-tests/release_versions | awk -F '=' '{print $2}' | head -1", , returnStdout: true).trim()
+        param = sh(script: "grep -E '^\\s*$PARAM_NAME=' ~/work/percona-xtradb-cluster-operator/e2e-tests/release_versions | cut -d = -f 2 | tr -d \'\"\'| head -1", , returnStdout: true).trim()
         if ("$param") {
             echo "$PARAM_NAME=$param (from params file)"
             return param
