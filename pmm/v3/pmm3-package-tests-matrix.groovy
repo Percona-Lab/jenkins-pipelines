@@ -27,7 +27,7 @@ def generateVariants() {
     def playbooks = ["pmm3-client_integration", "pmm3-client_integration_custom_path", "pmm3-client_integration_custom_port"]
     labels.each { labelsKey, labelsValue ->
         playbooks.each { playbooksKey, playbooksValue ->
-            results.addAll([label: labelsValue, playbook: playbooksValue])
+            results.addAll(["label": labelsValue, "playbook": playbooksValue])
         }
     }
 
