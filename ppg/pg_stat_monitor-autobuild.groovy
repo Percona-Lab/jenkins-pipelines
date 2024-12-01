@@ -300,9 +300,9 @@ pipeline {
                     sed -i 's/mirror/vault/g' Dockerfile
                     sed -i '/percona-postgresql-common/d' Dockerfile
                     sed -i "s/ppg-${PG_RELEASE}.* */${PPG_REPO} testing/g" Dockerfile
-                    MAJ_VER=\$(echo ${params.PPG_REPO} | cut -f2 -d'-' | cut -f1 -d'.')
+                    MAJ_VER=\$(echo ${PPG_REPO} | cut -f2 -d'-' | cut -f1 -d'.')
                     echo \$MAJ_VER
-                    MIN_VER=\$(echo ${params.PPG_REPO} | cut -f2 -d'-' | cut -f2 -d'.')
+                    MIN_VER=\$(echo ${PPG_REPO} | cut -f2 -d'-' | cut -f2 -d'.')
                     echo \$MIN_VER
 
                     sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile
