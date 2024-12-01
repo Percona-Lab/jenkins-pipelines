@@ -60,6 +60,18 @@ void prepareNode() {
         echo "=========================[ Not a release run. Using job params only! ]========================="
     }
 
+    if ("$PLATFORM_VER" == "latest") {
+        OC_VER = "4.15.25"
+        PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", , returnStdout: true).trim()
+    } else {
+        if ("$PLATFORM_VER" <= "4.15.25") {
+            OC_VER="$PLATFORM_VER"
+        } else {
+            OC_VER="4.15.25"
+        }
+    }
+    echo "OC_VER=$OC_VER"
+
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
@@ -73,18 +85,6 @@ void prepareNode() {
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
     """
-
-    if ("$PLATFORM_VER" == "latest") {
-        OC_VER = "4.15.25"
-        PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", , returnStdout: true).trim()
-    } else {
-        if ("$PLATFORM_VER" <= "4.15.25") {
-            OC_VER="$PLATFORM_VER"
-        } else {
-            OC_VER="4.15.25"
-        }
-    }
-    echo "OC_VER=$OC_VER"
 
     if ("$IMAGE_PXC") {
         release = ("$RELEASE_RUN" == "YES") ? "RELEASE-" : ""
