@@ -13,7 +13,6 @@ void verifyParams() {
         GKE_RELEASE_CHANNEL = "stable"
         echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
     }
-    USED_PLATFORM_VER="$PLATFORM_VER"
 }
 
 String getParam(String PARAM_NAME) {
@@ -93,7 +92,7 @@ EOF
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
+        PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
     }
 
     if ("$ARCH" == "amd64") {
@@ -113,7 +112,7 @@ EOF
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-ver-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$ARCH-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$ARCH-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -169,7 +168,7 @@ void initTests() {
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
@@ -223,7 +222,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
                     --release-channel $GKE_RELEASE_CHANNEL \
                     --zone $region \
-                    --cluster-version $USED_PLATFORM_VER \
+                    --cluster-version $PLATFORM_VER \
                     --preemptible \
                     --disk-size 30 \
                     --machine-type $MACHINE_TYPE \
@@ -287,7 +286,7 @@ void runTest(Integer TEST_ID) {
                     e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -340,7 +339,7 @@ void makeReport() {
         IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
         IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
         IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-        USED_PLATFORM_VER=$USED_PLATFORM_VER
+        PLATFORM_VER=$PLATFORM_VER
     """
 
     writeFile file: "TestsReport.xml", text: testsReport
