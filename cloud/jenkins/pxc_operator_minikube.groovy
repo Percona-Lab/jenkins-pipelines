@@ -254,6 +254,9 @@ void makeReport() {
         IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
         USED_PLATFORM_VER=$USED_PLATFORM_VER
     """
+
+    writeFile file: "TestsReport.xml", text: testsReport
+    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
 }
 
 pipeline {
