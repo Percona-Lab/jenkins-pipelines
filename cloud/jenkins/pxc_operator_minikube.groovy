@@ -363,7 +363,6 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
-                installToolsOnNode()
                 clusterRunner('cluster1')
             }
         }
