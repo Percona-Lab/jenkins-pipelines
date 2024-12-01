@@ -1,8 +1,68 @@
 region='us-central1-a'
 tests=[]
 clusters=[]
+release_versions="source/e2e-tests/release_versions"
+
+void verifyParams() {
+    if ("$RELEASE_RUN" == "YES") {
+        echo "=========================[ RELEASE RUN ]========================="
+        if (!"$PILLAR_VERSION" && !"$IMAGE_PXC") {
+            error("Either PILLAR_VERSION or IMAGE_PXC should be provided for release run!")
+        }
+
+        GKE_RELEASE_CHANNEL = "stable"
+        echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
+
+        USED_PLATFORM_VER="$PLATFORM_VER"
+    }
+}
+
+String getParam(String PARAM_NAME) {
+    def param = "${params[PARAM_NAME]}"
+
+    if ("$param" && "$param" != "null" && param != "") {
+        echo "$PARAM_NAME=$param (from job parameters)"
+    } else {
+        param = sh(script: "grep -iE '^\\s*$PARAM_NAME=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", , returnStdout: true).trim()
+        if ("$param") {
+            echo "$PARAM_NAME=$param (from params file)"
+        } else {
+            error("$PARAM_NAME not found in params file $release_versions")
+        }
+    }
+    return param
+}
 
 void prepareNode() {
+    echo "=========================[ Cloning the sources ]========================="
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    sh """
+        # sudo is needed for better node recovery after compilation failure
+        # if building failed on compilation stage directory will have files owned by docker user
+        sudo git config --global --add safe.directory '*'
+        sudo git reset --hard
+        sudo git clean -xdf
+        sudo rm -rf source
+        cloud/local/checkout $GIT_REPO $GIT_BRANCH
+    """
+
+    if ("$RELEASE_RUN" == "YES") {
+        echo "=========================[ Getting parameters for release test ]========================="
+        IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
+        IMAGE_PXC = getParam("IMAGE_PXC${PILLAR_VERSION}")
+        IMAGE_PROXY = getParam("IMAGE_PROXY")
+        IMAGE_HAPROXY = getParam("IMAGE_HAPROXY")
+        IMAGE_BACKUP = getParam("IMAGE_BACKUP${PILLAR_VERSION}")
+        IMAGE_LOGCOLLECTOR = getParam("IMAGE_LOGCOLLECTOR")
+        IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
+        if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
+            PLATFORM_VER = getParam("GKE_${PLATFORM_VER}")
+        }
+    } else {
+        echo "=========================[ Not a release run. Using job params only! ]========================="
+    }
+
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
@@ -23,10 +83,6 @@ repo_gpgcheck=0
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
         sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
-
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 | true
     """
 
     echo "=========================[ Logging in the Kubernetes provider ]========================="
@@ -39,31 +95,26 @@ EOF
 
     if ("$PLATFORM_VER" == "latest") {
         USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
-    } else {
-        USED_PLATFORM_VER="$PLATFORM_VER"
     }
-    echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
+
+    if ("$ARCH" == "amd64") {
+        MACHINE_TYPE="n1-standard-4"
+    } else if ("$ARCH" == "arm64") {
+        MACHINE_TYPE="t2a-standard-4"
+    } else {
+        error("Unknown architecture $ARCH")
+    }
 
     if ("$IMAGE_PXC") {
-        currentBuild.description = "$GIT_BRANCH-$USED_PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_PXC".split(":")[1]
+        release = ("$RELEASE_RUN" == "YES") ? "RELEASE-" : ""
+        cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
+        currentBuild.description = "${release}$GIT_BRANCH-$ARCH-$PLATFORM_VER-$GKE_RELEASE_CHANNEL-$cw-" + "$IMAGE_PXC".split(":")[1]
     }
-
-    echo "=========================[ Cloning the sources ]========================="
-    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-    sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo git config --global --add safe.directory '*'
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf source
-        cloud/local/checkout $GIT_REPO $GIT_BRANCH
-    """
 
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-ver-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$ARCH-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -71,7 +122,7 @@ void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            if [[ "$OPERATOR_IMAGE" ]]; then
+            if [[ "$IMAGE_OPERATOR" ]]; then
                 echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
@@ -166,9 +217,9 @@ void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-
             maxRetries=15
             exitCode=1
+
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
                     --release-channel $GKE_RELEASE_CHANNEL \
@@ -176,14 +227,16 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --cluster-version $USED_PLATFORM_VER \
                     --preemptible \
                     --disk-size 30 \
-                    --machine-type n1-standard-4 \
-                    --num-nodes=3 \
-                    --min-nodes=3 \
+                    --machine-type $MACHINE_TYPE \
+                    --num-nodes=4 \
+                    --min-nodes=4 \
                     --max-nodes=6 \
                     --network=jenkins-vpc \
                     --subnetwork=jenkins-$CLUSTER_SUFFIX \
                     --cluster-ipv4-cidr=/21 \
-                    --labels delete-cluster-after-hours=6 &&\
+                    --labels delete-cluster-after-hours=6 \
+                    --enable-ip-alias \
+                    --workload-pool=cloud-dev-112233.svc.id.goog &&\
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
                 exitCode=\$?
                 if [[ \$exitCode == 0 ]]; then break; fi
@@ -191,8 +244,18 @@ void createCluster(String CLUSTER_SUFFIX) {
                 sleep 1
             done
             if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
+
+            CURRENT_TIME=\$(date --rfc-3339=seconds)
+            FUTURE_TIME=\$(date -d '6 hours' --rfc-3339=seconds)
+
+            gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \
+                --zone $region \
+                --add-maintenance-exclusion-start "\$CURRENT_TIME" \
+                --add-maintenance-exclusion-end "\$FUTURE_TIME"
+
+            kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints,AGE:.metadata.creationTimestamp"
         """
-   }
+    }
 }
 
 void runTest(Integer TEST_ID) {
@@ -212,7 +275,7 @@ void runTest(Integer TEST_ID) {
 
                     export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pxc-operator
-                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                    export IMAGE=$IMAGE_OPERATOR
                     export IMAGE_PXC=$IMAGE_PXC
                     export IMAGE_PROXY=$IMAGE_PROXY
                     export IMAGE_HAPROXY=$IMAGE_HAPROXY
@@ -259,17 +322,30 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PXC-GKE-version\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
-    for (int i=0; i<tests.size(); i++) {
-        def testResult = tests[i]["result"]
-        def testTime = tests[i]["time"]
-        def testName = tests[i]["name"]
-
-        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
+    testsReport = '<testsuite name="PXC-GKE-version">\n'
+    for (int i = 0; i < tests.size(); i ++) {
+        testsReport += '<testcase name="' + tests[i]["name"] + '" time="' + tests[i]["time"] + '"><'+ tests[i]["result"] +'/></testcase>\n'
     }
-    TestsReport = TestsReport + '</testsuite>\n'
+    testsReport += '</testsuite>\n'
+
+    echo "=========================[ Generating Parameters Report ]========================="
+    pipelineParameters = """
+        testsuite name=PXC-GKE-version
+        IMAGE_OPERATOR=$IMAGE_OPERATOR
+        IMAGE_PXC=$IMAGE_PXC
+        IMAGE_PROXY=$IMAGE_PROXY
+        IMAGE_HAPROXY=$IMAGE_HAPROXY
+        IMAGE_BACKUP=$IMAGE_BACKUP
+        IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
+        IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+        IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+        USED_PLATFORM_VER=$USED_PLATFORM_VER
+    """
+
+    writeFile file: "TestsReport.xml", text: testsReport
+    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
@@ -292,7 +368,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 
 pipeline {
     environment {
-        CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
         PXC_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
     }
@@ -310,6 +385,21 @@ pipeline {
             description: 'Ignore passed tests in previous run (run all)',
             name: 'IGNORE_PREVIOUS_RUN'
         )
+        choice(
+            choices: 'NO\nYES',
+            description: 'Release run?',
+            name: 'RELEASE_RUN'
+        )
+        choice(
+            choices: 'amd64\narm64',
+            description: 'Architecture',
+            name: 'ARCH'
+        )
+        string(
+            defaultValue: '80',
+            description: 'For RELEASE_RUN only. Major version like 80, 57, etc',
+            name: 'PILLAR_VERSION'
+        )
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
@@ -323,7 +413,7 @@ pipeline {
             description: 'GKE kubernetes version',
             name: 'PLATFORM_VER')
         choice(
-            choices: 'None\nstable\nregular\nrapid',
+            choices: 'rapid\nstable\nregular\nNone',
             description: 'GKE release channel',
             name: 'GKE_RELEASE_CHANNEL')
         choice(
@@ -333,7 +423,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-xtradb-cluster-operator:main',
-            name: 'OPERATOR_IMAGE')
+            name: 'IMAGE_OPERATOR')
         string(
             defaultValue: '',
             description: 'PXC image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0',
@@ -375,6 +465,7 @@ pipeline {
     stages {
         stage('Prepare node') {
             steps {
+                verifyParams()
                 prepareNode()
             }
         }
@@ -437,11 +528,8 @@ pipeline {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
-            sh """
-                echo "$TestsReport" > TestsReport.xml
-            """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-            archiveArtifacts '*.xml'
+            archiveArtifacts '*.xml,*.txt'
 
             script {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
@@ -453,7 +541,6 @@ pipeline {
 
             sh """
                 sudo docker system prune --volumes -af
-                sudo rm -rf *
             """
             deleteDir()
         }

@@ -6,31 +6,31 @@ release_versions="source/e2e-tests/release_versions"
 void verifyParams() {
     if ("$RELEASE_RUN" == "YES") {
         echo "=========================[ RELEASE RUN ]========================="
-        if (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD") {
-            error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided for release run!")
+        if (!"$PILLAR_VERSION" && !"$IMAGE_PXC") {
+            error("Either PILLAR_VERSION or IMAGE_PXC should be provided for release run!")
         }
 
         GKE_RELEASE_CHANNEL = "stable"
         echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
+
+        USED_PLATFORM_VER="$PLATFORM_VER"
     }
 }
 
 String getParam(String PARAM_NAME) {
-    echo "=========================[ Getting parameters for release test ]========================="
     def param = "${params[PARAM_NAME]}"
 
     if ("$param" && "$param" != "null" && param != "") {
         echo "$PARAM_NAME=$param (from job parameters)"
-        return param
     } else {
-        param = sh(script: "grep -E '^\\s*$PARAM_NAME=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| head -1", , returnStdout: true).trim()
+        param = sh(script: "grep -iE '^\\s*$PARAM_NAME=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", , returnStdout: true).trim()
         if ("$param") {
             echo "$PARAM_NAME=$param (from params file)"
-            return param
         } else {
             error("$PARAM_NAME not found in params file $release_versions")
         }
     }
+    return param
 }
 
 void prepareNode() {
@@ -47,6 +47,7 @@ void prepareNode() {
     """
 
     if ("$RELEASE_RUN" == "YES") {
+        echo "=========================[ Getting parameters for release test ]========================="
         IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
         IMAGE_PXC = getParam("IMAGE_PXC${PILLAR_VERSION}")
         IMAGE_PROXY = getParam("IMAGE_PROXY")
@@ -82,10 +83,6 @@ repo_gpgcheck=0
 gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
         sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
-
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 | true
     """
 
     echo "=========================[ Logging in the Kubernetes provider ]========================="
@@ -98,10 +95,7 @@ EOF
 
     if ("$PLATFORM_VER" == "latest") {
         USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
-    } else {
-        USED_PLATFORM_VER="$PLATFORM_VER"
     }
-    echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 
     if ("$ARCH" == "amd64") {
         MACHINE_TYPE="n1-standard-4"
@@ -261,7 +255,7 @@ void createCluster(String CLUSTER_SUFFIX) {
 
             kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints,AGE:.metadata.creationTimestamp"
         """
-   }
+    }
 }
 
 void runTest(Integer TEST_ID) {
@@ -281,7 +275,7 @@ void runTest(Integer TEST_ID) {
 
                     export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pxc-operator
-                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                    export IMAGE=$IMAGE_OPERATOR
                     export IMAGE_PXC=$IMAGE_PXC
                     export IMAGE_PROXY=$IMAGE_PROXY
                     export IMAGE_HAPROXY=$IMAGE_HAPROXY
@@ -328,29 +322,30 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PXC-GKE-latest\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
-    for (int i=0; i<tests.size(); i++) {
-        def testResult = tests[i]["result"]
-        def testTime = tests[i]["time"]
-        def testName = tests[i]["name"]
-
-        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
+    testsReport = '<testsuite name="PXC-GKE-latest">\n'
+    for (int i = 0; i < tests.size(); i ++) {
+        testsReport += '<testcase name="' + tests[i]["name"] + '" time="' + tests[i]["time"] + '"><'+ tests[i]["result"] +'/></testcase>\n'
     }
-    TestsReport = TestsReport + '</testsuite>\n'
+    testsReport += '</testsuite>\n'
 
-    echo "=========================[ Generating Images Report ]========================="
-    TestsImages = "testsuite name='PSMDB-GKE-latest'\n" +\
-                    "IMAGE_OPERATOR=$IMAGE_OPERATOR\n" +\
-                    "IMAGE_PXC=$IMAGE_PXC\n" +\
-                    "IMAGE_PROXY=$IMAGE_PROXY\n" +\
-                    "IMAGE_HAPROXY=$IMAGE_HAPROXY\n" +\
-                    "IMAGE_BACKUP=$IMAGE_BACKUP\n" +\
-                    "IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR\n" +\
-                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" +\
-                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER" +\
-                    "USED_PLATFORM_VER=$USED_PLATFORM_VER"
+    echo "=========================[ Generating Parameters Report ]========================="
+    pipelineParameters = """
+        testsuite name=PXC-GKE-latest
+        IMAGE_OPERATOR=$IMAGE_OPERATOR
+        IMAGE_PXC=$IMAGE_PXC
+        IMAGE_PROXY=$IMAGE_PROXY
+        IMAGE_HAPROXY=$IMAGE_HAPROXY
+        IMAGE_BACKUP=$IMAGE_BACKUP
+        IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
+        IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+        IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+        USED_PLATFORM_VER=$USED_PLATFORM_VER
+    """
+
+    writeFile file: "TestsReport.xml", text: testsReport
+    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
@@ -533,10 +528,6 @@ pipeline {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
-            sh """
-                echo "$TestsReport" > TestsReport.xml
-                echo "$TestsImages" > TestsImages.txt
-            """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml,*.txt'
 
@@ -550,7 +541,6 @@ pipeline {
 
             sh """
                 sudo docker system prune --volumes -af
-                sudo rm -rf *
             """
             deleteDir()
         }
