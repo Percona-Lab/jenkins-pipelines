@@ -342,6 +342,7 @@ void makeReport() {
         IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
         IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
         USED_PLATFORM_VER=$USED_PLATFORM_VER
+        PLATFORM_VER=$PLATFORM_VER
     """
 
     writeFile file: "TestsReport.xml", text: testsReport
