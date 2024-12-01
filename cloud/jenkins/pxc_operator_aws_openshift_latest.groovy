@@ -9,8 +9,8 @@ void verifyParams() {
         if (!"$PILLAR_VERSION" && !"$IMAGE_PXC") {
             error("Either PILLAR_VERSION or IMAGE_PXC should be provided for release run!")
         }
-        USED_PLATFORM_VER="$PLATFORM_VER"
     }
+    USED_PLATFORM_VER="$PLATFORM_VER"
 }
 
 String getParam(String PARAM_NAME) {

@@ -12,9 +12,8 @@ void verifyParams() {
 
         GKE_RELEASE_CHANNEL = "stable"
         echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
-
-        USED_PLATFORM_VER="$PLATFORM_VER"
     }
+    USED_PLATFORM_VER="$PLATFORM_VER"
 }
 
 String getParam(String PARAM_NAME) {
