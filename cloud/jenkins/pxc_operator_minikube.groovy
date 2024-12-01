@@ -385,7 +385,6 @@ pipeline {
 
             sh """
                 minikube delete || true
-                sudo docker system prune --volumes -af
             """
             deleteDir()
         }
