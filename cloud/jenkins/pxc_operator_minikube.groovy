@@ -8,7 +8,6 @@ void verifyParams() {
             error("Either PILLAR_VERSION or IMAGE_PXC should be provided for release run!")
         }
     }
-    USED_PLATFORM_VER="$PLATFORM_VER"
 }
 
 String getParam(String PARAM_NAME) {
@@ -81,7 +80,7 @@ void prepareNode() {
     }
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -252,7 +251,7 @@ void makeReport() {
         IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
         IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
         IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-        USED_PLATFORM_VER=$USED_PLATFORM_VER
+        PLATFORM_VER=$PLATFORM_VER
     """
 
     writeFile file: "TestsReport.xml", text: testsReport
