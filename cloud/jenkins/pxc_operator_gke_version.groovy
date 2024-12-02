@@ -374,7 +374,7 @@ pipeline {
             name: 'ARCH')
         choice(
             choices: 'none\n80\n57',
-            description: 'Can be 08, 57, etc. or none. Implies release run.',
+            description: 'Can be 80, 57, etc. or none. Implies release run.',
             name: 'PILLAR_VERSION')
         string(
             defaultValue: 'main',
