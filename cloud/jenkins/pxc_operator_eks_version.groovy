@@ -250,23 +250,25 @@ void runTest(Integer TEST_ID) {
             tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
-                sh """
-                    cd source
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
+                    sh """
+                        cd source
 
-                    export DEBUG_TESTS=1
-                    [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pxc-operator
-                    export IMAGE=$IMAGE_OPERATOR
-                    export IMAGE_PXC=$IMAGE_PXC
-                    export IMAGE_PROXY=$IMAGE_PROXY
-                    export IMAGE_HAPROXY=$IMAGE_HAPROXY
-                    export IMAGE_BACKUP=$IMAGE_BACKUP
-                    export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
-                    export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
-                    export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+                        export DEBUG_TESTS=1
+                        [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pxc-operator
+                        export IMAGE=$IMAGE_OPERATOR
+                        export IMAGE_PXC=$IMAGE_PXC
+                        export IMAGE_PROXY=$IMAGE_PROXY
+                        export IMAGE_HAPROXY=$IMAGE_HAPROXY
+                        export IMAGE_BACKUP=$IMAGE_BACKUP
+                        export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
+                        export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                        export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
 
-                    e2e-tests/$testName/run
-                """
+                        e2e-tests/$testName/run
+                    """
+                }
             }
             pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
