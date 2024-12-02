@@ -1,15 +1,6 @@
 tests=[]
 release_versions="source/e2e-tests/release_versions"
 
-void verifyParams() {
-    if ("$RELEASE_RUN" == "YES") {
-        echo "=========================[ RELEASE RUN ]========================="
-        if (!"$PILLAR_VERSION" && !"$IMAGE_PXC") {
-            error("Either PILLAR_VERSION or IMAGE_PXC should be provided for release run!")
-        }
-    }
-}
-
 String getParam(String paramName, String keyName = null) {
     keyName = keyName ?: paramName
 
@@ -37,14 +28,18 @@ void prepareNode() {
 
     if ("$RELEASE_RUN" == "YES") {
         echo "=========================[ Getting parameters for release test ]========================="
-        IMAGE_OPERATOR = params["IMAGE_OPERATOR"] ?: getParam("IMAGE_OPERATOR")
-        IMAGE_PXC = params["IMAGE_PXC"] ?: getParam("IMAGE_PXC", "IMAGE_PXC${PILLAR_VERSION}")
-        IMAGE_PROXY = params["IMAGE_PROXY"] ?: getParam("IMAGE_PROXY")
-        IMAGE_HAPROXY = params["IMAGE_HAPROXY"] ?: getParam("IMAGE_HAPROXY")
-        IMAGE_BACKUP = params["IMAGE_BACKUP"] ?: getParam("IMAGE_BACKUP", "IMAGE_BACKUP${PILLAR_VERSION}")
-        IMAGE_LOGCOLLECTOR = params["IMAGE_LOGCOLLECTOR"] ?: getParam("IMAGE_LOGCOLLECTOR")
-        IMAGE_PMM_CLIENT = params["IMAGE_PMM_CLIENT"] ?: getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = params["IMAGE_PMM_SERVER"] ?: getParam("IMAGE_PMM_SERVER")
+        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
+        if ("$IMAGE_PXC" ==~ /^\d+$/) {
+            IMAGE_PXC = getParam("IMAGE_PXC", "IMAGE_PXC${IMAGE_PXC}")
+        }
+        IMAGE_PROXY = IMAGE_PROXY ?: getParam("IMAGE_PROXY")
+        IMAGE_HAPROXY = IMAGE_HAPROXY ?: getParam("IMAGE_HAPROXY")
+        if ("$IMAGE_BACKUP" ==~ /^\d+$/) {
+            IMAGE_BACKUP = getParam("IMAGE_BACKUP", "IMAGE_BACKUP${IMAGE_BACKUP}")
+        }
+        IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
+        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
         if ("$PLATFORM_VER" == "rel".toLowerCase()) {
             PLATFORM_VER = getParam("PLATFORM_VER", "MINIKUBE_${PLATFORM_VER}")
         }
@@ -279,11 +274,6 @@ pipeline {
             name: 'RELEASE_RUN'
         )
         string(
-            defaultValue: '80',
-            description: 'For RELEASE_RUN only. Major version like 80, 57, etc',
-            name: 'PILLAR_VERSION'
-        )
-        string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
             name: 'GIT_BRANCH')
@@ -342,7 +332,6 @@ pipeline {
     stages {
         stage('Prepare node') {
             steps {
-                verifyParams()
                 prepareNode()
             }
         }
