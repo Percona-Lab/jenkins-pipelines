@@ -212,7 +212,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --subnetwork=jenkins-$CLUSTER_SUFFIX \
                     --cluster-ipv4-cidr=/21 \
                     --labels delete-cluster-after-hours=6 \
-                    --enable-ip-alias \
+                    --enable-ip-alias &&\
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
                 exitCode=\$?
                 if [[ \$exitCode == 0 ]]; then break; fi
