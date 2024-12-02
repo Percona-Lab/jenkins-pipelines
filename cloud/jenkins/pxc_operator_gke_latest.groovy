@@ -440,7 +440,7 @@ pipeline {
         copyArtifactPermission('pxc-operator-latest-scheduler');
     }
     stages {
-        stage('Prepare node') {
+        stage('Prepare Node') {
             steps {
                 prepareNode()
             }
@@ -450,7 +450,7 @@ pipeline {
                 dockerBuildPush()
             }
         }
-        stage('Init tests') {
+        stage('Init Tests') {
             steps {
                 initTests()
             }
