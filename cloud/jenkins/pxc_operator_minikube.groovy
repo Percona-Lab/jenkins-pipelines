@@ -61,7 +61,7 @@ void prepareNode() {
     }
 
     if ("$IMAGE_PXC") {
-        release = ("$PILLAR_VERSION" == "YES") ? "RELEASE-" : ""
+        release = ("$PILLAR_VERSION" != "none") ? "RELEASE-" : ""
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
         currentBuild.description = "$release$GIT_BRANCH-$PLATFORM_VER-$cw-" + "$IMAGE_PXC".split(":")[1]
     }
