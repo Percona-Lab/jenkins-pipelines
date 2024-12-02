@@ -258,13 +258,11 @@ pipeline {
         choice(
             choices: 'NO\nYES',
             description: 'Ignore passed tests in previous run (run all)',
-            name: 'IGNORE_PREVIOUS_RUN'
-        )
+            name: 'IGNORE_PREVIOUS_RUN')
         choice(
             choices: 'none\n80\n57',
             description: 'Can be 08, 57, etc. or none. Implies release run.',
-            name: 'PILLAR_VERSION'
-        )
+            name: 'PILLAR_VERSION')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
