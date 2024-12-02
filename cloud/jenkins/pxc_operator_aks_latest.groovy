@@ -60,6 +60,10 @@ void prepareNode() {
             printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
             sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
         fi
+
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+        sudo percona-release enable-only tools
+        sudo yum install -y percona-xtrabackup-80 | true
     """
 
     echo "=========================[ Logging in the Kubernetes provider ]========================="
