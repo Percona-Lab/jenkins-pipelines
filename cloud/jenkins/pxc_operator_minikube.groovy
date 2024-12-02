@@ -26,17 +26,13 @@ void prepareNode() {
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
 
-    if ("$RELEASE_RUN" == "YES") {
+    if ("$PILLAR_VERSION" != "none") {
         echo "=========================[ Getting parameters for release test ]========================="
         IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
-        if ("$IMAGE_PXC" ==~ /^\d+$/) {
-            IMAGE_PXC = getParam("IMAGE_PXC", "IMAGE_PXC${IMAGE_PXC}")
-        }
+        IMAGE_PXC = IMAGE_PXC ?: getParam("IMAGE_PXC", "IMAGE_PXC${PILLAR_VERSION}")
         IMAGE_PROXY = IMAGE_PROXY ?: getParam("IMAGE_PROXY")
         IMAGE_HAPROXY = IMAGE_HAPROXY ?: getParam("IMAGE_HAPROXY")
-        if ("$IMAGE_BACKUP" ==~ /^\d+$/) {
-            IMAGE_BACKUP = getParam("IMAGE_BACKUP", "IMAGE_BACKUP${IMAGE_BACKUP}")
-        }
+        IMAGE_BACKUP = IMAGE_BACKUP ?: getParam("IMAGE_BACKUP", "IMAGE_BACKUP${PILLAR_VERSION}")
         IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
         IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
@@ -65,7 +61,7 @@ void prepareNode() {
     }
 
     if ("$IMAGE_PXC") {
-        release = ("$RELEASE_RUN" == "YES") ? "RELEASE-" : ""
+        release = ("$PILLAR_VERSION" == "YES") ? "RELEASE-" : ""
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
         currentBuild.description = "$release$GIT_BRANCH-$PLATFORM_VER-$cw-" + "$IMAGE_PXC".split(":")[1]
     }
@@ -269,9 +265,9 @@ pipeline {
             name: 'IGNORE_PREVIOUS_RUN'
         )
         choice(
-            choices: 'NO\nYES',
-            description: 'Release run?',
-            name: 'RELEASE_RUN'
+            choices: 'none\n80\n57',
+            description: 'Can be 08, 57, etc. Implies release run.',
+            name: 'PILLAR_VERSION'
         )
         string(
             defaultValue: 'main',
