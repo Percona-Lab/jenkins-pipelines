@@ -169,7 +169,7 @@ pipeline {
             description: 'Recreate Release branches, Option to be used only to recreate release branches',
             name: 'REMOVE_RELEASE_BRANCH')
         string(
-            defaultValue: '#pmm-dev',
+            defaultValue: '#pmm',
             description: 'Channel to send notifications to',
             name: 'NOTIFICATION_CHANNEL')
     }
@@ -262,22 +262,6 @@ pipeline {
                     currentBuild.description = "$VERSION"
                     slackSend botUser: true,
                         channel: env.NOTIFICATION_CHANNEL,
-                        color: '#0892d0',
-                        message: "Release candidate PMM $VERSION build has started. You can check progress at: ${BUILD_URL}"
-                    env.EXIST = sh (
-                        script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules pmm-\${VERSION} | wc -l',
-                        returnStdout: true
-                    ).trim()
-                }
-            }
-        }
-        stage('Check if Release Branch Exists') {
-            steps {
-                deleteDir()
-                script {
-                    currentBuild.description = "$VERSION"
-                    slackSend botUser: true,
-                        channel: '#pmm-dev',
                         color: '#0892d0',
                         message: "Release candidate PMM $VERSION build has started. You can check progress at: ${BUILD_URL}"
                     env.EXIST = sh (
