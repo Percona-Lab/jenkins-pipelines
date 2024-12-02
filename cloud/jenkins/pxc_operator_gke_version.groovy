@@ -82,24 +82,16 @@ EOF
         PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
     }
 
-    if ("$ARCH" == "amd64") {
-        MACHINE_TYPE="n1-standard-4"
-    } else if ("$ARCH" == "arm64") {
-        MACHINE_TYPE="t2a-standard-4"
-    } else {
-        error("Unknown architecture $ARCH")
-    }
-
     if ("$IMAGE_PXC") {
         release = ("$PILLAR_VERSION" != "none") ? "RELEASE-" : ""
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-        currentBuild.description = "$release$GIT_BRANCH-$ARCH-$PLATFORM_VER-$GKE_RELEASE_CHANNEL-$cw-" + "$IMAGE_PXC".split(":")[1]
+        currentBuild.description = "$release$GIT_BRANCH-$PLATFORM_VER-$GKE_RELEASE_CHANNEL-$cw-" + "$IMAGE_PXC".split(":")[1]
     }
 
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
     CLUSTER_NAME = sh(script: "echo jenkins-ver-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$ARCH-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
 
 }
 
@@ -212,7 +204,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --cluster-version $PLATFORM_VER \
                     --preemptible \
                     --disk-size 30 \
-                    --machine-type $MACHINE_TYPE \
+                    --machine-type n1-standard-4 \
                     --num-nodes=4 \
                     --min-nodes=4 \
                     --max-nodes=6 \
@@ -368,10 +360,6 @@ pipeline {
             choices: 'NO\nYES',
             description: 'Ignore passed tests in previous run (run all)',
             name: 'IGNORE_PREVIOUS_RUN')
-        choice(
-            choices: 'amd64\narm64',
-            description: 'Architecture',
-            name: 'ARCH')
         choice(
             choices: 'none\n80\n57',
             description: 'Can be 80, 57, etc. or none. Implies release run.',
