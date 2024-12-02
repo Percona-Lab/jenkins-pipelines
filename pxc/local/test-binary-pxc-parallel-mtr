@@ -22,6 +22,8 @@ whoami
 grep -c ^processor /proc/cpuinfo
 free
 prlimit
+#disable core generation
+ulimit -c 0
 ulimit -a
 echo "*******************************************************"
 
@@ -63,9 +65,10 @@ cp -v -r ${PXB80_WORKDIR}/target/pxb-8.0/{bin,lib} ${WORKDIR_ABS}/PXC/bin/pxc_ex
 # Galera
 export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
 
+LOG_FILE=${WORKDIR_ABS}/mtr.log
 
 cd ${WORKDIR_ABS}/PXC/mysql-test
-TESTCASE_TIMEOUT=30
+TESTCASE_TIMEOUT=10
 # CentOS 7
 if [[ -f /opt/rh/devtoolset-8/enable ]]; then
     source /opt/rh/devtoolset-8/enable
@@ -112,12 +115,9 @@ PARALLEL=$(grep -c ^processor /proc/cpuinfo)
 if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
   MTR_ARGS+=" --valgrind --valgrind-clients --valgrind-option=--leak-check=full --valgrind-option=--show-leak-kinds=all"
   [[ ${OPENSSL_VER} < '1.0.2' ]] && export OPENSSL_ia32cap=~0x200000000000000
-  TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 2))
+  TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 3))
   if [[ ${PARALLEL} -gt 1 ]]; then
     PARALLEL=$((PARALLEL/3))
-  fi
-  if [[ ${GALERA_PARALLEL_RUN} -gt 1 ]]; then
-    GALERA_PARALLEL_RUN=$((GALERA_PARALLEL_RUN/3))
   fi
 fi
 
@@ -197,6 +197,7 @@ fi
 if [[ -f /etc/redhat-release ]]; then
     sudo yum install -y net-tools
 else
+    sudo apt update
     sudo apt install -y net-tools
 fi
 ifconfig
@@ -231,6 +232,21 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
         WORKERS=${PARALLEL}
     fi
 
+    # For replication suites, use less workers. Let's say 3 cpus per worker...
+    if [[ "${suite}" == "group_replication" || "${suite}" == *rpl* ]]; then
+        if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
+          echo "Limiting workers count for suite ${suite} skipped. Already limited for Valgrind to ${WORKERS}"        
+        else
+          WORKERS=$((PARALLEL/3))        
+          # ...but not less than GALERA_PARALLEL_RUN (to have it still configurable via Jenkins UI)
+          if [[ ${WORKERS} -lt ${GALERA_PARALLEL_RUN} ]]; then
+            WORKERS=${GALERA_PARALLEL_RUN}
+          fi
+          echo "Limiting workers count for suite ${suite} to ${WORKERS}"
+        fi
+    fi
+    
+
     ONLY_COMBINATIONS=
     # our implementation of GCache encryption is not compatible with Valgrind. We heavily use sigsegv signal and Valgrind does the same.
     if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
@@ -244,6 +260,7 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
       fi
     fi
 
+      
     suiteNoSlash=${suite//"/"/"_"}
     echo "Running MTR suite: $suite (noslash: $suiteNoSlash)"
 
@@ -275,7 +292,11 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
             ${MTR_ARGS_NORMAL} \
             ${ONLY_COMBINATIONS} \
             --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
-            --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" || true
+            --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" | tee -a ${LOG_FILE} || true
+
+        end=`date +%s`
+        runtime=$((end-start))
+        echo KH,SUITE_NOBIG,${suite},time,$runtime
 
         ln -s $PWD/var $PWD/var_${suiteNoSlash}
         rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
@@ -288,6 +309,7 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
     fi
 
     if [[ $big_tests_this == "1" ]]; then
+        start_big=`date +%s`
         echo "Executing big tests for suite $suite"
         MTR_ARGS_BIG=${MTR_ARGS}
         MTR_ARGS_BIG+=" --only-big-test"
@@ -309,7 +331,12 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
             ${MTR_ARGS_BIG} \
             ${ONLY_COMBINATIONS} \
             --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
-            --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" || true
+            --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" | tee -a ${LOG_FILE} || true
+
+
+        end=`date +%s`
+        runtime=$((end-start_big))
+        echo KH,SUITE_BIG,${suite},time,$runtime
 
         ln -s $PWD/var $PWD/var_${suiteNoSlash}
         rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
@@ -323,7 +350,7 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
 
     end=`date +%s`
     runtime=$((end-start))
-    echo KH,SUITE,${suite},time,$runtime
+    echo KH,SUITE_TOTAL,${suite},time,$runtime
 
 done
 
@@ -352,7 +379,7 @@ if [[ "${CI_FS_MTR}" = 'yes' ]]; then
 
     set +x
     for CURRENT_TEST in $DISABLED_TESTS; do
-        CI_TESTS=${CI_TESTS//"$CURRENT_TEST"/""}
+        CI_TESTS=$(echo $CI_TESTS | sed "s/\b${CURRENT_TEST}\b//g")
     done
     set -x
 
@@ -368,7 +395,7 @@ if [[ "${CI_FS_MTR}" = 'yes' ]]; then
         --vardir="/tmp/ci_disk_dir/var" \
         ${CI_TESTS} \
         --junit-output=${WORKDIR_ABS}/junit_ci_fs.xml \
-        --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.ci_fs" || true
+        --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.ci_fs" | tee -a ${LOG_FILE} || true
 
     rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/ci_disk_dir $PWD/mtr_var
 
@@ -403,7 +430,7 @@ if [[ -n "${MTR_STANDALONE_TESTS}" ]]; then
         --testcase-timeout=${TESTCASE_TIMEOUT} \
         ${MTR_ARGS_NORMAL} \
         --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
-        --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" ${MTR_STANDALONE_TESTS} || true
+        --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" ${MTR_STANDALONE_TESTS} | tee -a ${LOG_FILE} || true
 
     ln -s $PWD/var $PWD/var_${suiteNoSlash}
     rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
@@ -416,7 +443,7 @@ if [[ -n "${MTR_STANDALONE_TESTS}" ]]; then
 
     end=`date +%s`
     runtime=$((end-start))
-    echo KH,SUITE,${suite},time,$runtime
+    echo KH,SUITE_TOTAL,${suite},time,$runtime
 fi
 
 # Convert Latin1(ISO-8859-1) into browser readable UTF-8
