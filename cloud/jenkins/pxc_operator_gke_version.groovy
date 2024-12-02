@@ -3,18 +3,6 @@ tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
-void verifyParams() {
-    if ("$RELEASE_RUN" == "YES") {
-        echo "=========================[ RELEASE RUN ]========================="
-        if (!"$PILLAR_VERSION" && !"$IMAGE_PXC") {
-            error("Either PILLAR_VERSION or IMAGE_PXC should be provided for release run!")
-        }
-
-        GKE_RELEASE_CHANNEL = "stable"
-        echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
-    }
-}
-
 String getParam(String paramName, String keyName = null) {
     keyName = keyName ?: paramName
 
@@ -40,16 +28,19 @@ void prepareNode() {
         cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
 
-    if ("$RELEASE_RUN" == "YES") {
+    if ("$PILLAR_VERSION" != "none") {
         echo "=========================[ Getting parameters for release test ]========================="
-        IMAGE_OPERATOR = params["IMAGE_OPERATOR"] ?: getParam("IMAGE_OPERATOR")
-        IMAGE_PXC = params["IMAGE_PXC"] ?: getParam("IMAGE_PXC", "IMAGE_PXC${PILLAR_VERSION}")
-        IMAGE_PROXY = params["IMAGE_PROXY"] ?: getParam("IMAGE_PROXY")
-        IMAGE_HAPROXY = params["IMAGE_HAPROXY"] ?: getParam("IMAGE_HAPROXY")
-        IMAGE_BACKUP = params["IMAGE_BACKUP"] ?: getParam("IMAGE_BACKUP", "IMAGE_BACKUP${PILLAR_VERSION}")
-        IMAGE_LOGCOLLECTOR = params["IMAGE_LOGCOLLECTOR"] ?: getParam("IMAGE_LOGCOLLECTOR")
-        IMAGE_PMM_CLIENT = params["IMAGE_PMM_CLIENT"] ?: getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = params["IMAGE_PMM_SERVER"] ?: getParam("IMAGE_PMM_SERVER")
+        GKE_RELEASE_CHANNEL = "stable"
+        echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
+
+        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
+        IMAGE_PXC = IMAGE_PXC ?: getParam("IMAGE_PXC", "IMAGE_PXC${PILLAR_VERSION}")
+        IMAGE_PROXY = IMAGE_PROXY ?: getParam("IMAGE_PROXY")
+        IMAGE_HAPROXY = IMAGE_HAPROXY ?: getParam("IMAGE_HAPROXY")
+        IMAGE_BACKUP = IMAGE_BACKUP ?: getParam("IMAGE_BACKUP", "IMAGE_BACKUP${PILLAR_VERSION}")
+        IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
+        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
         if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
             PLATFORM_VER = getParam("PLATFORM_VER", "GKE_${PLATFORM_VER}")
         }
@@ -100,16 +91,16 @@ EOF
     }
 
     if ("$IMAGE_PXC") {
-        release = ("$RELEASE_RUN" == "YES") ? "RELEASE-" : ""
+        release = ("$PILLAR_VERSION" != "none") ? "RELEASE-" : ""
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-        currentBuild.description = "${release}$GIT_BRANCH-$ARCH-$PLATFORM_VER-$GKE_RELEASE_CHANNEL-$cw-" + "$IMAGE_PXC".split(":")[1]
+        currentBuild.description = "$release$GIT_BRANCH-$ARCH-$PLATFORM_VER-$GKE_RELEASE_CHANNEL-$cw-" + "$IMAGE_PXC".split(":")[1]
     }
 
-    script {
-        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        CLUSTER_NAME = sh(script: "echo jenkins-ver-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$ARCH-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
-    }
+
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
+    CLUSTER_NAME = sh(script: "echo jenkins-ver-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$ARCH-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+
 }
 
 void dockerBuildPush() {
@@ -164,7 +155,7 @@ void initTests() {
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
@@ -282,7 +273,7 @@ void runTest(Integer TEST_ID) {
                     e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$PXC_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -363,7 +354,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        PXC_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
+        DB_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -380,18 +371,13 @@ pipeline {
             name: 'IGNORE_PREVIOUS_RUN'
         )
         choice(
-            choices: 'NO\nYES',
-            description: 'Release run?',
-            name: 'RELEASE_RUN'
-        )
-        choice(
             choices: 'amd64\narm64',
             description: 'Architecture',
             name: 'ARCH'
         )
-        string(
-            defaultValue: '80',
-            description: 'For RELEASE_RUN only. Major version like 80, 57, etc',
+        choice(
+            choices: 'none\n80\n57',
+            description: 'Can be 08, 57, etc. Implies release run.',
             name: 'PILLAR_VERSION'
         )
         string(
@@ -459,7 +445,6 @@ pipeline {
     stages {
         stage('Prepare node') {
             steps {
-                verifyParams()
                 prepareNode()
             }
         }
