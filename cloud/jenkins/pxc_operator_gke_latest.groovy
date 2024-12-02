@@ -15,18 +15,14 @@ void verifyParams() {
     }
 }
 
-String getParam(String PARAM_NAME) {
-    def param = "${params[PARAM_NAME]}"
+String getParam(String paramName, String keyName = null) {
+    keyName = keyName ?: paramName
 
-    if ("$param" && "$param" != "null" && param != "") {
-        echo "$PARAM_NAME=$param (from job parameters)"
+    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", , returnStdout: true).trim()
+    if ("$param") {
+        echo "$paramName=$param (from params file)"
     } else {
-        param = sh(script: "grep -iE '^\\s*$PARAM_NAME=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", , returnStdout: true).trim()
-        if ("$param") {
-            echo "$PARAM_NAME=$param (from params file)"
-        } else {
-            error("$PARAM_NAME not found in params file $release_versions")
-        }
+        error("$keyName not found in params file $release_versions")
     }
     return param
 }
@@ -46,16 +42,16 @@ void prepareNode() {
 
     if ("$RELEASE_RUN" == "YES") {
         echo "=========================[ Getting parameters for release test ]========================="
-        IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
-        IMAGE_PXC = getParam("IMAGE_PXC${PILLAR_VERSION}")
-        IMAGE_PROXY = getParam("IMAGE_PROXY")
-        IMAGE_HAPROXY = getParam("IMAGE_HAPROXY")
-        IMAGE_BACKUP = getParam("IMAGE_BACKUP${PILLAR_VERSION}")
-        IMAGE_LOGCOLLECTOR = getParam("IMAGE_LOGCOLLECTOR")
-        IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
+        IMAGE_OPERATOR = params["IMAGE_OPERATOR"] ?: getParam("IMAGE_OPERATOR")
+        IMAGE_PXC = params["IMAGE_PXC"] ?: getParam("IMAGE_PXC", "IMAGE_PXC${PILLAR_VERSION}")
+        IMAGE_PROXY = params["IMAGE_PROXY"] ?: getParam("IMAGE_PROXY")
+        IMAGE_HAPROXY = params["IMAGE_HAPROXY"] ?: getParam("IMAGE_HAPROXY")
+        IMAGE_BACKUP = params["IMAGE_BACKUP"] ?: getParam("IMAGE_BACKUP", "IMAGE_BACKUP${PILLAR_VERSION}")
+        IMAGE_LOGCOLLECTOR = params["IMAGE_LOGCOLLECTOR"] ?: getParam("IMAGE_LOGCOLLECTOR")
+        IMAGE_PMM_CLIENT = params["IMAGE_PMM_CLIENT"] ?: getParam("IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = params["IMAGE_PMM_SERVER"] ?: getParam("IMAGE_PMM_SERVER")
         if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
-            PLATFORM_VER = getParam("GKE_${PLATFORM_VER}")
+            PLATFORM_VER = getParam("PLATFORM_VER", "GKE_${PLATFORM_VER}")
         }
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
