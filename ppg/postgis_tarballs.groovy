@@ -6,8 +6,8 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 void buildStage(String PG_VERION, String DOCKER_OS, String ARCH) {
     sh """
         set -o xtrace
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/postgis_rpms.sh -O postgis_rpms.sh
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/postgis_debians.sh -O postgis_debians.sh
+        git clone ${GIT_REPO}
+        cd postgis-tarballs
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
@@ -92,7 +92,7 @@ pipeline {
 
         stage('Build pg_tarballs') {
             parallel {
-                stage("Build postgis-tarball ${PG_VERSION} for OL8 amd64") {
+                stage('Build postgis-tarball for OL8 amd64') {
                     agent {
                         label 'docker'
                     }
@@ -114,7 +114,7 @@ pipeline {
                         }
                     }
                 }
-                stage("Build postgis-tarball ${PG_VERSION} for OL8 arm64") {
+                stage('Build postgis-tarball for OL8 arm64') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -136,7 +136,7 @@ pipeline {
                         }
                     }
                 }
-                stage("Build postgis-tarball ${PG_VERSION} for OL9 amd64") {
+                stage('Build postgis-tarball for OL9 amd64') {
                     agent {
                         label 'docker'
                     }
@@ -158,7 +158,7 @@ pipeline {
                         }
                     }
                 }
-                stage("Build postgis-tarball ${PG_VERSION} for OL9 arm64") {
+                stage('Build postgis-tarball for OL9 arm64') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -180,7 +180,7 @@ pipeline {
                         }
                     }
                 }
-                stage("Build postgis-tarball ${PG_VERSION} for Ubuntu focal amd64") {
+                stage('Build postgis-tarball for Ubuntu focal amd64') {
                     agent {
                         label 'docker'
                     }
@@ -202,7 +202,7 @@ pipeline {
                         }
                     }
                 }
-                stage("Build postgis-tarball ${PG_VERSION} for Ubuntu focal arm64") {
+                stage('Build postgis-tarball for Ubuntu focal arm64') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -224,7 +224,7 @@ pipeline {
                         }
                     }
                 }
-                stage("Build postgis-tarball ${PG_VERSION} for Ubuntu jammy amd64") {
+                stage('Build postgis-tarball for Ubuntu jammy amd64') {
                     agent {
                         label 'docker'
                     }
@@ -246,7 +246,7 @@ pipeline {
                         }
                     }
                 }
-                stage("Build postgis-tarball ${PG_VERSION} for Ubuntu jammy arm64") {
+                stage('Build postgis-tarball for Ubuntu jammy arm64') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -268,7 +268,7 @@ pipeline {
                         }
                     }
                 }
-                stage("Build postgis-tarball ${PG_VERSION} for Ubuntu noble amd64") {
+                stage('Build postgis-tarball for Ubuntu noble amd64') {
                     agent {
                         label 'docker'
                     }
@@ -290,7 +290,7 @@ pipeline {
                         }
                     }
                 }
-                stage("Build postgis-tarball ${PG_VERSION} for Ubuntu noble arm64") {
+                stage('Build postgis-tarball for Ubuntu noble arm64') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -312,7 +312,7 @@ pipeline {
                         }
                     }
                 }
-                stage("Build postgis-tarball ${PG_VERSION} for Debian bullseye amd64") {
+                stage('Build postgis-tarball for Debian bullseye amd64') {
                     agent {
                         label 'docker'
                     }
@@ -334,7 +334,7 @@ pipeline {
                         }
                     }
                 }
-                stage("Build postgis-tarball ${PG_VERSION} for Debian bullseye arm64") {
+                stage('Build postgis-tarball for Debian bullseye arm64') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -356,7 +356,7 @@ pipeline {
                         }
                     }
                 }
-                stage("Build postgis-tarball ${PG_VERSION} for Debian bookworm amd64") {
+                stage('Build postgis-tarball for Debian bookworm amd64') {
                     agent {
                         label 'docker'
                     }
@@ -378,7 +378,7 @@ pipeline {
                         }
                     }
                 }
-                stage("Build postgis-tarball ${PG_VERSION} for Debian bookworm arm64") {
+                stage('Build postgis-tarball for Debian bookworm arm64') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }

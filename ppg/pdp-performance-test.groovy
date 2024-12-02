@@ -12,7 +12,7 @@ pipeline {
         choice(
             name: 'PLATFORM',
             description: 'For which platform (OS) you want to test?',
-            choices: ppgOperatingSystemsALL()
+            choices: ['ol-9', 'debian-12', 'ubuntu-noble', 'ol-9-arm', 'debian-12-arm', 'ubuntu-noble-arm']
         )
         string(
             defaultValue: 'ppg-17.0',
@@ -34,34 +34,46 @@ pipeline {
             description: 'Branch for ppg-testing testing repository',
             name: 'TESTING_BRANCH'
         )
-        choice(
-            name: 'TESTSUITE',
-            description: 'Testsuite to run',
-            choices: [
-                'installcheck',
-                'installcheck-world'
-            ]
+        string(
+            defaultValue: '100',
+            description: 'Scale value for pgbench.',
+            name: 'PGBENCH_SCALE'
         )
-        choice(
-            name: 'ACCESS_METHOD',
-            description: 'Server access method to use',
-            choices: [
-                'heap',
-                'tde_heap',
-                'tde_heap_basic'
-            ]
+        string(
+            defaultValue: '600',
+            description: 'Duration value for pgbench.',
+            name: 'PGBENCH_DURATION'
+        )
+        string(
+            defaultValue: '100',
+            description: 'Scale value for pgbench.',
+            name: 'PGBENCH_CLIENTS'
+        )
+        string(
+            defaultValue: '30',
+            description: 'Scale value for pgbench.',
+            name: 'PGBENCH_THREADS'
         )
         booleanParam(
-            name: 'WITH_TDE_HEAP',
-            description: "Do you want TDE_HEAP build and test as part of this run?"
+            name: 'RUN_HEAP',
+            defaultValue: true,
+            description: "Do you want to test performance using heap access method?"
+        )
+        booleanParam(
+            name: 'RUN_TDE_HEAP',
+            description: "Do you want to test performance using tde_heap access method?"
+        )
+        booleanParam(
+            name: 'RUN_TDE_HEAP_BASIC',
+            description: "Do you want to test performance using tde_heap_basic access method?"
         )
         booleanParam(
             name: 'CHANGE_TDE_BRANCH',
-            description: "Do you want to change TDE branch to other than default one given in PDP? It will only work if WITH_TDE_HEAP option is enabled."
+            description: "Do you want to change TDE branch to other than default one given in PDP?"
         )
         string(
             defaultValue: 'main',
-            description: 'pg_tde branch to use. It will only work if both options, WITH_TDE_HEAP and CHANGE_TDE_BRANCH, are enabled.',
+            description: 'pg_tde branch to use. Will only apply if CHANGE_TDE_BRANCH is selected',
             name: 'TDE_BRANCH'
         )
         string(
@@ -72,7 +84,7 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "pdp/server_tests";
+      MOLECULE_DIR = "pdp/performance_tests";
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
@@ -82,7 +94,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-pdp-${env.VERSION}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-ppt-${env.VERSION}-${env.PLATFORM}"
                 }
             }
         }

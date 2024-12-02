@@ -46,7 +46,7 @@ pipeline {
             name: 'COMPONENT_VERSION'
         )
         string(
-            defaultValue: 'ppg-17.0',
+            defaultValue: 'ppg-17.2',
             description: 'PPG version for test',
             name: 'VERSION'
         )
@@ -63,6 +63,7 @@ pipeline {
                       'pgaudit13_set_user',
                       'pgbadger',
                       'pgbouncer',
+                      'pgvector',
                       'wal2json']
         )
         string(

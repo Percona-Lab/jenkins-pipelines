@@ -78,7 +78,7 @@ pipeline {
   } 
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "pdp/setup";
+      MOLECULE_DIR = "pdp/server_tests";
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
