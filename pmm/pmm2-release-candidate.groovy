@@ -168,6 +168,10 @@ pipeline {
             choices: ['no', 'yes'],
             description: 'Recreate Release branches, Option to be used only to recreate release branches',
             name: 'REMOVE_RELEASE_BRANCH')
+        string(
+            defaultValue: '#pmm',
+            description: 'Channel to send notifications to',
+            name: 'NOTIFICATION_CHANNEL')
     }
     stages {
         stage('Update API descriptors') {
@@ -257,7 +261,7 @@ pipeline {
                 script {
                     currentBuild.description = "$VERSION"
                     slackSend botUser: true,
-                        channel: '#pmm-dev',
+                        channel: env.NOTIFICATION_CHANNEL,
                         color: '#0892d0',
                         message: "Release candidate PMM $VERSION build has started. You can check progress at: ${BUILD_URL}"
                     env.EXIST = sh (
@@ -370,7 +374,7 @@ pipeline {
     post {
         success {
             slackSend botUser: true,
-                      channel: '#pmm-dev',
+                      channel: env.NOTIFICATION_CHANNEL,
                       color: '#00FF00',
                       message: """New Release Candidate is out :rocket:
 Server: perconalab/pmm-server:${VERSION}-rc
