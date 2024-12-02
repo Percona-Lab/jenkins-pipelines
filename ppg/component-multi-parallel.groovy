@@ -17,7 +17,7 @@ pipeline {
             choices: repoList()
         )
         string(
-            defaultValue: 'ppg-17.0',
+            defaultValue: 'ppg-17.2',
             description: 'PPG version for test',
             name: 'VERSION'
          )
@@ -46,11 +46,11 @@ pipeline {
             description: 'PG_REPACK version',
             name: 'PG_REPACK_VERSION')
         string(
-            defaultValue: 'v4.0.2',
+            defaultValue: 'v4.0.3',
             description: 'Patroni version',
             name: 'PATRONI_VERSION')
         string(
-            defaultValue: 'release/2.53.1',
+            defaultValue: 'release/2.54.0',
             description: 'pgbackrest version',
             name: 'PGBACKREST_VERSION')
         string(
@@ -69,6 +69,10 @@ pipeline {
             defaultValue: 'wal2json_2_6',
             description: 'wal2json version',
             name: 'WAL2JSON_VERSION')
+        string(
+            defaultValue: '0.8.0',
+            description: 'pgvector version',
+            name: 'PGVECTOR_VERSION')
         string(
             defaultValue: 'yes',
             description: 'Destroy VM after tests',
@@ -316,6 +320,27 @@ pipeline {
                     catch (err) {
                         currentBuild.result = "FAILURE"
                         echo "Stage 'Test pgbouncer' failed, but we continue"
+                    }
+                }
+            }
+        }
+        stage ('Test pgvector') {
+            steps {
+                script {
+                    try {
+                        build job: 'component-generic-parallel', parameters: [
+                        string(name: 'VERSION', value: "${env.VERSION}"),
+                        string(name: 'REPO', value: "${env.REPO}"),
+                        string(name: 'PRODUCT', value: "pgvector"),
+                        string(name: 'COMPONENT_REPO', value: "https://github.com/pgvector/pgvector.git"),
+                        string(name: 'COMPONENT_VERSION', value: "${env.PGVECTOR_VERSION}"),
+                        string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'Test pgvector' failed, but we continue"
                     }
                 }
             }
