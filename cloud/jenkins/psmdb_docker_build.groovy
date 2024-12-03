@@ -11,15 +11,17 @@ void build(String IMAGE_SUFFIX){
     """
 }
 void checkImageForDocker(String IMAGE_SUFFIX){
-     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'SNYK_ID', variable: 'SNYK_ID')]) {
         sh """
             IMAGE_SUFFIX=${IMAGE_SUFFIX}
             IMAGE_NAME='percona-server-mongodb-operator'
-            TrivyLog="$WORKSPACE/trivy-\$IMAGE_NAME-${IMAGE_SUFFIX}-psmdb.xml"
+            DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --timeout 40m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
+                ls -al ./source/
+                docker run -e SNYK_TOKEN='${SNYK_ID}' --workdir /github/workspace --rm -v '$WORKSPACE/source/percona-server-mongodb-\$DOCKER_FILE_PREFIX':'/github/workspace' -e CI=true snyk/snyk:docker snyk container test --platform=linux/amd64 --file=./Dockerfile --severity-threshold=high --exclude-base-image-vulns -fail-on=upgradable --json-file-output=./snyk-\$IMAGE_NAME-\${IMAGE_SUFFIX}-psmdb.json --docker perconalab/\$IMAGE_NAME:main-\${IMAGE_SUFFIX}
+                cp ./source/percona-server-mongodb-\$DOCKER_FILE_PREFIX/snyk-percona-server-mongodb-operator-mongod5.0-psmdb.json $WORKSPACE/
             "
         """
     }
@@ -96,7 +98,7 @@ pipeline {
                 '''
             }
         }
-
+/*
         stage('Build and push PSMDB operator docker image') {
             steps {
                 retry(3) {
@@ -118,7 +120,7 @@ pipeline {
             }
         }
 
-
+*/
         stage('Build PSMDB docker images') {
             steps {
                 unstash "checkout"
@@ -128,23 +130,9 @@ pipeline {
                     export GIT_BRANCH=$GIT_PD_BRANCH
                     ./cloud/local/checkout
                 """
-                echo 'Build PBM docker image'
-                retry(3) {
-                    build('backup')
-                }
-                echo 'Build PSMDB docker images'
-                retry(3) {
-                    build('mongod5.0')
-                }
-                retry(3) {
-                    build('mongod6.0')
-                }
-                retry(3) {
-                    build('mongod7.0')
-                }
             }
         }
-
+/*
         stage('Push PSMDB images to Docker registry') {
             steps {
                 pushImageToDocker('mongod5.0')
@@ -156,86 +144,49 @@ pipeline {
                 pushImageToDocker('backup')
             }
         }
-       stage('Trivy Checks') {
+*/
+       stage('Snyk Checks') {
             parallel {
                 stage('psmdb operator'){
                     steps {
                         checkImageForDocker('main')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-psmdb.xml"
-                        }
+                        archiveArtifacts '*.json'
                     }
                 }
                 stage('mongod5.0'){
                     steps {
-                        checkImageForDocker('main-mongod5.0')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod5.0-psmdb.xml"
-                        }
+                        checkImageForDocker('mongod5.0')
+                        archiveArtifacts '*.json'
                     }
                 }
                 stage('mongod6.0'){
                     steps {
-                        checkImageForDocker('main-mongod6.0')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod6.0-psmdb.xml"
-                        }
+                        checkImageForDocker('mongod6.0')
                     }
                 }
                 stage('mongod7.0'){
                     steps {
-                        checkImageForDocker('main-mongod7.0')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod7.0-psmdb.xml"
-                        }
+                        checkImageForDocker('mongod7.0')
                     }
                 }
                 stage('mongod5.0-debug'){
                     steps {
-                        checkImageForDocker('main-mongod5.0-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod5.0-debug-psmdb.xml"
-                        }
+                        checkImageForDocker('mongod5.0-debug')
                     }
                 }
                 stage('mongod6.0-debug'){
                     steps {
-                        checkImageForDocker('main-mongod6.0-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod6.0-debug-psmdb.xml"
-                        }
+                        checkImageForDocker('mongod6.0-debug')
                     }
                 }
                 stage('mongod7.0-debug'){
                     steps {
-                        checkImageForDocker('main-mongod7.0-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod7.0-debug-psmdb.xml"
-                        }
+                        checkImageForDocker('mongod7.0-debug')
                     }
                 }
                 stage('PBM'){
                     steps {
-                        checkImageForDocker('main-backup')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-backup-psmdb.xml"
-                        }
+                        checkImageForDocker('backup')
                     }
                 }
             }
@@ -250,11 +201,13 @@ pipeline {
             '''
             deleteDir()
         }
+        /*
         unstable {
             slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PSMDB docker images unstable. Please check the log ${BUILD_URL}"
         }
         failure {
             slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PSMDB docker images failed. Please check the log ${BUILD_URL}"
         }
+        */
     }
 }
