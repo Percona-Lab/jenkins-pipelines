@@ -286,24 +286,6 @@ pipeline {
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Buster (10)') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("debian:buster", "DEB")
-                        sh '''
-                            pwd
-                            ls -la test/deb
-                            cp -r test/deb .
-                        '''
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Ubuntu Focal (20.04)') {
                     agent {
                         label 'docker'
