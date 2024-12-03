@@ -35,8 +35,11 @@ void runNodeBuild(String TEST_DIST) {
         job: 'test-ps-innodb-cluster-test-grishma',
         parameters: [
             string(name: "PRODUCT_TO_TEST", value: params.PRODUCT_TO_TEST),
+            string(name: "UPSTREAM_VERSION", value: params.UPSTREAM_VERSION),
+            string(name: "PS_VERSION", value: params.PS_VERSION),
+            string(name: "PS_REVISION", value: params.PS_REVISION),
             string(name: "TEST_DIST", value: TEST_DIST),
-            string(name: "INSTALL_REPO", value: params.INSTALL_REPO),         
+            string(name: "INSTALL_REPO", value: params.INSTALL_REPO),          
         ],
         propagate: true,
         wait: true
@@ -90,7 +93,7 @@ pipeline {
     }
 
     stages {
-        stage('SET PS_VERSION and PS_REVISION') {
+        stage('SET UPSTREAM_VERSION,PS_VERSION and PS_REVISION') {
             steps {
                 script {
                     sh '''
@@ -103,20 +106,26 @@ pipeline {
                         mv "package-testing-master" package-testing
                     '''
                     
-                    def VERSION = sh(
-                        script: ''' grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
+                    def UPSTREAM_VERSION = sh(
+                        script: ''' grep ${PRODUCT_TO_TEST}_VER VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}' ''',
+                        returnStdout: true
+                        ).trim()
+
+                    def PS_VERSION = sh(
+                        script: ''' grep ${PRODUCT_TO_TEST}_VER VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}' ''',
                         returnStdout: true
                         ).trim()
 
                     def REVISION = sh(
-                        script: ''' grep ${PRODUCT_TO_TEST}_REV package-testing/ERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
+                        script: ''' grep ${PRODUCT_TO_TEST}_REV VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
                         returnStdout: true
                         ).trim()
                     
-    
-                    env.PS_VERSION = VERSION
-                    env.PS_REVISION = REVISION
+                    env.UPSTREAM_VERSION = UPSTREAM_VERSION
+                    env.PS_VERSION = PS_VERSION
+                    env.PS_REVISION = PS_REVISION
 
+                    echo "UPSTREAM_VERSION fetched: ${env.UPSTREAM_VERSION}"
                     echo "PS_VERSION fetched: ${env.PS_VERSION}"
                     echo "PS_REVISION fetched: ${env.PS_REVISION}"
 
@@ -127,6 +136,7 @@ pipeline {
             steps{
                  script {
                     // Now, you can access these global environment variables
+                    echo "Using UPSTREAM_VERSION: ${env.UPSTREAM_VERSION}"
                     echo "Using PS_VERSION: ${env.PS_VERSION}"
                     echo "Using PS_REVISION: ${env.PS_REVISION}"
                 }
@@ -135,7 +145,7 @@ pipeline {
         stage("Prepare") {
             steps {
 	        script {
-                   currentBuild.displayName = "#${BUILD_NUMBER}-${PS_VERSION}"
+                   currentBuild.displayName = "#${BUILD_NUMBER}-${UPSTREAM_VERSION}-${PS_VERSION}"
                    currentBuild.description = "${PS_REVISION}-${INSTALL_REPO}"
                 }
             }
