@@ -34,8 +34,6 @@ void runNodeBuild(String TEST_DIST) {
     build(
         job: 'test-ps-innodb-cluster-test-grishma',
         parameters: [
-           // string(name: "UPSTREAM_VERSION", value: UPSTREAM_VERSION),
-           // string(name: "PS_VERSION", value: params.PS_VERSION),
             string(name: "PRODUCT_TO_TEST", value: params.PRODUCT_TO_TEST),
             string(name: "TEST_DIST", value: TEST_DIST),
             string(name: "INSTALL_REPO", value: params.INSTALL_REPO),         
@@ -56,16 +54,6 @@ pipeline {
             description: 'Choose the product version to test',
             name: 'PRODUCT_TO_TEST'
         )
-      /*  string(
-            name: 'PS_VERSION',
-            defaultValue: '24',
-            description: 'Percona part of version'
-        )
-        string(
-            name: 'PS_REVISION',
-            defaultValue: 'e5c6e9d2',
-            description: 'Short git hash for release'
-        ) */
         choice(
             name: 'TEST_DIST',
             choices: [
@@ -116,14 +104,12 @@ pipeline {
                     '''
                     
                     def VERSION = sh(
-                        script: '''cd /package-testing
-                                   grep ${PRODUCT_TO_TEST}_VER VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
+                        script: ''' grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
                         returnStdout: true
                         ).trim()
 
                     def REVISION = sh(
-                        script: '''cd /package-testing
-                                   grep ${PRODUCT_TO_TEST}_REV VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
+                        script: ''' grep ${PRODUCT_TO_TEST}_REV package-testing/ERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
                         returnStdout: true
                         ).trim()
                     
