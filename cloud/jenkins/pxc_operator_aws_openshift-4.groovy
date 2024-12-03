@@ -378,8 +378,8 @@ pipeline {
             description: 'Ignore passed tests in previous run (run all)',
             name: 'IGNORE_PREVIOUS_RUN')
         choice(
-            choices: 'none\n80\n57',
-            description: 'Can be 80, 57, etc. or none. Implies release run.',
+            choices: 'none\n84\n80\n57',
+            description: 'Implies release run.',
             name: 'PILLAR_VERSION')
         string(
             defaultValue: 'main',
@@ -391,7 +391,7 @@ pipeline {
             name: 'GIT_REPO')
         string(
             defaultValue: 'latest',
-            description: 'OpenShift kubernetes version',
+            description: 'OpenShift kubernetes version. If set to min or max, value will be automatically taken from release_versions file.',
             name: 'PLATFORM_VER')
         choice(
             choices: 'YES\nNO',
