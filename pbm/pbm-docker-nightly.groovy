@@ -63,8 +63,6 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          docker tag percona-backup-mongodb perconalab/percona-backup-mongodb:nightly
                          docker push perconalab/percona-backup-mongodb:nightly
-                         docker tag percona-backup-mongodb perconalab/percona-backup-mongodb:nightly
-                         docker push perconalab/percona-backup-mongodb:nightly
                      """
                 }
             }
