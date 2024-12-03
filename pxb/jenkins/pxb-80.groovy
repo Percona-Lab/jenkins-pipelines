@@ -427,7 +427,11 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:9", "--build_tarball=1")
+                        if (env.FIPSMODE == 'YES') {
+                            buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
+                        } else {
+                            buildStage("oraclelinux:9", "--build_tarball=1")
+                        }
 
                         pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
@@ -457,7 +461,11 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--build_tarball=1")
+                        if (env.FIPSMODE == 'YES') {
+                            buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
+                        } else {
+                            buildStage("ubuntu:jammy", "--build_tarball=1")
+                        }
 
                         pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
@@ -470,7 +478,11 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:noble", "--build_tarball=1")
+                        if (env.FIPSMODE == 'YES') {
+                            buildStage("ubuntu:noble", "--build_tarball=1 --enable_fipsmode=1")
+                        } else {
+                            buildStage("ubuntu:noble", "--build_tarball=1")
+                        }
 
                         pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
@@ -500,7 +512,11 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("debian:bookworm", "--build_tarball=1")
+                        if (env.FIPSMODE == 'YES') {
+                            buildStage("debian:bookworm", "--build_tarball=1 --enable_fipsmode=1")
+                        } else {
+                            buildStage("debian:bookworm", "--build_tarball=1")
+                        }
 
                         pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
