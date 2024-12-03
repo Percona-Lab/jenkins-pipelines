@@ -1,5 +1,5 @@
 
-    library changelog: false, identifier: "lib@master", retriever: modernSCM([
+    library changelog: false, identifier: "lib@pxb84-pt-fixes", retriever: modernSCM([
         $class: 'GitSCMSource',
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
     ])
@@ -90,10 +90,12 @@
                                 if (scenario_to_test == 'install') {
                                     sh """
                                         echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
+                                        echo WORKSPACE_VAR=${WORKSPACE} >> .env.ENV_VARS
                                     """
                                 } else {
                                     sh """
                                         echo PLAYBOOK_VAR="${product_to_test}_${scenario_to_test}" > .env.ENV_VARS
+                                        echo WORKSPACE_VAR=${WORKSPACE} >> .env.ENV_VARS
                                     """
                                 }
 
@@ -104,13 +106,26 @@
 
                             }
                         }
+
+                        post {
+                            always {
+
+                                script{
+                                    //sh "ls -la ."
+                                    //sh "mkdir ARTIFACTS && cp *.zip ARTIFACTS/"
+                                    //sh "ls -la ARTIFACTS/"
+                                    //sh "zip -r ${env.BUILD_NUMBER}-ARTIFACTS.zip ARTIFACTS"
+                                    archiveArtifacts artifacts: '*.zip', allowEmptyArchive: true
+                                }
+                            }
+                        }
             }
         }
     }
 
 def installMolecule() {
     sh """
-        sudo yum install -y gcc python3-pip python3-devel libselinux-python3
+        sudo yum install -y gcc python3-pip python3-devel libselinux-python3 zip
         sudo yum remove ansible -y
         python3 -m venv virtenv
         . virtenv/bin/activate
