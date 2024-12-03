@@ -16,7 +16,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --pxb_repo=${PXB_REPO} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -161,9 +161,9 @@ pipeline {
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         choice(
-            choices: 'pxb-80\npxb-8x-innovation\npxb-84-lts\npxb-9x-innovation\npxb-9x-lts',
-            description: 'PXB repo name',
-            name: 'PXB_REPO')
+            choices: 'NO\nYES',
+            description: 'Enable fipsmode',
+            name: 'FIPSMODE')
         choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
@@ -210,7 +210,13 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_src_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("centos:7", "--build_src_rpm=1")
+                            }
+                        }
 
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
@@ -223,7 +229,13 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_source_deb=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:focal", "--build_source_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:focal", "--build_source_deb=1")
+                            }
+                        }
 
                         pushArtifactFolder("source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
@@ -239,25 +251,33 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_rpm=1")
+                        if (env.FIPSMODE == 'YES') {
+                            echo "The step is skipped"
+                        } else {
+                            cleanUpWS()
+                            popArtifactFolder("srpm/", AWS_STASH_PATH)
+                            buildStage("centos:7", "--build_rpm=1")
 
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                            pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        }
                     }
-                }
+               }
                 stage('Oracle Linux 8') {
                     agent {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:8", "--build_rpm=1")
+                        if (env.FIPSMODE == 'YES') {
+                            echo "The step is skipped"
+                        } else {
+                            cleanUpWS()
+                            popArtifactFolder("srpm/", AWS_STASH_PATH)
+                            buildStage("oraclelinux:8", "--build_rpm=1")
 
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                            pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Oracle Linux 9') {
@@ -278,12 +298,16 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_deb=1")
+                        if (env.FIPSMODE == 'YES') {
+                            echo "The step is skipped"
+                        } else {
+                            cleanUpWS()
+                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            buildStage("ubuntu:focal", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Ubuntu Jammy(22.04)') {
@@ -337,12 +361,16 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:bullseye", "--build_deb=1")
+                        if (env.FIPSMODE == 'YES') {
+                            echo "The step is skipped"
+                        } else {
+                            cleanUpWS()
+                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            buildStage("debian:bullseye", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Debian Bookworm(12)') {
@@ -363,12 +391,16 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_tarball=1")
+                        if (env.FIPSMODE == 'YES') {
+                            echo "The step is skipped"
+                        } else {
+                            cleanUpWS()
+                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            buildStage("centos:7", "--build_tarball=1")
 
-                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                        }
                     }
                 }
                 stage('Oracle Linux 8 tarball') {
@@ -376,12 +408,16 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:8", "--build_tarball=1")
+                        if (env.FIPSMODE == 'YES') {
+                            echo "The step is skipped"
+                        } else {
+                            cleanUpWS()
+                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            buildStage("oraclelinux:8", "--build_tarball=1")
 
-                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                        }
                     }
                 }
                 stage('Oracle Linux 9 tarball') {
@@ -402,12 +438,16 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_tarball=1")
+                        if (env.FIPSMODE == 'YES') {
+                            echo "The step is skipped"
+                        } else {
+                            cleanUpWS()
+                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            buildStage("ubuntu:focal", "--build_tarball=1")
 
-                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                        }
                     }
                 }
                 stage('Ubuntu Jammy(22.04) tarball') {
@@ -441,12 +481,16 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("debian:bullseye", "--build_tarball=1")
+                        if (env.FIPSMODE == 'YES') {
+                            echo "The step is skipped"
+                        } else {
+                            cleanUpWS()
+                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            buildStage("debian:bullseye", "--build_tarball=1")
 
-                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                        }
                     }
                 }
                 stage('Debian Bookworm(12) tarball') {
@@ -474,8 +518,30 @@ pipeline {
         
         stage('Push to public repository') {
             steps {
+                MYSQL_VERSION_MINOR = sh(returnStdout: true, script: ''' curl -s -O $(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')/${BRANCH}/MYSQL_VERSION; cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
+                PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
                 // sync packages
-                sync2ProdAutoBuild(PXB_REPO, COMPONENT)
+                if ("${MYSQL_VERSION_MINOR}" == "0") {
+                    if (env.FIPSMODE == 'YES') {
+                        sync2PrivateProdAutoBuild("pxb-80-pro", COMPONENT)
+                    } else {
+                        sync2ProdAutoBuild("pxb-80", COMPONENT)
+                    }
+                } else {
+                    if (env.FIPSMODE == 'YES') {
+                        if ("${MYSQL_VERSION_MINOR}" == "4") {
+                            sync2PrivateProdAutoBuild("pxb-84-pro", COMPONENT)
+                        } else {
+                            sync2PrivateProdAutoBuild("pxb-8x-innovation-pro", COMPONENT)
+                        }
+                    } else {
+                        if ("${MYSQL_VERSION_MINOR}" == "4") {
+                            sync2ProdAutoBuild("pxb-84-lts", COMPONENT)
+                        } else {
+                            sync2ProdAutoBuild("pxb-8x-innovation", COMPONENT)
+                        }
+                    }
+                }
             }
         }
     }
@@ -555,6 +621,13 @@ pipeline {
             deleteDir()
         }
         always {
+            script {
+                if (env.FIPSMODE == 'YES') {
+                    currentBuild.description = "PRO -> Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
+                } else {
+                    currentBuild.description = "Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
+                }
+            }
             sh '''
                 sudo rm -rf ./*
             '''

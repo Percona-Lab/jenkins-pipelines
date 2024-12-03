@@ -520,7 +520,7 @@ pipeline {
                             sed -i "s/pxc-80/pxc-8x-innovation/g" Dockerfile
                         else
                             sed -i "s/pxc-80/pxc-84-lts/g" Dockerfile
-                            sed -i "s/default_authentication_plugin=mysql_native_password/mysql-native-password=ON\nrequire_secure_transport=OFF/g" dockerdir/etc/mysql/node.cnf
+                            sed -i "s/default_authentication_plugin=mysql_native_password/mysql-native-password=ON\\nrequire_secure_transport=OFF/g" dockerdir/etc/mysql/node.cnf
                             sed -i "s/skip-host-cache/host_cache_size = 0/g" dockerdir/etc/mysql/node.cnf
                             sed -i "s/--skip-ssl//g" dockerdir/entrypoint.sh
                         fi
