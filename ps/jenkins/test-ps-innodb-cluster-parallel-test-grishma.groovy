@@ -91,7 +91,6 @@ pipeline {
             description: 'Repo to install packages from'
         )
     }
-
     stages {
         stage('SET UPSTREAM_VERSION,PS_VERSION and PS_REVISION') {
             steps {
