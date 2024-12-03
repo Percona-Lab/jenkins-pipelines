@@ -178,7 +178,7 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Amazon Linux 2023') {
+ /*               stage('Amazon Linux 2023') {
                     agent {
                         label 'docker-64gb'
                     }
@@ -195,7 +195,7 @@ pipeline {
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
-                }
+                }*/
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'docker-64gb'
