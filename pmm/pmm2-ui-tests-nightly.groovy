@@ -354,7 +354,7 @@ pipeline {
                 }
                 stage('Start Client Instance - mongo & pgsql') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pgsql,1 --mo-version 8.0 --addclient=mo,1 --with-sharding --mongomagic', 'yes', env.VM_IP, 'mongo-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD, PMM_QA_GIT_BRANCH)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--addclient=pgsql,1 --addclient=mo,1 --with-sharding --mongomagic', 'yes', env.VM_IP, 'mongo-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, MO_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD, PMM_QA_GIT_BRANCH)
                     }
                 }
                 stage('Start Client Instance - pdpgsql & pxc') {
