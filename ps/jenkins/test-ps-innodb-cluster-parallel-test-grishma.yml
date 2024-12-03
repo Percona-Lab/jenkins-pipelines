@@ -1,0 +1,59 @@
+- job:
+    name: test-ps-innodb-cluster-parallel-test-grishma
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    properties:
+        - build-discarder:
+            artifact-days-to-keep: -1
+            artifact-num-to-keep: 10
+            days-to-keep: -1
+            num-to-keep: 10
+    pipeline-scm:
+        scm:
+            - git:
+                url:  https://github.com/Grishma123-Eng/jenkins-pipelines.git
+                branches:
+                    - 'add-version-parameter-support'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: ps/jenkins/test-ps-innodb-cluster-parallel-test-grishma.groovy
+    parameters:
+        - choice:
+            name: product_to_test
+            choices:
+                - "PS80"
+                - "PS84"
+                #- "ps_9x_innovation_lts"
+                - "PS_INN_LTS"
+                - "client_test"
+            description: "Product for which the packages will be tested"
+        - choice:
+            name: TEST_DIST
+            choices:
+                - 'all'
+                - 'ubuntu-noble'
+                - 'ubuntu-focal'
+                - 'ubuntu-jammy'
+                - 'debian-11'
+                - 'debian-12'
+                - 'centos-7'
+                - 'oracle-8'
+                - 'oracle-9'
+                - 'rhel-8'
+                - 'rhel-9'
+                - 'rhel-8-arm'
+                - 'rhel-9-arm'
+                - 'debian-11-arm'
+                - 'debian-12-arm'
+                - 'ubuntu-focal-arm'
+                - 'ubuntu-jammy-arm'
+                - 'ubuntu-noble-arm'
+            description: "Distribution to run test"
+        - choice:
+            name: INSTALL_REPO
+            choices:
+                - "testing"
+                - "main"
+                - "experimental"
+            description: "Repo to install packages from"
