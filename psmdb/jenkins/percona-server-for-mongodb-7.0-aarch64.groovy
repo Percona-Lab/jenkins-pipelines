@@ -179,6 +179,24 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
+                stage('Amazon Linux 2023') {
+                    agent {
+                        label 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("amazonlinux:2023", "--build_rpm=1")
+                            }
+                        }
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Ubuntu 20.04') {
                     agent {
                         label 'docker-64gb-aarch64'
