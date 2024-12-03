@@ -96,7 +96,6 @@ pipeline {
                         wget https://github.com/Percona-QA/package-testing/archive/master.zip
                         unzip master.zip
                         rm -f master.zip
-                        rm -rf /package-testing
                         mv "package-testing-master" package-testing
                     '''
                     
