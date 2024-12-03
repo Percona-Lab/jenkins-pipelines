@@ -56,7 +56,7 @@ pipeline {
             description: 'Choose the product version to test',
             name: 'PRODUCT_TO_TEST'
         )
-        string(
+      /*  string(
             name: 'PS_VERSION',
             defaultValue: '24',
             description: 'Percona part of version'
@@ -65,7 +65,7 @@ pipeline {
             name: 'PS_REVISION',
             defaultValue: 'e5c6e9d2',
             description: 'Short git hash for release'
-        )
+        ) */
         choice(
             name: 'TEST_DIST',
             choices: [
@@ -116,12 +116,14 @@ pipeline {
                     '''
                     
                     def VERSION = sh(
-                        script: '''grep ${PRODUCT_TO_TEST}_VER VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
+                        script: '''cd /package-testing
+                                   grep ${PRODUCT_TO_TEST}_VER VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
                         returnStdout: true
                         ).trim()
 
                     def REVISION = sh(
-                        script: ''' grep ${PRODUCT_TO_TEST}_REV VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
+                        script: '''cd /package-testing
+                                   grep ${PRODUCT_TO_TEST}_REV VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
                         returnStdout: true
                         ).trim()
                     
