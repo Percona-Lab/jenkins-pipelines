@@ -532,7 +532,8 @@ pipeline {
                     sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION=${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                     sed -i "s/ENV PXC_REPO.*/ENV PXC_REPO=testing/g" Dockerfile
                     if [ ${PXC_MAJOR_RELEASE} != "80" ]; then
-                        sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
+                        #sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
+                        sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION 8.4.0-1.1/g" Dockerfile
                         sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                         if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
                             sed -i "s/tools/pxb-8x-innovation/g" Dockerfile
