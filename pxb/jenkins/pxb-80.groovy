@@ -251,15 +251,17 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        if (env.FIPSMODE == 'YES') {
-                            echo "The step is skipped"
-                        } else {
-                            cleanUpWS()
-                            popArtifactFolder("srpm/", AWS_STASH_PATH)
-                            buildStage("centos:7", "--build_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                buildStage("centos:7", "--build_rpm=1")
 
-                            pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                            uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                            }
                         }
                     }
                }
@@ -268,15 +270,17 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        if (env.FIPSMODE == 'YES') {
-                            echo "The step is skipped"
-                        } else {
-                            cleanUpWS()
-                            popArtifactFolder("srpm/", AWS_STASH_PATH)
-                            buildStage("oraclelinux:8", "--build_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                buildStage("oraclelinux:8", "--build_rpm=1")
 
-                            pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                            uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -285,12 +289,18 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("oraclelinux:9", "--build_rpm=1")
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder("srpm/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("oraclelinux:9", "--build_rpm=1")
+                            }
             
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                            pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        }
                     }
                 } 
                 stage('Ubuntu Focal(20.04)') {
@@ -298,15 +308,17 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        if (env.FIPSMODE == 'YES') {
-                            echo "The step is skipped"
-                        } else {
-                            cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                            buildStage("ubuntu:focal", "--build_deb=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                buildStage("ubuntu:focal", "--build_deb=1")
 
-                            pushArtifactFolder("deb/", AWS_STASH_PATH)
-                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -315,12 +327,18 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:jammy", "--build_deb=1")
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:jammy", "--build_deb=1")
+                            }
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Ubuntu Noble(24.04)') {
@@ -328,12 +346,18 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:noble", "--build_deb=1")
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:noble", "--build_deb=1")
+                            }
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Debian Buster(10)') {
@@ -361,15 +385,17 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        if (env.FIPSMODE == 'YES') {
-                            echo "The step is skipped"
-                        } else {
-                            cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                            buildStage("debian:bullseye", "--build_deb=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                buildStage("debian:bullseye", "--build_deb=1")
 
-                            pushArtifactFolder("deb/", AWS_STASH_PATH)
-                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -378,12 +404,17 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("debian:bookworm", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:bookworm", "--build_deb=1")
+                            }
+                            pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Centos 7 tarball') {
@@ -391,15 +422,17 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        if (env.FIPSMODE == 'YES') {
-                            echo "The step is skipped"
-                        } else {
-                            cleanUpWS()
-                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                            buildStage("centos:7", "--build_tarball=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                buildStage("centos:7", "--build_tarball=1")
 
-                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            }
                         }
                     }
                 }
@@ -408,15 +441,17 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        if (env.FIPSMODE == 'YES') {
-                            echo "The step is skipped"
-                        } else {
-                            cleanUpWS()
-                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                            buildStage("oraclelinux:8", "--build_tarball=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                buildStage("oraclelinux:8", "--build_tarball=1")
 
-                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            }
                         }
                     }
                 }
@@ -425,16 +460,18 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'YES') {
-                            buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
-                        } else {
-                            buildStage("oraclelinux:9", "--build_tarball=1")
-                        }
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("oraclelinux:9", "--build_tarball=1")
+                            }
 
-                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                        }
                     }
                 }
                 stage('Ubuntu Focal(20.04) tarball') {
@@ -442,15 +479,17 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        if (env.FIPSMODE == 'YES') {
-                            echo "The step is skipped"
-                        } else {
-                            cleanUpWS()
-                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                            buildStage("ubuntu:focal", "--build_tarball=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                buildStage("ubuntu:focal", "--build_tarball=1")
 
-                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            }
                         }
                     }
                 }
@@ -459,16 +498,18 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'YES') {
-                            buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
-                        } else {
-                            buildStage("ubuntu:jammy", "--build_tarball=1")
-                        }
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:jammy", "--build_tarball=1")
+                            }
 
-                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                        }
                     }
                 }
                 stage('Ubuntu Noble(24.04) tarball') {
@@ -476,16 +517,18 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'YES') {
-                            buildStage("ubuntu:noble", "--build_tarball=1 --enable_fipsmode=1")
-                        } else {
-                            buildStage("ubuntu:noble", "--build_tarball=1")
-                        }
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:noble", "--build_tarball=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:noble", "--build_tarball=1")
+                            }
 
-                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                        }
                     }
                 }
                 stage('Debian Bullseye(11) tarball') {
@@ -493,15 +536,17 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        if (env.FIPSMODE == 'YES') {
-                            echo "The step is skipped"
-                        } else {
-                            cleanUpWS()
-                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                            buildStage("debian:bullseye", "--build_tarball=1")
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                buildStage("debian:bullseye", "--build_tarball=1")
 
-                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            }
                         }
                     }
                 }
@@ -510,16 +555,18 @@ pipeline {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        if (env.FIPSMODE == 'YES') {
-                            buildStage("debian:bookworm", "--build_tarball=1 --enable_fipsmode=1")
-                        } else {
-                            buildStage("debian:bookworm", "--build_tarball=1")
-                        }
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("debian:bookworm", "--build_tarball=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:bookworm", "--build_tarball=1")
+                            }
 
-                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                        }
                     }
                 }
             }
@@ -534,27 +581,29 @@ pipeline {
         
         stage('Push to public repository') {
             steps {
-                MYSQL_VERSION_MINOR = sh(returnStdout: true, script: ''' curl -s -O $(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')/${BRANCH}/MYSQL_VERSION; cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
-                PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                // sync packages
-                if ("${MYSQL_VERSION_MINOR}" == "0") {
-                    if (env.FIPSMODE == 'YES') {
-                        sync2PrivateProdAutoBuild("pxb-80-pro", COMPONENT)
-                    } else {
-                        sync2ProdAutoBuild("pxb-80", COMPONENT)
-                    }
-                } else {
-                    if (env.FIPSMODE == 'YES') {
-                        if ("${MYSQL_VERSION_MINOR}" == "4") {
-                            sync2PrivateProdAutoBuild("pxb-84-pro", COMPONENT)
+                script {
+                    MYSQL_VERSION_MINOR = sh(returnStdout: true, script: ''' curl -s -O $(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')/${BRANCH}/MYSQL_VERSION; cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
+                    PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
+                    // sync packages
+                    if ("${MYSQL_VERSION_MINOR}" == "0") {
+                        if (env.FIPSMODE == 'YES') {
+                            sync2PrivateProdAutoBuild("pxb-80-pro", COMPONENT)
                         } else {
-                            sync2PrivateProdAutoBuild("pxb-8x-innovation-pro", COMPONENT)
+                            sync2ProdAutoBuild("pxb-80", COMPONENT)
                         }
                     } else {
-                        if ("${MYSQL_VERSION_MINOR}" == "4") {
-                            sync2ProdAutoBuild("pxb-84-lts", COMPONENT)
+                        if (env.FIPSMODE == 'YES') {
+                            if ("${MYSQL_VERSION_MINOR}" == "4") {
+                                sync2PrivateProdAutoBuild("pxb-84-pro", COMPONENT)
+                            } else {
+                                sync2PrivateProdAutoBuild("pxb-8x-innovation-pro", COMPONENT)
+                            }
                         } else {
-                            sync2ProdAutoBuild("pxb-8x-innovation", COMPONENT)
+                            if ("${MYSQL_VERSION_MINOR}" == "4") {
+                                sync2ProdAutoBuild("pxb-84-lts", COMPONENT)
+                            } else {
+                                sync2ProdAutoBuild("pxb-8x-innovation", COMPONENT)
+                            }
                         }
                     }
                 }
