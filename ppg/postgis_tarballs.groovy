@@ -4,21 +4,23 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 void buildStage(String PG_VERION, String DOCKER_OS, String ARCH) {
-    sh """
-        set -o xtrace
-        git clone ${GIT_REPO}
-        cd postgis-tarballs
-        pwd -P
-        ls -laR
-        export build_dir=\$(pwd -P)
-        set -o xtrace
-        cd \${build_dir}
-        if [[ "${DOCKER_OS}" == *el* ]]; then
-            bash -x ./postgis_rpms.sh --pg_version=${PG_VERION} --platform=${DOCKER_OS} --architecture=${ARCH}
-        else
-            bash -x ./postgis_debians.sh --pg_version=${PG_VERION} --platform=${DOCKER_OS} --architecture=${ARCH}
-        fi
-    """
+    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+        sh """
+           set -o xtrace
+           git clone https://${TOKEN}@github.com/percona/postgis-tarballs.git
+           cd postgis-tarballs
+           pwd -P
+           ls -laR
+           export build_dir=\$(pwd -P)
+           set -o xtrace
+           cd \${build_dir}
+           if [[ "${DOCKER_OS}" == *el* ]]; then
+               bash -x ./postgis_rpms.sh --pg_version=${PG_VERION} --platform=${DOCKER_OS} --architecture=${ARCH}
+           else
+               bash -x ./postgis_debians.sh --pg_version=${PG_VERION} --platform=${DOCKER_OS} --architecture=${ARCH}
+           fi
+       """
+    }
 }
 
 void uploadTarballToTestingDownloadServer(String tarballDirectory, String packageVersion) {
@@ -47,14 +49,14 @@ pipeline {
     }
 
     parameters {
-        string(
-            defaultValue: 'https://github.com/percona/postgis-tarballs.git',
-            description: 'URL for postgis-tarballs repository',
-            name: 'GIT_REPO')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for postgis-tarballs repository',
-            name: 'GIT_BRANCH')
+        //string(
+        //    defaultValue: 'https://github.com/percona/postgis-tarballs.git',
+        //    description: 'URL for postgis-tarballs repository',
+        //    name: 'GIT_REPO')
+        //string(
+        //    defaultValue: 'main',
+        //    description: 'Tag/Branch for postgis-tarballs repository',
+        //    name: 'GIT_BRANCH')
         string(
             defaultValue: '17.2',
             description: 'Version of PostgreSQL server',
@@ -76,7 +78,7 @@ pipeline {
                 label 'docker'
             }
             steps {
-                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${PG_VERSION} - [${BUILD_URL}]")
                 cleanUpWS()
 		script {
 			TIMESTAMP = sh(script: 'date +%Y%m%d%H%M%S', returnStdout: true).trim()
@@ -406,14 +408,14 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${PG_VERSION} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH}"
+                currentBuild.description = "Built for ${PG_VERSION}"
             }
             deleteDir()
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${PG_VERSION} - [${BUILD_URL}]")
             deleteDir()
         }
         always {
