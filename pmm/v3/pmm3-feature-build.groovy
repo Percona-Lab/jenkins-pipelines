@@ -46,10 +46,11 @@ pipeline {
                         docker login -u "${USER}" -p "${PASS}"
                     '''
                 }                    
-
-                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                // withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
                         set -o errexit
+                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
                         ./build.sh --init
                     '''
@@ -66,7 +67,7 @@ pipeline {
                 // stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
                 // stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
                 // stash includes: 'fbCommitSha', name: 'fbCommitSha'
-                slackSend channel: '@alexander.demidoff', color: '#0000FF', message: "[${JOB_NAME}]: v3 build started, URL: ${BUILD_URL}"
+                slackSend channel: '@alex.demidoff', color: '#0000FF', message: "[${JOB_NAME}]: v3 build started, URL: ${BUILD_URL}"
             }
         }
         stage('Build client only') {
@@ -89,7 +90,7 @@ pipeline {
             script {
                 // unstash 'CLIENT_IMAGE'
                 def IMAGE = sh(returnStdout: true, script: "cat .modules/build/docker/CLIENT_TAG").trim()
-                slackSend channel: '@alexander.demidoff', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
+                slackSend channel: '@alex.demidoff', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
                 if (currentBuild.result.equals("SUCCESS")) {
                     addComment("Client image has been built: ${IMAGE}")
                 }
@@ -98,7 +99,7 @@ pipeline {
         always {
             script {
                 if (currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '@alexander.demidoff', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
+                    slackSend channel: '@alex.demidoff', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
                 }
             }
         }
