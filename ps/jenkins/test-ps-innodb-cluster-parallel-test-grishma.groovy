@@ -100,17 +100,17 @@ pipeline {
                     '''
                     
                     def UPSTREAM_VERSION = sh(
-                        script: ''' grep ${PRODUCT_TO_TEST}_VER VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}' ''',
+                        script: ''' grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}' ''',
                         returnStdout: true
                         ).trim()
 
                     def PS_VERSION = sh(
-                        script: ''' grep ${PRODUCT_TO_TEST}_VER VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}' ''',
+                        script: ''' grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}' ''',
                         returnStdout: true
                         ).trim()
 
                     def REVISION = sh(
-                        script: ''' grep ${PRODUCT_TO_TEST}_REV VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
+                        script: ''' grep ${PRODUCT_TO_TEST}_REV package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
                         returnStdout: true
                         ).trim()
                     
