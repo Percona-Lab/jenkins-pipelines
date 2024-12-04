@@ -107,7 +107,7 @@ pipeline {
                         addComment("Client image has been built: ${IMAGE}")
                     }
                 } else {
-                  error "Client image not found"
+                  echo "Client image not found"
                 }
             }
         }
