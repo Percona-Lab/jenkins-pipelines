@@ -77,13 +77,12 @@ pipeline {
 
                     sh '''
                         set -o errexit
-                        cat <<EOF > ci.yml
-                        deps:
-                          - name: pmm
-                            branch: PMM-13487-build-pmm-locally
-                        EOF
 
                         export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+                        BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
+                        # Create ci.yml file
+                        printf "deps:\n%-2s\n%-4s\n" "- name: pmm" "branch: ${BRANCH_NAME}" | tee ci.yml
 
                         PR_NUMBER=$(git ls-remote origin 'refs/pull/*/head' | grep ${FB_COMMIT} | awk -F'/' '{print $3}' | tee PR_NUMBER)
                         export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:FB-${PR_NUMBER}-${FB_COMMIT:0:7}
