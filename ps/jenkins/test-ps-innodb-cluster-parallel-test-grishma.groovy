@@ -51,7 +51,16 @@ pipeline {
         label 'docker'
     }
 
+    environment {
+        PRODUCT_TO_TEST = "${params.PRODUCT_TO_TEST}"
+    }
+
     parameters {
+        choice(
+            choices: ['PS80','PS84','PS_LTS_INN','client_test'],
+            description: 'Choose the product version to test: PS8.0 OR ps_lts_innovatoin',
+            name: 'Product for which the packages will be tested'
+        )
         choice(
             name: 'TEST_DIST',
             choices: [
