@@ -20,15 +20,6 @@
         script-path: ps/jenkins/test-ps-innodb-cluster-parallel-test-grishma.groovy
     parameters:
         - choice:
-            name: PRODUCT_TO_TEST
-            choices:
-                - "PS80"
-                - "PS84"
-                #- "ps_9x_innovation_lts"
-                - "PS_INN_LTS"
-                - "client_test"
-            description: "Product for which the packages will be tested"
-        - choice:
             name: TEST_DIST
             choices:
                 - 'all'

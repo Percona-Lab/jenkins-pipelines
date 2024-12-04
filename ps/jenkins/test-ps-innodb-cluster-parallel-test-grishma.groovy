@@ -56,11 +56,6 @@ pipeline {
 
     parameters {
         choice(
-            choices: ['PS80','PS84','PS_LTS_INN','client_test'],
-            description: 'Product for which the packages will be tested',
-            name: 'PRODUCT_TO_TEST'
-        )
-        choice(
             name: 'TEST_DIST',
             choices: [
                 'all',
@@ -98,7 +93,6 @@ pipeline {
         stage('SET UPSTREAM_VERSION,PS_VERSION and PS_REVISION') {
             steps {
                 script {
-
                     echo "PRODUCT_TO_TEST is: ${env.PRODUCT_TO_TEST}"
                     sh '''
                         rm -rf /package-testing
