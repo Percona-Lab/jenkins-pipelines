@@ -134,6 +134,7 @@ pipeline {
                 script {
                     echo "PRODUCT_TO_TEST is: ${env.PRODUCT_TO_TEST}"
                     sh '''
+                        apt-get update && apt-get install -y unzip
                         rm -rf /package-testing
                         rm -f master.zip
                         wget https://github.com/Percona-QA/package-testing/archive/master.zip
