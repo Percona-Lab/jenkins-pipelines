@@ -1,5 +1,5 @@
 - job:
-    name: ttest-ps-innodb-cluster-test-grishma
+    name: test-ps-innodb-cluster-test-grishma
     project-type: pipeline
     description: |
         Work in progress, please ignore
