@@ -22,7 +22,7 @@
         script-path: ps/jenkins/test-ps-innodb-cluster-test-grishma.groovy
     parameters:
         - choice:
-            name: product_to_test
+            name: PRODUCT_TO_TEST
             choices:
                 - "PS80"
                 - "PS84"

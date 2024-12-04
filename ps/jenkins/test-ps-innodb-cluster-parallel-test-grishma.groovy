@@ -35,9 +35,9 @@ void runNodeBuild(String TEST_DIST) {
         job: 'test-ps-innodb-cluster-test-grishma',
         parameters: [
             string(name: "PRODUCT_TO_TEST", value: params.PRODUCT_TO_TEST),
-            string(name: "UPSTREAM_VERSION", value: params.UPSTREAM_VERSION),
-            string(name: "PS_VERSION", value: params.PS_VERSION),
-            string(name: "PS_REVISION", value: params.PS_REVISION),
+            //string(name: "UPSTREAM_VERSION", value: params.UPSTREAM_VERSION),
+            //string(name: "PS_VERSION", value: params.PS_VERSION),
+            //string(name: "PS_REVISION", value: params.PS_REVISION),
             string(name: "TEST_DIST", value: TEST_DIST),
             string(name: "INSTALL_REPO", value: params.INSTALL_REPO),          
         ],
