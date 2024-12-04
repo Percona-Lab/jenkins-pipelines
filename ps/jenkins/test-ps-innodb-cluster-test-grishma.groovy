@@ -139,6 +139,10 @@ pipeline {
                         unzip master.zip
                         rm -f master.zip
                         mv "package-testing-master" package-testing
+                        echo "Contents of package-testing directory:"
+                        ls -l package-testing
+                        echo "Contents of VERSIONS file:"
+                        cat package-testing/VERSIONS
                     '''
                     
                     def UPSTREAM_VERSION = sh(
