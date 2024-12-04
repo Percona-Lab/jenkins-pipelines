@@ -107,7 +107,7 @@ pipeline {
                     if (currentBuild.result.equals("SUCCESS")) {
                         addComment("Client image has been built: ${IMAGE}")
                     }
-                } esle {
+                } else {
                   error "Client image not found"
                 }
             }
