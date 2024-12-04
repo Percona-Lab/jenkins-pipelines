@@ -50,7 +50,6 @@ pipeline {
     agent {
         label 'docker'
     }
-
     environment {
         PRODUCT_TO_TEST = "${params.PRODUCT_TO_TEST}"
     }
@@ -58,8 +57,8 @@ pipeline {
     parameters {
         choice(
             choices: ['PS80','PS84','PS_LTS_INN','client_test'],
-            description: 'Choose the product version to test: PS8.0 OR ps_lts_innovatoin',
-            name: 'Product for which the packages will be tested'
+            description: 'Product for which the packages will be tested',
+            name: 'PRODUCT_TO_TEST'
         )
         choice(
             name: 'TEST_DIST',
@@ -99,6 +98,8 @@ pipeline {
         stage('SET UPSTREAM_VERSION,PS_VERSION and PS_REVISION') {
             steps {
                 script {
+
+                    echo "PRODUCT_TO_TEST is: ${env.PRODUCT_TO_TEST}"
                     sh '''
                         rm -rf /package-testing
                         rm -f master.zip
@@ -109,19 +110,27 @@ pipeline {
                     '''
                     
                     def UPSTREAM_VERSION = sh(
-                        script: ''' grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}' ''',
+                        script: ''' 
+                            grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}'
+                         ''',
                         returnStdout: true
                         ).trim()
 
                     def PS_VERSION = sh(
-                        script: ''' grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}' ''',
+                        script: ''' 
+                            grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}'
+                        ''',
                         returnStdout: true
                         ).trim()
 
-                    def REVISION = sh(
-                        script: ''' grep ${PRODUCT_TO_TEST}_REV package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
+                    def PS_REVISION = sh(
+                        script: '''
+                             grep ${PRODUCT_TO_TEST}_REV package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' 
+                        ''',
                         returnStdout: true
                         ).trim()
+                    
+                    echo 
                     
                     env.UPSTREAM_VERSION = UPSTREAM_VERSION
                     env.PS_VERSION = PS_VERSION

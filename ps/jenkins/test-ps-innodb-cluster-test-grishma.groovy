@@ -83,11 +83,17 @@ pipeline {
     }
 
     environment {
+        PRODUCT_TO_TEST = "${params.PRODUCT_TO_TEST}"
         SERVER_INSTANCE_PRIVATE_IP = "${WORKSPACE}/server_instance_private_ip.json"
         ROUTER_INSTANCE_PRIVATE_IP = "${WORKSPACE}/router_instance_private_ip.json"
     }
 
     parameters {
+        choice(
+            choices: ['PS80','PS84','PS_LTS_INN','client_test'],
+            description: 'Product for which the packages will be tested',
+            name: 'PRODUCT_TO_TEST'
+        )
         choice(
             name: 'TEST_DIST',
             choices: [
