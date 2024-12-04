@@ -132,6 +132,7 @@ pipeline {
         stage('SET UPSTREAM_VERSION,PS_VERSION and PS_REVISION') {
             steps {
                 script {
+                    echo "PRODUCT_TO_TEST is: ${env.PRODUCT_TO_TEST}"
                     sh '''
                         rm -rf /package-testing
                         rm -f master.zip
@@ -144,21 +145,27 @@ pipeline {
                         echo "Contents of VERSIONS file:"
                         cat package-testing/VERSIONS
                     '''
-                    
                     def UPSTREAM_VERSION = sh(
-                        script: ''' grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}' ''',
+                        script: ''' 
+                            grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}'
+                         ''',
                         returnStdout: true
                         ).trim()
 
                     def PS_VERSION = sh(
-                        script: ''' grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}' ''',
+                        script: ''' 
+                            grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}'
+                        ''',
                         returnStdout: true
                         ).trim()
 
                     def PS_REVISION = sh(
-                        script: ''' grep ${PRODUCT_TO_TEST}_REV package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
+                        script: '''
+                             grep ${PRODUCT_TO_TEST}_REV package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' 
+                        ''',
                         returnStdout: true
                         ).trim()
+                    
                     
                     env.UPSTREAM_VERSION = UPSTREAM_VERSION
                     env.PS_VERSION = PS_VERSION
