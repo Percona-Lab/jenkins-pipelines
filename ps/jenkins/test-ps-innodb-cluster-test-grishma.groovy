@@ -155,7 +155,7 @@ pipeline {
                         returnStdout: true
                         ).trim()
 
-                    def REVISION = sh(
+                    def PS_REVISION = sh(
                         script: ''' grep ${PRODUCT_TO_TEST}_REV package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' ''',
                         returnStdout: true
                         ).trim()
