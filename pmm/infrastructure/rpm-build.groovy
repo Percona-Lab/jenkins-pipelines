@@ -24,7 +24,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git poll: true,
+                git changelog: false,
                     branch: PMM_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm.git'
             }

@@ -9,8 +9,7 @@ pipeline {
             name: 'PMM_GIT_BRANCH')
     }
     options {
-        skipStagesAfterUnstable()
-        buildDiscarder(logRotator(artifactNumToKeepStr: '10'))
+        buildDiscarder(logRotator(artifactNumToKeepStr: '20'))
     }
     environment {
         IMAGE_REGISTRY = "public.ecr.aws/e7j3v3n0"

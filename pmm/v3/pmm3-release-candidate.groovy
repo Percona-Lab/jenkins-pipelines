@@ -137,7 +137,7 @@ pipeline {
             name: 'REMOVE_RELEASE_BRANCH'
         )
         string(
-            defaultValue: '#pmm-dev',
+            defaultValue: '#pmm-notifications',
             description: 'Channel to send notifications to',
             name: 'NOTIFICATION_CHANNEL'
         )

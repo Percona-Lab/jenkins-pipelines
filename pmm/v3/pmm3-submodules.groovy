@@ -76,7 +76,7 @@ pipeline {
                 stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
                 stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
                 stash includes: 'fbCommitSha', name: 'fbCommitSha'
-                slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: v3 build started, URL: ${BUILD_URL}"
+                slackSend channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: v3 build started, URL: ${BUILD_URL}"
             }
         }
         stage('Build client source') {
@@ -332,7 +332,7 @@ pipeline {
                 if (params.CHANGE_URL) {
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
+                    slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
                     if (env.API_TESTS_RESULT.equals("SUCCESS") && env.API_TESTS_URL) {
                       addComment("API tests have succeded: ${API_TESTS_URL}")
                     }
@@ -345,7 +345,7 @@ pipeline {
                     if (!env.API_TESTS_RESULT.equals("SUCCESS") && env.API_TESTS_URL) {
                         addComment("API tests have failed: ${API_TESTS_URL}")
                     }
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
+                    slackSend channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
                 }
             }
         }
