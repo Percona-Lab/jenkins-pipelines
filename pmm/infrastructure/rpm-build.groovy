@@ -10,15 +10,13 @@ pipeline {
         )
     }
     options {
-        skipStagesAfterUnstable()
-        buildDiscarder(logRotator(artifactNumToKeepStr: '10'))
+        buildDiscarder(logRotator(artifactNumToKeepStr: '20'))
     }
     environment {
         IMAGE_REGISTRY = "public.ecr.aws/e7j3v3n0"
         DOCKER_TAG = "rpmbuild"
     }
     // Tag versions: (see what's available for download at https://gallery.ecr.aws/e7j3v3n0/rpmbuild)
-    // rpmbuild:2   - PMM2 el7
     // rpmbuild:ol9 - PMM2 el9
     // rpmbuild:3   - PMM3 el9
     stages {
