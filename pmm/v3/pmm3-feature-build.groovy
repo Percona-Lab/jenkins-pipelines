@@ -101,7 +101,7 @@ pipeline {
         success {
             script {
                 // unstash 'CLIENT_IMAGE'
-                if fileExists('.modules/build/docker/CLIENT_TAG') {
+                if (fileExists('.modules/build/docker/CLIENT_TAG')) {
                     def IMAGE = sh(returnStdout: true, script: "cat .modules/build/docker/CLIENT_TAG").trim()
                     slackSend channel: '@alex', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
                     if (currentBuild.result.equals("SUCCESS")) {
