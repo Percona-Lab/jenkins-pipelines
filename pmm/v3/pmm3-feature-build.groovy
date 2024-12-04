@@ -55,10 +55,10 @@ pipeline {
                         ./build.sh --init
                     '''
                 }
-                // script {
-                //     env.PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
-                //     env.FB_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
-                // }
+                script {
+                    env.PMM_VERSION = sh(returnStdout: true, script: "cat .modules/VERSION").trim()
+                    env.FB_COMMIT = sh(returnStdout: true, script: "git rev-parse HEAD").trim()
+                }
                 // stash includes: 'apiBranch', name: 'apiBranch'
                 // stash includes: 'apiURL', name: 'apiURL'
                 // stash includes: 'pmmQABranch', name: 'pmmQABranch'
@@ -67,18 +67,30 @@ pipeline {
                 // stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
                 // stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
                 // stash includes: 'fbCommitSha', name: 'fbCommitSha'
-                slackSend channel: '@alex.demidoff', color: '#0000FF', message: "[${JOB_NAME}]: v3 build started, URL: ${BUILD_URL}"
+                slackSend channel: '@alex', color: '#0000FF', message: "[${JOB_NAME}]: v3 build started, URL: ${BUILD_URL}"
             }
         }
-        stage('Build client only') {
+        stage('Build the client') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                  withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
+
                     sh '''
                         set -o errexit
+                        cat <<-EOF > ci.yml
+                        deps:
+                          - name: pmm
+                            branch: PMM-13487-build-pmm-locally
+                      EOF
 
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}
+                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+
+                        PR_NUMBER=$(git ls-remote origin 'refs/pull/*/head' | grep ${FB_COMMIT} | awk -F'/' '{print $3}' | tee PR_NUMBER)
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:FB-${PR_NUMBER}-${FB_COMMIT:0:7}
+
                         ./build.sh --client-only
                     '''
+                  }
                 }
                 // stash includes: '.modules/build/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
                 // archiveArtifacts '.modules/build/docker/CLIENT_TAG'
@@ -90,7 +102,7 @@ pipeline {
             script {
                 // unstash 'CLIENT_IMAGE'
                 def IMAGE = sh(returnStdout: true, script: "cat .modules/build/docker/CLIENT_TAG").trim()
-                slackSend channel: '@alex.demidoff', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
+                slackSend channel: '@alex', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
                 if (currentBuild.result.equals("SUCCESS")) {
                     addComment("Client image has been built: ${IMAGE}")
                 }
@@ -99,7 +111,7 @@ pipeline {
         always {
             script {
                 if (currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '@alex.demidoff', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
+                    slackSend channel: '@alex', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
                 }
             }
         }
