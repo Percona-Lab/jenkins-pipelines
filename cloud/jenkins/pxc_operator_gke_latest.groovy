@@ -255,7 +255,7 @@ void runTest(Integer TEST_ID) {
 
                     export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pxc-operator
-                    export IMAGE=$IMAGE_OPERATOR
+                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
                     export IMAGE_PXC=$IMAGE_PXC
                     export IMAGE_PROXY=$IMAGE_PROXY
                     export IMAGE_HAPROXY=$IMAGE_HAPROXY
