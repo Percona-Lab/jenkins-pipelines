@@ -78,9 +78,9 @@ pipeline {
                     sh '''
                         set -o errexit
                         cat <<-EOF > ci.yml
-                      	deps:
-                      		- name: pmm
-                      		  branch: PMM-13487-build-pmm-locally
+                    		deps:
+                    			- name: pmm
+                    				branch: PMM-13487-build-pmm-locally
                     	EOF
 
                         export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
