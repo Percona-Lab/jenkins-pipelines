@@ -27,7 +27,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'PMM-13487-build-pmm-locally',
-            description: 'Tag/Branch for pmm-submodules repository',
+            description: 'Tag/Branch for percona/pmm repository',
             name: 'PMM_BRANCH')
     }
     environment {
