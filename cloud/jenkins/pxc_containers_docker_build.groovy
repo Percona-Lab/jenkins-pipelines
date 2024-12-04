@@ -13,6 +13,8 @@ void build(String IMAGE_PREFIX){
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-5.7-backup/Dockerfile percona-xtradb-cluster-5.7-backup
         elif [ ${IMAGE_PREFIX} = pxc8.0-backup ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0-backup/Dockerfile percona-xtradb-cluster-8.0-backup
+        elif [ ${IMAGE_PREFIX} = pxc8.4-backup ]; then
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.4-backup/Dockerfile percona-xtradb-cluster-8.4-backup
         elif [ ${IMAGE_PREFIX} = haproxy ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f haproxy/Dockerfile haproxy
         elif [ ${IMAGE_PREFIX} = logcollector ]; then
@@ -114,6 +116,9 @@ pipeline {
                     build('pxc8.0-backup')
                 }
                 retry(3) {
+                    build('pxc8.4-backup')
+                }
+                retry(3) {
                     build('proxysql')
                 }
                 retry(3) {
@@ -139,6 +144,7 @@ pipeline {
                 pushImageToDocker('proxysql')
                 pushImageToDocker('pxc5.7-backup')
                 pushImageToDocker('pxc8.0-backup')
+                pushImageToDocker('pxc8.4-backup')
                 pushImageToDocker('haproxy')
                 pushImageToDocker('logcollector')
             }
@@ -212,6 +218,16 @@ pipeline {
                     post {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc8.0-backup.xml"
+                        }
+                    }
+                }
+                stage('pxc8.4-backup'){
+                    steps {
+                        checkImageForDocker('pxc8.4-backup')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc8.4-backup.xml"
                         }
                     }
                 }
