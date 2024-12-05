@@ -331,6 +331,19 @@ pipeline {
                         """
 //                         setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
                         sh """
+                            echo "Creating Custom Queries"
+                            git clone https://github.com/Percona-Lab/pmm-custom-queries
+                            sudo cp pmm-custom-queries/mysql/*.yml /usr/local/percona/pmm2/collectors/custom-queries/mysql/high-resolution/
+                            echo "Adding Custom Queries for postgres"
+                            sudo cp pmm-custom-queries/postgresql/*.yaml /usr/local/percona/pmm2/collectors/custom-queries/postgresql/high-resolution/
+                            echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
+                            sudo cp node_role.prom /usr/local/percona/pmm2/collectors/textfile-collector/high-resolution/
+                            sudo pkill -f mysqld_exporter
+                            sudo pkill -f postgres_exporter
+                            sudo pkill -f node_exporter
+                            sleep 5
+                            echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
+
                             wget https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                             sudo rpm -i percona-release-latest.noarch.rpm
                             sudo percona-release enable-only pmm3-client experimental
