@@ -6,7 +6,7 @@ release_versions="source/e2e-tests/release_versions"
 String getParam(String paramName, String keyName = null) {
     keyName = keyName ?: paramName
 
-    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", , returnStdout: true).trim()
+    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
     if ("$param") {
         echo "$paramName=$param (from params file)"
     } else {
@@ -47,7 +47,7 @@ void prepareNode() {
 
     if ("$PLATFORM_VER" == "latest") {
         OC_VER = "4.15.25"
-        PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", , returnStdout: true).trim()
+        PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", returnStdout: true).trim()
     } else {
         if ("$PLATFORM_VER" <= "4.15.25") {
             OC_VER="$PLATFORM_VER"
@@ -81,9 +81,9 @@ void prepareNode() {
         currentBuild.description = "$release$GIT_BRANCH-$PLATFORM_VER-$cw-" + "$IMAGE_PXC".split(":")[1]
     }
 
-    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-    CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
+    CLUSTER_NAME = sh(script: "echo $JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -362,7 +362,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        DB_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
+        DB_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -462,7 +462,7 @@ pipeline {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        clusterRunner('cluster1')
+                        clusterRunner('c1')
                     }
                 }
                 stage('cluster2') {
@@ -470,7 +470,7 @@ pipeline {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        clusterRunner('cluster2')
+                        clusterRunner('c2')
                     }
                 }
                 stage('cluster3') {
@@ -478,7 +478,7 @@ pipeline {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        clusterRunner('cluster3')
+                        clusterRunner('c3')
                     }
                 }
                 stage('cluster4') {
@@ -486,7 +486,7 @@ pipeline {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        clusterRunner('cluster4')
+                        clusterRunner('c4')
                     }
                 }
                 stage('cluster5') {
@@ -494,7 +494,7 @@ pipeline {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        clusterRunner('cluster5')
+                        clusterRunner('c5')
                     }
                 }
                 stage('cluster6') {
@@ -502,7 +502,7 @@ pipeline {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        clusterRunner('cluster6')
+                        clusterRunner('c6')
                     }
                 }
                 stage('cluster7') {
@@ -510,7 +510,7 @@ pipeline {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        clusterRunner('cluster7')
+                        clusterRunner('c7')
                     }
                 }
             }
