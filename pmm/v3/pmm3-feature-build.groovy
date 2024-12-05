@@ -11,7 +11,6 @@ void addComment(String COMMENT) {
         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
 
         sh '''
-            PR_NUMBER=$(gh pr view --json number -q .number)
             curl -X POST \
                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                 -d @body.json \
@@ -88,8 +87,12 @@ pipeline {
                         export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:FB-${PR_NUMBER}-${FB_COMMIT:0:7}
 
                         ./build.sh --client-only
+                        docker push ${DOCKER_CLIENT_TAG}
                     '''
                   }
+                }
+                script {
+                    env.PR_NUMBER = sh(returnStdout: true, script: "cat PR_NUMBER").trim()
                 }
                 // stash includes: '.modules/build/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
                 // archiveArtifacts '.modules/build/docker/CLIENT_TAG'
@@ -104,7 +107,7 @@ pipeline {
                     def IMAGE = sh(returnStdout: true, script: "cat .modules/build/docker/CLIENT_TAG").trim()
                     slackSend channel: '@alex', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
                     if (currentBuild.result.equals("SUCCESS")) {
-                        addComment("Client image has been built: ${IMAGE}")
+                        addComment("Client image: ${IMAGE}")
                     }
                 } else {
                   echo "Client image not found"
