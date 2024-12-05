@@ -582,7 +582,7 @@ pipeline {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH} - path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
+                currentBuild.description = "Built on ${GIT_BRANCH} - packages [${COMPONENT}/${AWS_STASH_PATH}]"
             }
             deleteDir()
         }
