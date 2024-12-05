@@ -66,10 +66,9 @@ pipeline {
                 // stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
                 // stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
                 // stash includes: 'fbCommitSha', name: 'fbCommitSha'
-                slackSend channel: '@alex', color: '#0000FF', message: "[${JOB_NAME}]: v3 build started, URL: ${BUILD_URL}"
             }
         }
-        stage('Build the client') {
+        stage('Build PMM') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                   withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
@@ -85,40 +84,41 @@ pipeline {
 
                         PR_NUMBER=$(git ls-remote origin 'refs/pull/*/head' | grep ${FB_COMMIT} | awk -F'/' '{print $3}' | tee PR_NUMBER)
                         export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:FB-${PR_NUMBER}-${FB_COMMIT:0:7}
+                        export DOCKER_TAG=perconalab/pmm-server-fb:FB-${PR_NUMBER}-${FB_COMMIT:0:7}
 
-                        ./build.sh --client-only
+                        ./build.sh
                         docker push ${DOCKER_CLIENT_TAG}
+                        docker push ${DOCKER_TAG}
                     '''
                   }
                 }
                 script {
                     env.PR_NUMBER = sh(returnStdout: true, script: "cat PR_NUMBER").trim()
+                    if (fileExists('.modules/build/docker/CLIENT_TAG')) {
+                        env.CLIENT_IMAGE = sh(returnStdout: true, script: "cat .modules/build/docker/CLIENT_TAG").trim()
+                    } else {
+                      error "Client image could not be built."
+                    }
+                    if (fileExists('.modules/build/docker/TAG')) {
+                        env.SERVER_IMAGE = sh(returnStdout: true, script: "cat .modules/build/docker/TAG").trim()
+                    } else {
+                      error "Server image could not be built."
+                    }
                 }
-                // stash includes: '.modules/build/docker/CLIENT_TAG', name: 'CLIENT_IMAGE'
-                // archiveArtifacts '.modules/build/docker/CLIENT_TAG'
             }
         }
     }
     post {
         success {
             script {
-                // unstash 'CLIENT_IMAGE'
-                if (fileExists('.modules/build/docker/CLIENT_TAG')) {
-                    def IMAGE = sh(returnStdout: true, script: "cat .modules/build/docker/CLIENT_TAG").trim()
-                    slackSend channel: '@alex', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
-                    if (currentBuild.result.equals("SUCCESS")) {
-                        addComment("Client image: ${IMAGE}")
-                    }
-                } else {
-                  echo "Client image not found"
-                }
+                slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${CLIENT_IMAGE}, URL: ${BUILD_URL}"
+                def String msg = "Server docker: ${SERVER_IMAGE}\nClient docker: ${CLIENT_IMAGE}"
+                addComment(msg)
             }
         }
-        always {
+        failure {
             script {
-                if (currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '@alex', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
-                }
+                slackSend channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
         }
     }
