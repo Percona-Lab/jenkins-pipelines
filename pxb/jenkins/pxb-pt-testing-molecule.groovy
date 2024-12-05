@@ -6,7 +6,7 @@
 
     pipeline {
     agent {
-        label 'min-ol-8-x64'
+        label 'min-bookworm-x64'
     }
     environment {
         product_to_test = "${params.product_to_test}"
@@ -80,7 +80,7 @@
             stage('Prepare') {
                 steps {
                     script {
-                        installMolecule()
+                        installMoleculeBookworm()
                     }
                 }
             }
@@ -123,19 +123,7 @@
         }
     }
 
-def installMolecule() {
-    sh """
-        sudo yum install -y gcc python3-pip python3-devel libselinux-python3 zip
-        sudo yum remove ansible -y
-        python3 -m venv virtenv
-        . virtenv/bin/activate
-        python3 --version
-        python3 -m pip install --upgrade pip
-        python3 -m pip install --upgrade setuptools
-        python3 -m pip install --upgrade setuptools-rust
-        python3 -m pip install --upgrade molecule==3.3.0 testinfra pytest molecule-ec2==0.3 molecule[ansible] boto3 boto
-    """
-}
+
 def loadEnvFile(envFilePath) {
     def envMap = []
     def envFileContent = readFile(file: envFilePath).trim().split('\n')
