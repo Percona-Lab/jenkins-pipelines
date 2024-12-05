@@ -371,21 +371,6 @@ pipeline {
                         uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
-/*
-                stage('Debian Buster (10) tarball') {
-                    agent {
-                        label 'docker-32gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("debian:buster", "--build_tarball=1")
-
-                        pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
-                    }
-                }
-*/
                 stage('Debian Bullseye (11) tarball') {
                     agent {
                         label 'docker-32gb'
