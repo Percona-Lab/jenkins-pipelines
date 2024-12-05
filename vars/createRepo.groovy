@@ -1,5 +1,5 @@
 def call(String REPO_NAME, String REPO_TYPE, String REPO_COMPONENTS, String CENTOS_VERSIONS, String DEB_CODE_NAMES, String LIMIT) {
-    node('source-builder') {
+    node('jenkins') {
         deleteDir()
 
         withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {

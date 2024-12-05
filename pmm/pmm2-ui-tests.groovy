@@ -171,7 +171,7 @@ pipeline {
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
         string(
-            defaultValue: 'percona/percona-server-mongodb:4.4',
+            defaultValue: 'percona/percona-server-mongodb:latest',
             description: 'Percona Server MongoDb Docker Container Image',
             name: 'MONGO_IMAGE')
         string(
@@ -183,7 +183,7 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         text(
-            defaultValue: '--addclient=haproxy,1 --addclient=ps,1 --setup-external-service --setup-mysql-ssl --setup-mongodb-ssl --mongo-replica-for-backup',
+            defaultValue: '--addclient=haproxy,1 --addclient=ps,1 --setup-external-service --setup-mysql-ssl --mo-version "8.0" --setup-mongodb-ssl --mongo-replica-for-backup',
             description: '''
             Configure PMM Clients
             ms - MySQL (ex. --addclient=ms,1),
@@ -287,6 +287,9 @@ pipeline {
         stage('Setup Client for PMM-Server') {
             steps {
                 setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', ENABLE_PULL_MODE, 'no', 'yes', 'compose_setup', ADMIN_PASSWORD)
+                  script {
+                      env.SERVER_IP = "pmm-server"
+                  }
                 sh """
                     set -o errexit
                     set -o xtrace

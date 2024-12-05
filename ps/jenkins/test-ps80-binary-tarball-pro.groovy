@@ -3,9 +3,16 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
+
+
+def operatingsystems() {
+    return ['oracle-9','debian-12','ubuntu-jammy']
+}
+
+
 pipeline {
   agent {
-    label 'min-centos-7-x64'
+    label 'min-bookworm-x64'
   }
   environment {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
@@ -42,7 +49,6 @@ pipeline {
     withCredentials(moleculePdpsJenkinsCreds())
     disableConcurrentBuilds()
   }
-
   stages {
     stage('Set build name'){
       steps {
@@ -61,7 +67,7 @@ pipeline {
     stage ('Prepare') {
       steps {
         script {
-          installMolecule()
+          installMoleculeBookwormPXBPRO()
         }
       }
     }
@@ -70,7 +76,7 @@ pipeline {
       steps {
         withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
           script {
-            moleculeParallelTest(ps80ProOperatingSystems(), env.MOLECULE_DIR)
+            moleculeParallelTest(operatingsystems(), env.MOLECULE_DIR)
           }
         }
       }
@@ -79,7 +85,7 @@ pipeline {
   post {
     always {
       script {
-        moleculeParallelPostDestroy(ps80ProOperatingSystems(), env.MOLECULE_DIR)
+        moleculeParallelPostDestroy(operatingsystems(), env.MOLECULE_DIR)
       }
     }
   }

@@ -61,37 +61,7 @@ pipeline {
                     git submodule update --init --jobs 10
                     git submodule status
 
-                    if [ -s ci.yml ]; then
-                        source /home/ec2-user/venv/bin/activate
-                        python3 ci.py
-                        cat .git-sources
-                        . ./.git-sources
-                        echo $pmm_commit > apiCommitSha
-                        echo $pmm_branch > apiBranch
-                        echo $pmm_url > apiURL
-                        echo $pmm_qa_branch > pmmQABranch
-                        echo $pmm_qa_commit > pmmQACommitSha
-                        echo $pmm_ui_tests_branch > pmmUITestBranch
-                        echo $pmm_ui_tests_commit > pmmUITestsCommitSha
-                    else
-                        # Define variables
-                        pmm_commit=$(git submodule status | grep 'sources/pmm/src' | awk -F ' ' '{print $1}')
-                        echo $pmm_commit > apiCommitSha
-                        pmm_branch=$(git config -f .gitmodules submodule.pmm.branch)
-                        echo $pmm_branch > apiBranch
-                        pmm_url=$(git config -f .gitmodules submodule.pmm.url)
-                        echo $pmm_url > apiURL
-                        pmm_qa_branch=$(git config -f .gitmodules submodule.pmm-qa.branch)
-                        echo $pmm_qa_branch > pmmQABranch
-                        pmm_qa_commit=$(git submodule status | grep 'pmm-qa' | awk -F ' ' '{print $1}')
-                        echo $pmm_qa_commit > pmmQACommitSha
-                        pmm_ui_tests_branch=$(git config -f .gitmodules submodule.pmm-ui-tests.branch)
-                        echo $pmm_ui_tests_branch > pmmUITestBranch
-                        pmm_ui_tests_commit=$(git submodule status | grep 'pmm-ui-tests' | awk -F ' ' '{print $1}')
-                        echo $pmm_ui_tests_commit > pmmUITestsCommitSha
-                    fi
-                    fb_commit_sha=$(git rev-parse HEAD)
-                    echo $fb_commit_sha > fbCommitSha
+                    ${PATH_TO_SCRIPTS}/build-submodules
                 '''
                 }
                 script {
@@ -140,34 +110,6 @@ pipeline {
                 script {
                     sh (script: 'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${FB_COMMIT:0:7}.tar.gz" | tee CLIENT_URL')
                     env.CLIENT_URL = sh (script: "cat CLIENT_URL", returnStdout: true).trim()
-                }
-            }
-        }
-        stage('Build client source rpm') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        set -o errexit
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-
-                        ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:3
-                    '''
-                }
-            }
-        }
-        stage('Build client binary rpm') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        set -o errexit
-
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-
-                        ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:3
-
-                        mkdir -p tmp/pmm-server/RPMS/
-                        cp results/rpm/pmm-client-*.rpm tmp/pmm-server/RPMS/
-                    '''
                 }
             }
         }

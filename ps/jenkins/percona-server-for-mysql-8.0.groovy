@@ -37,6 +37,11 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         set -o xtrace
         mkdir -p test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
+        if [ ${FIPSMODE} = "YES" ]; then
+            sed -i 's|percona-server-server/usr|percona-server-server-pro/usr|g' ps_builder.sh
+            sed -i 's|dbg-package=percona-server-dbg|dbg-package=percona-server-pro-dbg|g' ps_builder.sh
+        fi
+        grep "percona-server-server" ps_builder.sh
         export build_dir=\$(pwd -P)
         if [ "$DOCKER_OS" = "none" ]; then
             set -o xtrace
@@ -207,6 +212,10 @@ parameters {
         string(defaultValue: '0', description: 'TokuBackup repository', name: 'TOKUBACKUP_REPO')
         string(defaultValue: 'Percona-Server-8.0.27-18', description: 'Tag/Branch for TokuBackup repository', name: 'TOKUBACKUP_BRANCH')
         choice(
+            choices: 'NO\nYES',
+            description: 'Prepare packages and tarballs for Centos 7',
+            name: 'ENABLE_EL7')
+        choice(
             choices: 'ON\nOFF',
             description: 'Compile with ZenFS support?, only affects Ubuntu Hirsute',
             name: 'ENABLE_ZENFS')
@@ -306,14 +315,13 @@ parameters {
         } // stage
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             parallel {
-/*
                 stage('Centos 7') {
                     agent {
                         label 'min-centos-7-x64'
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
+                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -327,7 +335,6 @@ parameters {
                         }
                     }
                 }
-*/
                 stage('Oracle Linux 8') {
                     agent {
                         label 'min-ol-8-x64'
@@ -608,14 +615,13 @@ parameters {
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
-/*
                 stage('Centos 7 binary tarball') {
                     agent {
                         label 'min-centos-7-x64'
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
+                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -635,7 +641,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
+                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -649,7 +655,6 @@ parameters {
                         }
                     }
                 }
-*/
                 stage('Oracle Linux 8 binary tarball') {
                     agent {
                         label 'min-ol-8-x64'
@@ -887,7 +892,7 @@ parameters {
                     } else {
                         if (env.FIPSMODE == 'YES') {
                             if ("${MYSQL_VERSION_MINOR}" == "4") {
-                                sync2PrivateProdAutoBuild("ps-84-lts-pro", COMPONENT)
+                                sync2PrivateProdAutoBuild("ps-84-pro", COMPONENT)
                             } else {
                                 sync2PrivateProdAutoBuild("ps-8x-innovation-pro", COMPONENT)
                             }

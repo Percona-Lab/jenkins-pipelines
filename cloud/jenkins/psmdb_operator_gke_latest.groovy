@@ -1,8 +1,64 @@
 region='us-central1-a'
 tests=[]
 clusters=[]
+release_versions="source/e2e-tests/release_versions"
+
+void verifyParams() {
+    if ("$RELEASE_RUN" == "YES") {
+        echo "=========================[ RELEASE RUN ]========================="
+        if (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD") {
+            error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided for release run!")
+        }
+
+        GKE_RELEASE_CHANNEL = "stable"
+        echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
+    }
+}
+
+String getParam(String PARAM_NAME) {
+    echo "=========================[ Getting parameters for release test ]========================="
+    def param = "${params[PARAM_NAME]}"
+
+    if ("$param" && "$param" != "null" && param != "") {
+        echo "$PARAM_NAME=$param (from job parameters)"
+        return param
+    } else {
+        param = sh(script: "cat $release_versions | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
+        if ("$param") {
+            echo "$PARAM_NAME=$param (from params file)"
+            return param
+        } else {
+            error("$PARAM_NAME not found in params file $release_versions")
+        }
+    }
+}
 
 void prepareNode() {
+    echo "=========================[ Cloning the sources ]========================="
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    sh """
+        # sudo is needed for better node recovery after compilation failure
+        # if building failed on compilation stage directory will have files owned by docker user
+        sudo git config --global --add safe.directory '*'
+        sudo git reset --hard
+        sudo git clean -xdf
+        sudo rm -rf source
+        cloud/local/checkout $GIT_REPO $GIT_BRANCH
+    """
+
+    if ("$RELEASE_RUN" == "YES") {
+        IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
+        IMAGE_MONGOD = getParam("IMAGE_MONGOD${PILLAR_VERSION}")
+        IMAGE_BACKUP = getParam("IMAGE_BACKUP")
+        IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
+        if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
+            PLATFORM_VER = getParam("GKE_${PLATFORM_VER}")
+        }
+    } else {
+        echo "=========================[ Not a release run. Using job params only! ]========================="
+    }
+
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
@@ -33,10 +89,6 @@ EOF
         """
     }
 
-    if ("$IMAGE_MONGOD") {
-        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_MONGOD".split(":")[1]
-    }
-
     if ("$PLATFORM_VER" == "latest") {
         USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
     } else {
@@ -44,22 +96,24 @@ EOF
     }
     echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 
-    echo "=========================[ Cloning the sources ]========================="
-    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-    sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo sudo git config --global --add safe.directory '*'
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf source
-        cloud/local/checkout $GIT_REPO $GIT_BRANCH
-    """
+    if ("$ARCH" == "amd64") {
+        MACHINE_TYPE="n1-standard-4"
+    } else if ("$ARCH" == "arm64") {
+        MACHINE_TYPE="t2a-standard-4"
+    } else {
+        error("Unknown architecture $ARCH")
+    }
+
+    if ("$IMAGE_MONGOD") {
+        release = ("$RELEASE_RUN" == "YES") ? "RELEASE-" : ""
+        cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
+        currentBuild.description = "${release}$GIT_BRANCH-$ARCH-$PLATFORM_VER-$GKE_RELEASE_CHANNEL-$cw-" + "$IMAGE_MONGOD".split(":")[1]
+    }
 
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$OPERATOR_IMAGE-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$ARCH-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -67,8 +121,8 @@ void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            if [[ "$OPERATOR_IMAGE" ]]; then
-                echo "SKIP: Build is not needed, PSMDB operator image was set!"
+            if [[ "$IMAGE_OPERATOR" ]]; then
+                echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
                 sg docker -c "
@@ -162,17 +216,17 @@ void createCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-
             maxRetries=15
             exitCode=1
+
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                    --release-channel rapid \
+                    --release-channel $GKE_RELEASE_CHANNEL \
                     --zone $region \
                     --cluster-version $USED_PLATFORM_VER \
                     --preemptible \
                     --disk-size 30 \
-                    --machine-type n1-standard-4 \
+                    --machine-type $MACHINE_TYPE \
                     --num-nodes=4 \
                     --min-nodes=4 \
                     --max-nodes=6 \
@@ -189,6 +243,16 @@ void createCluster(String CLUSTER_SUFFIX) {
                 sleep 1
             done
             if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
+
+            CURRENT_TIME=\$(date --rfc-3339=seconds)
+            FUTURE_TIME=\$(date -d '6 hours' --rfc-3339=seconds)
+
+            gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \
+                --zone $region \
+                --add-maintenance-exclusion-start "\$CURRENT_TIME" \
+                --add-maintenance-exclusion-end "\$FUTURE_TIME"
+
+            kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints,AGE:.metadata.creationTimestamp"
         """
    }
 }
@@ -210,7 +274,7 @@ void runTest(Integer TEST_ID) {
 
                     export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=psmdb-operator
-                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
+                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                     export IMAGE_MONGOD=$IMAGE_MONGOD
                     export IMAGE_BACKUP=$IMAGE_BACKUP
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
@@ -265,6 +329,15 @@ void makeReport() {
         TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
     }
     TestsReport = TestsReport + '</testsuite>\n'
+
+    echo "=========================[ Generating Images Report ]========================="
+    TestsImages = "testsuite name='PSMDB-GKE-latest'\n" +\
+                    "IMAGE_OPERATOR=$IMAGE_OPERATOR\n" +\
+                    "IMAGE_MONGOD=$IMAGE_MONGOD\n" +\
+                    "IMAGE_BACKUP=$IMAGE_BACKUP\n" +\
+                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" +\
+                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER\n" +\
+                    "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
@@ -304,6 +377,21 @@ pipeline {
             description: 'Ignore passed tests in previous run (run all)',
             name: 'IGNORE_PREVIOUS_RUN'
         )
+        choice(
+            choices: 'NO\nYES',
+            description: 'Release run?',
+            name: 'RELEASE_RUN'
+        )
+        choice(
+            choices: 'amd64\narm64',
+            description: 'Architecture',
+            name: 'ARCH'
+        )
+        string(
+            defaultValue: '70',
+            description: 'For RELEASE_RUN only. Major version like 70,60, etc',
+            name: 'PILLAR_VERSION'
+        )
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
@@ -317,13 +405,17 @@ pipeline {
             description: 'GKE kubernetes version',
             name: 'PLATFORM_VER')
         choice(
+            choices: 'rapid\nstable\nregular\nNone',
+            description: 'GKE release channel',
+            name: 'GKE_RELEASE_CHANNEL')
+        choice(
             choices: 'YES\nNO',
             description: 'Run tests in cluster wide mode',
             name: 'CLUSTER_WIDE')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-            name: 'OPERATOR_IMAGE')
+            name: 'IMAGE_OPERATOR')
         string(
             defaultValue: '',
             description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
@@ -353,6 +445,7 @@ pipeline {
     stages {
         stage('Prepare node') {
             steps {
+                verifyParams()
                 prepareNode()
             }
         }
@@ -407,9 +500,10 @@ pipeline {
             makeReport()
             sh """
                 echo "$TestsReport" > TestsReport.xml
+                echo "$TestsImages" > TestsImages.txt
             """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-            archiveArtifacts '*.xml'
+            archiveArtifacts '*.xml,*.txt'
 
             script {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
