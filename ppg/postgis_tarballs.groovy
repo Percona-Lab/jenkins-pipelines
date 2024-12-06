@@ -98,8 +98,8 @@ pipeline {
                    		cat timestamp
                 	"""
                     	TIMESTAMP = sh(returnStdout: true, script: "cat timestamp").trim()
-                        def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                        AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${TIMESTAMP}"
+                        def PRODUCT="PostGIS-${PG_VERSION}"
+                        AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PostGIS-Tarballs/${PRODUCT}/${TIMESTAMP}"
                         sh """
                                 echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                 cat uploadPath-${PG_VERSION}
