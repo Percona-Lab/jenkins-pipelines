@@ -286,6 +286,27 @@ pipeline {
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
                 }
+                stage('Amazon Linux 2023') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("amazonlinux:2023", "RPM")
+                        sh '''
+                            pwd
+                            ls -la test/rpm
+                            cp -r test/srpm .
+                            cp -r test/rpm .
+                        '''
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder("srpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Ubuntu Focal (20.04)') {
                     agent {
                         label 'docker'
