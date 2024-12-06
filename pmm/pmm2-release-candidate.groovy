@@ -257,7 +257,7 @@ pipeline {
         }
         stage('Check if Release Branch Exists') {
             steps {
-                deleteDir()#pmm-notifications
+                deleteDir()
                 script {
                     currentBuild.description = "$VERSION"
                     slackSend botUser: true,
