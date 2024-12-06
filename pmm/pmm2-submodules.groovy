@@ -113,7 +113,7 @@ pipeline {
                         set -o errexit
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                        ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                        ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:2
                     '''
                 }
             }
@@ -126,7 +126,7 @@ pipeline {
 
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                        ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                        ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:2
 
                         mkdir -p tmp/pmm-server/RPMS/
                         cp results/rpm/pmm2-client-*.rpm tmp/pmm-server/RPMS/
@@ -164,8 +164,7 @@ pipeline {
 
                         export RPM_EPOCH=1
                         export PATH=${PATH}:$(pwd -P)/${PATH_TO_SCRIPTS}
-                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                        export RPMBUILD_DIST="el9"
+                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:2
 
                         ${PATH_TO_SCRIPTS}/build-server-rpm-all
                     '''
@@ -186,8 +185,7 @@ pipeline {
                         export PUSH_DOCKER=1
                         export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}
 
-                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                        export RPMBUILD_DIST="el9"
+                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:2
                         export DOCKERFILE=Dockerfile.el9
 
                         ${PATH_TO_SCRIPTS}/build-server-docker
