@@ -83,8 +83,8 @@ pipeline {
                         printf "deps:\n%2s%s\n%4s%s\n" "  " "- name: pmm" "    " "branch: ${BRANCH_NAME}" | tee ci.yml
 
                         PR_NUMBER=$(git ls-remote origin 'refs/pull/*/head' | grep ${FB_COMMIT} | awk -F'/' '{print $3}' | tee PR_NUMBER)
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:FB-${PR_NUMBER}-${FB_COMMIT:0:7}
-                        export DOCKER_TAG=perconalab/pmm-server-fb:FB-${PR_NUMBER}-${FB_COMMIT:0:7}
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:PR-${PR_NUMBER}-${FB_COMMIT:0:7}
+                        export DOCKER_TAG=perconalab/pmm-server-fb:PR-${PR_NUMBER}-${FB_COMMIT:0:7}
 
                         ./build.sh
                         docker push ${DOCKER_CLIENT_TAG}
