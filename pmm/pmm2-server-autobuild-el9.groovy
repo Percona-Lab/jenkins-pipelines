@@ -78,7 +78,7 @@ pipeline {
         }
         stage('Build client source rpm') {
             steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9"
+                sh "${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:2"
                 stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
                 uploadRPM()
             }
@@ -88,7 +88,7 @@ pipeline {
                 sh """
                     set -o errexit
 
-                    ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                    ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:2
 
                     mkdir -p tmp/pmm-server/RPMS/
                     cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
@@ -102,13 +102,6 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
                         set -o errexit
-
-                        # These are used by `src/github.com/percona/pmm/build/scripts/vars`
-                        ## export ROOT_DIR=${WORKSPACE}
-                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                        export RPMBUILD_DIST="el9"
-                        # Set this variable if we need to rebuils all rpms, for example to refresh stale assets stored in S3 build cache
-                        # export FORCE_REBUILD=1
 
                         ${PATH_TO_SCRIPTS}/build-server-rpm-all
                     '''
@@ -135,8 +128,7 @@ pipeline {
                         export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
                     fi
 
-                    export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                    export RPMBUILD_DIST="el9"
+                    export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:2
                     export DOCKERFILE=Dockerfile.el9
                     # Build a docker image
                     ${PATH_TO_SCRIPTS}/build-server-docker
