@@ -35,6 +35,17 @@ void uploadTarballToTestingDownloadServer(String tarballDirectory, String packag
     }
 }
 
+void buildTarball(String platform, String architecture){
+
+     script {
+               unstash "uploadPath-${PG_VERSION}"
+               buildStage("${PG_VERSION}", platform, architecture)
+               pushArtifactFolder("postgis_output/", AWS_STASH_PATH)
+               uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH, "binary", "${PG_VERSION}")
+               uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+     }
+}
+
 void cleanUpWS() {
     sh """
         sudo rm -rf ./*
@@ -87,8 +98,15 @@ pipeline {
                    		cat timestamp
                 	"""
                     	TIMESTAMP = sh(returnStdout: true, script: "cat timestamp").trim()
+                        def PRODUCT="PostGIS-${PG_VERSION}"
+                        AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PostGIS-Tarballs/${PRODUCT}/${TIMESTAMP}"
+                        sh """
+                                echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
+                                cat uploadPath-${PG_VERSION}
+                        """
                 }
                 stash includes: 'timestamp', name: 'timestamp'
+                stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
             }
         }
 
@@ -101,18 +119,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_EL8_AMD64="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/el8/amd64/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_EL8_AMD64} > uploadPath-el8-amd64
-                                        cat uploadPath-el8-amd64
-                                """
-                                stash includes: "uploadPath-el8-amd64", name: "uploadPath-el8-amd64"
-                                buildStage("${PG_VERSION}", "el8", "amd64")
-                                pushArtifactFolder("postgis_output/", AWS_STASH_PATH_EL8_AMD64)
-                                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH_EL8_AMD64, "binary", "${PG_VERSION}")
-                                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+                                buildTarball("el8", "amd64")
                         }
                     }
                 }
@@ -123,18 +130,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_EL8_ARM64="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/el8/arm64/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_EL8_ARM64} > uploadPath-el8-arm64
-                                        cat uploadPath-el8-arm64
-                                """
-                                stash includes: "uploadPath-el8-arm64", name: "uploadPath-el8-arm64"
-                                buildStage("${PG_VERSION}", "el8", "arm64")
-                                pushArtifactFolder("postgis_output/", AWS_STASH_PATH_EL8_ARM64)
-                                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH_EL8_ARM64, "binary", "${PG_VERSION}")
-                                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+                                buildTarball("el8", "arm64")
                         }
                     }
                 }
@@ -145,18 +141,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_EL9_AMD64="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/el9/amd64/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_EL9_AMD64} > uploadPath-el9-amd64
-                                        cat uploadPath-el9-amd64
-                                """
-                                stash includes: "uploadPath-el9-amd64", name: "uploadPath-el9-amd64"
-                                buildStage("${PG_VERSION}", "el9", "amd64")
-                                pushArtifactFolder("postgis_output/", AWS_STASH_PATH_EL9_AMD64)
-                                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH_EL9_AMD64, "binary", "${PG_VERSION}")
-                                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+                                buildTarball("el9", "amd64")
                         }
                     }
                 }
@@ -167,18 +152,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_EL9_ARM64="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/el9/arm64/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_EL9_ARM64} > uploadPath-el9-arm64
-                                        cat uploadPath-el9-arm64
-                                """
-                                stash includes: "uploadPath-el9-arm64", name: "uploadPath-el9-arm64"
-                                buildStage("${PG_VERSION}", "el9", "arm64")
-                                pushArtifactFolder("postgis_output/", AWS_STASH_PATH_EL9_ARM64)
-                                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH_EL9_ARM64, "binary", "${PG_VERSION}")
-                                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+                                buildTarball("el9", "arm64")
                         }
                     }
                 }
@@ -189,18 +163,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_FOCAL_AMD64="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/focal/amd64/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_FOCAL_AMD64} > uploadPath-focal-amd64
-                                        cat uploadPath-focal-amd64
-                                """
-                                stash includes: "uploadPath-focal-amd64", name: "uploadPath-focal-amd64"
-                                buildStage("${PG_VERSION}", "focal", "amd64")
-                                pushArtifactFolder("postgis_output/", AWS_STASH_PATH_FOCAL_AMD64)
-                                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH_FOCAL_AMD64, "binary", "${PG_VERSION}")
-                                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+                                buildTarball("focal", "amd64")
                         }
                     }
                 }
@@ -211,18 +174,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_FOCAL_ARM64="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/focal/arm64/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_FOCAL_ARM64} > uploadPath-focal-arm64
-                                        cat uploadPath-focal-arm64
-                                """
-                                stash includes: "uploadPath-focal-arm64", name: "uploadPath-focal-arm64"
-                                buildStage("${PG_VERSION}", "focal", "arm64")
-                                pushArtifactFolder("postgis_output/", AWS_STASH_PATH_FOCAL_ARM64)
-                                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH_FOCAL_ARM64, "binary", "${PG_VERSION}")
-                                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+                                buildTarball("focal", "arm64")
                         }
                     }
                 }
@@ -233,18 +185,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_JAMMY_AMD64="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/jammy/amd64/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_JAMMY_AMD64} > uploadPath-jammy-amd64
-                                        cat uploadPath-jammy-amd64
-                                """
-                                stash includes: "uploadPath-jammy-amd64", name: "uploadPath-jammy-amd64"
-                                buildStage("${PG_VERSION}", "jammy", "amd64")
-                                pushArtifactFolder("postgis_output/", AWS_STASH_PATH_JAMMY_AMD64)
-                                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH_JAMMY_AMD64, "binary", "${PG_VERSION}")
-                                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+                                buildTarball("jammy", "amd64")
                         }
                     }
                 }
@@ -255,18 +196,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_JAMMY_ARM64="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/jammy/arm64/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_JAMMY_ARM64} > uploadPath-jammy-arm64
-                                        cat uploadPath-jammy-arm64
-                                """
-                                stash includes: "uploadPath-jammy-arm64", name: "uploadPath-jammy-arm64"
-                                buildStage("${PG_VERSION}", "jammy", "arm64")
-                                pushArtifactFolder("postgis_output/", AWS_STASH_PATH_JAMMY_ARM64)
-                                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH_JAMMY_ARM64, "binary", "${PG_VERSION}")
-                                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+                                buildTarball("jammy", "arm64")
                         }
                     }
                 }
@@ -277,18 +207,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_NOBLE_AMD64="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/noble/amd64/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_NOBLE_AMD64} > uploadPath-noble-amd64
-                                        cat uploadPath-noble-amd64
-                                """
-                                stash includes: "uploadPath-noble-amd64", name: "uploadPath-noble-amd64"
-                                buildStage("${PG_VERSION}", "noble", "amd64")
-                                pushArtifactFolder("postgis_output/", AWS_STASH_PATH_NOBLE_AMD64)
-                                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH_NOBLE_AMD64, "binary", "${PG_VERSION}")
-                                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+                                buildTarball("noble", "amd64")
                         }
                     }
                 }
@@ -299,18 +218,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_NOBLE_ARM64="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/noble/arm64/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_NOBLE_ARM64} > uploadPath-noble-arm64
-                                        cat uploadPath-noble-arm64
-                                """
-                                stash includes: "uploadPath-noble-arm64", name: "uploadPath-noble-arm64"
-                                buildStage("${PG_VERSION}", "noble", "arm64")
-                                pushArtifactFolder("postgis_output/", AWS_STASH_PATH_NOBLE_ARM64)
-                                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH_NOBLE_ARM64, "binary", "${PG_VERSION}")
-                                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+                                buildTarball("noble", "arm64")
                         }
                     }
                 }
@@ -321,18 +229,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_BULLSEYE_AMD64="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/bullseye/amd64/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_BULLSEYE_AMD64} > uploadPath-bullseye-amd64
-                                        cat uploadPath-bullseye-amd64
-                                """
-                                stash includes: "uploadPath-bullseye-amd64", name: "uploadPath-bullseye-amd64"
-                                buildStage("${PG_VERSION}", "bullseye", "amd64")
-                                pushArtifactFolder("postgis_output/", AWS_STASH_PATH_BULLSEYE_AMD64)
-                                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH_BULLSEYE_AMD64, "binary", "${PG_VERSION}")
-                                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+                                buildTarball("bullseye", "amd64")
                         }
                     }
                 }
@@ -343,18 +240,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_BULLSEYE_ARM64="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/bullseye/arm64/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_BULLSEYE_ARM64} > uploadPath-bullseye-arm64
-                                        cat uploadPath-bullseye-arm64
-                                """
-                                stash includes: "uploadPath-bullseye-arm64", name: "uploadPath-bullseye-arm64"
-                                buildStage("${PG_VERSION}", "bullseye", "arm64")
-                                pushArtifactFolder("postgis_output/", AWS_STASH_PATH_BULLSEYE_ARM64)
-                                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH_BULLSEYE_ARM64, "binary", "${PG_VERSION}")
-                                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+                                buildTarball("bullseye", "arm64")
                         }
                     }
                 }
@@ -365,18 +251,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_BOOKWORM_AMD64="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/bookworm/amd64/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_BOOKWORM_AMD64} > uploadPath-bookworm-amd64
-                                        cat uploadPath-bookworm-amd64
-                                """
-                                stash includes: "uploadPath-bookworm-amd64", name: "uploadPath-bookworm-amd64"
-                                buildStage("${PG_VERSION}", "bookworm", "amd64")
-                                pushArtifactFolder("postgis_output/", AWS_STASH_PATH_BOOKWORM_AMD64)
-                                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH_BOOKWORM_AMD64, "binary", "${PG_VERSION}")
-                                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+                                buildTarball("bookworm", "amd64")
                         }
                     }
                 }
@@ -387,18 +262,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PRODUCT="PostGIS-${PG_VERSION}-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_BOOKWORM_ARM64="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/bookworm/arm64/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_BOOKWORM_ARM64} > uploadPath-bookworm-arm64
-                                        cat uploadPath-bookworm-arm64
-                                """
-                                stash includes: "uploadPath-bookworm-arm64", name: "uploadPath-bookworm-arm64"
-                                buildStage("${PG_VERSION}", "bookworm", "arm64")
-                                pushArtifactFolder("postgis_output/", AWS_STASH_PATH_BOOKWORM_ARM64)
-                                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH_BOOKWORM_ARM64, "binary", "${PG_VERSION}")
-                                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
+                                buildTarball("bookworm", "arm64")
                         }
                     }
                 }

@@ -172,19 +172,6 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Buster(10)') {
-                    agent {
-                        label 'docker-32gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("debian:buster", "--build_mongosh=1 --build_variant=deb-x64")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
                 stage('Debian Bullseye(11)') {
                     agent {
                         label 'docker-32gb'

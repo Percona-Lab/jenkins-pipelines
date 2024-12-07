@@ -56,9 +56,9 @@ def call(String FOLDER_NAME, String AWS_STASH_PATH) {
 
                     if [ `find . -name "*.amzn2023.\${arch}.rpm" | wc -l` -gt 0 ]; then
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            mkdir -p \${path_to_build}/binary/redhat/9/\${arch}
+                            mkdir -p \${path_to_build}/binary/redhat/2023/\${arch}
                         scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                            `find . -name "*.el9.\${arch}.rpm"` \
+                            `find . -name "*.amzn2023.\${arch}.rpm"` \
                             ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/2023/\${arch}/
                     fi
 
