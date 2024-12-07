@@ -7,7 +7,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 void addComment(String COMMENT) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-        payload = [body: "${COMMENT}"]
+        payload = [ body: "${COMMENT}" ]
         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
 
         sh '''
@@ -45,7 +45,6 @@ pipeline {
                         echo "${PASS}" | docker login -u "${USER}" --password-stdin
                     '''
                 }                    
-                // withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                 withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
                     sh '''
                         set -o errexit
@@ -70,9 +69,10 @@ pipeline {
         }
         stage('Build PMM') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                  withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
-
+                withCredentials([
+                  aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),
+                  sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')
+                ]) {
                     sh '''
                         set -o errexit
 
@@ -90,10 +90,10 @@ pipeline {
                         docker push ${DOCKER_CLIENT_TAG}
                         docker push ${DOCKER_TAG}
                     '''
-                  }
                 }
                 script {
                     env.PR_NUMBER = sh(returnStdout: true, script: "cat PR_NUMBER").trim()
+                    env.CLIENT_URL = sh(script: "cat .modules/build/s3_tarball_url", returnStdout: true).trim()
                     if (fileExists('.modules/build/docker/CLIENT_TAG')) {
                         env.CLIENT_IMAGE = sh(returnStdout: true, script: "cat .modules/build/docker/CLIENT_TAG").trim()
                     } else {
@@ -112,8 +112,10 @@ pipeline {
         success {
             script {
                 slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${CLIENT_IMAGE}, URL: ${BUILD_URL}"
-                def String msg = "Server docker: ${SERVER_IMAGE}\nClient docker: ${CLIENT_IMAGE}"
-                addComment(msg)
+                def STAGING_URL = "https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/"
+                def MESSAGE = "Server docker: ${SERVER_IMAGE}\nClient docker: ${CLIENT_IMAGE}\n"
+                MESSAGE += "Client tarball: ${CLIENT_URL}\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
+                addComment(MESSAGE)
             }
         }
         failure {
