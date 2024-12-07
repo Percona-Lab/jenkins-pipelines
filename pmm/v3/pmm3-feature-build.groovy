@@ -82,28 +82,23 @@ pipeline {
                         # Create ci.yml file
                         printf "deps:\n%2s%s\n%4s%s\n" "  " "- name: pmm" "    " "branch: ${BRANCH_NAME}" | tee ci.yml
 
-                        PR_NUMBER=$(git ls-remote origin 'refs/pull/*/head' | grep ${FB_COMMIT} | awk -F'/' '{print $3}' | tee PR_NUMBER)
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:PR-${PR_NUMBER}-${FB_COMMIT:0:7}
-                        export DOCKER_TAG=perconalab/pmm-server-fb:PR-${PR_NUMBER}-${FB_COMMIT:0:7}
-
                         ./build.sh
-                        docker push ${DOCKER_CLIENT_TAG}
-                        docker push ${DOCKER_TAG}
+
+                        docker push $(cat .modules/build/docker/CLIENT_TAG)
+                        docker push $(cat .modules/build/docker/TAG)
                     '''
                 }
                 script {
-                    env.PR_NUMBER = sh(returnStdout: true, script: "cat PR_NUMBER").trim()
-                    env.CLIENT_URL = sh(script: "cat .modules/build/s3_tarball_url", returnStdout: true).trim()
-                    if (fileExists('.modules/build/docker/CLIENT_TAG')) {
-                        env.CLIENT_IMAGE = sh(returnStdout: true, script: "cat .modules/build/docker/CLIENT_TAG").trim()
-                    } else {
+                    if (!fileExists('.modules/build/docker/CLIENT_TAG')) {
                       error "Client image could not be built."
                     }
-                    if (fileExists('.modules/build/docker/TAG')) {
-                        env.SERVER_IMAGE = sh(returnStdout: true, script: "cat .modules/build/docker/TAG").trim()
-                    } else {
+                    if (!fileExists('.modules/build/docker/TAG')) {
                       error "Server image could not be built."
                     }
+                    env.CLIENT_URL = sh(returnStdout: true, script: "cat .modules/build/S3_TARBALL_URL")
+                    // env.PR_NUMBER = sh(returnStdout: true, script: "cat .modules/build/PR_NUMBER")
+                    env.CLIENT_IMAGE = sh(returnStdout: true, script: "cat .modules/build/docker/CLIENT_TAG")
+                    env.SERVER_IMAGE = sh(returnStdout: true, script: "cat .modules/build/docker/TAG")
                 }
             }
         }
@@ -113,7 +108,7 @@ pipeline {
             script {
                 slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${SERVER_IMAGE}, URL: ${BUILD_URL}"
                 def STAGING_URL = "https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/"
-                def MESSAGE = "Server docker: ${SERVER_IMAGE}\nClient docker: ${CLIENT_IMAGE}\n"
+                def MESSAGE = "Server docker: '${SERVER_IMAGE}'\nClient docker: '${CLIENT_IMAGE}'\n"
                 MESSAGE += "Client tarball: ${CLIENT_URL}\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${SERVER_IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
                 addComment(MESSAGE)
             }
