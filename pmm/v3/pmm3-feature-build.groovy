@@ -76,12 +76,7 @@ pipeline {
                 ]) {
                     sh '''
                         set -o errexit
-
                         export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
-
-                        BRANCH_NAME=$(git rev-parse --abbrev-ref HEAD)
-                        # Create ci.yml file
-                        printf "deps:\n%2s%s\n%4s%s\n" "  " "- name: pmm" "    " "branch: ${BRANCH_NAME}" | tee ci.yml
 
                         ./build.sh
 
@@ -109,8 +104,8 @@ pipeline {
             script {
                 slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${SERVER_IMAGE}, URL: ${BUILD_URL}"
                 def STAGING_URL = "https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/"
-                def MESSAGE = "Server docker: '${SERVER_IMAGE}'\nClient docker: '${CLIENT_IMAGE}'\n"
-                MESSAGE += "Client tarball: ${CLIENT_URL}\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${SERVER_IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
+                def MESSAGE = "Server docker: ${SERVER_IMAGE}\nClient docker: ${CLIENT_IMAGE}\nClient tarball: ${CLIENT_URL}\n"
+                MESSAGE += "Staging instance: ${STAGING_URL}?DOCKER_VERSION=${SERVER_IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
                 addIssueComment(env.PR_NUMBER, MESSAGE)
             }
         }
