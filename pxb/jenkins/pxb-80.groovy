@@ -284,6 +284,25 @@ pipeline {
                         }
                     }
                 }
+                stage('Oracle Linux 8 ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                buildStage("oraclelinux:8", "--build_rpm=1")
+
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
                 stage('Oracle Linux 9') {
                     agent {
                         label 'docker-32gb'
@@ -303,9 +322,47 @@ pipeline {
                         }
                     }
                 } 
+                stage('Oracle Linux 9 ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder("srpm/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("oraclelinux:9", "--build_rpm=1")
+                            }
+
+                            pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        }
+                    }
+                }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'docker-32gb'
+                    }
+                    steps {
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                buildStage("ubuntu:focal", "--build_deb=1")
+
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Ubuntu Focal(20.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         script {
@@ -341,9 +398,47 @@ pipeline {
                         }
                     }
                 }
+                stage('Ubuntu Jammy(22.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:jammy", "--build_deb=1")
+                            }
+
+                            pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        }
+                    }
+                }
                 stage('Ubuntu Noble(24.04)') {
                     agent {
                         label 'docker-32gb'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:noble", "--build_deb=1")
+                            }
+
+                            pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        }
+                    }
+                }
+                stage('Ubuntu Noble(24.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         script {
@@ -399,9 +494,46 @@ pipeline {
                         }
                     }
                 }
+                stage('Debian Bullseye(11) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                buildStage("debian:bullseye", "--build_deb=1")
+
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
                 stage('Debian Bookworm(12)') {
                     agent {
                         label 'docker-32gb'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:bookworm", "--build_deb=1")
+                            }
+                            pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        }
+                    }
+                }
+                stage('Debian Bookworm(12) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         script {
@@ -688,9 +820,9 @@ pipeline {
         always {
             script {
                 if (env.FIPSMODE == 'YES') {
-                    currentBuild.description = "PRO -> Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
+                    currentBuild.description = "PRO -> Built on ${BRANCH}; path to packages: [${COMPONENT}/${AWS_STASH_PATH}]"
                 } else {
-                    currentBuild.description = "Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
+                    currentBuild.description = "Built on ${BRANCH}; path to packages: [${COMPONENT}/${AWS_STASH_PATH}]"
                 }
             }
             sh '''
