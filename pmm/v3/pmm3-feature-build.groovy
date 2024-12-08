@@ -5,13 +5,14 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void addComment(String COMMENT) {
+void addIssueComment(String PR_NUMBER, String COMMENT) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-        payload = [ body: "${COMMENT}" ]
-        writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
+        writeFile(file: 'body.json', text: JsonOutput.toJson([ body: "${COMMENT}" ]))
 
         sh '''
-            curl -X POST \
+            curl -s -X POST \
+                -H "Accept: application/vnd.github+json" \
+                -H "X-GitHub-Api-Version: 2022-11-28" \
                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
                 -d @body.json \
                 "https://api.github.com/repos/percona/pmm/issues/${PR_NUMBER}/comments"
@@ -26,7 +27,7 @@ pipeline {
     parameters {
         string(
             defaultValue: 'PMM-13487-build-pmm-locally',
-            description: 'Tag/Branch for percona/pmm repository',
+            description: 'A branch name in percona/pmm repository',
             name: 'PMM_BRANCH')
     }
     environment {
@@ -96,7 +97,7 @@ pipeline {
                       error "Server image could not be built."
                     }
                     env.CLIENT_URL = sh(returnStdout: true, script: "cat .modules/build/S3_TARBALL_URL")
-                    // env.PR_NUMBER = sh(returnStdout: true, script: "cat .modules/build/PR_NUMBER")
+                    env.PR_NUMBER = sh(returnStdout: true, script: "cat .modules/build/PR_NUMBER")
                     env.CLIENT_IMAGE = sh(returnStdout: true, script: "cat .modules/build/docker/CLIENT_TAG")
                     env.SERVER_IMAGE = sh(returnStdout: true, script: "cat .modules/build/docker/TAG")
                 }
@@ -110,7 +111,7 @@ pipeline {
                 def STAGING_URL = "https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/"
                 def MESSAGE = "Server docker: '${SERVER_IMAGE}'\nClient docker: '${CLIENT_IMAGE}'\n"
                 MESSAGE += "Client tarball: ${CLIENT_URL}\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${SERVER_IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
-                addComment(MESSAGE)
+                addIssueComment(env.PR_NUMBER, MESSAGE)
             }
         }
         failure {
