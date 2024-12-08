@@ -125,7 +125,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("amazonlinux:2023", "--build_mongosh=1 --build_variant=rpm-arm64")
+                        buildStage("amazonlinux:2023", "--build_mongosh=1 --build_variant=rpm-x64")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
