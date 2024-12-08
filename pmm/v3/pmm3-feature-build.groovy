@@ -72,7 +72,8 @@ pipeline {
             steps {
                 withCredentials([
                   aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),
-                  sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')
+                  sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: ''),
+                  string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')
                 ]) {
                     sh '''
                         set -o errexit
