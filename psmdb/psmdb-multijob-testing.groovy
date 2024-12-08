@@ -41,5 +41,14 @@ pipeline {
                 }
             }
         }
+        stage ('Run integration tests') {
+            steps {
+                script {
+                    def version = params.PSMDB_VERSION + '-' + params.PSMDB_RELEASE
+                    build job: 'psmdb-integration', parameters: [string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "release"), string(name: 'PMM_IMAGE', value: "percona/pmm-server:latest") ]
+                    build job: 'psmdb-integration', parameters: [string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "experimental"), string(name: 'PMM_IMAGE', value: "perconalab/pmm-server:dev-latest") ]
+                }
+            }
+        }
     }
 } 
