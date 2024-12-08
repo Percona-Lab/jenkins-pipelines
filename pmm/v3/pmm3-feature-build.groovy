@@ -104,7 +104,7 @@ pipeline {
             script {
                 slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${SERVER_IMAGE}, URL: ${BUILD_URL}"
                 def STAGING_URL = "https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/"
-                def MESSAGE = "Server docker: ${SERVER_IMAGE}\nClient docker: ${CLIENT_IMAGE}\nClient tarball: ${CLIENT_URL}\n"
+                def MESSAGE = "Server docker: `${SERVER_IMAGE}`\nClient docker: `${CLIENT_IMAGE}`\nClient tarball: ${CLIENT_URL}\n"
                 MESSAGE += "Staging instance: ${STAGING_URL}?DOCKER_VERSION=${SERVER_IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
                 addIssueComment(env.PR_NUMBER, MESSAGE)
             }
