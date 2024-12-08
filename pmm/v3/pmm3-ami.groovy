@@ -63,13 +63,13 @@ pipeline {
                     slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished: ${env.AMI_ID}"
                 } else {
                     currentBuild.description = "AMI Instance ID: ${env.AMI_ID}"
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished: ${env.AMI_ID}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished: ${env.AMI_ID}"
                 }
             }
         }
         failure {
             echo "Pipeline failed"
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${BUILD_URL} failed"
+            slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${BUILD_URL} failed"
         }
     }
 }

@@ -78,13 +78,13 @@ pipeline {
     post {
         success {
             slackSend botUser: true,
-                      channel: '#pmm-ci',
+                      channel: '#pmm-notifications',
                       color: '#00FF00',
                       message: "PMM release tests for PMM ${VERSION} succeeded"
         }
         failure {
             slackSend botUser: true,
-                      channel: '#pmm-ci',
+                      channel: '#pmm-notifications',
                       color: '#FF0000',
                       message: "PMM release tests for PMM ${VERSION} failed"
         }

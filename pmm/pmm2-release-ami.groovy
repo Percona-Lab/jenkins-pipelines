@@ -119,13 +119,13 @@ pipeline {
         success {
 
             slackSend botUser: true,
-                        channel: '#pmm-ci',
+                        channel: '#pmm-notifications',
                         color: '#00FF00',
                         message: "PMM AMI release has finished"
         }
         failure {
             slackSend botUser: true,
-                      channel: '#pmm-ci',
+                      channel: '#pmm-notifications',
                       color: '#FF0000',
                       message: "PMM AMI release has failed"
         }
