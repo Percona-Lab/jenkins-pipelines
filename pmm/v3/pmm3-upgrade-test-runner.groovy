@@ -114,7 +114,23 @@ pipeline {
         choice(
             choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"],
             description: 'Subset of tests for the upgrade',
-            name: 'UPGRADE_FLAG')
+            name: 'UPGRADE_FLAG'),
+        string(
+            defaultValue: '8.0',
+            description: "Percona Server for MySQL version",
+            name: 'PS_VERSION')
+        string(
+            defaultValue: '16',
+            description: "Which version of PostgreSQL",
+            name: 'PGSQL_VERSION')
+        string(
+            defaultValue: '16',
+            description: "Which version of Percona Distribution for PostgreSQL",
+            name: 'PDPGSQL_VERSION')
+        string(
+            defaultValue: '8.0',
+            description: "Which version of Percona Server for MongoDB",
+            name: 'PSMDB_VERSION')
     }
     options {
         skipDefaultCheckout()
@@ -140,103 +156,42 @@ pipeline {
             }
         }
         stage('Select subset of tests') {
-            parallel {
-                stage('Select SSL Tests') {
-                    when {
-                        expression { env.UPGRADE_FLAG == "SSL" }
-                    }
-                    steps {
-                         script {
-                            env.PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
-                            env.POST_UPGRADE_FLAG = "@post-ssl-upgrade"
-                            env.PMM_CLIENTS = "--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql=16"
-                         }
-                    }
-                }
-                stage('Select External Services Tests') {
-                    when {
-                        expression { env.UPGRADE_FLAG == "EXTERNAL SERVICES" }
-                    }
-                    steps {
-                         script {
-                            env.PRE_UPGRADE_FLAG = "@pre-external-upgrade"
-                            env.POST_UPGRADE_FLAG = "@post-external-upgrade"
-                            env.PMM_CLIENTS = "--database external"
-                         }
-                    }
-                }
-                stage('Select Mongo Backup Tests') {
-                    when {
-                        expression { env.UPGRADE_FLAG == "MONGO BACKUP" }
-                    }
-                    steps {
-                         script {
-                            env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
-                            env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
-                            env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss"
-                         }
-                    }
-                }
-                stage('Select Custom Password Tests') {
-                    when {
-                        expression { env.UPGRADE_FLAG == "CUSTOM PASSWORD" }
-                    }
-                    steps {
-                         script {
-                            env.PRE_UPGRADE_FLAG = "@pre-custom-password-upgrade"
-                            env.POST_UPGRADE_FLAG = "@post-custom-password-upgrade"
-                            env.PMM_CLIENTS = "--database ps --database pgsql=16 --database psmdb"
-                         }
-                    }
-                }
-                stage('Select Custom dashboards Tests') {
-                    when {
-                        expression { env.UPGRADE_FLAG == "CUSTOM DASHBOARDS" }
-                    }
-                    steps {
-                         script {
-                            env.PRE_UPGRADE_FLAG = "@pre-dashboards-upgrade"
-                            env.POST_UPGRADE_FLAG = "@post-dashboards-upgrade"
-                            env.PMM_CLIENTS = "--help"
-                         }
-                    }
-                }
-                stage('Select Annotations and Prometheus Tests') {
-                    when {
-                        expression { env.UPGRADE_FLAG == "ANNOTATIONS-PROMETHEUS" }
-                    }
-                    steps {
-                         script {
-                            env.PRE_UPGRADE_FLAG = "@pre-annotations-prometheus-upgrade"
-                            env.POST_UPGRADE_FLAG = "@post-annotations-prometheus-upgrade"
-                            env.PMM_CLIENTS = "--database ps --database pgsql --database psmdb"
-                         }
-                    }
-                }
-                stage('Select Advisors and Alerting Tests') {
-                    when {
-                        expression { env.UPGRADE_FLAG == "ADVISORS-ALERTING" }
-                    }
-                    steps {
-                         script {
-                            env.PRE_UPGRADE_FLAG = "@pre-advisors-alerting-upgrade"
-                            env.POST_UPGRADE_FLAG = "@post-advisors-alerting-upgrade"
-                            env.PMM_CLIENTS = "--help"
-                         }
-                    }
-                }
-                stage('Select Settings and Metrics Tests') {
-                    when {
-                        expression { env.UPGRADE_FLAG == "SETTINGS-METRICS" }
-                    }
-                    steps {
-                         script {
-                            env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade"
-                            env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade"
-                            env.PMM_CLIENTS = "--database ps --database pgsql --database psmdb"
-                         }
-                    }
-                }
+            steps {
+                sh """
+                    if [[ ${UPGRADE_FLAG} == "SSL" ]]; then
+                        export PRE_UPGRADE_FLAG="@pre-ssl-upgrade"
+                        export POST_UPGRADE_FLAG="@post-ssl-upgrade"
+                        export PMM_CLIENTS="--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql"
+                    elif [[ ${UPGRADE_FLAG} == "EXTERNAL SERVICES" ]]; then
+                        export PRE_UPGRADE_FLAG="@pre-external-upgrade"
+                        export POST_UPGRADE_FLAG="@post-external-upgrade"
+                        export PMM_CLIENTS="--database external"
+                    elif [[ ${UPGRADE_FLAG} == "MONGO BACKUP" ]]; then
+                        export PRE_UPGRADE_FLAG="@pre-mongo-backup-upgrade"
+                        export POST_UPGRADE_FLAG="@post-mongo-backup-upgrade"
+                        export PMM_CLIENTS="--database psmdb,SETUP_TYPE=pss"
+                    elif [[ ${UPGRADE_FLAG} == "CUSTOM PASSWORD" ]]; then
+                        export PRE_UPGRADE_FLAG="@pre-custom-password-upgrade"
+                        export POST_UPGRADE_FLAG="@post-custom-password-upgrade"
+                        export PMM_CLIENTS="--database ps --database pgsql --database psmdb"
+                    elif [[ ${UPGRADE_FLAG} == "CUSTOM DASHBOARDS" ]]; then
+                        export PRE_UPGRADE_FLAG="@pre-dashboards-upgrade"
+                        export POST_UPGRADE_FLAG="@post-dashboards-upgrade"
+                        export PMM_CLIENTS="--help"
+                    elif [[ ${UPGRADE_FLAG} == "ANNOTATIONS-PROMETHEUS" ]]; then
+                        export PRE_UPGRADE_FLAG="@pre-annotations-prometheus-upgrade"
+                        export POST_UPGRADE_FLAG="@post-annotations-prometheus-upgrade"
+                        export PMM_CLIENTS="--database ps --database pgsql --database psmdb"
+                    elif [[ ${UPGRADE_FLAG} == "ADVISORS-ALERTING" ]]; then
+                        export PRE_UPGRADE_FLAG="@pre-advisors-alerting-upgrade"
+                        export POST_UPGRADE_FLAG="@post-advisors-alerting-upgrade"
+                        export PMM_CLIENTS="--help"
+                    elif [[ ${UPGRADE_FLAG} == "SETTINGS-METRICS" ]]; then
+                        export PRE_UPGRADE_FLAG="@pre-settings-metrics-upgrade"
+                        export POST_UPGRADE_FLAG="@post-settings-metrics-upgrade"
+                        export PMM_CLIENTS="--database ps --database pgsql --database psmdb"
+                    fi
+                """
             }
         }
         stage('Start Server Instance') {
@@ -329,28 +284,28 @@ pipeline {
                             echo ${CLIENT_VERSION}
                             echo ${CLIENT_VERSION.trim()}
                         """
-//                         setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
-                        sh """
-                            wget https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-                            sudo rpm -i percona-release-latest.noarch.rpm
-                            sudo percona-release enable-only pmm3-client experimental
-                            sudo yum install -y pmm-client
-                            sudo pmm-agent setup --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml --server-address=127.0.0.1:443 --server-insecure-tls --metrics-mode=auto --server-username=admin --server-password=admin
-
-                            echo "Creating Custom Queries"
-                            git clone https://github.com/Percona-Lab/pmm-custom-queries
-                            sudo cp pmm-custom-queries/mysql/*.yml /usr/local/percona/pmm/collectors/custom-queries/mysql/high-resolution/
-                            echo "Adding Custom Queries for postgres"
-                            sudo cp pmm-custom-queries/postgresql/*.yaml /usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
-                            echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
-                            sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
-                            sudo pkill -f mysqld_exporter
-                            sudo pkill -f postgres_exporter
-                            sudo pkill -f node_exporter
-                            sleep 5
-                            echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
-                        """
-                    }
+                        setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
+//                         sh """
+//                             wget https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+//                             sudo rpm -i percona-release-latest.noarch.rpm
+//                             sudo percona-release enable-only pmm3-client experimental
+//                             sudo yum install -y pmm-client
+//                             sudo pmm-agent setup --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml --server-address=127.0.0.1:443 --server-insecure-tls --metrics-mode=auto --server-username=admin --server-password=admin
+//
+//                             echo "Creating Custom Queries"
+//                             git clone https://github.com/Percona-Lab/pmm-custom-queries
+//                             sudo cp pmm-custom-queries/mysql/*.yml /usr/local/percona/pmm/collectors/custom-queries/mysql/high-resolution/
+//                             echo "Adding Custom Queries for postgres"
+//                             sudo cp pmm-custom-queries/postgresql/*.yaml /usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
+//                             echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
+//                             sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
+//                             sudo pkill -f mysqld_exporter
+//                             sudo pkill -f postgres_exporter
+//                             sudo pkill -f node_exporter
+//                             sleep 5
+//                             echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
+//                         """
+//                     }
                 }
                 stage('Install dependencies') {
                     steps {
