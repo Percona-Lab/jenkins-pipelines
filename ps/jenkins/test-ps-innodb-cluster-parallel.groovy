@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@add-version-parameter-support', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -32,13 +32,14 @@ if (params.TEST_DIST == "all") {
 
 void runNodeBuild(String TEST_DIST) {
     build(
-        job: 'test-ps-innodb-cluster',
+        job: 'test-ps-innodb-cluster-test',
         parameters: [
-            string(name: "UPSTREAM_VERSION", value: UPSTREAM_VERSION),
-            string(name: "PS_VERSION", value: params.PS_VERSION),
-            string(name: "PS_REVISION", value: params.PS_REVISION),
+            string(name: "PRODUCT_TO_TEST", value: params.PRODUCT_TO_TEST),
+            //string(name: "UPSTREAM_VERSION", value: params.UPSTREAM_VERSION),
+            //string(name: "PS_VERSION", value: params.PS_VERSION),
+            //string(name: "PS_REVISION", value: params.PS_REVISION),
             string(name: "TEST_DIST", value: TEST_DIST),
-            string(name: "INSTALL_REPO", value: params.INSTALL_REPO),         
+            string(name: "INSTALL_REPO", value: params.INSTALL_REPO),          
         ],
         propagate: true,
         wait: true
@@ -49,22 +50,15 @@ pipeline {
     agent {
         label 'docker'
     }
+    environment {
+        PRODUCT_TO_TEST = "${params.PRODUCT_TO_TEST}"
+    }
 
     parameters {
-        string(
-            name: 'UPSTREAM_VERSION',
-            defaultValue: '8.0.32',
-            description: 'Upstream MySQL version'
-        )
-        string(
-            name: 'PS_VERSION',
-            defaultValue: '24',
-            description: 'Percona part of version'
-        )
-        string(
-            name: 'PS_REVISION',
-            defaultValue: 'e5c6e9d2',
-            description: 'Short git hash for release'
+        choice(
+            choices: ['PS80','PS84','PS_LTS_INN'],
+            description: 'Product for which the packages will be tested',
+            name: 'PRODUCT_TO_TEST'
         )
         choice(
             name: 'TEST_DIST',
@@ -100,8 +94,67 @@ pipeline {
             description: 'Repo to install packages from'
         )
     }
-
     stages {
+        stage('SET UPSTREAM_VERSION,PS_VERSION and PS_REVISION') {
+            steps {
+                script {
+                    echo "PRODUCT_TO_TEST is: ${env.PRODUCT_TO_TEST}"
+                    sh '''
+                        rm -rf /package-testing
+                        rm -f master.zip
+                        wget https://github.com/Percona-QA/package-testing/archive/master.zip
+                        unzip master.zip
+                        rm -f master.zip
+                        mv "package-testing-master" package-testing
+                        echo "Contents of package-testing directory:"
+                        ls -l package-testing
+                        echo "Contents of VERSIONS file:"
+                        cat package-testing/VERSIONS
+                    '''
+                    
+                    def UPSTREAM_VERSION = sh(
+                        script: ''' 
+                            grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}'
+                         ''',
+                        returnStdout: true
+                        ).trim()
+
+                    def PS_VERSION = sh(
+                        script: ''' 
+                            grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}'
+                        ''',
+                        returnStdout: true
+                        ).trim()
+
+                    def PS_REVISION = sh(
+                        script: '''
+                             grep ${PRODUCT_TO_TEST}_REV package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' 
+                        ''',
+                        returnStdout: true
+                        ).trim()
+                    
+                    
+                    env.UPSTREAM_VERSION = UPSTREAM_VERSION
+                    env.PS_VERSION = PS_VERSION
+                    env.PS_REVISION = PS_REVISION
+
+                    echo "UPSTREAM_VERSION fetched: ${env.UPSTREAM_VERSION}"
+                    echo "PS_VERSION fetched: ${env.PS_VERSION}"
+                    echo "PS_REVISION fetched: ${env.PS_REVISION}"
+
+                }
+            }
+        }
+        stage('Set environmental variable'){
+            steps{
+                 script {
+                    // Now, you can access these global environment variables
+                    echo "Using UPSTREAM_VERSION: ${env.UPSTREAM_VERSION}"
+                    echo "Using PS_VERSION: ${env.PS_VERSION}"
+                    echo "Using PS_REVISION: ${env.PS_REVISION}"
+                }
+            }
+        }
         stage("Prepare") {
             steps {
 	        script {
