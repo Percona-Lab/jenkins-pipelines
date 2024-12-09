@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@add-version-parameter-support', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Grishma123-Eng/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 void installDependencies() {
@@ -90,7 +90,7 @@ pipeline {
 
     parameters {
         choice(
-            choices: ['PS80','PS84','PS_LTS_INN','client_test'],
+            choices: ['PS80','PS84','PS_LTS_INN'],
             description: 'Product for which the packages will be tested',
             name: 'PRODUCT_TO_TEST'
         )
@@ -227,4 +227,3 @@ pipeline {
         }
     }
 }
-

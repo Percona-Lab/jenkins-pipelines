@@ -1,5 +1,5 @@
 - job:
-    name: test-ps-innodb-cluster-parallel-test-grishma
+    name: test-ps-innodb-cluster-parallel-test
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -12,12 +12,12 @@
     pipeline-scm:
         scm:
             - git:
-                url:  https://github.com/Grishma123-Eng/jenkins-pipelines.git
+                url:  https://github.com/Percona-Lab/jenkins-pipelines.git
                 branches:
                     - 'add-version-parameter-support'
                 wipe-workspace: true
         lightweight-checkout: true
-        script-path: ps/jenkins/test-ps-innodb-cluster-parallel-test-grishma.groovy
+        script-path: ps/jenkins/test-ps-innodb-cluster-parallel-test.groovy
     parameters:
         - choice:
             name: PRODUCT_TO_TEST

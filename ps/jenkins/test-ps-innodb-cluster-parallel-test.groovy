@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@add-version-parameter-support', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Grishma123-Eng/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 List all_nodes = [
@@ -32,7 +32,7 @@ if (params.TEST_DIST == "all") {
 
 void runNodeBuild(String TEST_DIST) {
     build(
-        job: 'test-ps-innodb-cluster-test-grishma',
+        job: 'test-ps-innodb-cluster-test',
         parameters: [
             string(name: "PRODUCT_TO_TEST", value: params.PRODUCT_TO_TEST),
             //string(name: "UPSTREAM_VERSION", value: params.UPSTREAM_VERSION),
