@@ -423,13 +423,13 @@ pipeline {
                 }
             }
         }
-//         stage('Check Client before Upgrade') {
-//             steps {
-//                 script {
-//                     checkClientBeforeUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION)
-//                 }
-//             }
-//         }
+        stage('Check Client before Upgrade') {
+            steps {
+                script {
+                    checkClientBeforeUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION)
+                }
+            }
+        }
 //         stage('Check Client Upgrade') {
 //             steps {
 //                 checkClientAfterUpgrade(PMM_SERVER_LATEST);
