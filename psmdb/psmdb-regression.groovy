@@ -11,25 +11,24 @@ pipeline {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
-        choice(name: 'image', choices: ['build','tarball','predefined'], description: 'Build image from sources, build image from tarball, or use predefined docker image for tests')
-        string(name: 'dockerfile', defaultValue: 'https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/regression-tests/build_image/Dockerfile', description: 'Dockerfile for image')
-        string(name: 'branch', defaultValue: 'v6.0', description: 'Repo branch for build image from sources')
-        string(name: 'version', defaultValue: '6.0.3', description: 'Version for build tag (psm_ver) to build image from sources')
-        string(name: 'release', defaultValue: '3', description: 'Release for build tag (psm_release) to build image from sources')
+        choice(name: 'image', choices: ['build','predefined'], description: 'Build image from sources or use predefined docker image for tests')
+        string(name: 'dockerfile', defaultValue: 'https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/regression-tests/build_image/Dockerfile_gcc_from_scratch', description: 'Dockerfile for image')
+        string(name: 'branch', defaultValue: 'v8.0', description: 'Repo branch for build image from sources')
+        string(name: 'version', defaultValue: '8.0.4', description: 'Version for build tag (psm_ver) to build image from sources')
+        string(name: 'release', defaultValue: '1', description: 'Release for build tag (psm_release) to build image from sources')
+        choice(name: 'toolchain_version', choices: ['v4','v3'], description: 'Toolchain version, v3 contains GCC 8.5.0 and Python 3.8.19, v4 contains GCC 11.3.0 and Python 3.10.14')
         booleanParam(name: 'build_pro_version',defaultValue: false, description: 'Build PSMDB pro version')
-        string(name: 'mongo_tools', defaultValue: '100.6.0', description: 'Mongo tools tag (mongo_tools_tag) to build image from sources')
-        string(name: 'srctarball', defaultValue: 'https://downloads.percona.com/downloads/percona-server-mongodb-LATEST/percona-server-mongodb-4.4.9-10/source/tarball/percona-server-mongodb-4.4.9-10.tar.gz', description: 'Tarball with sources to build image from ready tarballs')
-        string(name: 'bintarball', defaultValue: 'https://downloads.percona.com/downloads/percona-server-mongodb-LATEST/percona-server-mongodb-4.4.9-10/binary/tarball/percona-server-mongodb-4.4.9-10-x86_64.glibc2.17.tar.gz', description: 'Tarball with binaries to build image from ready tarballs')
-        string(name: 'tag', defaultValue: '6.0.3', description: 'Docker image tag to push/pull to/from registry, should be defined manually')
+        string(name: 'tag', defaultValue: '8.0.4', description: 'Docker image tag to push/pull to/from registry, should be defined manually')
         string(name: 'parallelexecutors', defaultValue: '1', description: 'Number of parallel executors')
-        string(name: 'testsuites', defaultValue: 'core', description: 'Comma-separated list of testuites')
+        string(name: 'testsuites', defaultValue: 'core,unittests,dbtest', description: 'Comma-separated list of testuites')
         string(name: 'listsuites', defaultValue: '', description: 'URL with list of testuites')
         choice(name: 'instance', choices: ['docker-64gb','docker-64gb-aarch64'], description: 'Ec2 instance type for running suites')
-        string(name: 'paralleljobs', defaultValue: '2', description: 'Number of parallel jobs passed to resmoke.py')
-        booleanParam(name: 'unittests',defaultValue: false, description: 'Check if list of suites contains unittests')
+        string(name: 'paralleljobs', defaultValue: '4', description: 'Number of parallel jobs passed to resmoke.py')
+        booleanParam(name: 'unittests',defaultValue: true, description: 'Check if list of suites contains unittests')
         booleanParam(name: 'integrationtests',defaultValue: false, description: 'Check if list of suites contains integration tests')
         booleanParam(name: 'benchmarktests',defaultValue: false, description: 'Check if list of suites contains benchmark tests')
-        string(name: 'scons_params', defaultValue: 'CC=/usr/bin/gcc-10 CXX=/usr/bin/g++-10 --disable-warnings-as-errors --release --ssl --opt=size -j6 --use-sasl-client --wiredtiger --audit --inmemory --hotbackup CPPPATH=/usr/local/include LIBPATH=/usr/local/lib', description: 'Parameters for scons')
+        string(name: 'OS', defaultValue: 'debian:12', description: 'Base OS, can be changed to build the image for PBM tests')
+        string(name: 'scons_params', defaultValue: '--variables-files=gcc.vars --disable-warnings-as-errors  --ssl --opt=size -j8 --use-sasl-client --wiredtiger --audit --inmemory --hotbackup ', description: 'Parameters for scons')
         string(name: 'resmoke_params', defaultValue: '--excludeWithAnyTags=featureFlagColumnstoreIndexes,featureFlagUpdateOneWithoutShardKey,featureFlagGlobalIndexesShardingCatalog,featureFlagGlobalIndexes,featureFlagTelemetry,featureFlagAuditConfigClusterParameter,serverless,does_not_support_config_fuzzer,featureFlagDeprioritizeLowPriorityOperations,featureFlagSbeFull,featureFlagQueryStats,featureFlagTransitionToCatalogShard,requires_latch_analyzer', description: 'Extra params passed to resmoke.py')
     }
     options {
@@ -69,54 +68,16 @@ pipeline {
                          build_args="--build-arg branch=${params.branch} \
                              --build-arg psm_ver=${params.version} \
                              --build-arg psm_release=${params.release} \
-                             --build-arg mongo_tools_tag=${params.mongo_tools}"
+                             --build-arg toolchain_version=${params.toolchain_version} \
+                             --build-arg OS=${params.OS}"
 
                          if [ "${params.build_pro_version}" = "true" ]; then
                              build_args="\${build_args} --build-arg pro=--full-featured"
                          fi
-
-                         if [ \$VER -ge 6 ]; then
-                             docker build . -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \${build_args}
-                         else
-                             build_args="\${build_args} --build-arg special_targets=dbtest"
-                             docker build . -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \${build_args}
-                         fi
+                         docker build . -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \${build_args}
                          docker push public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag}
                      """
                 }    
-            }
-            post {
-                always {
-                    sh 'sudo rm -rf ./*'
-                }
-            }
-        }
-        stage ('Build image from tarball') {
-            agent { label "${params.instance}" }
-            when {
-                beforeAgent true
-                environment name: 'image', value: 'tarball'
-            }
-            steps {
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                     sh """
-                         if [[ ${params.instance} =~ "aarch64" ]]; then
-                            curl "https://awscli.amazonaws.com/awscli-exe-linux-aarch64.zip" -o "awscliv2.zip"
-                         else
-                            curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-                         fi
-                         if [ -f "/usr/bin/yum" ] ; then sudo yum install -y unzip ; else sudo apt-get update && apt-get -y install unzip ; fi
-                         unzip -o awscliv2.zip
-                         sudo ./aws/install
-                         aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
-                         curl -o Dockerfile https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/regression-tests/tarball_image/Dockerfile
-                         docker build . -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \
-                                --build-arg branch=${params.branch} \
-                                --build-arg sources=${params.srctarball} \
-                                --build-arg tarball=${params.bintarball} 
-                         docker push public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag}
-                     """
-                }
             }
             post {
                 always {
