@@ -294,30 +294,6 @@ pipeline {
                             echo ${CLIENT_VERSION.trim()}
                         """
                         setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
-                        sh """
-                            sudo pmm-admin config --server-url=https://admin:admin@127.0.0.1:443 --server-insecure-tls 18.191.65.188
-
-                        """
-//                         sh """
-//                             wget https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-//                             sudo rpm -i percona-release-latest.noarch.rpm
-//                             sudo percona-release enable-only pmm3-client experimental
-//                             sudo yum install -y pmm-client
-//                             sudo pmm-agent setup --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml --server-address=127.0.0.1:443 --server-insecure-tls --metrics-mode=auto --server-username=admin --server-password=admin
-//
-//                             echo "Creating Custom Queries"
-//                             git clone https://github.com/Percona-Lab/pmm-custom-queries
-//                             sudo cp pmm-custom-queries/mysql/*.yml /usr/local/percona/pmm/collectors/custom-queries/mysql/high-resolution/
-//                             echo "Adding Custom Queries for postgres"
-//                             sudo cp pmm-custom-queries/postgresql/*.yaml /usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
-//                             echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
-//                             sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
-//                             sudo pkill -f mysqld_exporter
-//                             sudo pkill -f postgres_exporter
-//                             sudo pkill -f node_exporter
-//                             sleep 5
-//                             echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
-//                         """
                     }
                 }
                 stage('Install dependencies') {
