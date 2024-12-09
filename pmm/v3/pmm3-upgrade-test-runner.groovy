@@ -131,6 +131,10 @@ pipeline {
             defaultValue: '8.0',
             description: "Which version of Percona Server for MongoDB",
             name: 'PSMDB_VERSION')
+        string(
+            defaultValue: 'admin',
+            description: "Password for PMM Server ",
+            name: 'ADMIN_PASSWORD')
     }
     options {
         skipDefaultCheckout()
@@ -174,30 +178,28 @@ pipeline {
                         env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
                         env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss"
+                    } else if (env.UPGRADE_FLAG == "CUSTOM PASSWORD") {
+                        env.PRE_UPGRADE_FLAG = "@pre-custom-password-upgrade"
+                        env.POST_UPGRADE_FLAG = "@post-custom-password-upgrade"
+                        env.PMM_CLIENTS = "--database ps --database pgsql --database psmdb"
+                    } else if (env.UPGRADE_FLAG == "CUSTOM DASHBOARDS") {
+                        env.PRE_UPGRADE_FLAG = "@pre-dashboards-upgrade"
+                        env.POST_UPGRADE_FLAG = "@post-dashboards-upgrade"
+                        env.PMM_CLIENTS = "--help"
+                    } else if (env.UPGRADE_FLAG == "ANNOTATIONS-PROMETHEUS") {
+                        env.PRE_UPGRADE_FLAG = "@pre-annotations-prometheus-upgrade"
+                        env.POST_UPGRADE_FLAG = "@post-annotations-prometheus-upgrade"
+                        env.PMM_CLIENTS = "--database ps --database pgsql --database psmdb"
+                    } else if (env.UPGRADE_FLAG == "ADVISORS-ALERTING") {
+                        env.PRE_UPGRADE_FLAG = "@pre-advisors-alerting-upgrade"
+                        env.POST_UPGRADE_FLAG = "@post-advisors-alerting-upgrade"
+                        env.PMM_CLIENTS = "--help"
+                    } else if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
+                        env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade"
+                        env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade"
+                        env.PMM_CLIENTS = "--database ps --database pgsql --database psmdb"
                     }
                 }
-//                     elif [[ ${UPGRADE_FLAG} == "CUSTOM PASSWORD" ]]; then
-//                         export PRE_UPGRADE_FLAG="@pre-custom-password-upgrade"
-//                         export POST_UPGRADE_FLAG="@post-custom-password-upgrade"
-//                         export PMM_CLIENTS="--database ps --database pgsql --database psmdb"
-//                     elif [[ ${UPGRADE_FLAG} == "CUSTOM DASHBOARDS" ]]; then
-//                         export PRE_UPGRADE_FLAG="@pre-dashboards-upgrade"
-//                         export POST_UPGRADE_FLAG="@post-dashboards-upgrade"
-//                         export PMM_CLIENTS="--help"
-//                     elif [[ ${UPGRADE_FLAG} == "ANNOTATIONS-PROMETHEUS" ]]; then
-//                         export PRE_UPGRADE_FLAG="@pre-annotations-prometheus-upgrade"
-//                         export POST_UPGRADE_FLAG="@post-annotations-prometheus-upgrade"
-//                         export PMM_CLIENTS="--database ps --database pgsql --database psmdb"
-//                     elif [[ ${UPGRADE_FLAG} == "ADVISORS-ALERTING" ]]; then
-//                         export PRE_UPGRADE_FLAG="@pre-advisors-alerting-upgrade"
-//                         export POST_UPGRADE_FLAG="@post-advisors-alerting-upgrade"
-//                         export PMM_CLIENTS="--help"
-//                     elif [[ ${UPGRADE_FLAG} == "SETTINGS-METRICS" ]]; then
-//                         export PRE_UPGRADE_FLAG="@pre-settings-metrics-upgrade"
-//                         export POST_UPGRADE_FLAG="@post-settings-metrics-upgrade"
-//                         export PMM_CLIENTS="--database ps --database pgsql --database psmdb"
-//                     fi
-//                 """
             }
         }
         stage('Start Server Instance') {
@@ -290,7 +292,11 @@ pipeline {
                             echo ${CLIENT_VERSION}
                             echo ${CLIENT_VERSION.trim()}
                         """
-                        setupPMM3Client("127.0.0.1", CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
+                        setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
+                        sh """
+                            sudo pmm-admin config --server-url=https://admin:admin@127.0.0.1:443 --server-insecure-tls 18.191.65.188
+
+                        """
 //                         sh """
 //                             wget https://repo.percona.com/yum/percona-release-latest.noarch.rpm
 //                             sudo rpm -i percona-release-latest.noarch.rpm
