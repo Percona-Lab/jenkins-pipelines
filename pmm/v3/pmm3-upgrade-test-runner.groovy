@@ -157,41 +157,46 @@ pipeline {
         }
         stage('Select subset of tests') {
             steps {
-                sh """
-                    if [[ ${UPGRADE_FLAG} == "SSL" ]]; then
-                        export PRE_UPGRADE_FLAG="@pre-ssl-upgrade"
-                        export POST_UPGRADE_FLAG="@post-ssl-upgrade"
-                        export PMM_CLIENTS="--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql"
-                    elif [[ ${UPGRADE_FLAG} == "EXTERNAL SERVICES" ]]; then
-                        export PRE_UPGRADE_FLAG="@pre-external-upgrade"
-                        export POST_UPGRADE_FLAG="@post-external-upgrade"
-                        export PMM_CLIENTS="--database external"
-                    elif [[ ${UPGRADE_FLAG} == "MONGO BACKUP" ]]; then
-                        export PRE_UPGRADE_FLAG="@pre-mongo-backup-upgrade"
-                        export POST_UPGRADE_FLAG="@post-mongo-backup-upgrade"
-                        export PMM_CLIENTS="--database psmdb,SETUP_TYPE=pss"
-                    elif [[ ${UPGRADE_FLAG} == "CUSTOM PASSWORD" ]]; then
-                        export PRE_UPGRADE_FLAG="@pre-custom-password-upgrade"
-                        export POST_UPGRADE_FLAG="@post-custom-password-upgrade"
-                        export PMM_CLIENTS="--database ps --database pgsql --database psmdb"
-                    elif [[ ${UPGRADE_FLAG} == "CUSTOM DASHBOARDS" ]]; then
-                        export PRE_UPGRADE_FLAG="@pre-dashboards-upgrade"
-                        export POST_UPGRADE_FLAG="@post-dashboards-upgrade"
-                        export PMM_CLIENTS="--help"
-                    elif [[ ${UPGRADE_FLAG} == "ANNOTATIONS-PROMETHEUS" ]]; then
-                        export PRE_UPGRADE_FLAG="@pre-annotations-prometheus-upgrade"
-                        export POST_UPGRADE_FLAG="@post-annotations-prometheus-upgrade"
-                        export PMM_CLIENTS="--database ps --database pgsql --database psmdb"
-                    elif [[ ${UPGRADE_FLAG} == "ADVISORS-ALERTING" ]]; then
-                        export PRE_UPGRADE_FLAG="@pre-advisors-alerting-upgrade"
-                        export POST_UPGRADE_FLAG="@post-advisors-alerting-upgrade"
-                        export PMM_CLIENTS="--help"
-                    elif [[ ${UPGRADE_FLAG} == "SETTINGS-METRICS" ]]; then
-                        export PRE_UPGRADE_FLAG="@pre-settings-metrics-upgrade"
-                        export POST_UPGRADE_FLAG="@post-settings-metrics-upgrade"
-                        export PMM_CLIENTS="--database ps --database pgsql --database psmdb"
-                    fi
-                """
+                if (env.UPGRADE_FLAG == "SSL") {
+                    env.PRE_UPGRADE_FLAG="@pre-ssl-upgrade"
+                    env.POST_UPGRADE_FLAG="@post-ssl-upgrade"
+                    env.PMM_CLIENTS="--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql"
+                }
+//                 sh """
+//                     if [[ ${UPGRADE_FLAG} == "SSL" ]]; then
+//                         export PRE_UPGRADE_FLAG="@pre-ssl-upgrade"
+//                         export POST_UPGRADE_FLAG="@post-ssl-upgrade"
+//                         export PMM_CLIENTS="--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql"
+//                     elif [[ ${UPGRADE_FLAG} == "EXTERNAL SERVICES" ]]; then
+//                         export PRE_UPGRADE_FLAG="@pre-external-upgrade"
+//                         export POST_UPGRADE_FLAG="@post-external-upgrade"
+//                         export PMM_CLIENTS="--database external"
+//                     elif [[ ${UPGRADE_FLAG} == "MONGO BACKUP" ]]; then
+//                         export PRE_UPGRADE_FLAG="@pre-mongo-backup-upgrade"
+//                         export POST_UPGRADE_FLAG="@post-mongo-backup-upgrade"
+//                         export PMM_CLIENTS="--database psmdb,SETUP_TYPE=pss"
+//                     elif [[ ${UPGRADE_FLAG} == "CUSTOM PASSWORD" ]]; then
+//                         export PRE_UPGRADE_FLAG="@pre-custom-password-upgrade"
+//                         export POST_UPGRADE_FLAG="@post-custom-password-upgrade"
+//                         export PMM_CLIENTS="--database ps --database pgsql --database psmdb"
+//                     elif [[ ${UPGRADE_FLAG} == "CUSTOM DASHBOARDS" ]]; then
+//                         export PRE_UPGRADE_FLAG="@pre-dashboards-upgrade"
+//                         export POST_UPGRADE_FLAG="@post-dashboards-upgrade"
+//                         export PMM_CLIENTS="--help"
+//                     elif [[ ${UPGRADE_FLAG} == "ANNOTATIONS-PROMETHEUS" ]]; then
+//                         export PRE_UPGRADE_FLAG="@pre-annotations-prometheus-upgrade"
+//                         export POST_UPGRADE_FLAG="@post-annotations-prometheus-upgrade"
+//                         export PMM_CLIENTS="--database ps --database pgsql --database psmdb"
+//                     elif [[ ${UPGRADE_FLAG} == "ADVISORS-ALERTING" ]]; then
+//                         export PRE_UPGRADE_FLAG="@pre-advisors-alerting-upgrade"
+//                         export POST_UPGRADE_FLAG="@post-advisors-alerting-upgrade"
+//                         export PMM_CLIENTS="--help"
+//                     elif [[ ${UPGRADE_FLAG} == "SETTINGS-METRICS" ]]; then
+//                         export PRE_UPGRADE_FLAG="@pre-settings-metrics-upgrade"
+//                         export POST_UPGRADE_FLAG="@post-settings-metrics-upgrade"
+//                         export PMM_CLIENTS="--database ps --database pgsql --database psmdb"
+//                     fi
+//                 """
             }
         }
         stage('Start Server Instance') {
