@@ -819,9 +819,6 @@ pipeline {
         }
         failure {
            // slackNotify("", "#FF0000", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
-            deleteDir()
-        }
-        always {
             script {
                 if (env.FIPSMODE == 'YES') {
                     currentBuild.description = "PRO -> Built on ${BRANCH}; path to packages: [${COMPONENT}/${AWS_STASH_PATH}]"
@@ -829,6 +826,9 @@ pipeline {
                     currentBuild.description = "Built on ${BRANCH}; path to packages: [${COMPONENT}/${AWS_STASH_PATH}]"
                 }
             }
+            deleteDir()
+        }
+        always {
             sh '''
                 sudo rm -rf ./*
             '''
