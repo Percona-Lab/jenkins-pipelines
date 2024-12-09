@@ -1,5 +1,5 @@
 - job:
-    name: test-ps-innodb-cluster-test
+    name: test-ps-innodb-cluster
     project-type: pipeline
     description: |
         Work in progress, please ignore
