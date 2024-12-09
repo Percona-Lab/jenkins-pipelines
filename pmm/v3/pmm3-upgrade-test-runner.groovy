@@ -114,19 +114,19 @@ pipeline {
         choice(
             choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"],
             description: 'Subset of tests for the upgrade',
-            name: 'UPGRADE_FLAG'),
+            name: 'UPGRADE_FLAG')
         string(
             defaultValue: '8.0',
             description: "Percona Server for MySQL version",
-            name: 'PS_VERSION'),
+            name: 'PS_VERSION')
         string(
             defaultValue: '16',
             description: "Which version of PostgreSQL",
-            name: 'PGSQL_VERSION'),
+            name: 'PGSQL_VERSION')
         string(
             defaultValue: '16',
             description: "Which version of Percona Distribution for PostgreSQL",
-            name: 'PDPGSQL_VERSION'),
+            name: 'PDPGSQL_VERSION')
         string(
             defaultValue: '8.0',
             description: "Which version of Percona Server for MongoDB",
