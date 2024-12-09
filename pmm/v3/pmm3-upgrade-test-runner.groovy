@@ -159,24 +159,23 @@ pipeline {
             steps {
                 script {
                     if (env.UPGRADE_FLAG == "SSL") {
-                        env.PRE_UPGRADE_FLAG="@pre-ssl-upgrade"
-                        env.POST_UPGRADE_FLAG="@post-ssl-upgrade"
-                        env.PMM_CLIENTS="--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql"
+                        env.PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
+                        env.POST_UPGRADE_FLAG = "@post-ssl-upgrade"
+                        env.PMM_CLIENTS = "--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql"
+                    } else if (env.UPGRADE_FLAG == "EXTERNAL SERVICES") {
+                        env.PRE_UPGRADE_FLAG = "@pre-external-upgrade"
+                        env.POST_UPGRADE_FLAG = "@post-external-upgrade"
+                        env.PMM_CLIENTS = "--database external"
+                    } else if (env.UPGRADE_FLAG == "MONGO BACKUP") {
+                        env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
+                        env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
+                        env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss"
+                    } else if (env.UPGRADE_FLAG == "MONGO BACKUP") {
+                        env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
+                        env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
+                        env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss"
+                    }
                 }
-            }
-//                 sh """
-//                     if [[ ${UPGRADE_FLAG} == "SSL" ]]; then
-//                         export PRE_UPGRADE_FLAG="@pre-ssl-upgrade"
-//                         export POST_UPGRADE_FLAG="@post-ssl-upgrade"
-//                         export PMM_CLIENTS="--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql"
-//                     elif [[ ${UPGRADE_FLAG} == "EXTERNAL SERVICES" ]]; then
-//                         export PRE_UPGRADE_FLAG="@pre-external-upgrade"
-//                         export POST_UPGRADE_FLAG="@post-external-upgrade"
-//                         export PMM_CLIENTS="--database external"
-//                     elif [[ ${UPGRADE_FLAG} == "MONGO BACKUP" ]]; then
-//                         export PRE_UPGRADE_FLAG="@pre-mongo-backup-upgrade"
-//                         export POST_UPGRADE_FLAG="@post-mongo-backup-upgrade"
-//                         export PMM_CLIENTS="--database psmdb,SETUP_TYPE=pss"
 //                     elif [[ ${UPGRADE_FLAG} == "CUSTOM PASSWORD" ]]; then
 //                         export PRE_UPGRADE_FLAG="@pre-custom-password-upgrade"
 //                         export POST_UPGRADE_FLAG="@post-custom-password-upgrade"
@@ -258,7 +257,7 @@ pipeline {
                 script {
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "http://${env.SERVER_IP}/"
-                    env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                    env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
                 }
             }
         }
