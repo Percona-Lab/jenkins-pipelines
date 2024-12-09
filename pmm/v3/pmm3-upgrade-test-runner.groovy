@@ -157,11 +157,13 @@ pipeline {
         }
         stage('Select subset of tests') {
             steps {
-                if (env.UPGRADE_FLAG == "SSL") {
-                    env.PRE_UPGRADE_FLAG="@pre-ssl-upgrade"
-                    env.POST_UPGRADE_FLAG="@post-ssl-upgrade"
-                    env.PMM_CLIENTS="--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql"
+                script {
+                    if (env.UPGRADE_FLAG == "SSL") {
+                        env.PRE_UPGRADE_FLAG="@pre-ssl-upgrade"
+                        env.POST_UPGRADE_FLAG="@post-ssl-upgrade"
+                        env.PMM_CLIENTS="--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql"
                 }
+            }
 //                 sh """
 //                     if [[ ${UPGRADE_FLAG} == "SSL" ]]; then
 //                         export PRE_UPGRADE_FLAG="@pre-ssl-upgrade"
