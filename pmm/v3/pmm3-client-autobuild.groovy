@@ -69,7 +69,7 @@ pipeline {
                 }
             }
         }
-        stage('Push pmm2 client multi-arch images') {
+        stage('Push pmm3 client multi-arch images') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''

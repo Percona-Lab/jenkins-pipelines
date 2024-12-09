@@ -156,7 +156,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                slackSend channel: '#pmm-ci',
+                slackSend channel: '#pmm-notifications',
                           color: '#0000FF',
                           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
@@ -288,13 +288,13 @@ pipeline {
             }
         }
         unstable {
-            slackSend channel: '#pmm-ci', color: '#FF5010', message: "[${JOB_NAME}]: build unstable\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
+            slackSend channel: '#pmm-notifications', color: '#FF5010', message: "[${JOB_NAME}]: build unstable\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
         }
         success {
-            slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build passed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
+            slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build passed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
         }
         failure {
-            slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
+            slackSend channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build failed\nok - ${OK}, skip - ${SKIP}, fail - ${FAIL}\ncheck here: ${BUILD_URL}"
         }
     }
 }

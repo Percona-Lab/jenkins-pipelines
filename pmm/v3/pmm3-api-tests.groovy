@@ -57,7 +57,7 @@ pipeline {
                 git poll: false, branch: GIT_BRANCH, url: GIT_URL
 
                 slackSend botUser: true,
-                          channel: '#pmm-ci',
+                          channel: '#pmm-notifications',
                           color: '#0000FF',
                           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 script {
@@ -146,7 +146,7 @@ pipeline {
                 }
                 if (currentBuild.result != 'SUCCESS') {
                     slackSend botUser: true,
-                              channel: '#pmm-ci',
+                              channel: '#pmm-notifications',
                               color: '#FF0000',
                               message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}, owner: @${OWNER}"
                 }
@@ -155,7 +155,7 @@ pipeline {
         success {
             script {
                 slackSend botUser: true,
-                          channel: '#pmm-ci',
+                          channel: '#pmm-notifications',
                           color: '#00FF00',
                           message: "[${JOB_NAME}]: build finished, URL: ${BUILD_URL}, owner: @${OWNER}"
 

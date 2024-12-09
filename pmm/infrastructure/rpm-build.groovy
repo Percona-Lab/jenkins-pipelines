@@ -10,8 +10,7 @@ pipeline {
         )
     }
     options {
-        skipStagesAfterUnstable()
-        buildDiscarder(logRotator(artifactNumToKeepStr: '10'))
+        buildDiscarder(logRotator(artifactNumToKeepStr: '20'))
     }
     environment {
         IMAGE_REGISTRY = "public.ecr.aws/e7j3v3n0"
@@ -23,7 +22,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git poll: true,
+                git changelog: false,
                     branch: PMM_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm.git'
             }

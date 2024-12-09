@@ -214,7 +214,7 @@ pipeline {
                     branch: GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                slackSend channel: '#pmm-ci',
+                slackSend channel: '#pmm-notifications',
                           color: '#0000FF',
                           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
@@ -350,12 +350,12 @@ pipeline {
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'tests/output/*.xml'
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
+                    slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-agent.log'
                 } else {
                     junit 'tests/output/*.xml'
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    slackSend channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'pmm-agent.log'
                     archiveArtifacts artifacts: 'tests/output/*.png'

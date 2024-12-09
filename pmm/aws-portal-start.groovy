@@ -251,7 +251,7 @@ In order to access the instance you need:
 *Note: the other user should also complete the steps 1-2*
                     """
 
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "${SLACK_MESSAGE}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "${SLACK_MESSAGE}"
                     if (env.OWNER_SLACK) {
                         slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "${SLACK_MESSAGE}"
                     }
@@ -270,7 +270,7 @@ In order to access the instance you need:
             }
             script {
                 if (params.NOTIFY == "true") {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
                     if (env.OWNER_SLACK) {
                         slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
                     }
