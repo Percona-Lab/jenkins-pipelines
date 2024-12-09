@@ -110,7 +110,7 @@ pipeline {
                         stage('Build client source rpm EL9') {
                             steps {
                                 sh """
-                                    ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                                    ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:2
                                 """
                             }
                         }
@@ -132,7 +132,7 @@ pipeline {
                         stage('Build client binary rpm EL9') {
                             steps {
                                 sh """
-                                    ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                                    ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:2
                                 """
                             }
                         }
@@ -153,11 +153,6 @@ pipeline {
                 }
                 stage('Build client binary debs') {
                     parallel {
-                        stage('Build client binary deb Buster') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:buster"
-                            }
-                        }
                         stage('Build client binary deb Bullseye') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"

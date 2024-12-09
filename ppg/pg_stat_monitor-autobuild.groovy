@@ -299,7 +299,15 @@ pipeline {
                     cd percona-docker/percona-distribution-postgresql-${PG_RELEASE}
                     sed -i 's/mirror/vault/g' Dockerfile
                     sed -i '/percona-postgresql-common/d' Dockerfile
-                    sed -i "s/ppg-${PG_RELEASE}.* */ppg-${PG_RELEASE} release/g" Dockerfile
+                    sed -i "s/ppg-${PG_RELEASE}.* */${PPG_REPO} testing/g" Dockerfile
+                    MAJ_VER=\$(echo ${PPG_REPO} | cut -f2 -d'-' | cut -f1 -d'.')
+                    echo \$MAJ_VER
+                    MIN_VER=\$(echo ${PPG_REPO} | cut -f2 -d'-' | cut -f2 -d'.')
+                    echo \$MIN_VER
+
+                    sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile
+                    sed -E "s/ENV PPG_MINOR_VERSION (.+)/ENV PPG_MINOR_VERSION \$MIN_VER/" -i Dockerfile
+                    sed -E "s/16.4/\$MAJ_VER.\${MIN_VER}/g" -i Dockerfile
                     sed -i 's/-\${FULL_PERCONA_VERSION}//g' Dockerfile
                     sed -i "s/percona-pg-stat-monitor${PG_RELEASE}/percona-postgresql-common; rpm -i percona-pg_stat_monitor${PG_RELEASE}-${VERSION}-${RPM_RELEASE}.el8.x86_64.rpm/g" Dockerfile
                     sed -i "11 a COPY percona-pg_stat_monitor${PG_RELEASE}-${VERSION}-${RPM_RELEASE}.el8.x86_64.rpm percona-pg_stat_monitor${PG_RELEASE}-${VERSION}-${RPM_RELEASE}.el8.x86_64.rpm" Dockerfile

@@ -47,7 +47,7 @@ imageMap['docker-64gb-aarch64'] = 'ami-055495e6fc65e4321'
 priceMap = [:]
 priceMap['m5d.large']   = '0.13' // type=m5d.large, vCPU=2, memory=4GiB, saving=29%, interruption='<5%', price=0.071400
 priceMap['c5a.2xlarge']  = '0.25'  //type=c5a.2xlarge, vCPU=8, memory=16GiB, saving=58%, interruption='<5%', price=0.182000
-priceMap['m5n.2xlarge'] = '0.33' //type=m5n.2xlarge, vCPU=8, memory=32GiB, saving=63%, interruption='<5%', price=0.20
+priceMap['g4ad.2xlarge'] = '0.33' //type=g4ad.2xlarge, vCPU=8, memory=32GiB, saving=63%, interruption='<5%', price=0.20
 priceMap['i3en.3xlarge'] = '0.72' // type=i3en.3xlarge, vCPU=16, memory=64GiB, saving=70%, interruption='<5%'
 priceMap['i4g.4xlarge'] = '0.57' // aarch64 type=i4g.4xlarge, vCPU=16, memory=64GiB, saving=38%, interruption='<5%', price=0.488500
 
@@ -290,14 +290,14 @@ initMap['docker-64gb-aarch64'] = initMap['docker-32gb']
 
 capMap = [:]
 capMap['c5a.2xlarge'] = '60'
-capMap['m5n.2xlarge'] = '80'
+capMap['g4ad.2xlarge'] = '80'
 capMap['i3en.3xlarge'] = '30'
 capMap['i4g.4xlarge'] = '20'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 'm5d.large'
 typeMap['docker']            = 'c5a.2xlarge'
-typeMap['docker-32gb']       = 'm5n.2xlarge'
+typeMap['docker-32gb']       = 'g4ad.2xlarge'
 typeMap['docker-64gb']       = 'i3en.3xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
 typeMap['min-centos-8-x64']  = typeMap['docker-32gb']

@@ -24,7 +24,7 @@ pipeline {
             name: 'DOCKER_VERSION'
         )
         string(
-            defaultValue: 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz',
+            defaultValue: '3-dev-latest',
             description: 'PMM Client version ("3-dev-latest" for main branch, "latest" or "X.X.X" for released version, "pmm3-rc" for Release Candidate, "http://..." for feature build)',
             name: 'CLIENT_VERSION'
         )
@@ -74,15 +74,15 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['17', '16', '15','14', '13'],
+            choices: ['16', '17', '15','14', '13'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['17', '16','15', '14', '13'],
+            choices: ['16', '17', '15', '14', '13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
-            choices: ['7.0.7-4', '6.0.14-11', '5.0.26-22', '4.4.29-28'],
+            choices: ['8.0.1-1', '7.0.7-4', '6.0.14-11', '5.0.26-22', '4.4.29-28'],
             description: "Percona Server for MongoDB version",
             name: 'PSMDB_VERSION')
         text(
@@ -222,6 +222,15 @@ pipeline {
                                     docker network create pmm-qa || true
                                     docker volume create pmm-data
 
+                                    docker run --detach --restart always \
+                                        --network="pmm-qa" \
+                                        -e WATCHTOWER_DEBUG=1 \
+                                        -e WATCHTOWER_HTTP_API_TOKEN=testToken \
+                                        -e WATCHTOWER_HTTP_API_UPDATE=1 \
+                                        --volume /var/run/docker.sock:/var/run/docker.sock \
+                                        --name watchtower \
+                                        perconalab/watchtower:latest
+
                                     docker run -d \
                                         -p 80:8080 \
                                         -p 443:8443 \
@@ -231,6 +240,8 @@ pipeline {
                                         --hostname pmm-server \
                                         --network pmm-qa \
                                         --restart always \
+                                        -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
+                                        -e PMM_WATCHTOWER_TOKEN=testToken \
                                         ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 

@@ -49,7 +49,7 @@ pipeline {
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
         string(
-            defaultValue: 'percona/percona-server-mongodb:4.4',
+            defaultValue: 'percona/percona-server-mongodb:latest',
             description: 'Percona Server MongoDb Docker Container Image',
             name: 'MONGO_IMAGE')
         string(
@@ -73,14 +73,7 @@ pipeline {
                 stage('Run IA tests using @ia'){
                     steps {
                         script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@ia', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--addclient=ms,1');
-                        }
-                    }
-                }
-                stage('Run MySQL BM Tests using @bm-mysql'){
-                    steps {
-                        script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@bm-mysql', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--mongo-replica-for-backup --setup-bm-mysql');
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@ia', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
                         }
                     }
                 }
@@ -115,7 +108,7 @@ pipeline {
                 stage('Run SSL/TLS tests remote @ssl-mongo'){
                     steps {
                         script {
-                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@ssl-mongo', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '');
+                            runUITestsJob(GIT_BRANCH, GIT_COMMIT_HASH, DOCKER_VERSION, CLIENT_VERSION, '@ssl-mongo', MYSQL_IMAGE, POSTGRES_IMAGE, MONGO_IMAGE, PROXYSQL_IMAGE, PMM_QA_GIT_BRANCH, '--mo-version=8.0 --setup-mongodb-ssl');
                         }
                     }
                 }

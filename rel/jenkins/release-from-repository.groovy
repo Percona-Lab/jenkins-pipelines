@@ -13,7 +13,7 @@ pipeline {
             description: 'PATH_TO_BUILD must be in form $DESTINATION/**release**/$revision',
             name: 'PATH_TO_BUILD')
         string(
-            defaultValue: 'INNOVATION',
+            defaultValue: 'PERCONA',
             description: 'separate repository to push to. Please use CAPS letters.',
             name: 'REPOSITORY')
         booleanParam(name: 'REVERSE', defaultValue: false, description: 'please use reverse sync if you want to fix repo copy on signing server. it will be overwritten with known working copy from production')
@@ -23,6 +23,10 @@ pipeline {
             choices: 'TESTING\nRELEASE\nEXPERIMENTAL\nLABORATORY',
             description: 'repo component to push to',
             name: 'COMPONENT')
+        choice(
+            choices: 'NO\nYES',
+            description: 'show telemetry agent packages listing for corresponding product',
+            name: 'COPY_TELEMETRY')
         choice(
             choices: 'NO\nYES',
             description: 'PRO build',
@@ -278,9 +282,18 @@ ENDSSH
                                        mkdir -p /srv/repo-copy/private/\${LCREPOSITORY}/tarballs/\${RELEASE}
                                        cp \${RELEASEDIR}/binary/tarball/* /srv/repo-copy/private/\${LCREPOSITORY}/tarballs/\${RELEASE}/
                                    else
+                                       if [ ${COPY_TELEMETRY} = YES ]; then
+                                           touch \${RELEASEDIR}/binary/telemetry-enhanced.json
+                                       fi
                                        rsync -avt -e "ssh -p 2222" --bwlimit=50000 --exclude="*yassl*" --progress \${PRODUCT} jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/
                                    fi
                                    rm -fr /srv/UPLOAD/\${PATH_TO_BUILD}/.tmp
+                               else
+                                   if [ ${PROBUILD} = YES ]; then
+                                       echo "Tarballs are uploaded by a build job into qa-test folder."
+                                       #mkdir -p /srv/repo-copy/private/qa-test/\${LCREPOSITORY}/\${RELEASE}
+                                       #cp \${RELEASEDIR}/binary/tarball/* /srv/repo-copy/private/qa-test/\${LCREPOSITORY}/\${RELEASE}/
+                                   fi
                                fi
 ENDSSH
                        else
@@ -311,6 +324,9 @@ ENDSSH
                                 else
                                     rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${PRO_FOLDER}\${LCREPOSITORY}/* 10.30.9.32:/www/repo.percona.com/htdocs/\${PRO_FOLDER}\${LCREPOSITORY}/
                                     rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${PRO_FOLDER}version 10.30.9.32:/www/repo.percona.com/htdocs/\${PRO_FOLDER}
+                                fi
+                                if [ ${PROBUILD} = YES ]; then
+                                    rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/private/qa-test/* 10.30.9.32:/www/repo.percona.com/htdocs/private/qa-test/
                                 fi
 ENDSSH
                         else
