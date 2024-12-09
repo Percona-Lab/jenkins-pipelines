@@ -291,7 +291,7 @@ pipeline {
                             echo ${CLIENT_VERSION}
                             echo ${CLIENT_VERSION.trim()}
                         """
-                        setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
+                        setupPMM3Client(127.0.0.1, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
 //                         sh """
 //                             wget https://repo.percona.com/yum/percona-release-latest.noarch.rpm
 //                             sudo rpm -i percona-release-latest.noarch.rpm
