@@ -305,7 +305,7 @@ pipeline {
 //                             sleep 5
 //                             echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
 //                         """
-//                     }
+                    }
                 }
                 stage('Install dependencies') {
                     steps {
