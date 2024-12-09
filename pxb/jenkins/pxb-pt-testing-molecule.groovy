@@ -14,6 +14,7 @@
         install_repo = "${params.install_repo}"
         server_to_test  = "${params.server_to_test}"
         scenario_to_test = "${params.scenario_to_test}"
+        REPO_TYPE = "${params.REPO_TYPE}"
     }
     parameters {
         choice(
@@ -54,6 +55,11 @@
             ],
             description: 'Scenario To Test',
             name: 'scenario_to_test'
+        )
+        choice(
+            choices: ['NORMAL', 'PRO'],
+            description: 'Choose the product to test',
+            name: 'REPO_TYPE'
         )
 
     }
@@ -102,7 +108,18 @@
 
                                 def envMap = loadEnvFile('.env.ENV_VARS')
                                 withEnv(envMap) {
-                                    moleculeParallelTestPXB(pxbPackageTesting(), "molecule/pxb-package-testing/")
+                                    
+                                if (REPO_TYPE == 'PRO') {
+                                        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                                            script {
+                                                moleculeParallelTestPXB(pxbPackageTesting(), "molecule/pxb-package-testing/")
+                                            }
+                                        }
+                                }
+                                else {
+                                        moleculeParallelTestPXB(pxbPackageTesting(), "molecule/pxb-package-testing/")
+                                }
+
                                 }
 
                             }
