@@ -143,6 +143,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
+                    env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     currentBuild.description = "PMM Server upgrade from ${env.DOCKER_TAG} to ${env.PMM_SERVER_LATEST} running tests ${env.UPGRADE_FLAG}"
                 }
                 git poll: false,
