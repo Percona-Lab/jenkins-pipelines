@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@amaster', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -127,7 +127,6 @@ pipeline {
             description: 'Repo to install packages from'
         )
     }
-
     stages {
         stage('SET UPSTREAM_VERSION,PS_VERSION and PS_REVISION') {
             steps {

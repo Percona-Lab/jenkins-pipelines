@@ -50,7 +50,6 @@ pipeline {
     environment {
         PRODUCT_TO_TEST = "${params.PRODUCT_TO_TEST}"
     }
-
     parameters {
         choice(
             choices: ['PS80','PS84','PS_LTS_INN'],
