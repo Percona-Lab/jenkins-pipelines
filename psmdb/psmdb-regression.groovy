@@ -16,7 +16,7 @@ pipeline {
         string(name: 'branch', defaultValue: 'v8.0', description: 'Repo branch for build image from sources')
         string(name: 'version', defaultValue: '8.0.4', description: 'Version for build tag (psm_ver) to build image from sources')
         string(name: 'release', defaultValue: '1', description: 'Release for build tag (psm_release) to build image from sources')
-        choice(name: 'toolchain_version', choices: ['v4','v3'], description: 'Toolchain version, v3 contains GCC 8.5.0 and Python 3.8.19, v4 contains GCC 11.3.0 and Python 3.10.14')
+        choice(name: 'toolchain_version', choices: ['v4','v3'], description: 'Toolchain version: v3 for PSMDB 5.0/6.0 contains GCC 8.5.0 and Python 3.8.19; v4 for PSMDB 7.0/8.0 contains GCC 11.3.0 and Python 3.10.14')
         booleanParam(name: 'build_pro_version',defaultValue: false, description: 'Build PSMDB pro version')
         string(name: 'tag', defaultValue: '8.0.4', description: 'Docker image tag to push/pull to/from registry, should be defined manually')
         string(name: 'parallelexecutors', defaultValue: '1', description: 'Number of parallel executors')
