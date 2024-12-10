@@ -56,13 +56,13 @@ def call(String DESTINATION, String UPLOAD_PATH, String PMM_CLIENT_SUBPATH = 'pm
                         # Update /srv/repo-copy/version
                         date +%s > /srv/repo-copy/version
 
-                        rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
+                        rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/${PMM_CLIENT_SUBPATH}/yum/${DESTINATION}/ \
                             10.30.9.32:/www/repo.percona.com/htdocs/${PMM_CLIENT_SUBPATH}/yum/${DESTINATION}/
-                        rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
+                        rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/${PMM_CLIENT_SUBPATH}/apt/ \
                             10.30.9.32:/www/repo.percona.com/htdocs/${PMM_CLIENT_SUBPATH}/apt/
-                        rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
+                        rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/version \
                             10.30.9.32:/www/repo.percona.com/htdocs/
 ENDSSH

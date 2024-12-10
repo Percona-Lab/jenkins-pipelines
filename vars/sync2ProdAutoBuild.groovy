@@ -73,13 +73,13 @@ def call(String REPO_NAME, String DESTINATION) {
                         # Update /srv/repo-copy/version
                         date +%s > /srv/repo-copy/version
 
-                        rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
+                        rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/${REPO_NAME}/yum/${DESTINATION}/ \
                             10.30.9.32:/www/repo.percona.com/htdocs/${REPO_NAME}/yum/${DESTINATION}/
-                        rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
+                        rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/${REPO_NAME}/apt/ \
                             10.30.9.32:/www/repo.percona.com/htdocs/${REPO_NAME}/apt/
-                        rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
+                        rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/version \
                             10.30.9.32:/www/repo.percona.com/htdocs/
                     '

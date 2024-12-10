@@ -54,13 +54,13 @@ def call(String DESTINATION, String SYNC_PMM_CLIENT, String OS_VERSION) {
                         # Update /srv/repo-copy/version
                         date +%s > /srv/repo-copy/version
 
-                        rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
+                        rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/${DESTINATION}/${OS_VERSION}/ \
                             10.30.9.32:/www/repo.percona.com/htdocs/${DESTINATION}/${OS_VERSION}/
-                        rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
+                        rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/apt/ \
                             10.30.9.32:/www/repo.percona.com/htdocs/apt/
-                        rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
+                        rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
                             /srv/repo-copy/version \
                             10.30.9.32:/www/repo.percona.com/htdocs/
 ENDSSH
