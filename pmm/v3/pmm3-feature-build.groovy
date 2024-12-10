@@ -72,14 +72,13 @@ pipeline {
             steps {
                 withCredentials([
                   aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),
-                  sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: ''),
-                  string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')
+                  sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')
                 ]) {
                     sh '''
                         set -o errexit
                         export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
-                        GITHUB_API_TOKEN=${GITHUB_API_TOKEN} ./build.sh
+                        ./build.sh
 
                         docker push $(cat .modules/build/docker/CLIENT_TAG)
                         docker push $(cat .modules/build/docker/TAG)
