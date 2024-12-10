@@ -280,53 +280,6 @@ pipeline {
                 } //stage
             } //parallel
         } //stage
-        stage('Build docker container') {
-            agent {
-                label 'min-focal-x64'
-            }
-            steps {
-                echo "====> Build docker container on Ubuntu 20.04 PG${PG_RELEASE}"
-                cleanUpWS()
-                installCli("deb")
-                unstash 'properties'
-                popArtifactFolder("rpm/", AWS_STASH_PATH)
-                sh ''' 
-                    sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-                    sudo apt-get install -y docker.io
-                    sudo systemctl status docker
-                    git clone https://github.com/percona/percona-docker
-                    cp rpm/percona-pg_stat_monitor${PG_RELEASE}-${VERSION}-${RPM_RELEASE}.el8.x86_64.rpm percona-docker/percona-distribution-postgresql-${PG_RELEASE}/
-                    cd percona-docker/percona-distribution-postgresql-${PG_RELEASE}
-                    sed -i 's/mirror/vault/g' Dockerfile
-                    sed -i '/percona-postgresql-common/d' Dockerfile
-                    sed -i "s/ppg-${PG_RELEASE}.* */${PPG_REPO} testing/g" Dockerfile
-                    MAJ_VER=\$(echo ${PPG_REPO} | cut -f2 -d'-' | cut -f1 -d'.')
-                    echo \$MAJ_VER
-                    MIN_VER=\$(echo ${PPG_REPO} | cut -f2 -d'-' | cut -f2 -d'.')
-                    echo \$MIN_VER
-
-                    sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile
-                    sed -E "s/ENV PPG_MINOR_VERSION (.+)/ENV PPG_MINOR_VERSION \$MIN_VER/" -i Dockerfile
-                    sed -E "s/16.4/\$MAJ_VER.\${MIN_VER}/g" -i Dockerfile
-                    sed -i 's/-\${FULL_PERCONA_VERSION}//g' Dockerfile
-                    sed -i "s/percona-pg-stat-monitor${PG_RELEASE}/percona-postgresql-common; rpm -i percona-pg_stat_monitor${PG_RELEASE}-${VERSION}-${RPM_RELEASE}.el8.x86_64.rpm/g" Dockerfile
-                    sed -i "11 a COPY percona-pg_stat_monitor${PG_RELEASE}-${VERSION}-${RPM_RELEASE}.el8.x86_64.rpm percona-pg_stat_monitor${PG_RELEASE}-${VERSION}-${RPM_RELEASE}.el8.x86_64.rpm" Dockerfile
-                    cat -n Dockerfile
-                    sudo docker build -t perconalab/percona-distribution-postgresql:${PG_RELEASE}-dev .
-                    sudo docker images
-                '''
-                withCredentials([
-                    usernamePassword(credentialsId: 'hub.docker.com',
-                    passwordVariable: 'PASS',
-                    usernameVariable: 'USER'
-                    )]) {
-                    sh '''
-                        echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                        sudo docker push perconalab/percona-distribution-postgresql:${PG_RELEASE}-dev
-                    '''
-                }
-            }
-        } //stage
         stage('Sign packages') {
             steps {
                 signRPM()
