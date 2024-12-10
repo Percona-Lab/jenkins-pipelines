@@ -72,7 +72,7 @@
             stage('Set Build Name'){
                 steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${product_to_test}-${server_to_test}-${scenario_to_test}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${product_to_test}-${server_to_test}-${scenario_to_test}-${REPO_TYPE}"
                     }
                 }
             }
