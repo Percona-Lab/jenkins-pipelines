@@ -179,7 +179,7 @@ pipeline {
          stage('Create qpress source tarball') {
             steps {
                 cleanUpWS()
-                buildStage("centos:7", "SOURCE")
+                buildStage("oraclelinux:8", "SOURCE")
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/qpress.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -286,22 +286,25 @@ pipeline {
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Buster (10)') {
+                stage('Amazon Linux 2023') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("debian:buster", "DEB")
+                        buildStage("amazonlinux:2023", "RPM")
                         sh '''
                             pwd
-                            ls -la test/deb
-                            cp -r test/deb .
+                            ls -la test/rpm
+                            cp -r test/srpm .
+                            cp -r test/rpm .
                         '''
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder("srpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal (20.04)') {
