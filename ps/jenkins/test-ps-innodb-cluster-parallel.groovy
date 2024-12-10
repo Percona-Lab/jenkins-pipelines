@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@add-version-parameter-support', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -32,12 +32,9 @@ if (params.TEST_DIST == "all") {
 
 void runNodeBuild(String TEST_DIST) {
     build(
-        job: 'test-ps-innodb-cluster-test',
+        job: 'test-ps-innodb-cluster',
         parameters: [
             string(name: "PRODUCT_TO_TEST", value: params.PRODUCT_TO_TEST),
-            //string(name: "UPSTREAM_VERSION", value: params.UPSTREAM_VERSION),
-            //string(name: "PS_VERSION", value: params.PS_VERSION),
-            //string(name: "PS_REVISION", value: params.PS_REVISION),
             string(name: "TEST_DIST", value: TEST_DIST),
             string(name: "INSTALL_REPO", value: params.INSTALL_REPO),          
         ],

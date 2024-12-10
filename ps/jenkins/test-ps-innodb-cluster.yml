@@ -19,7 +19,7 @@
                     - 'master'
                 wipe-workspace: true
         lightweight-checkout: true
-        script-path: ps/jenkins/test-ps-innodb-cluster-test.groovy
+        script-path: ps/jenkins/test-ps-innodb-cluster.groovy
     parameters:
         - choice:
             name: PRODUCT_TO_TEST
