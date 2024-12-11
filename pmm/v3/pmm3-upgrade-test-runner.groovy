@@ -37,7 +37,6 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     sh """
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
         python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
-        bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${pmm_server_version} ${pmm_client_version}
     """
 }
 
