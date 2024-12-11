@@ -304,7 +304,7 @@ void pushArtifactFile(String FILE_NAME) {
 
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
-    testsReport = '<testsuite name="$JOB_NAME">\n'
+    testsReport = '<testsuite name='"$JOB_NAME"'>\n'
     for (int i = 0; i < tests.size(); i ++) {
         testsReport += '<testcase name="' + tests[i]["name"] + '" time="' + tests[i]["time"] + '"><'+ tests[i]["result"] +'/></testcase>\n'
     }
