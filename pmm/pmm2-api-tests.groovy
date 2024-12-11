@@ -56,7 +56,7 @@ pipeline {
                     url: GIT_URL
 
                 slackSend botUser: true,
-                          channel: '#pmm-ci',
+                          channel: '#pmm-notifications',
                           color: '#0000FF',
                           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
@@ -135,7 +135,7 @@ pipeline {
                 archiveArtifacts artifacts: 'logs.zip'
                 if (currentBuild.result != 'SUCCESS') {
                     slackSend botUser: true,
-                              channel: '#pmm-ci',
+                              channel: '#pmm-notifications',
                               color: '#FF0000',
                               message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, owner: @${OWNER}"
                 }
@@ -144,7 +144,7 @@ pipeline {
         success {
             script {
                 slackSend botUser: true,
-                          channel: '#pmm-ci',
+                          channel: '#pmm-notifications',
                           color: '#00FF00',
                           message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
 
