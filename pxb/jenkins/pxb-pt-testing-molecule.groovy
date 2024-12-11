@@ -4,6 +4,7 @@
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
     ])
 
+
     pipeline {
     agent {
         label 'min-bookworm-x64'
