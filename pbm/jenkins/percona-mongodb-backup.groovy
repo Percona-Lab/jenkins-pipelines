@@ -33,9 +33,8 @@ pipeline {
     }
     parameters {
         choice(
-            defaultValue: 'Hetzner',
-            choices: ['Hetzner','AWS']
-            description: 'Cloud infra for build'
+            choices: ['Hetzner','AWS'],
+            description: 'Cloud infra for build',
             name: 'CLOUD')
         string(
             defaultValue: 'https://github.com/percona/percona-backup-mongodb.git',
