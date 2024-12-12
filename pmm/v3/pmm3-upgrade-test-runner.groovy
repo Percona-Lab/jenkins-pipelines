@@ -336,6 +336,8 @@ pipeline {
                             echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
                             docker ps -a --format "{{.Names}}"
 
+                            docker exec $psContainerName pmm-admin list | grep mysqld_exporter
+
                             psAgentId=$(docker exec $psContainerName pmm-admin list | grep mysqld_exporter | awk -F' ' '{ print $5 }')
                             psAgentPort=$(docker exec $psContainerName pmm-admin list | grep mysqld_exporter | awk -F' ' '{ print $7 }')
                             echo $psAgentPort
