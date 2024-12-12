@@ -29,9 +29,14 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'launcher-x64'
+        label params.CLOUD == 'Hetzner' ? 'launcher-x64' : 'micro-amazon'
     }
     parameters {
+        choice(
+            defaultValue: 'Hetzner',
+            choices: ['Hetzner','AWS']
+            description: 'Cloud infra for build'
+            name: 'CLOUD')
         string(
             defaultValue: 'https://github.com/percona/percona-backup-mongodb.git',
             description: 'URL for percona-mongodb-backup repository',
@@ -49,7 +54,7 @@ pipeline {
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
-            defaultValue: '2.7.0',
+            defaultValue: '2.8.0',
             description: 'VERSION value',
             name: 'VERSION')
         string(
@@ -70,7 +75,7 @@ pipeline {
     stages {
         stage('Create PBM source tarball') {
             agent {
-                label 'docker-x64'
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
             }
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
@@ -96,7 +101,7 @@ pipeline {
             parallel {
                 stage('Build PBM generic source rpm') {
                     agent {
-                        label 'docker-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -109,7 +114,7 @@ pipeline {
                 }
                 stage('Build PBM generic source deb') {
                     agent {
-                        label 'docker-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -124,9 +129,9 @@ pipeline {
         } // stage
         stage('Build PBM RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Oracle Linux 8') {
+                stage('Oracle Linux 8(x86_64)') {
                     agent {
-                        label 'docker-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -137,9 +142,22 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Oracle Linux 9') {
+                stage('Oracle Linux 8(aarch64)') {
                     agent {
-                        label 'docker-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:8", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Oracle Linux 9(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -150,7 +168,20 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Amazon Linux 2023') {
+                stage('Oracle Linux 9(aarch64)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Amazon Linux 2023(x86_64)') {
                     agent {
                         label 'docker'
                     }
@@ -163,9 +194,22 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Focal(20.04)') {
+                stage('Amazon Linux 2023(aarch64)') {
                     agent {
-                        label 'docker-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("amazonlinux:2023", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Focal 20.04(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -176,9 +220,22 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Jammy(22.04)') {
+                stage('Ubuntu Focal 20.04(aarch64)') {
                     agent {
-                        label 'docker-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:focal", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Jammy 22.04(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -189,9 +246,35 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Noble(24.04)') {
+                stage('Ubuntu Jammy 22.04(aarch64)') {
                     agent {
-                        label 'docker-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Noble 24.04(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:noble", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Noble 24.04(aarch64)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -204,7 +287,7 @@ pipeline {
                 }
                 stage('Debian Bullseye(11)') {
                     agent {
-                        label 'docker-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -217,7 +300,7 @@ pipeline {
                 }
                 stage('Debian Bookworm(12)') {
                     agent {
-                        label 'docker-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -230,7 +313,7 @@ pipeline {
                 }
                 stage('Oraclelinux 8 tarball') {
                     agent {
-                        label 'docker-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
                         cleanUpWS()
