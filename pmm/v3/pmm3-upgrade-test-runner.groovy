@@ -327,6 +327,8 @@ pipeline {
                     sleep 5
                     echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
                     docker ps -a --format "{{.Names}}"
+                    docker ps -a --format "{{.Names}}" | grep "ps_pmm"
+                    docker ps -a --format "{{.Names}}" | grep "pgsql_pgss"
                 """
             }
         }
