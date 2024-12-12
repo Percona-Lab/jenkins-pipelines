@@ -328,7 +328,7 @@ pipeline {
                             echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
                             sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
                             docker exec $psContainerName pkill -f mysqld_exporter
-                            docker exex $pgsqlContainerName pkill -f postgres_exporter
+                            docker exec $pgsqlContainerName pkill -f postgres_exporter
                             docker exex $pgsqlContainerName pmm-admin list
                             docker exex $psContainerName pmm-admin list
                             sudo pkill -f node_exporter
