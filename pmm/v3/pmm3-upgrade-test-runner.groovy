@@ -313,23 +313,25 @@ pipeline {
         }
         stage('Setup Custom queries') {
             steps {
-                sh """
-                    echo "Creating Custom Queries"
-                    git clone https://github.com/Percona-Lab/pmm-custom-queries
-                    sudo cp pmm-custom-queries/mysql/*.yml /usr/local/percona/pmm/collectors/custom-queries/mysql/high-resolution/
-                    echo "Adding Custom Queries for postgres"
-                    sudo cp pmm-custom-queries/postgresql/*.yaml /usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
-                    echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
-                    sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
-                    sudo pkill -f mysqld_exporter
-                    sudo pkill -f postgres_exporter
-                    sudo pkill -f node_exporter
-                    sleep 5
-                    echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
-                    docker ps -a --format "{{.Names}}"
-                    docker ps -a --format "{{.Names}}" | grep "ps_pmm"
-                    docker ps -a --format "{{.Names}}" | grep "pgsql_pgss"
-                """
+                if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
+                    sh """
+                        echo "Creating Custom Queries"
+                        git clone https://github.com/Percona-Lab/pmm-custom-queries
+                        sudo cp pmm-custom-queries/mysql/*.yml /usr/local/percona/pmm/collectors/custom-queries/mysql/high-resolution/
+                        echo "Adding Custom Queries for postgres"
+                        sudo cp pmm-custom-queries/postgresql/*.yaml /usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
+                        echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
+                        sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
+                        sudo pkill -f mysqld_exporter
+                        sudo pkill -f postgres_exporter
+                        sudo pkill -f node_exporter
+                        sleep 5
+                        echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
+                        docker ps -a --format "{{.Names}}"
+                        docker ps -a --format "{{.Names}}" | grep "ps_pmm"
+                        docker ps -a --format "{{.Names}}" | grep "pgsql_pgss"
+                    """
+                }
             }
         }
         stage('Sleep') {
