@@ -316,9 +316,9 @@ pipeline {
                 script {
                     if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
                         sh '''
-                            psContainerName = docker ps -a --format "{{.Names}}" | grep "ps_pmm"
+                            psContainerName=$(docker ps -a --format "{{.Names}}" | grep "ps_pmm")
                             echo "$psContainerName"
-                            pgsqlContainerName = docker ps -a --format "{{.Names}}" | grep "pgsql_pgss"
+                            pgsqlContainerName=$(docker ps -a --format "{{.Names}}" | grep "pgsql_pgss")
                             echo "$pgsqlContainerName"
                             echo "Creating Custom Queries"
                             git clone https://github.com/Percona-Lab/pmm-custom-queries
