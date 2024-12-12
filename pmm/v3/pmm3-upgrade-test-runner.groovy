@@ -326,7 +326,7 @@ pipeline {
                     sudo pkill -f node_exporter
                     sleep 5
                     echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
-                    docker ps -a --format='{{.Name}}'
+                    docker ps -a --format "{{.Names}}"
                 """
             }
         }
