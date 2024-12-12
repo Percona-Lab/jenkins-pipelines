@@ -289,10 +289,6 @@ pipeline {
                 }
                 stage('Setup PMM Client') {
                     steps {
-                        sh """
-                            echo ${CLIENT_VERSION}
-                            echo ${CLIENT_VERSION.trim()}
-                        """
                         setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
                     }
                 }
@@ -313,6 +309,25 @@ pipeline {
         stage('Sanity check') {
             steps {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+            }
+        }
+        stage('Setup Custom queries') {
+            steps {
+                sh """
+                    echo "Creating Custom Queries"
+                    git clone https://github.com/Percona-Lab/pmm-custom-queries
+                    sudo cp pmm-custom-queries/mysql/*.yml /usr/local/percona/pmm/collectors/custom-queries/mysql/high-resolution/
+                    echo "Adding Custom Queries for postgres"
+                    sudo cp pmm-custom-queries/postgresql/*.yaml /usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
+                    echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
+                    sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
+                    sudo pkill -f mysqld_exporter
+                    sudo pkill -f postgres_exporter
+                    sudo pkill -f node_exporter
+                    sleep 5
+                    echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
+                    docker ps -a
+                """
             }
         }
         stage('Sleep') {
