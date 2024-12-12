@@ -315,23 +315,27 @@ pipeline {
             steps {
                 script {
                     if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
-                        sh """
+                        sh '''
+                            psContainerName = docker ps -a --format "{{.Names}}" | grep "ps_pmm"
+                            echo "$psContainerName"
+                            pgsqlContainerName = docker ps -a --format "{{.Names}}" | grep "pgsql_pgss"
+                            echo "$pgsqlContainerName"
                             echo "Creating Custom Queries"
                             git clone https://github.com/Percona-Lab/pmm-custom-queries
-                            sudo cp pmm-custom-queries/mysql/*.yml /usr/local/percona/pmm/collectors/custom-queries/mysql/high-resolution/
+                            docker cp pmm-custom-queries/mysql/*.yml $psContainerName:/usr/local/percona/pmm/collectors/custom-queries/mysql/high-resolution/
                             echo "Adding Custom Queries for postgres"
-                            sudo cp pmm-custom-queries/postgresql/*.yaml /usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
+                            docker cp pmm-custom-queries/postgresql/*.yaml $pgsqlContainerName:/usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
                             echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
                             sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
-                            sudo pkill -f mysqld_exporter
-                            sudo pkill -f postgres_exporter
+                            docker exec $psContainerName pkill -f mysqld_exporter
+                            docker exex $pgsqlContainerName pkill -f postgres_exporter
+                            docker exex $pgsqlContainerName pmm-admin list
+                            docker exex $psContainerName pmm-admin list
                             sudo pkill -f node_exporter
                             sleep 5
                             echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
                             docker ps -a --format "{{.Names}}"
-                            docker ps -a --format "{{.Names}}" | grep "ps_pmm"
-                            docker ps -a --format "{{.Names}}" | grep "pgsql_pgss"
-                        """
+                        '''
                     }
                 }
             }
