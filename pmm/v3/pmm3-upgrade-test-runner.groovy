@@ -338,8 +338,8 @@ pipeline {
 
                             docker exec $psContainerName pmm-admin list | grep mysqld_exporter
 
-                            psAgentId=$(docker exec $psContainerName pmm-admin list | grep mysqld_exporter | awk -F' ' '{ print $5 }')
-                            psAgentPort=$(docker exec $psContainerName pmm-admin list | grep mysqld_exporter | awk -F' ' '{ print $7 }')
+                            psAgentId=$(docker exec $psContainerName pmm-admin list | grep mysqld_exporter | awk -F' ' '{ print $4 }')
+                            psAgentPort=$(docker exec $psContainerName pmm-admin list | grep mysqld_exporter | awk -F' ' '{ print $6 }')
                             echo $psAgentPort
                             docker exec $psContainerName curl -s -u 'pmm:$psAgentId' 'http://127.0.0.1:$psAgentPort/metrics'
                         '''
