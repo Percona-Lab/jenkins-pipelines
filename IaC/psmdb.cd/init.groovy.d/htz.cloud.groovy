@@ -35,7 +35,7 @@ labelMap['deb12-aarch64'] = 'docker-aarch64 docker-deb12-aarch64 deb12-aarch64'
 labelMap['launcher-x64']  = 'launcher-x64'
 
 networkMap = [:]
-networkMap['percona-vpc'] = '3907773' // percona-vpc
+networkMap['percona-vpc-eu'] = '10442325' // percona-vpc-eu
 
 initMap = [:]
 initMap['deb-docker'] = '''#!/bin/bash -x
@@ -93,9 +93,9 @@ initMap['launcher-x64']  = initMap['deb-docker']
 def templates = [
        /* new HetznerServerTemplate("ubuntu20-cx21", "java", "name=ubuntu20-docker", "fsn1", "cx21"), */
         //                        tmplName         tmplLabels                 tmplImage                  region server type
-        new HetznerServerTemplate("deb12-x64",     labelMap['deb12-x64'],     imageMap['deb12-x64'],     "ash", "cpx51"),
-        new HetznerServerTemplate("deb12-aarch64", labelMap['deb12-aarch64'], imageMap['deb12-aarch64'], "ash", "cax31"),
-        new HetznerServerTemplate("launcher-x64",  labelMap['launcher-x64'],  imageMap['launcher-x64'],  "ash", "cpx21")
+        new HetznerServerTemplate("deb12-x64",     labelMap['deb12-x64'],     imageMap['deb12-x64'],     "fsn1", "cx52"),
+        new HetznerServerTemplate("deb12-aarch64", labelMap['deb12-aarch64'], imageMap['deb12-aarch64'], "fsn1", "cax31"),
+        new HetznerServerTemplate("launcher-x64",  labelMap['launcher-x64'],  imageMap['launcher-x64'],  "fsn1", "cx22")
 ]
 
 templates.each { it -> 
@@ -108,11 +108,12 @@ templates.each { it ->
                        it.bootDeadline = bootDeadlineMap[tmplName]
                        it.remoteFs = "/mnt/jenkins/"
                        it.jvmOpts = jvmOptsMap[tmplName]
-                       it.network = networkMap['percona-vpc']
+                       it.network = networkMap['percona-vpc-eu']
                        it.userData = initMap[tmplName]
                }
 
-def cloud = new HetznerCloud(cloudName, "htz.cd.token", "10", templates)
+// public HetznerCloud(String name, String credentialsId, String instanceCapStr, List<HetznerServerTemplate> serverTemplates)
+def cloud = new HetznerCloud(cloudName, "htz.cd.token", "100", templates)
 
 def jenkins = Jenkins.get()
 
