@@ -322,9 +322,9 @@ pipeline {
                             echo "$pgsqlContainerName"
                             echo "Creating Custom Queries"
                             git clone https://github.com/Percona-Lab/pmm-custom-queries
-                            docker cp pmm-custom-queries/mysql/*.yml $psContainerName:/usr/local/percona/pmm/collectors/custom-queries/mysql/high-resolution/
+                            docker cp pmm-custom-queries/mysql/. $psContainerName:/usr/local/percona/pmm/collectors/custom-queries/mysql/high-resolution/
                             echo "Adding Custom Queries for postgres"
-                            docker cp pmm-custom-queries/postgresql/*.yaml $pgsqlContainerName:/usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
+                            docker cp pmm-custom-queries/postgresql/. $pgsqlContainerName:/usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
                             echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
                             sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
                             docker exec $psContainerName pkill -f mysqld_exporter
