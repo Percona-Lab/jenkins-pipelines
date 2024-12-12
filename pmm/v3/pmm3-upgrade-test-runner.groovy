@@ -329,8 +329,8 @@ pipeline {
                             sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
                             docker exec $psContainerName pkill -f mysqld_exporter
                             docker exec $pgsqlContainerName pkill -f postgres_exporter
-                            docker exex $pgsqlContainerName pmm-admin list
-                            docker exex $psContainerName pmm-admin list
+                            docker exec $pgsqlContainerName pmm-admin list
+                            docker exec $psContainerName pmm-admin list
                             sudo pkill -f node_exporter
                             sleep 5
                             echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
