@@ -18,7 +18,7 @@ pipeline {
                 slackSend botUser: true, channel: '#releases-ci', color: '#FFFF00', message: "PS80-AMI: build started - ${BUILD_URL}"
                 git poll: true, branch: "marketplace", url: "https://github.com/Percona-Lab/percona-images.git"
                 sh """
-                    sudo yum -y install unzip
+                    sudo yum -y install unzip make
                     make clean
                     make deps
                 """
