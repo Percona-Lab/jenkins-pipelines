@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'min-centos-7-x64'
+        label 'min-ol-9-x64'
     }
     parameters {
         string(
