@@ -170,7 +170,7 @@ pipeline {
                     } else if (env.UPGRADE_FLAG == "EXTERNAL SERVICES") {
                         env.PRE_UPGRADE_FLAG = "@pre-external-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-external-upgrade"
-                        env.PMM_CLIENTS = "--database external --database ps"
+                        env.PMM_CLIENTS = "--database external --database ps --database pgsql --database psmdb"
                     } else if (env.UPGRADE_FLAG == "MONGO BACKUP") {
                         env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
@@ -341,6 +341,7 @@ pipeline {
                             psAgentId=$(docker exec $psContainerName pmm-admin list | grep mysqld_exporter | awk -F' ' '{ print $4 }')
                             psAgentPort=$(docker exec $psContainerName pmm-admin list | grep mysqld_exporter | awk -F' ' '{ print $6 }')
                             echo $psAgentPort
+//                             docker exec $psContainerName curl -s -u 'pmm:$psAgentId' 'http://127.0.0.1:$psAgentPort/metrics'
                         '''
                     }
                 }
