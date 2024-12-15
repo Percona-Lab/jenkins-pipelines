@@ -5,19 +5,16 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void addIssueComment(String PR_NUMBER, String COMMENT) {
-    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-        writeFile(file: 'body.json', text: JsonOutput.toJson([ body: "${COMMENT}" ]))
-
-        sh '''
-            curl -s -X POST \
-                -H "Accept: application/vnd.github+json" \
-                -H "X-GitHub-Api-Version: 2022-11-28" \
-                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                -d @body.json \
-                "https://api.github.com/repos/percona/pmm/issues/${PR_NUMBER}/comments"
-        '''
-    }
+void addIssueComment(String PR_NUMBER, String COMMENT, String GITHUB_API_TOKEN) {
+    writeFile(file: 'body.json', text: JsonOutput.toJson([ body: "${COMMENT}" ]))
+    sh '''
+        curl -s -X POST \
+            -H "Accept: application/vnd.github+json" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -H "Authorization: token ${GITHUB_API_TOKEN}" \
+            -d @body.json \
+            "https://api.github.com/repos/percona/pmm/issues/${PR_NUMBER}/comments"
+    '''
 }
 
 pipeline {
@@ -26,12 +23,17 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-13487-build-pmm-locally',
-            description: 'A branch name in percona/pmm repository',
-            name: 'PMM_BRANCH')
+            name: 'PMM_BRANCH',
+            defaultValue: '',
+            description: 'A branch name in percona/pmm repository'
+        )
     }
     environment {
         PATH_TO_SCRIPTS = 'build/scripts'
+        // https://www.jenkins.io/doc/book/pipeline/syntax/#supported-credentials-type
+        GITHUB_SSH_KEY = credentials('GitHub SSH Key')
+        DOCKER_CREDS = credentials('hub.docker.com')
+        GITHUB_API_TOKEN = credentials('GITHUB_API_TOKEN')
     }
     stages {
         stage('Prepare') {
@@ -41,19 +43,17 @@ pipeline {
                     branch: PMM_BRANCH,
                     url: 'http://github.com/percona/pmm'
 
-                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh '''
-                        echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                    '''
-                }                    
-                withCredentials([sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')]) {
+                script {
+                    sh 'echo "${DOCKER_CREDS_PSW}" | docker login -u "${DOCKER_CREDS_USR}" --password-stdin'
+                }
+                script {
                     sh '''
                         set -o errexit
-                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${GITHUB_SSH_KEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
                         ./build.sh --init
                     '''
-                }
+                }                    
                 script {
                     env.PMM_VERSION = sh(returnStdout: true, script: "cat .modules/VERSION").trim()
                     env.FB_COMMIT = sh(returnStdout: true, script: "git rev-parse HEAD").trim()
@@ -71,12 +71,11 @@ pipeline {
         stage('Build PMM') {
             steps {
                 withCredentials([
-                  aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),
-                  sshUserPrivateKey(credentialsId: 'GitHub SSH Key', keyFileVariable: 'SSHKEY', passphraseVariable: '', usernameVariable: '')
+                    aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')
                 ]) {
                     sh '''
                         set -o errexit
-                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
+                        export GIT_SSH_COMMAND="/usr/bin/ssh -i ${GITHUB_SSH_KEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
                         ./build.sh
 
@@ -106,7 +105,7 @@ pipeline {
                 def STAGING_URL = "https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/"
                 def MESSAGE = "Server docker: `${SERVER_IMAGE}`\nClient docker: `${CLIENT_IMAGE}`\nClient tarball: ${CLIENT_URL}\n"
                 MESSAGE += "Staging instance: ${STAGING_URL}?DOCKER_VERSION=${SERVER_IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
-                addIssueComment(env.PR_NUMBER, MESSAGE)
+                addIssueComment(env.PR_NUMBER, MESSAGE, GITHUB_API_TOKEN)
             }
         }
         failure {
