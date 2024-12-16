@@ -197,13 +197,15 @@ compute:
   name: worker
   platform:
     aws:
-      type: m5.2xlarge
+      type: m5.4xlarge
   replicas: 3
 controlPlane:
   architecture: amd64
   hyperthreading: Enabled
   name: master
-  platform: {}
+  platform:
+    aws:
+      type: m5.4xlarge
   replicas: 1
 metadata:
   creationTimestamp: null
