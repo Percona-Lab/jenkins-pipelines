@@ -53,9 +53,11 @@ pipeline {
                                         fi
                                         sudo chmod +x /usr/local/bin/docker-compose
                                     fi
-                                """ 
-                                git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
-                                sh """
+
+                                    git clone https://github.com/Percona-QA/psmdb-testing
+                                    cd psmdb-testing
+                                    git checkout ${params.TESTING_BRANCH}
+
                                     cd pbm-functional/pytest
                                     docker-compose build
                                     docker-compose up -d
