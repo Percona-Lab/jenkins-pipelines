@@ -182,7 +182,7 @@ pipeline {
                 }
                 stage('Amazon Linux 2023(x86_64)') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
                     steps {
                         cleanUpWS()
