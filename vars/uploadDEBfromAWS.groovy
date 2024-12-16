@@ -1,5 +1,6 @@
-def call(String FOLDER_NAME, String AWS_STASH_PATH) {
-    node('master') {
+def call(String CLOUD_NAME, String FOLDER_NAME, String AWS_STASH_PATH) {
+    def nodeLabel = (CLOUD_NAME == 'Hetzner') ? 'launcher-x64' : 'micro-amazon'
+    node(nodeLabel) {
         deleteDir()
         popArtifactFolder(FOLDER_NAME, AWS_STASH_PATH)
         //unstash 'debs'
