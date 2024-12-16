@@ -87,9 +87,9 @@ pipeline {
                         docker tag ${TIMESTAMP_TAG} perconalab/watchtower:${WATCHTOWER_RC_TAG}
                         docker push perconalab/watchtower:${WATCHTOWER_RC_TAG}
                     fi
-                    docker tag ${TIMESTAMP_TAG} perconalab/pmm-server:${WATCHTOWER_LATEST_TAG}
+                    docker tag ${TIMESTAMP_TAG} perconalab/watchtower:${WATCHTOWER_LATEST_TAG}
                     docker push ${TIMESTAMP_TAG}
-                    docker push perconalab/pmm-server:${WATCHTOWER_LATEST_TAG}
+                    docker push perconalab/watchtower:${WATCHTOWER_LATEST_TAG}
                     echo "${WATCHTOWER_LATEST_TAG}" > WATCHTOWER_LATEST_TAG
                 '''
                 script {
