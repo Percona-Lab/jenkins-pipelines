@@ -36,7 +36,7 @@ void prepareNode() {
         IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
         IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        if ("$PLATFORM_VER" == "rel".toLowerCase()) {
+        if ("$PLATFORM_VER".toLowerCase() == "rel") {
             PLATFORM_VER = getParam("PLATFORM_VER", "MINIKUBE_${PLATFORM_VER}")
         }
     } else {
