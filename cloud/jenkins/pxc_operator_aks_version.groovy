@@ -1,4 +1,4 @@
-location='eastus'
+location='eastus2'
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
