@@ -372,5 +372,8 @@ Tarball ARM64: ${env.TARBALL_ARM64_URL}
 ${env.SCAN_REPORT_URL}
                       """
         }
+        failure {
+            slackSend botUser: true, channel: env.NOTIFICATION_CHANNEL, color: '#FF0000', message: "[${JOB_NAME}]: RC build failed :fire: - ${BUILD_URL}"
+        }
     }
 }
