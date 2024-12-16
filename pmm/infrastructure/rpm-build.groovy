@@ -17,7 +17,7 @@ pipeline {
         DOCKER_TAG = "rpmbuild"
     }
     // Tag versions: (see what's available for download at https://gallery.ecr.aws/e7j3v3n0/rpmbuild)
-    // rpmbuild:ol9 - PMM2 el9
+    // rpmbuild:2   - PMM2 el9
     // rpmbuild:3   - PMM3 el9
     stages {
         stage('Prepare') {
@@ -55,7 +55,7 @@ pipeline {
             steps {
                 sh '''
                     cd build/docker/rpmbuild/
-                    docker buildx build --pull --platform linux/amd64,linux/arm64 --tag ${IMAGE_REGISTRY}/${DOCKER_TAG}:ol9 -f Dockerfile.el9 --push .
+                    docker buildx build --pull --platform linux/amd64,linux/arm64 --tag ${IMAGE_REGISTRY}/${DOCKER_TAG}:2 -f Dockerfile.el9 --push .
                 '''
             }
         }

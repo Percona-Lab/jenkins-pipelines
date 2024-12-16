@@ -14,7 +14,8 @@ pipeline {
         string(name: 'PSMDB_VERSION', defaultValue: 'latest', description: 'PSMDB version')
         string(name: 'PBM_VERSION', defaultValue: 'latest', description: 'PBM version')
         string(name: 'PMM_VERSION', defaultValue: 'latest', description: 'PMM2 agent version')
-        string(name: 'PMM_IMAGE', defaultValue: 'perconalab/pmm-server:dev-latest', description: 'PMM server docker image')
+        string(name: 'PMM_REPO', defaultValue: 'release', description: 'PMM2 agent repo')
+        string(name: 'PMM_IMAGE', defaultValue: 'percona/pmm-server:dev-latest', description: 'PMM server docker image')
     }
     options {
           disableConcurrentBuilds()
@@ -28,7 +29,7 @@ pipeline {
                              -H "Accept: application/vnd.github.v3+json" \
                              -H "Authorization: token ${GITHUB_API_TOKEN}" \
                              "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PSMDB_PBM.yml/dispatches" \
-                             -d '{"ref":"main","inputs":{"psmdb_version":"${params.PSMDB_VERSION}","pbm_version":"${params.PBM_VERSION}","pmm_version":"${params.PMM_VERSION}","pmm_image":"${params.PMM_IMAGE}"}}'
+                             -d '{"ref":"main","inputs":{"psmdb_version":"${params.PSMDB_VERSION}","pbm_version":"${params.PBM_VERSION}","pmm_version":"${params.PMM_VERSION}","pmm_repo":"${params.PMM_REPO}","pmm_image":"${params.PMM_IMAGE}"}}'
                     """
                 }
             }

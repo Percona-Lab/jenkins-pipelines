@@ -485,7 +485,7 @@ ENDSSH
             deleteDir()
         }
         success {
-            slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
+            slackSend botUser: true, channel: '#pmm', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
             slackSend botUser: true, channel: '#releases', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
         }
         failure {

@@ -193,7 +193,7 @@ pipeline {
                             git config --global user.name "PMM Jenkins"
                             export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
-                            docker run --rm -v $PWD/.:/pmm public.ecr.aws/e7j3v3n0/rpmbuild:ol9 sh -c '
+                            docker run --rm -v $PWD/.:/pmm public.ecr.aws/e7j3v3n0/rpmbuild:2 sh -c '
                                 cd /pmm
                                 make init
                                 make -C api descriptors
@@ -257,7 +257,7 @@ pipeline {
         }
         stage('Check if Release Branch Exists') {
             steps {
-                deleteDir()#pmm-notifications
+                deleteDir()
                 script {
                     currentBuild.description = "$VERSION"
                     slackSend botUser: true,
