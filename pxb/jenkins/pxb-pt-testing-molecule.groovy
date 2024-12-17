@@ -4,9 +4,12 @@
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
     ])
 
+    def pxb84_pro_exempt = ['debian-11', 'oracle-8', 'rhel-8', 'rhel-8-arm', 'ubuntu-focal']
+
+
     pipeline {
     agent {
-        label 'min-ol-8-x64'
+        label 'min-bookworm-x64'
     }
     environment {
         product_to_test = "${params.product_to_test}"
@@ -14,6 +17,7 @@
         install_repo = "${params.install_repo}"
         server_to_test  = "${params.server_to_test}"
         scenario_to_test = "${params.scenario_to_test}"
+        REPO_TYPE = "${params.REPO_TYPE}"
     }
     parameters {
         choice(
@@ -55,17 +59,23 @@
             description: 'Scenario To Test',
             name: 'scenario_to_test'
         )
+        choice(
+            choices: ['NORMAL', 'PRO'],
+            description: 'Choose the product to test',
+            name: 'REPO_TYPE'
+        )
 
     }
     options {
-        withCredentials(moleculepxbJenkinsCreds())
+//        withCredentials(moleculepxbJenkinsCreds())
+        withCredentials(moleculePdpsJenkinsCreds())
     }
 
         stages {
             stage('Set Build Name'){
                 steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${product_to_test}-${server_to_test}-${scenario_to_test}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${product_to_test}-${server_to_test}-${scenario_to_test}-${REPO_TYPE}"
                     }
                 }
             }
@@ -80,7 +90,7 @@
             stage('Prepare') {
                 steps {
                     script {
-                        installMolecule()
+                        installMoleculeBookworm()
                     }
                 }
             }
@@ -90,37 +100,52 @@
                                 if (scenario_to_test == 'install') {
                                     sh """
                                         echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
+                                        echo WORKSPACE_VAR=${WORKSPACE} >> .env.ENV_VARS
                                     """
                                 } else {
                                     sh """
                                         echo PLAYBOOK_VAR="${product_to_test}_${scenario_to_test}" > .env.ENV_VARS
+                                        echo WORKSPACE_VAR=${WORKSPACE} >> .env.ENV_VARS
                                     """
                                 }
 
                                 def envMap = loadEnvFile('.env.ENV_VARS')
+                                
                                 withEnv(envMap) {
-                                    moleculeParallelTestPXB(pxbPackageTesting(), "molecule/pxb-package-testing/")
+                                    
+                                if (REPO_TYPE == 'PRO') {
+                                        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                                            script {
+                                                moleculeParallelTestPXB(pxbPackageTesting(), "molecule/pxb-package-testing/")
+                                            }
+                                        }
+                                }
+                                else {
+                                        moleculeParallelTestPXB(pxbPackageTesting(), "molecule/pxb-package-testing/")
                                 }
 
+                                }
+
+                            }
+                        }
+
+                        post {
+                            always {
+
+                                script{
+                                    //sh "ls -la ."
+                                    //sh "mkdir ARTIFACTS && cp *.zip ARTIFACTS/"
+                                    //sh "ls -la ARTIFACTS/"
+                                    //sh "zip -r ${env.BUILD_NUMBER}-ARTIFACTS.zip ARTIFACTS"
+                                    archiveArtifacts artifacts: '*.zip', allowEmptyArchive: true
+                                }
                             }
                         }
             }
         }
     }
 
-def installMolecule() {
-    sh """
-        sudo yum install -y gcc python3-pip python3-devel libselinux-python3
-        sudo yum remove ansible -y
-        python3 -m venv virtenv
-        . virtenv/bin/activate
-        python3 --version
-        python3 -m pip install --upgrade pip
-        python3 -m pip install --upgrade setuptools
-        python3 -m pip install --upgrade setuptools-rust
-        python3 -m pip install --upgrade molecule==3.3.0 testinfra pytest molecule-ec2==0.3 molecule[ansible] boto3 boto
-    """
-}
+
 def loadEnvFile(envFilePath) {
     def envMap = []
     def envFileContent = readFile(file: envFilePath).trim().split('\n')

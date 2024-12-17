@@ -19,18 +19,12 @@
         lightweight-checkout: true
         script-path: ps/jenkins/test-ps-innodb-cluster-parallel.groovy
     parameters:
-        - string:
-            name: UPSTREAM_VERSION
-            default: "8.0.32"
-            description: "Upstream MySQL version"
-        - string:
-            name: PS_VERSION
-            default: "24"
-            description: "Percona part of version"
-        - string:
-            name: PS_REVISION
-            default: "e5c6e9d2"
-            description: "Short git hash for release"
+        - choice:
+            name: PRODUCT_TO_TEST
+            choices:
+                - "PS80"
+                - "PS84"
+                - "PS_INN_LTS"
         - choice:
             name: TEST_DIST
             choices:

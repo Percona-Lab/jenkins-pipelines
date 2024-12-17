@@ -455,26 +455,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Debian Buster(10)') {
-                    agent {
-                        label 'docker-32gb'
-                    }
-                    steps {
-                        script {
-                            PXB_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                            if ("${PXB_MAJOR_RELEASE}" == "80") {
-                                cleanUpWS()
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                                buildStage("debian:buster", "--build_deb=1")
-
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                           } else {
-                                echo "The step is skiped"
-                           }
-                       }
-                    }
-                }
                 stage('Debian Bullseye(11)') {
                     agent {
                         label 'docker-32gb'
