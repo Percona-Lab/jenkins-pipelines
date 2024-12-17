@@ -157,7 +157,7 @@ pipeline {
                     """
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     if (params.NOTIFY == "true") {
-                        slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started, owner: @${OWNER}, URL: ${BUILD_URL}"
+                        slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started, owner: @${OWNER}, URL: ${BUILD_URL}"
                         if (env.OWNER_SLACK) {
                             slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#0000FF', message: "[${JOB_NAME}]: build started, owner: @${OWNER}, URL: ${BUILD_URL}"
                         }
@@ -322,7 +322,7 @@ pipeline {
         success {
             script {
                 if (params.NOTIFY == "true") {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER}, URL: https://${env.IP}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER}, URL: https://${env.IP}"
                     if (env.OWNER_SLACK) {
                         slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER}, URL: https://${env.IP}"
                     }
@@ -342,7 +342,7 @@ pipeline {
             }
             script {
                 if (params.NOTIFY == "true") {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER}\nURL: ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER}\nURL: ${BUILD_URL}"
                     if (env.OWNER_SLACK) {
                         slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER}\nURL: ${BUILD_URL}"
                     }

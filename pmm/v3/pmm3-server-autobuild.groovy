@@ -59,7 +59,7 @@ pipeline {
                 archiveArtifacts 'uploadPath'
                 stash includes: 'uploadPath', name: 'uploadPath'
                 archiveArtifacts 'shortCommit'
-                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
         stage('Build client source') {
@@ -103,12 +103,8 @@ pipeline {
                     sh '''
                         set -o errexit
 
-                        # These are used by `src/github.com/percona/pmm/build/scripts/vars`
-                        ## export ROOT_DIR=${WORKSPACE}
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3
                         export RPMBUILD_DIST="el9"
-                        # Set this variable if we need to rebuils all rpms, for example to refresh stale assets stored in S3 build cache
-                        # export FORCE_REBUILD=1
 
                         ${PATH_TO_SCRIPTS}/build-server-rpm-all
                     '''
@@ -178,7 +174,7 @@ pipeline {
     post {        
         success {
             script {
-                slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}, URL: ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}, URL: ${BUILD_URL}"
                 if (params.DESTINATION == "testing") {
                     currentBuild.description = "RC Build v3, Image:" + env.IMAGE
                     slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: RC build finished - ${IMAGE}, URL: ${BUILD_URL}"
@@ -188,7 +184,7 @@ pipeline {
         failure {
             script {
                 echo "Pipeline failed"
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
                 slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
         }
