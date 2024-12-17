@@ -373,7 +373,7 @@ ${env.SCAN_REPORT_URL}
                       """
         }
         failure {
-            slackSend botUser: true, channel: env.NOTIFICATION_CHANNEL, color: '#FF0000', message: "[${JOB_NAME}]: RC build failed :fire: - ${BUILD_URL}"
+            slackSend botUser: true, channel: '#pmm-internal', color: '#FF0000', message: "[${JOB_NAME}]: RC build failed :fire: - ${BUILD_URL}"
         }
     }
 }
