@@ -124,7 +124,7 @@ pipeline {
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         string(
-            defaultValue: '16',
+            defaultValue: '17',
             description: "Which version of Percona Distribution for PostgreSQL",
             name: 'PDPGSQL_VERSION')
         string(
