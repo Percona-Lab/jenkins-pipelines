@@ -137,7 +137,7 @@ pipeline {
             name: 'REMOVE_RELEASE_BRANCH'
         )
         string(
-            defaultValue: '#pmm-dev',
+            defaultValue: '#pmm-internal',
             description: 'Channel to send notifications to',
             name: 'NOTIFICATION_CHANNEL'
         )
@@ -173,7 +173,7 @@ pipeline {
 
                             API_DESCRIPTOR=$(git diff --text | grep -q 'descriptor\\.bin' && echo "CHANGED" || echo "NOT_CHANGED")
                             if [[ $API_DESCRIPTOR == "CHANGED" ]]; then
-                                git commit -a -m "Update descriptors"
+                                git commit -a -m "chore(rc): update descriptors"
                                 git show
                                 git push origin ${TARGET_BRANCH}
                             fi
@@ -371,6 +371,9 @@ Tarball AMD64: ${env.TARBALL_AMD64_URL}
 Tarball ARM64: ${env.TARBALL_ARM64_URL}
 ${env.SCAN_REPORT_URL}
                       """
+        }
+        failure {
+            slackSend botUser: true, channel: '#pmm-internal', color: '#FF0000', message: "[${JOB_NAME}]: RC build failed :fire: - ${BUILD_URL}"
         }
     }
 }
