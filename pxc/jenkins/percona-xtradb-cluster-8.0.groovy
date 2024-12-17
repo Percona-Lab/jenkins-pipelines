@@ -520,7 +520,7 @@ pipeline {
                             sed -i "s/pxc-80/pxc-8x-innovation/g" Dockerfile
                         else
                             sed -i "s/pxc-80/pxc-84-lts/g" Dockerfile
-                            sed -i "s/default_authentication_plugin=mysql_native_password/mysql-native-password=ON\nrequire_secure_transport=OFF/g" dockerdir/etc/mysql/node.cnf
+                            sed -i "s/default_authentication_plugin=mysql_native_password/mysql-native-password=ON\\nrequire_secure_transport=OFF/g" dockerdir/etc/mysql/node.cnf
                             sed -i "s/skip-host-cache/host_cache_size = 0/g" dockerdir/etc/mysql/node.cnf
                             sed -i "s/--skip-ssl//g" dockerdir/entrypoint.sh
                         fi
@@ -533,6 +533,7 @@ pipeline {
                     sed -i "s/ENV PXC_REPO.*/ENV PXC_REPO=testing/g" Dockerfile
                     if [ ${PXC_MAJOR_RELEASE} != "80" ]; then
                         sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
+                        #sed -i "s/ENV PXB_VERSION.*/ENV PXB_VERSION 8.4.0-2.1/g" Dockerfile
                         sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                         if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
                             sed -i "s/tools/pxb-8x-innovation/g" Dockerfile
@@ -581,7 +582,7 @@ pipeline {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${GIT_BRANCH} - [${BUILD_URL}]"
+                currentBuild.description = "Built on ${GIT_BRANCH} - packages [${COMPONENT}/${AWS_STASH_PATH}]"
             }
             deleteDir()
         }

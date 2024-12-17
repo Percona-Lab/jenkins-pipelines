@@ -3,7 +3,7 @@ def call(String FOLDER_NAME, String AWS_STASH_PATH) {
         sh """
 	    pwd
             S3_PATH=s3://percona-jenkins-artifactory/${AWS_STASH_PATH}
-            aws s3 cp --quiet --recursive \$S3_PATH/${FOLDER_NAME} ${FOLDER_NAME} || :
+            aws s3 cp --recursive \$S3_PATH/${FOLDER_NAME} ${FOLDER_NAME} || :
         """
     }
 }
