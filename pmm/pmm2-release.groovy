@@ -461,7 +461,7 @@ ENDSSH
                         sha256sum pmm-client-${VERSION}-amd64.docker | tee pmm-client-${VERSION}-amd64.sha256sum
                         sha256sum pmm-client-${VERSION}-arm64.docker | tee pmm-client-${VERSION}-arm64.sha256sum
 
-                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
 
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/docker"
 
@@ -486,7 +486,7 @@ ENDSSH
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         sha256sum pmm-server-${VERSION}.ova | tee pmm-server-${VERSION}.sha256sum
-                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/ova"
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.ova pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/ova/
                     '''
