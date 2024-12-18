@@ -107,6 +107,21 @@ void destroyStaging(IP) {
         string(name: 'VM', value: IP),
     ]
 }
+
+void checkClientNodesAgentStatus(String VM_CLIENT_IP) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP} '
+                set -o errexit
+                set -o xtrace
+                echo "Checking Agent Status on Client Nodes";
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/agent_status.sh
+                bash -xe /srv/pmm-qa/pmm-tests/agent_status.sh
+            '
+        """
+    }
+}
+
 pipeline {
     agent {
         label 'min-focal-x64'
@@ -320,6 +335,30 @@ pipeline {
         stage('Sleep') {
             steps {
                 sleep 300
+            }
+        }
+        stage('Check agent status') {
+            parallel {
+                stage('Check Agent Status on ps single and mongo pss') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_MYSQL)
+                    }
+                }
+                stage('Check Agent Status on ps & replication node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PS_GR)
+                    }
+                }
+                stage('Check Agent Status on ms/md/pxc node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PXC)
+                    }
+                }
+                stage('Check Agent Status on postgresql node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PGSQL)
+                    }
+                }
             }
         }
         stage('Run Tests') {
