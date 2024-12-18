@@ -479,8 +479,8 @@ pipeline {
         failure {
             archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
 //             slackSend channel: '#pmm-notifications',
-                      color: '#FF0000',
-                      message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, ver: ${DOCKER_TAG}"
+//                       color: '#FF0000',
+//                       message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, ver: ${DOCKER_TAG}"
         }
     }
 }
