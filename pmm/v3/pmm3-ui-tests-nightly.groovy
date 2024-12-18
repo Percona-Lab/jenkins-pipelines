@@ -115,6 +115,8 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP) {
                 set -o errexit
                 set -o xtrace
                 echo "Checking Agent Status on Client Nodes";
+                sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git /srv/pmm-qa
+                sudo chmod -R 755 /srv/pmm-qa
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/agent_status.sh
                 bash -xe /srv/pmm-qa/pmm-tests/agent_status.sh
             '
@@ -249,8 +251,7 @@ pipeline {
                     sudo mkdir -p /srv/qa-integration || :
                     sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
                     sudo chmod -R 755 /srv/qa-integration
-                    sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git /srv/pmm-qa
-                    sudo chmod -R 755 /srv/pmm-qa
+
                 '''
             }
         }
