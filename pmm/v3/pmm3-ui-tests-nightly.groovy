@@ -108,7 +108,7 @@ void destroyStaging(IP) {
     ]
 }
 
-void checkClientNodesAgentStatus(String VM_CLIENT_IP) {
+void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
         sh """
             ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP} '
@@ -116,7 +116,7 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP) {
                 set -o xtrace
                 echo "Checking Agent Status on Client Nodes";
                 sudo mkdir -p /srv/pmm-qa || :
-                sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git /srv/pmm-qa
+                sudo git clone --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa
                 sudo chmod -R 755 /srv/pmm-qa
                 sudo chmod 755 /srv/pmm-qa/pmm-tests/agent_status.sh
                 bash -xe /srv/pmm-qa/pmm-tests/agent_status.sh
@@ -345,22 +345,22 @@ pipeline {
             parallel {
                 stage('Check Agent Status on ps single and mongo pss') {
                     steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_MYSQL)
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_MYSQL, env.PMM_QA_GIT_BRANCH)
                     }
                 }
                 stage('Check Agent Status on ps & replication node') {
                     steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PS_GR)
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PS_GR, env.PMM_QA_GIT_BRANCH)
                     }
                 }
                 stage('Check Agent Status on ms/md/pxc node') {
                     steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PXC)
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PXC, env.PMM_QA_GIT_BRANCH)
                     }
                 }
                 stage('Check Agent Status on postgresql node') {
                     steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PGSQL)
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PGSQL, env.PMM_QA_GIT_BRANCH)
                     }
                 }
             }
