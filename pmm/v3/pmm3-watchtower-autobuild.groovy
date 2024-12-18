@@ -34,7 +34,7 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
+                git poll: false, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
                 script {
                     env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
                 }
