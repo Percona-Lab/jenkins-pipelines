@@ -36,8 +36,9 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     sh """
         echo $pmm_version
         if [$pmm_version == "3-dev-latest"]; then
-        GET_PMM_CLIENT_VERSION=$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
+        GET_PMM_CLIENT_VERSION=\$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
         fi
+
         echo GET_PMM_CLIENT_VERSION
 
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
