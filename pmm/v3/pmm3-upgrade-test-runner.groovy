@@ -9,6 +9,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 )
 
 void checkUpgrade(String PMM_VERSION, String PRE_POST) {
+
     def pmm_version = PMM_VERSION.trim();
     sh """
         export PRE_POST=${PRE_POST}
@@ -32,10 +33,11 @@ void checkClientAfterUpgrade(String PMM_SERVER_VERSION) {
 }
 
 void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) {
+//     getPMMVersion(PMM_SERVER_VERSION);
     def pmm_version = CLIENT_VERSION.trim();
     sh """
         echo $pmm_version
-        if [$pmm_version == "3-dev-latest"]; then
+        if [ "$pmm_version" == "3-dev-latest" ]; then
             GET_PMM_CLIENT_VERSION=\$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
         fi
 
