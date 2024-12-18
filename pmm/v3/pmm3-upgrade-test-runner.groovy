@@ -158,7 +158,7 @@ pipeline {
                     branch: PMM_UI_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+//                 slackSend channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
@@ -464,7 +464,7 @@ pipeline {
                     error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
                 }
 
-                slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
+//                 slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
             }
             /*
             allure([
@@ -478,7 +478,7 @@ pipeline {
         }
         failure {
             archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
-            slackSend channel: '#pmm-ci',
+//             slackSend channel: '#pmm-notifications',
                       color: '#FF0000',
                       message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, ver: ${DOCKER_TAG}"
         }
