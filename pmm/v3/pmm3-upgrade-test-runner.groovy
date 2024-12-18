@@ -35,8 +35,8 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     def pmm_server_version = CLIENT_VERSION.trim();
     def pmm_client_version = CLIENT_VERSION.trim();
     sh """
-        echo ${pmm_client_version}
-        export pmm_client_version=${pmm_client_version}
+        echo ${CLIENT_VERSION}
+        export CLIENT_VERSION=${CLIENT_VERSION}
         if [\${pmm_client_version} == "3-dev-latest"]; then
         GET_PMM_CLIENT_VERSION=$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
         fi
