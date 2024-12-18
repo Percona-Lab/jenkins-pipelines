@@ -249,6 +249,8 @@ pipeline {
                     sudo mkdir -p /srv/qa-integration || :
                     sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
                     sudo chmod -R 755 /srv/qa-integration
+                    sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git /srv/pmm-qa
+                    sudo chmod -R 755 /srv/pmm-qa
                 '''
             }
         }
