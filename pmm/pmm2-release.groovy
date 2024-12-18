@@ -298,7 +298,7 @@ ENDSSH
             }
             steps {
                 installDocker()
-                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: release started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: release started - ${BUILD_URL}"
                 sh "sg docker -c 'docker run ${SERVER_IMAGE} /usr/bin/rpm -qa' > rpms.list"
                 stash includes: 'rpms.list', name: 'rpms-stash'
             }
@@ -461,7 +461,7 @@ ENDSSH
                         sha256sum pmm-client-${VERSION}-amd64.docker | tee pmm-client-${VERSION}-amd64.sha256sum
                         sha256sum pmm-client-${VERSION}-arm64.docker | tee pmm-client-${VERSION}-arm64.sha256sum
 
-                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
 
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/docker"
 
@@ -486,7 +486,7 @@ ENDSSH
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         sha256sum pmm-server-${VERSION}.ova | tee pmm-server-${VERSION}.sha256sum
-                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/ova"
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.ova pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/ova/
                     '''
@@ -571,11 +571,11 @@ ENDSSH
             deleteDir()
         }
         success {
-            slackSend botUser: true, channel: '#pmm-dev', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
+            slackSend botUser: true, channel: '#pmm', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
             slackSend botUser: true, channel: '#releases', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: release failed - ${BUILD_URL}"
+            slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: release failed - ${BUILD_URL}"
         }
     }
 }
