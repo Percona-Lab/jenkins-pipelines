@@ -39,8 +39,6 @@ pipeline {
                     env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
                 }
                 sh '''
-                    git reset --hard
-                    git clean -xdf
                     git submodule update --init --jobs 10 ${PATH_TO_WATCHTOWER}
                     git submodule status
 
