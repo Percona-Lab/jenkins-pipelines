@@ -44,7 +44,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
         echo "Returned PMM Version is: \$GET_PMM_CLIENT_VERSION"
 
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
-        python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py \$GET_PMM_CLIENT_VERSION \$GET_PMM_CLIENT_VERSION
+        python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py \$GET_PMM_CLIENT_VERSION
     """
 }
 
