@@ -234,7 +234,7 @@ pipeline {
                         PBM_RELEASE=\$(cd percona-backup-mongodb && git branch -r | grep release | sed 's|origin/||' | sort --version-sort | tail -1)
                         echo \$PBM_RELEASE
                         """).trim()
-                    build job: 'pbm-functional-tests', propagate: false, wait: false, parameters: [string(name: 'PBM_BRANCH', value: pbm_branch ), string(name: 'PSMDB', value: psmdb_image ), string(name: 'instance', value: 'docker-64gb-aarch64')]
+                    build job: 'pbm-functional-tests', propagate: false, wait: false, parameters: [string(name: 'PBM_BRANCH', value: pbm_branch ), string(name: 'PSMDB', value: psmdb_image ), string(name: 'instance', value: 'docker-64gb-aarch64'), string(name: 'TESTING_BRANCH', value: "pbm-${pbm_branch}")]
                 }
             }
         }
