@@ -142,6 +142,9 @@ pipeline {
                 retry(3) {
                     build('mongod7.0')
                 }
+                retry(3) {
+                    build('mongod8.0')
+                }
             }
         }
 
@@ -153,6 +156,8 @@ pipeline {
                 pushImageToDocker('mongod6.0-debug')
                 pushImageToDocker('mongod7.0')
                 pushImageToDocker('mongod7.0-debug')
+                pushImageToDocker('mongod8.0')
+                pushImageToDocker('mongod8.0-debug')
                 pushImageToDocker('backup')
             }
         }
@@ -198,6 +203,16 @@ pipeline {
                         }
                     }
                 }
+                stage('mongod8.0'){
+                    steps {
+                        checkImageForDocker('main-mongod8.0')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod8.0-psmdb.xml"
+                        }
+                    }
+                }
                 stage('mongod5.0-debug'){
                     steps {
                         checkImageForDocker('main-mongod5.0-debug')
@@ -225,6 +240,16 @@ pipeline {
                     post {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod7.0-debug-psmdb.xml"
+                        }
+                    }
+                }
+                stage('mongod8.0-debug'){
+                    steps {
+                        checkImageForDocker('main-mongod8.0-debug')
+                    }
+                    post {
+                        always {
+                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod8.0-debug-psmdb.xml"
                         }
                     }
                 }
