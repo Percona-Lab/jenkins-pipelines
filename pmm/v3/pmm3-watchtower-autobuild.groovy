@@ -60,10 +60,7 @@ pipeline {
                         docker run --rm \
                             -v ${WORKSPACE}/${PATH_TO_WATCHTOWER}:/watchtower \
                             public.ecr.aws/e7j3v3n0/rpmbuild:3 \
-                            /bin/bash -c "
-                                cd /watchtower && \
-                                GO111MODULE=on CGO_ENABLED=0 GOOS=linux go build -a -ldflags '-extldflags \\"-static\\" -X github.com/containrrr/watchtower/internal/meta.Version=$(git describe --tags || echo 'unknown')' .
-                            "
+                            /bin/bash -c "cd /watchtower && make build"
                     '''
                 }
             }
