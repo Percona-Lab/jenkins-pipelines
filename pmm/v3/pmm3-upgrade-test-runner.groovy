@@ -40,7 +40,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
         if [ "$pmm_version" = "3-dev-latest" ]; then
             GET_PMM_CLIENT_VERSION=\$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
         elif [ "$pmm_version" = "pmm3-rc"]; then
-            GET_PMM_CLIENT_VERSION=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 3.*.*-rc$ | sort -V | tail -n1)
+            GET_PMM_CLIENT_VERSION=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 3.*.*-rc\$ | sort -V | tail -n1)
         fi
 
         echo "Returned PMM Version is: \$GET_PMM_CLIENT_VERSION"
