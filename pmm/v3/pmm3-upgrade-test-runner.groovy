@@ -180,7 +180,7 @@ pipeline {
                     } else if (env.UPGRADE_FLAG == "EXTERNAL SERVICES") {
                         env.PRE_UPGRADE_FLAG = "@pre-external-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-external-upgrade"
-                        env.PMM_CLIENTS = "--database external --database ps --database pgsql --database psmdb --database proxysql"
+                        env.PMM_CLIENTS = "--database external --database ps --database pgsql --database psmdb --database pxc"
                     } else if (env.UPGRADE_FLAG == "MONGO BACKUP") {
                         env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
