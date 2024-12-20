@@ -811,13 +811,22 @@ parameters {
 
                 uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                 uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+
+                script {
+                    if (env.EXPERIMENTALMODE == 'NO') {
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
             }
         }
 
         stage('Sign packages') {
             steps {
-                signRPM()
+                script {
+                    if (env.EXPERIMENTALMODE == 'NO') {
+                        signRPM()
+                    }
+                }
                 signDEB()
             }
         }
@@ -828,25 +837,17 @@ parameters {
                     MYSQL_VERSION_MINOR = sh(returnStdout: true, script: ''' curl -s -O $(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')/${BRANCH}/MYSQL_VERSION; cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
                     PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
                     // sync packages
-                    if ("${MYSQL_VERSION_MINOR}" == "0") {
-                        if (env.FIPSMODE == 'YES') {
-                            sync2PrivateProdAutoBuild("ps-9x-innovation-pro", COMPONENT)
+                    if (env.FIPSMODE == 'YES') {
+                        if ("${MYSQL_VERSION_MINOR}" == "7") {
+                            sync2PrivateProdAutoBuild("ps-97-pro", COMPONENT)
                         } else {
-                            sync2ProdAutoBuild("ps-9x-innovation", COMPONENT)
+                            sync2PrivateProdAutoBuild("ps-9x-innovation-pro", COMPONENT)
                         }
                     } else {
-                        if (env.FIPSMODE == 'YES') {
-                            if ("${MYSQL_VERSION_MINOR}" == "7") {
-                                sync2PrivateProdAutoBuild("ps-97-lts-pro", COMPONENT)
-                            } else {
-                                sync2PrivateProdAutoBuild("ps-9x-innovation-pro", COMPONENT)
-                            }
+                        if ("${MYSQL_VERSION_MINOR}" == "7") {
+                            sync2ProdAutoBuild("ps-97-lts", COMPONENT)
                         } else {
-                            if ("${MYSQL_VERSION_MINOR}" == "7") {
-                                sync2ProdAutoBuild("ps-97-lts", COMPONENT)
-                            } else {
-                                sync2ProdAutoBuild("ps-9x-innovation", COMPONENT)
-                            }
+                            sync2ProdAutoBuild("ps-9x-innovation", COMPONENT)
                         }
                     }
                 }
