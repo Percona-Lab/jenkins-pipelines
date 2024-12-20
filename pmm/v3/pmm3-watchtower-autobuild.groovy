@@ -60,7 +60,7 @@ pipeline {
                         docker run --rm \
                             -v ${WORKSPACE}/${PATH_TO_WATCHTOWER}:/watchtower \
                             public.ecr.aws/e7j3v3n0/rpmbuild:3 \
-                            /bin/bash -c "cd /watchtower && make build"
+                            make -C /watchtower build
                     '''
                 }
             }
