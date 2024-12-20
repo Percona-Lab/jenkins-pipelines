@@ -91,7 +91,7 @@ pipeline {
                     echo "${WATCHTOWER_LATEST_TAG}" > WATCHTOWER_LATEST_TAG
                 '''
                 script {
-                    env.IMAGE = sh(returnStdout: true, script: "cat WATCHTOWER_LATEST_TAG").trim()
+                    env.IMAGE = sh(returnStdout: true, script: "cat ${PATH_TO_WATCHTOWER}/WATCHTOWER_LATEST_TAG").trim()
                 }
             }
         }
