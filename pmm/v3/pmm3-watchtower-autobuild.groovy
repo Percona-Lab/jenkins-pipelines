@@ -13,10 +13,10 @@ pipeline {
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH'
         )
-        choice(
-            choices: ['experimental', 'testing'],
-            description: 'Select the destination environment for tagging the image.',
-            name: 'DESTINATION'
+        string(
+            defaultValue: 'dev-latest',
+            description: 'Tag type for the watchtower build, e.g. "dev-latest", "rc"',
+            name: 'TAG_TYPE'
         )
     }
     options {
@@ -44,11 +44,14 @@ pipeline {
 
                 '''
                 script {
-                    if (params.DESTINATION == "testing") {
-                        env.WATCHTOWER_LATEST_TAG   = "${VERSION}-rc${BUILD_NUMBER}"
-                        env.WATCHTOWER_RC_TAG       = "${VERSION}-rc"
+                    env.TIMESTAMP_TAG="perconalab/watchtower:$(date -u '+%Y%m%d%H%M')"
+                    if (params.TAG_TYPE == "rc") {
+                        env.WATCHTOWER_LATEST_TAG   = "perconalab/watchtower:${VERSION}-rc${BUILD_NUMBER}"
+                        env.WATCHTOWER_RC_TAG       = "perconalab/watchtower:${VERSION}-rc"
+                    } else if (params.TAG_TYPE.contains('pmm-watchtower-fb')) {
+                        env.WATCHTOWER_LATEST_TAG   = params.TAG_TYPE
                     } else {
-                        env.WATCHTOWER_LATEST_TAG   = "dev-latest"
+                        env.WATCHTOWER_LATEST_TAG   = "perconalab/watchtower:dev-latest"
                     }
                 }
             }
@@ -77,17 +80,16 @@ pipeline {
                 sh '''
                     set -o xtrace
 
-                    export TIMESTAMP_TAG=perconalab/watchtower:$(date -u '+%Y%m%d%H%M')
                     cd ${PATH_TO_WATCHTOWER}
                     docker build -t ${TIMESTAMP_TAG} -f dockerfiles/Dockerfile .
+                    docker push ${TIMESTAMP_TAG}
 
                     if [ -n "${WATCHTOWER_RC_TAG}" ]; then
-                        docker tag ${TIMESTAMP_TAG} perconalab/watchtower:${WATCHTOWER_RC_TAG}
-                        docker push perconalab/watchtower:${WATCHTOWER_RC_TAG}
+                        docker tag ${TIMESTAMP_TAG} ${WATCHTOWER_RC_TAG}
+                        docker push ${WATCHTOWER_RC_TAG}
                     fi
-                    docker tag ${TIMESTAMP_TAG} perconalab/watchtower:${WATCHTOWER_LATEST_TAG}
-                    docker push ${TIMESTAMP_TAG}
-                    docker push perconalab/watchtower:${WATCHTOWER_LATEST_TAG}
+                    docker tag ${TIMESTAMP_TAG} ${WATCHTOWER_LATEST_TAG}
+                    docker push ${WATCHTOWER_LATEST_TAG}
                     echo "${WATCHTOWER_LATEST_TAG}" > WATCHTOWER_LATEST_TAG
                 '''
                 script {
@@ -100,7 +102,7 @@ pipeline {
         success {
             script {
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}, URL: ${BUILD_URL}"
-                if (params.DESTINATION == "testing") {
+                if (params.TAG_TYPE == "rc") {
                     currentBuild.description = "RC Watchtower Build, Image:" + env.IMAGE
                     slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: RC Watchtower build finished - ${IMAGE}, URL: ${BUILD_URL}"
                 }
@@ -115,4 +117,3 @@ pipeline {
         }
     }
 }
-
