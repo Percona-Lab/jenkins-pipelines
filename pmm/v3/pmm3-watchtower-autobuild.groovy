@@ -44,7 +44,7 @@ pipeline {
 
                 '''
                 script {
-                    env.TIMESTAMP_TAG="perconalab/watchtower:$(date -u '+%Y%m%d%H%M')"
+                    env.TIMESTAMP_TAG = "perconalab/watchtower:" + sh(script: "date -u '+%Y%m%d%H%M'", returnStdout: true).trim()
                     if (params.TAG_TYPE == "rc") {
                         env.WATCHTOWER_LATEST_TAG   = "perconalab/watchtower:${VERSION}-rc${BUILD_NUMBER}"
                         env.WATCHTOWER_RC_TAG       = "perconalab/watchtower:${VERSION}-rc"
