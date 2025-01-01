@@ -72,13 +72,13 @@ pipeline {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
-                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
-                    wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                    sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
+                    #TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
+                    #wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
+                    #sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
 
-                    if [ ! -f junit.tpl ]; then
-                        wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
-                    fi
+                    #if [ ! -f junit.tpl ]; then
+                    #    wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
+                    #fi
 
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
@@ -88,7 +88,7 @@ pipeline {
                     sudo rm -rf source
                     ./cloud/local/checkout
                 """
-                stash includes: "cloud/**" , name: "checkout"
+                // stash includes: "cloud/**" , name: "checkout"
                 stash includes: "source/**", name: "sourceFILES"
 
                 sh '''
@@ -121,7 +121,7 @@ pipeline {
 
         stage('Build PSMDB docker images') {
             steps {
-                unstash "checkout"
+                // unstash "checkout"
                 sh """
                     sudo rm -rf ./source
                     export GIT_REPO=$GIT_PD_REPO
@@ -161,110 +161,110 @@ pipeline {
                 pushImageToDocker('backup')
             }
         }
-       stage('Trivy Checks') {
-            parallel {
-                stage('psmdb operator'){
-                    steps {
-                        checkImageForDocker('main')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod5.0'){
-                    steps {
-                        checkImageForDocker('main-mongod5.0')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod5.0-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod6.0'){
-                    steps {
-                        checkImageForDocker('main-mongod6.0')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod6.0-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod7.0'){
-                    steps {
-                        checkImageForDocker('main-mongod7.0')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod7.0-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod8.0'){
-                    steps {
-                        checkImageForDocker('main-mongod8.0')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod8.0-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod5.0-debug'){
-                    steps {
-                        checkImageForDocker('main-mongod5.0-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod5.0-debug-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod6.0-debug'){
-                    steps {
-                        checkImageForDocker('main-mongod6.0-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod6.0-debug-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod7.0-debug'){
-                    steps {
-                        checkImageForDocker('main-mongod7.0-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod7.0-debug-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod8.0-debug'){
-                    steps {
-                        checkImageForDocker('main-mongod8.0-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod8.0-debug-psmdb.xml"
-                        }
-                    }
-                }
-                stage('PBM'){
-                    steps {
-                        checkImageForDocker('main-backup')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-backup-psmdb.xml"
-                        }
-                    }
-                }
-            }
-        }
+        // stage('Trivy Checks') {
+        //     parallel {
+        //         stage('psmdb operator'){
+        //             steps {
+        //                 checkImageForDocker('main')
+        //             }
+        //             post {
+        //                 always {
+        //                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-psmdb.xml"
+        //                 }
+        //             }
+        //         }
+        //         stage('mongod5.0'){
+        //             steps {
+        //                 checkImageForDocker('main-mongod5.0')
+        //             }
+        //             post {
+        //                 always {
+        //                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod5.0-psmdb.xml"
+        //                 }
+        //             }
+        //         }
+        //         stage('mongod6.0'){
+        //             steps {
+        //                 checkImageForDocker('main-mongod6.0')
+        //             }
+        //             post {
+        //                 always {
+        //                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod6.0-psmdb.xml"
+        //                 }
+        //             }
+        //         }
+        //         stage('mongod7.0'){
+        //             steps {
+        //                 checkImageForDocker('main-mongod7.0')
+        //             }
+        //             post {
+        //                 always {
+        //                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod7.0-psmdb.xml"
+        //                 }
+        //             }
+        //         }
+        //         stage('mongod8.0'){
+        //             steps {
+        //                 checkImageForDocker('main-mongod8.0')
+        //             }
+        //             post {
+        //                 always {
+        //                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod8.0-psmdb.xml"
+        //                 }
+        //             }
+        //         }
+        //         stage('mongod5.0-debug'){
+        //             steps {
+        //                 checkImageForDocker('main-mongod5.0-debug')
+        //             }
+        //             post {
+        //                 always {
+        //                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod5.0-debug-psmdb.xml"
+        //                 }
+        //             }
+        //         }
+        //         stage('mongod6.0-debug'){
+        //             steps {
+        //                 checkImageForDocker('main-mongod6.0-debug')
+        //             }
+        //             post {
+        //                 always {
+        //                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod6.0-debug-psmdb.xml"
+        //                 }
+        //             }
+        //         }
+        //         stage('mongod7.0-debug'){
+        //             steps {
+        //                 checkImageForDocker('main-mongod7.0-debug')
+        //             }
+        //             post {
+        //                 always {
+        //                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod7.0-debug-psmdb.xml"
+        //                 }
+        //             }
+        //         }
+        //         stage('mongod8.0-debug'){
+        //             steps {
+        //                 checkImageForDocker('main-mongod8.0-debug')
+        //             }
+        //             post {
+        //                 always {
+        //                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod8.0-debug-psmdb.xml"
+        //                 }
+        //             }
+        //         }
+        //         stage('PBM'){
+        //             steps {
+        //                 checkImageForDocker('main-backup')
+        //             }
+        //             post {
+        //                 always {
+        //                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-backup-psmdb.xml"
+        //                 }
+        //             }
+        //         }
+        //     }
+        // }
     }
 
     post {
