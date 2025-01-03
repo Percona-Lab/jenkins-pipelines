@@ -55,34 +55,34 @@ pipeline {
                          docker push perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-arm64
                          docker push perconalab/percona-pgbackrest:\$MAJ_VER-arm64
 
-                         docker manifest create --amend perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-multi \
-                            perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION} \
+                         docker manifest create --amend perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION} \
+                            perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64 \
                             perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-arm64
-                         docker manifest annotate perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-multi \
+                         docker manifest annotate perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION} \
                             perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-multi \
-                            perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION} --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-multi
-                         docker manifest push perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-multi
+                         docker manifest annotate perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION} \
+                            perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}
+                         docker manifest push perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}
 
-                         docker manifest create --amend perconalab/percona-pgbackrest:\$MAJ_VER-multi \
-                            perconalab/percona-pgbackrest:\$MAJ_VER \
+                         docker manifest create --amend perconalab/percona-pgbackrest:\$MAJ_VER \
+                            perconalab/percona-pgbackrest:\$MAJ_VER-amd64 \
                             perconalab/percona-pgbackrest:\$MAJ_VER-arm64
-                         docker manifest annotate perconalab/percona-pgbackrest:\$MAJ_VER-multi \
+                         docker manifest annotate perconalab/percona-pgbackrest:\$MAJ_VER \
                             perconalab/percona-pgbackrest:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-pgbackrest:\$MAJ_VER-multi \
-                            perconalab/percona-pgbackrest:\$MAJ_VER --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-pgbackrest:\$MAJ_VER-multi
-                         docker manifest push perconalab/percona-pgbackrest:\$MAJ_VER-multi
+                         docker manifest annotate perconalab/percona-pgbackrest:\$MAJ_VER \
+                            perconalab/percona-pgbackrest:\$MAJ_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-pgbackrest:\$MAJ_VER
+                         docker manifest push perconalab/percona-pgbackrest:\$MAJ_VER
 
                          if [ ${params.LATEST} = "yes" ]; then
                             docker manifest create --amend perconalab/percona-pgbackrest:latest \
-                               perconalab/percona-pgbackrest:\$MAJ_VER \
+                               perconalab/percona-pgbackrest:\$MAJ_VER-amd64 \
                                perconalab/percona-pgbackrest:\$MAJ_VER-arm64
                             docker manifest annotate perconalab/percona-pgbackrest:latest \
                                perconalab/percona-pgbackrest:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
                             docker manifest annotate perconalab/percona-pgbackrest:latest \
-                               perconalab/percona-pgbackrest:\$MAJ_VER --os linux --arch amd64
+                               perconalab/percona-pgbackrest:\$MAJ_VER-amd64 --os linux --arch amd64
                             docker manifest inspect perconalab/percona-pgbackrest:latest
                             docker manifest push perconalab/percona-pgbackrest:latest
                          fi
@@ -105,34 +105,34 @@ pipeline {
                          docker push percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-arm64
                          docker push percona/percona-pgbackrest:\$MAJ_VER-arm64
 
-                         docker manifest create --amend percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-multi \
-                            percona/percona-pgbackrest:${params.PGBACKREST_VERSION} \
+                         docker manifest create --amend percona/percona-pgbackrest:${params.PGBACKREST_VERSION} \
+                            percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64 \
                             percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-arm64
-                         docker manifest annotate percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-multi \
+                         docker manifest annotate percona/percona-pgbackrest:${params.PGBACKREST_VERSION} \
                             percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-multi \
-                            percona/percona-pgbackrest:${params.PGBACKREST_VERSION} --os linux --arch amd64
-                         docker manifest inspect percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-multi
-                         docker manifest push percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-multi
+                         docker manifest annotate percona/percona-pgbackrest:${params.PGBACKREST_VERSION} \
+                            percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/percona-pgbackrest:${params.PGBACKREST_VERSION}
+                         docker manifest push percona/percona-pgbackrest:${params.PGBACKREST_VERSION}
 
-                         docker manifest create --amend percona/percona-pgbackrest:\$MAJ_VER-multi \
-                            percona/percona-pgbackrest:\$MAJ_VER \
+                         docker manifest create --amend percona/percona-pgbackrest:\$MAJ_VER \
+                            percona/percona-pgbackrest:\$MAJ_VER-amd64 \
                             percona/percona-pgbackrest:\$MAJ_VER-arm64
-                         docker manifest annotate percona/percona-pgbackrest:\$MAJ_VER-multi \
+                         docker manifest annotate percona/percona-pgbackrest:\$MAJ_VER \
                             percona/percona-pgbackrest:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-pgbackrest:\$MAJ_VER-multi \
-                            percona/percona-pgbackrest:\$MAJ_VER --os linux --arch amd64
-                         docker manifest inspect percona/percona-pgbackrest:\$MAJ_VER-multi
-                         docker manifest push percona/percona-pgbackrest:\$MAJ_VER-multi
+                         docker manifest annotate percona/percona-pgbackrest:\$MAJ_VER \
+                            percona/percona-pgbackrest:\$MAJ_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/percona-pgbackrest:\$MAJ_VER
+                         docker manifest push percona/percona-pgbackrest:\$MAJ_VER
 
                          if [ ${params.LATEST} = "yes" ]; then
                             docker manifest create --amend percona/percona-pgbackrest:latest \
-                               percona/percona-pgbackrest:\$MAJ_VER \
+                               percona/percona-pgbackrest:\$MAJ_VER-amd64 \
                                percona/percona-pgbackrest:\$MAJ_VER-arm64
                             docker manifest annotate percona/percona-pgbackrest:latest \
                                percona/percona-pgbackrest:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
                             docker manifest annotate percona/percona-pgbackrest:latest \
-                               percona/percona-pgbackrest:\$MAJ_VER --os linux --arch amd64
+                               percona/percona-pgbackrest:\$MAJ_VER-amd64 --os linux --arch amd64
                             docker manifest inspect percona/percona-pgbackrest:latest
                             docker manifest push percona/percona-pgbackrest:latest
                          fi
