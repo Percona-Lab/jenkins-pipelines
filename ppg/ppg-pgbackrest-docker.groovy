@@ -92,10 +92,10 @@ pipeline {
                      sh """
                          MAJ_VER=\$(echo ${params.PGBACKREST_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}
-                         docker push perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}
-                         docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} perconalab/percona-pgbackrest:\$MAJ_VER
-                         docker push perconalab/percona-pgbackrest:\$MAJ_VER
+                         docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64
+                         docker push perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64
+                         docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} perconalab/percona-pgbackrest:\$MAJ_VER-amd64
+                         docker push perconalab/percona-pgbackrest:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
                             docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} perconalab/percona-pgbackrest:latest
                             docker push perconalab/percona-pgbackrest:latest
@@ -113,10 +113,10 @@ pipeline {
                      sh """
                          MAJ_VER=\$(echo ${params.PGBACKREST_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} percona/percona-pgbackrest:${params.PGBACKREST_VERSION}
-                         docker push percona/percona-pgbackrest:${params.PGBACKREST_VERSION}
-                         docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} percona/percona-pgbackrest:\$MAJ_VER
-                         docker push percona/percona-pgbackrest:\$MAJ_VER
+                         docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64
+                         docker push percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64
+                         docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} percona/percona-pgbackrest:\$MAJ_VER-amd64
+                         docker push percona/percona-pgbackrest:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
                             docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} percona/percona-pgbackrest:latest
                             docker push percona/percona-pgbackrest:latest

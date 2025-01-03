@@ -75,12 +75,12 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                          MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                         docker tag postgresql-ivee:\$MAJ_VER perconalab/postgresql-ivee:${params.PPG_VERSION}
-                         docker push perconalab/postgresql-ivee:${params.PPG_VERSION}
-                         docker tag postgresql-ivee:\$MAJ_VER perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER
-                         docker push perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER
-                         docker tag postgresql-ivee:\$MAJ_VER perconalab/postgresql-ivee:\$MAJ_VER
-                         docker push perconalab/postgresql-ivee:\$MAJ_VER
+                         docker tag postgresql-ivee:\$MAJ_VER perconalab/postgresql-ivee:${params.PPG_VERSION}-amd64
+                         docker push perconalab/postgresql-ivee:${params.PPG_VERSION}-amd64
+                         docker tag postgresql-ivee:\$MAJ_VER perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER-amd64
+                         docker push perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER-amd64
+                         docker tag postgresql-ivee:\$MAJ_VER perconalab/postgresql-ivee:\$MAJ_VER-amd64
+                         docker push perconalab/postgresql-ivee:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
                             docker tag postgresql-ivee:\$MAJ_VER perconalab/postgresql-ivee:latest
                             docker push perconalab/postgresql-ivee:latest
@@ -99,12 +99,12 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                          MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                         docker tag postgresql-ivee:\$MAJ_VER percona/postgresql-ivee:${params.PPG_VERSION}
-                         docker push percona/postgresql-ivee:${params.PPG_VERSION}
-                         docker tag postgresql-ivee:\$MAJ_VER percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER
-                         docker push percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER
-                         docker tag postgresql-ivee:\$MAJ_VER percona/postgresql-ivee:\$MAJ_VER
-                         docker push percona/postgresql-ivee:\$MAJ_VER
+                         docker tag postgresql-ivee:\$MAJ_VER percona/postgresql-ivee:${params.PPG_VERSION}-amd64
+                         docker push percona/postgresql-ivee:${params.PPG_VERSION}-amd64
+                         docker tag postgresql-ivee:\$MAJ_VER percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER-amd64
+                         docker push percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER-amd64
+                         docker tag postgresql-ivee:\$MAJ_VER percona/postgresql-ivee:\$MAJ_VER-amd64
+                         docker push percona/postgresql-ivee:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
                             docker tag postgresql-ivee:\$MAJ_VER percona/postgresql-ivee:latest
                             docker push percona/postgresql-ivee:latest
