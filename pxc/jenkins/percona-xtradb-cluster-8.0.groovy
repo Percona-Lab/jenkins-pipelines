@@ -706,7 +706,7 @@ pipeline {
             script {
                 if (env.FIPSMODE == 'YES') {
                     currentBuild.description = "PRO -> Built on ${GIT_BRANCH} - packages [${COMPONENT}/${AWS_STASH_PATH}]"
-                } esle {
+                } else {
                     currentBuild.description = "Built on ${GIT_BRANCH} - packages [${COMPONENT}/${AWS_STASH_PATH}]"
                 }
             }
