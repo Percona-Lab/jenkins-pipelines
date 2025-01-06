@@ -26,14 +26,9 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             fi
 
             if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
-                sudo percona-release enable-only pmm3-client experimental
-                RHEL=$(rpm --eval '%{rhel}')
-                if [ "$RHEL" -eq 9 ]; then
-                  sudo yum -y install https://repo.percona.com/pmm3-client/yum/experimental/9/RPMS/x86_64/pmm-client-3.0.0-6.el9.x86_64.rpm
-                else
-                  echo "Fatal: pmm3-client has no compatible RPM version to install. Exiting..."
-                  exit 1
-                fi
+                percona-release enable-only pmm3-client experimental
+                apt-get update
+                apt-get -y install pmm-client
             elif [ "${CLIENT_VERSION}" = pmm3-rc ]; then
                 sudo percona-release enable-only pmm3-client testing
                 sudo yum -y install pmm-client
