@@ -26,9 +26,9 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             fi
 
             if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
-                percona-release enable-only pmm3-client experimental
-                apt-get update
-                apt-get -y install pmm-client
+                sudo percona-release enable-only pmm3-client experimental
+                sudo apt-get -y update
+                sudo apt-get -y install pmm-client
             elif [ "${CLIENT_VERSION}" = pmm3-rc ]; then
                 sudo percona-release enable-only pmm3-client testing
                 sudo yum -y install pmm-client
