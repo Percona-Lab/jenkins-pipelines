@@ -135,6 +135,7 @@ pipeline {
                             } else {
                                 buildStage("ubuntu:xenial", "--build_source_deb=1")
                             }
+                        }
                         stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
                         pushArtifactFolder("source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
