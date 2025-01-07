@@ -180,7 +180,7 @@ pipeline {
             steps {
                 build job: 'pmm3-watchtower-autobuild', parameters: [
                     string(name: 'GIT_BRANCH', value: params.PMM_BRANCH),
-                    string(name: 'TAG_TYPE', value: "perconalab/pmm-watchtower-fb:${params.BRANCH_NAME}-${env.FB_COMMIT}")
+                    string(name: 'TAG_TYPE', value: "perconalab/pmm-watchtower-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}
                 ]
             }
         }
