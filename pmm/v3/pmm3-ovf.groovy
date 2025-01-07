@@ -12,7 +12,7 @@ pipeline {
             description: 'Docker image for PMM Server running in the OVA',
             name: 'PMM_SERVER_IMAGE')
         string(
-            defaultValue: 'docker.io/perconalab/watchtower:dev-lates',
+            defaultValue: 'docker.io/perconalab/watchtower:dev-latest',
             description: 'Docker image for Watchtower running in the OVA',
             name: 'WATCHTOWER_IMAGE')
         choice(
