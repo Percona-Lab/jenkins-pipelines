@@ -178,10 +178,13 @@ pipeline {
         }
         stage('Build watchtower container') {
             steps {
-                build job: 'pmm3-watchtower-autobuild', parameters: [
-                    string(name: 'GIT_BRANCH', value: params.PMM_BRANCH),
-                    string(name: 'TAG_TYPE', value: "perconalab/pmm-watchtower-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}
-                ]
+                script{
+                    def shortenedCommit = FB_COMMIT.substring(0, 7)
+                    build job: 'pmm3-watchtower-autobuild', parameters: [
+                        string(name: 'GIT_BRANCH', value: params.PMM_BRANCH),
+                        string(name: 'TAG_TYPE', value: "perconalab/pmm-watchtower-fb:${BRANCH_NAME}-${shortenedCommit}")
+                    ]
+                }
             }
         }
         stage('Trigger workflows in GH') {
