@@ -198,7 +198,7 @@ pipeline {
                         def STAGING_URL = "https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/"
 
                         def payload = [
-                          body: "Server docker: ${IMAGE}\nClient docker: ${CLIENT_IMAGE}\nWatchtower docker: perconalab/pmm-watchtower-fb:${params.BRANCH_NAME}-${env.FB_COMMIT}\nClient tarball: ${CLIENT_URL}\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
+                          body: "Server docker: ${IMAGE}\nClient docker: ${CLIENT_IMAGE}\nWatchtower docker: perconalab/pmm-watchtower-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}\nClient tarball: ${CLIENT_URL}\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
                         ]
                         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
                         sh '''
