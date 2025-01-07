@@ -285,6 +285,7 @@ pipeline {
 
                             pushd /srv/qa-integration/pmm_qa
                                 echo "Setting docker based PMM clients"
+                                mkdir -m 777 -p /tmp/backup_data
                                 python3 -m venv virtenv
                                 . virtenv/bin/activate
                                 pip install --upgrade pip
