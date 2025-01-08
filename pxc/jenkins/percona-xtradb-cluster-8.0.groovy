@@ -628,6 +628,7 @@ pipeline {
                                 if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
                                     sed -i "s/pxc-80/pxc-8x-innovation/g" Dockerfile
                                 else
+                                    sed -i "s/pdpxc-8.0/pdpxc-84-lts/g" Dockerfile
                                     sed -i "s/pxc-80/pxc-84-lts/g" Dockerfile
                                     sed -i "s/default_authentication_plugin=mysql_native_password/mysql-native-password=ON\\nrequire_secure_transport=OFF/g" dockerdir/etc/mysql/node.cnf
                                     sed -i "s/skip-host-cache/host_cache_size = 0/g" dockerdir/etc/mysql/node.cnf
@@ -636,6 +637,23 @@ pipeline {
                             fi
                             sudo docker build --no-cache -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} .
                             sudo docker build --no-cache --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug .
+
+                            sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile.aarch64
+                            sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}-${RPM_RELEASE}/g" Dockerfile.aarch64
+                            sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile.aarch64
+                            if [ ${PXC_MAJOR_RELEASE} != "80" ]; then
+                                if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
+                                    sed -i "s/pxc-80/pxc-8x-innovation/g" Dockerfile.aarch64
+                                else
+                                    sed -i "s/pdpxc-8.0/pdpxc-84-lts/g" Dockerfile.aarch64
+                                    sed -i "s/pxc-80/pxc-84-lts/g" Dockerfile.aarch64
+                                    sed -i "s/default_authentication_plugin=mysql_native_password/mysql-native-password=ON\\nrequire_secure_transport=OFF/g" dockerdir/etc/mysql/node.cnf
+                                    sed -i "s/skip-host-cache/host_cache_size = 0/g" dockerdir/etc/mysql/node.cnf
+                                    sed -i "s/--skip-ssl//g" dockerdir/entrypoint.sh
+                                fi
+                            fi
+                            sudo docker build --no-cache -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-aarch64 --platform="linux/arm64" -f Dockerfile.aarch64 .
+                            sudo docker build --no-cache --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-aarch64 --platform="linux/arm64" -f Dockerfile.aarch64 .
 
                             cd ../percona-xtradb-cluster-8.0-backup
                             sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION=${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
@@ -666,14 +684,37 @@ pipeline {
                             )]) {
                             sh '''
                                 echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                                PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
                                 curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
                                 . ./MYSQL_VERSION
                                 sudo docker push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
                                 sudo docker push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug
+                                sudo docker push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-aarch64
+                                sudo docker push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-aarch64
                                 sudo docker push perconalab/percona-xtradb-cluster-operator:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}-pxc8.${MYSQL_VERSION_MINOR}-backup
                             '''
                         }
+                        sh '''
+                           curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
+                           . ./MYSQL_VERSION
+                           sudo docker manifest create perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-multi \
+                               perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} \
+                               perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-aarch64
+                           sudo docker manifest annotate perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-multi perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-aarch64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-multi perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} --os linux --arch amd64
+                           sudo docker manifest inspect perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-multi
+                       '''
+                       withCredentials([
+                       usernamePassword(credentialsId: 'hub.docker.com',
+                       passwordVariable: 'PASS',
+                       usernameVariable: 'USER'
+                       )]) {
+                       sh '''
+                           echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
+                           curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
+                           . ./MYSQL_VERSION
+                           sudo docker manifest push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-multi
+                       '''
+                       }
                     }
                 }
             }
