@@ -415,6 +415,26 @@ parameters {
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
+/*                stage('Amazon Linux 2023') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --with_zenfs=1")
+                            }
+                        }
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                    }
+                }*/
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'min-focal-x64'
