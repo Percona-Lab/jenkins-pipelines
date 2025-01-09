@@ -1,5 +1,5 @@
 - job:
-    name: pxc-operator-aws-openshift-latest
+    name: pxco-os
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,5 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxc_operator_aws_openshift_latest.groovy
+      script-path: cloud/jenkins/pxco-openshift.groovy
+

@@ -1,21 +1,16 @@
 - job:
-    name: pxc-operator-aks-version
+    name: pbm-docker-nightly
     project-type: pipeline
     description: |
         Do not edit this job through the web!
-    concurrent: false
-    properties:
-    - build-discarder:
-        days-to-keep: -1
-        num-to-keep: 10
-        artifact-days-to-keep: -1
-        artifact-num-to-keep: 10
     pipeline-scm:
       scm:
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - master
+            - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxc_operator_aks_version.groovy
+      script-path: pbm/pbm-docker-nightly.groovy
+    triggers:
+      - timed: "0 0 * * *"

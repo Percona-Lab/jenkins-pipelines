@@ -1,5 +1,5 @@
 - job:
-    name: pxc-operator-gke-version
+    name: pxco-aks-2
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -18,4 +18,4 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxc_operator_gke_version.groovy
+      script-path: cloud/jenkins/pxco-aks.groovy

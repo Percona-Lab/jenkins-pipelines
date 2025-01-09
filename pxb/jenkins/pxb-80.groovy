@@ -322,6 +322,25 @@ pipeline {
                         }
                     }
                 }
+/*                stage('Amazon Linux 2023') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder("srpm/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("amazonlinux:2023", "--build_rpm=1")
+                            }
+
+                            pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        }
+                    }
+                }*/
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'docker-32gb'
