@@ -242,6 +242,35 @@ pipeline {
                 }
             }
         }
+        stage('Prepare nightly tests on migrated pmm.') {
+            steps {
+                script {
+                    sh """
+                        curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
+                        sudo bash nodesource_setup.sh
+                        sudo apt install nodejs
+                        sudo apt-get install -y gettext
+                        npm ci
+                        npx playwright install
+                        sudo npx playwright install-deps
+                        envsubst < env.list > env.generated.list
+                    """
+                }
+            }
+        }
+        stage('Run Tests') {
+            options {
+                timeout(time: 150, unit: "MINUTES")
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                sh """
+                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                    export PWD=\$(pwd);
+                    npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
+                """
+            }
+        }
     }
     post {
         always {
