@@ -47,7 +47,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         choice(
@@ -139,18 +139,20 @@ pipeline {
                 """
                 script {
                     env.SERVER_IP = "127.0.0.1"
-                    env.PMM_UI_URL = "https://${env.SERVER_IP}/"
-                    env.PMM_URL = "https://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                    env.PMM_UI_URL = "http://${env.SERVER_IP}/"
+                    env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
                 }
             }
         }
-        stage('Change admin password for >= 2.27') {
+        stage('Change admin password') {
             when {
                 expression { getMinorVersion(DOCKER_VERSION) >= 27 }
             }
             steps {
                 sh '''
                     docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
+                    ls
+                    git checkout v3
                 '''
             }
         }
