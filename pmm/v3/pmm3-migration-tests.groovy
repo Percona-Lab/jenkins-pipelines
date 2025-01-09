@@ -11,7 +11,7 @@ def getMinorVersion(VERSION) {
 
 pipeline {
     agent {
-        label 'min-focal-x64'
+        label 'agent-amd64-ol9'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -116,8 +116,11 @@ pipeline {
                 slackSend channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
-                    sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git /srv/pmm-qa
-                    sudo chmod -R 755 /srv/pmm-qa
+                    pushd /srv/pmm-qa
+                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                        sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
+                    popd
+                    sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
         }
@@ -243,10 +246,9 @@ pipeline {
             steps {
                 script {
                     sh """
-                        curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
-                        sudo bash nodesource_setup.sh
-                        sudo apt install nodejs
-                        sudo apt-get install -y gettext
+                        curl -sL https://rpm.nodesource.com/setup_20.x | sudo bash -
+                        sudo yum install -y nodejs
+                        node --version
                         npm ci
                         npx playwright install
                         sudo npx playwright install-deps
