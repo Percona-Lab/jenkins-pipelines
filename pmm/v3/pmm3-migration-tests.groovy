@@ -251,7 +251,6 @@ pipeline {
                         node --version
                         npm ci
                         npx playwright install
-                        sudo npx playwright install-deps
                         envsubst < env.list > env.generated.list
                     """
                 }
