@@ -48,8 +48,10 @@
             choices:
                 - "pxc57"
                 - "pxc80"
+                - "pxc84"
                 - "ps57"
                 - "ps80"
+                - "ps84"
             description: 'Choose the client to install with proxysql'
         - choice:
             name: repo_for_client_to_test

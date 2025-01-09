@@ -72,7 +72,7 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "pdp/setup";
+      MOLECULE_DIR = "pdp/server_tests";
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
@@ -82,7 +82,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-pdp-${env.VERSION}-${env.PLATFORM}"
                 }
             }
         }

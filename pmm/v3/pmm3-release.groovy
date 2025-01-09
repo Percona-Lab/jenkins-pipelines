@@ -379,7 +379,7 @@ ENDSSH
                         sha256sum pmm-client-${VERSION}-amd64.docker | tee pmm-client-${VERSION}-amd64.sha256sum
                         sha256sum pmm-client-${VERSION}-arm64.docker | tee pmm-client-${VERSION}-arm64.sha256sum
 
-                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
 
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm/${VERSION}/docker"
 
@@ -404,7 +404,7 @@ ENDSSH
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         sha256sum pmm-server-${VERSION}.ova | tee pmm-server-${VERSION}.sha256sum
-                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm/${VERSION}/ova"
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.ova pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm/${VERSION}/ova/
                     '''
@@ -464,21 +464,17 @@ ENDSSH
         stage('Scan Image for Vulnerabilities') {
             steps {
                 script {
-                    imageScan = build job: 'pmm-image-scanning', propagate: false, parameters: [
+                    imageScan = build job: 'pmm3-image-scanning', propagate: false, parameters: [
                         string(name: 'IMAGE', value: "perconalab/pmm-server"),
                         string(name: 'TAG', value: "${VERSION}")
                     ]
 
                     env.SCAN_REPORT_URL = ""
                     if (imageScan.result == 'SUCCESS') {
-                        copyArtifacts filter: 'report.html', projectName: 'pmm-image-scanning'
+                        copyArtifacts filter: 'report.html', projectName: 'pmm3-image-scanning'
                         sh 'mv report.html report-${VERSION}.html'
                         archiveArtifacts "report-${VERSION}.html"
                         env.SCAN_REPORT_URL = "CVE Scan Report: ${BUILD_URL}artifact/report-${VERSION}.html"
-
-                        copyArtifacts filter: 'evaluations/**/evaluation_*.json', projectName: 'pmm-image-scanning'
-                        sh 'mv evaluations/*/*/*/evaluation_*.json ./report-${VERSION}.json'
-                        archiveArtifacts "report-${VERSION}.json"
                     }
                 }
             }
@@ -489,11 +485,11 @@ ENDSSH
             deleteDir()
         }
         success {
-            slackSend botUser: true, channel: '#pmm-dev', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
+            slackSend botUser: true, channel: '#pmm', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
             slackSend botUser: true, channel: '#releases', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: release failed - ${BUILD_URL}"
+            slackSend botUser: true, channel: '#pmm-internal', color: '#FF0000', message: "[${JOB_NAME}]: release failed - ${BUILD_URL}"
         }
     }
 }

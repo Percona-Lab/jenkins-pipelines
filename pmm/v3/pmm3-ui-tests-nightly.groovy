@@ -20,12 +20,12 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
+        env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
     }
     else
     {
-        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
+        env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${VM_IP}"
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
 }
@@ -107,6 +107,24 @@ void destroyStaging(IP) {
         string(name: 'VM', value: IP),
     ]
 }
+
+void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP} '
+                set -o errexit
+                set -o xtrace
+                echo "Checking Agent Status on Client Nodes";
+                sudo mkdir -p /srv/pmm-qa || :
+                sudo git clone --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa
+                sudo chmod -R 755 /srv/pmm-qa
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/agent_status.sh
+                bash -xe /srv/pmm-qa/pmm-tests/agent_status.sh
+            '
+        """
+    }
+}
+
 pipeline {
     agent {
         label 'min-focal-x64'
@@ -198,7 +216,7 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['17', '16', '15','14', '13'],
+            choices: ['17', '16', '15', '14', '13'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
@@ -210,7 +228,7 @@ pipeline {
             description: "MariaDB Server version",
             name: 'MD_VERSION')
         choice(
-            choices: ['7.0.7-4', '6.0.14-11', '5.0.26-22', '4.4.29-28'],
+            choices: ['8.0.1-1', '7.0.7-4', '6.0.14-11', '5.0.26-22', '4.4.29-28'],
             description: "Percona Server for MongoDB version",
             name: 'PSMDB_VERSION')
         choice(
@@ -229,11 +247,12 @@ pipeline {
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
                     sudo mkdir -p /srv/qa-integration || :
                     sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
                     sudo chmod -R 755 /srv/qa-integration
+
                 '''
             }
         }
@@ -322,21 +341,40 @@ pipeline {
                 sleep 300
             }
         }
-        stage('Run Tests') {
+        stage('Check agent status') {
             parallel {
-                stage('Run UI - Tests') {
-                    options {
-                        timeout(time: 150, unit: "MINUTES")
-                    }
+                stage('Check Agent Status on ps single and mongo pss') {
                     steps {
-                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            sh """
-                                sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                                export PWD=\$(pwd);
-                                npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu'
-                            """
-                        }
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_MYSQL, env.PMM_QA_GIT_BRANCH)
                     }
+                }
+                stage('Check Agent Status on ps & replication node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PS_GR, env.PMM_QA_GIT_BRANCH)
+                    }
+                }
+                stage('Check Agent Status on ms/md/pxc node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PXC, env.PMM_QA_GIT_BRANCH)
+                    }
+                }
+                stage('Check Agent Status on postgresql node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PGSQL, env.PMM_QA_GIT_BRANCH)
+                    }
+                }
+            }
+        }
+        stage('Run UI Tests') {
+            options {
+                timeout(time: 150, unit: "MINUTES")
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                    """
                 }
             }
         }
@@ -350,11 +388,11 @@ pipeline {
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'tests/output/*.xml'
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
                     junit 'tests/output/*.xml'
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'tests/output/*.png'
                 }

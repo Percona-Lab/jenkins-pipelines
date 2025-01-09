@@ -55,23 +55,14 @@ elif [ -f /usr/bin/apt ]; then
 fi
 
 # We need to use golang version >= 1.21. Downloading golang from tarball to ensure each platform uses the same version.
-sudo wget https://go.dev/dl/go1.21.9.linux-amd64.tar.gz
+sudo rm -rf /usr/bin/go
+sudo wget https://go.dev/dl/go1.22.7.linux-amd64.tar.gz
+sudo tar -C /usr/local/ -xzf go1.22.7.linux-amd64.tar.gz
+sudo ln -s /usr/local/go/bin/go /usr/bin/go
 
-# /usr/local is the default path included in the $PATH variable. Using any other custom installation path will not work
-# Example:
-# sudo tar -C /usr/local/bin -xzf go1.21.9.linux-amd64.tar.gz
-# PATH=$PATH:/usr/local/bin
-#
-# The above method will not work. This is because the value of $PATH is not preserved/passed on to the child scipt from the parent script
-# Hence using the default $PATH that is available to every new session (both parent and child script)
-sudo tar -C /usr/local/ -xzf go1.21.9.linux-amd64.tar.gz
-sudo cp /usr/local/go/bin/go /usr/local/bin/go
-if [ -f /usr/bin/yum ]; then
-  RHEL=$(rpm --eval %rhel)
-  if [[ $RHEL -eq 8 ]]; then
-    sudo ln -s /usr/local/go/bin/go /usr/bin/go
-  fi
-fi
+go version
+which go
+whereis go
 
 WORKDIR_ABS=$(cd ${1:-./build/proxysql}; pwd -P)
 SOURCE_DIR=$(cd ${2:-./build/proxysql}; pwd -P)

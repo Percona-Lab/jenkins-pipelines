@@ -82,7 +82,6 @@ pipeline {
                                 echo "${PASS}" | docker login -u "${USER}" --password-stdin
                                 set -o xtrace
 
-                                ##export PUSH_DOCKER=1
                                 export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')-amd64
 
                                 ${PATH_TO_SCRIPTS}/build-client-docker
@@ -110,7 +109,7 @@ pipeline {
                         stage('Build client source rpm EL9') {
                             steps {
                                 sh """
-                                    ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                                    ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:2
                                 """
                             }
                         }
@@ -132,7 +131,7 @@ pipeline {
                         stage('Build client binary rpm EL9') {
                             steps {
                                 sh """
-                                    ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                                    ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:2
                                 """
                             }
                         }
@@ -153,11 +152,6 @@ pipeline {
                 }
                 stage('Build client binary debs') {
                     parallel {
-                        stage('Build client binary deb Buster') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:buster"
-                            }
-                        }
                         stage('Build client binary deb Bullseye') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
@@ -227,7 +221,7 @@ pipeline {
         success {
             script {
                 env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client/pmm2-client-latest-${BUILD_ID}.tar.gz"
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
                     slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo"
                     if (params.DESTINATION == "testing") {
                       currentBuild.description = "RC Build, tarball: " + env.TARBALL_URL
@@ -241,7 +235,7 @@ pipeline {
         failure {
             script {
                 echo "Pipeline failed"
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
             }
         }
