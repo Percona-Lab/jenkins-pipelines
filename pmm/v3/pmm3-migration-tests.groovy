@@ -3,6 +3,12 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+def versionsList = pmmVersion('list')
+def latestVersion = pmmVersion()
+def getMinorVersion(VERSION) {
+    return VERSION.split("\\.")[1].toInteger()
+}
+
 pipeline {
     agent {
         label 'agent-amd64-ol9'
