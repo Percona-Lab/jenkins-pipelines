@@ -168,7 +168,6 @@ pipeline {
                         docker exec pmm-server yum clean all
                         docker exec pmm-server yum clean metadata
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'yes', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
                 }
             }
         }
@@ -186,7 +185,6 @@ pipeline {
                         docker exec pmm-server yum clean all
                         docker exec pmm-server yum clean metadata
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'no', 'yes', 'compose_setup', params.ADMIN_PASSWORD)
                 }
             }
         }
@@ -202,7 +200,6 @@ pipeline {
                         docker exec pmm-server yum clean all
                         docker exec pmm-server yum clean metadata
                     """
-                    setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm2', 'no', 'release', 'yes', 'compose_setup', params.ADMIN_PASSWORD, 'no')
                 }
             }
         }
