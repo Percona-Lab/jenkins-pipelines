@@ -231,6 +231,17 @@ pipeline {
                 sleep 60
             }
         }
+        stage('Migrate pmm2 to pmm3') {
+            steps {
+                script {
+                    sh """
+                        wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
+                        chmod +x get-pmm.sh
+                        ./get-pmm.sh -n pmm-server -b
+                    """
+                }
+            }
+        }
     }
     post {
         always {
