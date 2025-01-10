@@ -152,7 +152,7 @@ pipeline {
                 sh '''
                     docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
                     ls
-                    git checkout v3
+                    git checkout PMM-7-pmm-migration
                     cat pr.codecept.js
                 '''
             }
