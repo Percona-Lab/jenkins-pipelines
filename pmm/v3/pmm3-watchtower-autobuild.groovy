@@ -41,7 +41,10 @@ pipeline {
                 sh '''
                     git submodule update --init --jobs 10 ${PATH_TO_WATCHTOWER}
                     git submodule status
-
+                    cd ${PATH_TO_WATCHTOWER}
+                    git fetch --no-tags
+                    git checkout ${GIT_BRANCH}
+                    cd -
                 '''
                 script {
                     env.TIMESTAMP_TAG = "perconalab/watchtower:" + sh(script: "date -u '+%Y%m%d%H%M'", returnStdout: true).trim()
