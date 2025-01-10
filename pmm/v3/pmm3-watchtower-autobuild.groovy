@@ -38,8 +38,7 @@ pipeline {
 
                 script {
                     // Extract the branch for 'watchtower' from the ci.yml file using yq
-                    def watchtowerBranch = sh(script: "yq e '.deps[] | select(.name == \"watchtower\") | .branch' ci.yml", returnStdout: true).trim()
-                    env.WATCHTOWER_BRANCH = watchtowerBranch
+                    env.WATCHTOWER_BRANCH = sh(script: "yq e '.deps[] | select(.name == \"watchtower\") | .branch' ci.yml", returnStdout: true).trim()
                     echo "Watchtower branch: ${WATCHTOWER_BRANCH}"
                 }
 
