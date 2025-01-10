@@ -153,6 +153,7 @@ pipeline {
                     docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
                     ls
                     git checkout v3
+                    cat pr.codecept.js
                 '''
             }
         }
@@ -239,11 +240,11 @@ pipeline {
                     sh """
                         wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
                         chmod +x get-pmm.sh
-                        ./get-pmm.sh -n pmm-server -b --port 80
+                        ./get-pmm.sh -n pmm-server -b
                     """
                     env.SERVER_IP = "127.0.0.1"
-                    env.PMM_UI_URL = "http://${env.SERVER_IP}/"
-                    env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                    env.PMM_UI_URL = "https://${env.SERVER_IP}/"
+                    env.PMM_URL = "https://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
                 }
             }
         }
