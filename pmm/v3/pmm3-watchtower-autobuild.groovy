@@ -44,6 +44,7 @@ pipeline {
                     cd ${PATH_TO_WATCHTOWER}
                     git fetch --no-tags
                     git checkout ${GIT_BRANCH}
+                    git rev-parse --short HEAD
                     cd -
                 '''
                 script {
