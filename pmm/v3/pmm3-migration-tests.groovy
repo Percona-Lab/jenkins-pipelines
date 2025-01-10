@@ -239,11 +239,11 @@ pipeline {
                     sh """
                         wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
                         chmod +x get-pmm.sh
-                        ./get-pmm.sh -n pmm-server -b
+                        ./get-pmm.sh -n pmm-server -b --port 80
                     """
                     env.SERVER_IP = "127.0.0.1"
-                    env.PMM_UI_URL = "https://${env.SERVER_IP}/"
-                    env.PMM_URL = "https://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                    env.PMM_UI_URL = "http://${env.SERVER_IP}/"
+                    env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
                 }
             }
         }
