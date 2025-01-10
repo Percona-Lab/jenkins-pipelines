@@ -35,14 +35,25 @@ pipeline {
         stage('Prepare') {
             steps {
                 git poll: false, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
+
+                script {
+                    // Extract the branch for 'watchtower' from the ci.yml file using yq
+                    env.WATCHTOWER_BRANCH = sh(script: "yq e '.deps[] | select(.name == \"watchtower\") | .branch' ci.yml", returnStdout: true).trim()
+                    echo "Watchtower branch: ${WATCHTOWER_BRANCH}"
+                }
+
                 script {
                     env.VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
                 }
+
                 sh '''
                     git submodule update --init --jobs 10 ${PATH_TO_WATCHTOWER}
+                    if [ -n ${WATCHTOWER_BRANCH} ]; then
+                        git -C ${PATH_TO_WATCHTOWER} checkout ${WATCHTOWER_BRANCH}
+                    fi
                     git submodule status
-
                 '''
+
                 script {
                     env.TIMESTAMP_TAG = "perconalab/watchtower:" + sh(script: "date -u '+%Y%m%d%H%M'", returnStdout: true).trim()
                     if (params.TAG_TYPE == "rc") {
