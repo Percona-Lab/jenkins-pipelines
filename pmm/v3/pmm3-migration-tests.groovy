@@ -308,30 +308,17 @@ pipeline {
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'srv-logs.tar.gz'
 
-                def PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
-                try {
-                    junit PATH_TO_REPORT_RESULTS
-                } catch (err) {
-                    error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
+                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
+                    junit 'tests/output/*.xml'
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                    archiveArtifacts artifacts: 'logs.zip'
+                } else {
+                    junit 'tests/output/*.xml'
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    archiveArtifacts artifacts: 'logs.zip'
+                    archiveArtifacts artifacts: 'tests/output/*.png'
                 }
-
-                slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
             }
-            /*
-            allure([
-                includeProperties: false,
-                jdk: '',
-                properties: [],
-                reportBuildPolicy: 'ALWAYS',
-                results: [[path: 'tests/output/allure']]
-            ])
-            */
-        }
-        failure {
-            archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
-            slackSend channel: '#pmm-notifications',
-                      color: '#FF0000',
-                      message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, ver: ${DOCKER_VERSION}"
         }
     }
 }
