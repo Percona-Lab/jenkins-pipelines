@@ -3,30 +3,16 @@ tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
-void verifyParams() {
-    if ("$RELEASE_RUN" == "YES") {
-        echo "=========================[ RELEASE RUN ]========================="
-        if (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD") {
-            error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided for release run!")
-        }
-    }
-}
+String getParam(String paramName, String keyName = null) {
+    keyName = keyName ?: paramName
 
-String getParam(String PARAM_NAME) {
-    def param = "${params[PARAM_NAME]}"
-
-    if ("$param" && "$param" != "null" && param != "") {
-        echo "$PARAM_NAME=$param (from job parameters)"
-        return param
+    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
+    if ("$param") {
+        echo "$paramName=$param (from params file)"
     } else {
-        param = sh(script: "cat $release_versions | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
-        if ("$param") {
-            echo "$PARAM_NAME=$param (from params file)"
-            return param
-        } else {
-            error("$PARAM_NAME not found in params file $release_versions")
-        }
+        error("$keyName not found in params file $release_versions")
     }
+    return param
 }
 
 void prepareNode() {
@@ -39,38 +25,36 @@ void prepareNode() {
         sudo git reset --hard
         sudo git clean -xdf
         sudo rm -rf source
-        cloud/local/checkout $GIT_REPO $GIT_BRANCH
+        cloud/local/checkout https://github.com/percona/percona-server-mongodb-operator $GIT_BRANCH
     """
 
-    echo "=========================[ Assigning images for release test ]========================="
-    if ("$RELEASE_RUN" == "YES") {
-        IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
-        IMAGE_MONGOD = getParam("IMAGE_MONGOD${PILLAR_VERSION}")
-        IMAGE_BACKUP = getParam("IMAGE_BACKUP")
-        IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
-        if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
-            PLATFORM_VER = getParam("OPENSHIFT_${PLATFORM_VER}")
+    if ("$PILLAR_VERSION" != "none") {
+        echo "=========================[ Getting parameters for release test ]========================="
+        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
+        IMAGE_MONGOD = IMAGE_MONGOD ?: getParam("IMAGE_MONGOD", "IMAGE_MONGOD${PILLAR_VERSION}")
+        IMAGE_BACKUP = IMAGE_BACKUP ?: getParam("IMAGE_BACKUP")
+        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
+        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
+            PLATFORM_VER = getParam("PLATFORM_VER", "OPENSHIFT_${PLATFORM_VER}")
         }
     } else {
-        echo "This is not a release run. Using job params only!"
+        echo "=========================[ Not a release run. Using job params only! ]========================="
     }
 
-    echo "=========================[ Installing tools on the Jenkins executor ]========================="
     if ("$PLATFORM_VER" == "latest") {
         OC_VER = "4.15.25"
-        USED_PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", , returnStdout: true).trim()
+        PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", returnStdout: true).trim()
     } else {
-        USED_PLATFORM_VER="$PLATFORM_VER"
         if ("$PLATFORM_VER" <= "4.15.25") {
-            OC_VER="$USED_PLATFORM_VER"
+            OC_VER="$PLATFORM_VER"
         } else {
             OC_VER="4.15.25"
         }
     }
-    echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
     echo "OC_VER=$OC_VER"
 
+    echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
@@ -78,23 +62,21 @@ void prepareNode() {
         curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OC_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
-        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$USED_PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
 
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
     """
 
     if ("$IMAGE_MONGOD") {
-        release = ("$RELEASE_RUN" == "YES") ? "RELEASE-" : ""
+        release = ("$PILLAR_VERSION" != "none") ? "RELEASE-" : ""
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-        currentBuild.description = "${release}$GIT_BRANCH-$PLATFORM_VER-$cw-" + "$IMAGE_MONGOD".split(":")[1]
+        currentBuild.description = "$release$GIT_BRANCH-$PLATFORM_VER-$cw-" + "$IMAGE_MONGOD".split(":")[1]
     }
 
-    script {
-        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        CLUSTER_NAME = sh(script: "echo jenkins-ver-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
-    }
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
+    CLUSTER_NAME = sh(script: "echo $JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -149,7 +131,7 @@ void initTests() {
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
@@ -218,7 +200,7 @@ controlPlane:
   replicas: 1
 metadata:
   creationTimestamp: null
-  name: openshift4-ver-psmdb-jenkins-$CLUSTER_SUFFIX
+  name: $CLUSTER_NAME-$CLUSTER_SUFFIX
 networking:
   clusterNetwork:
   - cidr: 10.128.0.0/14
@@ -270,7 +252,7 @@ void runTest(Integer TEST_ID) {
 
                     export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=psmdb-operator
-                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mongodb-operator:$env.GIT_BRANCH
+                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                     export IMAGE_MONGOD=$IMAGE_MONGOD
                     export IMAGE_BACKUP=$IMAGE_BACKUP
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
@@ -282,7 +264,7 @@ void runTest(Integer TEST_ID) {
                     e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -316,26 +298,27 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PSMDB-OpenShift-version\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
-    for (int i=0; i<tests.size(); i++) {
-        def testResult = tests[i]["result"]
-        def testTime = tests[i]["time"]
-        def testName = tests[i]["name"]
-
-        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
+    testsReport = "<testsuite name=\"$JOB_NAME\">\n"
+    for (int i = 0; i < tests.size(); i ++) {
+        testsReport += '<testcase name="' + tests[i]["name"] + '" time="' + tests[i]["time"] + '"><'+ tests[i]["result"] +'/></testcase>\n'
     }
-    TestsReport = TestsReport + '</testsuite>\n'
+    testsReport += '</testsuite>\n'
 
-    echo "=========================[ Generating Images Report ]========================="
-    TestsImages = "testsuite name='PSMDB-OpenShift-version'\n" +\
-                    "IMAGE_OPERATOR=$IMAGE_OPERATOR\n" +\
-                    "IMAGE_MONGOD=$IMAGE_MONGOD\n" +\
-                    "IMAGE_BACKUP=$IMAGE_BACKUP\n" +\
-                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" +\
-                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER\n" +\
-                    "USED_PLATFORM_VER=$USED_PLATFORM_VER"
+    echo "=========================[ Generating Parameters Report ]========================="
+    pipelineParameters = """
+        testsuite name=$JOB_NAME
+        IMAGE_OPERATOR=$IMAGE_OPERATOR
+        IMAGE_MONGOD=$IMAGE_MONGOD
+        IMAGE_BACKUP=$IMAGE_BACKUP
+        IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+        IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+        PLATFORM_VER=$PLATFORM_VER
+    """
+
+    writeFile file: "TestsReport.xml", text: testsReport
+    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
@@ -362,86 +345,34 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        MDB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
+        DB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
     }
-
     parameters {
-        choice(
-            choices: ['run-release.csv', 'run-distro.csv'],
-            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
-            name: 'TEST_SUITE')
-        text(
-            defaultValue: '',
-            description: 'List of tests to run separated by new line',
-            name: 'TEST_LIST')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Ignore passed tests in previous run (run all)',
-            name: 'IGNORE_PREVIOUS_RUN'
-        )
-        choice(
-            choices: 'NO\nYES',
-            description: 'Release run?',
-            name: 'RELEASE_RUN'
-        )
-        string(
-            defaultValue: '70',
-            description: 'For RELEASE_RUN only. Major version like 70,60, etc',
-            name: 'PILLAR_VERSION'
-        )
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
-            name: 'GIT_BRANCH')
-        string(
-            defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
-            description: 'percona-server-mongodb-operator repository',
-            name: 'GIT_REPO')
-        string(
-            defaultValue: 'latest',
-            description: 'OpenShift version',
-            name: 'PLATFORM_VER')
-        choice(
-            choices: 'YES\nNO',
-            description: 'Run tests in cluster wide mode',
-            name: 'CLUSTER_WIDE')
-        string(
-            defaultValue: '',
-            description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-            name: 'IMAGE_OPERATOR')
-        string(
-            defaultValue: '',
-            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
-            name: 'IMAGE_MONGOD')
-        string(
-            defaultValue: '',
-            description: 'Backup image: perconalab/percona-server-mongodb-operator:main-backup',
-            name: 'IMAGE_BACKUP')
-        string(
-            defaultValue: '',
-            description: 'PMM client image: perconalab/pmm-client:dev-latest',
-            name: 'IMAGE_PMM_CLIENT')
-        string(
-            defaultValue: '',
-            description: 'PMM server image: perconalab/pmm-server:dev-latest',
-            name: 'IMAGE_PMM_SERVER')
+        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
+        text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
+        choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
+        choice(name: 'PILLAR_VERSION', choices: 'none\n80\n70\n60', description: 'Implies release run.')
+        string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mongodb-operator repository')
+        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'OpenShift kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
+        choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
+        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
+        string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.0')
+        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
+        string(name: 'IMAGE_PMM_CLIENT'. defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
     }
-
     agent {
         label 'docker'
     }
-
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
         copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
-
     stages {
-        stage('Prepare node') {
+        stage('Prepare Node') {
             steps {
-                verifyParams()
                 prepareNode()
             }
         }
@@ -450,7 +381,7 @@ pipeline {
                 dockerBuildPush()
             }
         }
-        stage('Init tests') {
+        stage('Init Tests') {
             steps {
                 initTests()
             }
@@ -459,64 +390,91 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     options {
+<<<<<<< HEAD:cloud/jenkins/psmdb_operator_aws_openshift_latest.groovy
                         timeout(time: 400, unit: 'MINUTES')
+=======
+                        timeout(time: 3, unit: 'HOURS')
+>>>>>>> 7ec6c637 (CLOUD-875 Combine xxx-latest and an xxx-version pipelines to use common Groovy code):cloud/jenkins/psmdbo-openshift.groovy
                     }
                     steps {
-                        clusterRunner('cluster1')
+                        clusterRunner('c1')
                     }
                 }
                 stage('cluster2') {
                     options {
+<<<<<<< HEAD:cloud/jenkins/psmdb_operator_aws_openshift_latest.groovy
                         timeout(time: 400, unit: 'MINUTES')
+=======
+                        timeout(time: 3, unit: 'HOURS')
+>>>>>>> 7ec6c637 (CLOUD-875 Combine xxx-latest and an xxx-version pipelines to use common Groovy code):cloud/jenkins/psmdbo-openshift.groovy
                     }
                     steps {
-                        clusterRunner('cluster2')
+                        clusterRunner('c2')
                     }
                 }
                 stage('cluster3') {
                     options {
+<<<<<<< HEAD:cloud/jenkins/psmdb_operator_aws_openshift_latest.groovy
                         timeout(time: 400, unit: 'MINUTES')
+=======
+                        timeout(time: 3, unit: 'HOURS')
+>>>>>>> 7ec6c637 (CLOUD-875 Combine xxx-latest and an xxx-version pipelines to use common Groovy code):cloud/jenkins/psmdbo-openshift.groovy
                     }
                     steps {
-                        clusterRunner('cluster3')
+                        clusterRunner('c3')
                     }
                 }
                 stage('cluster4') {
                     options {
+<<<<<<< HEAD:cloud/jenkins/psmdb_operator_aws_openshift_latest.groovy
                         timeout(time: 400, unit: 'MINUTES')
+=======
+                        timeout(time: 3, unit: 'HOURS')
+>>>>>>> 7ec6c637 (CLOUD-875 Combine xxx-latest and an xxx-version pipelines to use common Groovy code):cloud/jenkins/psmdbo-openshift.groovy
                     }
                     steps {
-                        clusterRunner('cluster4')
+                        clusterRunner('c4')
                     }
                 }
                 stage('cluster5') {
                     options {
+<<<<<<< HEAD:cloud/jenkins/psmdb_operator_aws_openshift_latest.groovy
                         timeout(time: 400, unit: 'MINUTES')
+=======
+                        timeout(time: 3, unit: 'HOURS')
+>>>>>>> 7ec6c637 (CLOUD-875 Combine xxx-latest and an xxx-version pipelines to use common Groovy code):cloud/jenkins/psmdbo-openshift.groovy
                     }
                     steps {
-                        clusterRunner('cluster5')
+                        clusterRunner('c5')
                     }
                 }
                 stage('cluster6') {
                     options {
+<<<<<<< HEAD:cloud/jenkins/psmdb_operator_aws_openshift_latest.groovy
                         timeout(time: 400, unit: 'MINUTES')
+=======
+                        timeout(time: 3, unit: 'HOURS')
+>>>>>>> 7ec6c637 (CLOUD-875 Combine xxx-latest and an xxx-version pipelines to use common Groovy code):cloud/jenkins/psmdbo-openshift.groovy
                     }
                     steps {
-                        clusterRunner('cluster6')
+                        clusterRunner('c6')
+                    }
+                }
+                stage('cluster7') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
+                    steps {
+                        clusterRunner('c7')
                     }
                 }
             }
         }
     }
-
     post {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
-            sh """
-                echo "$TestsReport" > TestsReport.xml
-                echo "$TestsImages" > TestsImages.txt
-            """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml,*.txt'
 
@@ -530,7 +488,6 @@ pipeline {
 
             sh """
                 sudo docker system prune --volumes -af
-                sudo rm -rf *
             """
             deleteDir()
         }

@@ -1,14 +1,21 @@
 - job:
-    name: psmdb-operator-eks-latest
+    name: psmdbo-minikube
     project-type: pipeline
     description: |
         Do not edit this job through the web!
+    concurrent: false
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 10
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 10
     pipeline-scm:
       scm:
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+            - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/psmdb_operator_eks_latest.groovy
+      script-path: cloud/jenkins/psmdbo-minikube.groovy

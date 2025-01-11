@@ -1,5 +1,5 @@
 - job:
-    name: psmdb-operator-minikube
+    name: psmdbo-gke
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -18,13 +18,4 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/psmdb_operator_minikube.groovy
-    parameters:
-    - string:
-        name: GIT_REPO
-        default: https://github.com/percona/percona-server-mongodb-operator
-        description: percona/percona-server-mongodb-operator repository
-    - string:
-        name: GIT_BRANCH
-        default: main
-        description: Tag/Branch for percona/percona-server-mongodb-operator repository
+      script-path: cloud/jenkins/psmdbo-gke.groovy
