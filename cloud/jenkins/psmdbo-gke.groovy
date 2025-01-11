@@ -76,15 +76,7 @@ EOF
     }
 
     if ("$PLATFORM_VER" == "latest") {
-<<<<<<< HEAD:cloud/jenkins/psmdb_operator_gke_latest.groovy
-        USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.validVersions)' | cut -d- -f1", , returnStdout: true).trim()
-    } else {
-        USED_PLATFORM_VER="$PLATFORM_VER"
-    }
-    echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
-=======
         PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", returnStdout: true).trim()
->>>>>>> 7ec6c637 (CLOUD-875 Combine xxx-latest and an xxx-version pipelines to use common Groovy code):cloud/jenkins/psmdbo-gke.groovy
 
     if ("$ARCH" == "amd64") {
         MACHINE_TYPE="n1-standard-4"
@@ -365,7 +357,7 @@ pipeline {
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
         string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.0')
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
-        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
+        string(name: 'IMAGE_PMM_CLIENT'. defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
     }
     agent {

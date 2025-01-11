@@ -56,15 +56,7 @@ void prepareNode() {
     """
 
     if ("$PLATFORM_VER" == "latest") {
-<<<<<<< HEAD:cloud/jenkins/psmdb_operator_eks_latest.groovy
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-            USED_PLATFORM_VER = sh(script: "aws eks describe-addon-versions --query 'addons[].addonVersions[].compatibilities[].clusterVersion' --output json | jq -r 'flatten | unique | sort | reverse | .[0]'", , returnStdout: true).trim()
-        }
-    } else {
-        USED_PLATFORM_VER="$PLATFORM_VER"
-=======
         PLATFORM_VER = sh(script: "eksctl version -ojson | jq -r '.EKSServerSupportedVersions | max'", returnStdout: true).trim()
->>>>>>> 7ec6c637 (CLOUD-875 Combine xxx-latest and an xxx-version pipelines to use common Groovy code):cloud/jenkins/psmdbo-eks.groovy
     }
 
     if ("$IMAGE_MONGOD") {
@@ -374,7 +366,7 @@ pipeline {
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
         string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.0')
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
-        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
+        string(name: 'IMAGE_PMM_CLIENT'. defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
     }
     agent {

@@ -358,7 +358,7 @@ pipeline {
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
         string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.0')
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
-        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
+        string(name: 'IMAGE_PMM_CLIENT'. defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
     }
     agent {
@@ -390,11 +390,7 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     options {
-<<<<<<< HEAD:cloud/jenkins/psmdb_operator_aws_openshift_latest.groovy
-                        timeout(time: 400, unit: 'MINUTES')
-=======
                         timeout(time: 3, unit: 'HOURS')
->>>>>>> 7ec6c637 (CLOUD-875 Combine xxx-latest and an xxx-version pipelines to use common Groovy code):cloud/jenkins/psmdbo-openshift.groovy
                     }
                     steps {
                         clusterRunner('c1')
@@ -402,11 +398,7 @@ pipeline {
                 }
                 stage('cluster2') {
                     options {
-<<<<<<< HEAD:cloud/jenkins/psmdb_operator_aws_openshift_latest.groovy
-                        timeout(time: 400, unit: 'MINUTES')
-=======
                         timeout(time: 3, unit: 'HOURS')
->>>>>>> 7ec6c637 (CLOUD-875 Combine xxx-latest and an xxx-version pipelines to use common Groovy code):cloud/jenkins/psmdbo-openshift.groovy
                     }
                     steps {
                         clusterRunner('c2')
@@ -414,11 +406,7 @@ pipeline {
                 }
                 stage('cluster3') {
                     options {
-<<<<<<< HEAD:cloud/jenkins/psmdb_operator_aws_openshift_latest.groovy
-                        timeout(time: 400, unit: 'MINUTES')
-=======
                         timeout(time: 3, unit: 'HOURS')
->>>>>>> 7ec6c637 (CLOUD-875 Combine xxx-latest and an xxx-version pipelines to use common Groovy code):cloud/jenkins/psmdbo-openshift.groovy
                     }
                     steps {
                         clusterRunner('c3')
@@ -426,11 +414,7 @@ pipeline {
                 }
                 stage('cluster4') {
                     options {
-<<<<<<< HEAD:cloud/jenkins/psmdb_operator_aws_openshift_latest.groovy
-                        timeout(time: 400, unit: 'MINUTES')
-=======
                         timeout(time: 3, unit: 'HOURS')
->>>>>>> 7ec6c637 (CLOUD-875 Combine xxx-latest and an xxx-version pipelines to use common Groovy code):cloud/jenkins/psmdbo-openshift.groovy
                     }
                     steps {
                         clusterRunner('c4')
@@ -438,11 +422,7 @@ pipeline {
                 }
                 stage('cluster5') {
                     options {
-<<<<<<< HEAD:cloud/jenkins/psmdb_operator_aws_openshift_latest.groovy
-                        timeout(time: 400, unit: 'MINUTES')
-=======
                         timeout(time: 3, unit: 'HOURS')
->>>>>>> 7ec6c637 (CLOUD-875 Combine xxx-latest and an xxx-version pipelines to use common Groovy code):cloud/jenkins/psmdbo-openshift.groovy
                     }
                     steps {
                         clusterRunner('c5')
@@ -450,11 +430,7 @@ pipeline {
                 }
                 stage('cluster6') {
                     options {
-<<<<<<< HEAD:cloud/jenkins/psmdb_operator_aws_openshift_latest.groovy
-                        timeout(time: 400, unit: 'MINUTES')
-=======
                         timeout(time: 3, unit: 'HOURS')
->>>>>>> 7ec6c637 (CLOUD-875 Combine xxx-latest and an xxx-version pipelines to use common Groovy code):cloud/jenkins/psmdbo-openshift.groovy
                     }
                     steps {
                         clusterRunner('c6')
