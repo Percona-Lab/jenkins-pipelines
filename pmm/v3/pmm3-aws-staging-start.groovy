@@ -235,7 +235,7 @@ pipeline {
                                         -e WATCHTOWER_HTTP_API_UPDATE=1 \
                                         --volume /var/run/docker.sock:/var/run/docker.sock \
                                         --name watchtower \
-                                        ${WATCHTOWER__VERSION}
+                                        ${WATCHTOWER_VERSION}
 
                                     docker run -d \
                                         -p 80:8080 \
