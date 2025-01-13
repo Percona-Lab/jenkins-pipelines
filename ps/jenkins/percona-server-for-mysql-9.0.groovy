@@ -199,6 +199,10 @@ parameters {
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
+            choices: 'YES\nNO',
+            description: 'Experimental packages only',
+            name: 'EXPERIMENTALMODE')
+        choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
@@ -260,7 +264,6 @@ parameters {
                                 buildStage("none", "--build_src_rpm=1")
                             }
                         }
-
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
                     }
@@ -305,7 +308,9 @@ parameters {
                                 popArtifactFolder("srpm/", AWS_STASH_PATH)
                                 buildStage("none", "--build_rpm=1")
 
-                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -324,8 +329,9 @@ parameters {
                                 unstash 'properties'
                                 popArtifactFolder("srpm/", AWS_STASH_PATH)
                                 buildStage("centos:8", "--build_rpm=1")
-
-                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -345,9 +351,10 @@ parameters {
                             } else {
                                 buildStage("none", "--build_rpm=1 --with_zenfs=1")
                             }
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                            }
                         }
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9 ARM') {
@@ -365,9 +372,10 @@ parameters {
                             } else {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
                             }
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                            }
                         }
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal(20.04)') {
@@ -384,8 +392,9 @@ parameters {
                                 unstash 'properties'
                                 popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("none", "--build_deb=1 --with_zenfs=1")
-
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -425,9 +434,10 @@ parameters {
                             } else {
                                 buildStage("none", "--build_deb=1 --with_zenfs=1")
                             }
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            }
                         }
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bullseye(11)') {
@@ -444,8 +454,9 @@ parameters {
                                 unstash 'properties'
                                 popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("none", "--build_deb=1 --with_zenfs=1")
-
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -465,9 +476,10 @@ parameters {
                             } else {
                                 buildStage("none", "--build_deb=1 --with_zenfs=1")
                             }
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            }
                         }
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal(20.04) ARM') {
@@ -484,8 +496,9 @@ parameters {
                                 unstash 'properties'
                                 popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
-
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -525,9 +538,10 @@ parameters {
                             } else {
                                 buildStage("ubuntu:noble", "--build_deb=1 --with_zenfs=1")
                             }
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            }
                         }
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bullseye(11) ARM') {
@@ -545,7 +559,9 @@ parameters {
                                 popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_deb=1 --with_zenfs=1")
 
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -565,9 +581,11 @@ parameters {
                             } else {
                                 buildStage("debian:bookworm", "--build_deb=1 --with_zenfs=1")
                             }
-                        }
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                            }
+                        }
                     }
                 }
                 stage('Oracle Linux 8 binary tarball') {
@@ -584,8 +602,9 @@ parameters {
                                 unstash 'properties'
                                 popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("none", "--build_tarball=1")
-
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                   pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -604,8 +623,9 @@ parameters {
                                 unstash 'properties'
                                 popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("none", "--debug=1 --build_tarball=1")
-
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                   pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -625,9 +645,10 @@ parameters {
                             } else {
                                 buildStage("none", "--build_tarball=1")
                             }
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9 ZenFS tarball') {
@@ -644,7 +665,9 @@ parameters {
                                 echo "The step is skipped"
                             } else {
                                 buildStage("none", "--build_tarball=1 --with_zenfs=1")
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -664,9 +687,10 @@ parameters {
                             } else {
                                 buildStage("none", "--debug=1 --build_tarball=1")
                             }
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal(20.04) tarball') {
@@ -683,8 +707,9 @@ parameters {
                                 unstash 'properties'
                                 popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("none", "--build_tarball=1")
-
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -703,8 +728,9 @@ parameters {
                                 unstash 'properties'
                                 popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("none", "--debug=1 --build_tarball=1")
-
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -724,9 +750,10 @@ parameters {
                             } else {
                                 buildStage("none", "--build_tarball=1")
                             }
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy(22.04) ZenFS tarball') {
@@ -743,7 +770,9 @@ parameters {
                                 echo "The step is skipped"
                             } else {
                                 buildStage("none", "--build_tarball=1 --with_zenfs=1")
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                   pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -763,9 +792,10 @@ parameters {
                             } else {
                                 buildStage("none", "--debug=1 --build_tarball=1")
                             }
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                               pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                            }
                         }
-
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
                     }
                 }
             }
@@ -781,13 +811,22 @@ parameters {
 
                 uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                 uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+
+                script {
+                    if (env.EXPERIMENTALMODE == 'NO') {
+                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
             }
         }
 
         stage('Sign packages') {
             steps {
-                signRPM()
+                script {
+                    if (env.EXPERIMENTALMODE == 'NO') {
+                        signRPM()
+                    }
+                }
                 signDEB()
             }
         }
@@ -798,25 +837,17 @@ parameters {
                     MYSQL_VERSION_MINOR = sh(returnStdout: true, script: ''' curl -s -O $(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git$||')/${BRANCH}/MYSQL_VERSION; cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print $2}' ''').trim()
                     PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
                     // sync packages
-                    if ("${MYSQL_VERSION_MINOR}" == "0") {
-                        if (env.FIPSMODE == 'YES') {
-                            sync2PrivateProdAutoBuild("ps-9x-innovation-pro", COMPONENT)
+                    if (env.FIPSMODE == 'YES') {
+                        if ("${MYSQL_VERSION_MINOR}" == "7") {
+                            sync2PrivateProdAutoBuild("ps-97-pro", COMPONENT)
                         } else {
-                            sync2ProdAutoBuild("ps-9x-innovation", COMPONENT)
+                            sync2PrivateProdAutoBuild("ps-9x-innovation-pro", COMPONENT)
                         }
                     } else {
-                        if (env.FIPSMODE == 'YES') {
-                            if ("${MYSQL_VERSION_MINOR}" == "7") {
-                                sync2PrivateProdAutoBuild("ps-97-lts-pro", COMPONENT)
-                            } else {
-                                sync2PrivateProdAutoBuild("ps-9x-innovation-pro", COMPONENT)
-                            }
+                        if ("${MYSQL_VERSION_MINOR}" == "7") {
+                            sync2ProdAutoBuild("ps-97-lts", COMPONENT)
                         } else {
-                            if ("${MYSQL_VERSION_MINOR}" == "7") {
-                                sync2ProdAutoBuild("ps-97-lts", COMPONENT)
-                            } else {
-                                sync2ProdAutoBuild("ps-9x-innovation", COMPONENT)
-                            }
+                            sync2ProdAutoBuild("ps-9x-innovation", COMPONENT)
                         }
                     }
                 }

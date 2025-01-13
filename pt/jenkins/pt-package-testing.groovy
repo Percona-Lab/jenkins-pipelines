@@ -103,13 +103,11 @@ pipeline {
         )
         choice(
             choices: [
-                'min-centos-7-x64',
                 'min-ol-8-x64',
                 'min-ol-9-x64',
                 'min-focal-x64',
                 'min-jammy-x64',
                 'min-noble-x64',
-                'min-buster-x64',
                 'min-bullseye-x64',
                 'min-bookworm-x64'
             ],

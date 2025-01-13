@@ -1,8 +1,9 @@
 - job:
-    name: pxc-operator-eks-latest
+    name: ps9x-autobuild
     project-type: pipeline
     description: |
         Do not edit this job through the web!
+        Check PS repo for new release branches to build packages
     pipeline-scm:
       scm:
         - git:
@@ -11,5 +12,6 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxc_operator_eks_latest.groovy
-
+      script-path: ps/jenkins/get-ps-branches-9.x.groovy
+    triggers:
+      - timed: "H H * * *"

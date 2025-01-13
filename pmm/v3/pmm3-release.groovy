@@ -11,6 +11,7 @@ pipeline {
     environment {
         CLIENT_IMAGE            = "perconalab/pmm-client:${VERSION}-rc"
         SERVER_IMAGE            = "perconalab/pmm-server:${VERSION}-rc"
+        WATCHTOWER_IMAGE        = "perconalab/watchtower:${VERSION}-rc"
         PATH_TO_CLIENT_AMD64    = "testing/pmm3-client-autobuild-amd/pmm/${VERSION}/v3/${PATH_TO_CLIENT_AMD64}"
         PATH_TO_CLIENT_ARM64    = "testing/pmm3-client-autobuild-arm/pmm/${VERSION}/v3/${PATH_TO_CLIENT_ARM64}"
     }
@@ -31,10 +32,10 @@ pipeline {
     }
 
     stages {
-        stage('Push PRM client to public repository') {
+        stage('Push RPM client to public repository') {
             steps {
                 script {
-                    currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>PATH_TO_CLIENT_AMD64: ${PATH_TO_CLIENT_AMD64}<br>PATH_TO_CLIENT_ARM64: ${PATH_TO_CLIENT_ARM64}"
+                    currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>WATCHTOWER: ${WATCHTOWER_IMAGE}<br>PATH_TO_CLIENT_AMD64: ${PATH_TO_CLIENT_AMD64}<br>PATH_TO_CLIENT_ARM64: ${PATH_TO_CLIENT_ARM64}"
                     if (!params.PATH_TO_CLIENT_AMD64 || !params.PATH_TO_CLIENT_ARM64) {
                         error("ERROR: empty parameter(s) PATH_TO_CLIENT_AMD64 or PATH_TO_CLIENT_ARM64")
                     }
@@ -333,6 +334,16 @@ ENDSSH
 
                         docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
 
+                         # push watchtower
+                        docker pull \${WATCHTOWER_IMAGE}
+
+                        docker tag \${WATCHTOWER_IMAGE} percona/watchtower:\${TOP_TAG}
+                        docker tag \${WATCHTOWER_IMAGE} percona/watchtower:\${MID_TAG}
+                        docker tag \${WATCHTOWER_IMAGE} percona/watchtower:\${VERSION}
+                        docker push percona/watchtower:\${TOP_TAG}
+                        docker push percona/watchtower:\${MID_TAG}
+                        docker push percona/watchtower:\${VERSION}
+
                         # push pmm-client
                         docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${TOP_TAG}
                         docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${MID_TAG}
@@ -379,7 +390,7 @@ ENDSSH
                         sha256sum pmm-client-${VERSION}-amd64.docker | tee pmm-client-${VERSION}-amd64.sha256sum
                         sha256sum pmm-client-${VERSION}-arm64.docker | tee pmm-client-${VERSION}-arm64.sha256sum
 
-                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
 
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm/${VERSION}/docker"
 
@@ -404,7 +415,7 @@ ENDSSH
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         sha256sum pmm-server-${VERSION}.ova | tee pmm-server-${VERSION}.sha256sum
-                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm/${VERSION}/ova"
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.ova pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm/${VERSION}/ova/
                     '''
@@ -485,11 +496,11 @@ ENDSSH
             deleteDir()
         }
         success {
-            slackSend botUser: true, channel: '#pmm-dev', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
+            slackSend botUser: true, channel: '#pmm', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
             slackSend botUser: true, channel: '#releases', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: release failed - ${BUILD_URL}"
+            slackSend botUser: true, channel: '#pmm-internal', color: '#FF0000', message: "[${JOB_NAME}]: release failed - ${BUILD_URL}"
         }
     }
 }

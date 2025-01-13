@@ -1,4 +1,4 @@
-location='eastus'
+region='eu-west-3'
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
@@ -6,7 +6,7 @@ release_versions="source/e2e-tests/release_versions"
 String getParam(String paramName, String keyName = null) {
     keyName = keyName ?: paramName
 
-    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", , returnStdout: true).trim()
+    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
     if ("$param") {
         echo "$paramName=$param (from params file)"
     } else {
@@ -38,8 +38,8 @@ void prepareNode() {
         IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
         IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
-            PLATFORM_VER = getParam("PLATFORM_VER", "AKS_${PLATFORM_VER}")
+        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
+            PLATFORM_VER = getParam("PLATFORM_VER", "EKS_${PLATFORM_VER}")
         }
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
@@ -55,27 +55,15 @@ void prepareNode() {
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
 
-        if ! command -v az &>/dev/null; then
-            curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
-            printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
-            sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
-        fi
+        curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
 
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable-only tools
         sudo yum install -y percona-xtrabackup-80 | true
     """
 
-    echo "=========================[ Logging in the Kubernetes provider ]========================="
-    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
-        sh """
-            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
-            az account set -s "$AZURE_SUBSCRIPTION_ID"
-        """
-    }
-
     if ("$PLATFORM_VER" == "latest") {
-        PLATFORM_VER = sh(script: "az aks get-versions --location $location --output json | jq -r '.values | max_by(.patchVersions) | .patchVersions | keys[]' | sort --version-sort | tail -1", , returnStdout: true).trim()
+        PLATFORM_VER = sh(script: "eksctl version -ojson | jq -r '.EKSServerSupportedVersions | max'", returnStdout: true).trim()
     }
 
     if ("$IMAGE_PXC") {
@@ -84,9 +72,9 @@ void prepareNode() {
         currentBuild.description = "$release$GIT_BRANCH-$PLATFORM_VER-$cw-" + "$IMAGE_PXC".split(":")[1]
     }
 
-    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-    CLUSTER_NAME = sh(script: "echo jenkins-lat-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
+    CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -186,25 +174,62 @@ void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
     sh """
-        export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-        az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
-            -g percona-operators \
-            --subscription eng-cloud-dev \
-            --load-balancer-sku basic \
-            --enable-managed-identity \
-            --node-count 3 \
-            --node-vm-size Standard_B4ms \
-            --min-count 3 \
-            --max-count 3 \
-            --node-osdisk-size 30 \
-            --network-plugin kubenet \
-            --generate-ssh-keys \
-            --enable-cluster-autoscaler \
-            --outbound-type loadbalancer \
-            --kubernetes-version $PLATFORM_VER \
-            -l $location
-        az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-$CLUSTER_SUFFIX --overwrite-existing
+        timestamp="\$(date +%s)"
+tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
+# An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
+---
+apiVersion: eksctl.io/v1alpha5
+kind: ClusterConfig
+
+metadata:
+    name: $CLUSTER_NAME-$CLUSTER_SUFFIX
+    region: $region
+    version: "$PLATFORM_VER"
+    tags:
+        'delete-cluster-after-hours': '10'
+        'creation-time': '\$timestamp'
+        'team': 'cloud'
+iam:
+  withOIDC: true
+
+addons:
+- name: aws-ebs-csi-driver
+  wellKnownPolicies:
+    ebsCSIController: true
+
+nodeGroups:
+    - name: ng-1
+      minSize: 3
+      maxSize: 5
+      iam:
+        attachPolicyARNs:
+        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+      instancesDistribution:
+        maxPrice: 0.15
+        instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
+        onDemandBaseCapacity: 0
+        onDemandPercentageAboveBaseCapacity: 50
+        spotInstancePools: 2
+      tags:
+        'iit-billing-tag': 'jenkins-eks'
+        'delete-cluster-after-hours': '10'
+        'team': 'cloud'
+        'product': 'pxc-operator'
+EOF
     """
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+            kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
+            kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
+        """
+    }
 }
 
 void runTest(Integer TEST_ID) {
@@ -219,23 +244,25 @@ void runTest(Integer TEST_ID) {
             tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
-                sh """
-                    cd source
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
+                    sh """
+                        cd source
 
-                    export DEBUG_TESTS=1
-                    [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pxc-operator
-                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
-                    export IMAGE_PXC=$IMAGE_PXC
-                    export IMAGE_PROXY=$IMAGE_PROXY
-                    export IMAGE_HAPROXY=$IMAGE_HAPROXY
-                    export IMAGE_BACKUP=$IMAGE_BACKUP
-                    export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
-                    export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
-                    export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+                        export DEBUG_TESTS=1
+                        [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pxc-operator
+                        [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
+                        export IMAGE_PXC=$IMAGE_PXC
+                        export IMAGE_PROXY=$IMAGE_PROXY
+                        export IMAGE_HAPROXY=$IMAGE_HAPROXY
+                        export IMAGE_BACKUP=$IMAGE_BACKUP
+                        export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
+                        export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                        export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+                        export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
 
-                    e2e-tests/$testName/run
-                """
+                        e2e-tests/$testName/run
+                    """
+                }
             }
             pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
@@ -273,7 +300,7 @@ void pushArtifactFile(String FILE_NAME) {
 
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
-    testsReport = '<testsuite name="PXC-AKS-latest">\n'
+    testsReport = "<testsuite name=\"$JOB_NAME\">\n"
     for (int i = 0; i < tests.size(); i ++) {
         testsReport += '<testcase name="' + tests[i]["name"] + '" time="' + tests[i]["time"] + '"><'+ tests[i]["result"] +'/></testcase>\n'
     }
@@ -281,7 +308,7 @@ void makeReport() {
 
     echo "=========================[ Generating Parameters Report ]========================="
     pipelineParameters = """
-        testsuite name=PXC-AKS-latest
+        testsuite name=$JOB_NAME
         IMAGE_OPERATOR=$IMAGE_OPERATOR
         IMAGE_PXC=$IMAGE_PXC
         IMAGE_PROXY=$IMAGE_PROXY
@@ -298,7 +325,7 @@ void makeReport() {
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
@@ -311,7 +338,32 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
             done
             kubectl get svc --all-namespaces || true
 
-            az aks delete --name $CLUSTER_NAME-$CLUSTER_SUFFIX --resource-group percona-operators --subscription eng-cloud-dev --yes || true
+            VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
+            if [ -n "\$VPC_ID" ]; then
+                LOADBALS=\$(aws elb describe-load-balancers --region $region --output json | jq --raw-output '.LoadBalancerDescriptions[] | select(.VPCId == "'\$VPC_ID'").LoadBalancerName')
+                for loadbal in \$LOADBALS; do
+                    aws elb delete-load-balancer --load-balancer-name \$loadbal --region $region
+                done
+                eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction || true
+
+                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $region || true)
+                if [ -n "\$VPC_DESC" ]; then
+                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $region || true
+                fi
+                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region $region || true)
+                if [ -n "\$VPC_DESC" ]; then
+                    for secgroup in \$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=\$VPC_ID --query 'SecurityGroups[*].GroupId' --output text --region $region); do
+                        aws ec2 delete-security-group --group-id \$secgroup --region $region || true
+                    done
+
+                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region $region || true
+                fi
+            fi
+            aws cloudformation delete-stack --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $region || true
+            aws cloudformation wait stack-delete-complete --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region $region || true
+
+            eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region || true
+            aws cloudformation list-stacks --region $region | jq '.StackSummaries[] | select(.StackName | startswith("'eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster'"))' || true
         """
     }
 }
@@ -319,7 +371,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        DB_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
+        DB_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -333,8 +385,7 @@ pipeline {
         choice(
             choices: 'NO\nYES',
             description: 'Ignore passed tests in previous run (run all)',
-            name: 'IGNORE_PREVIOUS_RUN'
-        )
+            name: 'IGNORE_PREVIOUS_RUN')
         choice(
             choices: 'none\n84\n80\n57',
             description: 'Implies release run.',
@@ -349,7 +400,7 @@ pipeline {
             name: 'GIT_REPO')
         string(
             defaultValue: 'latest',
-            description: 'AKS kubernetes version. If set to min or max, value will be automatically taken from release_versions file.',
+            description: 'EKS kubernetes version. If set to min or max, value will be automatically taken from release_versions file.',
             name: 'PLATFORM_VER')
         choice(
             choices: 'YES\nNO',
@@ -416,43 +467,51 @@ pipeline {
         stage('Run Tests') {
             parallel {
                 stage('cluster1') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
                     steps {
                         clusterRunner('cluster1')
                     }
                 }
                 stage('cluster2') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
                     steps {
                         clusterRunner('cluster2')
                     }
                 }
                 stage('cluster3') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
                     steps {
                         clusterRunner('cluster3')
                     }
                 }
                 stage('cluster4') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
                     steps {
                         clusterRunner('cluster4')
                     }
                 }
                 stage('cluster5') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
                     steps {
                         clusterRunner('cluster5')
                     }
                 }
                 stage('cluster6') {
+                    options {
+                        timeout(time: 3, unit: 'HOURS')
+                    }
                     steps {
                         clusterRunner('cluster6')
-                    }
-                }
-                stage('cluster7') {
-                    steps {
-                        clusterRunner('cluster7')
-                    }
-                }
-                stage('cluster8') {
-                    steps {
-                        clusterRunner('cluster8')
                     }
                 }
             }
