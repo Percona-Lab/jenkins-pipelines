@@ -60,44 +60,44 @@ pipeline {
                          docker push perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER-arm64
                          docker push perconalab/postgresql-ivee:\$MAJ_VER-arm64
 
-                         docker manifest create --amend perconalab/postgresql-ivee:${params.PPG_VERSION}-multi \
-                            perconalab/postgresql-ivee:${params.PPG_VERSION} \
+                         docker manifest create --amend perconalab/postgresql-ivee:${params.PPG_VERSION} \
+                            perconalab/postgresql-ivee:${params.PPG_VERSION}-amd64 \
                             perconalab/postgresql-ivee:${params.PPG_VERSION}-arm64
-                         docker manifest annotate perconalab/postgresql-ivee:${params.PPG_VERSION}-multi \
+                         docker manifest annotate perconalab/postgresql-ivee:${params.PPG_VERSION} \
                             perconalab/postgresql-ivee:${params.PPG_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/postgresql-ivee:${params.PPG_VERSION}-multi \
-                            perconalab/postgresql-ivee:${params.PPG_VERSION} --os linux --arch amd64
-                         docker manifest inspect perconalab/postgresql-ivee:${params.PPG_VERSION}-multi
-                         docker manifest push perconalab/postgresql-ivee:${params.PPG_VERSION}-multi
+                         docker manifest annotate perconalab/postgresql-ivee:${params.PPG_VERSION} \
+                            perconalab/postgresql-ivee:${params.PPG_VERSION}-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/postgresql-ivee:${params.PPG_VERSION}
+                         docker manifest push perconalab/postgresql-ivee:${params.PPG_VERSION}
 
-                         docker manifest create --amend perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER-multi \
-                            perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER \
+                         docker manifest create --amend perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER \
+                            perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER-amd64 \
                             perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER-arm64
-                         docker manifest annotate perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER-multi \
+                         docker manifest annotate perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER \
                             perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER-multi \
-                            perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER --os linux --arch amd64
-                         docker manifest inspect perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER-multi
-                         docker manifest push perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER-multi
+                         docker manifest annotate perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER \
+                            perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER
+                         docker manifest push perconalab/postgresql-ivee:\$MAJ_VER.\$MIN_VER
 
-                         docker manifest create --amend perconalab/postgresql-ivee:\$MAJ_VER-multi \
-                            perconalab/postgresql-ivee:\$MAJ_VER \
+                         docker manifest create --amend perconalab/postgresql-ivee:\$MAJ_VER \
+                            perconalab/postgresql-ivee:\$MAJ_VER-amd64 \
                             perconalab/postgresql-ivee:\$MAJ_VER-arm64
-                         docker manifest annotate perconalab/postgresql-ivee:\$MAJ_VER-multi \
+                         docker manifest annotate perconalab/postgresql-ivee:\$MAJ_VER \
                             perconalab/postgresql-ivee:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/postgresql-ivee:\$MAJ_VER-multi \
-                            perconalab/postgresql-ivee:\$MAJ_VER --os linux --arch amd64
-                         docker manifest inspect perconalab/postgresql-ivee:\$MAJ_VER-multi
-                         docker manifest push perconalab/postgresql-ivee:\$MAJ_VER-multi
+                         docker manifest annotate perconalab/postgresql-ivee:\$MAJ_VER \
+                            perconalab/postgresql-ivee:\$MAJ_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/postgresql-ivee:\$MAJ_VER
+                         docker manifest push perconalab/postgresql-ivee:\$MAJ_VER
 
                          if [ ${params.LATEST} = "yes" ]; then
                             docker manifest create --amend perconalab/postgresql-ivee:latest \
-                               perconalab/postgresql-ivee:\$MAJ_VER \
+                               perconalab/postgresql-ivee:\$MAJ_VER-amd64 \
                                perconalab/postgresql-ivee:\$MAJ_VER-arm64
                             docker manifest annotate perconalab/postgresql-ivee:latest \
                                perconalab/postgresql-ivee:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
                             docker manifest annotate perconalab/postgresql-ivee:latest \
-                               perconalab/postgresql-ivee:\$MAJ_VER --os linux --arch amd64
+                               perconalab/postgresql-ivee:\$MAJ_VER-amd64 --os linux --arch amd64
                             docker manifest inspect perconalab/postgresql-ivee:latest
                             docker manifest push perconalab/postgresql-ivee:latest
                          fi
@@ -123,44 +123,44 @@ pipeline {
                          docker push percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER-arm64
                          docker push percona/postgresql-ivee:\$MAJ_VER-arm64
 
-                         docker manifest create --amend percona/postgresql-ivee:${params.PPG_VERSION}-multi \
-                            percona/postgresql-ivee:${params.PPG_VERSION} \
+                         docker manifest create --amend percona/postgresql-ivee:${params.PPG_VERSION} \
+                            percona/postgresql-ivee:${params.PPG_VERSION}-amd64 \
                             percona/postgresql-ivee:${params.PPG_VERSION}-arm64
-                         docker manifest annotate percona/postgresql-ivee:${params.PPG_VERSION}-multi \
+                         docker manifest annotate percona/postgresql-ivee:${params.PPG_VERSION} \
                             percona/postgresql-ivee:${params.PPG_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/postgresql-ivee:${params.PPG_VERSION}-multi \
-                            percona/postgresql-ivee:${params.PPG_VERSION} --os linux --arch amd64
-                         docker manifest inspect percona/postgresql-ivee:${params.PPG_VERSION}-multi
-                         docker manifest push percona/postgresql-ivee:${params.PPG_VERSION}-multi
+                         docker manifest annotate percona/postgresql-ivee:${params.PPG_VERSION} \
+                            percona/postgresql-ivee:${params.PPG_VERSION}-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/postgresql-ivee:${params.PPG_VERSION}
+                         docker manifest push percona/postgresql-ivee:${params.PPG_VERSION}
 
-                         docker manifest create --amend percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER-multi \
-                            percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER \
+                         docker manifest create --amend percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER \
+                            percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER-amd64 \
                             percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER-arm64
-                         docker manifest annotate percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER-multi \
+                         docker manifest annotate percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER \
                             percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER-multi \
-                            percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER --os linux --arch amd64
-                         docker manifest inspect percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER-multi
-                         docker manifest push percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER-multi
+                         docker manifest annotate percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER \
+                            percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER
+                         docker manifest push percona/postgresql-ivee:\$MAJ_VER.\$MIN_VER
 
-                         docker manifest create --amend percona/postgresql-ivee:\$MAJ_VER-multi \
-                            percona/postgresql-ivee:\$MAJ_VER \
+                         docker manifest create --amend percona/postgresql-ivee:\$MAJ_VER \
+                            percona/postgresql-ivee:\$MAJ_VER-amd64 \
                             percona/postgresql-ivee:\$MAJ_VER-arm64
-                         docker manifest annotate percona/postgresql-ivee:\$MAJ_VER-multi \
+                         docker manifest annotate percona/postgresql-ivee:\$MAJ_VER \
                             percona/postgresql-ivee:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/postgresql-ivee:\$MAJ_VER-multi \
-                            percona/postgresql-ivee:\$MAJ_VER --os linux --arch amd64
-                         docker manifest inspect percona/postgresql-ivee:\$MAJ_VER-multi
-                         docker manifest push percona/postgresql-ivee:\$MAJ_VER-multi
+                         docker manifest annotate percona/postgresql-ivee:\$MAJ_VER \
+                            percona/postgresql-ivee:\$MAJ_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/postgresql-ivee:\$MAJ_VER
+                         docker manifest push percona/postgresql-ivee:\$MAJ_VER
 
                          if [ ${params.LATEST} = "yes" ]; then
                             docker manifest create --amend percona/postgresql-ivee:latest \
-                               percona/postgresql-ivee:\$MAJ_VER \
+                               percona/postgresql-ivee:\$MAJ_VER-amd64 \
                                percona/postgresql-ivee:\$MAJ_VER-arm64
                             docker manifest annotate percona/postgresql-ivee:latest \
                                percona/postgresql-ivee:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
                             docker manifest annotate percona/postgresql-ivee:latest \
-                               percona/postgresql-ivee:\$MAJ_VER --os linux --arch amd64
+                               percona/postgresql-ivee:\$MAJ_VER-amd64 --os linux --arch amd64
                             docker manifest inspect percona/postgresql-ivee:latest
                             docker manifest push percona/postgresql-ivee:latest
                          fi

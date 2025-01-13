@@ -61,44 +61,44 @@ pipeline {
                          docker push perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64
                          docker push perconalab/percona-distribution-postgresql:\$MAJ_VER-arm64
 
-                         docker manifest create --amend perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-multi \
-                            perconalab/percona-distribution-postgresql:${params.PPG_VERSION} \
+                         docker manifest create --amend perconalab/percona-distribution-postgresql:${params.PPG_VERSION} \
+                            perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-amd64 \
                             perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-arm64
-                         docker manifest annotate perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-multi \
+                         docker manifest annotate perconalab/percona-distribution-postgresql:${params.PPG_VERSION} \
                             perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-multi \
-                            perconalab/percona-distribution-postgresql:${params.PPG_VERSION} --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-multi
-                         docker manifest push perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-multi
+                         docker manifest annotate perconalab/percona-distribution-postgresql:${params.PPG_VERSION} \
+                            perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-distribution-postgresql:${params.PPG_VERSION}
+                         docker manifest push perconalab/percona-distribution-postgresql:${params.PPG_VERSION}
 
-                         docker manifest create --amend perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-multi \
-                            perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER \
+                         docker manifest create --amend perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER \
+                            perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64 \
                             perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64
-                         docker manifest annotate perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-multi \
+                         docker manifest annotate perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER \
                             perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-multi \
-                            perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-multi
-                         docker manifest push perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-multi
+                         docker manifest annotate perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER \
+                            perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
+                         docker manifest push perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
 
-                         docker manifest create --amend perconalab/percona-distribution-postgresql:\$MAJ_VER-multi \
-                            perconalab/percona-distribution-postgresql:\$MAJ_VER \
+                         docker manifest create --amend perconalab/percona-distribution-postgresql:\$MAJ_VER \
+                            perconalab/percona-distribution-postgresql:\$MAJ_VER-amd64 \
                             perconalab/percona-distribution-postgresql:\$MAJ_VER-arm64
-                         docker manifest annotate perconalab/percona-distribution-postgresql:\$MAJ_VER-multi \
+                         docker manifest annotate perconalab/percona-distribution-postgresql:\$MAJ_VER \
                             perconalab/percona-distribution-postgresql:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-distribution-postgresql:\$MAJ_VER-multi \
-                            perconalab/percona-distribution-postgresql:\$MAJ_VER --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-distribution-postgresql:\$MAJ_VER-multi
-                         docker manifest push perconalab/percona-distribution-postgresql:\$MAJ_VER-multi
+                         docker manifest annotate perconalab/percona-distribution-postgresql:\$MAJ_VER \
+                            perconalab/percona-distribution-postgresql:\$MAJ_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-distribution-postgresql:\$MAJ_VER
+                         docker manifest push perconalab/percona-distribution-postgresql:\$MAJ_VER
 
                          if [ ${params.LATEST} = "yes" ]; then
                             docker manifest create --amend perconalab/percona-distribution-postgresql:latest \
-                               perconalab/percona-distribution-postgresql:\$MAJ_VER \
+                               perconalab/percona-distribution-postgresql:\$MAJ_VER-amd64 \
                                perconalab/percona-distribution-postgresql:\$MAJ_VER-arm64
                             docker manifest annotate perconalab/percona-distribution-postgresql:latest \
                                perconalab/percona-distribution-postgresql:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
                             docker manifest annotate perconalab/percona-distribution-postgresql:latest \
-                               perconalab/percona-distribution-postgresql:\$MAJ_VER --os linux --arch amd64
+                               perconalab/percona-distribution-postgresql:\$MAJ_VER-amd64 --os linux --arch amd64
                             docker manifest inspect perconalab/percona-distribution-postgresql:latest
                             docker manifest push perconalab/percona-distribution-postgresql:latest
                          fi
@@ -124,44 +124,44 @@ pipeline {
                          docker push percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64
                          docker push percona/percona-distribution-postgresql:\$MAJ_VER-arm64
 
-                         docker manifest create --amend percona/percona-distribution-postgresql:${params.PPG_VERSION}-multi \
-                            percona/percona-distribution-postgresql:${params.PPG_VERSION} \
+                         docker manifest create --amend percona/percona-distribution-postgresql:${params.PPG_VERSION} \
+                            percona/percona-distribution-postgresql:${params.PPG_VERSION}-amd64 \
                             percona/percona-distribution-postgresql:${params.PPG_VERSION}-arm64
-                         docker manifest annotate percona/percona-distribution-postgresql:${params.PPG_VERSION}-multi \
+                         docker manifest annotate percona/percona-distribution-postgresql:${params.PPG_VERSION} \
                             percona/percona-distribution-postgresql:${params.PPG_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-distribution-postgresql:${params.PPG_VERSION}-multi \
-                            percona/percona-distribution-postgresql:${params.PPG_VERSION} --os linux --arch amd64
-                         docker manifest inspect percona/percona-distribution-postgresql:${params.PPG_VERSION}-multi
-                         docker manifest push percona/percona-distribution-postgresql:${params.PPG_VERSION}-multi
+                         docker manifest annotate percona/percona-distribution-postgresql:${params.PPG_VERSION} \
+                            percona/percona-distribution-postgresql:${params.PPG_VERSION}-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/percona-distribution-postgresql:${params.PPG_VERSION}
+                         docker manifest push percona/percona-distribution-postgresql:${params.PPG_VERSION}
 
-                         docker manifest create --amend percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-multi \
-                            percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER \
+                         docker manifest create --amend percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER \
+                            percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64 \
                             percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64
-                         docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-multi \
+                         docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER \
                             percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-multi \
-                            percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER --os linux --arch amd64
-                         docker manifest inspect percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-multi
-                         docker manifest push percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-multi
+                         docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER \
+                            percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
+                         docker manifest push percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
 
-                         docker manifest create --amend percona/percona-distribution-postgresql:\$MAJ_VER-multi \
-                            percona/percona-distribution-postgresql:\$MAJ_VER \
+                         docker manifest create --amend percona/percona-distribution-postgresql:\$MAJ_VER \
+                            percona/percona-distribution-postgresql:\$MAJ_VER-amd64 \
                             percona/percona-distribution-postgresql:\$MAJ_VER-arm64
-                         docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER-multi \
+                         docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER \
                             percona/percona-distribution-postgresql:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER-multi \
-                            percona/percona-distribution-postgresql:\$MAJ_VER --os linux --arch amd64
-                         docker manifest inspect percona/percona-distribution-postgresql:\$MAJ_VER-multi
-                         docker manifest push percona/percona-distribution-postgresql:\$MAJ_VER-multi
+                         docker manifest annotate percona/percona-distribution-postgresql:\$MAJ_VER \
+                            percona/percona-distribution-postgresql:\$MAJ_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/percona-distribution-postgresql:\$MAJ_VER
+                         docker manifest push percona/percona-distribution-postgresql:\$MAJ_VER
 
                          if [ ${params.LATEST} = "yes" ]; then
                             docker manifest create --amend percona/percona-distribution-postgresql:latest \
-                               percona/percona-distribution-postgresql:\$MAJ_VER \
+                               percona/percona-distribution-postgresql:\$MAJ_VER-amd64 \
                                percona/percona-distribution-postgresql:\$MAJ_VER-arm64
                             docker manifest annotate percona/percona-distribution-postgresql:latest \
                                percona/percona-distribution-postgresql:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
                             docker manifest annotate percona/percona-distribution-postgresql:latest \
-                               percona/percona-distribution-postgresql:\$MAJ_VER --os linux --arch amd64
+                               percona/percona-distribution-postgresql:\$MAJ_VER-amd64 --os linux --arch amd64
                             docker manifest inspect percona/percona-distribution-postgresql:latest
                             docker manifest push percona/percona-distribution-postgresql:latest
                          fi

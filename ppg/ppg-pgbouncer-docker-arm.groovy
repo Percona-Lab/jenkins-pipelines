@@ -55,34 +55,34 @@ pipeline {
                          docker push perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-arm64
                          docker push perconalab/percona-pgbouncer:\$MAJ_VER-arm64
 
-                         docker manifest create --amend perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-multi \
-                            perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION} \
+                         docker manifest create --amend perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION} \
+                            perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64 \
                             perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-arm64
-                         docker manifest annotate perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-multi \
+                         docker manifest annotate perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION} \
                             perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-multi \
-                            perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION} --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-multi
-                         docker manifest push perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-multi
+                         docker manifest annotate perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION} \
+                            perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}
+                         docker manifest push perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}
 
-                         docker manifest create --amend perconalab/percona-pgbouncer:\$MAJ_VER-multi \
-                            perconalab/percona-pgbouncer:\$MAJ_VER \
+                         docker manifest create --amend perconalab/percona-pgbouncer:\$MAJ_VER \
+                            perconalab/percona-pgbouncer:\$MAJ_VER-amd64 \
                             perconalab/percona-pgbouncer:\$MAJ_VER-arm64
-                         docker manifest annotate perconalab/percona-pgbouncer:\$MAJ_VER-multi \
+                         docker manifest annotate perconalab/percona-pgbouncer:\$MAJ_VER \
                             perconalab/percona-pgbouncer:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-pgbouncer:\$MAJ_VER-multi \
-                            perconalab/percona-pgbouncer:\$MAJ_VER --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-pgbouncer:\$MAJ_VER-multi
-                         docker manifest push perconalab/percona-pgbouncer:\$MAJ_VER-multi
+                         docker manifest annotate perconalab/percona-pgbouncer:\$MAJ_VER \
+                            perconalab/percona-pgbouncer:\$MAJ_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-pgbouncer:\$MAJ_VER
+                         docker manifest push perconalab/percona-pgbouncer:\$MAJ_VER
 
                          if [ ${params.LATEST} = "yes" ]; then
                             docker manifest create --amend perconalab/percona-pgbouncer:latest \
-                               perconalab/percona-pgbouncer:\$MAJ_VER \
+                               perconalab/percona-pgbouncer:\$MAJ_VER-amd64 \
                                perconalab/percona-pgbouncer:\$MAJ_VER-arm64
                             docker manifest annotate perconalab/percona-pgbouncer:latest \
                                perconalab/percona-pgbouncer:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
                             docker manifest annotate perconalab/percona-pgbouncer:latest \
-                               perconalab/percona-pgbouncer:\$MAJ_VER --os linux --arch amd64
+                               perconalab/percona-pgbouncer:\$MAJ_VER-amd64 --os linux --arch amd64
                             docker manifest inspect perconalab/percona-pgbouncer:latest
                             docker manifest push perconalab/percona-pgbouncer:latest
                          fi
@@ -105,34 +105,34 @@ pipeline {
                          docker push percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-arm64
                          docker push percona/percona-pgbouncer:\$MAJ_VER-arm64
 
-                         docker manifest create --amend percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-multi \
-                            percona/percona-pgbouncer:${params.PGBOUNCER_VERSION} \
+                         docker manifest create --amend percona/percona-pgbouncer:${params.PGBOUNCER_VERSION} \
+                            percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64 \
                             percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-arm64
-                         docker manifest annotate percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-multi \
+                         docker manifest annotate percona/percona-pgbouncer:${params.PGBOUNCER_VERSION} \
                             percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-multi \
-                            percona/percona-pgbouncer:${params.PGBOUNCER_VERSION} --os linux --arch amd64
-                         docker manifest inspect percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-multi
-                         docker manifest push percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-multi
+                         docker manifest annotate percona/percona-pgbouncer:${params.PGBOUNCER_VERSION} \
+                            percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}
+                         docker manifest push percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}
 
-                         docker manifest create --amend percona/percona-pgbouncer:\$MAJ_VER-multi \
-                            percona/percona-pgbouncer:\$MAJ_VER \
+                         docker manifest create --amend percona/percona-pgbouncer:\$MAJ_VER \
+                            percona/percona-pgbouncer:\$MAJ_VER-amd64 \
                             percona/percona-pgbouncer:\$MAJ_VER-arm64
-                         docker manifest annotate percona/percona-pgbouncer:\$MAJ_VER-multi \
+                         docker manifest annotate percona/percona-pgbouncer:\$MAJ_VER \
                             percona/percona-pgbouncer:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-pgbouncer:\$MAJ_VER-multi \
-                            percona/percona-pgbouncer:\$MAJ_VER --os linux --arch amd64
-                         docker manifest inspect percona/percona-pgbouncer:\$MAJ_VER-multi
-                         docker manifest push percona/percona-pgbouncer:\$MAJ_VER-multi
+                         docker manifest annotate percona/percona-pgbouncer:\$MAJ_VER \
+                            percona/percona-pgbouncer:\$MAJ_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/percona-pgbouncer:\$MAJ_VER
+                         docker manifest push percona/percona-pgbouncer:\$MAJ_VER
 
                          if [ ${params.LATEST} = "yes" ]; then
                             docker manifest create --amend percona/percona-pgbouncer:latest \
-                               percona/percona-pgbouncer:\$MAJ_VER \
+                               percona/percona-pgbouncer:\$MAJ_VER-amd64 \
                                percona/percona-pgbouncer:\$MAJ_VER-arm64
                             docker manifest annotate percona/percona-pgbouncer:latest \
                                percona/percona-pgbouncer:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
                             docker manifest annotate percona/percona-pgbouncer:latest \
-                               percona/percona-pgbouncer:\$MAJ_VER --os linux --arch amd64
+                               percona/percona-pgbouncer:\$MAJ_VER-amd64 --os linux --arch amd64
                             docker manifest inspect percona/percona-pgbouncer:latest
                             docker manifest push percona/percona-pgbouncer:latest
                          fi
