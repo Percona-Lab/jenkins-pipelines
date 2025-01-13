@@ -21,13 +21,13 @@ pipeline {
         )
         string(
             defaultValue: 'https://github.com/percona/postgres',
-            description: 'PDP repo that we want to test, we could also use forked developer repo here.',
-            name: 'PDP_REPO'
+            description: 'PSP repo that we want to test, we could also use forked developer repo here.',
+            name: 'PSP_REPO'
         )
         string(
             defaultValue: 'TDE_REL_17_STABLE',
-            description: 'PDP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE',
-            name: 'PDP_BRANCH'
+            description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE',
+            name: 'PSP_BRANCH'
         )
         string(
             defaultValue: 'main',
@@ -67,15 +67,6 @@ pipeline {
             name: 'RUN_TDE_HEAP_BASIC',
             description: "Do you want to test performance using tde_heap_basic access method?"
         )
-        booleanParam(
-            name: 'CHANGE_TDE_BRANCH',
-            description: "Do you want to change TDE branch to other than default one given in PDP?"
-        )
-        string(
-            defaultValue: 'main',
-            description: 'pg_tde branch to use. Will only apply if CHANGE_TDE_BRANCH is selected',
-            name: 'TDE_BRANCH'
-        )
         string(
             defaultValue: 'yes',
             description: 'Destroy VM after tests',
@@ -84,7 +75,7 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "pdp/performance_tests";
+      MOLECULE_DIR = "psp/performance_tests";
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())

@@ -21,13 +21,13 @@ pipeline {
         )
         string(
             defaultValue: 'https://github.com/percona/postgres',
-            description: 'PDP repo that we want to test, we could also use forked developer repo here.',
-            name: 'PDP_REPO'
+            description: 'PSP repo that we want to test, we could also use forked developer repo here.',
+            name: 'PSP_REPO'
         )
         string(
             defaultValue: 'TDE_REL_17_STABLE',
-            description: 'PDP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE',
-            name: 'PDP_BRANCH'
+            description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE',
+            name: 'PSP_BRANCH'
         )
         string(
             defaultValue: 'main',
@@ -57,7 +57,7 @@ pipeline {
         )
         booleanParam(
             name: 'CHANGE_TDE_BRANCH',
-            description: "Do you want to change TDE branch to other than default one given in PDP? It will only work if WITH_TDE_HEAP option is enabled."
+            description: "Do you want to change TDE branch to other than default one given in PSP? It will only work if WITH_TDE_HEAP option is enabled."
         )
         string(
             defaultValue: 'main',
@@ -72,7 +72,7 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "pdp/server_tests";
+      MOLECULE_DIR = "psp/server_tests";
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
@@ -82,7 +82,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-pdp-${env.VERSION}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-psp-${env.VERSION}-${env.PLATFORM}"
                 }
             }
         }
