@@ -87,7 +87,7 @@ pipeline {
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
         text(
-            defaultValue: '--addclient=ps,1 --add-annotation --setup-replication-ps-pmm2 --group --addclient=ms,1 --addclient=md,1 --addclient=pgsql,1 --addclient=mo,1 --with-sharding --mongomagic --addclient=pdpgsql,1 --addclient=pxc,3',
+            defaultValue: '--addclient=modb,1 --mongo-replica-for-backup --addclient=pgsql,1 --addclient=ps,1 --addclient=pxc,3 --addclient=pdpgsql,1 --addclient=ms,1 --addclient=md,1',
             description: '''
             Configure PMM Clients
             ms - MySQL (ex. --addclient=ms,1),
