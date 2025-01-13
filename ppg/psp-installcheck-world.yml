@@ -1,5 +1,5 @@
 - job:
-    name: ppg-parallel
+    name: ppg
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ppg/pdp-installcheck-world-parallel.groovy
+      script-path: ppg/psp-installcheck-world.groovy
