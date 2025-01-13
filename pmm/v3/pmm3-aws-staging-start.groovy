@@ -25,7 +25,7 @@ pipeline {
         )
         string(
             defaultValue: 'perconalab/watchtower:dev-latest',
-            description: 'PMM Server docker container version (image-name:version-tag, ex: perconalab/watchtower:dev-latest)',
+            description: 'WatchTower docker container version (image-name:version-tag, ex: perconalab/watchtower:dev-latest)',
             name: 'WATCHTOWER_VERSION'
         )
         string(
