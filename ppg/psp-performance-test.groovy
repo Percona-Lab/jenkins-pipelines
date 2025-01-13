@@ -55,6 +55,10 @@ pipeline {
             name: 'PGBENCH_THREADS'
         )
         booleanParam(
+            name: 'LOAD_TDE',
+            description: "Do you want pg_tde to be loaded into server, and extension created?"
+        )
+        booleanParam(
             name: 'RUN_HEAP',
             defaultValue: true,
             description: "Do you want to test performance using heap access method?"
