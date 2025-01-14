@@ -243,12 +243,12 @@ pipeline {
                         ./get-pmm.sh -n pmm-server -b
                         echo "Migrate PMM Clients to v3"
                         docker ps -a
-                        PDPGSQL_CONTAINER_NAME=$(docker ps -a | grep "PDPGSQL_" | awk -F " " '{print $16}')
-                        PGSQL_CONTAINER_NAME=$(docker ps -a | grep "postgres:" | awk -F " " '{print $14}')
-                        echo $PDPGSQL_CONTAINER_NAME
-                        echo $PGSQL_CONTAINER_NAME
-                        PS_CONTAINER_NAME=$(docker ps -a | grep "ps_8.0" | awk -F " " '{print $15}')
-                        echo PS_CONTAINER_NAME
+                        PDPGSQL_CONTAINER_NAME=$(docker ps -a --format "{{.Names}}" | grep PDPGSQL)
+                        PGSQL_CONTAINER_NAME=$(docker ps -a --format "{{.Names}}" | grep PGSQL)
+                        echo "pdpgsql container name is: $PDPGSQL_CONTAINER_NAME"
+                        echo "pgsql container name is: $PGSQL_CONTAINER_NAME"
+                        PS_CONTAINER_NAME=$(docker ps -a --format "{{.Names}}" | grep ps_)
+                        echo "ps container name is: $PS_CONTAINER_NAME"
 
                     '''
                     env.SERVER_IP = "127.0.0.1"
