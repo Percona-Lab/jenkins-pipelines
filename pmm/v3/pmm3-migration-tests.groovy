@@ -237,11 +237,19 @@ pipeline {
         stage('Migrate pmm2 to pmm3') {
             steps {
                 script {
-                    sh """
+                    sh '''
                         wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
                         chmod +x get-pmm.sh
                         ./get-pmm.sh -n pmm-server -b
-                    """
+                        echo "Migrate PMM Clients to v3"
+                        PDPGSQL_CONTAINER_NAME=$(docker ps -a | grep "PDPGSQL_" | awk -F " " '{print $16}')
+                        PGSQL_CONTAINER_NAME=$(docker ps -a | grep "postgres:" | awk -F " " '{print $14}')
+                        echo $PDPGSQL_CONTAINER_NAME
+                        echo $PGSQL_CONTAINER_NAME
+                        PS_CONTAINER_NAME=$(docker ps -a | grep "ps_8.0" | awk -F " " '{print $15}')
+                        echo PS_CONTAINER_NAME
+
+                    '''
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "https://${env.SERVER_IP}/"
                     env.PMM_URL = "https://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
