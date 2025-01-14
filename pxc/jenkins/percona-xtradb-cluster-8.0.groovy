@@ -655,7 +655,11 @@ pipeline {
                             sudo docker build --no-cache -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-aarch64 --platform="linux/arm64" -f Dockerfile.aarch64 .
                             sudo docker build --no-cache --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-aarch64 --platform="linux/arm64" -f Dockerfile.aarch64 .
 
-                            cd ../percona-xtradb-cluster-8.0-backup
+                            if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
+                                cd ../percona-xtradb-cluster-8.0-backup
+                            else
+                                cd ../percona-xtradb-cluster-8.4-backup
+                            fi
                             sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION=${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PXC_REPO.*/ENV PXC_REPO=testing/g" Dockerfile
                             if [ ${PXC_MAJOR_RELEASE} != "80" ]; then
