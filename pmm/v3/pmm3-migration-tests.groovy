@@ -242,6 +242,7 @@ pipeline {
                         chmod +x get-pmm.sh
                         ./get-pmm.sh -n pmm-server -b
                         echo "Migrate PMM Clients to v3"
+                        docker ps -a
                         PDPGSQL_CONTAINER_NAME=$(docker ps -a | grep "PDPGSQL_" | awk -F " " '{print $16}')
                         PGSQL_CONTAINER_NAME=$(docker ps -a | grep "postgres:" | awk -F " " '{print $14}')
                         echo $PDPGSQL_CONTAINER_NAME
