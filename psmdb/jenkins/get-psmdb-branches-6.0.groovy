@@ -26,6 +26,7 @@ pipeline {
     stages {
         stage('Get release branches') {
             steps {
+                script {
                 String S3_STASH = (params.CLOUD == 'Hetzner') ? 'HTZ_STASH' : 'AWS_STASH'
                 String S3_ENDPOINT = (params.CLOUD == 'Hetzner') ? '--endpoint-url https://fsn1.your-objectstorage.com' : '--endpoint-url https://s3.amazonaws.com'
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: S3_STASH, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -69,7 +70,6 @@ pipeline {
                         fi
                     """
                 }
-                script {
                     START_NEW_BUILD = sh(returnStdout: true, script: "source startBuild; echo \${START_NEW_BUILD}").trim()
                     BRANCH_NAME = sh(returnStdout: true, script: "source branch_commit_id_60.properties; echo \${BRANCH_NAME}").trim()
                     COMMIT_ID = sh(returnStdout: true, script: "source branch_commit_id_60.properties; echo \${COMMIT_ID}").trim()
