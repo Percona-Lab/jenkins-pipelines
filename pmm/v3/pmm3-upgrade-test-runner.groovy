@@ -145,6 +145,16 @@ pipeline {
             defaultValue: 'admin',
             description: "Password for PMM Server ",
             name: 'ADMIN_PASSWORD')
+        string(
+            defaultValue: '0',
+            description: "Verbosity Levels in Ansible:\n
+                0: Default verbosity.\n
+                1: Show additional information (e.g., tasks being executed).\n
+                2: Display extra debug information (e.g., task details).\n
+                3: Show detailed information about task execution.\n
+                4: Debug-level verbosity.\n
+                5: Maximal verbosity, showing all possible debug output.",
+            name: 'VERBOSE_LEVEL')
     }
     options {
         skipDefaultCheckout()
@@ -153,7 +163,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-//                     env.VERBOSE_LEVEL = "4"
+                    env.VERBOSE_LEVEL = params.VERBOSE_LEVEL
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
