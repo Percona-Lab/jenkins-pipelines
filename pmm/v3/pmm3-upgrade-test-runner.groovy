@@ -98,7 +98,7 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
-            defaultValue: 'perconalab/pmm-server:202501141138',
+                defaultValue: 'perconalab/pmm-server:202501141138',
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
         string(
@@ -118,7 +118,7 @@ pipeline {
             description: 'Tag/Branch for pmm qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'PMM-13481',
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(
