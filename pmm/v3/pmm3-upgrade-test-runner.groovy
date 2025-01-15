@@ -147,13 +147,15 @@ pipeline {
             name: 'ADMIN_PASSWORD')
         string(
             defaultValue: '0',
-            description: "Verbosity Levels in Ansible:
+            description: '''
+            Verbosity Levels in Ansible:
                 0: Default verbosity.
                 1: Show additional information (e.g., tasks being executed).
                 2: Display extra debug information (e.g., task details).
                 3: Show detailed information about task execution.
                 4: Debug-level verbosity.
-                5: Maximal verbosity, showing all possible debug output.",
+                5: Maximal verbosity, showing all possible debug output.
+            ''',
             name: 'VERBOSE_LEVEL')
     }
     options {
