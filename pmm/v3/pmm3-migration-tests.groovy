@@ -208,6 +208,7 @@ pipeline {
         }
         stage('Setup Client for PMM-Server') {
             steps {
+                setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), "pmm2", "no", ENABLE_TESTING_REPO, "no", 'compose_setup', ADMIN_PASSWORD)
                 sh """
                     set -o errexit
                     set -o xtrace
@@ -236,7 +237,6 @@ pipeline {
         }
         stage('Migrate pmm2 to pmm3') {
             steps {
-                setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), "pmm2", "no", ENABLE_TESTING_REPO, "no", 'compose_setup', ADMIN_PASSWORD)
                 script {
                     sh '''
                         wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
@@ -252,6 +252,14 @@ pipeline {
                         echo "ps container name is: $PS_CONTAINER_NAME"
                         sudo percona-release enable pmm3-client experimental
                         sudo yum install -y pmm-client
+                        docker exec rs101 sudo percona-release enable pmm3-client experimental
+                        docker exec rs101 sudo yum install -y pmm-client
+
+                        docker exec rs102 sudo percona-release enable pmm3-client experimental
+                        docker exec rs102 sudo yum install -y pmm-client
+
+                        docker exec rs103 sudo percona-release enable pmm3-client experimental
+                        docker exec rs103 sudo yum install -y pmm-client
                     '''
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "https://${env.SERVER_IP}/"
