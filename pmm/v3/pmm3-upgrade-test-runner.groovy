@@ -153,7 +153,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    env.VERBOSE_LEVEL = "4"
+//                     env.VERBOSE_LEVEL = "4"
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
