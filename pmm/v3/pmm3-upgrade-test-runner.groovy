@@ -283,6 +283,12 @@ pipeline {
                             set -o errexit
                             set -o xtrace
 
+                            if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
+                                export CLIENT_VERSION="latest"
+                            fi
+
+                            echo "Client version is: \$CLIENT_VERSION"
+
                             pushd /srv/qa-integration/pmm_qa
                                 echo "Setting docker based PMM clients"
                                 mkdir -m 777 -p /tmp/backup_data
