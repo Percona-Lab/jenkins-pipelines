@@ -297,7 +297,7 @@ pipeline {
 
                                 python pmm-framework.py --v \
                                 --client-version=\$CLIENT_VERSION \
-                                --pmm-server-password=${ADMIN_PASSWORD}
+                                --pmm-server-password=${ADMIN_PASSWORD} \
                                 ${PMM_CLIENTS}
                             popd
                         """
