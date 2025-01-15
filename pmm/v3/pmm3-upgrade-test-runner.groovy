@@ -296,7 +296,7 @@ pipeline {
                                 pip install -r requirements.txt
 
                                 python pmm-framework.py --v \
-                                --client-version=\$CLIENT_VERSION \
+                                --client-version=${CLIENT_VERSION} \
                                 --pmm-server-password=${ADMIN_PASSWORD} \
                                 ${PMM_CLIENTS}
                             popd
