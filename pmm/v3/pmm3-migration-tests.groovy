@@ -249,7 +249,8 @@ pipeline {
                         echo "pgsql container name is: $PGSQL_CONTAINER_NAME"
                         PS_CONTAINER_NAME=$(docker ps -a --format "{{.Names}}" | grep ps_)
                         echo "ps container name is: $PS_CONTAINER_NAME"
-
+                        percona-release enable pmm3-client experimental
+                        sudo yum install -y pmm-client
                     '''
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "https://${env.SERVER_IP}/"
