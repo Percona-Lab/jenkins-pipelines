@@ -127,6 +127,7 @@ pipeline {
         stage('Start Server Instance') {
             steps {
                 sh '''
+                    docker network create pmm-qa || true
                     PWD=$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:${DOCKER_VERSION} docker-compose up -d
                 '''
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
@@ -151,9 +152,8 @@ pipeline {
             steps {
                 sh '''
                     docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
-                    ls
                     git checkout PMM-7-pmm-migration
-                    cat pr.codecept.js
+                    docker ps -a
                 '''
             }
         }
