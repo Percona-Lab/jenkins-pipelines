@@ -252,14 +252,14 @@ pipeline {
                         echo "ps container name is: $PS_CONTAINER_NAME"
                         sudo percona-release enable pmm3-client experimental
                         sudo yum install -y pmm-client
-                        docker exec rs101 sudo percona-release enable pmm3-client experimental
-                        docker exec rs101 sudo yum install -y pmm-client
+                        docker exec rs101 percona-release enable pmm3-client experimental
+                        docker exec rs101 yum install -y pmm-client
 
-                        docker exec rs102 sudo percona-release enable pmm3-client experimental
-                        docker exec rs102 sudo yum install -y pmm-client
+                        docker exec rs102 percona-release enable pmm3-client experimental
+                        docker exec rs102 yum install -y pmm-client
 
-                        docker exec rs103 sudo percona-release enable pmm3-client experimental
-                        docker exec rs103 sudo yum install -y pmm-client
+                        docker exec rs103 percona-release enable pmm3-client experimental
+                        docker exec rs103 yum install -y pmm-client
                     '''
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "https://${env.SERVER_IP}/"
