@@ -169,44 +169,39 @@ void createCluster(String CLUSTER_SUFFIX) {
     sh """
         timestamp="\$(date +%s)"
 tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
-# An example of ClusterConfig showing nodegroups with mixed instances (spot and on demand):
----
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
-
 metadata:
-    name: $CLUSTER_NAME-$CLUSTER_SUFFIX
-    region: $region
-    version: "$PLATFORM_VER"
-    tags:
-        'delete-cluster-after-hours': '10'
-        'creation-time': '\$timestamp'
-        'team': 'cloud'
+  name: $CLUSTER_NAME-$CLUSTER_SUFFIX
+  region: $region
+  version: "$PLATFORM_VER"
+  tags:
+    'delete-cluster-after-hours': '10'
+    'creation-time': '\$timestamp'
+    'team': 'cloud'
 iam:
   withOIDC: true
-
 addons:
 - name: aws-ebs-csi-driver
   wellKnownPolicies:
     ebsCSIController: true
-
 nodeGroups:
-    - name: ng-1
-      minSize: 3
-      maxSize: 5
-      desiredCapacity: 3
-      instanceType: "m5.xlarge"
-      iam:
-        attachPolicyARNs:
-        - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
-        - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
-        - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
-        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-      tags:
-        'iit-billing-tag': 'jenkins-eks'
-        'delete-cluster-after-hours': '10'
-        'team': 'cloud'
-        'product': 'psmdb-operator'
+- name: ng-1
+  minSize: 3
+  maxSize: 5
+  iam:
+    attachPolicyARNs:
+    - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
+    - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
+    - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
+    - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
+  instancesDistribution:
+    instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
+  tags:
+    'iit-billing-tag': 'jenkins-eks'
+    'delete-cluster-after-hours': '10'
+    'team': 'cloud'
+    'product': 'psmdb-operator'
 EOF
     """
 
