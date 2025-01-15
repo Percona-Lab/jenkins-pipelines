@@ -236,6 +236,7 @@ pipeline {
         }
         stage('Migrate pmm2 to pmm3') {
             steps {
+                setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), "pmm2", "no", ENABLE_TESTING_REPO, "no", 'compose_setup', ADMIN_PASSWORD)
                 script {
                     sh '''
                         wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
