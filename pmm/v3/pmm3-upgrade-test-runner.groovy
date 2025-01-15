@@ -287,8 +287,6 @@ pipeline {
                                 export CLIENT_VERSION="latest"
                             fi
 
-                            echo "Client version is: \$CLIENT_VERSION"
-
                             pushd /srv/qa-integration/pmm_qa
                                 echo "Setting docker based PMM clients"
                                 mkdir -m 777 -p /tmp/backup_data
