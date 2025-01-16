@@ -184,6 +184,8 @@ nodeGroups:
     - name: ng-1
       minSize: 3
       maxSize: 5
+      desiredCapacity: 3
+      instanceType: "m5.xlarge"
       iam:
         attachPolicyARNs:
         - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
@@ -191,12 +193,6 @@ nodeGroups:
         - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
-      instancesDistribution:
-        maxPrice: 0.15
-        instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
-        onDemandBaseCapacity: 0
-        onDemandPercentageAboveBaseCapacity: 50
-        spotInstancePools: 2
       tags:
         'iit-billing-tag': 'jenkins-eks'
         'delete-cluster-after-hours': '10'

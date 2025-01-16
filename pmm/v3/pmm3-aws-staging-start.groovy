@@ -24,6 +24,11 @@ pipeline {
             name: 'DOCKER_VERSION'
         )
         string(
+            defaultValue: 'perconalab/watchtower:dev-latest',
+            description: 'WatchTower docker container version (image-name:version-tag, ex: perconalab/watchtower:dev-latest)',
+            name: 'WATCHTOWER_VERSION'
+        )
+        string(
             defaultValue: '3-dev-latest',
             description: 'PMM Client version ("3-dev-latest" for main branch, "latest" or "X.X.X" for released version, "pmm3-rc" for Release Candidate, "http://..." for feature build)',
             name: 'CLIENT_VERSION'
@@ -61,7 +66,7 @@ pipeline {
             ''',
             name: 'DOCKER_ENV_VARIABLE'
         )
-                choice(
+        choice(
             choices: ['8.0','5.7'],
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
@@ -144,6 +149,7 @@ pipeline {
                     getPMMBuildParams('pmm-')
                     echo """
                         DOCKER_VERSION:  ${DOCKER_VERSION}
+                        WATCHTOWER_VERSION:${WATCHTOWER_VERSION}
                         CLIENT_VERSION:  ${CLIENT_VERSION}
                         CLIENTS:         ${CLIENTS}
                         PXC_VERSION:     ${PXC_VERSION}
@@ -229,7 +235,7 @@ pipeline {
                                         -e WATCHTOWER_HTTP_API_UPDATE=1 \
                                         --volume /var/run/docker.sock:/var/run/docker.sock \
                                         --name watchtower \
-                                        perconalab/watchtower:latest
+                                        ${WATCHTOWER_VERSION}
 
                                     docker run -d \
                                         -p 80:8080 \
