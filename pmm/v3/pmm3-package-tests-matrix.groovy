@@ -3,20 +3,20 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
+void run_package_tests(String GIT_BRANCH, String PLAYBOOK, String INSTALL_REPO)
 {
     deleteDir()
     git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/package-testing'
-    sh '''
-        export install_repo=\${INSTALL_REPO}
-        export TARBALL_LINK=\${TARBALL}
+    sh """
+        export install_repo=${INSTALL_REPO}
+        export TARBALL_LINK=${TARBALL}
         git clone https://github.com/Percona-QA/ppg-testing
         ansible-playbook \
         -vvv \
         --connection=local \
         --inventory 127.0.0.1, \
-        --limit 127.0.0.1 playbooks/\${TESTS}.yml
-    '''
+        --limit 127.0.0.1 playbooks/${PLAYBOOK}.yml
+    """
 }
 
 void runStaging(String DOCKER_VERSION, CLIENTS) {
