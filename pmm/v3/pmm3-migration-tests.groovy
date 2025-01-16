@@ -257,7 +257,7 @@ pipeline {
                     sh """
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         export PWD=\$(pwd);
-                        npx codeceptjs run-workers --suites 4 --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                        npx codeceptjs run-workers --suites 4 --reporter mocha-multi -c pr.codecept.js --grep '@pmm-ps-integration|@menu'
                     """
                     }
                 }
@@ -306,7 +306,7 @@ pipeline {
                 sh """
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);
-                    npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                    npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-ps-integration|@menu'
                 """
                 }
             }
