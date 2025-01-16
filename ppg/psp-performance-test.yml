@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ppg/pdp-installcheck-world.groovy
+      script-path: ppg/psp-performance-test.groovy

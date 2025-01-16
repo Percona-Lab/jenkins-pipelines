@@ -6,7 +6,7 @@ release_versions="source/e2e-tests/release_versions"
 String getParam(String paramName, String keyName = null) {
     keyName = keyName ?: paramName
 
-    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", , returnStdout: true).trim()
+    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
     if ("$param") {
         echo "$paramName=$param (from params file)"
     } else {
@@ -38,7 +38,7 @@ void prepareNode() {
         IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
         IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
+        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
             PLATFORM_VER = getParam("PLATFORM_VER", "OPENSHIFT_${PLATFORM_VER}")
         }
     } else {
@@ -47,7 +47,7 @@ void prepareNode() {
 
     if ("$PLATFORM_VER" == "latest") {
         OC_VER = "4.15.25"
-        PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", , returnStdout: true).trim()
+        PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", returnStdout: true).trim()
     } else {
         if ("$PLATFORM_VER" <= "4.15.25") {
             OC_VER="$PLATFORM_VER"
@@ -81,9 +81,9 @@ void prepareNode() {
         currentBuild.description = "$release$GIT_BRANCH-$PLATFORM_VER-$cw-" + "$IMAGE_PXC".split(":")[1]
     }
 
-    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-    CLUSTER_NAME = sh(script: "echo jenkins-ver-pxc-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
+    CLUSTER_NAME = sh(script: "echo $JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -204,7 +204,7 @@ controlPlane:
   hyperthreading: Enabled
   name: master
   platform: {}
-  replicas: 1
+  replicas: 3
 metadata:
   creationTimestamp: null
   name: $CLUSTER_NAME-$CLUSTER_SUFFIX
@@ -236,11 +236,6 @@ EOF
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
                 export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
-
-                machineset=`oc get machineset  -n openshift-machine-api | awk 'NR==2 {print \$1; exit}'`
-                oc get machineset \$machineset -o yaml -n openshift-machine-api | yq eval '.spec.template.spec.providerSpec.value.spotMarketOptions = {}' | oc apply -f -
-                oc scale machineset --replicas=3  \$machineset -n openshift-machine-api
-
             """
         }
     }
@@ -314,7 +309,7 @@ void pushArtifactFile(String FILE_NAME) {
 
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
-    testsReport = '<testsuite name="PXC-OpenShift-version">\n'
+    testsReport = "<testsuite name=\"$JOB_NAME\">\n"
     for (int i = 0; i < tests.size(); i ++) {
         testsReport += '<testcase name="' + tests[i]["name"] + '" time="' + tests[i]["time"] + '"><'+ tests[i]["result"] +'/></testcase>\n'
     }
@@ -322,7 +317,7 @@ void makeReport() {
 
     echo "=========================[ Generating Parameters Report ]========================="
     pipelineParameters = """
-        testsuite name=PXC-OpenShift-version
+        testsuite name=$JOB_NAME
         IMAGE_OPERATOR=$IMAGE_OPERATOR
         IMAGE_PXC=$IMAGE_PXC
         IMAGE_PROXY=$IMAGE_PROXY
@@ -362,7 +357,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        DB_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
+        DB_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -462,7 +457,7 @@ pipeline {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        clusterRunner('cluster1')
+                        clusterRunner('c1')
                     }
                 }
                 stage('cluster2') {
@@ -470,7 +465,7 @@ pipeline {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        clusterRunner('cluster2')
+                        clusterRunner('c2')
                     }
                 }
                 stage('cluster3') {
@@ -478,7 +473,7 @@ pipeline {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        clusterRunner('cluster3')
+                        clusterRunner('c3')
                     }
                 }
                 stage('cluster4') {
@@ -486,7 +481,7 @@ pipeline {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        clusterRunner('cluster4')
+                        clusterRunner('c4')
                     }
                 }
                 stage('cluster5') {
@@ -494,7 +489,7 @@ pipeline {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        clusterRunner('cluster5')
+                        clusterRunner('c5')
                     }
                 }
                 stage('cluster6') {
@@ -502,7 +497,7 @@ pipeline {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        clusterRunner('cluster6')
+                        clusterRunner('c6')
                     }
                 }
                 stage('cluster7') {
@@ -510,7 +505,7 @@ pipeline {
                         timeout(time: 3, unit: 'HOURS')
                     }
                     steps {
-                        clusterRunner('cluster7')
+                        clusterRunner('c7')
                     }
                 }
             }

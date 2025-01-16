@@ -92,10 +92,10 @@ pipeline {
                      sh """
                          MAJ_VER=\$(echo ${params.PGBOUNCER_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}
-                         docker push perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}
-                         docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} perconalab/percona-pgbouncer:\$MAJ_VER
-                         docker push perconalab/percona-pgbouncer:\$MAJ_VER
+                         docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64
+                         docker push perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64
+                         docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} perconalab/percona-pgbouncer:\$MAJ_VER-amd64
+                         docker push perconalab/percona-pgbouncer:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
                             docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} perconalab/percona-pgbouncer:latest
                             docker push perconalab/percona-pgbouncer:latest
@@ -113,10 +113,10 @@ pipeline {
                      sh """
                          MAJ_VER=\$(echo ${params.PGBOUNCER_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}
-                         docker push percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}
-                         docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} percona/percona-pgbouncer:\$MAJ_VER
-                         docker push percona/percona-pgbouncer:\$MAJ_VER
+                         docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64
+                         docker push percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64
+                         docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} percona/percona-pgbouncer:\$MAJ_VER-amd64
+                         docker push percona/percona-pgbouncer:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
                             docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} percona/percona-pgbouncer:latest
                             docker push percona/percona-pgbouncer:latest

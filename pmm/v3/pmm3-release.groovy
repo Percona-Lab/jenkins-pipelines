@@ -11,6 +11,7 @@ pipeline {
     environment {
         CLIENT_IMAGE            = "perconalab/pmm-client:${VERSION}-rc"
         SERVER_IMAGE            = "perconalab/pmm-server:${VERSION}-rc"
+        WATCHTOWER_IMAGE        = "perconalab/watchtower:${VERSION}-rc"
         PATH_TO_CLIENT_AMD64    = "testing/pmm3-client-autobuild-amd/pmm/${VERSION}/v3/${PATH_TO_CLIENT_AMD64}"
         PATH_TO_CLIENT_ARM64    = "testing/pmm3-client-autobuild-arm/pmm/${VERSION}/v3/${PATH_TO_CLIENT_ARM64}"
     }
@@ -31,10 +32,10 @@ pipeline {
     }
 
     stages {
-        stage('Push PRM client to public repository') {
+        stage('Push RPM client to public repository') {
             steps {
                 script {
-                    currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>PATH_TO_CLIENT_AMD64: ${PATH_TO_CLIENT_AMD64}<br>PATH_TO_CLIENT_ARM64: ${PATH_TO_CLIENT_ARM64}"
+                    currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>WATCHTOWER: ${WATCHTOWER_IMAGE}<br>PATH_TO_CLIENT_AMD64: ${PATH_TO_CLIENT_AMD64}<br>PATH_TO_CLIENT_ARM64: ${PATH_TO_CLIENT_ARM64}"
                     if (!params.PATH_TO_CLIENT_AMD64 || !params.PATH_TO_CLIENT_ARM64) {
                         error("ERROR: empty parameter(s) PATH_TO_CLIENT_AMD64 or PATH_TO_CLIENT_ARM64")
                     }
@@ -332,6 +333,16 @@ ENDSSH
                         docker push perconalab/pmm-server:\${VERSION}
 
                         docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
+
+                         # push watchtower
+                        docker pull \${WATCHTOWER_IMAGE}
+
+                        docker tag \${WATCHTOWER_IMAGE} percona/watchtower:\${TOP_TAG}
+                        docker tag \${WATCHTOWER_IMAGE} percona/watchtower:\${MID_TAG}
+                        docker tag \${WATCHTOWER_IMAGE} percona/watchtower:\${VERSION}
+                        docker push percona/watchtower:\${TOP_TAG}
+                        docker push percona/watchtower:\${MID_TAG}
+                        docker push percona/watchtower:\${VERSION}
 
                         # push pmm-client
                         docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${TOP_TAG}
