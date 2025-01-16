@@ -81,9 +81,6 @@ def generateStage(LABEL, PLAYBOOK) {
 
 void setup_package_tests() {
     sh '''
-        dnf install redhat-lsb-core || true
-        DISTRIBUTION=$(lsb_release -a | grep Description)
-        echo "$DISTRIBUTION"
         cat /proc/version
     '''
 }
