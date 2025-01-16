@@ -152,8 +152,6 @@ pipeline {
             steps {
                 sh '''
                     docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
-                    git checkout PMM-7-pmm-migration
-                    docker ps -a
                 '''
             }
         }
@@ -235,10 +233,26 @@ pipeline {
                 sleep 60
             }
         }
+        stage('Run Tests on v2') {
+            options {
+                timeout(time: 150, unit: "MINUTES")
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                sh """
+                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                    export PWD=\$(pwd);
+                    npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                """
+                }
+            }
+        }
         stage('Migrate pmm2 to pmm3') {
             steps {
                 script {
                     sh '''
+                        git checkout PMM-7-pmm-migration
+                        docker ps -a
                         wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
                         chmod +x get-pmm.sh
                         ./get-pmm.sh -n pmm-server -b
