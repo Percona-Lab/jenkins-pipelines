@@ -260,6 +260,9 @@ pipeline {
                 """
                 }
             }
+            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                sh "exit 1"
+            }
         }
         stage('Migrate pmm2 to pmm3') {
             steps {
