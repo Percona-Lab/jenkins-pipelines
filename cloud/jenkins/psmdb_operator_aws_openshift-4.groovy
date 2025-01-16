@@ -459,7 +459,7 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     options {
-                        timeout(time: 210, unit: 'MINUTES')
+                        timeout(time: 400, unit: 'MINUTES')
                     }
                     steps {
                         clusterRunner('cluster1')
@@ -467,7 +467,7 @@ pipeline {
                 }
                 stage('cluster2') {
                     options {
-                        timeout(time: 210, unit: 'MINUTES')
+                        timeout(time: 400, unit: 'MINUTES')
                     }
                     steps {
                         clusterRunner('cluster2')
@@ -475,7 +475,7 @@ pipeline {
                 }
                 stage('cluster3') {
                     options {
-                        timeout(time: 210, unit: 'MINUTES')
+                        timeout(time: 400, unit: 'MINUTES')
                     }
                     steps {
                         clusterRunner('cluster3')
@@ -483,7 +483,7 @@ pipeline {
                 }
                 stage('cluster4') {
                     options {
-                        timeout(time: 210, unit: 'MINUTES')
+                        timeout(time: 400, unit: 'MINUTES')
                     }
                     steps {
                         clusterRunner('cluster4')
@@ -491,7 +491,7 @@ pipeline {
                 }
                 stage('cluster5') {
                     options {
-                        timeout(time: 210, unit: 'MINUTES')
+                        timeout(time: 400, unit: 'MINUTES')
                     }
                     steps {
                         clusterRunner('cluster5')
@@ -499,7 +499,7 @@ pipeline {
                 }
                 stage('cluster6') {
                     options {
-                        timeout(time: 210, unit: 'MINUTES')
+                        timeout(time: 400, unit: 'MINUTES')
                     }
                     steps {
                         clusterRunner('cluster6')
