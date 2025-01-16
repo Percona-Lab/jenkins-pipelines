@@ -84,6 +84,7 @@ void setup_package_tests() {
         dnf install redhat-lsb-core || true
         DISTRIBUTION=$(lsb_release -a | grep Description)
         echo "$DISTRIBUTION"
+        cat /proc/version
     '''
 }
 
