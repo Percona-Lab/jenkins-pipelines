@@ -81,7 +81,18 @@ def generateStage(LABEL, PLAYBOOK) {
 
 void setup_package_tests() {
     sh '''
-        cat /proc/version
+        LINUX_DISTRIBUTION=$(cat /proc/version)
+        if [[ LINUX_DISTRIBUTION == *"Red Hat" ]]; then
+            sudo yum install -y epel-release
+            sudo yum -y update
+            sudo yum install -y ansible-core git wget dpkg
+        else
+            sudo apt-get install -y dirmngr gnupg2
+            echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
+            sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
+            sudo apt update -y
+            sudo apt-get install -y ansible git wget
+        fi
     '''
 }
 
