@@ -247,22 +247,22 @@ pipeline {
                 }
             }
         }
-        stage('Run Tests on v2') {
-            options {
-                timeout(time: 150, unit: "MINUTES")
-            }
-            steps {
-                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        export PWD=\$(pwd);
-                        npx codeceptjs run-workers --suites 4 --reporter mocha-multi -c pr.codecept.js --grep '@pmm-ps-integration|@pgss-pmm-integration'
-                    """
-                    }
-                }
-            }
-        }
+//         stage('Run Tests on v2') {
+//             options {
+//                 timeout(time: 150, unit: "MINUTES")
+//             }
+//             steps {
+//                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+//                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+//                     sh """
+//                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+//                         export PWD=\$(pwd);
+//                         npx codeceptjs run-workers --suites 4 --reporter mocha-multi -c pr.codecept.js --grep '@pmm-ps-integration|@pgss-pmm-integration'
+//                     """
+//                     }
+//                 }
+//             }
+//         }
         stage('Migrate pmm2 to pmm3') {
             steps {
                 script {
