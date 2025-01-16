@@ -82,11 +82,11 @@ def generateStage(LABEL, PLAYBOOK) {
 void setup_package_tests() {
     sh '''
         LINUX_DISTRIBUTION=$(cat /proc/version)
-        if [[ $LINUX_DISTRIBUTION == *"Red Hat" ]]; then
+        if [[ $LINUX_DISTRIBUTION == *"Red Hat"* ]]; then
             sudo yum install -y epel-release
             sudo yum -y update
             sudo yum install -y ansible-core git wget dpkg
-        elif [[ $LINUX_DISTRIBUTION == *"Ubuntu" ]]; then
+        elif [[ $LINUX_DISTRIBUTION == *"Ubuntu"* ]]; then
             sudo apt update -y
             sudo apt install -y software-properties-common
             sudo apt-add-repository --yes --update ppa:ansible/ansible
