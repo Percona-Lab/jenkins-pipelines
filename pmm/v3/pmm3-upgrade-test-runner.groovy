@@ -290,28 +290,6 @@ pipeline {
 
         stage('Setup Databases  and PMM Client for PMM-Server') {
             parallel {
-                stage('Setup Databases for PMM-Server') {
-                    steps {
-                        sh """
-                            set -o errexit
-                            set -o xtrace
-
-                            pushd /srv/qa-integration/pmm_qa
-                                echo "Setting docker based PMM clients"
-                                mkdir -m 777 -p /tmp/backup_data
-                                python3 -m venv virtenv
-                                . virtenv/bin/activate
-                                pip install --upgrade pip
-                                pip install -r requirements.txt
-
-                                python pmm-framework.py --verbose \
-                                --client-version=${CLIENT_VERSION} \
-                                --pmm-server-password=${ADMIN_PASSWORD} \
-                                ${PMM_CLIENTS}
-                            popd
-                        """
-                    }
-                }
                 stage('Setup PMM Client') {
                     steps {
                         setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
@@ -329,6 +307,28 @@ pipeline {
                         '''
                     }
                 }
+            }
+        }
+        stage('Setup Databases for PMM-Server') {
+            steps {
+                sh """
+                    set -o errexit
+                    set -o xtrace
+
+                    pushd /srv/qa-integration/pmm_qa
+                    echo "Setting docker based PMM clients"
+                    mkdir -m 777 -p /tmp/backup_data
+                    python3 -m venv virtenv
+                    . virtenv/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+
+                    python pmm-framework.py --verbose \
+                        --client-version=${CLIENT_VERSION} \
+                        --pmm-server-password=${ADMIN_PASSWORD} \
+                        ${PMM_CLIENTS}
+                    popd
+                """
             }
         }
         stage('Sanity check') {
