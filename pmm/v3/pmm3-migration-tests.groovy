@@ -252,16 +252,15 @@ pipeline {
                 timeout(time: 150, unit: "MINUTES")
             }
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                sh """
-                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    export PWD=\$(pwd);
-                    npx codeceptjs run-workers --suites 4 --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu'
-                """
+                catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        export PWD=\$(pwd);
+                        npx codeceptjs run-workers --suites 4 --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                    """
+                    }
                 }
-            }
-            catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-                sh "exit 1"
             }
         }
         stage('Migrate pmm2 to pmm3') {
