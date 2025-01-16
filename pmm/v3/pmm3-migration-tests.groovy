@@ -233,6 +233,20 @@ pipeline {
                 sleep 60
             }
         }
+        stage('Prepare nightly tests on migrated pmm.') {
+            steps {
+                script {
+                    sh """
+                        curl -sL https://rpm.nodesource.com/setup_20.x | sudo bash -
+                        sudo yum install -y nodejs
+                        node --version
+                        npm ci
+                        npx playwright install
+                        envsubst < env.list > env.generated.list
+                    """
+                }
+            }
+        }
         stage('Run Tests on v2') {
             options {
                 timeout(time: 150, unit: "MINUTES")
@@ -278,20 +292,6 @@ pipeline {
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "https://${env.SERVER_IP}/"
                     env.PMM_URL = "https://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
-                }
-            }
-        }
-        stage('Prepare nightly tests on migrated pmm.') {
-            steps {
-                script {
-                    sh """
-                        curl -sL https://rpm.nodesource.com/setup_20.x | sudo bash -
-                        sudo yum install -y nodejs
-                        node --version
-                        npm ci
-                        npx playwright install
-                        envsubst < env.list > env.generated.list
-                    """
                 }
             }
         }
