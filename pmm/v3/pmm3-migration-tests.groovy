@@ -87,7 +87,7 @@ pipeline {
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
         text(
-            defaultValue: '--pdpgsql-version 17 --ps-version 8.0 --addclient=pdpgsql,1 --addclient=ps,1',
+            defaultValue: '--pdpgsql-version 17 --ps-version 8.0 --mo-version 8.0 --addclient=pdpgsql,1 --addclient=ps,1 --mongo-replica-for-backup',
             description: '''
             Configure PMM Clients
             ms - MySQL (ex. --addclient=ms,1),
@@ -231,7 +231,7 @@ pipeline {
         stage('Migrate pmm2 to pmm3') {
             steps {
                 script {
-                    sh '''
+                    sh """
                         git checkout PMM-7-pmm-migration
                         docker ps -a
                         wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
@@ -243,7 +243,16 @@ pipeline {
 
                         sudo percona-release enable pmm3-client experimental
                         sudo yum install -y pmm-client
-                    '''
+
+                        listVar="rs101 rs102 rs103 rs201 rs202 rs203"
+
+                        for i in \$listVar; do
+                            echo "\$i"
+                            docker exec "\$i" percona-release enable pmm3-client experimental
+                            docker exec "\$i" apt install -y pmm-client
+                            docker exec "\$i" sed -i "s/443/8443/g" /usr/local/percona/pmm2/config/pmm-agent.yaml
+                        done
+                    """
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "https://${env.SERVER_IP}/"
                     env.PMM_URL = "https://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
