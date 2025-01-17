@@ -87,7 +87,7 @@ pipeline {
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
         text(
-            defaultValue: '--mo-version 8.0 --ps-version 8.0 --pgsql-version 17 --pdpgsql-version 17 --addclient=pgsql,1 --addclient=ps,1 --addclient=pdpgsql,1 --addclient=pxc,1 --mongo-replica-for-backup --add-annotation --pmm2 --dbdeployer --run-load-pmm2',
+            defaultValue: '--pdpgsql-version 17 --addclient=pdpgsql,1',
             description: '''
             Configure PMM Clients
             ms - MySQL (ex. --addclient=ms,1),
@@ -228,9 +228,39 @@ pipeline {
                 '''
             }
         }
-        stage('Sleep') {
+        stage('Migrate pmm2 to pmm3') {
             steps {
-                sleep 60
+                script {
+                    sh '''
+                        git checkout PMM-7-pmm-migration
+                        docker ps -a
+                        wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
+                        chmod +x get-pmm.sh
+                        ./get-pmm.sh -n pmm-server -b --network-name pmm-qa
+
+                        echo "Migrate PMM Clients to v3"
+                        docker ps -a
+
+                        sudo percona-release enable pmm3-client experimental
+                        sudo yum install -y pmm-client
+                        pmm-admin list
+
+                        docker exec rs101 percona-release enable pmm3-client experimental
+                        docker exec rs101 yum install -y pmm-client
+                        docker exec rs101 pmm-admin list
+
+                        docker exec rs102 percona-release enable pmm3-client experimental
+                        docker exec rs102 yum install -y pmm-client
+                        docker exec rs102 pmm-admin list
+
+                        docker exec rs103 percona-release enable pmm3-client experimental
+                        docker exec rs103 yum install -y pmm-client
+                        docker exec rs103 pmm-admin list
+                    '''
+                    env.SERVER_IP = "127.0.0.1"
+                    env.PMM_UI_URL = "https://${env.SERVER_IP}/"
+                    env.PMM_URL = "https://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
+                }
             }
         }
         stage('Prepare nightly tests on migrated pmm.') {
@@ -247,54 +277,9 @@ pipeline {
                 }
             }
         }
-//         stage('Run Tests on v2') {
-//             options {
-//                 timeout(time: 150, unit: "MINUTES")
-//             }
-//             steps {
-//                 catchError(buildResult: 'SUCCESS', stageResult: 'FAILURE') {
-//                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-//                     sh """
-//                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-//                         export PWD=\$(pwd);
-//                         npx codeceptjs run-workers --suites 4 --reporter mocha-multi -c pr.codecept.js --grep '@pmm-ps-integration|@pgss-pmm-integration'
-//                     """
-//                     }
-//                 }
-//             }
-//         }
-        stage('Migrate pmm2 to pmm3') {
+        stage('Sleep') {
             steps {
-                script {
-                    sh '''
-                        git checkout PMM-7-pmm-migration
-                        docker ps -a
-                        wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
-                        chmod +x get-pmm.sh
-                        ./get-pmm.sh -n pmm-server -b
-                        echo "Migrate PMM Clients to v3"
-                        docker ps -a
-                        PDPGSQL_CONTAINER_NAME=$(docker ps -a --format "{{.Names}}" | grep PDPGSQL)
-                        PGSQL_CONTAINER_NAME=$(docker ps -a --format "{{.Names}}" | grep PGSQL)
-                        echo "pdpgsql container name is: $PDPGSQL_CONTAINER_NAME"
-                        echo "pgsql container name is: $PGSQL_CONTAINER_NAME"
-                        PS_CONTAINER_NAME=$(docker ps -a --format "{{.Names}}" | grep ps_)
-                        echo "ps container name is: $PS_CONTAINER_NAME"
-                        sudo percona-release enable pmm3-client experimental
-                        sudo yum install -y pmm-client
-                        docker exec rs101 percona-release enable pmm3-client experimental
-                        docker exec rs101 yum install -y pmm-client
-
-                        docker exec rs102 percona-release enable pmm3-client experimental
-                        docker exec rs102 yum install -y pmm-client
-
-                        docker exec rs103 percona-release enable pmm3-client experimental
-                        docker exec rs103 yum install -y pmm-client
-                    '''
-                    env.SERVER_IP = "127.0.0.1"
-                    env.PMM_UI_URL = "https://${env.SERVER_IP}/"
-                    env.PMM_URL = "https://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
-                }
+                sleep 120
             }
         }
         stage('Run Tests') {
@@ -306,7 +291,7 @@ pipeline {
                 sh """
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);
-                    npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-ps-integration|@pgss-pmm-integration'
+                    npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-migration'
                 """
                 }
             }
