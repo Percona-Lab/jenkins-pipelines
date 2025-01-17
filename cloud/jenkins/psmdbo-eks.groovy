@@ -61,8 +61,8 @@ void prepareNode() {
 
     if ("$IMAGE_MONGOD") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-        currentBuild.displayName = "#" + currentBuild.number + " $PLATFORM_VER"
-        currentBuild.description = "$GIT_BRANCH $cw " + "$IMAGE_MONGOD".split(":")[1]
+        currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
+        currentBuild.description = "$PLATFORM_VER " + "$IMAGE_MONGOD".split(":")[1] + " $cw"
     }
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
