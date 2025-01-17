@@ -87,7 +87,7 @@ pipeline {
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
         text(
-            defaultValue: '--pdpgsql-version 17 --addclient=pdpgsql,1',
+            defaultValue: '--pdpgsql-version 17 --ps-version 8.0 --addclient=pdpgsql,1 --addclient=ps,1',
             description: '''
             Configure PMM Clients
             ms - MySQL (ex. --addclient=ms,1),
