@@ -243,19 +243,6 @@ pipeline {
 
                         sudo percona-release enable pmm3-client experimental
                         sudo yum install -y pmm-client
-                        pmm-admin list
-
-                        docker exec rs101 percona-release enable pmm3-client experimental
-                        docker exec rs101 yum install -y pmm-client
-                        docker exec rs101 pmm-admin list
-
-                        docker exec rs102 percona-release enable pmm3-client experimental
-                        docker exec rs102 yum install -y pmm-client
-                        docker exec rs102 pmm-admin list
-
-                        docker exec rs103 percona-release enable pmm3-client experimental
-                        docker exec rs103 yum install -y pmm-client
-                        docker exec rs103 pmm-admin list
                     '''
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "https://${env.SERVER_IP}/"
