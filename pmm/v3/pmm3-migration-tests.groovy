@@ -252,7 +252,7 @@ pipeline {
                             docker exec "\$i" yum install -y pmm-client
                             docker exec "\$i" sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
                             docker exec "\$i" cat /usr/local/percona/pmm/config/pmm-agent.yaml
-                            docker exec "\$i" sudo systemctl restart pmm-agent
+                            docker exec "\$i" systemctl restart pmm-agent
                         done
                     """
                     env.SERVER_IP = "127.0.0.1"
