@@ -250,7 +250,8 @@ pipeline {
                             echo "\$i"
                             docker exec "\$i" percona-release enable pmm3-client experimental
                             docker exec "\$i" yum install -y pmm-client
-                            docker exec "\$i" sed -i "s/443/8443/g" /usr/local/percona/pmm2/config/pmm-agent.yaml
+                            docker exec "\$i" sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
+                            docker exec "\$i" cat /usr/local/percona/pmm/config/pmm-agent.yaml
                             docker exec "\$i" sudo systemctl restart pmm-agent
                         done
                     """
