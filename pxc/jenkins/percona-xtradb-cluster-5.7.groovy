@@ -481,36 +481,38 @@ pipeline {
                             ls -la /tmp
                         """
                     }
-                    sh '''
-                        curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
-                        curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/WSREP_VERSION
-                        MYSQL_VERSION_MAJOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MAJOR | awk -F= '{print \$2}')
-                        MYSQL_VERSION_MINOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print \$2}')
-                        MYSQL_VERSION_PATCH=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_PATCH | awk -F= '{print \$2}')
-                        WSREP_VERSION_API=\$(cat WSREP_VERSION | grep WSREP_VERSION_API | awk -F= '{print \$2}')
-                        WSREP_VERSION_PATCH=\$(cat WSREP_VERSION | grep WSREP_VERSION_PATCH | awk -F= '{print \$2}')
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+                        sh '''
+                            wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O MYSQL_VERSION \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/MYSQL_VERSION?ref=${GIT_BRANCH}
+                            wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O WSREP_VERSION \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/WSREP_VERSION?ref=${GIT_BRANCH}
+                            MYSQL_VERSION_MAJOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MAJOR | awk -F= '{print \$2}')
+                            MYSQL_VERSION_MINOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print \$2}')
+                            MYSQL_VERSION_PATCH=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_PATCH | awk -F= '{print \$2}')
+                            WSREP_VERSION_API=\$(cat WSREP_VERSION | grep WSREP_VERSION_API | awk -F= '{print \$2}')
+                            WSREP_VERSION_PATCH=\$(cat WSREP_VERSION | grep WSREP_VERSION_PATCH | awk -F= '{print \$2}')
 
-                        PXC_RELEASE=\${MYSQL_VERSION_MAJOR}.\${MYSQL_VERSION_MINOR}.\${MYSQL_VERSION_PATCH}-\${WSREP_VERSION_API}.\${WSREP_VERSION_PATCH}
+                            PXC_RELEASE=\${MYSQL_VERSION_MAJOR}.\${MYSQL_VERSION_MINOR}.\${MYSQL_VERSION_PATCH}-\${WSREP_VERSION_API}.\${WSREP_VERSION_PATCH}
 
-                        sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-                        sudo apt-get install -y docker.io
-                        sudo systemctl status docker
-                        sudo apt-get install -y qemu binfmt-support qemu-user-static
-                        sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-                        git clone https://github.com/percona/percona-docker
-                        cd percona-docker/percona-xtradb-cluster-5.7
-                        mv /tmp/*.rpm .
-                        sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}.${RPM_RELEASE}/g" Dockerfile-pro
-                        sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${PXC_RELEASE}-${RPM_RELEASE}/g" Dockerfile-pro
-                        sudo docker build -t percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} -f Dockerfile-pro .
-                        sudo docker tag percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} percona/percona-xtradb-cluster:${PXC_RELEASE}
-                        sudo docker images
-                        sudo docker save -o percona-xtradb-cluster-${PXC_RELEASE}-${RPM_RELEASE}.docker.tar percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} percona/percona-xtradb-cluster:${PXC_RELEASE} 
-                        sudo useradd admin -g admin
-                        sudo chown admin:admin percona-xtradb-cluster-${PXC_RELEASE}-${RPM_RELEASE}.docker.tar
-                        sudo chmod a+r percona-xtradb-cluster-${PXC_RELEASE}-${RPM_RELEASE}.docker.tar
-                        ls -la
-                    '''
+                            sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+                            sudo apt-get install -y docker.io
+                            sudo systemctl status docker
+                            sudo apt-get install -y qemu binfmt-support qemu-user-static
+                            sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+                            git clone https://github.com/percona/percona-docker
+                            cd percona-docker/percona-xtradb-cluster-5.7
+                            mv /tmp/*.rpm .
+                            sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${PXC_RELEASE}.${RPM_RELEASE}/g" Dockerfile-pro
+                            sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${PXC_RELEASE}-${RPM_RELEASE}/g" Dockerfile-pro
+                            sudo docker build -t percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} -f Dockerfile-pro .
+                            sudo docker tag percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} percona/percona-xtradb-cluster:${PXC_RELEASE}
+                            sudo docker images
+                            sudo docker save -o percona-xtradb-cluster-${PXC_RELEASE}-${RPM_RELEASE}.docker.tar percona/percona-xtradb-cluster:${PXC_RELEASE}.${RPM_RELEASE} percona/percona-xtradb-cluster:${PXC_RELEASE} 
+                            sudo useradd admin -g admin
+                            sudo chown admin:admin percona-xtradb-cluster-${PXC_RELEASE}-${RPM_RELEASE}.docker.tar
+                            sudo chmod a+r percona-xtradb-cluster-${PXC_RELEASE}-${RPM_RELEASE}.docker.tar
+                            ls -la
+                        '''
+                    }
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
                             MYSQL_VERSION_MAJOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MAJOR | awk -F= '{print \$2}')
