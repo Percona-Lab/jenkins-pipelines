@@ -29,7 +29,7 @@ if [[ ${WITH_XBCLOUD_TESTS} == "true" ]]; then
   check_pxb_network
   docker run -d --security-opt seccomp=unconfined --cap-add=NET_ADMIN \
   --env PASSWORD=someStrongPWD --env USER=myuser -p 9000:9000 --rm \
-  -p 9001:9001 ${DOCKER_NETWORK_FLAG} --name s3 altmannmarcelo/minio:latest
+  -p 9001:9001 ${DOCKER_NETWORK_FLAG} --name s3 satyapercona/minio:latest
 
   export S3_SERVER_IP=$(docker inspect s3 | egrep "\"IPAddress\": \"([0-9]{1,3}\.){3}[0-9]{1,3}" | awk -F'"' '{print $4}' | head -n 1)
   export XBCLOUD_CREDENTIALS="--storage=s3 --s3-endpoint='http://${S3_SERVER_IP}:9000' --s3-access-key=myuser --s3-secret-key=someStrongPWD --s3-bucket=newbucket"
@@ -37,7 +37,7 @@ fi
 
 if [[ ${WITH_VAULT_TESTS} == "true" ]]; then
     check_pxb_network
-    docker run -d --security-opt seccomp=unconfined --cap-add=NET_ADMIN --rm -p 8200:8200 ${DOCKER_NETWORK_FLAG} --name vault altmannmarcelo/vault:latest
+    docker run -d --security-opt seccomp=unconfined --cap-add=NET_ADMIN --rm -p 8200:8200 ${DOCKER_NETWORK_FLAG} --name vault satyapercona/vault:latest
     docker cp vault:/opt/vault/tls/tls.crt ${ROOT_DIR}/vault.crt
     export VAULT_SERVER_IP=$(docker inspect vault | egrep "\"IPAddress\": \"([0-9]{1,3}\.){3}[0-9]{1,3}" | awk -F'"' '{print $4}' | head -n 1)
     export TOKEN=$(docker logs vault | grep 'export VAULT_TOKEN' | awk -F'=' '{print $2}')

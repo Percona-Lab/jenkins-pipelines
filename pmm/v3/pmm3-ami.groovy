@@ -11,6 +11,10 @@ pipeline {
             defaultValue: 'docker.io/perconalab/pmm-server:3-dev-latest',
             description: 'Docker image for PMM Server running in the AMI',
             name: 'PMM_SERVER_IMAGE')
+        string(
+            defaultValue: 'docker.io/perconalab/watchtower:dev-latest',
+            description: 'Docker image for Watchtower running in the AMI',
+            name: 'WATCHTOWER_IMAGE')
         choice(
             choices: ['no', 'yes'],
             description: "Build a Release Candidate?",
@@ -40,7 +44,7 @@ pipeline {
         stage('Build PMM AMI Image') {
             steps {
                 dir("build") {
-                    sh "PMM_SERVER_IMAGE=${PMM_SERVER_IMAGE}  make pmm-ami"
+                    sh "PMM_SERVER_IMAGE=${PMM_SERVER_IMAGE} WATCHTOWER_IMAGE=${WATCHTOWER_IMAGE} make pmm-ami"
                 }
                 script {
                     env.AMI_ID = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true)

@@ -9,8 +9,12 @@ pipeline {
             name: 'PMM_BRANCH')
         string(
             defaultValue: 'docker.io/perconalab/pmm-server:3-dev-latest',
-            description: 'Docker image for PMM Server running in the AMI',
+            description: 'Docker image for PMM Server running in the OVA',
             name: 'PMM_SERVER_IMAGE')
+        string(
+            defaultValue: 'docker.io/perconalab/watchtower:dev-latest',
+            description: 'Docker image for Watchtower running in the OVA',
+            name: 'WATCHTOWER_IMAGE')
         choice(
             choices: ['no', 'yes'],
             description: "Build Release Candidate?",
@@ -71,7 +75,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     dir('build') {
-                        sh "PMM_SERVER_IMAGE=${PMM_SERVER_IMAGE}  make pmm-ovf"
+                        sh "PMM_SERVER_IMAGE=${PMM_SERVER_IMAGE} WATCHTOWER_IMAGE=${WATCHTOWER_IMAGE} make pmm-ovf"
                     }
                 }
                 sh 'ls */*/PMM3-Server-*.ova | cut -d "/" -f 2 > IMAGE'
