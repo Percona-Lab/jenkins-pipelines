@@ -362,11 +362,11 @@ pipeline {
                 }
                 stage('Debian Bullseye(11)') {
                     agent {
-                        label 'docker-64gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("debian:bullseye", "--build_deb=1 --enable_fipsmode=1")
@@ -374,8 +374,8 @@ pipeline {
                                 buildStage("debian:bullseye", "--build_deb=1")
                             }
                         }
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 8 binary tarball(glibc2.28)') {
@@ -434,14 +434,14 @@ pipeline {
                         expression { env.FIPSMODE != 'yes' }
                     }
                     agent {
-                        label 'docker-64gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "--build_tarball=1")
-                        pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                        pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS(params.CLOUD, "tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
                 stage('Ubuntu Jammy(22.04) binary tarball(glibc2.35)') {
