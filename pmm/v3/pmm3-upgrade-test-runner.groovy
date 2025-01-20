@@ -40,6 +40,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
         if [ "$pmm_version" = "3-dev-latest" ]; then
             GET_PMM_CLIENT_VERSION=\$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
         elif [ "$pmm_version" = "pmm3-rc"]; then
+            wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name
             GET_PMM_CLIENT_VERSION=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 3.*.*-rc\$ | sort -V | tail -n1)
         fi
 
@@ -98,7 +99,7 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
-                defaultValue: 'perconalab/pmm-server:202501141138',
+                defaultValue: 'perconalab/pmm-server:202501151220',
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
         string(
