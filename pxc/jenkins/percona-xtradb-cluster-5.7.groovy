@@ -69,7 +69,7 @@ pipeline {
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
-            defaultValue: '2.4.28',
+            defaultValue: '2.4.29',
             description: 'XB Version value',
             name: 'XB_VERSION')
         string(
