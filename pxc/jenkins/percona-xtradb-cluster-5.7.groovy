@@ -26,7 +26,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         sh """
             set -o xtrace
             mkdir -p test
-            wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/pxc_57_builder.sh?ref=${GIT_BRANCH}
+            wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O pxc_57_builder.sh \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/pxc_57_builder.sh?ref=${GIT_BRANCH}
             sed -i "s|git clone --depth 1 --branch \\\$BRANCH \\\"\\\$REPO\\\"|git clone \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-xtradb-cluster|g" pxc_57_builder.sh
             grep "git clone" pxc_57_builder.sh
             export build_dir=\$(pwd -P)
