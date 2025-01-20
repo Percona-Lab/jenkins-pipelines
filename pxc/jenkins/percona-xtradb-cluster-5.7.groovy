@@ -22,19 +22,21 @@ void installCli(String PLATFORM) {
 }
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
-    sh """
-        set -o xtrace
-        mkdir -p test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/build-ps/pxc_57_builder.sh -O pxc_57_builder.sh
-        pwd -P
-        ls -laR
-        export build_dir=\$(pwd -P)
-        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+        sh """
             set -o xtrace
-            cd \${build_dir}
-            bash -x ./pxc_57_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./pxc_57_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} --xb_version=${XB_VERSION} --bin_release=${BIN_RELEASE} ${STAGE_PARAM}"
-    """
+            mkdir -p test
+            wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O pxc_57_builder.sh \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/pxc_57_builder.sh?ref=${GIT_BRANCH}
+            sed -i "s|git clone --depth 1 --branch \\\"\\\$BRANCH\\\" \\\"\\\$REPO\\\"|git clone \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-xtradb-cluster|g" pxc_57_builder.sh
+            grep "git clone" pxc_57_builder.sh
+            export build_dir=\$(pwd -P)
+            docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+                set -o xtrace
+                cd \${build_dir}
+                bash -x ./pxc_57_builder.sh --builddir=\${build_dir}/test --install_deps=1
+                bash -x ./pxc_57_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} --xb_version=${XB_VERSION} --bin_release=${BIN_RELEASE} ${STAGE_PARAM}"
+        """
+    }
 }
 
 void cleanUpWS() {
