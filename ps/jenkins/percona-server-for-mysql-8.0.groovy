@@ -212,6 +212,10 @@ parameters {
         string(defaultValue: '0', description: 'TokuBackup repository', name: 'TOKUBACKUP_REPO')
         string(defaultValue: 'Percona-Server-8.0.27-18', description: 'Tag/Branch for TokuBackup repository', name: 'TOKUBACKUP_BRANCH')
         choice(
+            choices: 'NO\nYES',
+            description: 'Prepare packages and tarballs for Centos 7',
+            name: 'ENABLE_EL7')
+        choice(
             choices: 'ON\nOFF',
             description: 'Compile with ZenFS support?, only affects Ubuntu Hirsute',
             name: 'ENABLE_ZENFS')
@@ -311,14 +315,13 @@ parameters {
         } // stage
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             parallel {
-/*
                 stage('Centos 7') {
                     agent {
                         label 'min-centos-7-x64'
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
+                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -332,7 +335,6 @@ parameters {
                         }
                     }
                 }
-*/
                 stage('Oracle Linux 8') {
                     agent {
                         label 'min-ol-8-x64'
@@ -413,6 +415,26 @@ parameters {
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
+/*                stage('Amazon Linux 2023') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --with_zenfs=1")
+                            }
+                        }
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                    }
+                }*/
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'min-focal-x64'
@@ -613,14 +635,13 @@ parameters {
                         pushArtifactFolder("deb/", AWS_STASH_PATH)
                     }
                 }
-/*
                 stage('Centos 7 binary tarball') {
                     agent {
                         label 'min-centos-7-x64'
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
+                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -640,7 +661,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
+                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -654,7 +675,6 @@ parameters {
                         }
                     }
                 }
-*/
                 stage('Oracle Linux 8 binary tarball') {
                     agent {
                         label 'min-ol-8-x64'
@@ -892,7 +912,7 @@ parameters {
                     } else {
                         if (env.FIPSMODE == 'YES') {
                             if ("${MYSQL_VERSION_MINOR}" == "4") {
-                                sync2PrivateProdAutoBuild("ps-84-lts-pro", COMPONENT)
+                                sync2PrivateProdAutoBuild("ps-84-pro", COMPONENT)
                             } else {
                                 sync2PrivateProdAutoBuild("ps-8x-innovation-pro", COMPONENT)
                             }
@@ -945,7 +965,6 @@ parameters {
                             PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
                                 MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
-                                MYSQL_SHELL_RELEASE="8.4.1"
                                 MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
                             else
                                 MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')

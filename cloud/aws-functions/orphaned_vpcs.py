@@ -25,6 +25,8 @@ def is_vpc_to_terminate(vpc):
         creation_time = int(tags_dict["creation-time"])
     except KeyError as e:
         return True
+    except ValueError as e:
+        return True
     if (current_time - creation_time) / 3600 > instance_lifetime:
         return True
     return False

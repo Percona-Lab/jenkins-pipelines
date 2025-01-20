@@ -101,12 +101,6 @@ pipeline {
     stages {
         stage('Run parallel') {
             parallel {
-                stage('Debian Buster') {
-                    steps {
-                        runNodeBuild('min-buster-x64')
-                    }
-                }
-
                 stage('Debian Bullseye') {
                     steps {
                         runNodeBuild('min-bullseye-x64')
@@ -134,12 +128,6 @@ pipeline {
                 stage('Ubuntu Noble Numbat') {
                     steps {
                         runNodeBuild('min-noble-x64')
-                    }
-                }
-
-                stage('Centos 7') {
-                    steps {
-                        runNodeBuild('min-centos-7-x64')
                     }
                 }
 

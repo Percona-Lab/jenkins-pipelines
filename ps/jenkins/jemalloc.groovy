@@ -76,7 +76,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     mv jemalloc* rpmbuild/SOURCES/
 
                     sed -i '1i Epoch: 1' rpmbuild/SPECS/jemalloc.spec
-                    head -10 rpmbuild/SPECS/jemalloc.spec 
+                    sed -i 's/Requires:       %{name} = /Requires:       %{name} = 1:/g' rpmbuild/SPECS/jemalloc.spec
 
                     rpmbuild -bs --define \\"dist .generic\\" rpmbuild/SPECS/jemalloc.spec --define \\"_topdir \${build_dir}/rpmbuild\\"
                     mkdir -p srpm
@@ -317,24 +317,6 @@ pipeline {
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Debian Buster (10)') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("debian:buster", "DEB")
-                        sh '''
-                            pwd
-                            ls -la test/deb
-                            cp -r test/deb .
-                        '''
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal (20.04)') {
