@@ -232,23 +232,21 @@ pipeline {
             steps {
                 script {
                     sh """
+                        echo "\$ENABLE_EXPERIMENTAL_REPO"
+                        echo "\$ENABLE_TESTING_REPO"
                         git checkout PMM-7-pmm-migration
-                        docker ps -a
                         wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
                         chmod +x get-pmm.sh
-                        ./get-pmm.sh -n pmm-server -b --network-name pmm-qa --tag "3.0.0-rc"
+                        ./get-pmm.sh -n pmm-peter.sirotnak-20250121.185505-79318-server -b --network-name pmm-qa --tag "3.0.0-rc"
 
-                        echo "Migrate PMM Clients to v3"
-                        docker ps -a
-
-                        sudo percona-release enable pmm3-client experimental
+                        sudo percona-release enable pmm3-client testing
                         sudo yum install -y pmm-client
 
                         listVar="rs101 rs102 rs103 rs201 rs202 rs203"
 
                         for i in \$listVar; do
                             echo "\$i"
-                            docker exec "\$i" percona-release enable pmm3-client experimental
+                            docker exec "\$i" percona-release enable pmm3-client testing
                             docker exec "\$i" yum install -y pmm-client
                             docker exec "\$i" sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
                             docker exec "\$i" cat /usr/local/percona/pmm/config/pmm-agent.yaml
