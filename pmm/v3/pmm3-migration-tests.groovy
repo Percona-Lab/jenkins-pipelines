@@ -234,6 +234,14 @@ pipeline {
                     sh """
                         echo "\$ENABLE_EXPERIMENTAL_REPO"
                         echo "\$ENABLE_TESTING_REPO"
+                        if [[ "\$ENABLE_EXPERIMENTAL_REPO" == "yes" ]]; then
+                            export PERCONA_REPOSITORY="experimental"
+                        elif [ "\$ENABLE_TESTING_REPO" = "yes" ]; then
+                            export PERCONA_REPOSITORY="testing"
+                        fi
+
+                        echo "Percona repository is: $PERCONA_REPOSITORY"
+
                         git checkout PMM-7-pmm-migration
                         wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
                         chmod +x get-pmm.sh
