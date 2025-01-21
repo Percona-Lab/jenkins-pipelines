@@ -556,6 +556,9 @@ pipeline {
             sh '''
                 sudo rm -rf ./*
             '''
+            script {
+                currentBuild.description = "Built on ${GIT_BRANCH} - packages [${COMPONENT}/${AWS_STASH_PATH}]"
+            }
             deleteDir()
         }
     }
