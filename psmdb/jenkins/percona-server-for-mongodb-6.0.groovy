@@ -494,9 +494,9 @@ pipeline {
                 script {
                     if (env.FIPSMODE == 'yes') {
                         // Replace by a new procedure when it's ready
-                        sync2PrivateProdAutoBuild(PSMDB_REPO+"-pro", COMPONENT)
+                        sync2PrivateProdAutoBuild(params.CLOUD, PSMDB_REPO+"-pro", COMPONENT)
                     } else {
-                        sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
+                        sync2ProdAutoBuild(params.CLOUD, PSMDB_REPO, COMPONENT)
                     }
                 }
             }
@@ -506,7 +506,7 @@ pipeline {
                 script {
                     if (env.FIPSMODE == 'yes') {
                         try {
-                            uploadTarballToDownloadsTesting("psmdb-gated", "${PSMDB_VERSION}")
+                            uploadTarballToDownloadsTesting(params.CLOUD, "psmdb-gated", "${PSMDB_VERSION}")
                         }
                         catch (err) {
                             echo "Caught: ${err}"
@@ -514,7 +514,7 @@ pipeline {
                         }
                     } else {
                         try {
-                            uploadTarballToDownloadsTesting("psmdb", "${PSMDB_VERSION}")
+                            uploadTarballToDownloadsTesting(params.CLOUD, "psmdb", "${PSMDB_VERSION}")
                         }
                         catch (err) {
                             echo "Caught: ${err}"
