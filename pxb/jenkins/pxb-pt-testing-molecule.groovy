@@ -4,9 +4,6 @@
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
     ])
 
-    def pxb84_pro_exempt = ['debian-11', 'oracle-8', 'rhel-8', 'rhel-8-arm', 'ubuntu-focal']
-
-
     pipeline {
     agent {
         label 'min-bookworm-x64'
