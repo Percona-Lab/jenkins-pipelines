@@ -130,52 +130,56 @@ pipeline {
                 '''
             }
         }
-        stage('Enable Testing Repo') {
-            when {
-                expression { env.ENABLE_TESTING_REPO == "yes" && env.ENABLE_EXPERIMENTAL_REPO == "no" }
-            }
-            steps {
-                script {
-                    sh """
-                        set -o errexit
-                        set -o xtrace
-                        docker exec pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
-                        docker exec pmm-server percona-release enable pmm2-client testing
-                        docker exec pmm-server yum clean all
-                        docker exec pmm-server yum clean metadata
-                    """
+        stage('Enable Repo') {
+            parallel {
+                stage('Enable Experimental Repo') {
+                    when {
+                        expression { env.UPGRADE_TAG == "experimental" }
+                    }
+                    steps {
+                        script {
+                            sh """
+                                set -o errexit
+                                set -o xtrace
+                                docker exec pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec pmm-server percona-release enable pmm2-client experimental
+                                docker exec pmm-server yum clean all
+                                docker exec pmm-server yum clean metadata
+                            """
+                        }
+                    }
                 }
-            }
-        }
-        stage('Enable Experimental Repo') {
-            when {
-                expression { env.ENABLE_EXPERIMENTAL_REPO == "yes" && env.ENABLE_TESTING_REPO == "no" }
-            }
-            steps {
-                script {
-                    sh """
-                        set -o errexit
-                        set -o xtrace
-                        docker exec pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
-                        docker exec pmm-server percona-release enable pmm2-client experimental
-                        docker exec pmm-server yum clean all
-                        docker exec pmm-server yum clean metadata
-                    """
+                stage('Enable Testing Repo') {
+                    when {
+                        expression { env.UPGRADE_TAG == "testing" }
+                    }
+                    steps {
+                        script {
+                            sh """
+                                set -o errexit
+                                set -o xtrace
+                                docker exec pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
+                                docker exec pmm-server percona-release enable pmm2-client testing
+                                docker exec pmm-server yum clean all
+                                docker exec pmm-server yum clean metadata
+                            """
+                        }
+                    }
                 }
-            }
-        }
-        stage('Enable Release Repo') {
-            when {
-                expression { env.ENABLE_EXPERIMENTAL_REPO == "no" && env.ENABLE_TESTING_REPO == "no" }
-            }
-            steps {
-                script {
-                    sh """
-                        set -o errexit
-                        set -o xtrace
-                        docker exec pmm-server yum clean all
-                        docker exec pmm-server yum clean metadata
-                    """
+                stage('Enable Release Repo') {
+                    when {
+                        expression { env.UPGRADE_TAG == "release" }
+                    }
+                    steps {
+                        script {
+                            sh """
+                                set -o errexit
+                                set -o xtrace
+                                docker exec pmm-server yum clean all
+                                docker exec pmm-server yum clean metadata
+                            """
+                        }
+                    }
                 }
             }
         }
