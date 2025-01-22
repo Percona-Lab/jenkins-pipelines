@@ -63,7 +63,7 @@ pipeline {
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: 'admin-password',
+            defaultValue: 'pmm3admin!',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         string(
@@ -103,7 +103,7 @@ pipeline {
                     docker network create pmm-qa || true
                     git checkout PMM-7-pmm-migration-v2
                     PWD=$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:${DOCKER_VERSION} docker-compose up -d
-                    git checkout ${PMM_UI_GIT_BRANCH}
+
                 '''
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
                 waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
@@ -213,6 +213,21 @@ pipeline {
                     echo \${PMM_URL}
                     timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false
                 '''
+            }
+        }
+        stage('Run pre migration Tests') {
+            options {
+                timeout(time: 150, unit: "MINUTES")
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                sh """
+                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                    export PWD=\$(pwd);
+                    npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-migration'
+                    git checkout ${PMM_UI_GIT_BRANCH}
+                """
+                }
             }
         }
         stage('Migrate pmm2 to pmm3') {
