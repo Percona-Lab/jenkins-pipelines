@@ -222,7 +222,7 @@ pipeline {
                         echo "\$UPGRADE_TAG"
                         if [[ "\$UPGRADE_TAG" == "experimental" ]]; then
                             export PERCONA_REPOSITORY="experimental"
-                            export DOCKER_TAG=\$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
+                            export DOCKER_TAG="3-dev-latest"
                         fi
 
                         echo "Percona repository is: \$PERCONA_REPOSITORY"
