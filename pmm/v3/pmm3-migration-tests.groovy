@@ -185,7 +185,14 @@ pipeline {
         }
         stage('Setup Client for PMM-Server') {
             steps {
-                setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), "pmm2", "no", ENABLE_TESTING_REPO, "no", 'compose_setup', ADMIN_PASSWORD)
+                if(env.UPGRADE_TAG == "experimental") {
+                    setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), "pmm2", "no", "no", "no", 'compose_setup', ADMIN_PASSWORD)
+                } else if (env.UPGRADE_TAG == "testing") {
+                    setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), "pmm2", "no", "yes", "no", 'compose_setup', ADMIN_PASSWORD, "no")
+                } else {
+                    setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), "pmm2", "no", "no", "no", 'compose_setup', ADMIN_PASSWORD, "no")
+                }
+
                 sh """
                     set -o errexit
                     set -o xtrace
