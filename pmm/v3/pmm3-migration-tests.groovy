@@ -223,6 +223,8 @@ pipeline {
                         if [[ "\$UPGRADE_TAG" == "experimental" ]]; then
                             export PERCONA_REPOSITORY="experimental"
                             export DOCKER_TAG="3-dev-latest"
+                        elif [[ "\$UPGRADE_TAG" == "testing" ]]; then
+                            export DOCKER_TAG=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-server/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 3.*.*-rc\$ | sort -V | tail -n1)
                         fi
 
                         echo "Percona repository is: \$PERCONA_REPOSITORY"
