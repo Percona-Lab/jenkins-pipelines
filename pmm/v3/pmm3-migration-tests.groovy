@@ -237,11 +237,6 @@ pipeline {
                         if [[ "\$ENABLE_EXPERIMENTAL_REPO" == "yes" ]]; then
                             export PERCONA_REPOSITORY="experimental"
                             export DOCKER_TAG=\$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
-                        elif [[ "\$ENABLE_TESTING_REPO" == "yes" ]]; then
-                            export PERCONA_REPOSITORY="testing"
-                            export DOCKER_TAG=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 3.*.*-rc\$ | sort -V | tail -n1)
-                        else
-                            export DOCKER_TAG=\$(wget -q https://registry.hub.docker.com/v2/repositories/percona/pmm-client/tags -O - | jq -r .results[].name  | grep -v latest | sort -V | tail -n1)
                         fi
 
                         echo "Percona repository is: \$PERCONA_REPOSITORY"
