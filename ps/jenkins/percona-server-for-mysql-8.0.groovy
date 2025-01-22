@@ -1002,8 +1002,8 @@ parameters {
                                 fi
                                 sed -i "s/percona-release enable mysql-shell/PS_REPO=\"testing\";percona-release enable mysql-shell/g" Dockerfile.aarch64
                             fi
-                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} .
-                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 --platform="linux/arm64" -f Dockerfile.aarch64 .
+                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 .
+                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 --platform="linux/arm64" -f Dockerfile.aarch64 .
                             cd ../mysql-router
                             sed -i "s/ENV ROUTE_VERSION.*/ENV ROUTE_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
@@ -1044,12 +1044,12 @@ parameters {
                        }
                        sh '''
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                           sudo docker manifest create perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi \
-                               perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} \
-                               perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64
-                           sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 --os linux --arch arm64 --variant v8
-                           sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} --os linux --arch amd64
-                           sudo docker manifest inspect perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi
+                           sudo docker manifest create perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} \
+                               perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 \
+                               perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64
+                           sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 --os linux --arch amd64
+                           sudo docker manifest inspect perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                        '''
                        withCredentials([
                        usernamePassword(credentialsId: 'hub.docker.com',
@@ -1060,7 +1060,7 @@ parameters {
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                           sudo docker manifest push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi
+                           sudo docker manifest push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                        '''
                        }
                     }
