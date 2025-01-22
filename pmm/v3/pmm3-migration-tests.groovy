@@ -215,6 +215,20 @@ pipeline {
                 '''
             }
         }
+        stage('Prepare nightly tests on migrated pmm.') {
+            steps {
+                script {
+                    sh """
+                        curl -sL https://rpm.nodesource.com/setup_20.x | sudo bash -
+                        sudo yum install -y nodejs
+                        node --version
+                        npm ci
+                        npx playwright install
+                        envsubst < env.list > env.generated.list
+                    """
+                }
+            }
+        }
         stage('Run pre migration Tests') {
             options {
                 timeout(time: 150, unit: "MINUTES")
@@ -269,23 +283,9 @@ pipeline {
                 }
             }
         }
-        stage('Prepare nightly tests on migrated pmm.') {
-            steps {
-                script {
-                    sh """
-                        curl -sL https://rpm.nodesource.com/setup_20.x | sudo bash -
-                        sudo yum install -y nodejs
-                        node --version
-                        npm ci
-                        npx playwright install
-                        envsubst < env.list > env.generated.list
-                    """
-                }
-            }
-        }
         stage('Sleep') {
             steps {
-                sleep 120
+                sleep 300
             }
         }
         stage('Run Tests') {
