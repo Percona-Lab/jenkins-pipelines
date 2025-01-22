@@ -50,18 +50,14 @@ pipeline {
             defaultValue: 'PMM-7-pmm-migration',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
-        choice(
-            choices: versionsList,
+        string(
+            defaultValue: versionsList.first(),
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_VERSION')
-        choice(
-            choices: versionsList,
+        string(
+            defaultValue: versionsList.first(),
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
-        string(
-            defaultValue: latestVersion,
-            description: 'latest PMM Server Version',
-            name: 'PMM_SERVER_LATEST')
         string(
             defaultValue: 'pmm3admin!',
             description: 'pmm-server admin user default password',
