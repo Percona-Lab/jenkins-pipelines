@@ -101,7 +101,7 @@ pipeline {
             steps {
                 sh '''
                     docker network create pmm-qa || true
-                    git checkout main
+                    git checkout PMM-7-pmm-migration-v2
                     PWD=$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:${DOCKER_VERSION} docker-compose up -d
                     git checkout ${PMM_UI_GIT_BRANCH}
                 '''
