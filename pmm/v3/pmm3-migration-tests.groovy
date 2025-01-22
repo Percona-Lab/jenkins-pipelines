@@ -293,7 +293,7 @@ pipeline {
                 sh """
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);
-                    npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-migration'
+                    npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-migration|@dump'
                 """
                 }
             }
