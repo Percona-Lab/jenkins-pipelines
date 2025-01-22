@@ -47,7 +47,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-7-pmm-migration-v2',
+            defaultValue: 'PMM-7-pmm-migration',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         choice(
@@ -101,7 +101,9 @@ pipeline {
             steps {
                 sh '''
                     docker network create pmm-qa || true
+                    git checkout main
                     PWD=$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:${DOCKER_VERSION} docker-compose up -d
+                    git checkout ${PMM_UI_GIT_BRANCH}
                 '''
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
                 waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
@@ -214,7 +216,6 @@ pipeline {
                         echo "Percona repository is: \$PERCONA_REPOSITORY"
                         echo "Docker tag is: \$DOCKER_TAG"
 
-                        git checkout PMM-7-pmm-migration
                         wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
                         chmod +x get-pmm.sh
                         ./get-pmm.sh -n pmm-peter.sirotnak-20250121.185505-79318-server -b --network-name pmm-qa --tag "3.0.0-rc"
