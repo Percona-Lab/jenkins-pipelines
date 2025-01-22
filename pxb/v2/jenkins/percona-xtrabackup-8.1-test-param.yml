@@ -85,9 +85,9 @@
       - project: percona-xtrabackup-8.1-test-pipeline
         current-parameters: true
         predefined-parameters: |
-          DOCKER_OS=${DOCKER_OS}
-          CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-          XTRABACKUP_TARGET=${XTRABACKUP_TARGET}
+          DOCKER_OS=$DOCKER_OS
+          CMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE
+          XTRABACKUP_TARGET=$XTRABACKUP_TARGET
         block: true
         block-thresholds:
           build-step-failure-threshold: FAILURE

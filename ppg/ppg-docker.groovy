@@ -100,12 +100,12 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                          MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                         docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:${params.PPG_VERSION}
-                         docker push perconalab/percona-distribution-postgresql:${params.PPG_VERSION}
-                         docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
-                         docker push perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
-                         docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:\$MAJ_VER
-                         docker push perconalab/percona-distribution-postgresql:\$MAJ_VER
+                         docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-amd64
+                         docker push perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-amd64
+                         docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64
+                         docker push perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64
+                         docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:\$MAJ_VER-amd64
+                         docker push perconalab/percona-distribution-postgresql:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
                             docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:latest
                             docker push perconalab/percona-distribution-postgresql:latest
@@ -124,12 +124,12 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                          MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                         docker tag percona-distribution-postgresql:\$MAJ_VER percona/percona-distribution-postgresql:${params.PPG_VERSION}
-                         docker push percona/percona-distribution-postgresql:${params.PPG_VERSION}
-                         docker tag percona-distribution-postgresql:\$MAJ_VER percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
-                         docker push percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER
-                         docker tag percona-distribution-postgresql:\$MAJ_VER percona/percona-distribution-postgresql:\$MAJ_VER
-                         docker push percona/percona-distribution-postgresql:\$MAJ_VER
+                         docker tag percona-distribution-postgresql:\$MAJ_VER percona/percona-distribution-postgresql:${params.PPG_VERSION}-amd64
+                         docker push percona/percona-distribution-postgresql:${params.PPG_VERSION}-amd64
+                         docker tag percona-distribution-postgresql:\$MAJ_VER percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64
+                         docker push percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64
+                         docker tag percona-distribution-postgresql:\$MAJ_VER percona/percona-distribution-postgresql:\$MAJ_VER-amd64
+                         docker push percona/percona-distribution-postgresql:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
                             docker tag percona-distribution-postgresql:\$MAJ_VER percona/percona-distribution-postgresql:latest
                             docker push percona/percona-distribution-postgresql:latest
