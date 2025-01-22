@@ -40,12 +40,17 @@ networkMap['percona-vpc-eu'] = '10442325' // percona-vpc-eu
 initMap = [:]
 initMap['deb-docker'] = '''#!/bin/bash -x
     set -o xtrace
+    sudo fallocate -l 32G /swapfile
+    sudo chmod 600 /swapfile
+    sudo mkswap /swapfile
+    sudo swapon /swapfile
+
     export DEBIAN_FRONTEND=noninteractive
     until sudo apt-get update; do
         sleep 1
         echo try again
     done
-    until sudo apt-get -y install openjdk-17-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
+    until sudo apt-get -y install openjdk-17-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip git; do
         sleep 1
         echo try again
     done
@@ -61,7 +66,7 @@ initMap['deb-docker'] = '''#!/bin/bash -x
     done
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
-        until curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "/tmp/awscliv2.zip"; do
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m)-2.22.35.zip" -o "/tmp/awscliv2.zip"; do
             sleep 1
             echo try again
         done
@@ -93,9 +98,9 @@ initMap['launcher-x64']  = initMap['deb-docker']
 def templates = [
        /* new HetznerServerTemplate("ubuntu20-cx21", "java", "name=ubuntu20-docker", "fsn1", "cx21"), */
         //                        tmplName         tmplLabels                 tmplImage                  region server type
-        new HetznerServerTemplate("deb12-x64",     labelMap['deb12-x64'],     imageMap['deb12-x64'],     "fsn1", "cx52"),
-        new HetznerServerTemplate("deb12-aarch64", labelMap['deb12-aarch64'], imageMap['deb12-aarch64'], "fsn1", "cax31"),
-        new HetznerServerTemplate("launcher-x64",  labelMap['launcher-x64'],  imageMap['launcher-x64'],  "fsn1", "cx22")
+        new HetznerServerTemplate("deb12-x64",     labelMap['deb12-x64'],     imageMap['deb12-x64'],     "fsn1", "cpx51"),
+        new HetznerServerTemplate("deb12-aarch64", labelMap['deb12-aarch64'], imageMap['deb12-aarch64'], "fsn1", "cax41"),
+        new HetznerServerTemplate("launcher-x64",  labelMap['launcher-x64'],  imageMap['launcher-x64'],  "fsn1", "cpx21")
 ]
 
 templates.each { it -> 
