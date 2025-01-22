@@ -63,8 +63,8 @@ pipeline {
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: 'perconalab/pmm-server:dev-latest',
-            description: 'PMM Server Tag to be upgraded to via container replacement',
+            defaultValue: '3.0.0-rc',
+            description: 'PMM Server Tag to be migrated to',
             name: 'PMM_SERVER_TAG')
         string(
             defaultValue: 'admin-password',
@@ -82,25 +82,6 @@ pipeline {
             choices: ['yes', 'no'],
             description: 'Enable Experimental, for Dev Latest testing',
             name: 'ENABLE_EXPERIMENTAL_REPO')
-        choice(
-            choices: ['no', 'yes'],
-            description: 'Perform Docker-way Upgrade?',
-            name: 'PERFORM_DOCKER_WAY_UPGRADE')
-        text(
-            defaultValue: '--pdpgsql-version 17 --ps-version 8.0 --mo-version 8.0 --addclient=pdpgsql,1 --addclient=ps,1 --mongo-replica-for-backup',
-            description: '''
-            Configure PMM Clients
-            ms - MySQL (ex. --addclient=ms,1),
-            ps - Percona Server for MySQL (ex. --addclient=ps,1),
-            pxc - Percona XtraDB Cluster, --with-proxysql (to be used with proxysql only ex. --addclient=pxc,1 --with-proxysql),
-            md - MariaDB Server (ex. --addclient=md,1),
-            mo - Percona Server for MongoDB(ex. --addclient=mo,1),
-            modb - Official MongoDB version from MongoDB Inc (ex. --addclient=modb,1),
-            pgsql - Postgre SQL Server (ex. --addclient=pgsql,1)
-            pdpgsql - Percona Distribution for PostgreSQL (ex. --addclient=pdpgsql,1)
-            An example: --addclient=ps,1 --addclient=mo,1 --addclient=md,1 --addclient=pgsql,2 --addclient=modb,2
-            ''',
-            name: 'CLIENTS')
     }
     options {
         skipDefaultCheckout()
@@ -214,7 +195,7 @@ pipeline {
                     export PMM_CLIENT_VERSION=${CLIENT_VERSION}
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
-                        ${CLIENTS} \
+                        --pdpgsql-version 17 --ps-version 8.0 --mo-version 8.0 --addclient=pdpgsql,1 --addclient=ps,1 --mongo-replica-for-backup \
                         --pmm2
                     sleep 20
                 """
@@ -241,6 +222,7 @@ pipeline {
 
                         echo "Percona repository is: \$PERCONA_REPOSITORY"
                         echo "Docker tag is: \$DOCKER_TAG"
+                        echo "PMM Server tag is: \$PMM_SERVER_TAG"
 
                         git checkout PMM-7-pmm-migration
                         wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
