@@ -230,7 +230,7 @@ pipeline {
 
                         wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
                         chmod +x get-pmm.sh
-                        ./get-pmm.sh -n pmm-peter.sirotnak-20250121.185505-79318-server -b --network-name pmm-qa --tag "3.0.0-rc"
+                        ./get-pmm.sh -n pmm-server -b --network-name pmm-qa --tag "3.0.0-rc"
 
                         sudo percona-release enable pmm3-client testing
                         sudo yum install -y pmm-client
