@@ -63,10 +63,6 @@ pipeline {
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: '3.0.0-rc',
-            description: 'PMM Server Tag to be migrated to',
-            name: 'PMM_SERVER_TAG')
-        string(
             defaultValue: 'admin-password',
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
@@ -75,13 +71,9 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo, for RC testing',
-            name: 'ENABLE_TESTING_REPO')
-        choice(
-            choices: ['yes', 'no'],
-            description: 'Enable Experimental, for Dev Latest testing',
-            name: 'ENABLE_EXPERIMENTAL_REPO')
+            choices: ['experimental', 'testing', 'release'],
+            description: 'Select pmm repo to upgrate to',
+            name: 'UPGRADE_TAG')
     }
     options {
         skipDefaultCheckout()
@@ -213,16 +205,14 @@ pipeline {
             steps {
                 script {
                     sh """
-                        echo "\$ENABLE_EXPERIMENTAL_REPO"
-                        echo "\$ENABLE_TESTING_REPO"
-                        if [[ "\$ENABLE_EXPERIMENTAL_REPO" == "yes" ]]; then
+                        echo "\$UPGRADE_TAG"
+                        if [[ "\$UPGRADE_TAG" == "experimental" ]]; then
                             export PERCONA_REPOSITORY="experimental"
                             export DOCKER_TAG=\$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
                         fi
 
                         echo "Percona repository is: \$PERCONA_REPOSITORY"
                         echo "Docker tag is: \$DOCKER_TAG"
-                        echo "PMM Server tag is: \$PMM_SERVER_TAG"
 
                         git checkout PMM-7-pmm-migration
                         wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
