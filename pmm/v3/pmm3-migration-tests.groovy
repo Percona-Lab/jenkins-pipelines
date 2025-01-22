@@ -4,7 +4,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 def versionsList = pmmVersion('list').reverse()
-def latestVersion = pmmVersion()
+def latestVersion = versionsList.first()
 def getMinorVersion(VERSION) {
     return VERSION.split("\\.")[1].toInteger()
 }
@@ -51,11 +51,11 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
-            defaultValue: versionsList.first(),
+            defaultValue: latestVersion,
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: versionsList.first(),
+            defaultValue: latestVersion,
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
