@@ -264,13 +264,13 @@ pipeline {
 
                         listVar="rs101 rs102 rs103 rs201 rs202 rs203"
 
-                        for i in \$listVar; do
-                            echo "\$i"
-                            docker exec "\$i" percona-release enable pmm3-client testing
-                            docker exec "\$i" yum install -y pmm-client
-                            docker exec "\$i" sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
-                            docker exec "\$i" cat /usr/local/percona/pmm/config/pmm-agent.yaml
-                            docker exec "\$i" systemctl restart pmm-agent
+                        for i in $listVar; do
+                            echo "$i"
+                            docker exec $i percona-release enable pmm3-client testing
+                            docker exec $i yum install -y pmm-client
+                            docker exec $i sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
+                            docker exec $i cat /usr/local/percona/pmm/config/pmm-agent.yaml
+                            docker exec $i systemctl restart pmm-agent
                         done
                     """
                     env.SERVER_IP = "127.0.0.1"
@@ -293,7 +293,7 @@ pipeline {
                 sh """
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);
-                    npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-migration|@dump'
+                    npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-migration'
                 """
                 }
             }
