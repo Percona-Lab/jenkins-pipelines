@@ -1,6 +1,9 @@
 pipeline {
     agent none  // We will define the agent at each stage
 
+    // location of the test script
+    test_script = 'https://raw.githubusercontent.com/percona/telemetry-agent/6e2d5526c4596ea9e149114eb5529041036bd707/packaging/scripts/test-telemetry-agent.sh'
+
     stages {
         stage('Run Percona Telemetry Script') {
             parallel {
@@ -14,9 +17,9 @@ pipeline {
                             sudo apt-get install -y sudo wget gnupg2 lsb-release curl systemd
 
                             # Download and run your script
-                            wget https://raw.githubusercontent.com/EvgeniyPatlan/TA_tests/main/test_ta.sh -O your-script.sh
-                            chmod +x your-script.sh
-                            sudo ./your-script.sh
+                            wget $test_script -O test-telemetry-agent.sh
+                            chmod +x test-telemetry-agent
+                            sudo ./test-telemetry-agent
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
@@ -35,9 +38,9 @@ pipeline {
                             sudo apt-get install -y sudo wget gnupg2 lsb-release curl systemd
 
                             # Download and run your script
-                            wget https://raw.githubusercontent.com/EvgeniyPatlan/TA_tests/main/test_ta.sh -O your-script.sh
-                            chmod +x your-script.sh
-                            sudo ./your-script.sh
+                            wget $test_script -O test-telemetry-agent.sh
+                            chmod +x test-telemetry-agent
+                            sudo ./test-telemetry-agent
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
@@ -54,10 +57,9 @@ pipeline {
                             sudo apt-get update
                             sudo apt-get install -y sudo wget gnupg2 lsb-release curl systemd
 
-                            # Download and run your script
-                            wget https://raw.githubusercontent.com/EvgeniyPatlan/TA_tests/main/test_ta.sh -O your-script.sh
-                            chmod +x your-script.sh
-                            sudo ./your-script.sh
+                            wget $test_script -O test-telemetry-agent.sh
+                            chmod +x test-telemetry-agent
+                            sudo ./test-telemetry-agent
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
@@ -75,10 +77,9 @@ pipeline {
                             sudo apt-get update
                             sudo apt-get install -y sudo wget gnupg2 lsb-release curl systemd
 
-                            # Download and run your script
-                            wget https://raw.githubusercontent.com/EvgeniyPatlan/TA_tests/main/test_ta.sh -O your-script.sh
-                            chmod +x your-script.sh
-                            sudo ./your-script.sh
+                            wget $test_script -O test-telemetry-agent.sh
+                            chmod +x test-telemetry-agent
+                            sudo ./test-telemetry-agent
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
@@ -97,9 +98,9 @@ pipeline {
                             sudo apt-get install -y sudo wget gnupg2 lsb-release curl systemd
 
                             # Download and run your script
-                            wget https://raw.githubusercontent.com/EvgeniyPatlan/TA_tests/main/test_ta.sh -O your-script.sh
-                            chmod +x your-script.sh
-                            sudo ./your-script.sh
+                            wget $test_script -O test-telemetry-agent.sh
+                            chmod +x test-telemetry-agent
+                            sudo ./test-telemetry-agent
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
@@ -117,9 +118,9 @@ pipeline {
                             sudo yum install -y sudo wget gnupg2 curl systemd
 
                             # Download and run your script
-                            wget https://raw.githubusercontent.com/EvgeniyPatlan/TA_tests/main/test_ta.sh -O your-script.sh
-                            chmod +x your-script.sh
-                            sudo ./your-script.sh
+                            wget $test_script -O test-telemetry-agent.sh
+                            chmod +x test-telemetry-agent
+                            sudo ./test-telemetry-agent
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
@@ -137,9 +138,28 @@ pipeline {
                             sudo yum install -y sudo wget gnupg2 curl systemd
 
                             # Download and run your script
-                            wget https://raw.githubusercontent.com/EvgeniyPatlan/TA_tests/main/test_ta.sh -O your-script.sh
-                            chmod +x your-script.sh
-                            sudo ./your-script.sh
+                            wget $test_script -O test-telemetry-agent.sh
+                            chmod +x test-telemetry-agent
+                            sudo ./test-telemetry-agent
+
+                            # Verify service behavior
+                            pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
+                            '''
+                        }
+                    }
+                }
+
+                stage('Test on Amazon Linux 2') {
+                    agent { label 'min-amazon-2-x64' }  // Run on the node with label 'min-amazon-2-x64'
+                    steps {
+                        script {
+                            sh '''
+                            # Update package list and install necessary dependencies
+                            sudo yum install -y sudo wget gnupg2 curl systemd
+
+                            wget $test_script -O test-telemetry-agent.sh
+                            chmod +x test-telemetry-agent
+                            sudo ./test-telemetry-agent
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
