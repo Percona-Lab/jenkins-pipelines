@@ -254,7 +254,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Jammy(22.04)' ARM) {
+                stage('Ubuntu Jammy(22.04) ARM') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -280,7 +280,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Ubuntu Noble(24.04)' ARM) {
+                stage('Ubuntu Noble(24.04) ARM') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
