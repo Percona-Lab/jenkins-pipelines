@@ -779,7 +779,7 @@ pipeline {
                     }
                     agent { label LABEL }
                     steps {
-                        doTestWorkerJobWithGuard(1, "${WORKER_1_MTR_SUITES}", "${MTR_STANDALONE_TESTS}", true, true)
+                        doTestWorkerJobWithGuard(1, "${WORKER_1_MTR_SUITES}", "${MTR_STANDALONE_TESTS}", true, env.CI_FS_MTR?.trim() == 'yes')
                     }
                 }
                 stage('Test - 2') {
