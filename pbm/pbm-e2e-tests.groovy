@@ -78,13 +78,13 @@ pipeline {
         }
         stage('Run tests for PBM') {
             parallel {
-                stage('New cluster 5.0 logical') {
+                stage('New cluster 8.0 logical') {
                     agent {
                         label 'docker'
                     }
                     steps {
-			prepareCluster('50-newc-logic')
-                        runTest('run-new-cluster', '5.0', 'logical')
+			prepareCluster('80-newc-logic')
+                        runTest('run-new-cluster', '8.0', 'logical')
                     }
                 }
                 stage('New cluster 6.0 logical') {
@@ -105,13 +105,13 @@ pipeline {
 			runTest('run-new-cluster', '7.0', 'logical')
                     }
                 }
-                stage('Sharded 5.0 logical') {
+                stage('Sharded 8.0 logical') {
                     agent {
                         label 'docker-32gb'
                     }
                     steps {
-			prepareCluster('50-shrd-logic')
-                        runTest('run-sharded', '5.0', 'logical')
+			prepareCluster('80-shrd-logic')
+                        runTest('run-sharded', '8.0', 'logical')
                     }
                 }
                 stage('Sharded 6.0 logical') {
@@ -132,13 +132,13 @@ pipeline {
 			runTest('run-sharded', '7.0', 'logical')
                     }
                 }
-                stage('Non-sharded 5.0 logical') {
+                stage('Non-sharded 8.0 logical') {
                     agent {
                         label 'docker'
                     }
                     steps {
-			prepareCluster('50-rs-logic')
-                        runTest('run-rs', '5.0', 'logical')
+			prepareCluster('80-rs-logic')
+                        runTest('run-rs', '8.0', 'logical')
                     }
                 }
                 stage('Non-sharded 6.0 logical') {
@@ -159,13 +159,13 @@ pipeline {
 			runTest('run-rs', '7.0', 'logical')
                     }
                 }
-                stage('Single-node 5.0 logical') {
+                stage('Single-node 8.0 logical') {
                     agent {
                         label 'docker'
                     }
                     steps {
-			prepareCluster('50-single-logic')
-                        runTest('run-single', '5.0', 'logical')
+			prepareCluster('80-single-logic')
+                        runTest('run-single', '8.0', 'logical')
                     }
                 }
                 stage('Single-node 6.0 logical') {
@@ -186,13 +186,13 @@ pipeline {
 			runTest('run-single', '7.0', 'logical')
                     }
                 }
-                stage('Sharded 5.0 physical') {
+                stage('Sharded 8.0 physical') {
                     agent {
                         label 'docker-32gb'
                     }
                     steps {
-			prepareCluster('50-shrd-phys')
-                        runTest('run-sharded', '5.0', 'physical')
+			prepareCluster('80-shrd-phys')
+                        runTest('run-sharded', '8.0', 'physical')
                     }
                 }
                 stage('Sharded 6.0 physical') {
@@ -213,13 +213,13 @@ pipeline {
 			runTest('run-sharded', '7.0', 'physical')
                     }
                 }
-                stage('Non-sharded 5.0 physical') {
+                stage('Non-sharded 8.0 physical') {
                     agent {
                         label 'docker'
                     }
                     steps {
-			prepareCluster('50-rs-phys')
-                        runTest('run-rs', '5.0', 'physical')
+			prepareCluster('80-rs-phys')
+                        runTest('run-rs', '8.0', 'physical')
                     }
                 }
                 stage('Non-sharded 6.0 physical') {
@@ -240,13 +240,13 @@ pipeline {
 			runTest('run-rs', '7.0', 'physical')
                     }
                 }
-                stage('Single-node 5.0 physical') {
+                stage('Single-node 8.0 physical') {
                     agent {
                         label 'docker'
                     }
                     steps {
-			prepareCluster('50-single-phys')
-                        runTest('run-single', '5.0', 'physical')
+			prepareCluster('80-single-phys')
+                        runTest('run-single', '8.0', 'physical')
                     }
                 }
                 stage('Single-node 6.0 physical') {

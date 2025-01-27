@@ -18,9 +18,10 @@ if (params.cur_action_to_test == "all") {
 }
 
 def runMoleculeAction(String action, String os) {
-    MOLECULE_DIR="molecule/ps-80-pro/"+action
+    def productDir = (params.product_to_test == "ps84") ? "ps-84-pro" : "ps-80-pro"
+    MOLECULE_DIR="molecule/${productDir}/"+action
     sh """
-        echo "Run for ${action} on ${os} "
+        echo "Run for ${action} on ${os} for ${params.product_to_test}"
         . virtenv/bin/activate
         cd ${MOLECULE_DIR}
         cur_action_to_test=${action} molecule test -s ${os}
@@ -28,7 +29,8 @@ def runMoleculeAction(String action, String os) {
 }
 
 def destroyMoleculeAction(String action, String os) {
-    MOLECULE_DIR="molecule/ps-80-pro/"+action
+    def productDir = (params.product_to_test == "ps84") ? "ps-84-pro" : "ps-80-pro"
+    MOLECULE_DIR="molecule/${productDir}/"+action
     sh """
         echo "Destroy ${action} on ${os} "
         . virtenv/bin/activate
@@ -64,7 +66,7 @@ pipeline {
         )
         choice(
         name: "product_to_test",
-        choices: ["ps80"],
+        choices: ["ps80", "ps84"],
         description: "Product for which the packages will be tested"
         )
         choice(
@@ -100,7 +102,7 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                currentBuild.displayName = "${env.BUILD_NUMBER}-${env.cur_action_to_test}-${env.node_to_test}"
+                currentBuild.displayName = "${env.BUILD_NUMBER}-${env.cur_action_to_test}-${env.node_to_test}-${env.product_to_test}"
                 currentBuild.description = "${env.install_repo}-${env.TESTING_BRANCH}"
                 }
             }
