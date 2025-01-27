@@ -1,5 +1,5 @@
 - job:
-    name: test_ta
+    name: test_telemetry_agent
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,5 +11,5 @@
             - 'TEL-61-improved-ta-tests'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: percona-telemetry-agent/test_ta.groovy
+      script-path: percona-telemetry-agent/test_telemetry_agent.groovy
 
