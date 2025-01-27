@@ -15,7 +15,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./telemetry-agent_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./telemetry-agent_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./telemetry-agent_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${VERSION} --branch=${GIT_BRANCH} --release=${RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -37,23 +37,19 @@ pipeline {
             description: 'URL for telemetry-agent repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'phase-0',
+            defaultValue: 'main',
             description: 'Tag/Branch for telemetry-agent repository',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '1',
-            description: 'RPM release value',
-            name: 'RPM_RELEASE')
+            description: 'RPM/DEB release value',
+            name: 'RELEASE')
         string(
-            defaultValue: '1',
-            description: 'DEB release value',
-            name: 'DEB_RELEASE')
-        string(
-            defaultValue: '0.1',
+            defaultValue: '1.0.1',
             description: 'VERSION value',
             name: 'VERSION')
         string(
-            defaultValue: 'tools',
+            defaultValue: 'telemetry',
             description: 'PTA repo name',
             name: 'PTA_REPO')
         choice(
