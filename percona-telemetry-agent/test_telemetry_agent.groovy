@@ -3,7 +3,8 @@ pipeline {
 
     environment {
         // location of the test script
-        TEST_SCRIPT = 'https://raw.githubusercontent.com/percona/telemetry-agent/6e2d5526c4596ea9e149114eb5529041036bd707/packaging/scripts/test-telemetry-agent.sh'
+        // todo: change this to a stable URL (on the main branch) once https://github.com/percona/telemetry-agent/pull/124 is merged
+        TEST_SCRIPT = 'https://raw.githubusercontent.com/percona/telemetry-agent/refs/heads/TEL-61-improved-test-script/packaging/scripts/test-telemetry-agent.sh'
     }
 
     stages {
