@@ -10,7 +10,7 @@ import (
 	"google.golang.org/api/compute/v1"
 )
 
-// CleanDisks : remeve unused disks
+// CleanDisks : remove unused disks
 func CleanDisks(http.ResponseWriter, *http.Request) {
 	ctx := context.Background()
 	computeService, err := compute.NewService(ctx)

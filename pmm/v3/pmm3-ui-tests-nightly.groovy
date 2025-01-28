@@ -4,7 +4,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
-    stagingJob = build job: 'pmm3-aws-staging-start-temp', parameters: [
+    stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -20,19 +20,46 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
+        env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
         env.PMM_UI_URL = "http://${SERVER_IP}/"
     }
     else
     {
-        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
+        env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${VM_IP}"
         env.PMM_UI_URL = "http://${VM_IP}/"
     }
 }
 
+void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
+    ovfStagingJob = build job: 'pmm3-ovf-staging-start', parameters: [
+        string(name: 'OVA_VERSION', value: SERVER_VERSION),
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
+    ]
+    env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
+    env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
+    env.VM_IP = ovfStagingJob.buildVariables.IP
+    env.VM_NAME = ovfStagingJob.buildVariables.VM_NAME
+    env.PMM_URL = "https://admin:admin@${OVF_INSTANCE_IP}"
+    env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}/"
+    env.ADMIN_PASSWORD = "admin"
+}
+
+void runAMIStagingStart(String AMI_ID) {
+    amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
+        string(name: 'AMI_ID', value: AMI_ID)
+    ]
+    env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
+    env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
+    env.ADMIN_PASSWORD = amiStagingJob.buildVariables.INSTANCE_ID
+    env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
+    env.VM_NAME = amiStagingJob.buildVariables.INSTANCE_ID
+    env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${AMI_INSTANCE_IP}"
+    env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}/"
+}
+
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION,
 PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD = "admin") {
-    stagingJob = build job: 'pmm3-aws-staging-start-temp', parameters: [
+    stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -73,16 +100,6 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
         env.VM_CLIENT_IP_MONGO = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_MONGO = stagingJob.buildVariables.VM_NAME
     }
-    def clientInstance = "yes";
-    if ( CLIENT_INSTANCE == clientInstance ) {
-        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
-        env.PMM_UI_URL = "http://${SERVER_IP}/"
-    }
-    else
-    {
-        env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
-        env.PMM_UI_URL = "http://${VM_IP}/"
-    }
 }
 
 void destroyStaging(IP) {
@@ -90,6 +107,24 @@ void destroyStaging(IP) {
         string(name: 'VM', value: IP),
     ]
 }
+
+void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
+    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+        sh """
+            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${USER}@${VM_CLIENT_IP} '
+                set -o errexit
+                set -o xtrace
+                echo "Checking Agent Status on Client Nodes";
+                sudo mkdir -p /srv/pmm-qa || :
+                sudo git clone --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa
+                sudo chmod -R 755 /srv/pmm-qa
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/agent_status.sh
+                bash -xe /srv/pmm-qa/pmm-tests/agent_status.sh
+            '
+        """
+    }
+}
+
 pipeline {
     agent {
         label 'min-focal-x64'
@@ -144,6 +179,10 @@ pipeline {
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
+        choice(
+            choices: ['docker', 'ovf', 'ami'],
+            description: "PMM Server installation type.",
+            name: 'SERVER_TYPE')
         string(
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
             description: 'PMM Server docker container version (image-name:version-tag)',
@@ -177,11 +216,11 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['15','14', '13', '12', '11'],
+            choices: ['17', '16', '15', '14', '13'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['16','15', '14', '13', '12'],
+            choices: ['17', '16', '15','14', '13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -189,7 +228,7 @@ pipeline {
             description: "MariaDB Server version",
             name: 'MD_VERSION')
         choice(
-            choices: ['7.0.7-4', '6.0.14-11', '5.0.26-22', '4.4.29-28'],
+            choices: ['8.0.1-1', '7.0.7-4', '6.0.14-11', '5.0.26-22', '4.4.29-28'],
             description: "Percona Server for MongoDB version",
             name: 'PSMDB_VERSION')
         choice(
@@ -208,17 +247,48 @@ pipeline {
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
                     sudo mkdir -p /srv/qa-integration || :
                     sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
                     sudo chmod -R 755 /srv/qa-integration
+
                 '''
             }
         }
         stage('Start Server') {
+            parallel {
+                stage('Setup Docker Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "docker" }
+                    }
+                    steps {
+                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--database external --database haproxy', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
+                    }
+                }
+                stage('Setup OVF Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "ovf" }
+                    }
+                    steps {
+                        runOVFStagingStart(DOCKER_VERSION, PMM_QA_GIT_BRANCH)
+                    }
+                }
+                stage('Setup AMI Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "ami" }
+                    }
+                    steps {
+                        runAMIStagingStart(DOCKER_VERSION)
+                    }
+                }
+            }
+        }
+        stage('Sanity check') {
             steps {
-                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--database external --database haproxy', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
+                sh '''
+                    timeout 100 bash -c 'while [[ ! "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)" =~ "200" ]]; do sleep 5; echo "$(curl -i -s --insecure -w "%{http_code}" \${PMM_URL}/ping)"; done' || false
+                '''
             }
         }
         stage('Setup PMM Clients') {
@@ -245,9 +315,11 @@ pipeline {
                 }
             }
         }
-        stage('Sanity check') {
+        stage('Disable upgrade on nightly PMM instance') {
             steps {
-                sh 'timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
+                sh """
+                    curl --location -i --insecure --request PUT "\${PMM_URL}/v1/server/settings' --header 'Content-Type: application/json' --data '{ "enable_updates": false }"
+                """
             }
         }
         stage('Setup Node') {
@@ -269,21 +341,40 @@ pipeline {
                 sleep 300
             }
         }
-        stage('Run Tests') {
+        stage('Check agent status') {
             parallel {
-                stage('Run UI - Tests') {
-                    options {
-                        timeout(time: 150, unit: "MINUTES")
-                    }
+                stage('Check Agent Status on ps single and mongo pss') {
                     steps {
-                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            sh """
-                                sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                                export PWD=\$(pwd);
-                                npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu' --override '{ "helpers": { "Playwright": { "browser": "firefox" }}}'
-                            """
-                        }
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_MYSQL, env.PMM_QA_GIT_BRANCH)
                     }
+                }
+                stage('Check Agent Status on ps & replication node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PS_GR, env.PMM_QA_GIT_BRANCH)
+                    }
+                }
+                stage('Check Agent Status on ms/md/pxc node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PXC, env.PMM_QA_GIT_BRANCH)
+                    }
+                }
+                stage('Check Agent Status on postgresql node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PGSQL, env.PMM_QA_GIT_BRANCH)
+                    }
+                }
+            }
+        }
+        stage('Run UI Tests') {
+            options {
+                timeout(time: 150, unit: "MINUTES")
+            }
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    sh """
+                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                    """
                 }
             }
         }
@@ -297,17 +388,27 @@ pipeline {
             script {
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
                     junit 'tests/output/*.xml'
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
                     junit 'tests/output/*.xml'
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
             script {
-                if(env.VM_NAME)
+                if (env.SERVER_TYPE == "ovf") {
+                    ovfStagingStopJob = build job: 'pmm-ovf-staging-stop', parameters: [
+                        string(name: 'VM', value: env.OVF_INSTANCE_NAME),
+                    ]
+                }
+                if (env.SERVER_TYPE == "ami") {
+                    amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
+                        string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
+                    ]
+                }
+                if(env.VM_NAME && env.SERVER_TYPE == "docker")
                 {
                     destroyStaging(VM_NAME)
                 }

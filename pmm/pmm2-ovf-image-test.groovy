@@ -66,7 +66,7 @@ pipeline {
             description: 'Postgre SQL Server version',
             name: 'PGSQL_VERSION')
         string(
-            defaultValue: '--addclient=haproxy,1 --setup-external-service --mongo-replica-for-backup --setup-bm-mysql',
+            defaultValue: '--addclient=haproxy,1 --setup-external-service --mo-version "8.0" --mongo-replica-for-backup --setup-bm-mysql',
             description: 'Configure PMM Clients. ps - Percona Server for MySQL, pxc - Percona XtraDB Cluster, ms - MySQL Community Server, md - MariaDB Server, MO - Percona Server for MongoDB, pgsql - Postgre SQL Server',
             name: 'CLIENTS')
         choice(
@@ -124,7 +124,7 @@ pipeline {
                         PUBLIC_IP:      ${PUBLIC_IP}
                     """
                     if (params.NOTIFY == "true") {
-                        slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                        slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         if (env.OWNER_SLACK) {
                             slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                         }
@@ -268,7 +268,7 @@ pipeline {
                     fi
                 '''
                 if (params.NOTIFY == "true") {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
                     if (env.OWNER_SLACK) {
                         slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished - https://${PUBLIC_IP}"
                     }
@@ -286,7 +286,7 @@ pipeline {
             '''
             script {
                 if (params.NOTIFY == "true") {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed - ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build failed - ${BUILD_URL}"
                     if (env.OWNER_SLACK) {
                         slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed - ${BUILD_URL}"
                     }

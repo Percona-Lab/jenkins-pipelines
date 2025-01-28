@@ -45,7 +45,7 @@ imageMap['docker-64gb']      = imageMap['micro-amazon']
 imageMap['docker-64gb-aarch64'] = 'ami-055495e6fc65e4321'
 
 priceMap = [:]
-priceMap['c5.xlarge']   = '0.13' // type=c5.xlarge, vCPU=2, memory=4GiB, saving=29%, interruption='<5%', price=0.071400
+priceMap['m5d.large']   = '0.13' // type=m5d.large, vCPU=2, memory=4GiB, saving=29%, interruption='<5%', price=0.071400
 priceMap['c5a.2xlarge']  = '0.25'  //type=c5a.2xlarge, vCPU=8, memory=16GiB, saving=58%, interruption='<5%', price=0.182000
 priceMap['g4ad.2xlarge'] = '0.33' //type=g4ad.2xlarge, vCPU=8, memory=32GiB, saving=63%, interruption='<5%', price=0.20
 priceMap['i3en.3xlarge'] = '0.72' // type=i3en.3xlarge, vCPU=16, memory=64GiB, saving=70%, interruption='<5%'
@@ -180,7 +180,7 @@ initMap['rpmMap'] = '''
     set -o xtrace
     RHVER=$(rpm --eval %rhel)
     ARCH=$(uname -m)
-    
+
     if ! mountpoint -q /mnt; then
         for DEVICE_NAME in $(lsblk -ndbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
             if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
@@ -201,6 +201,11 @@ initMap['rpmMap'] = '''
     echo "*  hard  nofile  65000" | sudo tee -a /etc/security/limits.conf
     echo "*  soft  nproc  65000"  | sudo tee -a /etc/security/limits.conf
     echo "*  hard  nproc  65000"  | sudo tee -a /etc/security/limits.conf
+
+    if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
+        sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
+        sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
+    fi
 
     until sudo yum makecache; do
         sleep 1
@@ -290,7 +295,7 @@ capMap['i3en.3xlarge'] = '30'
 capMap['i4g.4xlarge'] = '20'
 
 typeMap = [:]
-typeMap['micro-amazon']      = 'c5.xlarge'
+typeMap['micro-amazon']      = 'm5d.large'
 typeMap['docker']            = 'c5a.2xlarge'
 typeMap['docker-32gb']       = 'g4ad.2xlarge'
 typeMap['docker-64gb']       = 'i3en.3xlarge'
@@ -383,7 +388,7 @@ labelMap['docker-64gb-aarch64'] = ''
 
 jvmoptsMap = [:]
 jvmoptsMap['docker']           = '-Xmx512m -Xms512m'
-jvmoptsMap['docker-32gb']      = 
+jvmoptsMap['docker-32gb']      =
 jvmoptsMap['docker-64gb']      = jvmoptsMap['docker']
 jvmoptsMap['micro-amazon']     = jvmoptsMap['docker']
 jvmoptsMap['min-centos-7-x64'] = jvmoptsMap['docker']

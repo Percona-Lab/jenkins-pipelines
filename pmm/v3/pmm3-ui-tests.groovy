@@ -3,20 +3,10 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void uploadAllureArtifacts() {
-    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-        sh """
-            scp -r -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no \
-                tests/output/allure aws-jenkins@${MONITORING_HOST}:/home/aws-jenkins/allure-reports
-        """
-    }
-}
-
-void destroyStaging(IP) {
-    build job: 'aws-staging-stop', parameters: [
-        string(name: 'VM', value: IP),
-    ]
-}
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
 
 pipeline {
     agent {
@@ -126,40 +116,20 @@ pipeline {
             defaultValue: '3-dev-latest',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
-        choice(
-            choices: ['no', 'yes'],
-            description: "Use this instance only as a client host",
-            name: 'CLIENT_INSTANCE')
-        choice(
-            choices: ['no', 'yes'],
-            description: "Run Tests for OVF supported Features",
-            name: 'OVF_TEST')
         string(
-            defaultValue: '',
+            defaultValue: '@bm-mongo',
             description: "Run Tests for Specific Areas or cloud providers example: @gcp|@aws|@instances",
             name: 'TAG')
         choice(
             choices: ['no', 'yes'],
-            description: "Run Specified Tagged Tests",
-            name: 'RUN_TAGGED_TEST')
-        choice(
-            choices: ['no', 'yes'],
             description: 'Enable Pull Mode, if you are using this instance as Client Node',
             name: 'ENABLE_PULL_MODE')
-        string (
-            defaultValue: '',
-            description: 'Value for Server Public IP, to use this instance just as client',
-            name: 'SERVER_IP')
-        string(
-            defaultValue: 'pmm2023fortesting!',
-            description: 'pmm-server admin user default password',
-            name: 'ADMIN_PASSWORD')
         string(
             defaultValue: 'percona:5.7',
             description: 'Percona Server Docker Container Image',
             name: 'MYSQL_IMAGE')
         string(
-            defaultValue: 'perconalab/percona-distribution-postgresql:16.0',
+            defaultValue: 'perconalab/percona-distribution-postgresql:16.1',
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE')
         string(
@@ -167,26 +137,32 @@ pipeline {
             description: 'Percona Server MongoDb Docker Container Image',
             name: 'MONGO_IMAGE')
         string(
-            defaultValue: 'proxysql/proxysql:3.3.0',
+            defaultValue: 'proxysql/proxysql:2.3.0',
             description: 'ProxySQL Docker Container Image',
             name: 'PROXYSQL_IMAGE')
         string(
             defaultValue: 'v3',
-            description: 'Tag/Branch for pmm-qa repository',
+            description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH')
         text(
-            defaultValue: '--addclient=haproxy,1 --addclient=ps,1 --setup-external-service --setup-mysql-ssl --setup-mongodb-ssl --mongo-replica-for-backup',
+            defaultValue: '--database psmdb,COMPOSE_PROFILES=extra',
             description: '''
-            Configure PMM Clients
-            ms - MySQL (ex. --addclient=ms,1),
-            ps - Percona Server for MySQL (ex. --addclient=ps,1),
-            pxc - Percona XtraDB Cluster, --with-proxysql (to be used with proxysql only ex. --addclient=pxc,1 --with-proxysql),
-            md - MariaDB Server (ex. --addclient=md,1),
-            mo - Percona Server for MongoDB(ex. --addclient=mo,1),
-            modb - Official MongoDB version from MongoDB Inc (ex. --addclient=modb,1),
-            pgsql - Postgre SQL Server (ex. --addclient=pgsql,1)
-            pdpgsql - Percona Distribution for PostgreSQL (ex. --addclient=pdpgsql,1)
-            An example: --addclient=ps,1 --addclient=mo,1 --addclient=md,1 --addclient=pgsql,2 --addclient=modb,2
+            Configure PMM Clients:
+            --database ps - Percona Server for MySQL (ex: --database ps=5.7,QUERY_SOURCE=perfschema)
+            Additional options:
+                QUERY_SOURCE=perfschema|slowlog
+                SETUP_TYPE=replica(Replication)|gr(Group Replication)|(single node if no option passed)
+            --database mysql - Official MySQL (ex: --database mysql,QUERY_SOURCE=perfschema)
+            Additional options:
+                QUERY_SOURCE=perfschema|slowlog
+            --database psmdb - Percona Server for MongoDB (ex: --database psmdb=latest,SETUP_TYPE=pss)
+            Additional options:
+                SETUP_TYPE=pss(Primary-Secondary-Secondary)|psa(Primary-Secondary-Arbiter)|shards(Sharded cluster)
+            --database pdpgsql - Percona Distribution for PostgreSQL (ex: --database pdpgsql=16)
+            --database pgsql - Official PostgreSQL Distribution (ex: --database pgsql=16)
+            --database pxc - Percona XtraDB Cluster, (to be used with proxysql only, ex: --database pxc)
+            -----
+            Example: --database ps=5.7,QUERY_SOURCE=perfschema --database psmdb,SETUP_TYPE=pss
             ''',
             name: 'CLIENTS')
     }
@@ -197,11 +173,12 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
+                    env.ADMIN_PASSWORD = "adminV3"
                     if (env.TAG != "") {
                         currentBuild.description = env.TAG
                     }
                     env.PMM_REPO="experimental"
-                    if (env.CLIENT_VERSION == "pmm-rc") {
+                    if (env.CLIENT_VERSION == "pmm3-rc") {
                         env.PMM_REPO="testing"
                     }
                 }
@@ -212,12 +189,6 @@ pipeline {
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 sh '''
-                    sudo mkdir -p /srv/pmm-qa || :
-                    pushd /srv/pmm-qa
-                        sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                        sudo git checkout \${PMM_QA_GIT_COMMIT_HASH}
-                    popd
-                    /srv/pmm-qa/pmm-tests/install_k8s_tools.sh --kubectl --sudo
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
@@ -233,14 +204,11 @@ pipeline {
         stage('Setup PMM Server') {
             parallel {
                 stage('Setup Server Instance') {
-                    when {
-                        expression { env.CLIENT_INSTANCE == "no" }
-                    }
                     steps {
                         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                             sh """
                                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-                                PWD=\$(pwd) MYSQL_IMAGE=\${MYSQL_IMAGE} MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
+                                PWD=\$(pwd) MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
                             """
                         }
                         waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
@@ -249,6 +217,8 @@ pipeline {
                         waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
                         sh '''
                             docker exec pmm-server change-admin-password ${ADMIN_PASSWORD}
+                        '''
+                        sh '''
                             bash -x testdata/db_setup.sh
                         '''
                         script {
@@ -258,38 +228,54 @@ pipeline {
                         }
                     }
                 }
-                stage('Setup PMM Server Information') {
-                    when {
-                        expression { env.CLIENT_INSTANCE == "yes" }
-                    }
-                    steps {
-                        script {
-                            env.PMM_URL = "http://admin:${env.ADMIN_PASSWORD}@${SERVER_IP}"
-                            env.PMM_UI_URL = "http://${SERVER_IP}/"
-                        }
-                    }
-                }
             }
         }
-        stage('Setup Client for PMM-Server') {
+        stage('Setup Clients for PMM-Server') {
             steps {
-                setupPMMClient(env.SERVER_IP, CLIENT_VERSION, 'pmm', ENABLE_PULL_MODE, 'no', 'yes', 'compose_setup', ADMIN_PASSWORD)
-                sh """
-                    set -o errexit
-                    set -o xtrace
-                    export PATH=\$PATH:/usr/sbin
-                    if [[ \$CLIENT_VERSION != 3-dev-latest ]]; then
-                        export PATH="`pwd`/pmm-client/bin:$PATH"
-                    fi
-                    export PMM_REPO=${env.PMM_REPO}
-                    bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
-                        --download \
-                        ${CLIENTS} \
-                        --pmm \
-                        --pmm-server-ip=\$SERVER_IP
-                    sleep 10
-                    pmm-admin list
-                """
+//                 sh '''
+//                   echo "started client setup"
+//                 '''
+//                 setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', ENABLE_PULL_MODE, 'no', 'no', 'compose_setup', ADMIN_PASSWORD, 'no')
+//                 sh '''
+//                   echo "installed local client"
+//                 '''
+                script {
+                        env.PMM_REPO = params.CLIENT_VERSION == "pmm3-rc" ? "testing" : "experimental"
+                }
+                sh '''
+                        set -o errexit
+                        set -o xtrace
+                        # Exit if no CLIENTS are provided
+                        [ -z "${CLIENTS// }" ] && exit 0
+
+                        export PATH=$PATH:/usr/sbin
+                        export PMM_CLIENT_VERSION=${CLIENT_VERSION}
+                        if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
+                            export PMM_CLIENT_VERSION="3-dev-latest"
+                        fi
+
+                        docker network create pmm-qa || true
+
+                        sudo mkdir -p /srv/qa-integration || :
+                        pushd /srv/qa-integration
+                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+                        popd
+
+                        sudo chown ec2-user -R /srv/qa-integration
+
+                        pushd /srv/qa-integration/pmm_qa
+                            echo "Setting docker based PMM clients"
+                            python3 -m venv virtenv
+                            . virtenv/bin/activate
+                            pip install --upgrade pip
+                            pip install -r requirements.txt
+
+                            python pmm-framework.py --v \
+                                --pmm-server-password=${ADMIN_PASSWORD} \
+                                --client-version=${PMM_CLIENT_VERSION} \
+                                ${CLIENTS}
+                        popd
+                    '''
             }
         }
         stage('Setup') {
@@ -314,59 +300,9 @@ pipeline {
                 }
             }
         }
-        stage('Run UI Tests OVF') {
-            options {
-                timeout(time: 90, unit: "MINUTES")
-            }
-            when {
-                expression { env.OVF_TEST == "yes" }
-            }
-            steps {
-                withCredentials([
-                    aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'),
-                    aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')
-                ]) {
-                    sh """
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        export PWD=\$(pwd);
-                        export PATH=\$PATH:/usr/sbin
-                        if [[ \$CLIENT_VERSION != 3-dev-latest ]]; then
-                           export PATH="`pwd`/pmm-client/bin:$PATH"
-                        fi
-                        export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@not-ovf)^(?!.*@qan)^(?!.*@dbaas)^(?!.*@dashboards)^(?!.*@menu)^(?!.*@pmm-portal-upgrade)^(?!.*@upgrade-dbaas)'
-                    """
-                }
-            }
-        }
-        stage('Run UI Tests Docker') {
-            options {
-                timeout(time: 60, unit: "MINUTES")
-            }
-            when {
-                expression { env.OVF_TEST == "no" && env.RUN_TAGGED_TEST == "no" }
-            }
-            steps {
-                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh """
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        export PWD=\$(pwd);
-                        export PATH=\$PATH:/usr/sbin
-                        if [[ \$CLIENT_VERSION != 3-dev-latest ]]; then
-                           export PATH="`pwd`/pmm-client/bin:$PATH"
-                        fi
-                        export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep '(?=.*)^(?!.*@not-ui-pipeline)^(?!.*@dbaas)^(?!.*@ami-upgrade)^(?!.*@pmm-upgrade)^(?!.*@qan)^(?!.*@nightly)^(?!.*@settings)^(?!.*@menu)^(?!.*@pmm-portal-upgrade)^(?!.*@upgrade-dbaas)'
-                    """
-                }
-            }
-        }
         stage('Run UI Tests Tagged') {
             options {
                 timeout(time: 60, unit: "MINUTES")
-            }
-            when {
-                expression { env.OVF_TEST == "no" && env.RUN_TAGGED_TEST == "yes" }
             }
             steps {
                 script {
@@ -381,7 +317,7 @@ pipeline {
                            export PATH="`pwd`/pmm-client/bin:$PATH"
                         fi
                         export CHROMIUM_PATH=/usr/bin/chromium
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --grep ${CODECEPT_TAG}
+                        ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep ${CODECEPT_TAG}
                     """
                 }
             }
@@ -408,18 +344,7 @@ pipeline {
                 sudo chown -R ec2-user:ec2-user . || true
             '''
             script {
-                if (env.VM_NAME) {
-                    destroyStaging(VM_NAME)
-                }
-                if (env.VM_CLIENT_NAME) {
-                    destroyStaging(VM_CLIENT_NAME)
-                }
-            }
-            script {
-                env.PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
-                if (env.OVF_TEST == "yes") {
-                    env.PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
-                }
+                env.PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-agent-full.log'
                 archiveArtifacts artifacts: 'logs.zip'
@@ -442,8 +367,8 @@ pipeline {
         }
         failure {
             script {
-                archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
+                archiveArtifacts artifacts: 'tests/output/*.png'
+                slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
         }
     }

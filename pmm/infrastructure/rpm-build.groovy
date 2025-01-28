@@ -10,21 +10,19 @@ pipeline {
         )
     }
     options {
-        skipStagesAfterUnstable()
-        buildDiscarder(logRotator(artifactNumToKeepStr: '10'))
+        buildDiscarder(logRotator(artifactNumToKeepStr: '20'))
     }
     environment {
         IMAGE_REGISTRY = "public.ecr.aws/e7j3v3n0"
         DOCKER_TAG = "rpmbuild"
     }
     // Tag versions: (see what's available for download at https://gallery.ecr.aws/e7j3v3n0/rpmbuild)
-    // rpmbuild:2   - PMM2 el7
-    // rpmbuild:ol9 - PMM2 el9
+    // rpmbuild:2   - PMM2 el9
     // rpmbuild:3   - PMM3 el9
     stages {
         stage('Prepare') {
             steps {
-                git poll: true,
+                git changelog: false,
                     branch: PMM_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm.git'
             }
@@ -53,19 +51,11 @@ pipeline {
                 }
             }
         }
-        stage('Build rpmbuild images el7') {
-            steps {
-                sh '''
-                    cd build/docker/rpmbuild/
-                    docker buildx build --pull --platform linux/amd64,linux/arm64 --tag ${IMAGE_REGISTRY}/${DOCKER_TAG}:2 --push .
-                '''
-            }
-        }
         stage('Build rpmbuild images ol9') {
             steps {
                 sh '''
                     cd build/docker/rpmbuild/
-                    docker buildx build --pull --platform linux/amd64,linux/arm64 --tag ${IMAGE_REGISTRY}/${DOCKER_TAG}:ol9 -f Dockerfile.el9 --push .
+                    docker buildx build --pull --platform linux/amd64,linux/arm64 --tag ${IMAGE_REGISTRY}/${DOCKER_TAG}:2 -f Dockerfile.el9 --push .
                 '''
             }
         }

@@ -49,21 +49,27 @@ pipeline {
         }
         stage('Build pmm3 client for amd64') {
             steps {
-                build job: 'pmm3-client-autobuild-amd', parameters: [
-                    string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
-                    string(name: 'DESTINATION', value: params.DESTINATION)
-                ]
+                script {
+                    pmmClientAmd64 = build job: 'pmm3-client-autobuild-amd', parameters: [
+                        string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                        string(name: 'DESTINATION', value: params.DESTINATION)
+                    ]
+                    env.TARBALL_AMD64_URL = pmmClientAmd64.buildVariables.TARBALL_URL
+                }
             }
         }
         stage('Build pmm3 client for arm64') {
             steps {
-                build job: 'pmm3-client-autobuild-arm', parameters: [
-                    string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
-                    string(name: 'DESTINATION', value: params.DESTINATION)
-                ]
+                script {
+                    pmmClientArm64 = build job: 'pmm3-client-autobuild-arm', parameters: [
+                        string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
+                        string(name: 'DESTINATION', value: params.DESTINATION)
+                    ]
+                    env.TARBALL_ARM64_URL = pmmClientArm64.buildVariables.TARBALL_URL
+                }
             }
         }
-        stage('Push pmm2 client multi-arch images') {
+        stage('Push pmm3 client multi-arch images') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''

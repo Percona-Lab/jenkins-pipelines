@@ -64,7 +64,7 @@ priceMap['m4.xlarge'] = '0.15' // type=m4.xlarge, vCPU=4, memory=16GiB, saving=6
 priceMap['m1.medium'] = '0.13' // centos6
 priceMap['c5.2xlarge'] = '0.28' // type=c5.2xlarge, vCPU=8, memory=16GiB, saving=53%, interruption='<5%', price=0.216700
 priceMap['r3.2xlarge'] = '0.21' // centos6
-priceMap['r5a.2xlarge'] = '0.25' // type=r5a.2xlarge, vCPU=8, memory=64GiB, saving=65%, interruption='<5%', price=0.200200
+priceMap['c5.4xlarge'] = '0.40' // type=c5.4xlarge, vCPU=16, memory=64GiB, saving=65%, interruption='<5%', price=0.200200
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -432,13 +432,13 @@ initMap['performance-centos-6-x64']  = '''
 
 capMap = [:]
 capMap['c5.2xlarge'] = '40'
-capMap['r5a.2xlarge'] = '40'
+capMap['c5.4xlarge'] = '80'
 capMap['r3.2xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 'm4.xlarge'
 typeMap['docker']       = 'c5.2xlarge'
-typeMap['docker-32gb']  = 'r5a.2xlarge'
+typeMap['docker-32gb']  = 'c5.4xlarge'
 
 typeMap['performance-centos-6-x64'] = typeMap['docker-32gb']
 
@@ -513,40 +513,40 @@ execMap['ramdisk-bookworm-x64'] = execMap['docker-32gb']
 execMap['performance-centos-6-x64']   = execMap['docker-32gb']
 
 devMap = [:]
-devMap['docker']            = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker']            = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb']       = devMap['docker']
 devMap['micro-amazon']      = devMap['docker']
-devMap['min-bionic-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-bionic-x64']    = '/dev/sda1=:12:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-focal-x64']     = devMap['min-bionic-x64']
 devMap['min-jammy-x64']     = devMap['min-bionic-x64']
 devMap['min-noble-x64']     = devMap['min-bionic-x64']
 devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
-devMap['min-centos-8-x64']  = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['min-ol-8-x64']      = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['min-ol-9-x64']      = '/dev/sda1=:10:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-centos-8-x64']  = '/dev/sda1=:12:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-ol-8-x64']      = '/dev/sda1=:12:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-ol-9-x64']      = '/dev/sda1=:12:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
-devMap['min-buster-x64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
-devMap['min-bullseye-x64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
-devMap['min-bookworm-x64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-buster-x64']    = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-bullseye-x64']  = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-bookworm-x64']  = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
-devMap['min-centos-6-x32']  = '/dev/sda=:8:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-centos-6-x32']  = '/dev/sda=:12:true:gp2,/dev/sdd=:80:true:gp2'
 
-devMap['ramdisk-centos-6-x64'] = '/dev/sda1=:8:true:gp2'
+devMap['ramdisk-centos-6-x64'] = '/dev/sda1=:12:true:gp2'
 devMap['ramdisk-centos-7-x64'] = devMap['ramdisk-centos-6-x64']
-devMap['ramdisk-centos-8-x64'] = '/dev/sda1=:10:true:gp2'
-devMap['ramdisk-ol-8-x64']     = '/dev/sda1=:10:true:gp2'
-devMap['ramdisk-ol-9-x64']     = '/dev/sda1=:10:true:gp2'
+devMap['ramdisk-centos-8-x64'] = '/dev/sda1=:12:true:gp2'
+devMap['ramdisk-ol-8-x64']     = '/dev/sda1=:12:true:gp2'
+devMap['ramdisk-ol-9-x64']     = '/dev/sda1=:12:true:gp2'
 devMap['ramdisk-bionic-x64']   = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-focal-x64']    = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-jammy-x64']    = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-noble-x64']    = devMap['ramdisk-centos-6-x64']
 devMap['ramdisk-xenial-x64']   = devMap['ramdisk-centos-6-x64']
-devMap['ramdisk-stretch-x64']  = 'xvda=:8:true:gp2'
-devMap['ramdisk-buster-x64']   = '/dev/xvda=:8:true:gp2'
-devMap['ramdisk-bullseye-x64'] = '/dev/xvda=:8:true:gp2'
-devMap['ramdisk-bookworm-x64'] = '/dev/xvda=:8:true:gp2'
+devMap['ramdisk-stretch-x64']  = 'xvda=:12:true:gp2'
+devMap['ramdisk-buster-x64']   = '/dev/xvda=:12:true:gp2'
+devMap['ramdisk-bullseye-x64'] = '/dev/xvda=:12:true:gp2'
+devMap['ramdisk-bookworm-x64'] = '/dev/xvda=:12:true:gp2'
 
 devMap['performance-centos-6-x64'] = '/dev/sda1=:8:true:gp2,/dev/sdd=:120:true:gp2'
 

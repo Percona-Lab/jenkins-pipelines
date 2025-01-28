@@ -98,34 +98,34 @@ pipeline {
                          docker tag percona-backup-mongodb perconalab/percona-backup-mongodb:\$MIN_VER-arm64
                          docker push perconalab/percona-backup-mongodb:\$MIN_VER-arm64
 
-                         docker manifest create perconalab/percona-backup-mongodb:\$MIN_VER-multi \
-                            perconalab/percona-backup-mongodb:\$MIN_VER \
+                         docker manifest create perconalab/percona-backup-mongodb:\$MIN_VER \
+                            perconalab/percona-backup-mongodb:\$MIN_VER-amd64 \
                             perconalab/percona-backup-mongodb:\$MIN_VER-arm64
-                         docker manifest annotate perconalab/percona-backup-mongodb:\$MIN_VER-multi \
+                         docker manifest annotate perconalab/percona-backup-mongodb:\$MIN_VER \
                             perconalab/percona-backup-mongodb:\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-backup-mongodb:\$MIN_VER-multi \
-                            perconalab/percona-backup-mongodb:\$MIN_VER --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-backup-mongodb:\$MIN_VER-multi
-                         docker manifest push perconalab/percona-backup-mongodb:\$MIN_VER-multi
+                         docker manifest annotate perconalab/percona-backup-mongodb:\$MIN_VER \
+                            perconalab/percona-backup-mongodb:\$MIN_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-backup-mongodb:\$MIN_VER
+                         docker manifest push perconalab/percona-backup-mongodb:\$MIN_VER
 
-                         docker manifest create perconalab/percona-backup-mongodb:\$MAJ_VER-multi \
-                            perconalab/percona-backup-mongodb:\$MAJ_VER \
+                         docker manifest create perconalab/percona-backup-mongodb:\$MAJ_VER \
+                            perconalab/percona-backup-mongodb:\$MAJ_VER-amd64 \
                             perconalab/percona-backup-mongodb:\$MAJ_VER-arm64
-                         docker manifest annotate perconalab/percona-backup-mongodb:\$MAJ_VER-multi \
+                         docker manifest annotate perconalab/percona-backup-mongodb:\$MAJ_VER \
                             perconalab/percona-backup-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-backup-mongodb:\$MAJ_VER-multi \
-                            perconalab/percona-backup-mongodb:\$MAJ_VER --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-backup-mongodb:\$MAJ_VER-multi
-                         docker manifest push perconalab/percona-backup-mongodb:\$MAJ_VER-multi
+                         docker manifest annotate perconalab/percona-backup-mongodb:\$MAJ_VER \
+                            perconalab/percona-backup-mongodb:\$MAJ_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-backup-mongodb:\$MAJ_VER
+                         docker manifest push perconalab/percona-backup-mongodb:\$MAJ_VER
 
                          if [ ${params.LATEST} = "yes" ]; then
                            docker manifest create perconalab/percona-backup-mongodb:latest \
-                              perconalab/percona-backup-mongodb:\$MAJ_VER \
+                              perconalab/percona-backup-mongodb:\$MAJ_VER-amd64 \
                               perconalab/percona-backup-mongodb:\$MAJ_VER-arm64
                            docker manifest annotate perconalab/percona-backup-mongodb:latest \
                               perconalab/percona-backup-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
                            docker manifest annotate perconalab/percona-backup-mongodb:latest \
-                              perconalab/percona-backup-mongodb:\$MAJ_VER --os linux --arch amd64
+                              perconalab/percona-backup-mongodb:\$MAJ_VER-amd64 --os linux --arch amd64
                            docker manifest inspect perconalab/percona-backup-mongodb:latest
                            docker manifest push perconalab/percona-backup-mongodb:latest
 			 fi
@@ -148,34 +148,34 @@ pipeline {
                          docker tag percona-backup-mongodb percona/percona-backup-mongodb:\$MIN_VER-arm64
                          docker push percona/percona-backup-mongodb:\$MIN_VER-arm64
 
-                         docker manifest create percona/percona-backup-mongodb:\$MIN_VER-multi \
-                            percona/percona-backup-mongodb:\$MIN_VER \
+                         docker manifest create percona/percona-backup-mongodb:\$MIN_VER \
+                            percona/percona-backup-mongodb:\$MIN_VER-amd64 \
                             percona/percona-backup-mongodb:\$MIN_VER-arm64
-                         docker manifest annotate percona/percona-backup-mongodb:\$MIN_VER-multi \
+                         docker manifest annotate percona/percona-backup-mongodb:\$MIN_VER \
                             percona/percona-backup-mongodb:\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-backup-mongodb:\$MIN_VER-multi \
-                            percona/percona-backup-mongodb:\$MIN_VER --os linux --arch amd64
-                         docker manifest inspect percona/percona-backup-mongodb:\$MIN_VER-multi
-                         docker manifest push percona/percona-backup-mongodb:\$MIN_VER-multi
+                         docker manifest annotate percona/percona-backup-mongodb:\$MIN_VER \
+                            percona/percona-backup-mongodb:\$MIN_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/percona-backup-mongodb:\$MIN_VER
+                         docker manifest push percona/percona-backup-mongodb:\$MIN_VER
 
-                         docker manifest create percona/percona-backup-mongodb:\$MAJ_VER-multi \
-                            percona/percona-backup-mongodb:\$MAJ_VER \
+                         docker manifest create percona/percona-backup-mongodb:\$MAJ_VER \
+                            percona/percona-backup-mongodb:\$MAJ_VER-amd64 \
                             percona/percona-backup-mongodb:\$MAJ_VER-arm64
-                         docker manifest annotate percona/percona-backup-mongodb:\$MAJ_VER-multi \
+                         docker manifest annotate percona/percona-backup-mongodb:\$MAJ_VER \
                             percona/percona-backup-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-backup-mongodb:\$MAJ_VER-multi \
-                            percona/percona-backup-mongodb:\$MAJ_VER --os linux --arch amd64
-                         docker manifest inspect percona/percona-backup-mongodb:\$MAJ_VER-multi
-                         docker manifest push percona/percona-backup-mongodb:\$MAJ_VER-multi
+                         docker manifest annotate percona/percona-backup-mongodb:\$MAJ_VER \
+                            percona/percona-backup-mongodb:\$MAJ_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/percona-backup-mongodb:\$MAJ_VER
+                         docker manifest push percona/percona-backup-mongodb:\$MAJ_VER
 
                          if [ ${params.LATEST} = "yes" ]; then
                            docker manifest create percona/percona-backup-mongodb:latest \
-                              percona/percona-backup-mongodb:\$MAJ_VER \
+                              percona/percona-backup-mongodb:\$MAJ_VER-amd64 \
                               percona/percona-backup-mongodb:\$MAJ_VER-arm64
                            docker manifest annotate percona/percona-backup-mongodb:latest \
                               percona/percona-backup-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
                            docker manifest annotate percona/percona-backup-mongodb:latest \
-                              percona/percona-backup-mongodb:\$MAJ_VER --os linux --arch amd64
+                              percona/percona-backup-mongodb:\$MAJ_VER-amd64 --os linux --arch amd64
                            docker manifest inspect percona/percona-backup-mongodb:latest
                            docker manifest push percona/percona-backup-mongodb:latest
                          fi

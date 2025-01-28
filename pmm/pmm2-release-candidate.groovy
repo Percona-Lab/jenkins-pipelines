@@ -21,7 +21,8 @@ void runPMM2ClientAutobuild(String SUBMODULES_GIT_BRANCH, String DESTINATION) {
         string(name: 'GIT_BRANCH', value: SUBMODULES_GIT_BRANCH),
         string(name: 'DESTINATION', value: DESTINATION)
     ]
-    env.TARBALL_URL = pmm2Client.buildVariables.TARBALL_URL
+    env.TARBALL_AMD64_URL = pmm2Client.buildVariables.TARBALL_AMD64_URL
+    env.TARBALL_ARM64_URL = pmm2Client.buildVariables.TARBALL_ARM64_URL
 }
 
 void runPMM2AMIBuild(String SUBMODULES_GIT_BRANCH, String RELEASE_CANDIDATE) {
@@ -167,6 +168,10 @@ pipeline {
             choices: ['no', 'yes'],
             description: 'Recreate Release branches, Option to be used only to recreate release branches',
             name: 'REMOVE_RELEASE_BRANCH')
+        string(
+            defaultValue: '#pmm',
+            description: 'Channel to send notifications to',
+            name: 'NOTIFICATION_CHANNEL')
     }
     stages {
         stage('Update API descriptors') {
@@ -188,10 +193,10 @@ pipeline {
                             git config --global user.name "PMM Jenkins"
                             export GIT_SSH_COMMAND="/usr/bin/ssh -i ${SSHKEY} -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null"
 
-                            docker run --rm -v $PWD/.:/pmm public.ecr.aws/e7j3v3n0/rpmbuild:ol9 sh -c '
+                            docker run --rm -v $PWD/.:/pmm public.ecr.aws/e7j3v3n0/rpmbuild:2 sh -c '
                                 cd /pmm
                                 make init
-                                make descriptors
+                                make -C api descriptors
                             '
 
                             API_DESCRIPTOR=$(git diff --text | grep -q 'descriptor\\.bin' && echo "CHANGED" || echo "NOT_CHANGED")
@@ -256,7 +261,7 @@ pipeline {
                 script {
                     currentBuild.description = "$VERSION"
                     slackSend botUser: true,
-                        channel: '#pmm-dev',
+                        channel: env.NOTIFICATION_CHANNEL,
                         color: '#0892d0',
                         message: "Release candidate PMM $VERSION build has started. You can check progress at: ${BUILD_URL}"
                     env.EXIST = sh (
@@ -369,14 +374,15 @@ pipeline {
     post {
         success {
             slackSend botUser: true,
-                      channel: '#pmm-dev',
+                      channel: env.NOTIFICATION_CHANNEL,
                       color: '#00FF00',
                       message: """New Release Candidate is out :rocket:
 Server: perconalab/pmm-server:${VERSION}-rc
 Client: perconalab/pmm-client:${VERSION}-rc
 OVA: https://percona-vm.s3.amazonaws.com/PMM2-Server-${VERSION}.ova
 AMI: ${env.AMI_ID}
-Tarball: ${env.TARBALL_URL}
+Tarball AMD64: ${env.TARBALL_AMD64_URL}
+Tarball ARM64: ${env.TARBALL_ARM64_URL}
 ${env.TEST_URL}
 ${env.SCAN_REPORT_URL}
                       """

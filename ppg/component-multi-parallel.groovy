@@ -17,7 +17,7 @@ pipeline {
             choices: repoList()
         )
         string(
-            defaultValue: 'ppg-16.4',
+            defaultValue: 'ppg-17.2',
             description: 'PPG version for test',
             name: 'VERSION'
          )
@@ -30,31 +30,31 @@ pipeline {
             description: 'PGSM version',
             name: 'PGSM_VERSION')
         string(
-            defaultValue: '4.5.2',
+            defaultValue: '4.5.4',
             description: 'pgpool version',
             name: 'PGPOOL_VERSION')
         string(
-            defaultValue: '3.3.6',
+            defaultValue: '3.3.7',
             description: 'postgis version',
             name: 'POSTGIS_VERSION')
         string(
-            defaultValue: '16.0',
+            defaultValue: '17.0',
             description: ' version',
             name: 'PGAUDIT_VERSION')
         string(
-            defaultValue: 'ver_1.5.0',
+            defaultValue: 'ver_1.5.1',
             description: 'PG_REPACK version',
             name: 'PG_REPACK_VERSION')
         string(
-            defaultValue: 'v3.3.2',
+            defaultValue: 'v4.0.3',
             description: 'Patroni version',
             name: 'PATRONI_VERSION')
         string(
-            defaultValue: 'release/2.53',
+            defaultValue: 'release/2.54.0',
             description: 'pgbackrest version',
             name: 'PGBACKREST_VERSION')
         string(
-            defaultValue: 'REL4_0_1',
+            defaultValue: 'REL4_1_0',
             description: 'pgaudit13_set_user version',
             name: 'SETUSER_VERSION')
         string(
@@ -69,6 +69,10 @@ pipeline {
             defaultValue: 'wal2json_2_6',
             description: 'wal2json version',
             name: 'WAL2JSON_VERSION')
+        string(
+            defaultValue: '0.8.0',
+            description: 'pgvector version',
+            name: 'PGVECTOR_VERSION')
         string(
             defaultValue: 'yes',
             description: 'Destroy VM after tests',
@@ -316,6 +320,27 @@ pipeline {
                     catch (err) {
                         currentBuild.result = "FAILURE"
                         echo "Stage 'Test pgbouncer' failed, but we continue"
+                    }
+                }
+            }
+        }
+        stage ('Test pgvector') {
+            steps {
+                script {
+                    try {
+                        build job: 'component-generic-parallel', parameters: [
+                        string(name: 'VERSION', value: "${env.VERSION}"),
+                        string(name: 'REPO', value: "${env.REPO}"),
+                        string(name: 'PRODUCT', value: "pgvector"),
+                        string(name: 'COMPONENT_REPO', value: "https://github.com/pgvector/pgvector.git"),
+                        string(name: 'COMPONENT_VERSION', value: "${env.PGVECTOR_VERSION}"),
+                        string(name: 'TEST_BRANCH', value: "${env.TESTING_BRANCH}"),
+                        string(name: 'DESTROY_ENV', value: "${env.DESTROY_ENV}"),
+                        ]
+                    }
+                    catch (err) {
+                        currentBuild.result = "FAILURE"
+                        echo "Stage 'Test pgvector' failed, but we continue"
                     }
                 }
             }

@@ -91,12 +91,12 @@ fi
 
 # Enable devtoolset if XB_MAJOR_VERSION is 8 and for  CentOS 7
 if [[ "${DOCKER_OS}" = "centos-7" ]] || [[ "${DOCKER_OS}" = "asan" ]]; then
-  if [[ ${XB_VERSION_MAJOR} -eq 8 ]] && [[ -f /opt/rh/devtoolset-10/enable ]]; then
+  if [[ ${XB_VERSION_MAJOR} -ge 8 ]] && [[ -f /opt/rh/devtoolset-10/enable ]]; then
     source /opt/rh/devtoolset-10/enable
   fi
 fi
 if [[ "${DOCKER_OS}" = "centos-8" ]]; then
-  if [[ ${XB_VERSION_MAJOR} -eq 8 ]] && [[ -f /opt/rh/gcc-toolset-10/enable ]]; then
+  if [[ ${XB_VERSION_MAJOR} -ge 8 ]] && [[ -f /opt/rh/gcc-toolset-10/enable ]]; then
     source /opt/rh/gcc-toolset-10/enable
   fi
 fi

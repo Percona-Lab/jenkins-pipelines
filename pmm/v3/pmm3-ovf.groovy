@@ -8,9 +8,13 @@ pipeline {
             description: 'Tag/Branch for pmm repository',
             name: 'PMM_BRANCH')
         string(
-            defaultValue: 'docker.io/percona/pmm-server:3-dev-latest',
-            description: 'Docker image for PMM Server running in the AMI',
+            defaultValue: 'docker.io/perconalab/pmm-server:3-dev-latest',
+            description: 'Docker image for PMM Server running in the OVA',
             name: 'PMM_SERVER_IMAGE')
+        string(
+            defaultValue: 'docker.io/perconalab/watchtower:dev-latest',
+            description: 'Docker image for Watchtower running in the OVA',
+            name: 'WATCHTOWER_IMAGE')
         choice(
             choices: ['no', 'yes'],
             description: "Build Release Candidate?",
@@ -33,9 +37,8 @@ pipeline {
                     env.PMM_VERSION = '3-dev-latest'
                     if (params.RELEASE_CANDIDATE == 'yes') {
                         // release branch should be in the format: pmm-3.x.y
-                        env.PMM_VERSION = PMM_BRANCH.split('-')[1] 
-                    }
-                    if (params.PMM_BRANCH != 'v3') {
+                        env.PMM_VERSION = PMM_BRANCH.split('-')[1]
+                    } else if (params.PMM_BRANCH != 'v3') {
                         env.PMM_VERSION = '3-dev-' + PMM_BRANCH
                     }
                 }
@@ -50,7 +53,7 @@ pipeline {
                     '''
                 }                
                 slackSend botUser: true,
-                          channel: '#pmm-ci',
+                          channel: '#pmm-notifications',
                           color: '#0000FF',
                           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 checkout([$class: 'GitSCM', 
@@ -72,7 +75,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     dir('build') {
-                        sh "PMM_SERVER_IMAGE=${PMM_SERVER_IMAGE}  make pmm-ovf"
+                        sh "PMM_SERVER_IMAGE=${PMM_SERVER_IMAGE} WATCHTOWER_IMAGE=${WATCHTOWER_IMAGE} make pmm-ovf"
                     }
                 }
                 sh 'ls */*/PMM3-Server-*.ova | cut -d "/" -f 2 > IMAGE'
@@ -143,13 +146,13 @@ pipeline {
                     currentBuild.description = "RC Build, Image: " + env.PMM3_SERVER_OVA_S3
                     slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} RC build finished, Image: " + env.PMM3_SERVER_OVA_S3
                 } else {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, Image: " + env.PMM3_SERVER_OVA_S3
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, Image: " + env.PMM3_SERVER_OVA_S3
                 }
             }
         }
         failure {
             echo "Pipeline failed"
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
+            slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build failed ${BUILD_URL}"
         }
         cleanup {
             deleteDir()

@@ -77,27 +77,24 @@ pipeline {
         stage('Build client docker') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    withEnv(['PATH_TO_SCRIPTS=' + env.PATH_TO_SCRIPTS, 'DOCKER_RC_TAG=' + env.DOCKER_RC_TAG, 'DOCKER_LATEST_TAG=' + env.DOCKER_LATEST_TAG]) {
-                        sh '''
-                            echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                            set -o xtrace
+                    sh '''
+                        echo "${PASS}" | docker login -u "${USER}" --password-stdin
+                        set -o xtrace
 
-                            ##export PUSH_DOCKER=1
-                            export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')-arm64
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')-arm64
 
-                            ${PATH_TO_SCRIPTS}/build-client-docker
+                        ${PATH_TO_SCRIPTS}/build-client-docker
 
-                            if [ -n "${DOCKER_RC_TAG}" ]; then
-                                docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_RC_TAG}
-                                docker push perconalab/pmm-client:${DOCKER_RC_TAG}
-                            else
-                                docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_LATEST_TAG}
-                                docker push perconalab/pmm-client:${DOCKER_LATEST_TAG}
-                            fi
+                        if [ -n "${DOCKER_RC_TAG}" ]; then
+                            docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_RC_TAG}
+                            docker push perconalab/pmm-client:${DOCKER_RC_TAG}
+                        else
+                            docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_LATEST_TAG}
+                            docker push perconalab/pmm-client:${DOCKER_LATEST_TAG}
+                        fi
 
-                            docker push $DOCKER_CLIENT_TAG
-                        '''
-                    }
+                        docker push $DOCKER_CLIENT_TAG
+                    '''
                 }
             }
         }
@@ -111,7 +108,7 @@ pipeline {
                 stage('Build client source rpm EL9') {
                     steps {
                         sh """
-                            ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                            ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:2
                         """
                     }
                 }
@@ -133,7 +130,7 @@ pipeline {
                 stage('Build client binary rpm EL9') {
                     steps {
                         sh """
-                            ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                            ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:2
                         """
                     }
                 }
@@ -221,7 +218,7 @@ pipeline {
         success {
             script {
                 env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm2-client-arm/pmm2-client-latest-${BUILD_ID}.tar.gz"
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
                     slackSend botUser: true, channel: '@nailya.kutlubaeva', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo"
                     if (params.DESTINATION == "testing") {
                       currentBuild.description = "RC Build, tarball: " + env.TARBALL_URL
@@ -235,7 +232,7 @@ pipeline {
         failure {
             script {
                 echo "Pipeline failed"
-                slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
             }
         }

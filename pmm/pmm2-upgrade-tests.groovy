@@ -119,7 +119,7 @@ pipeline {
             description: 'Perform Docker-way Upgrade?',
             name: 'PERFORM_DOCKER_WAY_UPGRADE')
         text(
-            defaultValue: '--addclient=modb,1 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-settings --setup-alertmanager --setup-external-service --setup-ssl-services --mongo-replica-for-backup',
+            defaultValue: '--addclient=modb,1 --pgsql-version 16 --addclient=pgsql,1 --addclient=ps,1 --setup-with-custom-settings --setup-alertmanager --setup-external-service --setup-ssl-services --mo-version "7.0" --mongo-replica-for-backup',
             description: '''
             Configure PMM Clients
             ms - MySQL (ex. --addclient=ms,1),
@@ -160,7 +160,7 @@ pipeline {
                     branch: PMM_UI_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
-                slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
@@ -230,7 +230,6 @@ pipeline {
                     sh """
                         set -o errexit
                         set -o xtrace
-                        docker exec pmm-server yum update -y percona-release || true
                         docker exec pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                         docker exec pmm-server percona-release enable pmm2-client testing
                         docker exec pmm-server yum clean all
@@ -249,7 +248,6 @@ pipeline {
                     sh """
                         set -o errexit
                         set -o xtrace
-                        docker exec pmm-server yum update -y percona-release || true
                         docker exec pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                         docker exec pmm-server percona-release enable pmm2-client experimental
                         docker exec pmm-server yum clean all
@@ -268,7 +266,6 @@ pipeline {
                     sh """
                         set -o errexit
                         set -o xtrace
-                        docker exec pmm-server yum update -y percona-release || true
                         docker exec pmm-server yum clean all
                         docker exec pmm-server yum clean metadata
                     """
@@ -437,7 +434,7 @@ pipeline {
                     error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
                 }
 
-                slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
+                slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
             }
             /*
             allure([
@@ -451,7 +448,7 @@ pipeline {
         }
         failure {
             archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
-            slackSend channel: '#pmm-ci',
+            slackSend channel: '#pmm-notifications',
                       color: '#FF0000',
                       message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, ver: ${DOCKER_VERSION}"
         }

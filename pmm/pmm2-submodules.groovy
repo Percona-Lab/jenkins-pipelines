@@ -53,38 +53,7 @@ pipeline {
                     git submodule update --init --jobs 10
                     git submodule status
 
-                    if [ -s ci.yml ]; then
-                        source /home/ec2-user/venv/bin/activate
-                        python3 ci.py
-                        . ./.git-sources
-                        echo $pmm_commit > apiCommitSha
-                        echo $pmm_branch > apiBranch
-                        echo $pmm_url > apiURL
-                        echo $pmm_qa_branch > pmmQABranch
-                        echo $pmm_qa_commit > pmmQACommitSha
-                        echo $pmm_ui_tests_branch > pmmUITestBranch
-                        echo $pmm_ui_tests_commit > pmmUITestsCommitSha
-                    else
-                        export commit_sha=$(git submodule status | grep 'pmm-managed' | awk -F ' ' '{print $1}')
-                        export api_tests_commit_sha=$(git submodule status | grep 'sources/pmm/src' | awk -F ' ' '{print $1}')
-                        export api_tests_branch=$(git config -f .gitmodules submodule.pmm.branch)
-                        export api_tests_url=$(git config -f .gitmodules submodule.pmm.url)
-                        echo $api_tests_commit_sha > apiCommitSha
-                        echo $api_tests_branch > apiBranch
-                        echo $api_tests_url > apiURL
-                        cat apiBranch
-                        cat apiURL
-                        export pmm_qa_commit_sha=$(git submodule status | grep 'pmm-qa' | awk -F ' ' '{print $1}')
-                        export pmm_qa_branch=$(git config -f .gitmodules submodule.pmm-qa.branch)
-                        echo $pmm_qa_branch > pmmQABranch
-                        echo $pmm_qa_commit_sha > pmmQACommitSha
-                        export pmm_ui_tests_commit_sha=$(git submodule status | grep 'pmm-ui-tests' | awk -F ' ' '{print $1}')
-                        export pmm_ui_tests_branch=$(git config -f .gitmodules submodule.pmm-ui-tests.branch)
-                        echo $pmm_ui_tests_branch > pmmUITestBranch
-                        echo $pmm_ui_tests_commit_sha > pmmUITestsCommitSha
-                    fi
-                    export fb_commit_sha=$(git rev-parse HEAD)
-                    echo $fb_commit_sha > fbCommitSha
+                    ${PATH_TO_SCRIPTS}/build-submodules
                 '''
                 }
                 script {
@@ -99,7 +68,7 @@ pipeline {
                 stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
                 stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
                 stash includes: 'fbCommitSha', name: 'fbCommitSha'
-                slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                slackSend channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
             }
         }
         stage('Build client source') {
@@ -144,7 +113,7 @@ pipeline {
                         set -o errexit
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                        ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                        ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:2
                     '''
                 }
             }
@@ -157,7 +126,7 @@ pipeline {
 
                         aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
 
-                        ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:ol9
+                        ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:2
 
                         mkdir -p tmp/pmm-server/RPMS/
                         cp results/rpm/pmm2-client-*.rpm tmp/pmm-server/RPMS/
@@ -195,8 +164,6 @@ pipeline {
 
                         export RPM_EPOCH=1
                         export PATH=${PATH}:$(pwd -P)/${PATH_TO_SCRIPTS}
-                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                        export RPMBUILD_DIST="el9"
 
                         ${PATH_TO_SCRIPTS}/build-server-rpm-all
                     '''
@@ -216,9 +183,6 @@ pipeline {
 
                         export PUSH_DOCKER=1
                         export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}
-
-                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:ol9
-                        export RPMBUILD_DIST="el9"
                         export DOCKERFILE=Dockerfile.el9
 
                         ${PATH_TO_SCRIPTS}/build-server-docker
@@ -302,7 +266,7 @@ pipeline {
                 if (params.CHANGE_URL) {
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
+                    slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}"
                 }
             }
         }
@@ -321,7 +285,7 @@ pipeline {
         }
         always {
             script {
-                slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
+                slackSend channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
             }
         }
     }

@@ -38,6 +38,8 @@ for dir in $DIRECTORIES; do
     cp -av ./* ${RELEASEDIR}
 done
 
+touch ${RELEASEDIR}/binary/telemetry-enhanced.json
+
 cd /srv/UPLOAD/${REPOPATH}/${REPOPATH_W_V}/.tmp/
 ln -s ${REPOPATH} ${REPOPATH}-LATEST
 #

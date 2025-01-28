@@ -26,6 +26,10 @@ void prepareNode() {
         curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
     """
 
+    if ("$PGO_POSTGRES_IMAGE") {
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$PGO_POSTGRES_IMAGE".split(":")[1]
+    }
+
     if ("$PLATFORM_VER" == "latest") {
         USED_PLATFORM_VER = sh(script: "eksctl version -ojson | jq -r '.EKSServerSupportedVersions | max'", , returnStdout: true).trim()
     } else {
@@ -38,7 +42,7 @@ void prepareNode() {
     sh """
         # sudo is needed for better node recovery after compilation failure
         # if building failed on compilation stage directory will have files owned by docker user
-        sudo sudo git config --global --add safe.directory '*'
+        sudo git config --global --add safe.directory '*'
         sudo git reset --hard
         sudo git clean -xdf
         sudo rm -rf source
@@ -175,11 +179,12 @@ addons:
 - name: aws-ebs-csi-driver
   wellKnownPolicies:
     ebsCSIController: true
-
 nodeGroups:
     - name: ng-1
       minSize: 3
       maxSize: 5
+      desiredCapacity: 3
+      instanceType: "m5.xlarge"
       iam:
         attachPolicyARNs:
         - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
@@ -187,12 +192,6 @@ nodeGroups:
         - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
         - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
         - arn:aws:iam::aws:policy/AmazonS3FullAccess
-      instancesDistribution:
-        maxPrice: 0.15
-        instanceTypes: ["m5.xlarge", "m5.2xlarge"] # At least two instance types should be specified
-        onDemandBaseCapacity: 0
-        onDemandPercentageAboveBaseCapacity: 50
-        spotInstancePools: 2
       tags:
         'iit-billing-tag': 'jenkins-eks'
         'delete-cluster-after-hours': '10'

@@ -37,6 +37,11 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         set -o xtrace
         mkdir -p test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
+        if [ ${FIPSMODE} = "YES" ]; then
+            sed -i 's|percona-server-server/usr|percona-server-server-pro/usr|g' ps_builder.sh
+            sed -i 's|dbg-package=percona-server-dbg|dbg-package=percona-server-pro-dbg|g' ps_builder.sh
+        fi
+        grep "percona-server-server" ps_builder.sh
         export build_dir=\$(pwd -P)
         if [ "$DOCKER_OS" = "none" ]; then
             set -o xtrace
@@ -207,6 +212,10 @@ parameters {
         string(defaultValue: '0', description: 'TokuBackup repository', name: 'TOKUBACKUP_REPO')
         string(defaultValue: 'Percona-Server-8.0.27-18', description: 'Tag/Branch for TokuBackup repository', name: 'TOKUBACKUP_BRANCH')
         choice(
+            choices: 'NO\nYES',
+            description: 'Prepare packages and tarballs for Centos 7',
+            name: 'ENABLE_EL7')
+        choice(
             choices: 'ON\nOFF',
             description: 'Compile with ZenFS support?, only affects Ubuntu Hirsute',
             name: 'ENABLE_ZENFS')
@@ -312,7 +321,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
+                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -406,6 +415,26 @@ parameters {
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
+/*                stage('Amazon Linux 2023') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --with_zenfs=1")
+                            }
+                        }
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                    }
+                }*/
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'min-focal-x64'
@@ -612,7 +641,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
+                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -632,7 +661,7 @@ parameters {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
+                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
@@ -883,7 +912,7 @@ parameters {
                     } else {
                         if (env.FIPSMODE == 'YES') {
                             if ("${MYSQL_VERSION_MINOR}" == "4") {
-                                sync2PrivateProdAutoBuild("ps-84-lts-pro", COMPONENT)
+                                sync2PrivateProdAutoBuild("ps-84-pro", COMPONENT)
                             } else {
                                 sync2PrivateProdAutoBuild("ps-8x-innovation-pro", COMPONENT)
                             }
@@ -928,7 +957,7 @@ parameters {
                         cleanUpWS()
                         installCli("deb")
                         sh '''
-                           sleep 900
+                           sleep 1200
                         '''
                         unstash 'properties'
                         sh '''
@@ -950,7 +979,9 @@ parameters {
                             cd percona-docker/percona-server-8.0
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile
-                            sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
+                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
+                            fi
                             sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
                                 if [ ${PS_MAJOR_RELEASE} = "84" ]; then
@@ -958,22 +989,21 @@ parameters {
                                 else
                                     sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile
                                 fi
-                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"experimental\";percona-release enable mysql-shell/g" Dockerfile
+                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"testing\";percona-release enable mysql-shell/g" Dockerfile
                             fi
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile.aarch64
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile.aarch64
                             sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile.aarch64
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                                sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile.aarch64
                                 if [ ${PS_MAJOR_RELEASE} = "84" ]; then
                                     sed -i "s/percona-release enable ps-80/percona-release enable ps-84-lts/g" Dockerfile.aarch64
                                 else
                                     sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" Dockerfile.aarch64
                                 fi
-                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"experimental\";percona-release enable mysql-shell/g" Dockerfile.aarch64
+                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"testing\";percona-release enable mysql-shell/g" Dockerfile.aarch64
                             fi
-                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} .
-                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 -f Dockerfile.aarch64 .
+                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 .
+                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 --platform="linux/arm64" -f Dockerfile.aarch64 .
                             cd ../mysql-router
                             sed -i "s/ENV ROUTE_VERSION.*/ENV ROUTE_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
@@ -995,8 +1025,12 @@ parameters {
                         sh '''
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                             PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                            MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
                             PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
+                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
+                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
+                            else
+                                MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
+                            fi
                             sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}
                             sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                             sudo docker push perconalab/percona-server:${PS_RELEASE}
@@ -1010,12 +1044,12 @@ parameters {
                        }
                        sh '''
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                           sudo docker manifest create perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi \
-                               perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} \
-                               perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64
-                           sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 --os linux --arch arm64 --variant v8
-                           sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} --os linux --arch amd64
-                           sudo docker manifest inspect perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi
+                           sudo docker manifest create perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} \
+                               perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 \
+                               perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64
+                           sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 --os linux --arch amd64
+                           sudo docker manifest inspect perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                        '''
                        withCredentials([
                        usernamePassword(credentialsId: 'hub.docker.com',
@@ -1026,7 +1060,7 @@ parameters {
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                           sudo docker manifest push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi
+                           sudo docker manifest push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                        '''
                        }
                     }

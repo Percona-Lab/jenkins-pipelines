@@ -76,7 +76,7 @@
         # https://docs.mongodb.com/manual/tutorial/configure-ldap-sasl-openldap/#test-the-saslauthd-configuration
         sudo chmod 755 /var/run/saslauthd
         sudo percona-server-mongodb/support-files/ldap-sasl/check_saslauthd.sh
-        
+
         sudo rm -rf test/*
     - shell: |-
         rm -rf psmdb-misc-scripts
@@ -157,7 +157,7 @@
 
         if [ "X${RHEL}" = 'X6' ]; then
             sudo rm -rf /usr/bin/python
-            sudo sudo ln -s /usr/bin/python2.7 /usr/bin/python
+            sudo ln -s /usr/bin/python2.7 /usr/bin/python
         fi
 
         # run tests

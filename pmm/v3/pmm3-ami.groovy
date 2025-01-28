@@ -8,9 +8,13 @@ pipeline {
             description: 'Tag/Branch for pmm repository',
             name: 'PMM_BRANCH')
         string(
-            defaultValue: 'docker.io/percona/pmm-server:3-dev-latest',
+            defaultValue: 'docker.io/perconalab/pmm-server:3-dev-latest',
             description: 'Docker image for PMM Server running in the AMI',
             name: 'PMM_SERVER_IMAGE')
+        string(
+            defaultValue: 'docker.io/perconalab/watchtower:dev-latest',
+            description: 'Docker image for Watchtower running in the AMI',
+            name: 'WATCHTOWER_IMAGE')
         choice(
             choices: ['no', 'yes'],
             description: "Build a Release Candidate?",
@@ -40,7 +44,7 @@ pipeline {
         stage('Build PMM AMI Image') {
             steps {
                 dir("build") {
-                    sh "PMM_SERVER_IMAGE=${PMM_SERVER_IMAGE}  make pmm-ami"
+                    sh "PMM_SERVER_IMAGE=${PMM_SERVER_IMAGE} WATCHTOWER_IMAGE=${WATCHTOWER_IMAGE} make pmm-ami"
                 }
                 script {
                     env.AMI_ID = sh(script: "jq -r '.builds[-1].artifact_id' build/manifest.json | cut -d ':' -f2", returnStdout: true)
@@ -63,13 +67,13 @@ pipeline {
                     slackSend botUser: true, channel: '#pmm-qa', color: '#00FF00', message: "[${JOB_NAME}]: ${BUILD_URL} Release Candidate build finished: ${env.AMI_ID}"
                 } else {
                     currentBuild.description = "AMI Instance ID: ${env.AMI_ID}"
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished: ${env.AMI_ID}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build ${BUILD_URL} finished: ${env.AMI_ID}"
                 }
             }
         }
         failure {
             echo "Pipeline failed"
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${BUILD_URL} failed"
+            slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${BUILD_URL} failed"
         }
     }
 }

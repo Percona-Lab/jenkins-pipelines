@@ -137,10 +137,13 @@ pipeline {
             name: 'REMOVE_RELEASE_BRANCH'
         )
         string(
-            defaultValue: '#pmm-dev',
+            defaultValue: '#pmm-internal',
             description: 'Channel to send notifications to',
             name: 'NOTIFICATION_CHANNEL'
         )
+    }
+    options {
+        skipStagesAfterUnstable()
     }
     stages {
         stage('Update API descriptors') {
@@ -165,12 +168,12 @@ pipeline {
                             docker run --rm -v $PWD/.:/pmm public.ecr.aws/e7j3v3n0/rpmbuild:3 sh -c '
                                 cd /pmm
                                 make init
-                                make descriptors
+                                make -C api descriptors
                             '
 
                             API_DESCRIPTOR=$(git diff --text | grep -q 'descriptor\\.bin' && echo "CHANGED" || echo "NOT_CHANGED")
                             if [[ $API_DESCRIPTOR == "CHANGED" ]]; then
-                                git commit -a -m "Update descriptors"
+                                git commit -a -m "chore(rc): update descriptors"
                                 git show
                                 git push origin ${TARGET_BRANCH}
                             fi
@@ -212,7 +215,7 @@ pipeline {
                 deleteReleaseBranches(env.SUBMODULES_GIT_BRANCH)
                 script {
                     currentBuild.description = "Release branches were deleted: ${env.SUBMODULES_GIT_BRANCH}"
-                    return
+                    currentBuild.result = 'UNSTABLE'
                 }
             }
         }
@@ -264,6 +267,7 @@ pipeline {
                                 string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
                                 string(name: 'DESTINATION', value: 'testing')
                             ]
+                            env.PMM_SERVER_IMAGE = pmmServer.buildVariables.TIMESTAMP_TAG
                         }
                     }
                 }
@@ -274,7 +278,19 @@ pipeline {
                                 string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
                                 string(name: 'DESTINATION', value: 'testing')
                             ]
-                            env.TARBALL_URL = pmmClient.buildVariables.TARBALL_URL
+                            env.TARBALL_AMD64_URL = pmmClient.buildVariables.TARBALL_AMD64_URL
+                            env.TARBALL_ARM64_URL = pmmClient.buildVariables.TARBALL_ARM64_URL
+                        }
+                    }
+                }
+                stage('Start PMM3 Watchtower Autobuild') {
+                    steps {
+                        script {
+                            pmmWatchtower = build job: 'pmm3-watchtower-autobuild', parameters: [
+                                string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
+                                string(name: 'TAG_TYPE', value: 'rc')
+                            ]
+                            env.WATCHTOWER_IMAGE = pmmWatchtower.buildVariables.TIMESTAMP_TAG
                         }
                     }
                 }
@@ -290,6 +306,8 @@ pipeline {
                         script {
                             pmmAMI = build job: 'pmm3-ami', parameters: [
                                 string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
+                                string(name: 'PMM_SERVER_IMAGE', value: "docker.io/${PMM_SERVER_IMAGE}"),
+                                string(name: 'WATCHTOWER_IMAGE', value: "docker.io/${WATCHTOWER_IMAGE}"),
                                 string(name: 'RELEASE_CANDIDATE', value: "yes")
                             ]
                             env.AMI_ID = pmmAMI.buildVariables.AMI_ID
@@ -301,6 +319,8 @@ pipeline {
                         script {
                             pmmOVF = build job: 'pmm3-ovf', parameters: [
                                 string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
+                                string(name: 'PMM_SERVER_IMAGE', value: "docker.io/${PMM_SERVER_IMAGE}"),
+                                string(name: 'WATCHTOWER_IMAGE', value: "docker.io/${WATCHTOWER_IMAGE}"),
                                 string(name: 'RELEASE_CANDIDATE', value: 'yes')
                             ]
                         }
@@ -345,10 +365,6 @@ pipeline {
                         sh 'mv report.html report-${VERSION}-rc.html'
                         archiveArtifacts "report-${VERSION}-rc.html"
                         env.SCAN_REPORT_URL = "CVE Scan Report: ${BUILD_URL}artifact/report-${VERSION}-rc.html"
-
-                        copyArtifacts filter: 'evaluations/**/evaluation_*.json', projectName: 'pmm3-image-scanning'
-                        sh 'mv evaluations/*/*/*/evaluation_*.json ./report-${VERSION}-rc.json'
-                        archiveArtifacts "report-${VERSION}-rc.json"
                     }
                 }
             }
@@ -364,9 +380,13 @@ Server: perconalab/pmm-server:${VERSION}-rc
 Client: perconalab/pmm-client:${VERSION}-rc
 OVA: https://percona-vm.s3.amazonaws.com/PMM3-Server-${VERSION}.ova
 AMI: ${env.AMI_ID}
-Tarball: ${env.TARBALL_URL}
+Tarball AMD64: ${env.TARBALL_AMD64_URL}
+Tarball ARM64: ${env.TARBALL_ARM64_URL}
 ${env.SCAN_REPORT_URL}
                       """
+        }
+        failure {
+            slackSend botUser: true, channel: '#pmm-internal', color: '#FF0000', message: "[${JOB_NAME}]: RC build failed :fire: - ${BUILD_URL}"
         }
     }
 }

@@ -83,25 +83,16 @@ pipeline {
     }
 
     environment {
+        PRODUCT_TO_TEST = "${params.PRODUCT_TO_TEST}"
         SERVER_INSTANCE_PRIVATE_IP = "${WORKSPACE}/server_instance_private_ip.json"
         ROUTER_INSTANCE_PRIVATE_IP = "${WORKSPACE}/router_instance_private_ip.json"
     }
 
     parameters {
-        string(
-            name: 'UPSTREAM_VERSION',
-            defaultValue: '8.0.32',
-            description: 'Upstream MySQL version'
-        )
-        string(
-            name: 'PS_VERSION',
-            defaultValue: '24',
-            description: 'Percona part of version'
-        )
-        string(
-            name: 'PS_REVISION',
-            defaultValue: 'e5c6e9d2',
-            description: 'Short git hash for release'
+        choice(
+            choices: ['PS80','PS84','PS_LTS_INN'],
+            description: 'Product for which the packages will be tested',
+            name: 'PRODUCT_TO_TEST'
         )
         choice(
             name: 'TEST_DIST',
@@ -136,8 +127,67 @@ pipeline {
             description: 'Repo to install packages from'
         )
     }
-
     stages {
+        stage('SET UPSTREAM_VERSION,PS_VERSION and PS_REVISION') {
+            steps {
+                script {
+                    echo "PRODUCT_TO_TEST is: ${env.PRODUCT_TO_TEST}"
+                    sh '''
+                        sudo apt-get update && sudo apt-get install -y unzip
+                        rm -rf /package-testing
+                        rm -f master.zip
+                        wget https://github.com/Percona-QA/package-testing/archive/master.zip
+                        unzip master.zip
+                        rm -f master.zip
+                        mv "package-testing-master" package-testing
+                        echo "Contents of package-testing directory:"
+                        ls -l package-testing
+                        echo "Contents of VERSIONS file:"
+                        cat package-testing/VERSIONS
+                    '''
+                    def UPSTREAM_VERSION = sh(
+                        script: ''' 
+                            grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}'
+                         ''',
+                        returnStdout: true
+                        ).trim()
+
+                    def PS_VERSION = sh(
+                        script: ''' 
+                            grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}'
+                        ''',
+                        returnStdout: true
+                        ).trim()
+
+                    def PS_REVISION = sh(
+                        script: '''
+                             grep ${PRODUCT_TO_TEST}_REV package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' 
+                        ''',
+                        returnStdout: true
+                        ).trim()
+                    
+                    
+                    env.UPSTREAM_VERSION = UPSTREAM_VERSION
+                    env.PS_VERSION = PS_VERSION
+                    env.PS_REVISION = PS_REVISION
+
+                    echo "UPSTREAM_VERSION fetched: ${env.UPSTREAM_VERSION}"
+                    echo "PS_VERSION fetched: ${env.PS_VERSION}"
+                    echo "PS_REVISION fetched: ${env.PS_REVISION}"
+
+                }
+            }
+        }
+        stage('Set environmental variable'){
+            steps{
+                 script {
+                    // Now, you can access these global environment variables
+                    echo "Using UPSTREAM_VERSION: ${env.UPSTREAM_VERSION}"
+                    echo "Using PS_VERSION: ${env.PS_VERSION}"
+                    echo "Using PS_REVISION: ${env.PS_REVISION}"
+                }
+            }
+        }
         stage("Set up") {
             steps {
 	        script {

@@ -24,7 +24,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'ppg-16.4',
+            defaultValue: 'ppg-17.0',
             description: 'PG version for test',
             name: 'VERSION'
          )
@@ -43,7 +43,7 @@ pipeline {
             name: 'DESTROY_ENV')
         booleanParam(
             name: 'MAJOR_REPO',
-            description: "Enable to use major (ppg-14) repo instead of ppg-14.3"
+            description: "Enable to use major (ppg-14) repo instead of ppg-17.0"
         )
   }
   environment {

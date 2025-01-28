@@ -73,7 +73,7 @@ def latestVersion = pmmVersion()
 
 pipeline {
     agent {
-        label 'agent-arm64'
+        label 'agent-arm64-ol9'
     }
     parameters {
         string(
@@ -102,7 +102,7 @@ pipeline {
             name: 'TESTS',
             trim: true)
         choice(
-            choices: ['experimental', 'testing', 'main', 'pmm2-client-main'],
+            choices: ['experimental', 'testing', 'release', 'pmm2-client-main'],
             description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
         choice(
@@ -234,9 +234,9 @@ pipeline {
                     destroyStaging(VM_NAME)
                 }
                 if (currentBuild.result == 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                 } else {
-                    slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
         }

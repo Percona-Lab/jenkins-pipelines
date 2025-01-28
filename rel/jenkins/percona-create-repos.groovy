@@ -1,11 +1,11 @@
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/percona-lab/jenkins-pipelines.git'
 ]) _
 
 pipeline {
     agent {
-        label 'source-builder'
+        label 'jenkins'
     }
     parameters {
         string(
@@ -21,7 +21,7 @@ pipeline {
             description: 'Centos versions(coma separated)',
             name: 'CENTOS_VERSIONS')
         string(
-            defaultValue: 'buster,bullseye,bookworm,bionic,focal,jammy',
+            defaultValue: 'bullseye,bookworm,focal,jammy,noble',
             description: 'Debian and Ubuntu release codenames(coma separated)',
             name: 'DEB_CODE_NAMES')
         string(
@@ -52,5 +52,12 @@ pipeline {
             }
         }
 
+    }
+    post {
+        always {
+            script {
+                currentBuild.description = "Repo: ${REPO_NAME}"
+            }
+        }
     }
 }

@@ -92,10 +92,10 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PBM_VERSION} | awk -F "." '{print \$1}')
                          MIN_VER=\$(echo ${params.PBM_VERSION} | awk -F "-" '{print \$1}')
-                         docker tag percona-backup-mongodb perconalab/percona-backup-mongodb:\$MAJ_VER
-                         docker push perconalab/percona-backup-mongodb:\$MAJ_VER
-                         docker tag percona-backup-mongodb perconalab/percona-backup-mongodb:\$MIN_VER
-                         docker push perconalab/percona-backup-mongodb:\$MIN_VER 
+                         docker tag percona-backup-mongodb perconalab/percona-backup-mongodb:\$MAJ_VER-amd64
+                         docker push perconalab/percona-backup-mongodb:\$MAJ_VER-amd64
+                         docker tag percona-backup-mongodb perconalab/percona-backup-mongodb:\$MIN_VER-amd64
+                         docker push perconalab/percona-backup-mongodb:\$MIN_VER-amd64
                      """
                 }
             }
@@ -110,10 +110,10 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PBM_VERSION} | awk -F "." '{print \$1}')
                          MIN_VER=\$(echo ${params.PBM_VERSION} | awk -F "-" '{print \$1}')
-                         docker tag percona-backup-mongodb percona/percona-backup-mongodb:\$MAJ_VER
-                         docker push percona/percona-backup-mongodb:\$MAJ_VER
-                         docker tag percona-backup-mongodb percona/percona-backup-mongodb:\$MIN_VER
-                         docker push percona/percona-backup-mongodb:\$MIN_VER
+                         docker tag percona-backup-mongodb percona/percona-backup-mongodb:\$MAJ_VER-amd64
+                         docker push percona/percona-backup-mongodb:\$MAJ_VER-amd64
+                         docker tag percona-backup-mongodb percona/percona-backup-mongodb:\$MIN_VER-amd64
+                         docker push percona/percona-backup-mongodb:\$MIN_VER-amd64
                      """
                 }
             }

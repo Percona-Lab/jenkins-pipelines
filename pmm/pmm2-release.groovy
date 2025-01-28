@@ -9,9 +9,10 @@ pipeline {
     }
 
     environment {
-        CLIENT_IMAGE     = "perconalab/pmm-client:${VERSION}-rc"
-        SERVER_IMAGE     = "perconalab/pmm-server:${VERSION}-rc"
-        PATH_TO_CLIENT   = "testing/pmm2-client-autobuilds/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT}"
+        CLIENT_IMAGE            = "perconalab/pmm-client:${VERSION}-rc"
+        SERVER_IMAGE            = "perconalab/pmm-server:${VERSION}-rc"
+        PATH_TO_CLIENT_AMD64    = "testing/pmm2-client-autobuilds-amd/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT_AMD64}"
+        PATH_TO_CLIENT_ARM64    = "testing/pmm2-client-autobuilds-arm/pmm2/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT_ARM64}"
     }
 
     parameters {
@@ -21,17 +22,21 @@ pipeline {
             name: 'VERSION')
         string(
             defaultValue: '',
-            description: 'Path to client packages in testing repo. Example: 12aec0c9/3052',
-            name: 'PATH_TO_CLIENT')
+            description: 'Path to amd64 client packages in testing repo. Example: 12aec0c9/3052',
+            name: 'PATH_TO_CLIENT_AMD64')
+        string(
+            defaultValue: '',
+            description: 'Path to arm64 client packages in testing repo. Example: 12aec0c9/3052',
+            name: 'PATH_TO_CLIENT_ARM64')
     }
 
     stages {
-        stage('Push PRM client to public repository') {
+        stage('Push client RPMs to public repository') {
             steps {
                 script {
-                    currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>PATH_TO_CLIENT: ${PATH_TO_CLIENT}"
-                    if (!params.PATH_TO_CLIENT) {
-                        error("ERROR: empty parameter PATH_TO_CLIENT")
+                    currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>PATH_TO_CLIENT_AMD64: ${PATH_TO_CLIENT_AMD64}<br>PATH_TO_CLIENT_ARM64: ${PATH_TO_CLIENT_ARM64}"
+                    if (!params.PATH_TO_CLIENT_AMD64 || !params.PATH_TO_CLIENT_ARM64) {
+                        error("ERROR: empty parameter(s) PATH_TO_CLIENT_AMD64 or PATH_TO_CLIENT_ARM64")
                     }
                 }
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
@@ -43,37 +48,42 @@ pipeline {
 
                                 # We are only pushing to 'pmm2-client' repository
                                 REPOPATH=repo-copy/pmm2-client/yum
-                                cd /srv/UPLOAD/${PATH_TO_CLIENT}
 
-                                # getting the list of RH systems
-                                RHVERS=\$(ls -1 binary/redhat | grep -v 6 | grep -v 7)
+                                # List of architectures and their corresponding paths
+                                for ARCH_PATH in ${PATH_TO_CLIENT_AMD64} ${PATH_TO_CLIENT_ARM64}; do
 
-                                # source processing
-                                if [ -d source/redhat ]; then
-                                    SRCRPM=\$(find source/redhat -name '*.src.rpm')
+                                    cd /srv/UPLOAD/\${ARCH_PATH}
+
+                                    # getting the list of RH systems
+                                    RHVERS=\$(ls -1 binary/redhat | grep -v 6 | grep -v 7)
+
+                                    # source processing
+                                    if [ -d source/redhat ]; then
+                                        SRCRPM=\$(find source/redhat -name '*.src.rpm')
+                                        for rhel in \${RHVERS}; do
+                                            mkdir -p /srv/\${REPOPATH}/release/\${rhel}/SRPMS
+                                            cp -v \${SRCRPM} /srv/\${REPOPATH}/release/\${rhel}/SRPMS
+                                            createrepo --update /srv/\${REPOPATH}/release/\${rhel}/SRPMS
+                                            if [ -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc ]; then
+                                                rm -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc
+                                            fi
+                                            gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml
+                                        done
+                                    fi
+
+                                    # binary processing
+                                    pushd binary
                                     for rhel in \${RHVERS}; do
-                                        mkdir -p /srv/\${REPOPATH}/release/\${rhel}/SRPMS
-                                        cp -v \${SRCRPM} /srv/\${REPOPATH}/release/\${rhel}/SRPMS
-                                        createrepo --update /srv/\${REPOPATH}/release/\${rhel}/SRPMS
-                                        if [ -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc ]; then
-                                            rm -f /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml.asc
-                                        fi
-                                        gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/SRPMS/repodata/repomd.xml
-                                    done
-                                fi
-
-                                # binary processing
-                                pushd binary
-                                for rhel in \${RHVERS}; do
-                                    mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS
-                                    for arch in \$(ls -1 redhat/\${rhel}); do
-                                        mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}
-                                        cp -av redhat/\${rhel}/\${arch}/*.rpm /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
-                                        createrepo --update /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
-                                        if [ -f  /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc ]; then
-                                            rm -f  /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc
-                                        fi
-                                        gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml
+                                        mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS
+                                        for arch in \$(ls -1 redhat/\${rhel}); do
+                                            mkdir -p /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}
+                                            cp -av redhat/\${rhel}/\${arch}/*.rpm /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
+                                            createrepo --update /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/
+                                            if [ -f /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc ]; then
+                                                rm -f /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml.asc
+                                            fi
+                                            gpg --detach-sign --armor --passphrase $SIGN_PASSWORD /srv/\${REPOPATH}/release/\${rhel}/RPMS/\${arch}/repodata/repomd.xml
+                                        done
                                     done
                                 done
 ENDSSH
@@ -96,45 +106,50 @@ ENDSSH
                                 export PATH=/usr/local/reprepro5/bin:\${PATH}
 
                                 echo reprepro binary is \$(which reprepro)
-                                pushd /srv/UPLOAD/${PATH_TO_CLIENT}/binary/debian
-                                    echo Looking for Debian build directories...
-                                    CODENAMES=\$(ls -1 | egrep -v 'cosmic|disco')
-                                    echo Distributions are: \${CODENAMES}
-                                popd
 
-                                #######################################
-                                # source pushing, it's a bit specific #
-                                #######################################
+                                # List of architectures and their corresponding paths
+                                for ARCH_PATH in ${PATH_TO_CLIENT_AMD64} ${PATH_TO_CLIENT_ARM64}; do
 
-                                # pushing sources
-                                if  [ -d /srv/UPLOAD/${PATH_TO_CLIENT}/source/debian ]; then
-                                    cd /srv/UPLOAD/${PATH_TO_CLIENT}/source/debian
-                                    DSC=\$(find . -type f -name '*.dsc')
-                                    for DSC_FILE in \${DSC}; do
-                                        echo DSC file is \${DSC_FILE}
-                                        for _codename in \${CODENAMES}; do
-                                            echo ===>DSC \$DSC_FILE
-                                            repopush --gpg-pass=${SIGN_PASSWORD} --package=\${DSC_FILE} --repo-path=\${REPOPATH} --component=main  --codename=\${_codename} --verbose || true
-                                            if [ -f \${REPOPATH}/db/lockfile ]; then
-                                                sudo rm -vf \${REPOPATH}/db/lockfile
-                                            fi
-                                            sleep 1
-                                        done
-                                    done
-                                fi
-
-                                #######################################
-                                # binary pushing                      #
-                                #######################################
-                                cd /srv/UPLOAD/$PATH_TO_CLIENT/binary/debian
-
-                                for _codename in \${CODENAMES}; do
-                                    pushd \${_codename}
-                                        DEBS=\$(find . -type f -name '*.*deb' )
-                                        for _deb in \${DEBS}; do
-                                            repopush --gpg-pass=$SIGN_PASSWORD --package=\${_deb} --repo-path=\${REPOPATH} --component=main --codename=\${_codename} --verbose
-                                        done
+                                    pushd /srv/UPLOAD/\${ARCH_PATH}/binary/debian
+                                        echo Looking for Debian build directories...
+                                        CODENAMES=\$(ls -1 | egrep -v 'cosmic|disco')
+                                        echo Distributions are: \${CODENAMES}
                                     popd
+
+                                    #######################################
+                                    # source pushing, it's a bit specific #
+                                    #######################################
+
+                                    # pushing sources
+                                    if  [ -d /srv/UPLOAD/\${ARCH_PATH}/source/debian ]; then
+                                        cd /srv/UPLOAD/\${ARCH_PATH}/source/debian
+                                        DSC=\$(find . -type f -name '*.dsc')
+                                        for DSC_FILE in \${DSC}; do
+                                            echo DSC file is \${DSC_FILE}
+                                            for _codename in \${CODENAMES}; do
+                                                echo ===>DSC \$DSC_FILE
+                                                repopush --gpg-pass=${SIGN_PASSWORD} --package=\${DSC_FILE} --repo-path=\${REPOPATH} --component=main  --codename=\${_codename} --verbose || true
+                                                if [ -f \${REPOPATH}/db/lockfile ]; then
+                                                    sudo rm -vf \${REPOPATH}/db/lockfile
+                                                fi
+                                                sleep 1
+                                            done
+                                        done
+                                    fi
+
+                                    #######################################
+                                    # binary pushing                      #
+                                    #######################################
+
+                                    cd /srv/UPLOAD/\${ARCH_PATH}/binary/debian
+                                    for _codename in \${CODENAMES}; do
+                                        pushd \${_codename}
+                                            DEBS=\$(find . -type f -name '*.*deb')
+                                            for _deb in \${DEBS}; do
+                                                repopush --gpg-pass=${SIGN_PASSWORD} --package=\${_deb} --repo-path=\${REPOPATH} --component=main --codename=\${_codename} --verbose
+                                            done
+                                        popd
+                                    done
                                 done
 ENDSSH
                         """
@@ -169,85 +184,108 @@ ENDSSH
                     sh """
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
                             set -e
-                            cd  /srv/UPLOAD/${PATH_TO_CLIENT}/
-                            #
-                            PRODUCT=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$3}')
-                            RELEASE=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$4}')
-                            REVISION=\$(echo ${PATH_TO_CLIENT} | awk -F '/' '{print \$6}')
-                            #
-                            RELEASEDIR="/srv/UPLOAD/${PATH_TO_CLIENT}/.tmp/\${PRODUCT}/\${RELEASE}"
-                            rm -fr /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
-                            mkdir -p \${RELEASEDIR}
-                            cp -av ./* \${RELEASEDIR}
-                            #####################
-                            # create RedHat tar bundles
-                            #
-                            cd \${RELEASEDIR}/binary/redhat
-                            for _dist in *; do
-                                cd \${_dist}
-                                for _arch in *; do
-                                    cd \${_arch}
-                                    # don't create bundle if there's only 1 package inside directory
-                                    NUM_PACKAGES=\$(find . -maxdepth 1 -type f -name '*.rpm'|wc -l)
-                                    if [ \${NUM_PACKAGES} -gt 1 ]; then
-                                        tar --owner=0 --group=0 -cf \${RELEASE}-r\${REVISION}-el\${_dist}-\${_arch}-bundle.tar  *.rpm
-                                    fi
+
+                            # Loop through both architectures
+                            for ARCH_PATH in ${PATH_TO_CLIENT_AMD64} ${PATH_TO_CLIENT_ARM64}; do
+
+                                cd /srv/UPLOAD/\${ARCH_PATH}/
+
+                                PRODUCT=\$(echo \${ARCH_PATH} | awk -F '/' '{print \$3}')
+                                RELEASE=\$(echo \${ARCH_PATH} | awk -F '/' '{print \$4}')
+                                REVISION=\$(echo \${ARCH_PATH} | awk -F '/' '{print \$6}')
+
+                                RELEASEDIR="/srv/UPLOAD/\${ARCH_PATH}/.tmp/\${PRODUCT}/\${RELEASE}"
+                                rm -fr /srv/UPLOAD/\${ARCH_PATH}/.tmp
+                                mkdir -p \${RELEASEDIR}
+                                cp -av ./* \${RELEASEDIR}
+
+                                #######################################
+                                # create RedHat tar bundles           #
+                                #######################################
+
+                                cd \${RELEASEDIR}/binary/redhat
+                                for _dist in *; do
+                                    cd \${_dist}
+                                    for _arch in *; do
+                                        cd \${_arch}
+                                        # don't create bundle if there's only 1 package inside directory
+                                        NUM_PACKAGES=\$(find . -maxdepth 1 -type f -name '*.rpm' | wc -l)
+                                        if [ \${NUM_PACKAGES} -gt 1 ]; then
+                                            tar --owner=0 --group=0 -cf \${RELEASE}-r\${REVISION}-el\${_dist}-\${_arch}-bundle.tar *.rpm
+                                        fi
+                                        cd ..
+                                    done
                                     cd ..
                                 done
-                                cd ..
-                            done
-                            #####################
-                            # create Debian tar bundles
-                            #
-                            cd \${RELEASEDIR}/binary/debian
-                            for _dist in *; do
-                                cd \${_dist}
-                                for _arch in *; do
-                                    cd \${_arch}
-                                    # don't create bundle if there's only 1 package inside directory
-                                    NUM_PACKAGES=\$(find . -maxdepth 1 -type f -name '*.deb'|wc -l)
-                                    if [ \${NUM_PACKAGES} -gt 1 ]; then
-                                        tar --owner=0 --group=0 -cf \${RELEASE}-r\${REVISION}-\${_dist}-\${_arch}-bundle.tar *.deb
-                                    fi
+
+                                #######################################
+                                # create Debian tar bundles           #
+                                #######################################
+
+                                cd \${RELEASEDIR}/binary/debian
+                                for _dist in *; do
+                                    cd \${_dist}
+                                    for _arch in *; do
+                                        cd \${_arch}
+                                        # don't create bundle if there's only 1 package inside directory
+                                        NUM_PACKAGES=\$(find . -maxdepth 1 -type f -name '*.deb' | wc -l)
+                                        if [ \${NUM_PACKAGES} -gt 1 ]; then
+                                            tar --owner=0 --group=0 -cf \${RELEASE}-r\${REVISION}-\${_dist}-\${_arch}-bundle.tar *.deb
+                                        fi
+                                        cd ..
+                                    done
                                     cd ..
                                 done
-                                cd ..
-                            done
-                            #####################
-                            # generate sha256sum for sources
-                            #
-                            cd \${RELEASEDIR}/source/tarball
-                            if [ -d source_tarball ]; then
-                                mv source_tarball/* ./
-                                rm -rf source_tarball
-                            fi
-                            for _tar in *tar.*; do
-                                sha256sum \${_tar} > \${_tar}.sha256sum
-                            done
-                            #####################
-                            # generate sha256sum for binary tarballs
-                            #
-                            if [ -d \${RELEASEDIR}/binary/tarball ]; then 
-                                cd \${RELEASEDIR}/binary/tarball
-                                for _tar in *.tar.*; do
-                                    # don't do it for symlinks (we have those in percona-agent)
-                                    if [ ! -h \${_tar} ]; then
-                                        sha256sum \${_tar} > \${_tar}.sha256sum
-                                    fi
+
+                                #######################################
+                                # generate sha256sum for sources      #
+                                #######################################
+
+                                cd \${RELEASEDIR}/source/tarball
+                                if [ -d source_tarball ]; then
+                                    mv source_tarball/* ./
+                                    rm -rf source_tarball
+                                fi
+                                for _tar in *tar.*; do
+                                    sha256sum \${_tar} > \${_tar}.sha256sum
                                 done
-                            fi
 
-                            #
-                            cd \${RELEASEDIR}/..
-                            #
-                            ln -s \${RELEASE} LATEST
-                            #
-                            cd /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
+                                #######################################
+                                # generate sha256sum for binary       #
+                                #######################################
 
-                            rsync -avt -e "ssh -p 2222" --bwlimit=50000 --exclude="*yassl*" --progress \${PRODUCT} jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/
+                                if [ -d \${RELEASEDIR}/binary/tarball ]; then
+                                    if [ "\${ARCH_PATH}" == "${PATH_TO_CLIENT_AMD64}" ]; then
+                                        ARCH_SUFFIX="x86_64"
+                                    elif [ "\${ARCH_PATH}" == "${PATH_TO_CLIENT_ARM64}" ]; then
+                                        ARCH_SUFFIX="aarch64"
+                                    fi
 
-                            #
-                            rm -fr /srv/UPLOAD/${PATH_TO_CLIENT}/.tmp
+                                    cd \${RELEASEDIR}/binary/tarball
+
+                                    for _tar in *.tar.*; do
+                                        # don't do it for symlinks (we have those in percona-agent)
+                                        if [ ! -h \${_tar} ]; then
+                                            # Rename the tarball with architecture-specific suffix
+                                            TAR_NAME=\$(basename \${_tar} .tar.gz)-\${ARCH_SUFFIX}.tar.gz
+                                            mv \${_tar} \${TAR_NAME}
+
+                                            # Generate sha256sum for the renamed tarball
+                                            sha256sum \${TAR_NAME} > \${TAR_NAME}.sha256sum
+                                        fi
+                                    done
+                                fi
+
+                                cd \${RELEASEDIR}/..
+
+                                ln -s \${RELEASE} LATEST
+
+                                cd /srv/UPLOAD/\${ARCH_PATH}/.tmp
+
+                                rsync -avt -e "ssh -p 2222" --bwlimit=50000 --exclude="*yassl*" --progress \${PRODUCT} jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/
+
+                                rm -fr /srv/UPLOAD/\${ARCH_PATH}/.tmp
+                            done
 ENDSSH
                 """
                 }
@@ -260,7 +298,7 @@ ENDSSH
             }
             steps {
                 installDocker()
-                slackSend botUser: true, channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: release started - ${BUILD_URL}"
+                slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: release started - ${BUILD_URL}"
                 sh "sg docker -c 'docker run ${SERVER_IMAGE} /usr/bin/rpm -qa' > rpms.list"
                 stash includes: 'rpms.list', name: 'rpms-stash'
             }
@@ -322,7 +360,7 @@ ENDSSH
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh """
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
-                            rsync -avt --bwlimit=50000 --delete --progress --exclude=rsync-* --exclude=*.bak \
+                            rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
                                 /srv/repo-copy/pmm2-components/yum/release \
                                 10.30.9.32:/www/repo.percona.com/htdocs/pmm2-components/yum/
                             date +%s > /srv/repo-copy/version
@@ -423,7 +461,7 @@ ENDSSH
                         sha256sum pmm-client-${VERSION}-amd64.docker | tee pmm-client-${VERSION}-amd64.sha256sum
                         sha256sum pmm-client-${VERSION}-arm64.docker | tee pmm-client-${VERSION}-arm64.sha256sum
 
-                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
 
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/docker"
 
@@ -448,7 +486,7 @@ ENDSSH
                 withCredentials([sshUserPrivateKey(credentialsId: 'jenkins-deploy', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh '''
                         sha256sum pmm-server-${VERSION}.ova | tee pmm-server-${VERSION}.sha256sum
-                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.240 @10.30.6.241 | tail -1)
+                        export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
                         ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm2/${VERSION}/ova"
                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.ova pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm2/${VERSION}/ova/
                     '''
@@ -533,11 +571,11 @@ ENDSSH
             deleteDir()
         }
         success {
-            slackSend botUser: true, channel: '#pmm-dev', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
+            slackSend botUser: true, channel: '#pmm', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
             slackSend botUser: true, channel: '#releases', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: release failed - ${BUILD_URL}"
+            slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: release failed - ${BUILD_URL}"
         }
     }
 }

@@ -61,42 +61,13 @@ pipeline {
                     git submodule update --init --jobs 10
                     git submodule status
 
-                    if [ -s ci.yml ]; then
-                        source /home/ec2-user/venv/bin/activate
-                        python3 ci.py
-                        cat .git-sources
-                        . ./.git-sources
-                        echo $pmm_commit > apiCommitSha
-                        echo $pmm_branch > apiBranch
-                        echo $pmm_url > apiURL
-                        echo $pmm_qa_branch > pmmQABranch
-                        echo $pmm_qa_commit > pmmQACommitSha
-                        echo $pmm_ui_tests_branch > pmmUITestBranch
-                        echo $pmm_ui_tests_commit > pmmUITestsCommitSha
-                    else
-                        # Define variables
-                        pmm_commit=$(git submodule status | grep 'sources/pmm/src' | awk -F ' ' '{print $1}')
-                        echo $pmm_commit > apiCommitSha
-                        pmm_branch=$(git config -f .gitmodules submodule.pmm.branch)
-                        echo $pmm_branch > apiBranch
-                        pmm_url=$(git config -f .gitmodules submodule.pmm.url)
-                        echo $pmm_url > apiURL
-                        pmm_qa_branch=$(git config -f .gitmodules submodule.pmm-qa.branch)
-                        echo $pmm_qa_branch > pmmQABranch
-                        pmm_qa_commit=$(git submodule status | grep 'pmm-qa' | awk -F ' ' '{print $1}')
-                        echo $pmm_qa_commit > pmmQACommitSha
-                        pmm_ui_tests_branch=$(git config -f .gitmodules submodule.pmm-ui-tests.branch)
-                        echo $pmm_ui_tests_branch > pmmUITestBranch
-                        pmm_ui_tests_commit=$(git submodule status | grep 'pmm-ui-tests' | awk -F ' ' '{print $1}')
-                        echo $pmm_ui_tests_commit > pmmUITestsCommitSha
-                    fi
-                    fb_commit_sha=$(git rev-parse HEAD)
-                    echo $fb_commit_sha > fbCommitSha
+                    ${PATH_TO_SCRIPTS}/build-submodules
                 '''
                 }
                 script {
                     env.PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
                     env.FB_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
+                    env.SHORTENED_COMMIT = env.FB_COMMIT.substring(0, 7)
                 }
                 stash includes: 'apiBranch', name: 'apiBranch'
                 stash includes: 'apiURL', name: 'apiURL'
@@ -106,7 +77,7 @@ pipeline {
                 stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
                 stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
                 stash includes: 'fbCommitSha', name: 'fbCommitSha'
-                slackSend channel: '#pmm-ci', color: '#0000FF', message: "[${JOB_NAME}]: v3 build started, URL: ${BUILD_URL}"
+                slackSend channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: v3 build started, URL: ${BUILD_URL}"
             }
         }
         stage('Build client source') {
@@ -134,40 +105,12 @@ pipeline {
                         aws s3 cp \
                             --acl public-read \
                             results/tarball/pmm-client-*.tar.gz \
-                            s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${FB_COMMIT:0:7}.tar.gz
+                            s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${SHORTENED_COMMIT}.tar.gz
                     '''
                 }
                 script {
-                    sh (script: 'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${FB_COMMIT:0:7}.tar.gz" | tee CLIENT_URL')
+                    sh (script: 'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BRANCH_NAME}-${SHORTENED_COMMIT}.tar.gz" | tee CLIENT_URL')
                     env.CLIENT_URL = sh (script: "cat CLIENT_URL", returnStdout: true).trim()
-                }
-            }
-        }
-        stage('Build client source rpm') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        set -o errexit
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-
-                        ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:3
-                    '''
-                }
-            }
-        }
-        stage('Build client binary rpm') {
-            steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh '''
-                        set -o errexit
-
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-
-                        ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:3
-
-                        mkdir -p tmp/pmm-server/RPMS/
-                        cp results/rpm/pmm-client-*.rpm tmp/pmm-server/RPMS/
-                    '''
                 }
             }
         }
@@ -182,7 +125,7 @@ pipeline {
                     sh '''
                         set -o errexit
                         export PUSH_DOCKER=1
-                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}
+                        export DOCKER_CLIENT_TAG=perconalab/pmm-client-fb:${BRANCH_NAME}-${SHORTENED_COMMIT}
                         ${PATH_TO_SCRIPTS}/build-client-docker
                     '''
                 }
@@ -221,7 +164,7 @@ pipeline {
                         set -o errexit
 
                         export PUSH_DOCKER=1
-                        export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${FB_COMMIT:0:7}
+                        export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${SHORTENED_COMMIT}
 
                         export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3
                         export RPMBUILD_DIST=el9
@@ -232,6 +175,14 @@ pipeline {
                 }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'
                 archiveArtifacts 'results/docker/TAG'
+            }
+        }
+        stage('Build watchtower container') {
+            steps {
+                build job: 'pmm3-watchtower-autobuild', parameters: [
+                    string(name: 'GIT_BRANCH', value: params.PMM_BRANCH),
+                    string(name: 'TAG_TYPE', value: "perconalab/pmm-watchtower-fb:${BRANCH_NAME}-${SHORTENED_COMMIT}")
+                ]
             }
         }
         stage('Trigger workflows in GH') {
@@ -248,7 +199,7 @@ pipeline {
                         def STAGING_URL = "https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/"
 
                         def payload = [
-                          body: "Server docker: ${IMAGE}\nClient docker: ${CLIENT_IMAGE}\nClient tarball: ${CLIENT_URL}\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
+                          body: "Server docker: ${IMAGE}\nClient docker: ${CLIENT_IMAGE}\nWatchtower docker: perconalab/pmm-watchtower-fb:${BRANCH_NAME}-${SHORTENED_COMMIT}\nClient tarball: ${CLIENT_URL}\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
                         ]
                         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
                         sh '''
@@ -263,93 +214,24 @@ pipeline {
                                 "https://api.github.com/repos/${REPO}/issues/${CHANGE_ID}/comments"
                         '''
 
-                        payload = [
-                          ref: "${PMM_BRANCH}",
-                          inputs: [
-                            server_image: "${IMAGE}", client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}"
-                          ]
-                        ]
-                        writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
-                        // Trigger a workflow on GH to run some test there as well, pass server and client images as parameters
-                        sh '''
-                            REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
-                            curl -X POST \
-                                -H "Accept: application/vnd.github.v3+json" \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/${REPO}/actions/workflows/jenkins-dispatch.yml/dispatches" \
-                                -d @body.json
-                        '''
-
-                        payload = [
-                          ref: "${PMM_BRANCH}",
-                          inputs: [
-                            client_tar_url: "${CLIENT_URL}", sha: "${FB_COMMIT_HASH}"
-                          ]
-                        ]
-                        writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
-                        // Trigger a workflow on GH to run PMM binary cli tests
-                        sh '''
-                            REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
-                            curl -X POST \
-                                -H "Accept: application/vnd.github.v3+json" \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/${REPO}/actions/workflows/pmm-cli.yml/dispatches" \
-                                -d @body.json
-                        '''
-
                         def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
-                        payload = [
-                          ref: "${PMM_BRANCH}",
-                          inputs: [
-                            server_image: "${IMAGE}", client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
-                            pmm_qa_branch: "${PMM_QA_GIT_BRANCH}", client_version: "${CLIENT_URL}"
-                          ]
-                        ]
-                        writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
-                        // Trigger a workflow on GH to run testsuite tests
-                        sh '''
-                            REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
-                            curl -X POST \
-                                -H "Accept: application/vnd.github.v3+json" \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/${REPO}/actions/workflows/pmm-testsuite.yml/dispatches" \
-                                -d @body.json
-                        '''
-
                         def PMM_UI_TESTS_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmUITestBranch").trim()
                         payload = [
                           ref: "${PMM_BRANCH}",
                           inputs: [
-                            server_image: "${IMAGE}", client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
-                            pmm_qa_branch: "${PMM_QA_GIT_BRANCH}", pmm_ui_branch: "${PMM_UI_TESTS_GIT_BRANCH}",
-                            client_version: "${CLIENT_URL}"
+                            pmm_server_image: "${IMAGE}", pmm_client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
+                            pmm_qa_branch: "${PMM_QA_GIT_BRANCH}", pmm_ui_tests_branch: "${PMM_UI_TESTS_GIT_BRANCH}",
+                            pmm_client_version: "${CLIENT_URL}"
                           ]
                         ]
                         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
-                        // Trigger a workflow on GH to run ui tests
+                        // Trigger a workflow on GH to run tests
                         sh '''
                             REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
                             curl -X POST \
                                 -H "Accept: application/vnd.github.v3+json" \
                                 -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/${REPO}/actions/workflows/pmm-ui-tests-fb.yml/dispatches" \
-                                -d @body.json
-                        '''
-
-                        payload = [
-                          ref: "${PMM_BRANCH}",
-                          inputs: [
-                            server_image: "${IMAGE}", client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
-                          ]
-                        ]
-                        writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
-                        // Trigger a workflow on GH to run trivy for vulnerability scan
-                        sh '''
-                            REPO=$(echo $CHANGE_URL | cut -d '/' -f 4-5)
-                            curl -X POST \
-                                -H "Accept: application/vnd.github.v3+json" \
-                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                                "https://api.github.com/repos/${REPO}/actions/workflows/trivy_scan.yml/dispatches" \
+                                "https://api.github.com/repos/${REPO}/actions/workflows/pmm-qa-fb-checks.yml/dispatches" \
                                 -d @body.json
                         '''
                     }
@@ -390,7 +272,7 @@ pipeline {
                 if (params.CHANGE_URL) {
                     unstash 'IMAGE'
                     def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
-                    slackSend channel: '#pmm-ci', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
+                    slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, image: ${IMAGE}, URL: ${BUILD_URL}"
                     if (env.API_TESTS_RESULT.equals("SUCCESS") && env.API_TESTS_URL) {
                       addComment("API tests have succeded: ${API_TESTS_URL}")
                     }
@@ -403,7 +285,7 @@ pipeline {
                     if (!env.API_TESTS_RESULT.equals("SUCCESS") && env.API_TESTS_URL) {
                         addComment("API tests have failed: ${API_TESTS_URL}")
                     }
-                    slackSend channel: '#pmm-ci', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
+                    slackSend channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}"
                 }
             }
         }

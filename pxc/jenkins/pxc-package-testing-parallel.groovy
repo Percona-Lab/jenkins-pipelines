@@ -6,14 +6,21 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 List all_nodes = [
                 'ubuntu-noble',
                 'ubuntu-jammy',
+                'ubuntu-noble-arm',
+                'ubuntu-jammy-arm',
                 'ubuntu-focal',
                 'debian-12',
                 'debian-11',
+                'debian-12-arm',
+                'debian-11-arm',
                 'debian-10',
                 'centos-7',
                 'ol-8',
                 'ol-9',
-                'min-amazon-2'
+                'rhel-8',
+                'rhel-9',
+                'rhel-8-arm',
+                'rhel-9-arm'
 ]
 
 product_to_test = params.product_to_test
@@ -25,14 +32,11 @@ nodes_to_test = all_nodes
 void runNodeBuild(String node_to_test) {
 
     if("${params.test_repo}" == "main"){
-
         test_type = "install"
         echo "${test_type}"
-
     }
     else{
-
-        test_type = "install_and_upgrade"
+    //    test_type = "install_and_upgrade"
         echo "${test_type}"
     }
 
@@ -59,6 +63,7 @@ pipeline {
         choice(
             name: 'product_to_test',
             choices: [
+                'pxc84',
                 'pxc80',
                 'pxc57',
                 'pxc-innovation-lts'
@@ -67,7 +72,7 @@ pipeline {
         )
 
         choice(
-	        name: 'test_repo',
+            name: 'test_repo',
             choices: [
                 'testing',
                 'main',
@@ -82,6 +87,16 @@ pipeline {
             description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."
         )
 
+        choice(
+            name: 'test_type',
+            choices: [
+                'install',
+                'install_and_upgrade',
+                'min_upgrade',
+                'maj_upgrade'
+            ],
+            description: 'Set test type for testing'
+        )
     }
 
     stages {
@@ -141,6 +156,36 @@ pipeline {
                     }
                 }
 
+                stage("Debian-11-arm") {
+                    when {
+                        expression {
+                            allOf{
+                                nodes_to_test.contains("debian-11-arm")
+
+                            }
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("debian-11-arm")
+                    }
+                }
+
+                stage("Debian-12-arm") {
+                    when {
+                        expression {
+                            allOf{
+                                nodes_to_test.contains("debian-12-arm")
+
+                            }
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("debian-12-arm")
+                    }
+                }
+
                 stage("Centos 7") {
                     when {
                         expression {
@@ -185,6 +230,78 @@ pipeline {
                     }
                 }
 
+                stage("rhel-8") {
+                    when {
+                        expression {
+                            allOf{
+                                nodes_to_test.contains("rhel-8")
+
+                            }
+                        }
+                    }
+                    steps {
+                        runNodeBuild("rhel-8")
+                    }
+                }
+
+                stage("rhel-9") {
+                    when {
+                        expression {
+                            allOf{
+                                nodes_to_test.contains("rhel-9")
+                            
+                            }
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("rhel-9")
+                    }
+                }
+
+                stage("rhel-8-arm") {
+                    when {
+                        expression {
+                            allOf{
+                                nodes_to_test.contains("rhel-8-arm")
+
+                            }
+                        }
+                    }
+                    steps {
+                        runNodeBuild("rhel-8-arm")
+                    }
+                }
+
+                stage("rhel-9-arm") {
+                    when {
+                        expression {
+                            allOf{
+                                nodes_to_test.contains("rhel-9-arm")
+                            
+                            }
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("rhel-9-arm")
+                    }
+                }
+
+                stage("ubuntu-noble") {
+                    when {
+                        expression {
+                            allOf{                            
+                                nodes_to_test.contains("ubuntu-noble")
+
+                            }
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("ubuntu-noble")
+                    }
+                }
 
                 stage("ubuntu-jammy") {
                     when {
@@ -201,7 +318,36 @@ pipeline {
                     }
                 }
 
+                stage("ubuntu-noble-arm") {
+                    when {
+                        expression {
+                            allOf{                            
+                                nodes_to_test.contains("ubuntu-noble-arm")
 
+                            }
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("ubuntu-noble-arm")
+                    }
+                }
+
+                stage("ubuntu-jammy-arm") {
+                    when {
+                        expression {
+                            allOf{                            
+                                nodes_to_test.contains("ubuntu-jammy-arm")
+
+                            }
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("ubuntu-jammy-arm")
+                    }
+                }
+                
                 stage("ubuntu-focal") {
                     when {
                         expression {
@@ -217,19 +363,6 @@ pipeline {
                     }
                 }
 
-	            stage("min-amazon-2") {	
-                    when {	
-                        expression {	
-                            allOf{
-                                nodes_to_test.contains("min-amazon-2")	
-
-                            }
-                        }	
-                    }	
-                    steps {	
-                        runNodeBuild("min-amazon-2")	
-                    }	
-                }
             }
         }
     }
