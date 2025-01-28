@@ -12,22 +12,34 @@ imageMap['deb12-aarch64'] = '114690389' // 114690389   system   debian-12       
 imageMap['launcher-x64']  = imageMap['deb12-x64']
 
 execMap = [:]
-execMap['deb']           = 1
-execMap['deb12-x64']     = execMap['deb']
-execMap['deb12-aarch64'] = execMap['deb']
-execMap['launcher-x64']  = 10
+execMap['deb']                = 1
+execMap['deb12-x64-nbg1']     = execMap['deb']
+execMap['deb12-x64-hel1']     = execMap['deb']
+execMap['deb12-x64-fsn1']     = execMap['deb']
+execMap['deb12-aarch64-nbg1'] = execMap['deb']
+execMap['deb12-aarch64-hel1'] = execMap['deb']
+execMap['deb12-aarch64-fsn1'] = execMap['deb']
+execMap['launcher-x64-fsn1']  = 10
 
 bootDeadlineMap =[:]
-bootDeadlineMap['default']       = 3
-bootDeadlineMap['deb12-x64']     = bootDeadlineMap['default']
-bootDeadlineMap['deb12-aarch64'] = bootDeadlineMap['default']
-bootDeadlineMap['launcher-x64']  = bootDeadlineMap['default']
+bootDeadlineMap['default']            = 3
+bootDeadlineMap['deb12-x64-nbg1']     = bootDeadlineMap['default']
+bootDeadlineMap['deb12-x64-hel1']     = bootDeadlineMap['default']
+bootDeadlineMap['deb12-x64-fsn1']     = bootDeadlineMap['default']
+bootDeadlineMap['deb12-aarch64-nbg1'] = bootDeadlineMap['default']
+bootDeadlineMap['deb12-aarch64-hel1'] = bootDeadlineMap['default']
+bootDeadlineMap['deb12-aarch64-fsn1'] = bootDeadlineMap['default']
+bootDeadlineMap['launcher-x64-fsn1']  = bootDeadlineMap['default']
 
 jvmOptsMap = [:]
 jvmOptsMap['deb12']         = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
-jvmOptsMap['deb12-x64']     = jvmOptsMap['deb12']
-jvmOptsMap['deb12-aarch64'] = jvmOptsMap['deb12']
-jvmOptsMap['launcher-x64']  = jvmOptsMap['deb12']
+jvmOptsMap['deb12-x64-nbg1']     = jvmOptsMap['deb12']
+jvmOptsMap['deb12-x64-hel1']     = jvmOptsMap['deb12']
+jvmOptsMap['deb12-x64-fsn1']     = jvmOptsMap['deb12']
+jvmOptsMap['deb12-aarch64-nbg1'] = jvmOptsMap['deb12']
+jvmOptsMap['deb12-aarch64-hel1'] = jvmOptsMap['deb12']
+jvmOptsMap['deb12-aarch64-fsn1'] = jvmOptsMap['deb12']
+jvmOptsMap['launcher-x64-fsn1']  = jvmOptsMap['deb12']
 
 labelMap = [:]
 labelMap['deb12-x64']     = 'docker-x64 docker-deb12-x64 deb12-x64'
@@ -91,16 +103,24 @@ initMap['deb-docker'] = '''#!/bin/bash -x
     sudo systemctl restart docker
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
-initMap['deb12-x64']     = initMap['deb-docker']
-initMap['deb12-aarch64'] = initMap['deb-docker']
-initMap['launcher-x64']  = initMap['deb-docker']
+initMap['deb12-x64-nbg1']     = initMap['deb-docker']
+initMap['deb12-x64-hel1']     = initMap['deb-docker']
+initMap['deb12-x64-fsn1']     = initMap['deb-docker']
+initMap['deb12-aarch64-nbg1'] = initMap['deb-docker']
+initMap['deb12-aarch64-hel1'] = initMap['deb-docker']
+initMap['deb12-aarch64-fsn1'] = initMap['deb-docker']
+initMap['launcher-x64-fsn1']  = initMap['deb-docker']
 
 def templates = [
        /* new HetznerServerTemplate("ubuntu20-cx21", "java", "name=ubuntu20-docker", "fsn1", "cx21"), */
-        //                        tmplName         tmplLabels                 tmplImage                  region server type
-        new HetznerServerTemplate("deb12-x64",     labelMap['deb12-x64'],     imageMap['deb12-x64'],     "fsn1", "cpx51"),
-        new HetznerServerTemplate("deb12-aarch64", labelMap['deb12-aarch64'], imageMap['deb12-aarch64'], "fsn1", "cax41"),
-        new HetznerServerTemplate("launcher-x64",  labelMap['launcher-x64'],  imageMap['launcher-x64'],  "fsn1", "cpx21")
+        //                        tmplName              tmplLabels                 tmplImage                  region server type
+        new HetznerServerTemplate("deb12-x64-nbg1",     labelMap['deb12-x64'],     imageMap['deb12-x64'],     "nbg1", "cpx51"),
+        new HetznerServerTemplate("deb12-aarch64-nbg1", labelMap['deb12-aarch64'], imageMap['deb12-aarch64'], "nbg1", "cax41"),
+        new HetznerServerTemplate("deb12-x64-hel1",     labelMap['deb12-x64'],     imageMap['deb12-x64'],     "hel1", "cpx51"),
+        new HetznerServerTemplate("deb12-aarch64-hel1", labelMap['deb12-aarch64'], imageMap['deb12-aarch64'], "hel1", "cax41"),
+        new HetznerServerTemplate("deb12-x64-fsn1",     labelMap['deb12-x64'],     imageMap['deb12-x64'],     "fsn1", "cpx51"),
+        new HetznerServerTemplate("deb12-aarch64-fsn1", labelMap['deb12-aarch64'], imageMap['deb12-aarch64'], "fsn1", "cax41"),
+        new HetznerServerTemplate("launcher-x64-fsn1",  labelMap['launcher-x64'],  imageMap['launcher-x64'],  "fsn1", "cpx21")
 ]
 
 templates.each { it -> 
