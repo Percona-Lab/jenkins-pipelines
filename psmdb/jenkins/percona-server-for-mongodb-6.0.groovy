@@ -6,7 +6,9 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
-        mkdir test
+        ls -laR ./
+        rm -rf test/*
+        mkdir -p test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-packaging/scripts/psmdb_builder.sh -O psmdb_builder.sh
         pwd -P
         ls -laR
