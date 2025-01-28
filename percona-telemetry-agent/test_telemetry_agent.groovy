@@ -1,8 +1,10 @@
 pipeline {
     agent none  // We will define the agent at each stage
 
-    // location of the test script
-    test_script = 'https://raw.githubusercontent.com/percona/telemetry-agent/6e2d5526c4596ea9e149114eb5529041036bd707/packaging/scripts/test-telemetry-agent.sh'
+    environment {
+        // location of the test script
+        TEST_SCRIPT = 'https://raw.githubusercontent.com/percona/telemetry-agent/6e2d5526c4596ea9e149114eb5529041036bd707/packaging/scripts/test-telemetry-agent.sh'
+    }
 
     stages {
         stage('Run Percona Telemetry Script') {
@@ -17,7 +19,7 @@ pipeline {
                             sudo apt-get install -y sudo wget gnupg2 lsb-release curl systemd
 
                             # Download and run your script
-                            wget $test_script -O test-telemetry-agent.sh
+                            wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent
                             sudo ./test-telemetry-agent
 
@@ -38,7 +40,7 @@ pipeline {
                             sudo apt-get install -y sudo wget gnupg2 lsb-release curl systemd
 
                             # Download and run your script
-                            wget $test_script -O test-telemetry-agent.sh
+                            wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent
                             sudo ./test-telemetry-agent
 
@@ -57,7 +59,7 @@ pipeline {
                             sudo apt-get update
                             sudo apt-get install -y sudo wget gnupg2 lsb-release curl systemd
 
-                            wget $test_script -O test-telemetry-agent.sh
+                            wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent
                             sudo ./test-telemetry-agent
 
@@ -77,7 +79,7 @@ pipeline {
                             sudo apt-get update
                             sudo apt-get install -y sudo wget gnupg2 lsb-release curl systemd
 
-                            wget $test_script -O test-telemetry-agent.sh
+                            wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent
                             sudo ./test-telemetry-agent
 
@@ -98,7 +100,7 @@ pipeline {
                             sudo apt-get install -y sudo wget gnupg2 lsb-release curl systemd
 
                             # Download and run your script
-                            wget $test_script -O test-telemetry-agent.sh
+                            wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent
                             sudo ./test-telemetry-agent
 
@@ -118,7 +120,7 @@ pipeline {
                             sudo yum install -y sudo wget gnupg2 curl systemd
 
                             # Download and run your script
-                            wget $test_script -O test-telemetry-agent.sh
+                            wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent
                             sudo ./test-telemetry-agent
 
@@ -138,7 +140,7 @@ pipeline {
                             sudo yum install -y sudo wget gnupg2 curl systemd
 
                             # Download and run your script
-                            wget $test_script -O test-telemetry-agent.sh
+                            wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent
                             sudo ./test-telemetry-agent
 
@@ -157,7 +159,7 @@ pipeline {
                             # Update package list and install necessary dependencies
                             sudo yum install -y sudo wget gnupg2 curl systemd
 
-                            wget $test_script -O test-telemetry-agent.sh
+                            wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent
                             sudo ./test-telemetry-agent
 
