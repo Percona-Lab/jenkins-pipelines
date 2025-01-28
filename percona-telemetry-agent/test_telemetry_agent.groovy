@@ -31,7 +31,7 @@ pipeline {
                             # Download and run your script
                             wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent.sh
-                            sudo ./test-telemetry-agent.sh ${params.target_version}
+                            sudo ./test-telemetry-agent.sh \${params.target_version}
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
@@ -52,7 +52,7 @@ pipeline {
                             # Download and run your script
                             wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent.sh
-                            sudo ./test-telemetry-agent.sh ${params.target_version}
+                            sudo ./test-telemetry-agent.sh \${params.target_version}
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
@@ -71,7 +71,7 @@ pipeline {
 
                             wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent.sh
-                            sudo ./test-telemetry-agent.sh ${params.target_version}
+                            sudo ./test-telemetry-agent.sh \${params.target_version}
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
@@ -91,7 +91,7 @@ pipeline {
 
                             wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent.sh
-                            sudo ./test-telemetry-agent.sh ${params.target_version}
+                            sudo ./test-telemetry-agent.sh \${params.target_version}
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
@@ -112,7 +112,7 @@ pipeline {
                             # Download and run your script
                             wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent.sh
-                            sudo ./test-telemetry-agent.sh ${params.target_version}
+                            sudo ./test-telemetry-agent.sh \${params.target_version}
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
@@ -132,7 +132,7 @@ pipeline {
                             # Download and run your script
                             wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent.sh
-                            sudo ./test-telemetry-agent.sh ${params.target_version}
+                            sudo ./test-telemetry-agent.sh \${params.target_version}
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
@@ -152,7 +152,7 @@ pipeline {
                             # Download and run your script
                             wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent.sh
-                            sudo ./test-telemetry-agent.sh ${params.target_version}
+                            sudo ./test-telemetry-agent.sh \${params.target_version}
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
@@ -171,7 +171,7 @@ pipeline {
 
                             wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent.sh
-                            sudo ./test-telemetry-agent.sh ${params.target_version}
+                            sudo ./test-telemetry-agent.sh \${params.target_version}
 
                             # Verify service behavior
                             pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
