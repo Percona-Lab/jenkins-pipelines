@@ -9,7 +9,7 @@ pipeline {
 
     parameters {
             string(
-                defaultValue: 'v1.0.0'
+                defaultValue: 'v1.0.0',
                 description: 'Expected telemetry-agent version',
                 name: 'target_version',
                 trim: true
