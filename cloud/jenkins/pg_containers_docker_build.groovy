@@ -46,7 +46,7 @@ void pushUpgradeImageToDockerHub(String IMAGE_POSTFIX){
 void build(String IMAGE_POSTFIX){
     sh """
         cd ./source/
-        for PG_VER in 17 16 15 14 13 12; do
+        for PG_VER in 17 16 15 14 13; do
             docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} --build-arg PGO_TAG=\${GIT_PD_BRANCH} \
                 -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX} \
                 -f ./postgresql-containers/build/${IMAGE_POSTFIX}/Dockerfile ./postgresql-containers
@@ -61,7 +61,7 @@ void checkImageForDocker(String IMAGE_POSTFIX){
                     IMAGE_NAME='percona-postgresql-operator'
                     docker login -u '${USER}' -p '${PASS}'
 
-                    for PG_VER in 17 16 15 14 13 12; do
+                    for PG_VER in 17 16 15 14 13; do
                         TrivyLog="$WORKSPACE/trivy-hight-\\${IMAGE_NAME}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}.xml"
                         /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \\${TrivyLog} --ignore-unfixed --timeout 20m --exit-code 0 \
                             --severity HIGH,CRITICAL perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
@@ -82,7 +82,7 @@ void pushImageToDockerHub(String IMAGE_POSTFIX){
                     IMAGE_NAME='percona-postgresql-operator'
                     docker login -u '${USER}' -p '${PASS}'
                     aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR
-                    for PG_VER in 17 16 15 14 13 12; do
+                    for PG_VER in 17 16 15 14 13; do
                         docker push perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
                         docker tag perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX} $ECR/perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
                         docker push $ECR/perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-ppg\\${PG_VER}-\\${SOME_IMAGE_POSTFIX}
