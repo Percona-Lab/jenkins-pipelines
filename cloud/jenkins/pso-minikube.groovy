@@ -188,7 +188,6 @@ void runTest(Integer TEST_ID) {
                 export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
                 export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                 export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                 export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
 
                 kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
@@ -198,6 +197,7 @@ void runTest(Integer TEST_ID) {
             return true
         }
         catch (exc) {
+            echo "Error occurred while running test $testName: ${exc}"
             if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
