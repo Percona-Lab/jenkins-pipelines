@@ -171,8 +171,8 @@ ENDSSH
                         REPO=pmm3-client
                         date +%s > /srv/repo-copy/version
                         RSYNC_TRANSFER_OPTS=" -avt --delete --delete-excluded --delete-after --progress"
-                        rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.10.9.209:/www/repo.percona.com/htdocs/\${REPO}/
-                        rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/version 10.10.9.209:/www/repo.percona.com/htdocs/
+                        rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/\${REPO}/* 10.30.9.32:/www/repo.percona.com/htdocs/\${REPO}/
+                        rsync \${RSYNC_TRANSFER_OPTS} --exclude=*.sh --exclude=*.bak /srv/repo-copy/version 10.30.9.32:/www/repo.percona.com/htdocs/
                         cd -
 ENDSSH
                     """
