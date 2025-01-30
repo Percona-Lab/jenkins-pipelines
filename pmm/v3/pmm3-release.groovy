@@ -12,8 +12,8 @@ pipeline {
         CLIENT_IMAGE            = "perconalab/pmm-client:${VERSION}-rc"
         SERVER_IMAGE            = "perconalab/pmm-server:${VERSION}-rc"
         WATCHTOWER_IMAGE        = "perconalab/watchtower:${VERSION}-rc"
-        PATH_TO_CLIENT_AMD64    = "testing/pmm3-client-autobuild-amd/pmm/${VERSION}/v3/${PATH_TO_CLIENT_AMD64}"
-        PATH_TO_CLIENT_ARM64    = "testing/pmm3-client-autobuild-arm/pmm/${VERSION}/v3/${PATH_TO_CLIENT_ARM64}"
+        PATH_TO_CLIENT_AMD64    = "testing/pmm3-client-autobuild-amd/pmm/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT_AMD64}"
+        PATH_TO_CLIENT_ARM64    = "testing/pmm3-client-autobuild-arm/pmm/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT_ARM64}"
     }
 
     parameters {
