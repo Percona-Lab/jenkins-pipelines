@@ -25,7 +25,7 @@ void prepareNode() {
         sudo git reset --hard
         sudo git clean -xdf
         sudo rm -rf source
-        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mongodb-operator source
+        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
     """
 
     if ("$PILLAR_VERSION" != "none") {
