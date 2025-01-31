@@ -1,13 +1,17 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 pipeline {
     agent {
-        label 'docker'
+        label params.CLOUD == 'Hetzner' ? 'launcher-x64' : 'micro-amazon'
     }
     parameters {
+        choice(
+            choices: ['Hetzner','AWS'],
+            description: 'Cloud infra for build',
+            name: 'CLOUD')
         string(
             defaultValue: 'https://github.com/percona/percona-server-mongodb.git',
             description: 'URL for percona-server-for-mongodb repository',
@@ -22,10 +26,13 @@ pipeline {
     stages {
         stage('Get release branches') {
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AWS_STASH', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                script {
+                String S3_STASH = (params.CLOUD == 'Hetzner') ? 'HTZ_STASH' : 'AWS_STASH'
+                String S3_ENDPOINT = (params.CLOUD == 'Hetzner') ? '--endpoint-url https://fsn1.your-objectstorage.com' : '--endpoint-url https://s3.amazonaws.com'
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: S3_STASH, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         EC=0
-                        aws s3 ls s3://percona-jenkins-artifactory/percona-server-mongodb/branch_commit_id_70.properties || EC=\$?
+                        aws s3 ls s3://percona-jenkins-artifactory/percona-server-mongodb/branch_commit_id_70.properties ${S3_ENDPOINT} || EC=\$?
 
 			if [ \${EC} = 1 ]; then
 			  LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release-7.0\\* | tail -1)
@@ -38,10 +45,10 @@ pipeline {
 			  echo "COMMIT_ID=\${COMMIT_ID}" >> branch_commit_id_70.properties
 			  echo "MONGO_TOOLS_TAG=\${MONGO_TOOLS_TAG}" >> branch_commit_id_70.properties
 
-			  aws s3 cp branch_commit_id_70.properties s3://percona-jenkins-artifactory/percona-server-mongodb/
+			  aws s3 cp branch_commit_id_70.properties s3://percona-jenkins-artifactory/percona-server-mongodb/ ${S3_ENDPOINT}
                           echo "START_NEW_BUILD=NO" > startBuild
 			else
-                          aws s3 cp s3://percona-jenkins-artifactory/percona-server-mongodb/branch_commit_id_70.properties .
+                          aws s3 cp s3://percona-jenkins-artifactory/percona-server-mongodb/branch_commit_id_70.properties . ${S3_ENDPOINT}
 			  source branch_commit_id_70.properties
 
 			  LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release-7.0\\* | tail -1)
@@ -59,11 +66,10 @@ pipeline {
 			  echo "BRANCH_NAME=\${LATEST_BRANCH_NAME}" > branch_commit_id_70.properties
 			  echo "COMMIT_ID=\${LATEST_COMMIT_ID}" >> branch_commit_id_70.properties
 			  echo "MONGO_TOOLS_TAG=\${MONGO_TOOLS_TAG}" >> branch_commit_id_70.properties
-			  aws s3 cp branch_commit_id_70.properties s3://percona-jenkins-artifactory/percona-server-mongodb/
+			  aws s3 cp branch_commit_id_70.properties s3://percona-jenkins-artifactory/percona-server-mongodb/ ${S3_ENDPOINT}
                         fi
                     """
                 }
-                script {
                     START_NEW_BUILD = sh(returnStdout: true, script: "source startBuild; echo \${START_NEW_BUILD}").trim()
                     BRANCH_NAME = sh(returnStdout: true, script: "source branch_commit_id_70.properties; echo \${BRANCH_NAME}").trim()
                     COMMIT_ID = sh(returnStdout: true, script: "source branch_commit_id_70.properties; echo \${COMMIT_ID}").trim()
@@ -86,8 +92,7 @@ pipeline {
                     """
                 }
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
-                build job: 'psmdb70-autobuild-RELEASE', parameters: [string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'PSMDB_VERSION', value: VERSION), string(name: 'PSMDB_RELEASE', value: RELEASE), string(name: 'MONGO_TOOLS_TAG', value: MONGO_TOOLS_TAG), string(name: 'COMPONENT', value: 'testing')]
-                build job: 'psmdb70-aarch64-build', parameters: [string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'PSMDB_VERSION', value: VERSION), string(name: 'PSMDB_RELEASE', value: RELEASE), string(name: 'MONGO_TOOLS_TAG', value: MONGO_TOOLS_TAG), string(name: 'COMPONENT', value: 'testing')]
+                build job: 'hetzner-psmdb70-autobuild-RELEASE', parameters: [string(name: 'CLOUD', value: CLOUD), string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'PSMDB_VERSION', value: VERSION), string(name: 'PSMDB_RELEASE', value: RELEASE), string(name: 'MONGO_TOOLS_TAG', value: MONGO_TOOLS_TAG), string(name: 'COMPONENT', value: 'testing')]
                 build job: 'psmdb-multijob-testing', propagate: false, wait: false, parameters: [string(name: 'PSMDB_VERSION', value: VERSION), string(name: 'PSMDB_RELEASE', value: RELEASE)]
             }
         }
