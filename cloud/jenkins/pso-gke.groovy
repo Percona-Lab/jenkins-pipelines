@@ -95,8 +95,8 @@ EOF
 
     if ("$IMAGE_MYSQL") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-        currentBuild.displayName = "#" + currentBuild.number + " $PLATFORM_VER-$GKE_RELEASE_CHANNEL"
-        currentBuild.description = "$GIT_BRANCH $cw " + "$IMAGE_MYSQL".split(":")[1]
+        currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
+        urrentBuild.description = "$PLATFORM_VER-$GKE_RELEASE_CHANNEL $ARCH " + "$IMAGE_MYSQL".split(":")[1] + " $cw"
     }
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
