@@ -43,7 +43,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     sudo percona-release enable-only pmm3-client release
                 fi
 
-                export FULL_CLIENT_VERSION = $(yum list pmm-client --showduplicates | grep -w "${CLIENT_VERSION}" | awk '{print $2}')
+                export FULL_CLIENT_VERSION=$(yum list pmm-client --showduplicates | grep -w "${CLIENT_VERSION}" | awk '{print $2}')
                 sudo yum -y install "pmm-client-${FULL_CLIENT_VERSION}"
                 sleep 10
             else
