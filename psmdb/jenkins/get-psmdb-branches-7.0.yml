@@ -1,5 +1,5 @@
 - job:
-    name: psmdb70-autobuild
+    name: hetzner-psmdb70-autobuild
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -9,7 +9,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+            - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: psmdb/jenkins/get-psmdb-branches-7.0.groovy
