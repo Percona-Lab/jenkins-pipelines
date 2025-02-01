@@ -82,7 +82,7 @@ EOF
     """
 
     echo "=========================[ Logging in the Kubernetes provider ]========================="
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
@@ -96,7 +96,7 @@ EOF
     if ("$IMAGE_MYSQL") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
-        urrentBuild.description = "$PLATFORM_VER-$GKE_RELEASE_CHANNEL $ARCH " + "$IMAGE_MYSQL".split(":")[1] + " $cw"
+        currentBuild.description = "$PLATFORM_VER-$GKE_RELEASE_CHANNEL " + "$IMAGE_MYSQL".split(":")[1] + " $cw"
     }
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
