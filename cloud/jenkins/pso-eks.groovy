@@ -15,37 +15,7 @@ String getParam(String paramName, String keyName = null) {
     return param
 }
 
-void prepareNode() {
-    echo "=========================[ Cloning the sources ]========================="
-    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-    sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo git config --global --add safe.directory '*'
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf source
-        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
-    """
-
-    if ("$PILLAR_VERSION" != "none") {
-        echo "=========================[ Getting parameters for release test ]========================="
-        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
-        IMAGE_MYSQL = IMAGE_MYSQL ?: getParam("IMAGE_MYSQL", "IMAGE_MYSQL${PILLAR_VERSION}")
-        IMAGE_BACKUP = IMAGE_BACKUP ?: getParam("IMAGE_BACKUP", "IMAGE_BACKUP${PILLAR_VERSION}")
-        IMAGE_ROUTER = IMAGE_ROUTER ?: getParam("IMAGE_ROUTER", "IMAGE_ROUTER${PILLAR_VERSION}")
-        IMAGE_HAPROXY = IMAGE_HAPROXY ?: getParam("IMAGE_HAPROXY")
-        IMAGE_ORCHESTRATOR = IMAGE_ORCHESTRATOR ?: getParam("IMAGE_ORCHESTRATOR")
-        IMAGE_TOOLKIT = IMAGE_TOOLKIT ?: getParam("IMAGE_TOOLKIT")
-        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
-            PLATFORM_VER = getParam("PLATFORM_VER", "EKS_${PLATFORM_VER}")
-        }
-    } else {
-        echo "=========================[ Not a release run. Using job params only! ]========================="
-    }
-
+void prepareAgent() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
@@ -68,6 +38,44 @@ void prepareNode() {
 
         curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
     """
+}
+
+void prepareSources() {
+    echo "=========================[ Cloning the sources ]========================="
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    sh """
+        # sudo is needed for better node recovery after compilation failure
+        # if building failed on compilation stage directory will have files owned by docker user
+        sudo git config --global --add safe.directory '*'
+        sudo git reset --hard
+        sudo git clean -xdf
+        sudo rm -rf source
+        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
+    """
+
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
+    CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MYSQL-$IMAGE_BACKUP-$IMAGE_ROUTER-$IMAGE_HAPROXY-$IMAGE_ORCHESTRATOR-$IMAGE_TOOLKIT-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+}
+
+void initParams() {
+    if ("$PILLAR_VERSION" != "none") {
+        echo "=========================[ Getting parameters for release test ]========================="
+        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
+        IMAGE_MYSQL = IMAGE_MYSQL ?: getParam("IMAGE_MYSQL", "IMAGE_MYSQL${PILLAR_VERSION}")
+        IMAGE_BACKUP = IMAGE_BACKUP ?: getParam("IMAGE_BACKUP", "IMAGE_BACKUP${PILLAR_VERSION}")
+        IMAGE_ROUTER = IMAGE_ROUTER ?: getParam("IMAGE_ROUTER", "IMAGE_ROUTER${PILLAR_VERSION}")
+        IMAGE_HAPROXY = IMAGE_HAPROXY ?: getParam("IMAGE_HAPROXY")
+        IMAGE_ORCHESTRATOR = IMAGE_ORCHESTRATOR ?: getParam("IMAGE_ORCHESTRATOR")
+        IMAGE_TOOLKIT = IMAGE_TOOLKIT ?: getParam("IMAGE_TOOLKIT")
+        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
+        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
+            PLATFORM_VER = getParam("PLATFORM_VER", "EKS_${PLATFORM_VER}")
+        }
+    } else {
+        echo "=========================[ Not a release run. Using job params only! ]========================="
+    }
 
     if ("$PLATFORM_VER" == "latest") {
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -80,10 +88,6 @@ void prepareNode() {
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
         currentBuild.description = "$PLATFORM_VER " + "$IMAGE_MYSQL".split(":")[1] + " $cw"
     }
-
-    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MYSQL-$IMAGE_BACKUP-$IMAGE_ROUTER-$IMAGE_HAPROXY-$IMAGE_ORCHESTRATOR-$IMAGE_TOOLKIT-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -156,6 +160,7 @@ void initTests() {
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
         """
     }
+    stash includes: "source/**", name: "sourceFILES"
 }
 
 void clusterRunner(String cluster) {
@@ -403,7 +408,9 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
-                prepareNode()
+                prepareAgent()
+                prepareSources()
+                initParams()
             }
         }
         stage('Docker Build and Push') {
@@ -417,24 +424,47 @@ pipeline {
             }
         }
         stage('Run Tests') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             parallel {
                 stage('cluster1') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
                 }
                 stage('cluster2') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
                 }
                 stage('cluster3') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
                 }
                 stage('cluster4') {
+                    agent {
+                        label 'docker'
+                    }
                     steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
                         clusterRunner('cluster4')
                     }
                 }
