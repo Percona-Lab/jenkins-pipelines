@@ -130,7 +130,7 @@ pipeline {
                                 buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
                                 pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17)
                                 uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17, "binary", "${PACKAGE_VERSION}")
-                                uploadTarballToTestingDownloadServer("pg_src_tarballs", "${PACKAGE_VERSION}")
+                                uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
                     }
                 }
@@ -156,7 +156,7 @@ pipeline {
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16)
 				uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16, "binary", "${PACKAGE_VERSION}")
-				uploadTarballToTestingDownloadServer("pg_src_tarballs", "${PACKAGE_VERSION}")
+				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }
                 }
@@ -182,7 +182,7 @@ pipeline {
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15)
 				uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15, "binary", "${PACKAGE_VERSION}")
-				uploadTarballToTestingDownloadServer("pg_src_tarballs", "${PACKAGE_VERSION}")
+				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }
                 }
@@ -208,7 +208,7 @@ pipeline {
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14)
 				uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14, "binary", "${PACKAGE_VERSION}")
-				uploadTarballToTestingDownloadServer("pg_src_tarballs", "${PACKAGE_VERSION}")
+				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }
                 }
@@ -234,7 +234,7 @@ pipeline {
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
 				pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_13)
 				uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_13, "binary", "${PACKAGE_VERSION}")
-				uploadTarballToTestingDownloadServer("pg_src_tarballs", "${PACKAGE_VERSION}")
+				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }
                 }
