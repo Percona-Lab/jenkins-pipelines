@@ -164,22 +164,18 @@ void initTests() {
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated=0
+    def clusterCreated = false
 
     for (int i=0; i<tests.size(); i++) {
         if (tests[i]["result"] == "skipped") {
             tests[i]["result"] = "failure"
             tests[i]["cluster"] = cluster
-            if (clusterCreated == 0) {
+            if (!clusterCreated) {
                 createCluster(cluster)
-                clusterCreated++
+                clusterCreated = true
             }
             runTest(i)
         }
-    }
-
-    if (clusterCreated >= 1) {
-        shutdownCluster(cluster)
     }
 }
 
@@ -429,44 +425,40 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
-                    agent {
-                        label 'docker'
-                    }
+                    agent { label 'docker' }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
+                    post { always { script { shutdownCluster('cluster1') } } }
                 }
                 stage('cluster2') {
-                    agent {
-                        label 'docker'
-                    }
+                    agent { label 'docker' }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
+                    post { always { script { shutdownCluster('cluster2') } } }
                 }
                 stage('cluster3') {
-                    agent {
-                        label 'docker'
-                    }
+                    agent { label 'docker' }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
+                    post { always { script { shutdownCluster('cluster3') } } }
                 }
                 stage('cluster4') {
-                    agent {
-                        label 'docker'
-                    }
+                    agent { label 'docker' }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster4')
                     }
+                    post { always { script { shutdownCluster('cluster4') } } }
                 }
             }
         }
@@ -482,8 +474,6 @@ pipeline {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
                 }
-
-                clusters.each { shutdownCluster(it) }
             }
 
             sh """
