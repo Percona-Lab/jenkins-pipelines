@@ -6,7 +6,7 @@ def call(String CLOUD_NAME, String FOLDER_NAME, String AWS_STASH_PATH) {
             pwd
             S3_PATH=s3://percona-jenkins-artifactory/${AWS_STASH_PATH}
             aws s3 ls \$S3_PATH/${FOLDER_NAME} ${S3_ENDPOINT} || :
-            aws s3 cp --recursive ${FOLDER_NAME} \$S3_PATH/${FOLDER_NAME} ${S3_ENDPOINT} || :
+            AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp --recursive ${FOLDER_NAME} \$S3_PATH/${FOLDER_NAME} ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120 || :
         """
     }
 }
