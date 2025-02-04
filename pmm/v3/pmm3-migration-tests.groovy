@@ -254,8 +254,6 @@ pipeline {
                             export DOCKER_TAG=\$(wget -q "https://registry.hub.docker.com/v2/repositories/percona/pmm-server/tags?page_size=25" -O - | jq -r .results[].name  | grep 3.*.* | sort -V | tail -n1)
                         fi
 
-                        $(wget -q https://registry.hub.docker.com/v2/repositories/percona/pmm-client/tags -O - | jq -r .results[].name  | grep -v latest | sort -V | tail -n1)
-
                         echo "Percona repository is: \$PERCONA_REPOSITORY"
                         echo "Docker tag is: \$DOCKER_TAG"
 
