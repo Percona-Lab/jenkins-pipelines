@@ -4,8 +4,8 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def moleculeDir = "psmdb-tarball/psmdb-tarball-pro"
-def psmdb_default_os_list = ["rhel8","rhel9","ubuntu-jammy-pro"]
-def psmdb_7_os_list = ["rhel8","rhel9","ubuntu-jammy-pro","debian-12"]
+def psmdb_default_os_list = ["al2023","rhel8","rhel9","ubuntu-jammy-pro","ubuntu-noble-pro"]
+def psmdb_7_os_list = ["al2023","rhel8","rhel9","ubuntu-jammy-pro","ubuntu-noble-pro","debian-12"]
 
 pipeline {
     agent {
@@ -17,9 +17,9 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'https://url_with_creds_if_needed.ol9.tar.gz',
-            description: 'URL/S3 link for pro tarball for ol9',
-            name: 'TARBALL_OL9'
+            defaultValue: '6.0.20-17',
+            description: 'PSMDB version for tests',
+            name: 'PSMDB_VERSION'
         )
         string(
             defaultValue: 'main',
@@ -35,12 +35,12 @@ pipeline {
             steps {
                 script {
                     currentBuild.displayName = "${env.BUILD_NUMBER}"
-                    currentBuild.description = "${env.TARBALL_OL9}"
+                    currentBuild.description = "${env.PSMDB_VERSION}"
 
-                    def versionNumber = TARBALL_OL9 =~ /percona-server-mongodb-pro-(\d+)/
+                    def versionNumber = PSMDB_VERSION =~ /^(\d+)/
                     def version = versionNumber ? Integer.parseInt(versionNumber[0][1]) : null
 
-                    if (version == 7) {
+                    if (version > 7) {
                         psmdb_default_os_list = psmdb_7_os_list
                     }
                 }
@@ -60,10 +60,14 @@ pipeline {
             }
         }
         stage('Test') {
-            steps {
+          steps {
+            withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+             script {
                 moleculeParallelTest(psmdb_default_os_list, moleculeDir)
             }
+          }
         }
+      }
     }
     post {
         always {
