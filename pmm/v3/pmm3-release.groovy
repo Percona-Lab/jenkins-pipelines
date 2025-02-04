@@ -12,8 +12,8 @@ pipeline {
         CLIENT_IMAGE            = "perconalab/pmm-client:${VERSION}-rc"
         SERVER_IMAGE            = "perconalab/pmm-server:${VERSION}-rc"
         WATCHTOWER_IMAGE        = "perconalab/watchtower:${VERSION}-rc"
-        PATH_TO_CLIENT_AMD64    = "testing/pmm3-client-autobuild-amd/pmm/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT_AMD64}"
-        PATH_TO_CLIENT_ARM64    = "testing/pmm3-client-autobuild-arm/pmm/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT_ARM64}"
+        PATH_TO_CLIENT_AMD64    = "testing/pmm3-client-autobuild-amd/pmm3/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT_AMD64}"
+        PATH_TO_CLIENT_ARM64    = "testing/pmm3-client-autobuild-arm/pmm3/${VERSION}/pmm-${VERSION}/${PATH_TO_CLIENT_ARM64}"
     }
 
     parameters {
@@ -317,6 +317,8 @@ ENDSSH
                         set -ex
                         # push pmm-server
                         docker pull \${SERVER_IMAGE}
+                        docker tag \${SERVER_IMAGE} percona/pmm-server:latest
+                        docker push percona/pmm-server:latest
 
                         docker tag \${SERVER_IMAGE} percona/pmm-server:\${TOP_TAG}
                         docker tag \${SERVER_IMAGE} percona/pmm-server:\${MID_TAG}
@@ -336,6 +338,8 @@ ENDSSH
 
                          # push watchtower
                         docker pull \${WATCHTOWER_IMAGE}
+                        docker tag \${WATCHTOWER_IMAGE} percona/watchtower:latest
+                        docker push percona/watchtower:latest
 
                         docker tag \${WATCHTOWER_IMAGE} percona/watchtower:\${TOP_TAG}
                         docker tag \${WATCHTOWER_IMAGE} percona/watchtower:\${MID_TAG}
@@ -345,6 +349,8 @@ ENDSSH
                         docker push percona/watchtower:\${VERSION}
 
                         # push pmm-client
+                        docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:latest
+
                         docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${TOP_TAG}
                         docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${MID_TAG}
                         docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${VERSION}
@@ -392,14 +398,14 @@ ENDSSH
 
                         export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
 
-                        ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm/${VERSION}/docker"
+                        ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm3/${VERSION}/docker"
 
-                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.docker pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm/${VERSION}/docker/
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.docker pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm3/${VERSION}/docker/
 
-                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}-amd64.docker pmm-client-${VERSION}-amd64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm/${VERSION}/docker/
-                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}-arm64.docker pmm-client-${VERSION}-arm64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm/${VERSION}/docker/
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}-amd64.docker pmm-client-${VERSION}-amd64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm3/${VERSION}/docker/
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-client-${VERSION}-arm64.docker pmm-client-${VERSION}-arm64.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm3/${VERSION}/docker/
 
-                        ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "ls -l /data/downloads/pmm/${VERSION}/docker"
+                        ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "ls -l /data/downloads/pmm3/${VERSION}/docker"
                     '''
                 }
                 deleteDir()
@@ -416,8 +422,8 @@ ENDSSH
                     sh '''
                         sha256sum pmm-server-${VERSION}.ova | tee pmm-server-${VERSION}.sha256sum
                         export UPLOAD_HOST=$(dig +short downloads-rsync-endpoint.int.percona.com @10.30.6.12 | tail -1)
-                        ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm/${VERSION}/ova"
-                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.ova pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm/${VERSION}/ova/
+                        ssh -p 2222 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@$UPLOAD_HOST "mkdir -p /data/downloads/pmm3/${VERSION}/ova"
+                        scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} pmm-server-${VERSION}.ova pmm-server-${VERSION}.sha256sum ${USER}@$UPLOAD_HOST:/data/downloads/pmm3/${VERSION}/ova/
                     '''
                 }
                 deleteDir()
