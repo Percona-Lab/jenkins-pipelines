@@ -248,10 +248,13 @@ pipeline {
                         if [[ "\$UPGRADE_TAG" == "experimental" ]]; then
                             export PERCONA_REPOSITORY="experimental"
                             export DOCKER_TAG="3-dev-latest"
+                            export DOCKER_REPO="perconalab/pmm-server"
                         elif [[ "\$UPGRADE_TAG" == "testing" ]]; then
                             export DOCKER_TAG=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-server/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 3.*.*-rc\$ | sort -V | tail -n1)
+                            export DOCKER_REPO="perconalab/pmm-server"
                         elif [[ "\$UPGRADE_TAG" == "release" ]]; then
                             export DOCKER_TAG=\$(wget -q "https://registry.hub.docker.com/v2/repositories/percona/pmm-server/tags?page_size=25" -O - | jq -r .results[].name  | grep 3.*.* | sort -V | tail -n1)
+                            export DOCKER_REPO="percona/pmm-server"
                         fi
 
                         echo "Percona repository is: \$PERCONA_REPOSITORY"
@@ -259,7 +262,7 @@ pipeline {
 
                         wget https://raw.githubusercontent.com/percona/pmm/refs/heads/v3/get-pmm.sh
                         chmod +x get-pmm.sh
-                        ./get-pmm.sh -n pmm-server -b --network-name pmm-qa --tag "\$DOCKER_TAG"
+                        ./get-pmm.sh -n pmm-server -b --network-name pmm-qa --tag "\$DOCKER_TAG" --repo "\$DOCKER_REPO"
 
                         sudo percona-release enable pmm3-client testing
                         sudo yum install -y pmm-client
