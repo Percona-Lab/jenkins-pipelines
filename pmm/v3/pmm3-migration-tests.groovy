@@ -49,11 +49,11 @@ pipeline {
     parameters {
         string(
             defaultValue: 'v3',
-            description: 'Tag/Branch for UI Tests repository',
+            description: 'Tag/Branch for UI Tests repository PMM V3',
             name: 'PMM_V3_UI_GIT_BRANCH')
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for UI Tests repository',
+            description: 'Tag/Branch for UI Tests repository PMM V2',
             name: 'PMM_V2_UI_GIT_BRANCH')
         string(
             defaultValue: latestVersion,
