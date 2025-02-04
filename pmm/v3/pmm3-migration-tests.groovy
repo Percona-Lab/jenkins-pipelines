@@ -48,9 +48,13 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-7-pmm-migration',
+            defaultValue: 'v3',
             description: 'Tag/Branch for UI Tests repository',
-            name: 'PMM_UI_GIT_BRANCH')
+            name: 'PMM_V3_UI_GIT_BRANCH')
+        string(
+            defaultValue: 'main',
+            description: 'Tag/Branch for UI Tests repository',
+            name: 'PMM_V2_UI_GIT_BRANCH')
         string(
             defaultValue: latestVersion,
             description: 'PMM Server Version to test for Upgrade',
@@ -80,7 +84,7 @@ pipeline {
             steps {
                 // fetch pmm-ui-tests repository
                 git poll: false,
-                    branch: PMM_UI_GIT_BRANCH,
+                    branch: PMM_V3_UI_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 slackSend channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
@@ -98,7 +102,7 @@ pipeline {
             steps {
                 sh '''
                     docker network create pmm-qa || true
-                    git checkout PMM-7-pmm-migration-v2
+                    git checkout ${PMM_V2_UI_GIT_BRANCH}
                     PWD=$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:${DOCKER_VERSION} docker-compose up -d
 
                 '''
@@ -236,7 +240,7 @@ pipeline {
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=\$(pwd);
                     npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-pre-migration'
-                    git checkout ${PMM_UI_GIT_BRANCH}
+                    git checkout ${PMM_V3_UI_GIT_BRANCH}
                 """
                 }
             }
