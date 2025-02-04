@@ -488,7 +488,7 @@ pipeline {
                         expression { env.FIPSMODE != 'yes' }
                     }
                     agent {
-                        label 'docker-64gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
