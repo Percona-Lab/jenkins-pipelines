@@ -1,6 +1,5 @@
 region='eu-west-2'
 tests=[]
-clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
 String getParam(String paramName, String keyName = null) {
@@ -180,8 +179,6 @@ void clusterRunner(String cluster) {
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
-    clusters.add("$CLUSTER_SUFFIX")
-
     sh """
         timestamp="\$(date +%s)"
 tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
