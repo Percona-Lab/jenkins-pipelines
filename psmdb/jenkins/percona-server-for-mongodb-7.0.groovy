@@ -350,7 +350,24 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Bookworm(12)') {
+                stage('Debian Bullseye(11)(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("debian:bullseye", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:bullseye", "--build_deb=1")
+                            }
+                        }
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Bookworm(12)(x86_64)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
                     }
