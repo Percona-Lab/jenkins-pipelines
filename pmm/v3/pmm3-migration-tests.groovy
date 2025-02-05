@@ -269,19 +269,24 @@ pipeline {
                         chmod +x get-pmm.sh
                         ./get-pmm.sh -n pmm-server -b --network-name pmm-qa --tag "\$DOCKER_TAG" --repo "\$DOCKER_REPO"
 
-                        sudo percona-release enable pmm3-client testing
+                        sudo percona-release enable pmm3-client \$UPGRADE_TAG
                         sudo yum install -y pmm-client
 
                         listVar="rs101 rs102 rs103 rs201 rs202 rs203"
 
                         for i in \$listVar; do
                             echo "\$i"
-                            docker exec \$i percona-release enable pmm3-client testing
+                            docker exec \$i percona-release enable pmm3-client \$UPGRADE_TAG
                             docker exec \$i yum install -y pmm-client
                             docker exec \$i sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
                             docker exec \$i cat /usr/local/percona/pmm/config/pmm-agent.yaml
                             docker exec \$i systemctl restart pmm-agent
                         done
+
+                        docker exec pxc_container1_8.0 percona-release enable pmm3-client \$UPGRADE_TAG
+                        docker exec pxc_container1_8.0 yum install -y pmm-client
+                        docker exec pxc_container1_8.0 sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
+                        docker exec pxc_container1_8.0 systemctl restart pmm-agent
                     """
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "https://${env.SERVER_IP}/"
