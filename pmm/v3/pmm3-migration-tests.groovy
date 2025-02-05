@@ -202,7 +202,7 @@ pipeline {
                     export PMM_CLIENT_VERSION=${CLIENT_VERSION}
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
-                        --pdpgsql-version 17 --ps-version 8.0 --mo-version 8.0 --addclient=pdpgsql,1 --addclient=ps,1 --mongo-replica-for-backup \
+                        --pdpgsql-version 17 --ps-version 8.0 --mo-version 8.0 --addclient=pdpgsql,1 --addclient=ps,1 --addclient=pxc,1 --mongo-replica-for-backup \
                         --pmm2
                     sleep 20
                 """
