@@ -306,7 +306,6 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
-                prepareAgent()
                 prepareSources()
                 initParams()
             }
@@ -327,28 +326,28 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
-                    agent { label 'docker' }
+                    agent { label 'docker-32gb' }
                     steps {
                         prepareAgent()
                         clusterRunner('cluster1')
                     }
                 }
                 stage('cluster2') {
-                    agent { label 'docker' }
+                    agent { label 'docker-32gb' }
                     steps {
                         prepareAgent()
                         clusterRunner('cluster2')
                     }
                 }
                 stage('cluster3') {
-                    agent { label 'docker' }
+                    agent { label 'docker-32gb' }
                     steps {
                         prepareAgent()
                         clusterRunner('cluster3')
                     }
                 }
                 stage('cluster4') {
-                    agent { label 'docker' }
+                    agent { label 'docker-32gb' }
                     steps {
                         prepareAgent()
                         clusterRunner('cluster4')
