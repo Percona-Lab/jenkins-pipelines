@@ -47,7 +47,6 @@ EOF
         sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
     """
 
-    echo "=========================[ Logging in the Kubernetes provider ]========================="
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-alpha-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
@@ -247,6 +246,8 @@ void runTest(Integer TEST_ID) {
     def testName = tests[TEST_ID]["name"]
     def clusterSuffix = tests[TEST_ID]["cluster"]
 
+    unstash "sourceFILES"
+
     waitUntil {
         def timeStart = new Date().getTime()
         try {
@@ -412,7 +413,6 @@ pipeline {
                     agent { label 'docker' }
                     steps {
                         prepareAgent()
-                        unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
                     post { always { script { shutdownCluster('cluster1') } } }
@@ -421,7 +421,6 @@ pipeline {
                     agent { label 'docker' }
                     steps {
                         prepareAgent()
-                        unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
                     post { always { script { shutdownCluster('cluster2') } } }
@@ -430,7 +429,6 @@ pipeline {
                     agent { label 'docker' }
                     steps {
                         prepareAgent()
-                        unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
                     post { always { script { shutdownCluster('cluster3') } } }
@@ -439,7 +437,6 @@ pipeline {
                     agent { label 'docker' }
                     steps {
                         prepareAgent()
-                        unstash "sourceFILES"
                         clusterRunner('cluster4')
                     }
                     post { always { script { shutdownCluster('cluster4') } } }
@@ -448,7 +445,6 @@ pipeline {
                     agent { label 'docker' }
                     steps {
                         prepareAgent()
-                        unstash "sourceFILES"
                         clusterRunner('cluster5')
                     }
                     post { always { script { shutdownCluster('cluster5') } } }
@@ -468,11 +464,6 @@ pipeline {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
                 }
             }
-
-            sh """
-                sudo docker system prune --volumes -af
-            """
-            deleteDir()
         }
     }
 }

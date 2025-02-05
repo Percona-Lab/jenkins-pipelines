@@ -13,7 +13,32 @@ String getParam(String paramName, String keyName = null) {
     return param
 }
 
-void prepareNode() {
+void prepareAgent() {
+    echo "=========================[ Installing tools on the Jenkins executor ]========================="
+    sh """
+        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+        kubectl version --client --output=yaml
+
+        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+
+        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
+        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
+
+        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
+        ./krew-linux_amd64 install krew
+        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+
+        kubectl krew install assert
+
+        # v0.17.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/336ef83542fd2f783bfa2c075b24599e834dcc77/plugins/kuttl.yaml
+        echo \$(kubectl kuttl --version) is installed
+
+        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
+    """
+}
+
+void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
@@ -26,6 +51,11 @@ void prepareNode() {
         git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
     """
 
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MYSQL-$IMAGE_BACKUP-$IMAGE_ROUTER-$IMAGE_HAPROXY-$IMAGE_ORCHESTRATOR-$IMAGE_TOOLKIT-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+}
+
+void initParams() {
     if ("$PILLAR_VERSION" != "none") {
         echo "=========================[ Getting parameters for release test ]========================="
         IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
@@ -37,44 +67,18 @@ void prepareNode() {
         IMAGE_TOOLKIT = IMAGE_TOOLKIT ?: getParam("IMAGE_TOOLKIT")
         IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        if ("$PLATFORM_VER".toLowerCase() == "rel") {
+        if ("$PLATFORM_VER".toLowerCase() == "max") {
             PLATFORM_VER = getParam("PLATFORM_VER", "MINIKUBE_${PLATFORM_VER}")
         }
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
     }
 
-    echo "=========================[ Installing tools on the Jenkins executor ]========================="
-    sh """
-        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
-        kubectl version --client --output=yaml
-
-        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-
-        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
-        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
-
-        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
-
-        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
-        ./krew-linux_amd64 install krew
-        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-
-        kubectl krew install assert
-
-        # v0.17.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/336ef83542fd2f783bfa2c075b24599e834dcc77/plugins/kuttl.yaml
-        echo \$(kubectl kuttl --version) is installed
-    """
-
     if ("$IMAGE_MYSQL") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
         currentBuild.description = "$PLATFORM_VER " + "$IMAGE_MYSQL".split(":")[1] + " $cw"
     }
-
-    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MYSQL-$IMAGE_BACKUP-$IMAGE_ROUTER-$IMAGE_HAPROXY-$IMAGE_ORCHESTRATOR-$IMAGE_TOOLKIT-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -147,57 +151,71 @@ void initTests() {
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
         """
     }
+    stash includes: "source/**", name: "sourceFILES"
 }
 
 void clusterRunner(String cluster) {
-    sh """
-        export CHANGE_MINIKUBE_NONE_USER=true
-        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G
-    """
+    def clusterCreated = false
 
     for (int i=0; i<tests.size(); i++) {
         if (tests[i]["result"] == "skipped") {
             tests[i]["result"] = "failure"
             tests[i]["cluster"] = cluster
+            if (!clusterCreated) {
+                createCluster(cluster)
+                clusterCreated = true
+            }
             runTest(i)
         }
     }
 }
 
+void createCluster(String CLUSTER_SUFFIX) {
+    sh """
+        echo "Creating cluster $CLUSTER_SUFFIX"
+        export CHANGE_MINIKUBE_NONE_USER=true
+        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G
+    """
+}
+
 void runTest(Integer TEST_ID) {
     def retryCount = 0
     def testName = tests[TEST_ID]["name"]
+    def clusterSuffix = tests[TEST_ID]["cluster"]
 
+    unstash "sourceFILES"
     waitUntil {
         def timeStart = new Date().getTime()
         try {
-            echo "The $testName test was started !"
+            echo "The $testName test was started on cluster $clusterSuffix !"
             tests[TEST_ID]["result"] = "failure"
 
-            sh """
-                cd source
+            timeout(time: 90, unit: 'MINUTES') {
+                sh """
+                    cd source
 
-                export DEBUG_TESTS=1
-                [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=ps-operator
-                export IMAGE=$IMAGE_OPERATOR
-                export IMAGE_MYSQL=$IMAGE_MYSQL
-                export IMAGE_BACKUP=$IMAGE_BACKUP
-                export IMAGE_ROUTER=$IMAGE_ROUTER
-                export IMAGE_HAPROXY=$IMAGE_HAPROXY
-                export IMAGE_ORCHESTRATOR=$IMAGE_ORCHESTRATOR
-                export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
-                export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
-                export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+                    export DEBUG_TESTS=1
+                    [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=ps-operator
+                    export IMAGE=$IMAGE_OPERATOR
+                    export IMAGE_MYSQL=$IMAGE_MYSQL
+                    export IMAGE_BACKUP=$IMAGE_BACKUP
+                    export IMAGE_ROUTER=$IMAGE_ROUTER
+                    export IMAGE_HAPROXY=$IMAGE_HAPROXY
+                    export IMAGE_ORCHESTRATOR=$IMAGE_ORCHESTRATOR
+                    export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
+                    export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+                    export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+                    export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
 
-                kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
-            """
+                    kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
+                """
+            }
             pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
         catch (exc) {
-            echo "Error occurred while running test $testName: ${exc}"
+            echo "Error occurred while running test $testName: $exc"
             if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
@@ -256,7 +274,6 @@ void makeReport() {
 
 pipeline {
     environment {
-        CLEAN_NAMESPACE = 1
         DB_TAG = sh(script: "[[ \"$IMAGE_MYSQL\" ]] && echo $IMAGE_MYSQL | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
     }
     parameters {
@@ -283,11 +300,15 @@ pipeline {
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
+        disableConcurrentBuilds()
+        copyArtifactPermission('ps-operator-latest-scheduler');
     }
     stages {
         stage('Prepare Node') {
             steps {
-                prepareNode()
+                prepareAgent()
+                prepareSources()
+                initParams()
             }
         }
         stage('Docker Build and Push') {
@@ -304,8 +325,35 @@ pipeline {
             options {
                 timeout(time: 3, unit: 'HOURS')
             }
-            steps {
-                clusterRunner('cluster1')
+            parallel {
+                stage('cluster1') {
+                    agent { label 'docker' }
+                    steps {
+                        prepareAgent()
+                        clusterRunner('cluster1')
+                    }
+                }
+                stage('cluster2') {
+                    agent { label 'docker' }
+                    steps {
+                        prepareAgent()
+                        clusterRunner('cluster2')
+                    }
+                }
+                stage('cluster3') {
+                    agent { label 'docker' }
+                    steps {
+                        prepareAgent()
+                        clusterRunner('cluster3')
+                    }
+                }
+                stage('cluster4') {
+                    agent { label 'docker' }
+                    steps {
+                        prepareAgent()
+                        clusterRunner('cluster4')
+                    }
+                }
             }
         }
     }
@@ -321,11 +369,6 @@ pipeline {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
                 }
             }
-
-            sh """
-                minikube delete || true
-            """
-            deleteDir()
         }
     }
 }
