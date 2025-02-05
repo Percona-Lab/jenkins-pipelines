@@ -286,7 +286,7 @@ pipeline {
                         docker exec pxc_container1_8.0 percona-release enable pmm3-client \$UPGRADE_TAG
                         docker exec pxc_container1_8.0 apt install -y pmm-client
                         docker exec pxc_container1_8.0 sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
-                        docker exec pxc_container1_8.0 systemctl restart pmm-agent
+                        docker restart pxc_container1_8.0
                     """
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "https://${env.SERVER_IP}/"
