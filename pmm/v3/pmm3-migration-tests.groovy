@@ -286,7 +286,7 @@ pipeline {
                         docker exec pxc_container1_8.0 percona-release enable pmm3-client \$UPGRADE_TAG
                         docker exec pxc_container1_8.0 apt install -y pmm-client
                         docker exec pxc_container1_8.0 sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
-                        PXC_AGENT_PROCESS_ID=$(docker exec pxc_container1_8.0 ps aux | grep "pmm-agent" | awk -F' ' '{ print \$2 }')
+                        PXC_AGENT_PROCESS_ID=\$(docker exec pxc_container1_8.0 ps aux | grep "pmm-agent" | awk -F' ' '{ print \$2 }')
                         docker exec -d pxc_container1_8.0 kill \$PXC_AGENT_PROCESS_ID
                         docker exec -d pxc_container1_8.0 pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                     """
