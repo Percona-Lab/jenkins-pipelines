@@ -245,21 +245,48 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-/*                stage('Amazon Linux 2023') {
+                stage('Amazon Linux 2023') {
                     agent {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        unstash 'pxc-80.properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("amazonlinux:2023", "--build_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'NO') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                unstash 'pxc-80.properties'
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
-                        stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                            }
+                        }
                     }
-                }*/
+                }
+                stage('Amazon Linux 2023 ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            if (env.FIPSMODE == 'NO') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                unstash 'pxc-80.properties'
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+
+                                stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'docker-32gb'
