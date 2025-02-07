@@ -27,7 +27,7 @@ void uploadTarballToTestingDownloadServer(String tarballDirectory, String packag
 
     script {
         try {
-            uploadPGTarballToDownloadsTesting(tarballDirectory, packageVersion)
+            uploadPGTarballToDownloadsTesting(params.CLOUD, tarballDirectory, packageVersion)
         } catch (err) {
             echo "Caught: ${err}"
             currentBuild.result = 'UNSTABLE'
@@ -41,7 +41,7 @@ void buildTarball(String platform, String architecture){
                unstash "uploadPath-${PG_VERSION}"
                buildStage("${PG_VERSION}", platform, architecture)
                pushArtifactFolder(params.CLOUD, "postgis_output/", AWS_STASH_PATH)
-               uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH, "binary", "${PG_VERSION}")
+               uploadPGTarballfromAWS(params.CLOUD, "postgis_output/", AWS_STASH_PATH, "binary", "${PG_VERSION}")
                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
      }
 }
