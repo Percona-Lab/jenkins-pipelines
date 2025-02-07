@@ -65,7 +65,7 @@ void prepareSources() {
         sudo git reset --hard
         sudo git clean -xdf
         sudo rm -rf source
-        git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator
+        git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator source
     """
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
