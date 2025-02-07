@@ -1,5 +1,5 @@
 - job:
-    name: hetzner-hetzner-pbm-autobuild-RELEASE
+    name: hetzner-pbm-autobuild-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!

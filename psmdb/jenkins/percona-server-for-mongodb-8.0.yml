@@ -1,5 +1,5 @@
 - job:
-    name: hetzner-hetzner-psmdb80-autobuild-RELEASE
+    name: hetzner-psmdb80-autobuild-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!
