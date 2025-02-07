@@ -33,10 +33,6 @@ pipeline {
     }
     parameters {
         choice(
-             choices: [ 'Hetzner','AWS' ],
-             description: 'Cloud infra for build',
-             name: 'CLOUD' )
-        choice(
             choices: ['Hetzner','AWS'],
             description: 'Cloud infra for build',
             name: 'CLOUD')
