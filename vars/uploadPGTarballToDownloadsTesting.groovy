@@ -1,5 +1,6 @@
-def call(String PRODUCT_NAME, String PRODUCT_VERSION) {
-    node('master') {
+def call(String CLOUD_NAME, String PRODUCT_NAME, String PRODUCT_VERSION) {
+    def nodeLabel = (CLOUD_NAME == 'Hetzner') ? 'launcher-x64' : 'master'
+    node(nodeLabel) {
         deleteDir()
         unstash "uploadPath-${PRODUCT_VERSION}"
         def path_to_build = sh(returnStdout: true, script: "cat uploadPath-${PRODUCT_VERSION}").trim()
