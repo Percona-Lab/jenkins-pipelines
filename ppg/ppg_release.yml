@@ -1,5 +1,5 @@
 - job:
-    name: Percona-PostgreSQL-Distribution-RELEASE
+    name: hetzner-Percona-PostgreSQL-Distribution-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!

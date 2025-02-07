@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -40,7 +40,7 @@ void buildTarball(String platform, String architecture){
      script {
                unstash "uploadPath-${PG_VERSION}"
                buildStage("${PG_VERSION}", platform, architecture)
-               pushArtifactFolder("postgis_output/", AWS_STASH_PATH)
+               pushArtifactFolder(params.CLOUD, "postgis_output/", AWS_STASH_PATH)
                uploadPGTarballfromAWS("postgis_output/", AWS_STASH_PATH, "binary", "${PG_VERSION}")
                uploadTarballToTestingDownloadServer("postgis_tarballs", "${PG_VERSION}")
      }
@@ -56,10 +56,14 @@ def TIMESTAMP
 
 pipeline {
     agent {
-        label 'docker'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
 
     parameters {
+        choice(
+             choices: [ 'Hetzner','AWS' ],
+             description: 'Cloud infra for build',
+             name: 'CLOUD' )
         //string(
         //    defaultValue: 'https://github.com/percona/postgis-tarballs.git',
         //    description: 'URL for postgis-tarballs repository',
@@ -86,7 +90,7 @@ pipeline {
 
 	stage('Create timestamp') {
             agent {
-                label 'docker'
+                label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
             }
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${PG_VERSION} - [${BUILD_URL}]")
@@ -114,7 +118,7 @@ pipeline {
             parallel {
                 stage('Build postgis-tarball for OL8 amd64') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -125,7 +129,7 @@ pipeline {
                 }
                 stage('Build postgis-tarball for OL8 arm64') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -136,7 +140,7 @@ pipeline {
                 }
                 stage('Build postgis-tarball for OL9 amd64') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -147,7 +151,7 @@ pipeline {
                 }
                 stage('Build postgis-tarball for OL9 arm64') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -158,7 +162,7 @@ pipeline {
                 }
                 stage('Build postgis-tarball for Ubuntu focal amd64') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -169,7 +173,7 @@ pipeline {
                 }
                 stage('Build postgis-tarball for Ubuntu focal arm64') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -180,7 +184,7 @@ pipeline {
                 }
                 stage('Build postgis-tarball for Ubuntu jammy amd64') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -191,7 +195,7 @@ pipeline {
                 }
                 stage('Build postgis-tarball for Ubuntu jammy arm64') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -202,7 +206,7 @@ pipeline {
                 }
                 stage('Build postgis-tarball for Ubuntu noble amd64') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -213,7 +217,7 @@ pipeline {
                 }
                 stage('Build postgis-tarball for Ubuntu noble arm64') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -224,7 +228,7 @@ pipeline {
                 }
                 stage('Build postgis-tarball for Debian bullseye amd64') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -235,7 +239,7 @@ pipeline {
                 }
                 stage('Build postgis-tarball for Debian bullseye arm64') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -246,7 +250,7 @@ pipeline {
                 }
                 stage('Build postgis-tarball for Debian bookworm amd64') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -257,7 +261,7 @@ pipeline {
                 }
                 stage('Build postgis-tarball for Debian bookworm arm64') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()

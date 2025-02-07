@@ -13,9 +13,13 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'docker'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
     parameters {
+        choice(
+             choices: [ 'Hetzner','AWS' ],
+             description: 'Cloud infra for build',
+             name: 'CLOUD' )
         text(name: 'PACKAGES', defaultValue: '', description: 'put all pathes to all packages')
         string(name: 'repo_version', defaultValue: '', description: 'Repository Version i.e ppg-15.3 or ppg-15')
         choice(name: 'component', choices: ['release', 'testing', 'experimental', 'laboratory'], description: 'Component')
