@@ -97,8 +97,8 @@ pipeline {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
-                pushArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
+                pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
         stage('Build PSMDB generic source packages') {
@@ -109,7 +109,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("oraclelinux:8", "--build_src_rpm=1 --enable_fipsmode=1")
@@ -118,8 +118,8 @@ pipeline {
                             }
                         }
 
-                        pushArtifactFolder("srpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Build PSMDB generic source deb') {
@@ -128,7 +128,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("ubuntu:focal", "--build_src_deb=1 --enable_fipsmode=1")
@@ -136,8 +136,8 @@ pipeline {
                                 buildStage("ubuntu:focal", "--build_src_deb=1")
                             }
                         }
-                        pushArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                     }
                 }
             }  //parallel
@@ -150,7 +150,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("oraclelinux:8", "--build_rpm=1 --enable_fipsmode=1")
@@ -158,8 +158,7 @@ pipeline {
                                 buildStage("oraclelinux:8", "--build_rpm=1")
                             }
                         }
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 8(aarch64)') {
@@ -168,7 +167,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("oraclelinux:8", "--build_rpm=1 --enable_fipsmode=1")
@@ -176,8 +175,7 @@ pipeline {
                                 buildStage("oraclelinux:8", "--build_rpm=1")
                             }
                         }
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9(x86_64)') {
@@ -186,7 +184,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
@@ -194,8 +192,7 @@ pipeline {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
                             }
                         }
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9(aarch64)') {
@@ -204,7 +201,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
@@ -212,8 +209,41 @@ pipeline {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
                             }
                         }
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Amazon Linux 2023(x86_64)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("amazonlinux:2023", "--build_rpm=1")
+                            }
+                        }
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Amazon Linux 2023(aarch64)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-64gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("amazonlinux:2023", "--build_rpm=1")
+                            }
+                        }
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal(20.04)(x86_64)') {
@@ -222,7 +252,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("ubuntu:focal", "--build_deb=1 --enable_fipsmode=1")
@@ -230,8 +260,7 @@ pipeline {
                                 buildStage("ubuntu:focal", "--build_deb=1")
                             }
                         }
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal(20.04)(aarch64)') {
@@ -240,7 +269,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("ubuntu:focal", "--build_deb=1 --enable_fipsmode=1")
@@ -248,8 +277,7 @@ pipeline {
                                 buildStage("ubuntu:focal", "--build_deb=1")
                             }
                         }
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy(22.04)(x86_64)') {
@@ -258,7 +286,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
@@ -266,8 +294,7 @@ pipeline {
                                 buildStage("ubuntu:jammy", "--build_deb=1")
                             }
                         }
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy(22.04)(aarch64)') {
@@ -276,7 +303,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
@@ -284,8 +311,7 @@ pipeline {
                                 buildStage("ubuntu:jammy", "--build_deb=1")
                             }
                         }
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Noble(24.04)(x86_64)') {
@@ -294,7 +320,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
@@ -302,8 +328,7 @@ pipeline {
                                 buildStage("ubuntu:noble", "--build_deb=1")
                             }
                         }
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Noble(24.04)(aarch64)') {
@@ -312,7 +337,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
@@ -320,17 +345,16 @@ pipeline {
                                 buildStage("ubuntu:noble", "--build_deb=1")
                             }
                         }
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Debian Bookworm(12)') {
+                stage('Debian Bookworm(12)(x86_64)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
@@ -338,8 +362,7 @@ pipeline {
                                 buildStage("debian:bookworm", "--build_deb=1")
                             }
                         }
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 8 binary tarball(glibc2.28)') {
@@ -348,15 +371,14 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("oraclelinux:8", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("oraclelinux:8", "--build_tarball=1")
                             }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -366,15 +388,31 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("oraclelinux:9", "--build_tarball=1")
                             }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                        }
+                    }
+                }
+                stage('Amazon Linux 2023 binary tarball(glibc2.34)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'yes') {
+                                buildStage("amazonlinux:2023", "--build_tarball=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("amazonlinux:2023", "--build_tarball=1")
+                            }
+                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -384,15 +422,14 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("ubuntu:focal", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("ubuntu:focal", "--build_tarball=1")
                             }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -402,15 +439,14 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("ubuntu:jammy", "--build_tarball=1")
                             }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -420,15 +456,14 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("ubuntu:noble", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("ubuntu:noble", "--build_tarball=1")
                             }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -438,18 +473,30 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'yes') {
                                 buildStage("debian:bookworm", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("debian:bookworm", "--build_tarball=1")
                             }
-                            pushArtifactFolder("tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
                 }
+            }
+        }
+
+        stage('Upload packages and tarballs from S3') {
+            agent {
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
+            }
+            steps {
+                cleanUpWS()
+
+                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                uploadTarballfromAWS(params.CLOUD, "tarball/", AWS_STASH_PATH, 'binary')
             }
         }
 
@@ -464,9 +511,9 @@ pipeline {
                 // sync packages
                 script {
                     if (env.FIPSMODE == 'yes') {
-                        sync2PrivateProdAutoBuild(PSMDB_REPO+"-pro", COMPONENT)
+                        sync2PrivateProdAutoBuild(params.CLOUD, PSMDB_REPO+"-pro", COMPONENT)
                     } else {
-                        sync2ProdAutoBuild(PSMDB_REPO, COMPONENT)
+                        sync2ProdAutoBuild(params.CLOUD, PSMDB_REPO, COMPONENT)
                     }
                 }
             }
@@ -476,7 +523,7 @@ pipeline {
                 script {
                     if (env.FIPSMODE == 'yes') {
                         try {
-                            uploadTarballToDownloadsTesting("psmdb-gated", "${PSMDB_VERSION}")
+                            uploadTarballToDownloadsTesting(params.CLOUD, "psmdb-gated", "${PSMDB_VERSION}")
                         }
                         catch (err) {
                             echo "Caught: ${err}"
@@ -484,7 +531,7 @@ pipeline {
                         }
                     } else {
                         try {
-                            uploadTarballToDownloadsTesting("psmdb", "${PSMDB_VERSION}")
+                            uploadTarballToDownloadsTesting(params.CLOUD, "psmdb", "${PSMDB_VERSION}")
                         }
                         catch (err) {
                             echo "Caught: ${err}"
