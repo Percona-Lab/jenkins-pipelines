@@ -48,7 +48,8 @@ void initParams() {
         if ("$PLATFORM_VER" <= "4.15.25") {
             OC_VER="$PLATFORM_VER"
         } else {
-            OC_VER="4.15.25"
+            // OC_VER="4.15.25"
+            OC_VER="$PLATFORM_VER"
         }
     }
 
