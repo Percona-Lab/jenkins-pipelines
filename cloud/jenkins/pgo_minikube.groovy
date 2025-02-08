@@ -320,7 +320,6 @@ pipeline {
                             clusterRunner('cluster1')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster1') } } }
                 }
                 stage('cluster2') {
                     agent { label 'docker' }
@@ -332,7 +331,6 @@ pipeline {
                             clusterRunner('cluster2')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster2') } } }
                 }
                 stage('cluster3') {
                     agent { label 'docker' }
@@ -344,7 +342,6 @@ pipeline {
                             clusterRunner('cluster3')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster3') } } }
                 }
                 stage('cluster4') {
                     agent { label 'docker' }
@@ -356,7 +353,6 @@ pipeline {
                             clusterRunner('cluster4')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster4') } } }
                 }
             }
         }
