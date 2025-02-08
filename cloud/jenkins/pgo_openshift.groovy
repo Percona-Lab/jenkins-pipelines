@@ -24,6 +24,41 @@ void prepareSources() {
     CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
 }
 
+void initParams() {
+    if ("$PILLAR_VERSION" != "none") {
+        echo "=========================[ Getting parameters for release test ]========================="
+
+        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
+        IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: getParam("IMAGE_POSTGRESQL", "IMAGE_POSTGRESQL${PILLAR_VERSION}")
+        IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${PILLAR_VERSION}")
+        IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${PILLAR_VERSION}")
+        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
+        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
+            PLATFORM_VER = getParam("PLATFORM_VER", "OPENSHIFT_${PLATFORM_VER}")
+        }
+    } else {
+        echo "=========================[ Not a release run. Using job params only! ]========================="
+    }
+
+    if ("$PLATFORM_VER" == "latest") {
+        OC_VER="4.15.25"
+        PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", returnStdout: true).trim()
+    } else {
+        if ("$PLATFORM_VER" <= "4.15.25") {
+            OC_VER="$PLATFORM_VER"
+        } else {
+            OC_VER="4.15.25"
+        }
+    }
+
+    if ("$IMAGE_POSTGRESQL") {
+        cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
+        currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
+        currentBuild.description = "$PLATFORM_VER " + "$IMAGE_POSTGRESQL".split(":")[1] + " $cw"
+    }
+}
+
 void prepareAgent() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
@@ -52,41 +87,6 @@ void prepareAgent() {
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OC_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
     """
-}
-
-void initParams() {
-    if ("$PILLAR_VERSION" != "none") {
-        echo "=========================[ Getting parameters for release test ]========================="
-
-        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
-        IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: getParam("IMAGE_POSTGRESQL", "IMAGE_POSTGRESQL${PILLAR_VERSION}")
-        IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${PILLAR_VERSION}")
-        IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${PILLAR_VERSION}")
-        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
-            PLATFORM_VER = getParam("PLATFORM_VER", "OPENSHIFT_${PLATFORM_VER}")
-        }
-    } else {
-        echo "=========================[ Not a release run. Using job params only! ]========================="
-    }
-
-    if ("$PLATFORM_VER" == "latest") {
-        OC_VER = "4.15.25"
-        PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", returnStdout: true).trim()
-    } else {
-        if ("$PLATFORM_VER" <= "4.15.25") {
-            OC_VER="$PLATFORM_VER"
-        } else {
-            OC_VER="4.15.25"
-        }
-    }
-
-    if ("$IMAGE_POSTGRESQL") {
-        cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-        currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
-        currentBuild.description = "$PLATFORM_VER " + "$IMAGE_POSTGRESQL".split(":")[1] + " $cw"
-    }
 }
 
 void dockerBuildPush() {
@@ -385,8 +385,8 @@ pipeline {
         stage('Prepare Node') {
             steps {
                 prepareSources()
-                prepareAgent()
                 initParams()
+                prepareAgent()
             }
         }
         stage('Docker Build and Push') {
