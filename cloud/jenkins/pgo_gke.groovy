@@ -360,7 +360,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        copyArtifactPermission('pg-operator-latest-scheduler');
+        copyArtifactPermission('pgo-weekly');
     }
     stages {
         stage('Prepare Node') {
@@ -388,14 +388,10 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     agent { label 'docker' }
-                    environment {
-                        HOME = "$HOME/cluster1"
-                    }
+                    environment { HOME = "$HOME/cluster1" }
                     steps {
                         ws("$WORKSPACE/cluster1") {
-                            script {
-                                deleteDir()
-                            }
+                            script { deleteDir() }
                             prepareAgent()
                             clusterRunner('cluster1')
                         }
@@ -404,14 +400,10 @@ pipeline {
                 }
                 stage('cluster2') {
                     agent { label 'docker' }
-                    environment {
-                        HOME = "$HOME/cluster2"
-                    }
+                    environment { HOME = "$HOME/cluster2" }
                     steps {
                         ws("$WORKSPACE/cluster2") {
-                            script {
-                                deleteDir()
-                            }
+                            script { deleteDir() }
                             prepareAgent()
                             clusterRunner('cluster2')
                         }
@@ -420,14 +412,10 @@ pipeline {
                 }
                 stage('cluster3') {
                     agent { label 'docker' }
-                    environment {
-                        HOME = "$HOME/cluster3"
-                    }
+                    environment { HOME = "$HOME/cluster3" }
                     steps {
                         ws("$WORKSPACE/cluster3") {
-                            script {
-                                deleteDir()
-                            }
+                            script { deleteDir() }
                             prepareAgent()
                             clusterRunner('cluster3')
                         }
@@ -436,14 +424,10 @@ pipeline {
                 }
                 stage('cluster4') {
                     agent { label 'docker' }
-                    environment {
-                        HOME = "$HOME/cluster4"
-                    }
+                    environment { HOME = "$HOME/cluster4" }
                     steps {
                         ws("$WORKSPACE/cluster4") {
-                            script {
-                                deleteDir()
-                            }
+                            script { deleteDir() }
                             prepareAgent()
                             clusterRunner('cluster4')
                         }
