@@ -321,17 +321,17 @@ pipeline {
                         }
                     }
                 }
-                stage('cluster2') {
-                    agent { label 'docker' }
-                    environment { HOME = "$HOME/cluster2" }
-                    steps {
-                        ws("$WORKSPACE/cluster2") {
-                            script { deleteDir() }
-                            prepareAgent()
-                            clusterRunner('cluster2')
-                        }
-                    }
-                }
+                // stage('cluster2') {
+                //     agent { label 'docker' }
+                //     environment { HOME = "$HOME/cluster2" }
+                //     steps {
+                //         ws("$WORKSPACE/cluster2") {
+                //             script { deleteDir() }
+                //             prepareAgent()
+                //             clusterRunner('cluster2')
+                //         }
+                //     }
+                // }
             }
         }
     }

@@ -21,7 +21,7 @@ void prepareSources() {
     """
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
     PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
-    CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+    CLUSTER_NAME = sh(script: "echo $JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
 }
 
 void initParams() {
@@ -229,13 +229,13 @@ platform:
 
 publish: External
 EOF
-            cat $OPENSHIFT_CONF_FILE >> openshift/${CLUSTER_SUFFIX}/install-config.yaml
+            cat $OPENSHIFT_CONF_FILE >> openshift/$CLUSTER_SUFFIX/install-config.yaml
         """
 
         sshagent(['aws-openshift-41-key']) {
             sh """
-                /usr/local/bin/openshift-install create cluster --dir=openshift/${CLUSTER_SUFFIX}
-                export KUBECONFIG=openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
+                /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
+                export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
             """
         }
     }
