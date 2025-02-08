@@ -170,7 +170,7 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     sh """
         timestamp="\$(date +%s)"
-tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
+tee cluster-$CLUSTER_SUFFIX.yaml << EOF
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 metadata:
@@ -210,7 +210,7 @@ EOF
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+            eksctl create cluster -f cluster-$CLUSTER_SUFFIX.yaml
             kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
             kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
         """
