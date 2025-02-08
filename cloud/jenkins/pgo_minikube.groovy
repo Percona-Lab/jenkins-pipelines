@@ -332,28 +332,6 @@ pipeline {
                         }
                     }
                 }
-                stage('cluster3') {
-                    agent { label 'docker' }
-                    environment { HOME = "$HOME/cluster3" }
-                    steps {
-                        ws("$WORKSPACE/cluster3") {
-                            script { deleteDir() }
-                            prepareAgent()
-                            clusterRunner('cluster3')
-                        }
-                    }
-                }
-                stage('cluster4') {
-                    agent { label 'docker' }
-                    environment { HOME = "$HOME/cluster4" }
-                    steps {
-                        ws("$WORKSPACE/cluster4") {
-                            script { deleteDir() }
-                            prepareAgent()
-                            clusterRunner('cluster4')
-                        }
-                    }
-                }
             }
         }
     }

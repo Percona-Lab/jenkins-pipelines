@@ -324,7 +324,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
             done
             kubectl get svc --all-namespaces || true
 
-            VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region $region -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
+            VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-${CLUSTER_SUFFIX} --region $region -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
             if [ -n "\$VPC_ID" ]; then
                 LOADBALS=\$(aws elb describe-load-balancers --region $region --output json | jq --raw-output '.LoadBalancerDescriptions[] | select(.VPCId == "'\$VPC_ID'").LoadBalancerName')
                 for loadbal in \$LOADBALS; do
