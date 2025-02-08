@@ -1,5 +1,5 @@
 - job:
-    name: pgo-operator-minikube
+    name: pgo-gke
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -18,13 +18,4 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pgo_operator_minikube.groovy
-    parameters:
-    - string:
-        name: GIT_REPO
-        default: https://github.com/percona/percona-postgresql-operator
-        description: percona/percona-postgresql-operator repository
-    - string:
-        name: GIT_BRANCH
-        default: main
-        description: Tag/Branch for percona/percona-postgresql-operator repository
+      script-path: cloud/jenkins/pgo_gke.groovy

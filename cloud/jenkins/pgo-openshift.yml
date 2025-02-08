@@ -1,5 +1,5 @@
 - job:
-    name: pgo-operator-aws-openshift-latest
+    name: pgo-os
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pgo_operator_aws_openshift_latest.groovy
+      script-path: cloud/jenkins/pgo_openshift.groovy

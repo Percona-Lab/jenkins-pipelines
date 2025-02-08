@@ -1,8 +1,10 @@
 - job:
-    name: pgo-operator-aws-openshift-4
+    name: pgo-weekly
     project-type: pipeline
     description: |
         Do not edit this job through the web!
+    triggers:
+      - timed: "0 6 * * 3"
     pipeline-scm:
       scm:
         - git:
@@ -11,4 +13,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pgo_operator_aws_openshift-4.groovy
+      script-path: cloud/jenkins/pgo_weekly.groovy
