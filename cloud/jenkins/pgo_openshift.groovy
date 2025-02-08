@@ -17,6 +17,7 @@ String getParam(String paramName, String keyName = null) {
 void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
     sh """
+        rm -rf source
         git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
     """
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
@@ -245,7 +246,6 @@ void runTest(Integer TEST_ID) {
     def clusterSuffix = tests[TEST_ID]["cluster"]
 
     unstash "sourceFILES"
-
     waitUntil {
         def timeStart = new Date().getTime()
         try {

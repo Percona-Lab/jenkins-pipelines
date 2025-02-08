@@ -14,6 +14,16 @@ String getParam(String paramName, String keyName = null) {
     return param
 }
 
+void prepareSources() {
+    echo "=========================[ Cloning the sources ]========================="
+    sh """
+        git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
+    """
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+}
+
 void prepareAgent() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
@@ -37,24 +47,6 @@ void prepareAgent() {
 
         curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
     """
-}
-
-void prepareSources() {
-    echo "=========================[ Cloning the sources ]========================="
-    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-    sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo git config --global --add safe.directory '*'
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf source
-        git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator source
-    """
-
-    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void initParams() {
@@ -394,8 +386,8 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
-                prepareAgent()
                 prepareSources()
+                prepareAgent()
                 initParams()
             }
         }
