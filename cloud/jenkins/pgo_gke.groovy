@@ -365,6 +365,7 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
+                script { deleteDir() }
                 prepareSources()
                 prepareAgent()
                 initParams()
@@ -387,33 +388,65 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     agent { label 'docker' }
+                    environment {
+                        HOME = "$HOME/cluster1"
+                    }
                     steps {
-                        prepareAgent()
-                        clusterRunner('cluster1')
+                        ws("$WORKSPACE/cluster1") {
+                            script {
+                                deleteDir()
+                            }
+                            prepareAgent()
+                            clusterRunner('cluster1')
+                        }
                     }
                     post { always { script { shutdownCluster('cluster1') } } }
                 }
                 stage('cluster2') {
                     agent { label 'docker' }
+                    environment {
+                        HOME = "$HOME/cluster2"
+                    }
                     steps {
-                        prepareAgent()
-                        clusterRunner('cluster2')
+                        ws("$WORKSPACE/cluster2") {
+                            script {
+                                deleteDir()
+                            }
+                            prepareAgent()
+                            clusterRunner('cluster2')
+                        }
                     }
                     post { always { script { shutdownCluster('cluster2') } } }
                 }
                 stage('cluster3') {
                     agent { label 'docker' }
+                    environment {
+                        HOME = "$HOME/cluster3"
+                    }
                     steps {
-                        prepareAgent()
-                        clusterRunner('cluster3')
+                        ws("$WORKSPACE/cluster3") {
+                            script {
+                                deleteDir()
+                            }
+                            prepareAgent()
+                            clusterRunner('cluster3')
+                        }
                     }
                     post { always { script { shutdownCluster('cluster3') } } }
                 }
                 stage('cluster4') {
                     agent { label 'docker' }
+                    environment {
+                        HOME = "$HOME/cluster4"
+                    }
                     steps {
-                        prepareAgent()
-                        clusterRunner('cluster4')
+                        ws("$WORKSPACE/cluster4") {
+                            script {
+                                deleteDir()
+                            }
+                            prepareAgent()
+                            clusterRunner('cluster4')
+                        }
                     }
                     post { always { script { shutdownCluster('cluster4') } } }
                 }

@@ -17,7 +17,6 @@ String getParam(String paramName, String keyName = null) {
 void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
     sh """
-        rm -rf source
         git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
     """
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
@@ -229,13 +228,13 @@ platform:
 
 publish: External
 EOF
-            cat $OPENSHIFT_CONF_FILE >> openshift/$CLUSTER_SUFFIX/install-config.yaml
+            cat $OPENSHIFT_CONF_FILE >> openshift/${CLUSTER_SUFFIX}/install-config.yaml
         """
 
         sshagent(['aws-openshift-41-key']) {
             sh """
-                /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
-                export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                /usr/local/bin/openshift-install create cluster --dir=openshift/${CLUSTER_SUFFIX}
+                export KUBECONFIG=openshift/${CLUSTER_SUFFIX}/auth/kubeconfig
             """
         }
     }
@@ -374,6 +373,7 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
+                script { deleteDir() }
                 prepareSources()
                 initParams()
                 prepareAgent()
@@ -396,33 +396,65 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     agent { label 'docker' }
+                    environment {
+                        HOME = "$HOME/cluster1"
+                    }
                     steps {
-                        prepareAgent()
-                        clusterRunner('cluster1')
+                        ws("$WORKSPACE/cluster1") {
+                            script {
+                                deleteDir()
+                            }
+                            prepareAgent()
+                            clusterRunner('cluster1')
+                        }
                     }
                     post { always { script { shutdownCluster('cluster1') } } }
                 }
                 stage('cluster2') {
                     agent { label 'docker' }
+                    environment {
+                        HOME = "$HOME/cluster2"
+                    }
                     steps {
-                        prepareAgent()
-                        clusterRunner('cluster2')
+                        ws("$WORKSPACE/cluster2") {
+                            script {
+                                deleteDir()
+                            }
+                            prepareAgent()
+                            clusterRunner('cluster2')
+                        }
                     }
                     post { always { script { shutdownCluster('cluster2') } } }
                 }
                 stage('cluster3') {
                     agent { label 'docker' }
+                    environment {
+                        HOME = "$HOME/cluster3"
+                    }
                     steps {
-                        prepareAgent()
-                        clusterRunner('cluster3')
+                        ws("$WORKSPACE/cluster3") {
+                            script {
+                                deleteDir()
+                            }
+                            prepareAgent()
+                            clusterRunner('cluster3')
+                        }
                     }
                     post { always { script { shutdownCluster('cluster3') } } }
                 }
                 stage('cluster4') {
                     agent { label 'docker' }
+                    environment {
+                        HOME = "$HOME/cluster4"
+                    }
                     steps {
-                        prepareAgent()
-                        clusterRunner('cluster4')
+                        ws("$WORKSPACE/cluster4") {
+                            script {
+                                deleteDir()
+                            }
+                            prepareAgent()
+                            clusterRunner('cluster4')
+                        }
                     }
                     post { always { script { shutdownCluster('cluster4') } } }
                 }
