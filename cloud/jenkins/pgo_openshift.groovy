@@ -235,7 +235,6 @@ EOF
         sshagent(['aws-openshift-41-key']) {
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
-                export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
             """
         }
     }
@@ -266,7 +265,6 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_BACKREST=$IMAGE_BACKREST
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                     export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
 
                     kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
@@ -400,7 +398,12 @@ pipeline {
                     environment { HOME = "$HOME/cluster1" }
                     steps {
                         ws("$WORKSPACE/cluster1") {
-                            script { deleteDir() }
+                            script {
+                                sh """
+                                    rm -rf $HOME $WORKSPACE
+                                    mkdir -p $HOME $WORKSPACE
+                                """
+                            }
                             prepareAgent()
                             clusterRunner('cluster1')
                         }
@@ -412,7 +415,12 @@ pipeline {
                     environment { HOME = "$HOME/cluster2" }
                     steps {
                         ws("$WORKSPACE/cluster2") {
-                            script { deleteDir() }
+                            script {
+                                sh """
+                                    rm -rf $HOME $WORKSPACE
+                                    mkdir -p $HOME $WORKSPACE
+                                """
+                            }
                             prepareAgent()
                             clusterRunner('cluster2')
                         }
@@ -424,7 +432,12 @@ pipeline {
                     environment { HOME = "$HOME/cluster3" }
                     steps {
                         ws("$WORKSPACE/cluster3") {
-                            script { deleteDir() }
+                            script {
+                                sh """
+                                    rm -rf $HOME $WORKSPACE
+                                    mkdir -p $HOME $WORKSPACE
+                                """
+                            }
                             prepareAgent()
                             clusterRunner('cluster3')
                         }
@@ -436,7 +449,12 @@ pipeline {
                     environment { HOME = "$HOME/cluster4" }
                     steps {
                         ws("$WORKSPACE/cluster4") {
-                            script { deleteDir() }
+                            script {
+                                sh """
+                                    rm -rf $HOME $WORKSPACE
+                                    mkdir -p $HOME $WORKSPACE
+                                """
+                            }
                             prepareAgent()
                             clusterRunner('cluster4')
                         }

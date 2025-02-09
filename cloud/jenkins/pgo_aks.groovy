@@ -367,7 +367,12 @@ pipeline {
                     environment { HOME = "$HOME/cluster1" }
                     steps {
                         ws("$WORKSPACE/cluster1") {
-                            script { deleteDir() }
+                            script {
+                                sh """
+                                    rm -rf $HOME $WORKSPACE
+                                    mkdir -p $HOME $WORKSPACE
+                                """
+                            }
                             prepareAgent()
                             clusterRunner('cluster1')
                         }
@@ -379,7 +384,12 @@ pipeline {
                     environment { HOME = "$HOME/cluster2" }
                     steps {
                         ws("$WORKSPACE/cluster2") {
-                            script { deleteDir() }
+                            script {
+                                sh """
+                                    rm -rf $HOME $WORKSPACE
+                                    mkdir -p $HOME $WORKSPACE
+                                """
+                            }
                             prepareAgent()
                             clusterRunner('cluster2')
                         }
@@ -391,7 +401,12 @@ pipeline {
                     environment { HOME = "$HOME/cluster3" }
                     steps {
                         ws("$WORKSPACE/cluster3") {
-                            script { deleteDir() }
+                            script {
+                                sh """
+                                    rm -rf $HOME $WORKSPACE
+                                    mkdir -p $HOME $WORKSPACE
+                                """
+                            }
                             prepareAgent()
                             clusterRunner('cluster3')
                         }
@@ -403,7 +418,12 @@ pipeline {
                     environment { HOME = "$HOME/cluster4" }
                     steps {
                         ws("$WORKSPACE/cluster4") {
-                            script { deleteDir() }
+                            script {
+                                sh """
+                                    rm -rf $HOME $WORKSPACE
+                                    mkdir -p $HOME $WORKSPACE
+                                """
+                            }
                             prepareAgent()
                             clusterRunner('cluster4')
                         }
