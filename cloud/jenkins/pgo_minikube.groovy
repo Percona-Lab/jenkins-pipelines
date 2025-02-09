@@ -297,6 +297,7 @@ pipeline {
                 timeout(time: 3, unit: 'HOURS')
             }
             steps {
+                prepareAgent()
                 clusterRunner('cluster1')
             }
         }
