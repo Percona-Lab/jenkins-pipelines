@@ -224,7 +224,6 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_BACKREST=$IMAGE_BACKREST
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                     export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
 
                     kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
@@ -293,7 +292,6 @@ void makeReport() {
 void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
                 kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
                 kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
@@ -367,68 +365,48 @@ pipeline {
                     environment { HOME = "$HOME/cluster1" }
                     steps {
                         ws("$WORKSPACE/cluster1") {
-                            script {
-                                sh """
-                                    rm -rf $HOME $WORKSPACE
-                                    mkdir -p $HOME $WORKSPACE
-                                """
-                            }
+                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
                             prepareAgent()
                             clusterRunner('cluster1')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster1') } } }
+                    post { always { ws("$WORKSPACE/cluster1") { script { shutdownCluster('cluster1') } } } }
                 }
                 stage('cluster2') {
                     agent { label 'docker' }
                     environment { HOME = "$HOME/cluster2" }
                     steps {
                         ws("$WORKSPACE/cluster2") {
-                            script {
-                                sh """
-                                    rm -rf $HOME $WORKSPACE
-                                    mkdir -p $HOME $WORKSPACE
-                                """
-                            }
+                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
                             prepareAgent()
                             clusterRunner('cluster2')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster2') } } }
+                    post { always { ws("$WORKSPACE/cluster2") { script { shutdownCluster('cluster2') } } } }
                 }
                 stage('cluster3') {
                     agent { label 'docker' }
                     environment { HOME = "$HOME/cluster3" }
                     steps {
                         ws("$WORKSPACE/cluster3") {
-                            script {
-                                sh """
-                                    rm -rf $HOME $WORKSPACE
-                                    mkdir -p $HOME $WORKSPACE
-                                """
-                            }
+                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
                             prepareAgent()
                             clusterRunner('cluster3')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster3') } } }
+                    post { always { ws("$WORKSPACE/cluster3") { script { shutdownCluster('cluster3') } } } }
                 }
                 stage('cluster4') {
                     agent { label 'docker' }
                     environment { HOME = "$HOME/cluster4" }
                     steps {
                         ws("$WORKSPACE/cluster4") {
-                            script {
-                                sh """
-                                    rm -rf $HOME $WORKSPACE
-                                    mkdir -p $HOME $WORKSPACE
-                                """
-                            }
+                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
                             prepareAgent()
                             clusterRunner('cluster4')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster4') } } }
+                    post { always { ws("$WORKSPACE/cluster4") { script { shutdownCluster('cluster4') } } } }
                 }
             }
         }

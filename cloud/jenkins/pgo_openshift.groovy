@@ -398,68 +398,48 @@ pipeline {
                     environment { HOME = "$HOME/cluster1" }
                     steps {
                         ws("$WORKSPACE/cluster1") {
-                            script {
-                                sh """
-                                    rm -rf $HOME $WORKSPACE
-                                    mkdir -p $HOME $WORKSPACE
-                                """
-                            }
+                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
                             prepareAgent()
                             clusterRunner('cluster1')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster1') } } }
+                    post { always { ws("$WORKSPACE/cluster1") { script { shutdownCluster('cluster1') } } } }
                 }
                 stage('cluster2') {
                     agent { label 'docker' }
                     environment { HOME = "$HOME/cluster2" }
                     steps {
                         ws("$WORKSPACE/cluster2") {
-                            script {
-                                sh """
-                                    rm -rf $HOME $WORKSPACE
-                                    mkdir -p $HOME $WORKSPACE
-                                """
-                            }
+                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
                             prepareAgent()
                             clusterRunner('cluster2')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster2') } } }
+                    post { always { ws("$WORKSPACE/cluster2") { script { shutdownCluster('cluster2') } } } }
                 }
                 stage('cluster3') {
                     agent { label 'docker' }
                     environment { HOME = "$HOME/cluster3" }
                     steps {
                         ws("$WORKSPACE/cluster3") {
-                            script {
-                                sh """
-                                    rm -rf $HOME $WORKSPACE
-                                    mkdir -p $HOME $WORKSPACE
-                                """
-                            }
+                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
                             prepareAgent()
                             clusterRunner('cluster3')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster3') } } }
+                    post { always { ws("$WORKSPACE/cluster3") { script { shutdownCluster('cluster3') } } } }
                 }
                 stage('cluster4') {
                     agent { label 'docker' }
                     environment { HOME = "$HOME/cluster4" }
                     steps {
                         ws("$WORKSPACE/cluster4") {
-                            script {
-                                sh """
-                                    rm -rf $HOME $WORKSPACE
-                                    mkdir -p $HOME $WORKSPACE
-                                """
-                            }
+                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
                             prepareAgent()
                             clusterRunner('cluster4')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster4') } } }
+                    post { always { ws("$WORKSPACE/cluster4") { script { shutdownCluster('cluster4') } } } }
                 }
             }
         }

@@ -389,7 +389,6 @@ pipeline {
                     steps {
                         ws("$WORKSPACE/cluster1") {
                             script {
-                                deleteDir()
                                 sh """
                                     rm -rf $HOME $WORKSPACE
                                     mkdir -p $HOME $WORKSPACE
@@ -399,7 +398,7 @@ pipeline {
                             clusterRunner('cluster1')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster1') } } }
+                    post { always { ws("$WORKSPACE/cluster1") { script { shutdownCluster('cluster1') } } } }
                 }
                 stage('cluster2') {
                     agent { label 'docker' }
@@ -407,7 +406,6 @@ pipeline {
                     steps {
                         ws("$WORKSPACE/cluster2") {
                             script {
-                                deleteDir()
                                 sh """
                                     rm -rf $HOME $WORKSPACE
                                     mkdir -p $HOME $WORKSPACE
@@ -417,7 +415,7 @@ pipeline {
                             clusterRunner('cluster2')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster2') } } }
+                    post { always { ws("$WORKSPACE/cluster2") { script { shutdownCluster('cluster2') } } } }
                 }
                 stage('cluster3') {
                     agent { label 'docker' }
@@ -425,7 +423,6 @@ pipeline {
                     steps {
                         ws("$WORKSPACE/cluster3") {
                             script {
-                                deleteDir()
                                 sh """
                                     rm -rf $HOME $WORKSPACE
                                     mkdir -p $HOME $WORKSPACE
@@ -435,7 +432,7 @@ pipeline {
                             clusterRunner('cluster3')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster3') } } }
+                    post { always { ws("$WORKSPACE/cluster3") { script { shutdownCluster('cluster3') } } } }
                 }
                 stage('cluster4') {
                     agent { label 'docker' }
@@ -443,7 +440,6 @@ pipeline {
                     steps {
                         ws("$WORKSPACE/cluster4") {
                             script {
-                                deleteDir()
                                 sh """
                                     rm -rf $HOME $WORKSPACE
                                     mkdir -p $HOME $WORKSPACE
@@ -453,7 +449,7 @@ pipeline {
                             clusterRunner('cluster4')
                         }
                     }
-                    post { always { script { shutdownCluster('cluster4') } } }
+                    post { always { ws("$WORKSPACE/cluster4") { script { shutdownCluster('cluster4') } } } }
                 }
             }
         }

@@ -141,39 +141,27 @@ void initTests() {
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
         """
     }
-    stash includes: "source/**", name: "sourceFILES"
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated = false
+    sh """
+        export CHANGE_MINIKUBE_NONE_USER=true
+        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G
+    """
 
     for (int i=0; i<tests.size(); i++) {
         if (tests[i]["result"] == "skipped") {
             tests[i]["result"] = "failure"
             tests[i]["cluster"] = cluster
-            if (!clusterCreated) {
-                createCluster(cluster)
-                clusterCreated = true
-            }
             runTest(i)
         }
     }
 }
 
-void createCluster(String CLUSTER_SUFFIX) {
-    sh """
-        echo "Creating cluster $CLUSTER_SUFFIX"
-        export CHANGE_MINIKUBE_NONE_USER=true
-        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G
-    """
-}
-
 void runTest(Integer TEST_ID) {
     def retryCount = 0
     def testName = tests[TEST_ID]["name"]
-    def clusterSuffix = tests[TEST_ID]["cluster"]
 
-    unstash "sourceFILES"
     waitUntil {
         def timeStart = new Date().getTime()
         try {
@@ -290,7 +278,6 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
-                script { deleteDir() }
                 prepareSources()
                 initParams()
             }
@@ -309,29 +296,8 @@ pipeline {
             options {
                 timeout(time: 3, unit: 'HOURS')
             }
-            parallel {
-                stage('cluster1') {
-                    agent { label 'docker' }
-                    environment { HOME = "$HOME/cluster1" }
-                    steps {
-                        ws("$WORKSPACE/cluster1") {
-                            script { deleteDir() }
-                            prepareAgent()
-                            clusterRunner('cluster1')
-                        }
-                    }
-                }
-                // stage('cluster2') {
-                //     agent { label 'docker' }
-                //     environment { HOME = "$HOME/cluster2" }
-                //     steps {
-                //         ws("$WORKSPACE/cluster2") {
-                //             script { deleteDir() }
-                //             prepareAgent()
-                //             clusterRunner('cluster2')
-                //         }
-                //     }
-                // }
+            steps {
+                clusterRunner('cluster1')
             }
         }
     }
