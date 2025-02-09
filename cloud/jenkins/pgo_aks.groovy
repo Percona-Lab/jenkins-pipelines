@@ -46,6 +46,7 @@ void prepareAgent() {
         echo \$(kubectl kuttl --version) is installed
 
         curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+        sudo rm -rf /usr/azure-cli
         printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
         sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
 
