@@ -152,15 +152,15 @@ void initTests() {
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated = false
+    def clusterCreated=0
 
     for (int i=0; i<tests.size(); i++) {
         if (tests[i]["result"] == "skipped") {
             tests[i]["result"] = "failure"
             tests[i]["cluster"] = cluster
-            if (!clusterCreated) {
+            if (clusterCreated == 0) {
                 createCluster(cluster)
-                clusterCreated = true
+                clusterCreated++
             }
             runTest(i)
         }
