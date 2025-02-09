@@ -235,6 +235,7 @@ EOF
         sshagent(['aws-openshift-41-key']) {
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
+                export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
             """
         }
     }
@@ -266,6 +267,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                     export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+                    export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
 
                     kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
                 """
@@ -334,6 +336,16 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
         sshagent(['aws-openshift-41-key']) {
             sh """
+                export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                    kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+                done
+                kubectl get svc --all-namespaces || true
                 /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
             """
         }
