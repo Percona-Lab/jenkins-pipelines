@@ -1,5 +1,5 @@
 - job:
-    name: percona-release-RELEASE
+    name: hetzner-percona-release-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -8,7 +8,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+            - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: percona-release/jenkins/percona-release.groovy

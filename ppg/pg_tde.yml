@@ -1,5 +1,5 @@
 - job:
-    name: pg_tde-RELEASE
+    name: hetzner-pg_tde-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -8,7 +8,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+            - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: ppg/pg_tde.groovy

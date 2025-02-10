@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -41,7 +41,7 @@ void uploadTarballToTestingDownloadServer(String tarballDirectory, String packag
 
     script {
         try {
-            uploadPGTarballToDownloadsTesting(tarballDirectory, packageVersion)
+            uploadPGTarballToDownloadsTesting(params.CLOUD, tarballDirectory, packageVersion)
         } catch (err) {
             echo "Caught: ${err}"
             currentBuild.result = 'UNSTABLE'
@@ -59,10 +59,14 @@ def TIMESTAMP
 
 pipeline {
     agent {
-        label 'docker'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
 
     parameters {
+        choice(
+             choices: [ 'Hetzner','AWS' ],
+             description: 'Cloud infra for build',
+             name: 'CLOUD' )
         string(
             defaultValue: 'https://github.com/percona/postgres-packaging.git',
             description: 'URL for pg_tarballs repository',
@@ -89,7 +93,7 @@ pipeline {
 
 	stage('Create timestamp') {
             agent {
-                label 'docker'
+                label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
             }
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
@@ -110,7 +114,7 @@ pipeline {
             parallel {
                 stage('Build source tarball for PG 17') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -128,15 +132,15 @@ pipeline {
                                 """
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                                 buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
-                                pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17)
-                                uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17, "binary", "${PACKAGE_VERSION}")
+                                pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17)
+                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17, "binary", "${PACKAGE_VERSION}")
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
                     }
                 }
                 stage('Build source tarball for PG 16') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -154,15 +158,15 @@ pipeline {
 				"""
 				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
-				pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16)
-				uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16, "binary", "${PACKAGE_VERSION}")
+				pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16)
+				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16, "binary", "${PACKAGE_VERSION}")
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }
                 }
 		stage('Build source tarball for PG 15') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -180,15 +184,15 @@ pipeline {
                                 """
 				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
-				pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15)
-				uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15, "binary", "${PACKAGE_VERSION}")
+				pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15)
+				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15, "binary", "${PACKAGE_VERSION}")
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }
                 }
 		stage('Build source tarball for PG 14') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -206,15 +210,15 @@ pipeline {
                                 """
 				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                         	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
-				pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14)
-				uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14, "binary", "${PACKAGE_VERSION}")
+				pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14)
+				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14, "binary", "${PACKAGE_VERSION}")
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }
                 }
 		stage('Build source tarball for PG 13') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         cleanUpWS()
@@ -232,8 +236,8 @@ pipeline {
                                 """
 				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
-				pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_13)
-				uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_13, "binary", "${PACKAGE_VERSION}")
+				pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_13)
+				uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_13, "binary", "${PACKAGE_VERSION}")
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }

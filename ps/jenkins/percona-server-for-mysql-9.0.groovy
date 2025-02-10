@@ -1,5 +1,5 @@
 /* groovylint-disable DuplicateStringLiteral, GStringExpressionWithinString, LineLength */
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -183,9 +183,13 @@ def install_mysql_shell = 'no'
 
 pipeline {
     agent {
-        label 'docker'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
 parameters {
+    choice(
+         choices: [ 'Hetzner','AWS' ],
+         description: 'Cloud infra for build',
+         name: 'CLOUD' )
         string(defaultValue: 'https://github.com/percona/percona-server.git', description: 'github repository for build', name: 'GIT_REPO')
         string(defaultValue: 'release-9.0.1-1', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
@@ -242,8 +246,8 @@ parameters {
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
                 stash includes: 'test/percona-server-9.0.properties', name: 'properties'
-                pushArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
+                pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
         stage('Build PS generic source packages') {
@@ -264,8 +268,8 @@ parameters {
                                 buildStage("none", "--build_src_rpm=1")
                             }
                         }
-                        pushArtifactFolder("srpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Build PS generic source deb') {
@@ -285,8 +289,8 @@ parameters {
                             }
                         }
 
-                        pushArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                     }
                 }
             }  //parallel
@@ -309,7 +313,7 @@ parameters {
                                 buildStage("none", "--build_rpm=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                    pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -317,7 +321,7 @@ parameters {
                 }
                 stage('Centos 8 ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         script {
@@ -330,7 +334,7 @@ parameters {
                                 popArtifactFolder("srpm/", AWS_STASH_PATH)
                                 buildStage("centos:8", "--build_rpm=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                    pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -352,14 +356,14 @@ parameters {
                                 buildStage("none", "--build_rpm=1 --with_zenfs=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                             }
                         }
                     }
                 }
                 stage('Oracle Linux 9 ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -373,7 +377,7 @@ parameters {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -393,7 +397,7 @@ parameters {
                                 popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("none", "--build_deb=1 --with_zenfs=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -416,7 +420,7 @@ parameters {
                             }
                         }
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Noble(24.04)') {
@@ -435,7 +439,7 @@ parameters {
                                 buildStage("none", "--build_deb=1 --with_zenfs=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -455,7 +459,7 @@ parameters {
                                 popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("none", "--build_deb=1 --with_zenfs=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -477,14 +481,14 @@ parameters {
                                 buildStage("none", "--build_deb=1 --with_zenfs=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                             }
                         }
                     }
                 }
                 stage('Ubuntu Focal(20.04) ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         script {
@@ -497,7 +501,7 @@ parameters {
                                 popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -505,7 +509,7 @@ parameters {
                 }
                 stage('Ubuntu Jammy(22.04) ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -520,12 +524,12 @@ parameters {
                             }
                         }
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Noble(24.04) ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -539,14 +543,14 @@ parameters {
                                 buildStage("ubuntu:noble", "--build_deb=1 --with_zenfs=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                             }
                         }
                     }
                 }
                 stage('Debian Bullseye(11) ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         script {
@@ -560,7 +564,7 @@ parameters {
                                 buildStage("debian:bullseye", "--build_deb=1 --with_zenfs=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -568,7 +572,7 @@ parameters {
                 }
                 stage('Debian Bookworm(12) ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -583,7 +587,7 @@ parameters {
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -603,7 +607,7 @@ parameters {
                                 popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("none", "--build_tarball=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                   pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                   pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -624,7 +628,7 @@ parameters {
                                 popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("none", "--debug=1 --build_tarball=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                   pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                   pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -646,7 +650,7 @@ parameters {
                                 buildStage("none", "--build_tarball=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -666,7 +670,7 @@ parameters {
                             } else {
                                 buildStage("none", "--build_tarball=1 --with_zenfs=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                    pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -688,7 +692,7 @@ parameters {
                                 buildStage("none", "--debug=1 --build_tarball=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -708,7 +712,7 @@ parameters {
                                 popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("none", "--build_tarball=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                    pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -729,7 +733,7 @@ parameters {
                                 popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("none", "--debug=1 --build_tarball=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                    pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -751,7 +755,7 @@ parameters {
                                 buildStage("none", "--build_tarball=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -771,7 +775,7 @@ parameters {
                             } else {
                                 buildStage("none", "--build_tarball=1 --with_zenfs=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                   pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                                   pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -793,7 +797,7 @@ parameters {
                                 buildStage("none", "--debug=1 --build_tarball=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
-                               pushArtifactFolder("tarball/", AWS_STASH_PATH)
+                               pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -809,12 +813,12 @@ parameters {
                 installCli("deb")
                 unstash 'properties'
 
-                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
 
                 script {
                     if (env.EXPERIMENTALMODE == 'NO') {
-                        uploadTarballfromAWS("tarball/", AWS_STASH_PATH, 'binary')
+                        uploadTarballfromAWS(params.CLOUD, "tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
             }
