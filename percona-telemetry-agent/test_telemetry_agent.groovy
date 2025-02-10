@@ -161,8 +161,27 @@ pipeline {
                     }
                 }
 
-                stage('Test on Amazon Linux 2') {
-                    agent { label 'min-amazon-2-x64' }  // Run on the node with label 'min-amazon-2-x64'
+                stage('Test on Amazon Linux 2023 x64') {
+                    agent { label 'min-al2023-x64' }
+                    steps {
+                        script {
+                            sh '''
+                            # Update package list and install necessary dependencies
+                            sudo yum install -y sudo wget gnupg2 curl systemd
+
+                            wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
+                            chmod +x test-telemetry-agent.sh
+                            sudo ./test-telemetry-agent.sh \${TARGET_VERSION}
+
+                            # Verify service behavior
+                            pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
+                            '''
+                        }
+                    }
+                }
+
+                stage('Test on Amazon Linux 2023 aarch64') {
+                    agent { label 'min-al2023-aarch64' }
                     steps {
                         script {
                             sh '''
