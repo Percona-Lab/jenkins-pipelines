@@ -1014,7 +1014,9 @@ parameters {
                                     sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-8x-innovation testing/g" Dockerfile
                                 fi
                             fi
-                            sudo docker build -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE} .
+                            sudo docker build -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64 --platform="linux/amd64" .
+                            sudo docker build -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-aarch64 --platform="linux/arm64" .
+                            sudo docker tag perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64 perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}
                             sudo docker images
                         '''
                         withCredentials([
@@ -1031,13 +1033,15 @@ parameters {
                             else
                                 MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
                             fi
-                            sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}
-                            sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
-                            sudo docker push perconalab/percona-server:${PS_RELEASE}
+                            sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 perconalab/percona-server:${PS_RELEASE}-amd64
+                            sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64
+                            sudo docker push perconalab/percona-server:${PS_RELEASE}-amd64
                             sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 perconalab/percona-server:${PS_RELEASE}-aarch64
                             sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64
                             sudo docker push perconalab/percona-server:${PS_RELEASE}-aarch64
                             sudo docker tag perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE} perconalab/percona-mysql-router:${PS_MAJOR_RELEASE}
+                            sudo docker push perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64
+                            sudo docker push perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-aarch64
                             sudo docker push perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}
                             sudo docker push perconalab/percona-mysql-router:${PS_MAJOR_RELEASE}
                        '''
