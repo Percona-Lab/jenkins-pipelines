@@ -264,8 +264,7 @@ pipeline {
                         sudo chown ec2-user -R /srv/qa-integration
 
                         pushd /srv/qa-integration/pmm_qa
-                        // Workaround until setupPMM3Client is fixed in previous step
-                        bash -x ./pmm3-client-setup.sh --pmm_server_ip 127.0.0.1 --client_version ${PMM_CLIENT_VERSION} --admin_password ${ADMIN_PASSWORD} --use_metrics_mode no
+                        sudo bash -x ./pmm3-client-setup.sh --pmm_server_ip 127.0.0.1 --client_version ${PMM_CLIENT_VERSION} --admin_password ${ADMIN_PASSWORD} --use_metrics_mode no
                         popd
 
                         pushd /srv/qa-integration/pmm_qa
