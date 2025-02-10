@@ -44,8 +44,8 @@ EOF
         """
     }
 
-    if ("$PGO_POSTGRES_IMAGE") {
-        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$PGO_POSTGRES_IMAGE".split(":")[1]
+    if ("$IMAGE_POSTGRESQL") {
+        currentBuild.description = "$GIT_BRANCH-$PLATFORM_VER-CW_$CLUSTER_WIDE-" + "$IMAGE_POSTGRESQL".split(":")[1]
     }
 
     if ("$PLATFORM_VER" == "latest") {
@@ -57,13 +57,14 @@ EOF
 
     echo "=========================[ Cloning the sources ]========================="
     sh """
+        rm -rf source
         git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
     """
 
     script {
-        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        CLUSTER_NAME = sh(script: "echo jenkins-lat-pg-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_IMAGE-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+        CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
     }
 }
 
@@ -71,7 +72,7 @@ void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            if [[ "$OPERATOR_IMAGE" ]]; then
+            if [[ "$IMAGE_OPERATOR" ]]; then
                 echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
@@ -214,14 +215,11 @@ void runTest(Integer TEST_ID) {
                     cd source
 
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pg-operator
-                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
-                    export PG_VER=$PG_VERSION
-                    export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
-                    if [[ "$PGO_POSTGRES_IMAGE" ]]; then
-                        export IMAGE_POSTGRESQL=$PGO_POSTGRES_IMAGE
-                        export PG_VER=\$(echo \$IMAGE_POSTGRESQL | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
-                    fi
-                    export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
+                    export IMAGE=$IMAGE_OPERATOR
+                    export PG_VER=$PG_VER
+                    export IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
+                    export IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
+                    export IMAGE_BACKREST=$IMAGE_BACKREST
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
@@ -264,17 +262,30 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PG-GKE-latest\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
-    for (int i=0; i<tests.size(); i++) {
-        def testResult = tests[i]["result"]
-        def testTime = tests[i]["time"]
-        def testName = tests[i]["name"]
-
-        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
+    testsReport = "<testsuite name=\"$JOB_NAME\">\n"
+    for (int i = 0; i < tests.size(); i ++) {
+        testsReport += '<testcase name="' + tests[i]["name"] + '" time="' + tests[i]["time"] + '"><'+ tests[i]["result"] +'/></testcase>\n'
     }
-    TestsReport = TestsReport + '</testsuite>\n'
+    testsReport += '</testsuite>\n'
+
+    echo "=========================[ Generating Parameters Report ]========================="
+    pipelineParameters = """
+        testsuite name=$JOB_NAME
+        PG_VER=$PG_VER
+        IMAGE_OPERATOR=$IMAGE_OPERATOR
+        IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
+        IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
+        IMAGE_BACKREST=$IMAGE_BACKREST
+        IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+        IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+        PLATFORM_VER=$PLATFORM_VER
+        GKE_RELEASE_CHANNEL=$GKE_RELEASE_CHANNEL
+    """
+
+    writeFile file: "TestsReport.xml", text: testsReport
+    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
@@ -290,7 +301,7 @@ pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
-        PPG_TAG = sh(script: "[[ \$PGO_POSTGRES_IMAGE ]] && echo \$PGO_POSTGRES_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
     }
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
@@ -321,6 +332,7 @@ pipeline {
     stages {
         stage('Prepare node') {
             steps {
+                script { deleteDir() }
                 prepareNode()
             }
         }
@@ -383,11 +395,8 @@ pipeline {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
-            sh """
-                echo "$TestsReport" > TestsReport.xml
-            """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-            archiveArtifacts '*.xml'
+            archiveArtifacts '*.xml,*.txt'
 
             script {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
@@ -396,12 +405,6 @@ pipeline {
 
                 clusters.each { shutdownCluster(it) }
             }
-
-            sh """
-                sudo docker system prune --volumes -af
-                sudo rm -rf *
-            """
-            deleteDir()
         }
     }
 }
