@@ -1,7 +1,8 @@
-def call(String FOLDER_NAME, String AWS_STASH_PATH) {
-    node('master') {
+def call(String CLOUD_NAME, String FOLDER_NAME, String AWS_STASH_PATH) {
+    def nodeLabel = (CLOUD_NAME == 'Hetzner') ? 'launcher-x64' : 'micro-amazon'
+    node(nodeLabel) {
         deleteDir()
-        popArtifactFolder(FOLDER_NAME, AWS_STASH_PATH)
+        popArtifactFolder(CLOUD_NAME, FOLDER_NAME, AWS_STASH_PATH)
         unstash 'uploadPath'
         withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
             sh """
@@ -63,8 +64,7 @@ def call(String FOLDER_NAME, String AWS_STASH_PATH) {
                     fi
 
                     if [ `find . -name "*.noarch.rpm" | wc -l` -gt 0 ]; then
-                        Vers=("6" "7" "8" "9" "2023")
-                        for osVer in "\${Vers[@]}"; do
+                        for osVer in 6 7 8 9 2023; do
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                                 mkdir -p \${path_to_build}/binary/redhat/\${osVer}/\${arch}
                             scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \

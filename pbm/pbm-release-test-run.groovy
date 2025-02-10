@@ -1,16 +1,20 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@hetzner", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
 pipeline {
     agent {
-        label 'master'
+        label params.CLOUD == 'Hetzner' ? 'launcher-x64' : 'master'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
+        choice(
+             choices: [ 'Hetzner','AWS' ],
+             description: 'Cloud infra for build',
+             name: 'CLOUD' )
         string(name: 'PBM_VERSION', defaultValue: '2.0.5', description: 'PBM Version')
         string(name: 'PBM_BRANCH', defaultValue: 'release-2.0.5', description: 'PBM Branch')
     }

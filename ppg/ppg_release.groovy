@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@ENG-7_postgresql_rel', retriever: modernSCM([
+library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -13,9 +13,13 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'docker'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
     parameters {
+        choice(
+             choices: [ 'Hetzner','AWS' ],
+             description: 'Cloud infra for build',
+             name: 'CLOUD' )
         text(name: 'PACKAGES', defaultValue: '', description: 'put all pathes to all packages')
         string(name: 'repo_version', defaultValue: '', description: 'Repository Version i.e ppg-15.3 or ppg-15')
         choice(name: 'component', choices: ['release', 'testing', 'experimental', 'laboratory'], description: 'Component')
@@ -62,12 +66,12 @@ pipeline {
         }
         stage('Push to public repository') {
             steps {
-                sync2ProdPPG(repo_version, component)
+                sync2ProdPPG(params.CLOUD, repo_version, component)
             }
         }
         stage('Push to WEB') {
             steps {
-                sync2web(repo_version, component)
+                sync2web(params.CLOUD, repo_version, component)
             }
         }       
     }
