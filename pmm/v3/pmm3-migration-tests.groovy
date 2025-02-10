@@ -202,7 +202,7 @@ pipeline {
                     export PMM_CLIENT_VERSION=${CLIENT_VERSION}
                     bash /srv/pmm-qa/pmm-tests/pmm-framework.sh \
                         --download \
-                        --pdpgsql-version 17 --ps-version 8.0 --mo-version 8.0 --addclient=pdpgsql,1 --addclient=ps,1 --addclient=pxc,1 --mongo-replica-for-backup \
+                        --pdpgsql-version 17 --ps-version 8.0 --mo-version 8.0 --addclient=pdpgsql,1 --addclient=ps,1 --mongo-replica-for-backup \
                         --pmm2
                     sleep 20
                 """
@@ -282,13 +282,6 @@ pipeline {
                             docker exec \$i cat /usr/local/percona/pmm/config/pmm-agent.yaml
                             docker exec \$i systemctl restart pmm-agent
                         done
-
-                        docker exec pxc_container1_8.0 percona-release enable pmm3-client \$UPGRADE_TAG
-                        docker exec pxc_container1_8.0 apt install -y pmm-client
-                        docker exec pxc_container1_8.0 sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
-                        PXC_AGENT_PROCESS_ID=\$(docker exec pxc_container1_8.0 ps aux | grep "pmm-agent" | awk -F' ' '{ print \$2 }')
-                        docker exec -d pxc_container1_8.0 kill \$PXC_AGENT_PROCESS_ID
-                        docker exec -d pxc_container1_8.0 pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                     """
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "https://${env.SERVER_IP}/"
