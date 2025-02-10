@@ -1,5 +1,6 @@
 region='eu-west-3'
 tests=[]
+clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
 String getParam(String paramName, String keyName = null) {
@@ -48,10 +49,10 @@ void initParams() {
         if ("$PLATFORM_VER" <= "4.15.25") {
             OC_VER="$PLATFORM_VER"
         } else {
-            // OC_VER="4.15.25"
-            OC_VER="$PLATFORM_VER"
+            OC_VER="4.15.25"
         }
     }
+    echo "OC_VER=$OC_VER"
 
     if ("$IMAGE_POSTGRESQL") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
@@ -166,22 +167,28 @@ void initTests() {
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated = false
+    def clusterCreated=0
 
     for (int i=0; i<tests.size(); i++) {
         if (tests[i]["result"] == "skipped") {
             tests[i]["result"] = "failure"
             tests[i]["cluster"] = cluster
-            if (!clusterCreated) {
+            if (clusterCreated == 0) {
                 createCluster(cluster)
-                clusterCreated = true
+                clusterCreated++
             }
             runTest(i)
         }
     }
+
+    if (clusterCreated >= 1) {
+        shutdownCluster(cluster)
+    }
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
+    clusters.add("$CLUSTER_SUFFIX")
+
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
             mkdir -p openshift/$CLUSTER_SUFFIX
@@ -246,7 +253,6 @@ void runTest(Integer TEST_ID) {
     def testName = tests[TEST_ID]["name"]
     def clusterSuffix = tests[TEST_ID]["cluster"]
 
-    unstash "sourceFILES"
     waitUntil {
         def timeStart = new Date().getTime()
         try {
@@ -266,8 +272,8 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_BACKREST=$IMAGE_BACKREST
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                    export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
                     export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
+                    export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
 
                     kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
                 """
@@ -384,7 +390,6 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
-                script { deleteDir() }
                 prepareSources()
                 initParams()
                 prepareAgent()
@@ -407,51 +412,35 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     agent { label 'docker' }
-                    environment { HOME = "$HOME/cluster1" }
                     steps {
-                        ws("$WORKSPACE/cluster1") {
-                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
-                            prepareAgent()
-                            clusterRunner('cluster1')
-                        }
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster1')
                     }
-                    post { always { ws("$WORKSPACE/cluster1") { script { shutdownCluster('cluster1') } } } }
                 }
                 stage('cluster2') {
                     agent { label 'docker' }
-                    environment { HOME = "$HOME/cluster2" }
                     steps {
-                        ws("$WORKSPACE/cluster2") {
-                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
-                            prepareAgent()
-                            clusterRunner('cluster2')
-                        }
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster2')
                     }
-                    post { always { ws("$WORKSPACE/cluster2") { script { shutdownCluster('cluster2') } } } }
                 }
                 stage('cluster3') {
                     agent { label 'docker' }
-                    environment { HOME = "$HOME/cluster3" }
                     steps {
-                        ws("$WORKSPACE/cluster3") {
-                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
-                            prepareAgent()
-                            clusterRunner('cluster3')
-                        }
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster3')
                     }
-                    post { always { ws("$WORKSPACE/cluster3") { script { shutdownCluster('cluster3') } } } }
                 }
                 stage('cluster4') {
                     agent { label 'docker' }
-                    environment { HOME = "$HOME/cluster4" }
                     steps {
-                        ws("$WORKSPACE/cluster4") {
-                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
-                            prepareAgent()
-                            clusterRunner('cluster4')
-                        }
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster4')
                     }
-                    post { always { ws("$WORKSPACE/cluster4") { script { shutdownCluster('cluster4') } } } }
                 }
             }
         }
@@ -467,7 +456,14 @@ pipeline {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
                 }
+
+                clusters.each { shutdownCluster(it) }
             }
+
+            sh """
+                sudo docker system prune --volumes -af
+            """
+            deleteDir()
         }
     }
 }

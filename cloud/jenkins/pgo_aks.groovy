@@ -1,5 +1,6 @@
 location='eastus'
 tests=[]
+clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
 String getParam(String paramName, String keyName = null) {
@@ -162,7 +163,6 @@ void initTests() {
 }
 
 void clusterRunner(String cluster) {
-    unstash "sourceFILES"
     def clusterCreated=0
 
     for (int i=0; i<tests.size(); i++) {
@@ -176,10 +176,17 @@ void clusterRunner(String cluster) {
             runTest(i)
         }
     }
+
+    if (clusterCreated >= 1) {
+        shutdownCluster(cluster)
+    }
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
+    clusters.add("$CLUSTER_SUFFIX")
+
     sh """
+        export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
         az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
             -g percona-operators \
             --subscription eng-cloud-dev \
@@ -292,6 +299,7 @@ void makeReport() {
 void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
                 kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
                 kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
@@ -339,7 +347,6 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
-                script { deleteDir() }
                 prepareSources()
                 prepareAgent()
                 initParams()
@@ -362,51 +369,35 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     agent { label 'docker' }
-                    environment { HOME = "$HOME/cluster1" }
                     steps {
-                        ws("$WORKSPACE/cluster1") {
-                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
-                            prepareAgent()
-                            clusterRunner('cluster1')
-                        }
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster1')
                     }
-                    post { always { ws("$WORKSPACE/cluster1") { script { shutdownCluster('cluster1') } } } }
                 }
                 stage('cluster2') {
                     agent { label 'docker' }
-                    environment { HOME = "$HOME/cluster2" }
                     steps {
-                        ws("$WORKSPACE/cluster2") {
-                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
-                            prepareAgent()
-                            clusterRunner('cluster2')
-                        }
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster2')
                     }
-                    post { always { ws("$WORKSPACE/cluster2") { script { shutdownCluster('cluster2') } } } }
                 }
                 stage('cluster3') {
                     agent { label 'docker' }
-                    environment { HOME = "$HOME/cluster3" }
                     steps {
-                        ws("$WORKSPACE/cluster3") {
-                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
-                            prepareAgent()
-                            clusterRunner('cluster3')
-                        }
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster3')
                     }
-                    post { always { ws("$WORKSPACE/cluster3") { script { shutdownCluster('cluster3') } } } }
                 }
                 stage('cluster4') {
                     agent { label 'docker' }
-                    environment { HOME = "$HOME/cluster4" }
                     steps {
-                        ws("$WORKSPACE/cluster4") {
-                            script { sh "rm -rf $HOME $WORKSPACE; mkdir -p $HOME $WORKSPACE" }
-                            prepareAgent()
-                            clusterRunner('cluster4')
-                        }
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster4')
                     }
-                    post { always { ws("$WORKSPACE/cluster4") { script { shutdownCluster('cluster4') } } } }
                 }
             }
         }
@@ -422,7 +413,14 @@ pipeline {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
                 }
+
+                clusters.each { shutdownCluster(it) }
             }
+
+            sh """
+                sudo docker system prune --volumes -af
+            """
+            deleteDir()
         }
     }
 }
