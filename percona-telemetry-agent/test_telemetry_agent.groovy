@@ -167,7 +167,6 @@ pipeline {
                         script {
                             sh '''
                             # Update package list and install necessary dependencies
-                            sudo yum install -y sudo wget gnupg2 curl systemd
 
                             wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent.sh
@@ -186,7 +185,6 @@ pipeline {
                         script {
                             sh '''
                             # Update package list and install necessary dependencies
-                            sudo yum install -y sudo wget gnupg2 curl systemd
 
                             wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent.sh
