@@ -162,6 +162,7 @@ void initTests() {
 }
 
 void clusterRunner(String cluster) {
+    unstash "sourceFILES"
     def clusterCreated=0
 
     for (int i=0; i<tests.size(); i++) {
@@ -204,7 +205,6 @@ void runTest(Integer TEST_ID) {
     def testName = tests[TEST_ID]["name"]
     def clusterSuffix = tests[TEST_ID]["cluster"]
 
-    unstash "sourceFILES"
     waitUntil {
         def timeStart = new Date().getTime()
         try {
