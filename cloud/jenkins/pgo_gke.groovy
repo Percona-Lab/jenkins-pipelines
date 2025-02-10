@@ -1,6 +1,7 @@
 region='us-central1-c'
 tests=[]
 clusters=[]
+release_versions="source/e2e-tests/release_versions"
 
 void prepareNode() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
@@ -55,15 +56,8 @@ EOF
     echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 
     echo "=========================[ Cloning the sources ]========================="
-    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo git config --global --add safe.directory '*'
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf source
-        cloud/local/checkout $GIT_REPO $GIT_BRANCH
+        git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
     """
 
     script {
@@ -299,63 +293,21 @@ pipeline {
         PPG_TAG = sh(script: "[[ \$PGO_POSTGRES_IMAGE ]] && echo \$PGO_POSTGRES_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
     }
     parameters {
-        choice(
-            choices: ['run-release.csv', 'run-distro.csv'],
-            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
-            name: 'TEST_SUITE')
-        text(
-            defaultValue: '',
-            description: 'List of tests to run separated by new line',
-            name: 'TEST_LIST')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Ignore passed tests in previous run (run all)',
-            name: 'IGNORE_PREVIOUS_RUN'
-        )
-        choice(
-            choices: 'YES\nNO',
-            description: 'Run tests with cluster wide',
-            name: 'CLUSTER_WIDE')
-        string(
-            defaultValue: 'latest',
-            description: 'Kubernetes target version',
-            name: 'PLATFORM_VER')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-postgresql-operator repository',
-            name: 'GIT_BRANCH')
-        string(
-            defaultValue: 'https://github.com/percona/percona-postgresql-operator',
-            description: 'percona-postgresql-operator repository',
-            name: 'GIT_REPO')
-        string(
-            defaultValue: '',
-            description: 'PG version',
-            name: 'PG_VERSION')
-        string(
-            defaultValue: '',
-            description: 'Operator image: perconalab/percona-postgresql-operator:main',
-            name: 'OPERATOR_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'Postgres image: perconalab/percona-postgresql-operator:main-ppg16-postgres',
-            name: 'PGO_POSTGRES_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'pgBouncer image: perconalab/percona-postgresql-operator:main-ppg16-pgbouncer',
-            name: 'PGO_PGBOUNCER_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'pgBackRest utility image: perconalab/percona-postgresql-operator:main-ppg16-pgbackrest',
-            name: 'PGO_BACKREST_IMAGE')
-        string(
-            defaultValue: '',
-            description: 'PMM client image: perconalab/pmm-client:dev-latest',
-            name: 'IMAGE_PMM_CLIENT')
-        string(
-            defaultValue: '',
-            description: 'PMM server image: perconalab/pmm-server:dev-latest',
-            name: 'IMAGE_PMM_SERVER')
+        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
+        text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
+        choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
+        choice(name: 'PILLAR_VERSION', choices: 'none\n12\n13\n14\n15\n16\n17', description: 'Implies release run.')
+        string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
+        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'GKE kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
+        choice(name: 'GKE_RELEASE_CHANNEL', choices: 'rapid\nstable\nregular\nNone', description: 'GKE release channel. Will be forced to stable for release run.')
+        choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
+        string(name: 'PG_VER', defaultValue: '', description: 'PG version')
+        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main')
+        string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-postgres')
+        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-pgbouncer')
+        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-pgbackrest')
+        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
     }
     agent {
         label 'docker'
