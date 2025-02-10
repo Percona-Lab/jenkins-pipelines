@@ -63,7 +63,7 @@ void prepareNode() {
     """
 
     if ("$PLATFORM_VER" == "latest") {
-        PLATFORM_VER = sh(script: "eksctl version -ojson | jq -r '.EKSServerSupportedVersions | max'", returnStdout: true).trim()
+        PLATFORM_VER = sh(script: "aws eks describe-addon-versions --query 'addons[].addonVersions[].compatibilities[].clusterVersion' --output json | jq -r 'flatten | unique | sort | reverse | .[0]'", returnStdout: true).trim()
     }
 
     if ("$IMAGE_PXC") {
