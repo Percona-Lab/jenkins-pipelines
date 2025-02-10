@@ -42,7 +42,7 @@ pipeline {
                             git submodule status
 
                             git rev-parse --short HEAD > shortCommit
-                            echo "UPLOAD/${DESTINATION}/${JOB_NAME}/pmm/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
+                            echo "UPLOAD/${DESTINATION}/${JOB_NAME}/pmm3/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
                         '''
                         script {
                             def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()

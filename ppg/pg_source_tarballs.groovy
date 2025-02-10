@@ -6,14 +6,14 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/pg_tarballs/pg_tarballs_builder.sh -O builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/pg_tarballs/pg_source_tarballs.sh -O builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./builder.sh --build_dependencies=${BUILD_DEPENDENCIES} ${STAGE_PARAM}"
+            bash -x ./builder.sh ${STAGE_PARAM}"
     """
 }
 
@@ -76,10 +76,6 @@ pipeline {
             description: 'Tag/Branch for pg_tarballs packaging repository',
             name: 'GIT_BRANCH')
 	choice(
-            choices: '1\n0',
-            description: 'Build third party dependencies',
-            name: 'BUILD_DEPENDENCIES')
-	choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo destination to push packages to',
             name: 'DESTINATION')
@@ -110,9 +106,9 @@ pipeline {
             }
         }
 
-        stage('Build pg_tarballs') {
+        stage('Build pg_source_tarballs') {
             parallel {
-                stage('Build pg_tarball 17 for OpenSSL 3') {
+                stage('Build source tarball for PG 17') {
                     agent {
                         label 'docker'
                     }
@@ -123,7 +119,7 @@ pipeline {
                                 def BRANCH_NAME = "TDE_REL_17_STABLE"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
-                                def PRODUCT="Percona-PostgreSQL-Tarballs"
+                                def PRODUCT="Percona-PostgreSQL-Source-Tarballs"
                                 unstash 'timestamp'
                                 AWS_STASH_PATH_17="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
                                 sh """
@@ -138,33 +134,7 @@ pipeline {
                         }
                     }
                 }
-                stage('Build pg_tarball 17 for OpenSSL 1.1') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-                        script {
-                                def PG_VERSION=17
-                                def BRANCH_NAME = 'TDE_REL_17_STABLE'
-                                def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
-                                println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
-                                def PRODUCT="Percona-PostgreSQL-Tarballs"
-                                unstash 'timestamp'
-                                AWS_STASH_PATH_17="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH_17} > uploadPath-${PACKAGE_VERSION}
-                                        cat uploadPath-${PACKAGE_VERSION}
-                                """
-                                stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
-                                buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
-                                pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17)
-                                uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17, "binary", "${PACKAGE_VERSION}")
-                                uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
-                        }
-                    }
-                }
-                stage('Build pg_tarball 16 for OpenSSL 3') {
+                stage('Build source tarball for PG 16') {
                     agent {
                         label 'docker'
                     }
@@ -175,7 +145,7 @@ pipeline {
 				def BRANCH_NAME = "REL_16_STABLE"
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
-				def PRODUCT="Percona-PostgreSQL-Tarballs"
+				def PRODUCT="Percona-PostgreSQL-Source-Tarballs"
 				unstash 'timestamp'
 				AWS_STASH_PATH_16="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
 				sh """
@@ -190,33 +160,7 @@ pipeline {
 			}
                     }
                 }
-                stage('Build pg_tarball 16 for OpenSSL 1.1') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-			script {
-				def PG_VERSION=16
-				def BRANCH_NAME = 'REL_16_STABLE'
-				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
-				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
-				def PRODUCT="Percona-PostgreSQL-Tarballs"
-                        	unstash 'timestamp'
-				AWS_STASH_PATH_16="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
-				sh """
-                                        echo ${AWS_STASH_PATH_16} > uploadPath-${PACKAGE_VERSION}
-                                        cat uploadPath-${PACKAGE_VERSION}
-                                """
-				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
-                        	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
-				pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16)
-				uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16, "binary", "${PACKAGE_VERSION}")
-				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
-			}
-                    }
-                }
-		stage('Build pg_tarball 15 for OpenSSL 3') {
+		stage('Build source tarball for PG 15') {
                     agent {
                         label 'docker'
                     }
@@ -227,7 +171,7 @@ pipeline {
                         	def BRANCH_NAME = 'REL_15_STABLE'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
 
-				def PRODUCT="Percona-PostgreSQL-Tarballs"
+				def PRODUCT="Percona-PostgreSQL-Source-Tarballs"
                         	unstash 'timestamp'
 				AWS_STASH_PATH_15="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
 				sh """
@@ -242,33 +186,7 @@ pipeline {
 			}
                     }
                 }
-		stage('Build pg_tarball 15 for OpenSSL 1.1') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-			script {
-                        	def PG_VERSION=15
-                        	def BRANCH_NAME = 'REL_15_STABLE'
-				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
-				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
-				def PRODUCT="Percona-PostgreSQL-Tarballs"
-                        	unstash 'timestamp'
-				AWS_STASH_PATH_15="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
-				sh """
-                                        echo ${AWS_STASH_PATH_15} > uploadPath-${PACKAGE_VERSION}
-                                        cat uploadPath-${PACKAGE_VERSION}
-                                """
-				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
-                        	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
-				pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15)
-				uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15, "binary", "${PACKAGE_VERSION}")
-				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
-			}
-                    }
-                }
-		stage('Build pg_tarball 14 for OpenSSL 3') {
+		stage('Build source tarball for PG 14') {
                     agent {
                         label 'docker'
                     }
@@ -279,7 +197,7 @@ pipeline {
                         	def BRANCH_NAME = 'REL_14_STABLE'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
-				def PRODUCT="Percona-PostgreSQL-Tarballs"
+				def PRODUCT="Percona-PostgreSQL-Source-Tarballs"
                         	unstash 'timestamp'
 				AWS_STASH_PATH_14="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
 				sh """
@@ -294,33 +212,7 @@ pipeline {
 			}
                     }
                 }
-		stage('Build pg_tarball 14 for OpenSSL 1.1') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-			script {
-                        	def PG_VERSION=14
-                        	def BRANCH_NAME = 'REL_14_STABLE'
-				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
-				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
-				def PRODUCT="Percona-PostgreSQL-Tarballs"
-                        	unstash 'timestamp'
-				AWS_STASH_PATH_14="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
-				sh """
-                                        echo ${AWS_STASH_PATH_14} > uploadPath-${PACKAGE_VERSION}
-                                        cat uploadPath-${PACKAGE_VERSION}
-                                """
-				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
-                        	buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
-				pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14)
-				uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14, "binary", "${PACKAGE_VERSION}")
-				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
-			}
-                    }
-                }
-		stage('Build pg_tarball 13 for OpenSSL 3') {
+		stage('Build source tarball for PG 13') {
                     agent {
                         label 'docker'
                     }
@@ -331,7 +223,7 @@ pipeline {
 				def BRANCH_NAME = 'REL_13_STABLE'
 				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
 				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
-				def PRODUCT="Percona-PostgreSQL-Tarballs"
+				def PRODUCT="Percona-PostgreSQL-Source-Tarballs"
 				unstash 'timestamp'
 				AWS_STASH_PATH_13="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
 				sh """
@@ -340,32 +232,6 @@ pipeline {
                                 """
 				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
 				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
-				pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_13)
-				uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_13, "binary", "${PACKAGE_VERSION}")
-				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
-			}
-                    }
-                }
-		stage('Build pg_tarball 13 for OpenSSL 1.1') {
-                    agent {
-                        label 'docker'
-                    }
-                    steps {
-                        cleanUpWS()
-			script {
-				def PG_VERSION=13
-				def BRANCH_NAME = 'REL_13_STABLE'
-				def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
-				println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
-				def PRODUCT="Percona-PostgreSQL-Tarballs"
-				unstash 'timestamp'
-				AWS_STASH_PATH_13="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
-				sh """
-                                        echo ${AWS_STASH_PATH_13} > uploadPath-${PACKAGE_VERSION}
-                                        cat uploadPath-${PACKAGE_VERSION}
-                                """
-				stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
-				buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
 				pushArtifactFolder("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_13)
 				uploadPGTarballfromAWS("tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_13, "binary", "${PACKAGE_VERSION}")
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
