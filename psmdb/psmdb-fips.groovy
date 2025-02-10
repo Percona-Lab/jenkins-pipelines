@@ -4,7 +4,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def moleculeDir = "psmdb/psmdb"
-def fipsOS = ['rhel8-fips','rhel9','ubuntu-focal-pro','ubuntu-jammy-pro']
+def fipsOS = ['al2023','rhel8-fips','rhel9','ubuntu-focal-pro','ubuntu-jammy-pro']
 
 pipeline {
     agent {
@@ -33,8 +33,8 @@ pipeline {
             name: 'GATED_BUILD',
             description: 'Test private repo?',
             choices: [
-                'false',
-                'true'
+                'true',
+                'false'
             ]
         )
         string(
