@@ -17,9 +17,17 @@ String getParam(String paramName, String keyName = null) {
 
 void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
-        git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
+        # sudo is needed for better node recovery after compilation failure
+        # if building failed on compilation stage directory will have files owned by docker user
+        sudo git config --global --add safe.directory '*'
+        sudo git reset --hard
+        sudo git clean -xdf
+        sudo rm -rf source
+        cloud/local/checkout $GIT_REPO $GIT_BRANCH
     """
+
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
     PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
     CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
@@ -164,7 +172,9 @@ void initTests() {
     withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret.yml
             cp $CLOUD_MINIO_SECRET_FILE source/e2e-tests/conf/cloud-secret-minio-gw.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret-minio-gw.yml
         """
     }
     stash includes: "source/**", name: "sourceFILES"
@@ -333,15 +343,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
-            done
-            kubectl get svc --all-namespaces || true
             gcloud container clusters delete --zone $region $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
         """
     }
@@ -349,7 +350,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 
 pipeline {
     environment {
-        DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
+        DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg17", , returnStdout: true).trim()
     }
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
@@ -452,6 +453,7 @@ pipeline {
 
             sh """
                 sudo docker system prune --volumes -af
+                sudo rm -rf *
             """
             deleteDir()
         }
