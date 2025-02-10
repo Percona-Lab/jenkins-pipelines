@@ -1,5 +1,6 @@
-def call(String REPO_NAME, String DESTINATION) {
-    node('master') {
+def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
+    def nodeLabel = (CLOUD_NAME == 'Hetzner') ? 'launcher-x64' : 'micro-amazon'
+    node(nodeLabel) {
         deleteDir()
         unstash 'uploadPath'
         def path_to_build = "/srv/UPLOAD/POSTGRESQL_SYNC/${repo_version}"

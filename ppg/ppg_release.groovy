@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@ENG-7_postgresql_rel', retriever: modernSCM([
+library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -66,12 +66,12 @@ pipeline {
         }
         stage('Push to public repository') {
             steps {
-                sync2ProdPPG(repo_version, component)
+                sync2ProdPPG(params.CLOUD, repo_version, component)
             }
         }
         stage('Push to WEB') {
             steps {
-                sync2web(repo_version, component)
+                sync2web(params.CLOUD, repo_version, component)
             }
         }       
     }
