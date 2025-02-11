@@ -235,14 +235,14 @@ pipeline {
 
         stage('Sign packages') {
             steps {
-                signRPM()
-                signDEB()
+                signRPM(params.CLOUD)
+                signDEB(params.CLOUD)
             }
         }
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild("ppg-${PG_RELEASE}", COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, "ppg-${PG_RELEASE}", COMPONENT)
             }
         }
 
