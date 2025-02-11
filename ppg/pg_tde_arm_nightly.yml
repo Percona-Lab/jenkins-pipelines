@@ -1,0 +1,16 @@
+- job:
+    name: hetzner-pg_tde_arm-nightly
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ppg/pg_tde_arm_nightly.groovy
+    triggers:
+      - timed: "0 0 * * *"
