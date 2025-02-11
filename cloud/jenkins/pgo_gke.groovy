@@ -70,7 +70,7 @@ EOF
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-lat-pg-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_IMAGE-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$PG_VERSION-$IMAGE_OPERATOR-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_IMAGE-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -80,10 +80,10 @@ void initParams() {
         GKE_RELEASE_CHANNEL = "stable"
         echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
 
-        OPERATOR_IMAGE = OPERATOR_IMAGE ?: getParam("OPERATOR_IMAGE")
-        PGO_POSTGRES_IMAGE = PGO_POSTGRES_IMAGE ?: getParam("PGO_POSTGRES_IMAGE", "PGO_POSTGRES_IMAGE${PILLAR_VERSION}")
-        PGO_PGBOUNCER_IMAGE = PGO_PGBOUNCER_IMAGE ?: getParam("PGO_PGBOUNCER_IMAGE", "PGO_PGBOUNCER_IMAGE${PILLAR_VERSION}")
-        PGO_BACKREST_IMAGE = PGO_BACKREST_IMAGE ?: getParam("PGO_BACKREST_IMAGE", "PGO_BACKREST_IMAGE${PILLAR_VERSION}")
+        OPERATOR_IMAGE = OPERATOR_IMAGE ?: getParam("IMAGE_OPERATOR")
+        PGO_POSTGRES_IMAGE = PGO_POSTGRES_IMAGE ?: getParam("IMAGE_POSTGRESQL", "IMAGE_POSTGRESQL${PILLAR_VERSION}")
+        PGO_PGBOUNCER_IMAGE = PGO_PGBOUNCER_IMAGE ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${PILLAR_VERSION}")
+        PGO_BACKREST_IMAGE = PGO_BACKREST_IMAGE ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${PILLAR_VERSION}")
         IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
