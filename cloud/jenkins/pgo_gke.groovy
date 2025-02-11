@@ -387,6 +387,8 @@ pipeline {
             defaultValue: '',
             description: 'PMM server image: perconalab/pmm-server:dev-latest',
             name: 'IMAGE_PMM_SERVER')
+        choice(name: 'PILLAR_VERSION', choices: 'none\n12\n13\n14\n15\n16\n17', description: 'Implies release run.')
+        choice(name: 'GKE_RELEASE_CHANNEL', choices: 'rapid\nstable\nregular\nNone', description: 'GKE release channel. Will be forced to stable for release run.')
     }
     agent {
         label 'docker'
