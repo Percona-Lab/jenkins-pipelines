@@ -64,7 +64,7 @@ EOF
         sudo git reset --hard
         sudo git clean -xdf
         sudo rm -rf source
-        cloud/local/checkout $GIT_REPO $GIT_BRANCH
+        git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
     """
 
     script {
@@ -155,7 +155,7 @@ void initTests() {
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$PPG_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
@@ -172,9 +172,7 @@ void initTests() {
     withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
-            chmod 600 source/e2e-tests/conf/cloud-secret.yml
             cp $CLOUD_MINIO_SECRET_FILE source/e2e-tests/conf/cloud-secret-minio-gw.yml
-            chmod 600 source/e2e-tests/conf/cloud-secret-minio-gw.yml
         """
     }
     stash includes: "source/**", name: "sourceFILES"
@@ -209,6 +207,7 @@ void createCluster(String CLUSTER_SUFFIX) {
 
             maxRetries=15
             exitCode=1
+
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create \$(echo $CLUSTER_NAME-$CLUSTER_SUFFIX | cut -c-40) \
                     --release-channel $GKE_RELEASE_CHANNEL \
@@ -233,7 +232,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             done
             if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
         """
-   }
+    }
 }
 
 void runTest(Integer TEST_ID) {
@@ -247,7 +246,7 @@ void runTest(Integer TEST_ID) {
             echo "The $testName test was started on cluster $CLUSTER_NAME-$clusterSuffix !"
             tests[TEST_ID]["result"] = "failure"
 
-            timeout(time: 120, unit: 'MINUTES') {
+            timeout(time: 90, unit: 'MINUTES') {
                 sh """
                     cd source
 
@@ -269,11 +268,12 @@ void runTest(Integer TEST_ID) {
                     kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
                 """
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$PPG_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
         catch (exc) {
+            echo "Error occurred while running test $testName: $exc"
             if (retryCount >= 1) {
                 currentBuild.result = 'FAILURE'
                 return true
@@ -340,70 +340,24 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 
 pipeline {
     environment {
-        CLOUDSDK_CORE_DISABLE_PROMPTS = 1
-        CLEAN_NAMESPACE = 1
-        PPG_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
+        DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
     }
     parameters {
-        choice(
-            choices: ['run-release.csv', 'run-distro.csv'],
-            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
-            name: 'TEST_SUITE')
-        text(
-            defaultValue: '',
-            description: 'List of tests to run separated by new line',
-            name: 'TEST_LIST')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Ignore passed tests in previous run (run all)',
-            name: 'IGNORE_PREVIOUS_RUN'
-        )
-        choice(
-            choices: 'YES\nNO',
-            description: 'Run tests with cluster wide',
-            name: 'CLUSTER_WIDE')
-        string(
-            defaultValue: 'latest',
-            description: 'Kubernetes target version',
-            name: 'PLATFORM_VER')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-postgresql-operator repository',
-            name: 'GIT_BRANCH')
-        string(
-            defaultValue: 'https://github.com/percona/percona-postgresql-operator',
-            description: 'percona-postgresql-operator repository',
-            name: 'GIT_REPO')
-        string(
-            defaultValue: '',
-            description: 'PG version',
-            name: 'PG_VER')
-        string(
-            defaultValue: '',
-            description: 'Operator image: perconalab/percona-postgresql-operator:main',
-            name: 'IMAGE_OPERATOR')
-        string(
-            defaultValue: '',
-            description: 'Postgres image: perconalab/percona-postgresql-operator:main-ppg16-postgres',
-            name: 'IMAGE_POSTGRESQL')
-        string(
-            defaultValue: '',
-            description: 'pgBouncer image: perconalab/percona-postgresql-operator:main-ppg16-pgbouncer',
-            name: 'IMAGE_PGBOUNCER')
-        string(
-            defaultValue: '',
-            description: 'pgBackRest utility image: perconalab/percona-postgresql-operator:main-ppg16-pgbackrest',
-            name: 'IMAGE_BACKREST')
-        string(
-            defaultValue: '',
-            description: 'PMM client image: perconalab/pmm-client:dev-latest',
-            name: 'IMAGE_PMM_CLIENT')
-        string(
-            defaultValue: '',
-            description: 'PMM server image: perconalab/pmm-server:dev-latest',
-            name: 'IMAGE_PMM_SERVER')
+        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
+        text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
+        choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
         choice(name: 'PILLAR_VERSION', choices: 'none\n12\n13\n14\n15\n16\n17', description: 'Implies release run.')
+        string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
+        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'GKE kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'GKE_RELEASE_CHANNEL', choices: 'rapid\nstable\nregular\nNone', description: 'GKE release channel. Will be forced to stable for release run.')
+        choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
+        string(name: 'PG_VER', defaultValue: '', description: 'PG version')
+        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main')
+        string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-postgres')
+        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-pgbouncer')
+        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-pgbackrest')
+        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
     }
     agent {
         label 'docker'
@@ -426,12 +380,15 @@ pipeline {
                 dockerBuildPush()
             }
         }
-        stage('Init tests') {
+        stage('Init Tests') {
             steps {
                 initTests()
             }
         }
         stage('Run Tests') {
+            options {
+                timeout(time: 3, unit: 'HOURS')
+            }
             parallel {
                 stage('cluster1') {
                     agent {
@@ -481,7 +438,7 @@ pipeline {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
-            archiveArtifacts '*.xml'
+            archiveArtifacts '*.xml,*.txt'
 
             script {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
