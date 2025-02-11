@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -29,9 +29,13 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'docker'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
     parameters {
+        choice(
+             choices: [ 'Hetzner','AWS' ],
+             description: 'Cloud infra for build',
+             name: 'CLOUD' )
         string(
             defaultValue: 'https://github.com/percona/postgres-packaging.git',
             description: 'URL for llvm repository',
@@ -63,13 +67,13 @@ pipeline {
             parallel {
                 stage('Oracle Linux 8') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
 			buildStage("oraclelinux:8", "--get_src_rpm=1")
-			pushArtifactFolder("srpm/", AWS_STASH_PATH)
-			popArtifactFolder("srpm/", AWS_STASH_PATH)
+			pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+			popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         sh '''
                             REPO_UPLOAD_PATH=$(grep "UPLOAD" test/llvm.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                             AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -83,19 +87,19 @@ pipeline {
                         }
                         stash includes: 'uploadPath', name: 'uploadPath'
                         buildStage("oraclelinux:8", "--build_rpm=1")
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
 			buildStage("oraclelinux:9", "--get_src_rpm=1")
-                        pushArtifactFolder("srpm/", AWS_STASH_PATH)
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         sh '''
                             REPO_UPLOAD_PATH=$(grep "UPLOAD" test/llvm.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                             AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -109,8 +113,8 @@ pipeline {
                         }
                         stash includes: 'uploadPath', name: 'uploadPath'
                         buildStage("oraclelinux:9", "--build_rpm=1")
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
             }
