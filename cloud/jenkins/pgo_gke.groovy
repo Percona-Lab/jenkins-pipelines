@@ -212,6 +212,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             exitCode=1
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create \$(echo $CLUSTER_NAME-$CLUSTER_SUFFIX | cut -c-40) \
+                    --release-channel $GKE_RELEASE_CHANNEL \
                     --zone $region \
                     --cluster-version $PLATFORM_VER \
                     --preemptible \
@@ -223,7 +224,8 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --network=jenkins-pg-vpc \
                     --subnetwork=jenkins-pg-$CLUSTER_SUFFIX \
                     --cluster-ipv4-cidr=/21 \
-                    --labels delete-cluster-after-hours=6 &&\
+                    --labels delete-cluster-after-hours=6 \
+                    --enable-ip-alias &&\
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
                 exitCode=\$?
                 if [[ \$exitCode == 0 ]]; then break; fi
