@@ -70,7 +70,7 @@ EOF
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$PG_VERSION-$IMAGE_OPERATOR-$IMAGE_PGBOUNCER-$IMAGE_POSTGRESQL-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$PG_VER-$IMAGE_OPERATOR-$IMAGE_PGBOUNCER-$IMAGE_POSTGRESQL-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -254,7 +254,7 @@ void runTest(Integer TEST_ID) {
 
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pg-operator
                     [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
-                    export PG_VER=$PG_VERSION
+                    export PG_VER=$PG_VER
                     export IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
                     if [[ "$IMAGE_POSTGRESQL" ]]; then
                         export IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
@@ -377,7 +377,7 @@ pipeline {
         string(
             defaultValue: '',
             description: 'PG version',
-            name: 'PG_VERSION')
+            name: 'PG_VER')
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-postgresql-operator:main',
