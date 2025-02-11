@@ -232,13 +232,13 @@ pipeline {
         }
         stage('Setup Clients for PMM-Server') {
             steps {
-//                 sh '''
-//                   echo "started client setup"
-//                 '''
-//                 setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', ENABLE_PULL_MODE, 'no', 'no', 'compose_setup', ADMIN_PASSWORD, 'no')
-//                 sh '''
-//                   echo "installed local client"
-//                 '''
+                 sh '''
+                   echo "started client setup"
+                 '''
+                 setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', ENABLE_PULL_MODE, 'no', 'no', 'compose_setup', ADMIN_PASSWORD, 'no')
+                 sh '''
+                   echo "installed local client"
+                 '''
                 script {
                         env.PMM_REPO = params.CLIENT_VERSION == "pmm3-rc" ? "testing" : "experimental"
                 }
@@ -262,10 +262,6 @@ pipeline {
                         popd
 
                         sudo chown ec2-user -R /srv/qa-integration
-
-                        pushd /srv/qa-integration/pmm_qa
-                        sudo bash -x ./pmm3-client-setup.sh --pmm_server_ip 127.0.0.1 --client_version ${PMM_CLIENT_VERSION} --admin_password ${ADMIN_PASSWORD} --use_metrics_mode no
-                        popd
 
                         pushd /srv/qa-integration/pmm_qa
                             echo "Setting docker based PMM clients"
