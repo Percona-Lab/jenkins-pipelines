@@ -1,5 +1,5 @@
 - job:
-    name: "hetzner-patroni-arm-RELEASE"
+    name: hetzner-patroni-arm-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!

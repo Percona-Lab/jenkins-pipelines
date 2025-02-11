@@ -1,5 +1,5 @@
 - job:
-    name: "hetzner-pgaudit_set_user-arm-RELEASE"
+    name: hetzner-pgaudit_set_user-arm-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!

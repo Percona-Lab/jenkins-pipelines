@@ -1,5 +1,5 @@
 - job:
-    name: "hetzner-postgresql-ivee-docker-arm"
+    name: hetzner-postgresql-ivee-docker-arm
     project-type: pipeline
     description: |
         Do not edit this job through the web!

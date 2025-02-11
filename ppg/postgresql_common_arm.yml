@@ -1,5 +1,5 @@
 - job:
-    name: "hetzner-postgresql-common-arm-autobuild-RELEASE"
+    name: hetzner-postgresql-common-arm-autobuild-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!

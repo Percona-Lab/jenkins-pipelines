@@ -1,5 +1,5 @@
 - job:
-    name: "hetzner-pgrepack-arm-RELEASE"
+    name: hetzner-pgrepack-arm-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!

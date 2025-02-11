@@ -1,5 +1,5 @@
 - job:
-    name: "hetzner-pgbouncer-arm-RELEASE"
+    name: hetzner-pgbouncer-arm-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!

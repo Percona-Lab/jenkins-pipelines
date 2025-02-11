@@ -1,5 +1,5 @@
 - job:
-    name: "hetzner-wal2json-arm-RELEASE"
+    name: hetzner-wal2json-arm-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!

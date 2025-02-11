@@ -1,5 +1,5 @@
 - job:
-    name: "hetzner-pgbackrest-arm-RELEASE"
+    name: hetzner-pgbackrest-arm-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!

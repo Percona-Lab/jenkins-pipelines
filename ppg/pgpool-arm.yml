@@ -1,5 +1,5 @@
 - job:
-    name: "hetzner-pgpool-arm-RELEASE"
+    name: hetzner-pgpool-arm-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!

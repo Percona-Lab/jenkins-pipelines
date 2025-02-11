@@ -1,5 +1,5 @@
 - job:
-    name: "hetzner-percona-pgbouncer-docker-arm"
+    name: hetzner-percona-pgbouncer-docker-arm
     project-type: pipeline
     description: |
         Do not edit this job through the web!

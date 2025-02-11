@@ -1,5 +1,5 @@
 - job:
-    name: "hetzner-percona-postgis-arm-RELEASE"
+    name: hetzner-percona-postgis-arm-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!

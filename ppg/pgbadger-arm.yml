@@ -1,5 +1,5 @@
 - job:
-    name: "hetzner-pgbadger-arm-RELEASE"
+    name: hetzner-pgbadger-arm-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!

@@ -1,5 +1,5 @@
 - job:
-    name: "hetzner-ydiff-arm-RELEASE"
+    name: hetzner-ydiff-arm-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!

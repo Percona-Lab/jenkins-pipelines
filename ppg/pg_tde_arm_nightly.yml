@@ -1,5 +1,5 @@
 - job:
-    name: "hetzner-pg_tde_arm-nightly"
+    name: hetzner-pg_tde_arm-nightly
     project-type: pipeline
     description: |
         Do not edit this job through the web!
