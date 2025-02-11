@@ -70,7 +70,7 @@ EOF
     script {
         GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
         CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$PG_VERSION-$OPERATOR_IMAGE-$PGO_PGBOUNCER_IMAGE-$PGO_POSTGRES_IMAGE-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
+        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$PG_VERSION-$IMAGE_OPERATOR-$IMAGE_PGBOUNCER-$IMAGE_POSTGRESQL-$PGO_BACKREST_IMAGE-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -80,9 +80,9 @@ void initParams() {
         GKE_RELEASE_CHANNEL = "stable"
         echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
 
-        OPERATOR_IMAGE = OPERATOR_IMAGE ?: getParam("IMAGE_OPERATOR")
-        PGO_POSTGRES_IMAGE = PGO_POSTGRES_IMAGE ?: getParam("IMAGE_POSTGRESQL", "IMAGE_POSTGRESQL${PILLAR_VERSION}")
-        PGO_PGBOUNCER_IMAGE = PGO_PGBOUNCER_IMAGE ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${PILLAR_VERSION}")
+        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
+        IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: getParam("IMAGE_POSTGRESQL", "IMAGE_POSTGRESQL${PILLAR_VERSION}")
+        IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${PILLAR_VERSION}")
         PGO_BACKREST_IMAGE = PGO_BACKREST_IMAGE ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${PILLAR_VERSION}")
         IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
@@ -97,10 +97,10 @@ void initParams() {
         PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=$GKE_RELEASE_CHANNEL' --format='value(channels.defaultVersion)' | cut -d- -f1", returnStdout: true).trim()
     }
 
-    if ("$PGO_POSTGRES_IMAGE") {
+    if ("$IMAGE_POSTGRESQL") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
-        currentBuild.description = "$PLATFORM_VER-$GKE_RELEASE_CHANNEL " + "$PGO_POSTGRES_IMAGE".split(":")[1] + " $cw"
+        currentBuild.description = "$PLATFORM_VER-$GKE_RELEASE_CHANNEL " + "$IMAGE_POSTGRESQL".split(":")[1] + " $cw"
     }
 }
 
@@ -108,7 +108,7 @@ void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
-            if [[ "$OPERATOR_IMAGE" ]]; then
+            if [[ "$IMAGE_OPERATOR" ]]; then
                 echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
@@ -253,11 +253,11 @@ void runTest(Integer TEST_ID) {
                     cd source
 
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pg-operator
-                    [[ "$OPERATOR_IMAGE" ]] && export IMAGE=$OPERATOR_IMAGE || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
+                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                     export PG_VER=$PG_VERSION
-                    export IMAGE_PGBOUNCER=$PGO_PGBOUNCER_IMAGE
-                    if [[ "$PGO_POSTGRES_IMAGE" ]]; then
-                        export IMAGE_POSTGRESQL=$PGO_POSTGRES_IMAGE
+                    export IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
+                    if [[ "$IMAGE_POSTGRESQL" ]]; then
+                        export IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
                         export PG_VER=\$(echo \$IMAGE_POSTGRESQL | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                     fi
                     export IMAGE_BACKREST=$PGO_BACKREST_IMAGE
@@ -342,7 +342,7 @@ pipeline {
     environment {
         CLOUDSDK_CORE_DISABLE_PROMPTS = 1
         CLEAN_NAMESPACE = 1
-        PPG_TAG = sh(script: "[[ \$PGO_POSTGRES_IMAGE ]] && echo \$PGO_POSTGRES_IMAGE | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
+        PPG_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
     }
     parameters {
         choice(
@@ -381,15 +381,15 @@ pipeline {
         string(
             defaultValue: '',
             description: 'Operator image: perconalab/percona-postgresql-operator:main',
-            name: 'OPERATOR_IMAGE')
+            name: 'IMAGE_OPERATOR')
         string(
             defaultValue: '',
             description: 'Postgres image: perconalab/percona-postgresql-operator:main-ppg16-postgres',
-            name: 'PGO_POSTGRES_IMAGE')
+            name: 'IMAGE_POSTGRESQL')
         string(
             defaultValue: '',
             description: 'pgBouncer image: perconalab/percona-postgresql-operator:main-ppg16-pgbouncer',
-            name: 'PGO_PGBOUNCER_IMAGE')
+            name: 'IMAGE_PGBOUNCER')
         string(
             defaultValue: '',
             description: 'pgBackRest utility image: perconalab/percona-postgresql-operator:main-ppg16-pgbackrest',
