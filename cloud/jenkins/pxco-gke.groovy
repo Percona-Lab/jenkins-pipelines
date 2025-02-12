@@ -83,7 +83,7 @@ EOF
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.validVersions)' | cut -d- -f1", returnStdout: true).trim()
+        PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", returnStdout: true).trim()
     }
 
     if ("$IMAGE_PXC") {

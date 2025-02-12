@@ -1,5 +1,5 @@
 - job:
-    name: pxco-eks-2
+    name: pgo-os-2
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -10,13 +10,13 @@
         num-to-keep: 10
         artifact-days-to-keep: -1
         artifact-num-to-keep: 10
+    - copyartifact:
+        projects: "pgo-weekly"
     pipeline-scm:
       scm:
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
-            branches:
-            - 'master'
+            branches: ["master"]
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxco-eks.groovy
-
+      script-path: cloud/jenkins/pgo_openshift.groovy
