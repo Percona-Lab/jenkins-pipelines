@@ -390,6 +390,7 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
+                script { deleteDir() }
                 prepareSources()
                 initParams()
                 prepareAgent()
@@ -411,7 +412,9 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
-                    agent { label 'docker' }
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
@@ -419,7 +422,9 @@ pipeline {
                     }
                 }
                 stage('cluster2') {
-                    agent { label 'docker' }
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
@@ -427,7 +432,9 @@ pipeline {
                     }
                 }
                 stage('cluster3') {
-                    agent { label 'docker' }
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
@@ -435,7 +442,9 @@ pipeline {
                     }
                 }
                 stage('cluster4') {
-                    agent { label 'docker' }
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
@@ -459,11 +468,6 @@ pipeline {
 
                 clusters.each { shutdownCluster(it) }
             }
-
-            sh """
-                sudo docker system prune --volumes -af
-            """
-            deleteDir()
         }
     }
 }
