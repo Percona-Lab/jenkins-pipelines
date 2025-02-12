@@ -25,7 +25,7 @@ void prepareSources() {
     CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
 }
 
-void prepareNode() {
+void prepareAgent() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
@@ -201,7 +201,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             exitCode=1
 
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
-                gcloud container clusters create \$(echo $CLUSTER_NAME-$CLUSTER_SUFFIX | cut -c-40) \
+                gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
                     --release-channel $GKE_RELEASE_CHANNEL \
                     --zone $region \
                     --cluster-version $PLATFORM_VER \
@@ -211,8 +211,8 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --num-nodes=4 \
                     --min-nodes=4 \
                     --max-nodes=6 \
-                    --network=jenkins-pg-vpc \
-                    --subnetwork=jenkins-pg-$CLUSTER_SUFFIX \
+                    --network=jenkins-vpc \
+                    --subnetwork=jenkins-$CLUSTER_SUFFIX \
                     --cluster-ipv4-cidr=/21 \
                     --labels delete-cluster-after-hours=6 \
                     --enable-ip-alias &&\
@@ -244,13 +244,10 @@ void runTest(Integer TEST_ID) {
 
                     export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pg-operator
-                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
+                    export IMAGE=$IMAGE_OPERATOR
                     export PG_VER=$PG_VER
+                    export IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
                     export IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
-                    if [[ "$IMAGE_POSTGRESQL" ]]; then
-                        export IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
-                        export PG_VER=\$(echo \$IMAGE_POSTGRESQL | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
-                    fi
                     export IMAGE_BACKREST=$IMAGE_BACKREST
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
@@ -325,7 +322,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            gcloud container clusters delete --zone $region \$(echo $CLUSTER_NAME-$CLUSTER_SUFFIX | cut -c-40) --quiet || true
+            gcloud container clusters delete --zone $region $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
         """
     }
 }
@@ -364,7 +361,7 @@ pipeline {
         stage('Prepare Node') {
             steps {
                 prepareSources()
-                prepareNode()
+                prepareAgent()
                 initParams()
             }
         }
@@ -388,7 +385,7 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-                        prepareNode()
+                        prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
@@ -398,7 +395,7 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-                        prepareNode()
+                        prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
@@ -408,7 +405,7 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-                        prepareNode()
+                        prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
@@ -418,7 +415,7 @@ pipeline {
                         label 'docker'
                     }
                     steps {
-                        prepareNode()
+                        prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster4')
                     }
