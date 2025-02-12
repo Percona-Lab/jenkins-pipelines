@@ -15,6 +15,16 @@ String getParam(String paramName, String keyName = null) {
     return param
 }
 
+void prepareSources() {
+    echo "=========================[ Cloning the sources ]========================="
+    sh """
+        git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
+    """
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+}
+
 void prepareNode() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
@@ -53,24 +63,6 @@ EOF
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
         """
-    }
-
-    echo "=========================[ Cloning the sources ]========================="
-    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-    sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo git config --global --add safe.directory '*'
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf source
-        git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
-    """
-
-    script {
-        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$PG_VER-$IMAGE_OPERATOR-$IMAGE_PGBOUNCER-$IMAGE_POSTGRESQL-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
     }
 }
 
@@ -371,6 +363,7 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
+                prepareSources()
                 prepareNode()
                 initParams()
             }
@@ -447,12 +440,6 @@ pipeline {
 
                 clusters.each { shutdownCluster(it) }
             }
-
-            sh """
-                sudo docker system prune --volumes -af
-                sudo rm -rf *
-            """
-            deleteDir()
         }
     }
 }
