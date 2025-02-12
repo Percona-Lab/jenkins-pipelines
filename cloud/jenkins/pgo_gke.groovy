@@ -171,7 +171,6 @@ void initTests() {
 }
 
 void clusterRunner(String cluster) {
-    unstash "sourceFILES"
     def clusterCreated=0
 
     for (int i=0; i<tests.size(); i++) {
@@ -388,6 +387,7 @@ pipeline {
                     }
                     steps {
                         prepareAgent()
+                        unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
                 }
@@ -397,6 +397,7 @@ pipeline {
                     }
                     steps {
                         prepareAgent()
+                        unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
                 }
@@ -406,6 +407,7 @@ pipeline {
                     }
                     steps {
                         prepareAgent()
+                        unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
                 }
@@ -415,6 +417,7 @@ pipeline {
                     }
                     steps {
                         prepareAgent()
+                        unstash "sourceFILES"
                         clusterRunner('cluster4')
                     }
                 }
