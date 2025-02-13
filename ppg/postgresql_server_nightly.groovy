@@ -182,8 +182,8 @@ pipeline {
                 expression { currentBuild.result != 'NOT_BUILT' }
             }
             steps {
-                signRPM()
-                signDEB()
+                signRPM(params.CLOUD)
+                signDEB(params.CLOUD)
             }
         }
         stage('Push to public repository') {
@@ -192,7 +192,7 @@ pipeline {
             }
             steps {
                 // sync packages
-                sync2ProdAutoBuild(PPG_REPO, COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, PPG_REPO, COMPONENT)
             }
         }
 

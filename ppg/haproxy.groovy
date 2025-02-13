@@ -311,14 +311,14 @@ pipeline {
 
         stage('Sign packages') {
             steps {
-                signRPM()
-                signDEB()
+                signRPM(params.CLOUD)
+                signDEB(params.CLOUD)
             }
         }
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(PPG_REPO, COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, PPG_REPO, COMPONENT)
             }
         }
 
