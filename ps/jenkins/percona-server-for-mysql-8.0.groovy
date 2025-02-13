@@ -60,6 +60,10 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
           if [ "$DOCKER_OS" = "none" ]; then
               set -o xtrace
               cd \${build_dir}
+              if [ \${FIPSMODE} = "YES" ]; then
+                  git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/percona-server-private-build.git percona-server-private-build
+                  mv -f \${build_dir}/percona-server-private-build/build-ps \${build_dir}/test/.
+              fi
               if [ -f ./test/percona-server-8.0.properties ]; then
                   . ./test/percona-server-8.0.properties
               fi
