@@ -44,7 +44,7 @@ void prepareAgent() {
 void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
     sh """
-        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
+        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator.git source
     """
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
     PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MYSQL-$IMAGE_BACKUP-$IMAGE_ROUTER-$IMAGE_HAPROXY-$IMAGE_ORCHESTRATOR-$IMAGE_TOOLKIT-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
