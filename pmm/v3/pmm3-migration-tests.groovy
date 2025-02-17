@@ -113,6 +113,7 @@ pipeline {
                 sleep 20
                 sh """
                     bash -x testdata/db_setup.sh
+                    docker network connect pmm-qa pmm-server
                 """
                 script {
                     env.SERVER_IP = "127.0.0.1"
