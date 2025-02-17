@@ -156,10 +156,9 @@ void initTests() {
         }
     }
 
-    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
+    withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
-            cp $CLOUD_MINIO_SECRET_FILE source/e2e-tests/conf/cloud-secret-minio-gw.yml
         """
     }
     stash includes: "source/**", name: "sourceFILES"
@@ -390,7 +389,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        copyArtifactPermission('pgo-weekly');
+        copyArtifactPermission('weekly-pso');
     }
     stages {
         stage('Prepare Node') {
@@ -417,9 +416,7 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
-                    agent {
-                        label 'docker'
-                    }
+                    agent { label 'docker' }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
@@ -427,9 +424,7 @@ pipeline {
                     }
                 }
                 stage('cluster2') {
-                    agent {
-                        label 'docker'
-                    }
+                    agent { label 'docker' }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
@@ -437,9 +432,7 @@ pipeline {
                     }
                 }
                 stage('cluster3') {
-                    agent {
-                        label 'docker'
-                    }
+                    agent { label 'docker' }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
@@ -447,9 +440,7 @@ pipeline {
                     }
                 }
                 stage('cluster4') {
-                    agent {
-                        label 'docker'
-                    }
+                    agent { label 'docker' }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"

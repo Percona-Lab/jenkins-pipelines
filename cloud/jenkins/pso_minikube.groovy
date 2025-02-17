@@ -42,12 +42,6 @@ void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo git config --global --add safe.directory '*'
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf source
         git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
     """
 
@@ -151,19 +145,18 @@ void initTests() {
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
         """
     }
-    stash includes: "source/**", name: "sourceFILES"
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated = false
+    def clusterCreated=0
 
     for (int i=0; i<tests.size(); i++) {
         if (tests[i]["result"] == "skipped") {
             tests[i]["result"] = "failure"
             tests[i]["cluster"] = cluster
-            if (!clusterCreated) {
+            if (clusterCreated == 0) {
                 createCluster(cluster)
-                clusterCreated = true
+                clusterCreated++
             }
             runTest(i)
         }
@@ -183,7 +176,6 @@ void runTest(Integer TEST_ID) {
     def testName = tests[TEST_ID]["name"]
     def clusterSuffix = tests[TEST_ID]["cluster"]
 
-    unstash "sourceFILES"
     waitUntil {
         def timeStart = new Date().getTime()
         try {
@@ -301,11 +293,12 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        copyArtifactPermission('ps-operator-latest-scheduler');
+        copyArtifactPermission('weekly-pso');
     }
     stages {
         stage('Prepare Node') {
             steps {
+                script { deleteDir() }
                 prepareSources()
                 initParams()
             }
@@ -326,31 +319,9 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
-                    agent { label 'docker-32gb' }
                     steps {
                         prepareAgent()
                         clusterRunner('cluster1')
-                    }
-                }
-                stage('cluster2') {
-                    agent { label 'docker-32gb' }
-                    steps {
-                        prepareAgent()
-                        clusterRunner('cluster2')
-                    }
-                }
-                stage('cluster3') {
-                    agent { label 'docker-32gb' }
-                    steps {
-                        prepareAgent()
-                        clusterRunner('cluster3')
-                    }
-                }
-                stage('cluster4') {
-                    agent { label 'docker-32gb' }
-                    steps {
-                        prepareAgent()
-                        clusterRunner('cluster4')
                     }
                 }
             }

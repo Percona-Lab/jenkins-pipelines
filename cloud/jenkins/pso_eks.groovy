@@ -1,5 +1,6 @@
 region='eu-west-2'
 tests=[]
+clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
 String getParam(String paramName, String keyName = null) {
@@ -43,12 +44,6 @@ void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo git config --global --add safe.directory '*'
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf source
         git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
     """
 
@@ -163,18 +158,22 @@ void initTests() {
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated = false
+    def clusterCreated=0
 
     for (int i=0; i<tests.size(); i++) {
         if (tests[i]["result"] == "skipped") {
             tests[i]["result"] = "failure"
             tests[i]["cluster"] = cluster
-            if (!clusterCreated) {
+            if (clusterCreated == 0) {
                 createCluster(cluster)
-                clusterCreated = true
+                clusterCreated++
             }
             runTest(i)
         }
+    }
+
+    if (clusterCreated >= 1) {
+        shutdownCluster(cluster)
     }
 }
 
@@ -233,7 +232,6 @@ void runTest(Integer TEST_ID) {
     def testName = tests[TEST_ID]["name"]
     def clusterSuffix = tests[TEST_ID]["cluster"]
 
-    unstash "sourceFILES"
     waitUntil {
         def timeStart = new Date().getTime()
         try {
@@ -398,11 +396,12 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        copyArtifactPermission('ps-operator-latest-scheduler');
+        copyArtifactPermission('weekly-pso');
     }
     stages {
         stage('Prepare Node') {
             steps {
+                script { deleteDir() }
                 prepareAgent()
                 prepareSources()
                 initParams()
@@ -427,33 +426,33 @@ pipeline {
                     agent { label 'docker' }
                     steps {
                         prepareAgent()
+                        unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
-                    post { always { script { shutdownCluster('cluster1') } } }
                 }
                 stage('cluster2') {
                     agent { label 'docker' }
                     steps {
                         prepareAgent()
+                        unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
-                    post { always { script { shutdownCluster('cluster2') } } }
                 }
                 stage('cluster3') {
                     agent { label 'docker' }
                     steps {
                         prepareAgent()
+                        unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
-                    post { always { script { shutdownCluster('cluster3') } } }
                 }
                 stage('cluster4') {
                     agent { label 'docker' }
                     steps {
                         prepareAgent()
+                        unstash "sourceFILES"
                         clusterRunner('cluster4')
                     }
-                    post { always { script { shutdownCluster('cluster4') } } }
                 }
             }
         }
@@ -469,6 +468,8 @@ pipeline {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
                 }
+
+                clusters.each { shutdownCluster(it) }
             }
         }
     }

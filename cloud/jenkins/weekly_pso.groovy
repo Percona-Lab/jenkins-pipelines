@@ -22,12 +22,12 @@ pipeline {
                         triggerJobMultiple("pso-gke")
                     }
                 }
-                stage('Trigger psmo-eks job 3 times') {
+                stage('Trigger pso-eks job 3 times') {
                     steps {
                         triggerJobMultiple("pso-eks")
                     }
                 }
-                stage('Trigger psmo-os job 3 times') {
+                stage('Trigger pso-os job 3 times') {
                     steps {
                         triggerJobMultiple("pso-os")
                     }
