@@ -24,17 +24,18 @@ void installCli(String PLATFORM) {
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
-        echo "Docker: $DOCKER_OS, Release: PG$PG_RELEASE, Stage: $STAGE_PARAM"
         set -o xtrace
-        mkdir -p test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/main/percona-packaging/scripts/pg_percona_telemetry_builder.sh -O ppt_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/main/percona-packaging/scripts/pg_percona_telemetry_builder.sh -o ppt_builder.sh
+        mkdir test
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/percona-packaging/scripts/pg_percona_telemetry_builder.sh -O ppt_builder.sh
         pwd -P
+        ls -laR
         export build_dir=\$(pwd -P)
-        set -o xtrace
-        cd \${build_dir}
-        sudo bash -x ./ppt_builder.sh --builddir=\${build_dir}/test --pg_release=\${PG_RELEASE} --ppg_repo_name=\${PPG_REPO} --install_deps=1
-        bash -x ./ppt_builder.sh --builddir=\${build_dir}/test --version=\${VERSION} --branch=\${BRANCH} --repo=\${GIT_REPO} --rpm_release=\${RPM_RELEASE} --deb_release=\${DEB_RELEASE} --pg_release=\${PG_RELEASE} --ppg_repo_name=\${PPG_REPO} "$STAGE_PARAM"
-    """ 
+        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+            set -o xtrace
+            cd \${build_dir}
+            bash -x ./ppt_builder.sh --builddir=\${build_dir}/test --pg_release=\${PG_RELEASE} --ppg_repo_name=\${PPG_REPO} --install_deps=1
+            bash -x ./ppt_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${VERSION} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} --pg_release=${PG_RELEASE} --ppg_repo_name=${PPG_REPO} ${STAGE_PARAM}"
+    """
 }
 
 void cleanUpWS() {
