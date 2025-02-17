@@ -33,14 +33,14 @@ void prepareCluster(String TEST_TYPE) {
     withCredentials([file(credentialsId: 'PBM-AWS-S3', variable: 'PBM_AWS_S3_YML'), file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'), file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML')]) {
     sh """
         cp $PBM_AWS_S3_YML ./e2e-tests/docker/conf/aws.yaml
-        cp $PBM_GCS_S3_YML ./e2e-tests/docker/conf/gcs.yaml
+#       cp $PBM_GCS_S3_YML ./e2e-tests/docker/conf/gcs.yaml
         cp $PBM_AZURE_YML ./e2e-tests/docker/conf/azure.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/aws.yaml
-        sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/gcs.yaml
+#       sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/gcs.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/azure.yaml
 
         chmod 664 ./e2e-tests/docker/conf/aws.yaml
-        chmod 664 ./e2e-tests/docker/conf/gcs.yaml
+#       chmod 664 ./e2e-tests/docker/conf/gcs.yaml
         chmod 664 ./e2e-tests/docker/conf/azure.yaml
 
 
