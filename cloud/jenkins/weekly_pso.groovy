@@ -27,6 +27,11 @@ pipeline {
                         triggerJobMultiple("pso-eks")
                     }
                 }
+                stage('Trigger psmo-os job 3 times') {
+                    steps {
+                        triggerJobMultiple("pso-os")
+                    }
+                }
             }
         }
     }
@@ -34,6 +39,7 @@ pipeline {
         always {
             copyArtifacts(projectName: 'pso-gke', selector: lastCompleted(), target: 'pso-gke')
             copyArtifacts(projectName: 'pso-eks', selector: lastCompleted(), target: 'pso-eks')
+            copyArtifacts(projectName: 'pso-os', selector: lastCompleted(), target: 'pso-os')
             archiveArtifacts '*/*.xml'
             step([$class: 'JUnitResultArchiver', testResults: '*/*.xml', healthScaleFactor: 1.0])
         }
