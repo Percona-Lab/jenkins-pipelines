@@ -1211,6 +1211,13 @@ parameters {
             sh '''
                 sudo rm -rf ./*
             '''
+            script {
+                if (env.FIPSMODE == 'YES') {
+                    currentBuild.description = "PRO -> Built on ${BRANCH} - packages [${COMPONENT}/${AWS_STASH_PATH}]"
+                } else {
+                    currentBuild.description = "Built on ${BRANCH} - packages [${COMPONENT}/${AWS_STASH_PATH}]"
+                }
+            }
             deleteDir()
         }
     }
