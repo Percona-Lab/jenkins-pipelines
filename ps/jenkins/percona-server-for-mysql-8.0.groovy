@@ -1049,7 +1049,7 @@ parameters {
                                 fi
                                 sed -i "s/percona-release enable mysql-shell/PS_REPO=\"testing\";percona-release enable mysql-shell/g" Dockerfile.aarch64
                             fi
-                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 .
+                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 --platform="linux/amd64" .
                             sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 --platform="linux/arm64" -f Dockerfile.aarch64 .
                             cd ../mysql-router
                             sed -i "s/ENV ROUTE_VERSION.*/ENV ROUTE_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
@@ -1095,6 +1095,7 @@ parameters {
                        }
                        sh '''
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                           PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
                            sudo docker manifest create perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} \
                                perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 \
                                perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64
@@ -1109,9 +1110,12 @@ parameters {
                        )]) {
                        sh '''
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                           PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                            sudo docker manifest push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t perconalab/percona-server:${PS_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t perconalab/percona-server:${PS_MAJOR_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} 
                        '''
                        }
                     }
