@@ -74,6 +74,9 @@ pipeline {
     }
     stages {
         stage('Create MongoDB Shell source tarball') {
+            agent {
+                label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+            }
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${MONGOSH_GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
