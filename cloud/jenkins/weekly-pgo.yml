@@ -1,5 +1,5 @@
 - job:
-    name: pgo-weekly
+    name: weekly-pgo
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -12,4 +12,4 @@
             branches: ["master"]
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pgo_weekly.groovy
+      script-path: cloud/jenkins/weekly_pgo.groovy
