@@ -86,7 +86,7 @@ void initParams() {
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=$GKE_RELEASE_CHANNEL' --format='value(channels.defaultVersion)' | cut -d- -f1", returnStdout: true).trim()
+        PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=$GKE_RELEASE_CHANNEL' --format='value(channels.validVersions)' | cut -d- -f1", returnStdout: true).trim()
     }
 
     if ("$IMAGE_POSTGRESQL") {
