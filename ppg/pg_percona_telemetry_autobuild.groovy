@@ -108,7 +108,6 @@ pipeline {
                 echo '====> Source will be downloaded from github'
                 //slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for PG${PG_RELEASE}, repo branch: ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                installCli("deb")
                 buildStage("ubuntu:focal", "--get_sources=1")
                 sh ''' 
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/pg-percona-telemetry.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
@@ -137,8 +136,6 @@ pipeline {
                     steps {
                         echo "====> Build percona_pg_telemetry generic source rpm"
                         cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "--build_src_rpm=1")
 
@@ -153,8 +150,6 @@ pipeline {
                     steps {
                         echo "====> Build percona_pg_telemetry generic source deb"
                         cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_source_deb=1")
 
@@ -173,8 +168,6 @@ pipeline {
                     steps {
                         echo "====> Build percona_pg_telemetry rpm on OL 8 PG${PG_RELEASE}"
                         cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "--build_rpm=1")
 
@@ -189,8 +182,6 @@ pipeline {
                     steps {
                         echo "====> Build percona_pg_telemetry rpm on OL 9 PG${PG_RELEASE}"
                         cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_rpm=1")
 
@@ -209,8 +200,6 @@ pipeline {
                     steps {
                         echo "====> Build percona_pg_telemetry deb on Ubuntu 20.04 PG${PG_RELEASE}"
                         cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_deb=1")
 
@@ -225,8 +214,6 @@ pipeline {
                     steps {
                         echo "====> Build percona_pg_telemetry deb on Ubuntu 22.04 PG${PG_RELEASE}"
                         cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_deb=1")
 
@@ -241,8 +228,6 @@ pipeline {
                     steps {
 			echo "====> Build percona_pg_telemetry deb on Ubuntu 24.04 PG${PG_RELEASE}"
                         cleanUpWS()
-			installCli("deb")
-			unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:noble", "--build_deb=1")
 
@@ -257,8 +242,6 @@ pipeline {
                     steps {
                         echo "====> Build percona_pg_telemetry deb on Debian 11 PG${PG_RELEASE}"
                         cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "--build_deb=1")
 
@@ -273,8 +256,6 @@ pipeline {
                     steps {
                         echo "====> Build percona_pg_telemetry deb on Debian 12 PG${PG_RELEASE}"
                         cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--build_deb=1")
 
@@ -284,6 +265,12 @@ pipeline {
                 } //stage
             } //parallel
         } //stage
+        stage('Sign packages') {
+            steps {
+                signRPM(params.CLOUD)
+                signDEB(params.CLOUD)
+            }
+        }
         stage('Push to public repository') {
             steps {
                 // sync packages
