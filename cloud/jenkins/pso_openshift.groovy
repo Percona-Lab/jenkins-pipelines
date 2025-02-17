@@ -1,5 +1,6 @@
-region='us-central1-a'
+region='eu-west-2'
 tests=[]
+clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
 String getParam(String paramName, String keyName = null) {
@@ -35,50 +36,26 @@ void prepareAgent() {
         kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/336ef83542fd2f783bfa2c075b24599e834dcc77/plugins/kuttl.yaml
         echo \$(kubectl kuttl --version) is installed
 
-        sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
-[google-cloud-cli]
-name=Google Cloud CLI
-baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-        sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OC_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
     """
-
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
-            gcloud config set project $GCP_PROJECT
-        """
-    }
 }
 
 void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
-        # sudo is needed for better node recovery after compilation failure
-        # if building failed on compilation stage directory will have files owned by docker user
-        sudo git config --global --add safe.directory '*'
-        sudo git reset --hard
-        sudo git clean -xdf
-        sudo rm -rf source
         git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
     """
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MYSQL-$IMAGE_BACKUP-$IMAGE_ROUTER-$IMAGE_HAPROXY-$IMAGE_ORCHESTRATOR-$IMAGE_TOOLKIT-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MYSQL-$IMAGE_BACKUP-$IMAGE_ROUTER-$IMAGE_HAPROXY-$IMAGE_ORCHESTRATOR-$IMAGE_TOOLKIT-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    CLUSTER_NAME = sh(script: "echo $JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
 }
 
 void initParams() {
     if ("$PILLAR_VERSION" != "none") {
         echo "=========================[ Getting parameters for release test ]========================="
-        GKE_RELEASE_CHANNEL = "stable"
-        echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
-
         IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
         IMAGE_MYSQL = IMAGE_MYSQL ?: getParam("IMAGE_MYSQL", "IMAGE_MYSQL${PILLAR_VERSION}")
         IMAGE_BACKUP = IMAGE_BACKUP ?: getParam("IMAGE_BACKUP", "IMAGE_BACKUP${PILLAR_VERSION}")
@@ -89,20 +66,28 @@ void initParams() {
         IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
-            PLATFORM_VER = getParam("PLATFORM_VER", "GKE_${PLATFORM_VER}")
+            PLATFORM_VER = getParam("PLATFORM_VER", "OPENSHIFT_${PLATFORM_VER}")
         }
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=$GKE_RELEASE_CHANNEL' --format='value(channels.validVersions)' | cut -d- -f1", returnStdout: true).trim()
+        OC_VER = "4.15.25"
+        PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", returnStdout: true).trim()
+    } else {
+        if ("$PLATFORM_VER" <= "4.15.25") {
+            OC_VER="$PLATFORM_VER"
+        } else {
+            OC_VER="4.15.25"
+        }
     }
+    echo "OC_VER=$OC_VER"
 
     if ("$IMAGE_MYSQL") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
-        currentBuild.description = "$PLATFORM_VER-$GKE_RELEASE_CHANNEL " + "$IMAGE_MYSQL".split(":")[1] + " $cw"
+        currentBuild.description = "$PLATFORM_VER " + "$IMAGE_MYSQL".split(":")[1] + " $cw"
     }
 }
 
@@ -171,73 +156,94 @@ void initTests() {
         }
     }
 
-    withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
+    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+            cp $CLOUD_MINIO_SECRET_FILE source/e2e-tests/conf/cloud-secret-minio-gw.yml
         """
     }
     stash includes: "source/**", name: "sourceFILES"
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated = false
+    def clusterCreated=0
 
     for (int i=0; i<tests.size(); i++) {
         if (tests[i]["result"] == "skipped") {
             tests[i]["result"] = "failure"
             tests[i]["cluster"] = cluster
-            if (!clusterCreated) {
+            if (clusterCreated == 0) {
                 createCluster(cluster)
-                clusterCreated = true
+                clusterCreated++
             }
             runTest(i)
         }
     }
+
+    if (clusterCreated >= 1) {
+        shutdownCluster(cluster)
+    }
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+    clusters.add("$CLUSTER_SUFFIX")
+
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            maxRetries=15
-            exitCode=1
+            mkdir -p openshift/$CLUSTER_SUFFIX
+            timestamp="\$(date +%s)"
+tee openshift/$CLUSTER_SUFFIX/install-config.yaml << EOF
+additionalTrustBundlePolicy: Proxyonly
+credentialsMode: Mint
+apiVersion: v1
+baseDomain: cd.percona.com
+compute:
+- architecture: amd64
+  hyperthreading: Enabled
+  name: worker
+  platform:
+    aws:
+      type: m5.2xlarge
+  replicas: 3
+controlPlane:
+  architecture: amd64
+  hyperthreading: Enabled
+  name: master
+  platform: {}
+  replicas: 1
+metadata:
+  creationTimestamp: null
+  name: $CLUSTER_NAME-$CLUSTER_SUFFIX
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 10.0.0.0/16
+  networkType: OVNKubernetes
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  aws:
+    region: $region
+    userTags:
+      iit-billing-tag: openshift
+      delete-cluster-after-hours: 8
+      team: cloud
+      product: ps-operator
+      creation-time: \$timestamp
 
-            while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
-                gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                    --release-channel $GKE_RELEASE_CHANNEL \
-                    --zone $region \
-                    --cluster-version $PLATFORM_VER \
-                    --preemptible \
-                    --disk-size 30 \
-                    --machine-type n1-standard-4 \
-                    --num-nodes=4 \
-                    --min-nodes=4 \
-                    --max-nodes=6 \
-                    --network=jenkins-vpc \
-                    --subnetwork=jenkins-$CLUSTER_SUFFIX \
-                    --cluster-ipv4-cidr=/21 \
-                    --labels delete-cluster-after-hours=6 \
-                    --enable-ip-alias &&\
-                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
-                exitCode=\$?
-                if [[ \$exitCode == 0 ]]; then break; fi
-                (( maxRetries -- ))
-                sleep 1
-            done
-            if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
-
-            CURRENT_TIME=\$(date --rfc-3339=seconds)
-            FUTURE_TIME=\$(date -d '6 hours' --rfc-3339=seconds)
-
-            # When using the STABLE release channel, auto-upgrade must be enabled for node pools, which means you cannot manually disable it,
-            # so we can't just use --no-enable-autoupgrade in the command above, so we need the following workaround.
-            gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                --zone $region \
-                --add-maintenance-exclusion-start "\$CURRENT_TIME" \
-                --add-maintenance-exclusion-end "\$FUTURE_TIME"
-
-            kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints,AGE:.metadata.creationTimestamp"
+publish: External
+EOF
+            cat $OPENSHIFT_CONF_FILE >> openshift/$CLUSTER_SUFFIX/install-config.yaml
         """
+
+        sshagent(['aws-openshift-41-key']) {
+            sh """
+                /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
+                export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+            """
+        }
     }
 }
 
@@ -246,7 +252,6 @@ void runTest(Integer TEST_ID) {
     def testName = tests[TEST_ID]["name"]
     def clusterSuffix = tests[TEST_ID]["cluster"]
 
-    unstash "sourceFILES"
     waitUntil {
         def timeStart = new Date().getTime()
         try {
@@ -337,20 +342,22 @@ void makeReport() {
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
-            done
-            kubectl get svc --all-namespaces || true
-            gcloud container clusters delete --zone $region $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
-        """
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+        sshagent(['aws-openshift-41-key']) {
+            sh """
+                export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                    kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete services --all -n \$namespace --force --grace-period=0 || true
+                    kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+                done
+                kubectl get svc --all-namespaces || true
+                /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
+            """
+        }
     }
 }
 
@@ -364,8 +371,7 @@ pipeline {
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
         choice(name: 'PILLAR_VERSION', choices: 'none\n80', description: 'Implies release run.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mysql-operator repository')
-        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'GKE kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
-        choice(name: 'GKE_RELEASE_CHANNEL', choices: 'rapid\nstable\nregular\nNone', description: 'GKE release channel. Will be forced to stable for release run.')
+        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'OpenShift kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main')
         string(name: 'IMAGE_MYSQL', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-psmysql')
@@ -384,14 +390,15 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        copyArtifactPermission('ps-operator-latest-scheduler');
+        copyArtifactPermission('pgo-weekly');
     }
     stages {
         stage('Prepare Node') {
             steps {
-                prepareAgent()
+                script { deleteDir() }
                 prepareSources()
                 initParams()
+                prepareAgent()
             }
         }
         stage('Docker Build and Push') {
@@ -410,44 +417,44 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
-                    agent { label 'docker' }
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareAgent()
-                        clusterRunner('cluster1')
+                        unstash "sourceFILES"
+                        clusterRunner('c1')
                     }
-                    post { always { script { shutdownCluster('cluster1') } } }
                 }
                 stage('cluster2') {
-                    agent { label 'docker' }
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareAgent()
-                        clusterRunner('cluster2')
+                        unstash "sourceFILES"
+                        clusterRunner('c2')
                     }
-                    post { always { script { shutdownCluster('cluster2') } } }
                 }
                 stage('cluster3') {
-                    agent { label 'docker' }
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareAgent()
-                        clusterRunner('cluster3')
+                        unstash "sourceFILES"
+                        clusterRunner('c3')
                     }
-                    post { always { script { shutdownCluster('cluster3') } } }
                 }
                 stage('cluster4') {
-                    agent { label 'docker' }
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareAgent()
-                        clusterRunner('cluster4')
+                        unstash "sourceFILES"
+                        clusterRunner('c4')
                     }
-                    post { always { script { shutdownCluster('cluster4') } } }
-                }
-                stage('cluster5') {
-                    agent { label 'docker' }
-                    steps {
-                        prepareAgent()
-                        clusterRunner('cluster5')
-                    }
-                    post { always { script { shutdownCluster('cluster5') } } }
                 }
             }
         }
@@ -463,6 +470,8 @@ pipeline {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
                 }
+
+                clusters.each { shutdownCluster(it) }
             }
         }
     }
