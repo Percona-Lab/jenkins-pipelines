@@ -224,7 +224,7 @@ pipeline {
                         '''
                         sh '''
                             docker network connect pmm-qa pmm-server || true
-                            sudo sysctl -w net.ipv4.ip_forward=1 || true
+                            sudo iptables -A FORWARD -i docker0 -o eth0 -j ACCEPT
                         '''
                         script {
                             env.SERVER_IP = "127.0.0.1"
