@@ -204,6 +204,9 @@ pipeline {
         stage('Setup PMM Server') {
             parallel {
                 stage('Setup Server Instance') {
+                    sh '''
+                    docker network create pmm-qa || true
+                    '''
                     steps {
                         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                             sh """
@@ -220,6 +223,9 @@ pipeline {
                         '''
                         sh '''
                             bash -x testdata/db_setup.sh
+                        '''
+                        sh '''
+                            docker network connect pmm-qa pmm-server || true
                         '''
                         script {
                             env.SERVER_IP = "127.0.0.1"
@@ -253,8 +259,6 @@ pipeline {
                         if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
                             export PMM_CLIENT_VERSION="3-dev-latest"
                         fi
-
-                        docker network create pmm-qa || true
 
                         sudo mkdir -p /srv/qa-integration || :
                         pushd /srv/qa-integration
