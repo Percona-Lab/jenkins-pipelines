@@ -28,6 +28,7 @@ pipeline {
     // }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
+        GOARCH = 'arm64'
     }
     stages {
         stage('Prepare') {
