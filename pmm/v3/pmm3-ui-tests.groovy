@@ -207,14 +207,14 @@ pipeline {
                     steps {
                         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                             sh """
-                                docker network create pmm-qa || true
-                                aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
-                                PWD=\$(pwd) MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
-                                docker network connect pmm-qa pmm-server || true
                                 # Allow traffic from Docker to external networks (replace eth0 with your interface)
                                 sudo iptables -A FORWARD -i docker0 -o eth0 -j ACCEPT
                                 # Block all other forwarded traffic by default
                                 sudo iptables -P FORWARD DROP
+                                docker network create pmm-qa || true
+                                aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+                                PWD=\$(pwd) MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
+                                docker network connect pmm-qa pmm-server || true
                             """
                         }
                         waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
@@ -226,9 +226,6 @@ pipeline {
                         '''
                         sh '''
                             bash -x testdata/db_setup.sh
-                        '''
-                        sh '''
-                            sudo iptables -A FORWARD -i docker0 -o eth0 -j ACCEPT
                         '''
                         script {
                             env.SERVER_IP = "127.0.0.1"
