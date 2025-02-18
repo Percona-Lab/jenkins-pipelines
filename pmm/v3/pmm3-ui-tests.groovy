@@ -211,7 +211,7 @@ pipeline {
                                 docker network create pmm-qa || true
                                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                                 PWD=\$(pwd) MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
-                                docker network connect pmm-qa pmm-server || trueVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
+                                docker network connect pmm-qa pmm-server || true
                             """
                         }
                         waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
