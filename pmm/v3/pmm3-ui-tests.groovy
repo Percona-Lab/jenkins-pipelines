@@ -208,8 +208,10 @@ pipeline {
                     steps {
                         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                             sh """
+                                docker network create pmm-qa || true
                                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                                 PWD=\$(pwd) MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
+                                docker network connect pmm-qa pmm-server || trueVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
                             """
                         }
                         waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
