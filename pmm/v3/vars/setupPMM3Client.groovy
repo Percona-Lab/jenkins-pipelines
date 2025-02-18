@@ -5,7 +5,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             set -o xtrace
             export PATH="$PATH:/usr/sbin:/sbin"
             test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
-            export IP=$(curl -s ifconfig.me)
+            export IP=$(curl -4 -s ifconfig.me)
             export PMM_DIR=${WORKSPACE}/${PMM_VERSION}
             export PMM_BINARY=${WORKSPACE}/${PMM_VERSION}-client
 
