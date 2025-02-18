@@ -3,30 +3,16 @@ tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
-void verifyParams() {
-    if ("$RELEASE_RUN" == "YES") {
-        echo "=========================[ RELEASE RUN ]========================="
-        if (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD") {
-            error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided for release run!")
-        }
-    }
-}
+String getParam(String paramName, String keyName = null) {
+    keyName = keyName ?: paramName
 
-String getParam(String PARAM_NAME) {
-    def param = "${params[PARAM_NAME]}"
-
-    if ("$param" && "$param" != "null" && param != "") {
-        echo "$PARAM_NAME=$param (from job parameters)"
-        return param
+    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
+    if ("$param") {
+        echo "$paramName=$param (from params file)"
     } else {
-        param = sh(script: "cat $release_versions | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
-        if ("$param") {
-            echo "$PARAM_NAME=$param (from params file)"
-            return param
-        } else {
-            error("$PARAM_NAME not found in params file $release_versions")
-        }
+        error("$keyName not found in params file $release_versions")
     }
+    return param
 }
 
 void prepareNode() {
@@ -39,21 +25,21 @@ void prepareNode() {
         sudo git reset --hard
         sudo git clean -xdf
         sudo rm -rf source
-        cloud/local/checkout $GIT_REPO $GIT_BRANCH
+        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mongodb-operator source
     """
 
-    echo "=========================[ Assigning images for release test ]========================="
-    if ("$RELEASE_RUN" == "YES") {
-        IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
-        IMAGE_MONGOD = getParam("IMAGE_MONGOD${PILLAR_VERSION}")
-        IMAGE_BACKUP = getParam("IMAGE_BACKUP")
-        IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
-        if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
-            PLATFORM_VER = getParam("AKS_${PLATFORM_VER}")
+    if ("$PILLAR_VERSION" != "none") {
+        echo "=========================[ Getting parameters for release test ]========================="
+        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
+        IMAGE_MONGOD = IMAGE_MONGOD ?: getParam("IMAGE_MONGOD", "IMAGE_MONGOD${PILLAR_VERSION}")
+        IMAGE_BACKUP = IMAGE_BACKUP ?: getParam("IMAGE_BACKUP")
+        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
+        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
+            PLATFORM_VER = getParam("PLATFORM_VER", "AKS_${PLATFORM_VER}")
         }
     } else {
-        echo "This is not a release run. Using job params only!"
+        echo "=========================[ Not a release run. Using job params only! ]========================="
     }
 
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
@@ -82,23 +68,18 @@ void prepareNode() {
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        USED_PLATFORM_VER = sh(script: "az aks get-versions --location $location --output json | jq -r '.values | max_by(.patchVersions) | .patchVersions | keys[]' | sort --version-sort | tail -1", , returnStdout: true).trim()
-    } else {
-        USED_PLATFORM_VER="$PLATFORM_VER"
+        PLATFORM_VER = sh(script: "az aks get-versions --location $location --output json | jq -r '.values | max_by(.patchVersions) | .patchVersions | keys[]' | sort --version-sort | tail -1", returnStdout: true).trim()
     }
-    echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
 
     if ("$IMAGE_MONGOD") {
-        release = ("$RELEASE_RUN" == "YES") ? "RELEASE-" : ""
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-        currentBuild.description = "${release}$GIT_BRANCH-$PLATFORM_VER-$cw-" + "$IMAGE_MONGOD".split(":")[1]
+        currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
+        currentBuild.description = "$PLATFORM_VER " + "$IMAGE_MONGOD".split(":")[1] + " $cw"
     }
 
-    script {
-        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        CLUSTER_NAME = sh(script: "echo jenkins-ver-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
-    }
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
+    CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -153,7 +134,7 @@ void initTests() {
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
@@ -213,7 +194,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             --generate-ssh-keys \
             --enable-cluster-autoscaler \
             --outbound-type loadbalancer \
-            --kubernetes-version $USED_PLATFORM_VER \
+            --kubernetes-version $PLATFORM_VER \
             -l $location
         az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-$CLUSTER_SUFFIX --overwrite-existing
     """
@@ -246,7 +227,7 @@ void runTest(Integer TEST_ID) {
                     e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -280,26 +261,27 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PSMDB-AKS-version\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
-    for (int i=0; i<tests.size(); i++) {
-        def testResult = tests[i]["result"]
-        def testTime = tests[i]["time"]
-        def testName = tests[i]["name"]
-
-        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
+    testsReport = "<testsuite name=\"$JOB_NAME\">\n"
+    for (int i = 0; i < tests.size(); i ++) {
+        testsReport += '<testcase name="' + tests[i]["name"] + '" time="' + tests[i]["time"] + '"><'+ tests[i]["result"] +'/></testcase>\n'
     }
-    TestsReport = TestsReport + '</testsuite>\n'
+    testsReport += '</testsuite>\n'
 
-    echo "=========================[ Generating Images Report ]========================="
-    TestsImages = "testsuite name='PSMDB-EKS-latest'\n" +\
-                    "IMAGE_OPERATOR=$IMAGE_OPERATOR\n" +\
-                    "IMAGE_MONGOD=$IMAGE_MONGOD\n" +\
-                    "IMAGE_BACKUP=$IMAGE_BACKUP\n" +\
-                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" +\
-                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER\n" +\
-                    "USED_PLATFORM_VER=$USED_PLATFORM_VER"
+    echo "=========================[ Generating Parameters Report ]========================="
+    pipelineParameters = """
+        testsuite name=$JOB_NAME
+        IMAGE_OPERATOR=$IMAGE_OPERATOR
+        IMAGE_MONGOD=$IMAGE_MONGOD
+        IMAGE_BACKUP=$IMAGE_BACKUP
+        IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+        IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+        PLATFORM_VER=$PLATFORM_VER
+    """
+
+    writeFile file: "TestsReport.xml", text: testsReport
+    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
@@ -324,68 +306,21 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        MDB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
+        DB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
     }
     parameters {
-        choice(
-            choices: ['run-release.csv', 'run-distro.csv'],
-            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
-            name: 'TEST_SUITE')
-        text(
-            defaultValue: '',
-            description: 'List of tests to run separated by new line',
-            name: 'TEST_LIST')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Ignore passed tests in previous run (run all)',
-            name: 'IGNORE_PREVIOUS_RUN'
-        )
-        choice(
-            choices: 'NO\nYES',
-            description: 'Release run?',
-            name: 'RELEASE_RUN'
-        )
-        string(
-            defaultValue: '70',
-            description: 'For RELEASE_RUN only. Major version like 70,60, etc',
-            name: 'PILLAR_VERSION'
-        )
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
-            name: 'GIT_BRANCH')
-        string(
-            defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
-            description: 'percona-server-mongodb-operator repository',
-            name: 'GIT_REPO')
-        string(
-            defaultValue: 'latest',
-            description: 'AKS kubernetes version',
-            name: 'PLATFORM_VER')
-        choice(
-            choices: 'YES\nNO',
-            description: 'Run tests in cluster wide mode',
-            name: 'CLUSTER_WIDE')
-        string(
-            defaultValue: '',
-            description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-            name: 'IMAGE_OPERATOR')
-        string(
-            defaultValue: '',
-            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
-            name: 'IMAGE_MONGOD')
-        string(
-            defaultValue: '',
-            description: 'Backup image: perconalab/percona-server-mongodb-operator:main-backup',
-            name: 'IMAGE_BACKUP')
-        string(
-            defaultValue: '',
-            description: 'PMM client image: perconalab/pmm-client:dev-latest',
-            name: 'IMAGE_PMM_CLIENT')
-        string(
-            defaultValue: '',
-            description: 'PMM server image: perconalab/pmm-server:dev-latest',
-            name: 'IMAGE_PMM_SERVER')
+        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
+        text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
+        choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
+        choice(name: 'PILLAR_VERSION', choices: 'none\n80\n70\n60', description: 'Implies release run.')
+        string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mongodb-operator repository')
+        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'AKS kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
+        choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
+        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
+        string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.0')
+        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
+        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
     }
     agent {
         label 'docker'
@@ -397,9 +332,8 @@ pipeline {
         copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
     stages {
-        stage('Prepare node') {
+        stage('Prepare Node') {
             steps {
-                verifyParams()
                 prepareNode()
             }
         }
@@ -408,7 +342,7 @@ pipeline {
                 dockerBuildPush()
             }
         }
-        stage('Init tests') {
+        stage('Init Tests') {
             steps {
                 initTests()
             }
@@ -447,10 +381,6 @@ pipeline {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
-            sh """
-                echo "$TestsReport" > TestsReport.xml
-                echo "$TestsImages" > TestsImages.txt
-            """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml,*.txt'
 
@@ -464,7 +394,6 @@ pipeline {
 
             sh """
                 sudo docker system prune --volumes -af
-                sudo rm -rf *
             """
             deleteDir()
         }

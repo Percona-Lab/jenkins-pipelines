@@ -1,5 +1,5 @@
 - job:
-    name: psmdb-operator-aks-latest
+    name: psmdbo-aks-2
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -18,4 +18,4 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/psmdb_operator_aks_latest.groovy
+      script-path: cloud/jenkins/psmdbo-aks.groovy
