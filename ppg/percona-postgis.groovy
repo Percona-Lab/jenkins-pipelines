@@ -234,7 +234,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(POSTGIS_REPO, COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, POSTGIS_REPO, COMPONENT)
             }
         }
 
