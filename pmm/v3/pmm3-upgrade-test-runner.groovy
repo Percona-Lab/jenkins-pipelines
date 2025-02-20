@@ -50,6 +50,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
 
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
         python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py \$GET_PMM_CLIENT_VERSION
+        sudo docker ps -a
     """
 }
 
