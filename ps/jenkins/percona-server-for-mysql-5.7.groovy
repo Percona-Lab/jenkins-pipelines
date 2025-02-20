@@ -561,7 +561,7 @@ parameters {
         }
         stage('Build docker container') {
             agent {
-                label 'min-buster-x64'
+                label 'min-bullseye-x64'
             }
             steps {
                 script {
@@ -576,7 +576,6 @@ parameters {
                         """
                     }
                     sh '''
-                        export DOCKER_BUILDKIT=1
                         PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                         PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 4)}')
                         PS_MAJOR_MINOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 7)}' | sed "s/-//g")
@@ -585,9 +584,8 @@ parameters {
                         sudo systemctl status docker
                         sudo apt-get install -y qemu binfmt-support qemu-user-static
                         sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-                        git clone https://github.com/adivinho/percona-docker
+                        git clone https://github.com/percona/percona-docker
                         cd percona-docker/percona-server-5.7
-                        git checkout PKG-223-Packaging-for-release-8.0.41-32-1
                         mv /tmp/*.rpm .
                         sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile-pro
                         sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile-pro
