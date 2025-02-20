@@ -571,7 +571,7 @@ parameters {
                     def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
-                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/8/x86_64/*.rpm /tmp 
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/9/x86_64/*.rpm /tmp 
                             ls -la /tmp
                         """
                     }
