@@ -3,38 +3,20 @@ library changelog: false, identifier: "lib@hetzner", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
-
-void installCli(String PLATFORM) {
-    sh """ 
-        set -o xtrace
-        if [ -d aws ]; then
-            rm -rf aws
-        fi
-        if [ ${PLATFORM} = "deb" ]; then
-            sudo apt-get update
-            sudo apt-get -y install wget curl unzip gnupg2
-        elif [ ${PLATFORM} = "rpm" ]; then
-            sudo yum -y install wget curl unzip gnupg2
-        fi
-        curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
-        unzip awscliv2.zip
-        sudo ./aws/install || true
-    """ 
-}
-
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
-        echo "Docker: $DOCKER_OS, Release: PG$PG_RELEASE, Stage: $STAGE_PARAM"
         set -o xtrace
-        mkdir -p test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/main/percona-packaging/scripts/pg_stat_monitor_builder.sh -O psm_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/main/percona-packaging/scripts/pg_stat_monitor_builder.sh -o psm_builder.sh
+        mkdir test
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/main/percona-packaging/scripts/pg_stat_monitor_builder.sh -O builder.sh
         pwd -P
+        ls -laR
         export build_dir=\$(pwd -P)
-        set -o xtrace
-        cd \${build_dir}
-        sudo bash -x ./psm_builder.sh --builddir=\${build_dir}/test --pg_release=\${PG_RELEASE} --ppg_repo_name=\${PPG_REPO} --install_deps=1
-        bash -x ./psm_builder.sh --builddir=\${build_dir}/test --version=\${VERSION} --branch=\${BRANCH} --repo=\${GIT_REPO} --rpm_release=\${RPM_RELEASE} --deb_release=\${DEB_RELEASE} --pg_release=\${PG_RELEASE} --ppg_repo_name=\${PPG_REPO} "$STAGE_PARAM"
-    """ 
+        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+            set -o xtrace
+            cd \${build_dir}
+            bash -x ./builder.sh --builddir=\${build_dir}/test --pg_release=\${PG_RELEASE} --ppg_repo_name=\${PPG_REPO} --install_deps=1
+            bash -x ./builder.sh --builddir=\${build_dir}/test --version=\${VERSION} --branch=\${BRANCH} --repo=\${GIT_REPO} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} --pg_release=\${PG_RELEASE} --ppg_repo_name=\${PPG_REPO} ${STAGE_PARAM}"
+    """
 }
 
 void cleanUpWS() {
@@ -55,7 +37,7 @@ pipeline {
              description: 'Cloud infra for build',
              name: 'CLOUD' )
         string(
-            defaultValue: '1.0.0',
+            defaultValue: '2.0.0',
             description: 'General version of the product',
             name: 'VERSION'
          )
@@ -85,9 +67,10 @@ pipeline {
             choices: ['11', '12', '13', '14', '15', '16', '17']
         )
         string(
-            defaultValue: 'ppg-16.0',
+            defaultValue: 'ppg-16.1',
             description: 'PPG repo name',
-            name: 'PPG_REPO')
+            name: 'PPG_REPO'
+        )
         choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
             description: 'Repo component to push packages to',
@@ -102,28 +85,24 @@ pipeline {
     stages {
         stage('Download source from github') {
             agent {
-               label 'min-focal-x64'
+               label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
             }
             steps {
-                echo '====> Source will be downloaded from github'
-                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for PG${PG_RELEASE}, repo branch: ${BRANCH} - [${BUILD_URL}]")
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                installCli("deb")
-                buildStage("ubuntu:focal", "--get_sources=1")
-                sh ''' 
+                buildStage("oraclelinux:8", "--get_sources=1")
+                sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/pg-stat-monitor.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
                    cat test/pg-stat-monitor.properties
                    cat uploadPath
-                   cat awsUploadPath
-                ''' 
+                '''
                 script {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
-                stash includes: 'test/pg-stat-monitor.properties', name: 'properties'
                 pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                 uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
@@ -132,13 +111,10 @@ pipeline {
             parallel {
                 stage('Source rpm') {
                     agent {
-                        label 'min-ol-8-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
-                        echo "====> Build pg_stat_monitor generic source rpm"
                         cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "--build_src_rpm=1")
 
@@ -146,142 +122,114 @@ pipeline {
                         uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Source deb') {
+		stage('Source deb') {
                     agent {
-                        label 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
-                        echo "====> Build pg_stat_monitor generic source deb"
                         cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_source_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                     }
-                } //stage
+                }
             }  //parallel
         } //stage
         stage('Build pg_stat_monitor RPMs') {
             parallel {
-                stage('OL 8') {
+		stage('Oracle Linux 8') {
                     agent {
-                        label 'min-ol-8-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
-                        echo "====> Build pg_stat_monitor rpm on OL 8 PG${PG_RELEASE}"
                         cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "--build_rpm=1")
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
-                } //stage
-                stage('OL 9') {
+                }
+                stage('Oracle Linux 9') {
                     agent {
-                        label 'min-ol-9-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
-                        echo "====> Build pg_stat_monitor rpm on OL 9 PG${PG_RELEASE}"
                         cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_rpm=1")
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
-                } //stage
-            } //parallel
-        } //stage
-        stage('Build pg_stat_monitor DEBs') {
-            parallel {
-                stage('Ubuntu 20.04') {
+                }
+		stage('Ubuntu Focal(20.04)') {
                     agent {
-                        label 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
-                        echo "====> Build pg_stat_monitor deb on Ubuntu 20.04 PG${PG_RELEASE}"
                         cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
-                } //stage
-                stage('Ubuntu 22.04') {
+                }
+                stage('Ubuntu Jammy(22.04)') {
                     agent {
-                        label 'min-jammy-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
-                        echo "====> Build pg_stat_monitor deb on Ubuntu 22.04 PG${PG_RELEASE}"
                         cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
-                } //stage
-                stage('Ubuntu 24.04') {
+                }
+                stage('Ubuntu Noble(24.04)') {
                     agent {
-                        label 'min-noble-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
-                        echo "====> Build pg_stat_monitor deb on Ubuntu 24.04 PG${PG_RELEASE}"
                         cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:noble", "--build_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
-                } //stage
-                stage('Debian 11') {
+                }
+		stage('Debian Bullseye(11)') {
                     agent {
-                        label 'min-bullseye-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
-                        echo "====> Build pg_stat_monitor deb on Debian 11 PG${PG_RELEASE}"
                         cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "--build_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
-                } //stage
-                stage('Debian 12') {
+                }
+                stage('Debian bookworm(12)') {
                     agent {
-                        label 'min-bookworm-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
-                        echo "====> Build pg_stat_monitor deb on Debian 12 PG${PG_RELEASE}"
                         cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--build_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
-                } //stage
+                }
             } //parallel
         } //stage
         stage('Sign packages') {
@@ -299,7 +247,7 @@ pipeline {
     } //stages
     post {
         success {
-              slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for PG${PG_RELEASE}, repo branch: ${BRANCH} - [${BUILD_URL}]")
+              slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for PG${PG_RELEASE}, repo branch: ${BRANCH} - [${BUILD_URL}]")
               deleteDir()
               echo "Success"
         }

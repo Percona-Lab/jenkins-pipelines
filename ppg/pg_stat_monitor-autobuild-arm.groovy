@@ -235,6 +235,7 @@ pipeline {
         stage('Sign packages') {
             steps {
                 signRPM(params.CLOUD)
+                signDEB(params.CLOUD)
             }
         }
         stage('Push to public repository') {
