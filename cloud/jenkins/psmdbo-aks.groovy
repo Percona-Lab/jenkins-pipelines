@@ -1,36 +1,18 @@
-region='us-central1-a'
+location='eastus'
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
-void verifyParams() {
-    if ("$RELEASE_RUN" == "YES") {
-        echo "=========================[ RELEASE RUN ]========================="
-        if (!"$PILLAR_VERSION" && !"$IMAGE_MONGOD") {
-            error("Either PILLAR_VERSION or IMAGE_MONGOD should be provided for release run!")
-        }
+String getParam(String paramName, String keyName = null) {
+    keyName = keyName ?: paramName
 
-        GKE_RELEASE_CHANNEL = "stable"
-        echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
-    }
-}
-
-String getParam(String PARAM_NAME) {
-    echo "=========================[ Getting parameters for release test ]========================="
-    def param = "${params[PARAM_NAME]}"
-
-    if ("$param" && "$param" != "null" && param != "") {
-        echo "$PARAM_NAME=$param (from job parameters)"
-        return param
+    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
+    if ("$param") {
+        echo "$paramName=$param (from params file)"
     } else {
-        param = sh(script: "cat $release_versions | grep -i $PARAM_NAME= | cut -d = -f 2 | tr -d \'\"\'", , returnStdout: true).trim()
-        if ("$param") {
-            echo "$PARAM_NAME=$param (from params file)"
-            return param
-        } else {
-            error("$PARAM_NAME not found in params file $release_versions")
-        }
+        error("$keyName not found in params file $release_versions")
     }
+    return param
 }
 
 void prepareNode() {
@@ -43,17 +25,18 @@ void prepareNode() {
         sudo git reset --hard
         sudo git clean -xdf
         sudo rm -rf source
-        cloud/local/checkout $GIT_REPO $GIT_BRANCH
+        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mongodb-operator source
     """
 
-    if ("$RELEASE_RUN" == "YES") {
-        IMAGE_OPERATOR = getParam("IMAGE_OPERATOR")
-        IMAGE_MONGOD = getParam("IMAGE_MONGOD${PILLAR_VERSION}")
-        IMAGE_BACKUP = getParam("IMAGE_BACKUP")
-        IMAGE_PMM_CLIENT = getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = getParam("IMAGE_PMM_SERVER")
-        if ("$PLATFORM_VER" == "min".toLowerCase() || "$PLATFORM_VER" == "max".toLowerCase()) {
-            PLATFORM_VER = getParam("GKE_${PLATFORM_VER}")
+    if ("$PILLAR_VERSION" != "none") {
+        echo "=========================[ Getting parameters for release test ]========================="
+        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
+        IMAGE_MONGOD = IMAGE_MONGOD ?: getParam("IMAGE_MONGOD", "IMAGE_MONGOD${PILLAR_VERSION}")
+        IMAGE_BACKUP = IMAGE_BACKUP ?: getParam("IMAGE_BACKUP")
+        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
+        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
+            PLATFORM_VER = getParam("PLATFORM_VER", "AKS_${PLATFORM_VER}")
         }
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
@@ -69,52 +52,34 @@ void prepareNode() {
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
 
-        sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
-[google-cloud-cli]
-name=Google Cloud CLI
-baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-        sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
+        if ! command -v az &>/dev/null; then
+            curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+            printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+            sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
+        fi
     """
 
     echo "=========================[ Logging in the Kubernetes provider ]========================="
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
-            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
-            gcloud config set project $GCP_PROJECT
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
+            az account set -s "$AZURE_SUBSCRIPTION_ID"
         """
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        USED_PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.defaultVersion)' | cut -d- -f1", , returnStdout: true).trim()
-    } else {
-        USED_PLATFORM_VER="$PLATFORM_VER"
-    }
-    echo "USED_PLATFORM_VER=$USED_PLATFORM_VER"
-
-    if ("$ARCH" == "amd64") {
-        MACHINE_TYPE="n1-standard-4"
-    } else if ("$ARCH" == "arm64") {
-        MACHINE_TYPE="t2a-standard-4"
-    } else {
-        error("Unknown architecture $ARCH")
+        PLATFORM_VER = sh(script: "az aks get-versions --location $location --output json | jq -r '.values | max_by(.patchVersions) | .patchVersions | keys[]' | sort --version-sort | tail -1", returnStdout: true).trim()
     }
 
     if ("$IMAGE_MONGOD") {
-        release = ("$RELEASE_RUN" == "YES") ? "RELEASE-" : ""
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-        currentBuild.description = "${release}$GIT_BRANCH-$ARCH-$PLATFORM_VER-$GKE_RELEASE_CHANNEL-$cw-" + "$IMAGE_MONGOD".split(":")[1]
+        currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
+        currentBuild.description = "$PLATFORM_VER " + "$IMAGE_MONGOD".split(":")[1] + " $cw"
     }
 
-    script {
-        GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', , returnStdout: true).trim()
-        CLUSTER_NAME = sh(script: "echo jenkins-lat-psmdb-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", , returnStdout: true).trim()
-        PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$ARCH-$USED_PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", , returnStdout: true).trim()
-    }
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
+    CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -169,7 +134,7 @@ void initTests() {
 
             for (int i=0; i<tests.size(); i++) {
                 def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
@@ -213,48 +178,26 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            maxRetries=15
-            exitCode=1
-
-            while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
-                gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                    --release-channel $GKE_RELEASE_CHANNEL \
-                    --zone $region \
-                    --cluster-version $USED_PLATFORM_VER \
-                    --preemptible \
-                    --disk-size 30 \
-                    --machine-type $MACHINE_TYPE \
-                    --num-nodes=4 \
-                    --min-nodes=4 \
-                    --max-nodes=6 \
-                    --network=jenkins-vpc \
-                    --subnetwork=jenkins-$CLUSTER_SUFFIX \
-                    --cluster-ipv4-cidr=/21 \
-                    --labels delete-cluster-after-hours=6 \
-                    --enable-ip-alias \
-                    --workload-pool=cloud-dev-112233.svc.id.goog &&\
-                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
-                exitCode=\$?
-                if [[ \$exitCode == 0 ]]; then break; fi
-                (( maxRetries -- ))
-                sleep 1
-            done
-            if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
-
-            CURRENT_TIME=\$(date --rfc-3339=seconds)
-            FUTURE_TIME=\$(date -d '6 hours' --rfc-3339=seconds)
-
-            gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                --zone $region \
-                --add-maintenance-exclusion-start "\$CURRENT_TIME" \
-                --add-maintenance-exclusion-end "\$FUTURE_TIME"
-
-            kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints,AGE:.metadata.creationTimestamp"
-        """
-   }
+    sh """
+        export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+        az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
+            -g percona-operators \
+            --subscription eng-cloud-dev \
+            --load-balancer-sku basic \
+            --enable-managed-identity \
+            --node-count 3 \
+            --node-vm-size Standard_B4ms \
+            --min-count 3 \
+            --max-count 3 \
+            --node-osdisk-size 30 \
+            --network-plugin kubenet \
+            --generate-ssh-keys \
+            --enable-cluster-autoscaler \
+            --outbound-type loadbalancer \
+            --kubernetes-version $PLATFORM_VER \
+            -l $location
+        az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-$CLUSTER_SUFFIX --overwrite-existing
+    """
 }
 
 void runTest(Integer TEST_ID) {
@@ -284,7 +227,7 @@ void runTest(Integer TEST_ID) {
                     e2e-tests/$testName/run
                 """
             }
-            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$USED_PLATFORM_VER-$MDB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
+            pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
             tests[TEST_ID]["result"] = "passed"
             return true
         }
@@ -318,30 +261,31 @@ void pushArtifactFile(String FILE_NAME) {
     }
 }
 
-TestsReport = '<testsuite name=\\"PSMDB-GKE-latest\\">\n'
 void makeReport() {
     echo "=========================[ Generating Test Report ]========================="
-    for (int i=0; i<tests.size(); i++) {
-        def testResult = tests[i]["result"]
-        def testTime = tests[i]["time"]
-        def testName = tests[i]["name"]
-
-        TestsReport = TestsReport + '<testcase name=\\"' + testName + '\\" time=\\"' + testTime + '\\"><'+ testResult +'/></testcase>\n'
+    testsReport = "<testsuite name=\"$JOB_NAME\">\n"
+    for (int i = 0; i < tests.size(); i ++) {
+        testsReport += '<testcase name="' + tests[i]["name"] + '" time="' + tests[i]["time"] + '"><'+ tests[i]["result"] +'/></testcase>\n'
     }
-    TestsReport = TestsReport + '</testsuite>\n'
+    testsReport += '</testsuite>\n'
 
-    echo "=========================[ Generating Images Report ]========================="
-    TestsImages = "testsuite name='PSMDB-GKE-latest'\n" +\
-                    "IMAGE_OPERATOR=$IMAGE_OPERATOR\n" +\
-                    "IMAGE_MONGOD=$IMAGE_MONGOD\n" +\
-                    "IMAGE_BACKUP=$IMAGE_BACKUP\n" +\
-                    "IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT\n" +\
-                    "IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER\n" +\
-                    "USED_PLATFORM_VER=$USED_PLATFORM_VER"
+    echo "=========================[ Generating Parameters Report ]========================="
+    pipelineParameters = """
+        testsuite name=$JOB_NAME
+        IMAGE_OPERATOR=$IMAGE_OPERATOR
+        IMAGE_MONGOD=$IMAGE_MONGOD
+        IMAGE_BACKUP=$IMAGE_BACKUP
+        IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
+        IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+        PLATFORM_VER=$PLATFORM_VER
+    """
+
+    writeFile file: "TestsReport.xml", text: testsReport
+    writeFile file: 'PipelineParameters.txt', text: pipelineParameters
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
@@ -353,7 +297,8 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
                 kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
             done
             kubectl get svc --all-namespaces || true
-            gcloud container clusters delete --zone $region $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
+
+            az aks delete --name $CLUSTER_NAME-$CLUSTER_SUFFIX --resource-group percona-operators --subscription eng-cloud-dev --yes || true
         """
     }
 }
@@ -361,77 +306,21 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
-        MDB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", , returnStdout: true).trim()
+        DB_TAG = sh(script: "[[ \"$IMAGE_MONGOD\" ]] && echo $IMAGE_MONGOD | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
     }
     parameters {
-        choice(
-            choices: ['run-release.csv', 'run-distro.csv'],
-            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
-            name: 'TEST_SUITE')
-        text(
-            defaultValue: '',
-            description: 'List of tests to run separated by new line',
-            name: 'TEST_LIST')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Ignore passed tests in previous run (run all)',
-            name: 'IGNORE_PREVIOUS_RUN'
-        )
-        choice(
-            choices: 'NO\nYES',
-            description: 'Release run?',
-            name: 'RELEASE_RUN'
-        )
-        choice(
-            choices: 'amd64\narm64',
-            description: 'Architecture',
-            name: 'ARCH'
-        )
-        string(
-            defaultValue: '70',
-            description: 'For RELEASE_RUN only. Major version like 70,60, etc',
-            name: 'PILLAR_VERSION'
-        )
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-server-mongodb-operator repository',
-            name: 'GIT_BRANCH')
-        string(
-            defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
-            description: 'percona-server-mongodb-operator repository',
-            name: 'GIT_REPO')
-        string(
-            defaultValue: 'latest',
-            description: 'GKE kubernetes version',
-            name: 'PLATFORM_VER')
-        choice(
-            choices: 'rapid\nstable\nregular\nNone',
-            description: 'GKE release channel',
-            name: 'GKE_RELEASE_CHANNEL')
-        choice(
-            choices: 'YES\nNO',
-            description: 'Run tests in cluster wide mode',
-            name: 'CLUSTER_WIDE')
-        string(
-            defaultValue: '',
-            description: 'Operator image: perconalab/percona-server-mongodb-operator:main',
-            name: 'IMAGE_OPERATOR')
-        string(
-            defaultValue: '',
-            description: 'MONGOD image: perconalab/percona-server-mongodb-operator:main-mongod5.0',
-            name: 'IMAGE_MONGOD')
-        string(
-            defaultValue: '',
-            description: 'Backup image: perconalab/percona-server-mongodb-operator:main-backup',
-            name: 'IMAGE_BACKUP')
-        string(
-            defaultValue: '',
-            description: 'PMM client image: perconalab/pmm-client:dev-latest',
-            name: 'IMAGE_PMM_CLIENT')
-        string(
-            defaultValue: '',
-            description: 'PMM server image: perconalab/pmm-server:dev-latest',
-            name: 'IMAGE_PMM_SERVER')
+        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
+        text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
+        choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
+        choice(name: 'PILLAR_VERSION', choices: 'none\n80\n70\n60', description: 'Implies release run.')
+        string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mongodb-operator repository')
+        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'AKS kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
+        choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
+        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
+        string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.0')
+        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
+        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
     }
     agent {
         label 'docker'
@@ -443,9 +332,8 @@ pipeline {
         copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
     stages {
-        stage('Prepare node') {
+        stage('Prepare Node') {
             steps {
-                verifyParams()
                 prepareNode()
             }
         }
@@ -454,7 +342,7 @@ pipeline {
                 dockerBuildPush()
             }
         }
-        stage('Init tests') {
+        stage('Init Tests') {
             steps {
                 initTests()
             }
@@ -486,11 +374,6 @@ pipeline {
                         clusterRunner('cluster5')
                     }
                 }
-                stage('cluster6') {
-                    steps {
-                        clusterRunner('cluster6')
-                    }
-                }
             }
         }
     }
@@ -498,10 +381,6 @@ pipeline {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
-            sh """
-                echo "$TestsReport" > TestsReport.xml
-                echo "$TestsImages" > TestsImages.txt
-            """
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml,*.txt'
 
@@ -515,7 +394,6 @@ pipeline {
 
             sh """
                 sudo docker system prune --volumes -af
-                sudo rm -rf *
             """
             deleteDir()
         }

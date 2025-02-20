@@ -92,8 +92,8 @@ pipeline {
                          unzip -o awscliv2.zip
                          sudo ./aws/install
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
-                         docker tag percona-server-mongodb public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}
-                         docker push public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}
+                         docker tag percona-server-mongodb public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}-amd64
+                         docker push public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}-amd64
                          if [ ${params.DEBUG} = "yes" ]; then
                             docker tag percona-server-mongodb-debug public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}-debug
                             docker push public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}-debug
@@ -112,12 +112,12 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PSMDB_VERSION} | awk -F "." '{print \$1"."\$2}')
                          MIN_VER=\$(echo ${params.PSMDB_VERSION} | awk -F "-" '{print \$1}')
-                         docker tag percona-server-mongodb perconalab/percona-server-mongodb:${params.PSMDB_VERSION}
-                         docker push perconalab/percona-server-mongodb:${params.PSMDB_VERSION}
-                         docker tag percona-server-mongodb perconalab/percona-server-mongodb:\$MIN_VER
-                         docker push perconalab/percona-server-mongodb:\$MIN_VER
-                         docker tag percona-server-mongodb perconalab/percona-server-mongodb:\$MAJ_VER
-                         docker push perconalab/percona-server-mongodb:\$MAJ_VER 
+                         docker tag percona-server-mongodb perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-amd64
+                         docker push perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-amd64
+                         docker tag percona-server-mongodb perconalab/percona-server-mongodb:\$MIN_VER-amd64
+                         docker push perconalab/percona-server-mongodb:\$MIN_VER-amd64
+                         docker tag percona-server-mongodb perconalab/percona-server-mongodb:\$MAJ_VER-amd64
+                         docker push perconalab/percona-server-mongodb:\$MAJ_VER-amd64
                          if [ ${params.DEBUG} = "yes" ]; then
                              docker tag percona-server-mongodb-debug perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-debug
                              docker push perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-debug
@@ -136,12 +136,12 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PSMDB_VERSION} | awk -F "." '{print \$1"."\$2}')
                          MIN_VER=\$(echo ${params.PSMDB_VERSION} | awk -F "-" '{print \$1}')
-                         docker tag percona-server-mongodb percona/percona-server-mongodb:${params.PSMDB_VERSION}
-                         docker push percona/percona-server-mongodb:${params.PSMDB_VERSION}
-                         docker tag percona-server-mongodb percona/percona-server-mongodb:\$MIN_VER
-                         docker push percona/percona-server-mongodb:\$MIN_VER
-                         docker tag percona-server-mongodb percona/percona-server-mongodb:\$MAJ_VER
-                         docker push percona/percona-server-mongodb:\$MAJ_VER
+                         docker tag percona-server-mongodb percona/percona-server-mongodb:${params.PSMDB_VERSION}-amd64
+                         docker push percona/percona-server-mongodb:${params.PSMDB_VERSION}-amd64
+                         docker tag percona-server-mongodb percona/percona-server-mongodb:\$MIN_VER-amd64
+                         docker push percona/percona-server-mongodb:\$MIN_VER-amd64
+                         docker tag percona-server-mongodb percona/percona-server-mongodb:\$MAJ_VER-amd64
+                         docker push percona/percona-server-mongodb:\$MAJ_VER-amd64
                          if [ ${params.DEBUG} = "yes" ]; then
                              docker tag percona-server-mongodb-debug percona/percona-server-mongodb:${params.PSMDB_VERSION}-debug
                              docker push percona/percona-server-mongodb:${params.PSMDB_VERSION}-debug
@@ -156,12 +156,12 @@ pipeline {
             }
             steps {
                 script {
-                    def psmdb_image = 'percona/percona-server-mongodb:' + params.PSMDB_VERSION
+                    def psmdb_image = 'percona/percona-server-mongodb:' + params.PSMDB_VERSION + '-amd64'
                     if ( params.PSMDB_REPO == 'testing' ) {
-                        psmdb_image = 'perconalab/percona-server-mongodb:' + params.PSMDB_VERSION
+                        psmdb_image = 'perconalab/percona-server-mongodb:' + params.PSMDB_VERSION + '-amd64'
                     }
                     if ( params.PSMDB_REPO == 'experimental' ) {
-                        psmdb_image = 'public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-' + params.PSMDB_VERSION
+                        psmdb_image = 'public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-' + params.PSMDB_VERSION + '-amd64'
                     }
                     def pbm_branch = sh(returnStdout: true, script: """
                         git clone https://github.com/percona/percona-backup-mongodb.git >/dev/null 2>/dev/null

@@ -171,7 +171,7 @@ pipeline {
             description: 'URL for PXB git repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '8.0',
+            defaultValue: '9.0',
             description: 'Tag/Branch for PXB repository',
             name: 'BRANCH')
         string(
@@ -187,7 +187,11 @@ pipeline {
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
-            choices: 'laboratory\ntesting\nexperimental',
+            choices: 'YES\nNO',
+            description: 'Experimental packages only',
+            name: 'EXPERIMENTALMODE')
+        choice(
+            choices: 'experimental\nlaboratory\ntesting',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }
@@ -287,8 +291,10 @@ pipeline {
                                 popArtifactFolder("srpm/", AWS_STASH_PATH)
                                 buildStage("oraclelinux:8", "--build_rpm=1")
 
-                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                    uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -306,8 +312,10 @@ pipeline {
                                 popArtifactFolder("srpm/", AWS_STASH_PATH)
                                 buildStage("oraclelinux:8", "--build_rpm=1")
 
-                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                    uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -325,9 +333,11 @@ pipeline {
                             } else {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
                             }
-            
-                            pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                            uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+
+                            if (env.EXPERIMENTALMODE == 'NO') { 
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 } 
@@ -345,8 +355,10 @@ pipeline {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
                             }
 
-                            pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                            uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -401,8 +413,10 @@ pipeline {
                                 popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_deb=1")
 
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                    uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -420,8 +434,10 @@ pipeline {
                                 popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_deb=1")
 
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                    uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -478,8 +494,10 @@ pipeline {
                                 buildStage("ubuntu:noble", "--build_deb=1")
                             }
 
-                            pushArtifactFolder("deb/", AWS_STASH_PATH)
-                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -497,8 +515,10 @@ pipeline {
                                 buildStage("ubuntu:noble", "--build_deb=1")
                             }
 
-                            pushArtifactFolder("deb/", AWS_STASH_PATH)
-                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -515,8 +535,10 @@ pipeline {
                                 popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_deb=1")
 
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                    uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -534,8 +556,10 @@ pipeline {
                                 popArtifactFolder("source_deb/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_deb=1")
 
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                    uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                }
                             }
                         }
                     }
@@ -553,8 +577,11 @@ pipeline {
                             } else {
                                 buildStage("debian:bookworm", "--build_deb=1")
                             }
-                            pushArtifactFolder("deb/", AWS_STASH_PATH)
-                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -571,8 +598,11 @@ pipeline {
                             } else {
                                 buildStage("debian:bookworm", "--build_deb=1")
                             }
-                            pushArtifactFolder("deb/", AWS_STASH_PATH)
-                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -589,8 +619,10 @@ pipeline {
                                 popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("oraclelinux:8", "--build_tarball=1")
 
-                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                                    uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                }
                             }
                         }
                     }
@@ -609,8 +641,10 @@ pipeline {
                                 buildStage("oraclelinux:9", "--build_tarball=1")
                             }
 
-                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            }
                         }
                     }
                 }
@@ -627,8 +661,10 @@ pipeline {
                                 popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_tarball=1")
 
-                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                                    uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                }
                             }
                         }
                     }
@@ -647,8 +683,10 @@ pipeline {
                                 buildStage("ubuntu:jammy", "--build_tarball=1")
                             }
 
-                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            }
                         }
                     }
                 }
@@ -666,8 +704,10 @@ pipeline {
                                 buildStage("ubuntu:noble", "--build_tarball=1")
                             }
 
-                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            }
                         }
                     }
                 }
@@ -684,8 +724,10 @@ pipeline {
                                 popArtifactFolder("source_tarball/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_tarball=1")
 
-                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                                    uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                }
                             }
                         }
                     }
@@ -704,8 +746,10 @@ pipeline {
                                 buildStage("debian:bookworm", "--build_tarball=1")
                             }
 
-                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            }
                         }
                     }
                 }
@@ -714,7 +758,11 @@ pipeline {
 
         stage('Sign packages') {
             steps {
-                signRPM()
+                script {
+                    if (env.EXPERIMENTALMODE == 'NO') {
+                        signRPM()
+                    }
+                }
                 signDEB()
             }
         }
@@ -727,22 +775,22 @@ pipeline {
                     // sync packages
                     if ("${MYSQL_VERSION_MINOR}" == "0") {
                         if (env.FIPSMODE == 'YES') {
-                            sync2PrivateProdAutoBuild("pxb-80-pro", COMPONENT)
+                            sync2PrivateProdAutoBuild("pxb-90-pro", COMPONENT)
                         } else {
-                            sync2ProdAutoBuild("pxb-80", COMPONENT)
+                            sync2ProdAutoBuild("pxb-90", COMPONENT)
                         }
                     } else {
                         if (env.FIPSMODE == 'YES') {
-                            if ("${MYSQL_VERSION_MINOR}" == "4") {
-                                sync2PrivateProdAutoBuild("pxb-84-pro", COMPONENT)
+                            if ("${MYSQL_VERSION_MINOR}" == "7") {
+                                sync2PrivateProdAutoBuild("pxb-97-pro", COMPONENT)
                             } else {
-                                sync2PrivateProdAutoBuild("pxb-8x-innovation-pro", COMPONENT)
+                                sync2PrivateProdAutoBuild("pxb-9x-innovation-pro", COMPONENT)
                             }
                         } else {
-                            if ("${MYSQL_VERSION_MINOR}" == "4") {
-                                sync2ProdAutoBuild("pxb-84-lts", COMPONENT)
+                            if ("${MYSQL_VERSION_MINOR}" == "7") {
+                                sync2ProdAutoBuild("pxb-97-lts", COMPONENT)
                             } else {
-                                sync2ProdAutoBuild("pxb-8x-innovation", COMPONENT)
+                                sync2ProdAutoBuild("pxb-9x-innovation", COMPONENT)
                             }
                         }
                     }
@@ -752,75 +800,13 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
             unstash 'uploadPath'
             script {
                 if (env.FIPSMODE == 'YES') {
                     currentBuild.description = "PRO -> Built on ${BRANCH}; path to packages: [${COMPONENT}/${AWS_STASH_PATH}]"
                 } else {
                     currentBuild.description = "Built on ${BRANCH}; path to packages: [${COMPONENT}/${AWS_STASH_PATH}]"
-                }
-            }
-            slackNotify("#dev-server-qa", "#00FF00", "[${JOB_NAME}]: Triggering Builds for Package Testing for ${BRANCH} - [${BUILD_URL}]")
-            script {
-                currentBuild.description = "Built on ${BRANCH}"
-                    XB_VERSION_MAJOR = sh(returnStdout: true, script: "grep 'XB_VERSION_MAJOR' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
-                    XB_VERSION_MINOR = sh(returnStdout: true, script: "grep 'XB_VERSION_MINOR' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
-                    XB_VERSION_PATCH = sh(returnStdout: true, script: "grep 'XB_VERSION_PATCH' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
-                    XB_VERSION_EXTRA = sh(returnStdout: true, script: "grep 'XB_VERSION_EXTRA' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 | sed 's/-//g'").trim()
-                    XB_REVISION = sh(returnStdout: true, script: "grep 'REVISION' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
-                    PXB_RELEASE_VERSION = sh(returnStdout: true, script: """ echo ${BRANCH} | sed -nE '/release-(8\\.[0-9]{1})\\..*/s//\\1/p' """).trim()
-
-                if("${PXB_RELEASE_VERSION}"){
-                    echo "Executing MINITESTS as VALID VALUES FOR PXB_RELEASE_VERSION:${PXB_RELEASE_VERSION}"
-                    echo "Checking for the Github Repo VERSIONS file changes..."
-                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
-                    sh """
-                        set -x
-                        git clone -b master https://jenkins-pxc-cd:$TOKEN@github.com/Percona-QA/package-testing.git
-                        cd package-testing
-                        git config user.name "jenkins-pxc-cd"
-                        git config user.email "it+jenkins-pxc-cd@percona.com"
-                        echo "${PXB_RELEASE_VERSION} is the VALUE!!@!"
-                        export RELEASE_VER_VAL="${PXB_RELEASE_VERSION}"
-                        if [[ "\$RELEASE_VER_VAL" =~ ^8.[0-9]{1}\$ ]]; then
-                            echo "\$RELEASE_VER_VAL is a valid version"
-                            OLD_PXB_INN_LTS_VER=\$(cat VERSIONS | grep PXB_INN_LTS_VER | cut -d '=' -f2- )
-                            OLD_PXB_INN_LTS_REV=\$(cat VERSIONS | grep PXB_INN_LTS_REV | cut -d '=' -f2- )
-                            OLD_PXB_INN_LTS_MAJ_VER=\$(cat VERSIONS | grep PXB_INN_LTS_MAJ_VER | cut -d '=' -f2- )
-                            OLD_PXB_INN_LTS_PKG_VER=\$(cat VERSIONS | grep PXB_INN_LTS_PKG_VER | cut -d '=' -f2- )
-
-                            sed -i s/PXB_INN_LTS_VER=\$OLD_PXB_INN_LTS_VER/PXB_INN_LTS_VER='"'${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}'"'/g VERSIONS
-                            sed -i s/PXB_INN_LTS_REV=\$OLD_PXB_INN_LTS_REV/PXB_INN_LTS_REV='"'${XB_REVISION}'"'/g VERSIONS
-                            sed -i s/PXB_INN_LTS_MAJ_VER=\$OLD_PXB_INN_LTS_MAJ_VER/PXB_INN_LTS_MAJ_VER='"'${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}'"'/g VERSIONS
-                            sed -i s/PXB_INN_LTS_PKG_VER=\$OLD_PXB_INN_LTS_PKG_VER/PXB_INN_LTS_PKG_VER='"'${XB_VERSION_EXTRA}'"'/g VERSIONS
-
-                        else
-                            echo "INVALID PXB_RELEASE_VERSION VALUE: ${PXB_RELEASE_VERSION}"
-                        fi
-                        git diff
-                        if [[ -z \$(git diff) ]]; then
-                            echo "No changes"
-                        else
-                            echo "There are changes"
-                            git add -A
-                        git commit -m "Autocommit: add ${XB_REVISION} and ${PXB_RELEASE_VERSION} for ${PXB_RELEASE_VERSION} package testing VERSIONS file."
-                            git push
-                        fi
-                    """
-                    }
-                    echo "Start Minitests for PXB"                
-                    package_tests_pxb(minitestNodes)
-                    if("${mini_test_error}" == "True"){
-                        error "NOT TRIGGERING PACKAGE TESTS AND INTEGRATION TESTS DUE TO MINITEST FAILURE !!"
-                    }else{
-                        echo "TRIGGERING THE PACKAGE TESTING JOB!!!"
-                        build job: 'pxb-package-testing-all', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: "${product_to_test}"),string(name: 'install_repo', value: "${install_repo}"),string(name: 'git_repo', value: "${git_repo}")]                                                                                                                                            
-                    }
-                }
-                else{
-                    error "Skipping MINITESTS and Other Triggers as invalid RELEASE VERSION FOR THIS JOB"
-                    slackNotify( "#00FF00", "[${JOB_NAME}]: Skipping MINITESTS and Other Triggers as invalid RELEASE VERSION FOR THIS JOB ${BRANCH} - [${BUILD_URL}]")
                 }
             }
             deleteDir()

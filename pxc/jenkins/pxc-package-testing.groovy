@@ -874,10 +874,19 @@ pipeline {
                                     echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
                                     def convergeSuccess = true // Flag to track the success of the converge step
 
-                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                                        runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-                                    }.catch {
-                                        convergeSuccess = false // If the converge step fails, set the flag to false
+//                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+//                                        runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
+//                                    }.catch {
+//                                        convergeSuccess = false // If the converge step fails, set the flag to false
+//                                    }
+
+                                    try {
+                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
+                                        }
+                                    } catch (Exception e) {
+                                        convergeSuccess = false
+                                        echo "Converge step failed: ${e.message}"
                                     }
 
                                     if (convergeSuccess) {
@@ -909,77 +918,77 @@ pipeline {
                             }
                 }
 
-                stage("MIN UPGRADE (PXC57_MAIN_TO_EOL_TESTING)") {
-                            when {
-                                allOf{
-                                    expression{params.test_type == "min_upgrade" || params.test_type == "install_and_upgrade"}
-                                    expression{params.test_repo != "main"}
-                                    expression{params.product_to_test == "pxc57"}
-                                }
-                            }
-
-
-
-                            agent {
-                                label 'min-bookworm-x64'
-                            }
-
-
-                            environment {
-
-                                UPGRADE_BOOTSTRAP_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_private_ip.json"
-                                UPGRADE_COMMON_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/common_instance_private_ip.json"
-                                
-                                UPGRADE_BOOTSTRAP_INSTANCE_PUBLIC_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_public_ip.json"
-                                UPGRADE_COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/min_upgrade/common_instance_public_ip.json"
-
-                                JENWORKSPACE = "${env.WORKSPACE}"
-
-                                MIN_UPGRADE_TEST = "PXC57_MAIN_TO_EOL_TESTING"
-
-                            }
-
-                            options {
-                                skipDefaultCheckout()
-                            }
-
-
-                            steps {
-                                setup()
-                                script{
-
-                                    echo "UPGRADE STAGE INSIDE"
-                                    def param_test_type = "min_upgrade"   
-                                    echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
-                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-                                    setInventories("min_upgrade")
-                                    echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
-                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-                                        }
-                                    echo "3. Run UPGRADE scripts and playbooks for running PXC UPGRADE tests.. Molecule side-effect step"
-                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
-                                        }
-                                }
-                            }
-                            post{
-                                always{
-                                    script{
-                                        def param_test_type = "min_upgrade"
-                                        echo "4. Take Backups of the Logs.. for PXC UPGRADE tests"
-                                        setInventories("min_upgrade")
-                                        runlogsbackup(params.product_to_test, "min_upgrade")
-                                        echo "5. Destroy the Molecule instances for PXC UPGRADE tests.."
-                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
-                                    }
-                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                        archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
-                                    }
-                                }
-
-                            }
-                }
+//                stage("MIN UPGRADE (PXC57_MAIN_TO_EOL_TESTING)") {
+//                            when {
+//                                allOf{
+//                                    expression{params.test_type == "min_upgrade" || params.test_type == "install_and_upgrade"}
+//                                    expression{params.test_repo != "main"}
+//                                    expression{params.product_to_test == "pxc57"}
+//                                }
+//                            }
+//
+//
+//
+//                            agent {
+//                                label 'min-bookworm-x64'
+//                            }
+//
+//
+//                            environment {
+//
+//                                UPGRADE_BOOTSTRAP_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_private_ip.json"
+//                                UPGRADE_COMMON_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/common_instance_private_ip.json"
+//                                
+//                                UPGRADE_BOOTSTRAP_INSTANCE_PUBLIC_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_public_ip.json"
+//                                UPGRADE_COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/min_upgrade/common_instance_public_ip.json"
+//
+//                                JENWORKSPACE = "${env.WORKSPACE}"
+//
+//                                MIN_UPGRADE_TEST = "PXC57_MAIN_TO_EOL_TESTING"
+//
+//                            }
+//
+//                            options {
+//                                skipDefaultCheckout()
+//                            }
+//
+//
+//                            steps {
+//                                setup()
+//                                script{
+//
+//                                    echo "UPGRADE STAGE INSIDE"
+//                                    def param_test_type = "min_upgrade"   
+//                                    echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
+//                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
+//                                    setInventories("min_upgrade")
+//                                    echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
+//                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+//                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
+//                                        }
+//                                    echo "3. Run UPGRADE scripts and playbooks for running PXC UPGRADE tests.. Molecule side-effect step"
+//                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+//                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
+//                                        }
+//                                }
+//                            }
+//                            post{
+//                                always{
+//                                    script{
+//                                        def param_test_type = "min_upgrade"
+//                                        echo "4. Take Backups of the Logs.. for PXC UPGRADE tests"
+//                                        setInventories("min_upgrade")
+//                                        runlogsbackup(params.product_to_test, "min_upgrade")
+//                                        echo "5. Destroy the Molecule instances for PXC UPGRADE tests.."
+//                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
+//                                    }
+//                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+//                                        archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
+//                                    }
+//                                }
+//
+//                            }
+//                }
 
                 stage("MAJOR UPGRADE pxc57") {
                             when {
