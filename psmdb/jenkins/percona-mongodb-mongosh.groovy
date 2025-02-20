@@ -301,7 +301,7 @@ pipeline {
         success {
             slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${MONGOSH_GIT_BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${MONGOSH_GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
+                currentBuild.description = "[${CLOUD}]: Built on ${MONGOSH_GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
             }
             deleteDir()
         }
