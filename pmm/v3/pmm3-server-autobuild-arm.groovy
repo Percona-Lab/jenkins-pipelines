@@ -137,7 +137,7 @@ pipeline {
                         ## docker push perconalab/pmm-server:${DOCKER_RC_TAG}
                     fi
                     docker tag ${DOCKER_TAG} perconalab/pmm-server:${DOCKER_LATEST_TAG}
-                    ## docker push ${DOCKER_TAG}
+                    docker push ${DOCKER_TAG}
                     ## docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
                     echo "${DOCKER_LATEST_TAG}" > DOCKER_TAG
                     echo "${DOCKER_TAG}" > TIMESTAMP_TAG
