@@ -85,13 +85,13 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PBM ${PBM_BRANCH} with ${PSMDB} - all tests passed")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: MLINK ${MLINK_BRANCH} with ${PSMDB} - all tests passed")
         }
         unstable {
-            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: PBM ${PBM_BRANCH} with ${PSMDB} - some tests failed [${BUILD_URL}testReport/]")
+            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: MLINK ${MLINK_BRANCH} with ${PSMDB} - some tests failed [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: PBM ${PBM_BRANCH} with ${PSMDB} - unexpected failure [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: MLINK ${MLINK_BRANCH} with ${PSMDB} - unexpected failure [${BUILD_URL}]")
         }
     }
 }
