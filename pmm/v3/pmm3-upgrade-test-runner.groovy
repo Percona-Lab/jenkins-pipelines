@@ -111,7 +111,7 @@ pipeline {
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         choice(
-            choices: ["3.0.0"],
+            choices: ["3.1.0"],
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
