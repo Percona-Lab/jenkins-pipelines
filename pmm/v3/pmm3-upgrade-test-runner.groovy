@@ -42,6 +42,8 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
         elif [ "$pmm_version" = "pmm3-rc"]; then
             wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name
             GET_PMM_CLIENT_VERSION=\$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 3.*.*-rc\$ | sort -V | tail -n1)
+        else
+            GET_PMM_CLIENT_VERSION="$pmm_version"
         fi
 
         echo "Returned PMM Version is: \$GET_PMM_CLIENT_VERSION"
