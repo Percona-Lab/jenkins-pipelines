@@ -171,7 +171,7 @@ pipeline {
             description: 'URL for PXB git repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '8.0',
+            defaultValue: '9.0',
             description: 'Tag/Branch for PXB repository',
             name: 'BRANCH')
         string(
