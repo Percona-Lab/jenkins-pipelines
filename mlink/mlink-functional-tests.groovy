@@ -53,18 +53,23 @@ pipeline {
                                         fi
                                         sudo chmod +x /usr/local/bin/docker-compose
                                     fi
+                                    """
+                                    
+                                git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
+                                    
+                                dir('psmdb-testing') {
+                                    git poll: false, branch: params.MLINK_BRANCH, url: 'https://github.com/Percona-Lab/percona-mongolink.git'
 
-                                    git clone https://github.com/Percona-QA/psmdb-testing
-                                    cd psmdb-testing
-                                    git checkout ${params.TESTING_BRANCH}
-
-                                    cd mlink
-                                    docker-compose build
-                                    docker-compose up -d
-                                    docker-compose run test pytest -s --junitxml=junit.xml -k ${TEST} || true
-                                    docker-compose down -v --remove-orphans
-                                    curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=MLINK' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "Mongo Link branch": "${MLINK_BRANCH}","PSMDB docker image": "${PSMDB}","instance": "${instance}"}};type=application/json' -i || true
-                                """
+                                    dir('mlink') {
+                                        sh """
+                                        docker-compose build
+                                        docker-compose up -d
+                                        docker-compose run test pytest -s --junitxml=junit.xml -k ${TEST} || true
+                                        docker-compose down -v --remove-orphans
+                                        curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=MLINK' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "Mongo Link branch": "${MLINK_BRANCH}","PSMDB docker image": "${PSMDB}","instance": "${instance}"}};type=application/json' -i || true
+                                        """
+                                    }
+                                }
                             }
                         }
                         post {
