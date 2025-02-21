@@ -76,6 +76,9 @@ List ps56_excluded_nodes = [
 
 List ps57_excluded_nodes = [
     "min-bionic-x64"
+    "min-amazon-2-x64"
+    "min-centos-7-x64"
+    "min-buster-x64"
 ]
 
 List all_actions = [
