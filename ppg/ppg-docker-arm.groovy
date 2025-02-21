@@ -11,6 +11,7 @@ pipeline {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
+        choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         choice(name: 'PPG_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PPG_VERSION', defaultValue: '12.19-1', description: 'PPG version')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
