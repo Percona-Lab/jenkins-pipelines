@@ -1,4 +1,4 @@
-def call(String CLOUD_NAME, String FOLDER_NAME, String AWS_STASH_PATH, String TarballType) {
+def call(String CLOUD_NAME, String FOLDER_NAME, String AWS_STASH_PATH, String TarballType, String PRODUCT_VERSION) {
     def nodeLabel = (CLOUD_NAME == 'Hetzner') ? 'launcher-x64' : 'micro-amazon'
     node(nodeLabel) {
         deleteDir()
