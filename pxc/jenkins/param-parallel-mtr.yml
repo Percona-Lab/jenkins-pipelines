@@ -192,7 +192,7 @@
         build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_8_0_pipeline_parallel_mtr}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_pxc_8_0_pipeline_parallel_mtr}" > PIPELINE_BUILD_NUMBER
+        echo "${TRIGGERED_BUILD_NUMBERS_pxc_8_x_pipeline_parallel_mtr}" > PIPELINE_BUILD_NUMBER
     publishers:
     - junit:
         results: "**/*.xml"
