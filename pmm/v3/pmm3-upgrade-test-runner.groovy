@@ -103,7 +103,7 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
-                defaultValue: 'perconalab/pmm-server:202501151220',
+                defaultValue: 'perconalab/pmm-server:3.0.0',
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
         string(
@@ -111,7 +111,7 @@ pipeline {
             description: 'PMM Server Version to upgrade to',
             name: 'DOCKER_TAG_UPGRADE')
         string(
-            defaultValue: "3-dev-latest",
+            defaultValue: "3.0.0",
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         choice(
