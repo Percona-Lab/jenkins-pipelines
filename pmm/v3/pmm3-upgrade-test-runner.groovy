@@ -394,6 +394,13 @@ pipeline {
                 }
             }
         }
+        stage('Check Client before Upgrade') {
+            steps {
+                script {
+                    checkClientBeforeUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION)
+                }
+            }
+        }
         stage('Run pre upgrade UI tests') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -413,6 +420,16 @@ pipeline {
                 }
             }
         }
+        stage('Upgrade PMM client') {
+            steps {
+                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh """
+                        docker ps -a
+                        pmm-admin list
+                    """
+                }
+            }
+        }
         stage('Run post upgrade UI tests') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -427,13 +444,6 @@ pipeline {
             steps {
                 script {
                     checkUpgrade(PMM_SERVER_LATEST, "post")
-                }
-            }
-        }
-        stage('Check Client before Upgrade') {
-            steps {
-                script {
-                    checkClientBeforeUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION)
                 }
             }
         }
@@ -487,7 +497,6 @@ pipeline {
                 } catch (err) {
                     error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
                 }
-
 //                 slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
             }
             /*
