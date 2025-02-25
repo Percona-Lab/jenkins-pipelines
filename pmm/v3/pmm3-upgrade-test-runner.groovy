@@ -118,6 +118,10 @@ pipeline {
             choices: ["3.1.0"],
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
+        choice(
+            choices: ["experimental", "testing", "release"],
+            description: 'latest PMM Server Version',
+            name: 'CLIENT_REPOSITORY')
         string(
             defaultValue: 'PMM-13481',
             description: 'Tag/Branch for pmm qa repository',
@@ -426,6 +430,8 @@ pipeline {
                     sh """
                         docker ps -a
                         pmm-admin list
+                        sudo percona-release enable pmm3-client $CLIENT_REPOSITORY
+                        sudo yum install -y pmm-client
                     """
                 }
             }
