@@ -431,7 +431,17 @@ pipeline {
                         containers=\$(docker ps --format "{{ .Names }}")
 
                         for i in \$containers; do
-                            echo "\$i"
+                            if [[ \$i == *"rs10"* ]]; then
+                                echo "RS Name is: \$i name"
+                            elif [[ \$i == *"proxysql"* ]]; then
+                                echo "PXC Name is: \$i name"
+                            elif [[ \$i == *"pgsql"* ]]; then
+                                echo "PGSQL Name is: \$i name"
+                            elif [[ \$i == *"ps_"* ]]; then
+                                echo "PS Name is: \$i name"
+                            elif [[ \$i == *"redis"* ]]; then
+                                echo "Redis Name is: \$i name"
+                            fi
                         done
                         sudo percona-release enable pmm3-client $CLIENT_REPOSITORY
                         sudo yum install -y pmm-client
