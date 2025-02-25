@@ -432,15 +432,31 @@ pipeline {
 
                         for i in \$containers; do
                             if [[ \$i == *"rs10"* ]]; then
-                                echo "RS Name is: \$i name"
+                                docker exec \$i percona-release enable pmm3-client \$UPGRADE_TAG
+                                docker exec \$i yum install -y pmm-client
+                                docker exec \$i sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
+                                docker exec \$i cat /usr/local/percona/pmm/config/pmm-agent.yaml
+                                docker exec \$i systemctl restart pmm-agent
                             elif [[ \$i == *"proxysql"* ]]; then
                                 echo "PXC Name is: \$i name"
                             elif [[ \$i == *"pgsql"* ]]; then
-                                echo "PGSQL Name is: \$i name"
+                                docker exec \$i percona-release enable pmm3-client \$UPGRADE_TAG
+                                docker exec \$i yum install -y pmm-client
+                                docker exec \$i sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
+                                docker exec \$i cat /usr/local/percona/pmm/config/pmm-agent.yaml
+                                docker exec \$i systemctl restart pmm-agent
                             elif [[ \$i == *"ps_"* ]]; then
-                                echo "PS Name is: \$i name"
+                                docker exec \$i percona-release enable pmm3-client \$UPGRADE_TAG
+                                docker exec \$i yum install -y pmm-client
+                                docker exec \$i sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
+                                docker exec \$i cat /usr/local/percona/pmm/config/pmm-agent.yaml
+                                docker exec \$i systemctl restart pmm-agent
                             elif [[ \$i == *"redis"* ]]; then
-                                echo "Redis Name is: \$i name"
+                                docker exec \$i percona-release enable pmm3-client \$UPGRADE_TAG
+                                docker exec \$i yum install -y pmm-client
+                                docker exec \$i sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
+                                docker exec \$i cat /usr/local/percona/pmm/config/pmm-agent.yaml
+                                docker exec \$i systemctl restart pmm-agent
                             fi
                         done
                         sudo percona-release enable pmm3-client $CLIENT_REPOSITORY
