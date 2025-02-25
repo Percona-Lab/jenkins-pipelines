@@ -59,7 +59,12 @@ pipeline {
                                 git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                                     
                                 dir('psmdb-testing') {
-                                    git poll: false, branch: params.MLINK_BRANCH, credentialsId: 'GitHub SSH Key', url: 'https://github.com/Percona-Lab/percona-mongolink.git'
+
+                                    sshagent(['${env.JNKPercona}']) {
+                                        git url: 'git@github.com:Percona-QA/mongolink.git',
+                                                branch: params.TESTING_BRANCH,
+                                                poll: false
+                                    }
 
                                     dir('mlink') {
                                         sh """
