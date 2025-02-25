@@ -16,7 +16,7 @@ pipeline {
         string(name: 'GO_VER', defaultValue: '1.22-bullseye', description: 'GOLANG docker image for building PBM from sources')
         choice(name: 'instance', choices: ['docker-64gb','docker-64gb-aarch64'], description: 'Ec2 instance type for running tests')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
-        string(name: 'github_mlink_creds', defaultValue: 'JNKPercona:${JNKPercona}', description: 'Credentials used for cloning mlink repo')
+//        string(name: 'github_mlink_creds', defaultValue: 'JNKPercona:${JNKPercona}', description: 'Credentials used for cloning mlink repo')
     }
     stages {
         stage('Set build name'){
@@ -59,7 +59,7 @@ pipeline {
                                 git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                                     
                                 dir('psmdb-testing') {
-                                    git credentialsId: "${github_mlink_creds}", poll: false, branch: params.MLINK_BRANCH, url: 'https://github.com/Percona-Lab/percona-mongolink.git'
+                                    git poll: false, branch: params.MLINK_BRANCH, url: 'https://JNKPercona:${env.JNKPercona}@github.com/Percona-Lab/percona-mongolink.git'
 
                                     dir('mlink') {
                                         sh """
