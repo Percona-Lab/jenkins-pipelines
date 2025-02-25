@@ -59,7 +59,7 @@ pipeline {
                                 git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                                     
                                 dir('psmdb-testing') {
-                                    git poll: false, branch: params.MLINK_BRANCH, url: 'https://JNKPercona:${env.JNKPercona}@github.com/Percona-Lab/percona-mongolink.git'
+                                    git poll: false, branch: params.MLINK_BRANCH, credentialsId: 'GitHub SSH Key', url: 'https://ithub.com/Percona-Lab/percona-mongolink.git'
 
                                     dir('mlink') {
                                         sh """
@@ -68,7 +68,7 @@ pipeline {
                                         docker-compose run test pytest -s --junitxml=junit.xml -k ${TEST} || true
                                         docker-compose down -v --remove-orphans
                                         curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=MLINK' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "Mongo Link branch": "${MLINK_BRANCH}","PSMDB docker image": "${PSMDB}","instance": "${instance}"}};type=application/json' -i || true
-                                        """
+                                    """
                                     }
                                 }
                             }
