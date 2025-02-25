@@ -1,5 +1,5 @@
 - job:
-    name: pxc-8.0-pipeline-parallel-mtr
+    name: pxc-8.0-pipeline-valgrind
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -76,40 +76,40 @@
     - choice:
         name: DOCKER_OS
         choices:
+          - ubuntu:noble
           - centos:7
           - centos:8
           - oraclelinux:9
           - ubuntu:focal
           - ubuntu:jammy
-          - ubuntu:noble
           - debian:bullseye
           - debian:bookworm
         description: OS version for compilation
     - string:
         name: DOCKER_SHM_SIZE
-        default: "32G"
+        default: "150G"
         description: "Shared memory size dedicated for Docker container"
     - string:
         name: LABEL
-        default: "docker-32gb"
+        default: "as-1015cs-tnr"
         description: "Docker host instance type"
     - choice:
         name: CMAKE_BUILD_TYPE
         choices:
-        - Debug
         - RelWithDebInfo
+        - Debug
         description: Type of build to produce
     - choice:
         name: ANALYZER_OPTS
         choices:
-        -
+        - -DWITH_VALGRIND=ON
         - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON
         - -DWITH_ASAN=ON
         - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON
         - -DWITH_ASAN=ON -DWITH_UBSAN=ON
         - -DWITH_UBSAN=ON
         - -DWITH_MSAN=ON
-        - -DWITH_VALGRIND=ON
+        -
         description: Enable code checking
     - string:
         name: GALERA_PARALLEL_RUN
@@ -118,8 +118,8 @@
     - choice:
         name: FULL_MTR
         choices:
-        - "yes"
         - "no"
+        - "yes"
         - "galera_only"
         - "skip_mtr"
         description: |
@@ -129,7 +129,7 @@
             skip_mtr - skip testing phase. Only build.
     - string:
         name: WORKER_1_MTR_SUITES
-        default: ""
+        default: "innodb_undo,test_services,audit_null,service_sys_var_registration,connection_control,data_masking,binlog_57_decryption,service_udf_registration,service_status_var_registration,procfs,interactive_utilities,percona-pam-for-mysql,galera_nbo,galera_3nodes,galera_sr,galera_3nodes_nbo,galera_3nodes_sr,galera_encryption,galera-x,wsrep,engines/funcs,innodb,main,rpl,rpl_nogtid,rpl_gtid,parts,group_replication,clone,innodb_gis,stress,perfschema,component_keyring_file,binlog,innodb_fts,sys_vars,innodb_zip,x,gcol,engines/iuds,encryption,federated,funcs_1,auth_sec,binlog_nogtid,binlog_gtid,funcs_2,jp,information_schema,rpl_encryption,sysschema,json,opt_trace,audit_log,audit_log_filter,collations,gis,query_rewrite_plugins,test_service_sql_api,secondary_engine,component_masking_functions,galera"
         description: "Suites to be ran on worker 1 when FULL_MTR is no. Unit tests, if requested, can be ran here only!"
     - string:
         name: WORKER_2_MTR_SUITES
@@ -161,7 +161,7 @@
         description: "Suites to be ran on worker 8 when FULL_MTR is no"
     - string:
         name: MTR_ARGS
-        default: --unit-tests-report --big-test --mem
+        default: --mysqld=--innodb_use_native_aio=0 --suite-timeout=600000 --retry-failure=0 --parallel=64
         description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
     - string:
         name: MTR_STANDALONE_TESTS

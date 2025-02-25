@@ -7,13 +7,14 @@ ROOT_DIR=$(cd $(dirname $0)/../sources/pxc; pwd -P)
 SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
 SOURCE_IMAGE=${1:-centos:7}
 WORKER_NO=${2:-0}
+DOCKER_SHM_SIZE=${3:-32G}
 
 if [[ ${CI_FS_MTR} == 'yes' ]]; then
     CI_FS_DOCKER_FLAG="--mount type=bind,source=/mnt/ci_disk_dir_${CMAKE_BUILD_TYPE},destination=/tmp/ci_disk_dir"
 fi
 
-docker run --rm --shm-size=32G \
-    --tmpfs /dev/shm:rw,exec,size=32G \
+docker run --rm --shm-size=${DOCKER_SHM_SIZE} \
+    --tmpfs /dev/shm:rw,exec,size=${DOCKER_SHM_SIZE} \
     --security-opt seccomp=unconfined \
     --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
     --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxc \
