@@ -16,6 +16,7 @@ pipeline {
         string(name: 'GO_VER', defaultValue: '1.22-bullseye', description: 'GOLANG docker image for building PBM from sources')
         choice(name: 'instance', choices: ['docker-64gb','docker-64gb-aarch64'], description: 'Ec2 instance type for running tests')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
+        string(name: 'github_mlink_creds', defaultValue: 'JNKPercona:${JNKPercona}', description: 'Credentials used for cloning mlink repo')
     }
     stages {
         stage('Set build name'){
@@ -54,11 +55,11 @@ pipeline {
                                         sudo chmod +x /usr/local/bin/docker-compose
                                     fi
                                 """
-                                    
+
                                 git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                                     
                                 dir('psmdb-testing') {
-                                    git credentialsId: "${JNKPercona}", poll: false, branch: params.MLINK_BRANCH, url: 'https://github.com/Percona-Lab/percona-mongolink.git'
+                                    git poll: false, branch: params.MLINK_BRANCH, url: 'https://JNKPercona:${env.JNKPercona}@github.com/Percona-Lab/percona-mongolink.git'
 
                                     dir('mlink') {
                                         sh """
@@ -99,4 +100,20 @@ pipeline {
 //            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: MLINK ${MLINK_BRANCH} with ${PSMDB} - unexpected failure [${BUILD_URL}]")
 //        }
 //    }
+}
+
+
+pipeline {
+    agent any
+    stages {
+        stage('Checkout') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'git-credentials-id', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
+                    git url: "https://${GIT_USER}:${GIT_PASS}@github.com/Percona-QA/psmdb-testing.git",
+                            branch: params.TESTING_BRANCH,
+                            poll: false
+                }
+            }
+        }
+    }
 }
