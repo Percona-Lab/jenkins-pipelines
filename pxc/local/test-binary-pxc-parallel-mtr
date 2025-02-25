@@ -65,7 +65,7 @@ cp -v -r ${PXB80_WORKDIR}/target/pxb-8.0/{bin,lib} ${WORKDIR_ABS}/PXC/bin/pxc_ex
 # Galera
 export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
 
-LOG_FILE=${WORKDIR_ABS}/mtr.log
+LOG_FILE=${WORKDIR_ABS}/mtr-test.log
 
 cd ${WORKDIR_ABS}/PXC/mysql-test
 TESTCASE_TIMEOUT=10
