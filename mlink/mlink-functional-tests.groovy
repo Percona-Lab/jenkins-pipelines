@@ -56,16 +56,17 @@ pipeline {
                                     fi
                                 """
 
-                                git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
-                                    
-                                dir('psmdb-testing') {
-                                    withCredentials([string(credentialsId: 'JNKPERCONA_TOKEN', variable: 'GIT_TOKEN')]) {
-                                        git url: "https://${GIT_TOKEN}@github.com/Percona-Lab/percona-mongolink.git",
-                                                branch: params.TESTING_BRANCH,
+                                dir('percona-mongolink') {
+                                   withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GIT_TOKEN')]) {
+                                        git url: "https://x-access-token:${GIT_TOKEN}@github.com/Percona-Lab/percona-mongolink.git",
+                                                branch: params.MLINK_BRANCH,
                                                 poll: false
                                     }
 
-                                    dir('mlink') {
+                                dir('psmdb-testing') {
+                                    git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
+                                }
+                                dir('psmdb-testing/mlink') {
                                         sh """
                                         docker-compose build
                                         docker-compose up -d
