@@ -428,8 +428,11 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
-                        docker ps --format "{{ .Names }}"
+                        containers = \$(docker ps --format "{{ .Names }}")
 
+                        for i in \$containers; do
+                            echo "\$i"
+                        done
                         sudo percona-release enable pmm3-client $CLIENT_REPOSITORY
                         sudo yum install -y pmm-client
                     """
