@@ -12,7 +12,7 @@ pipeline {
     }
     parameters {
         string(name: 'PSMDB', defaultValue: 'percona/percona-server-mongodb', description: 'PSMDB docker image')
-        string(name: 'MLINK_BRANCH', defaultValue: 'PML-66', description: 'Mongo Link Branch')
+        string(name: 'MLINK_BRANCH', defaultValue: 'PML-66P', description: 'Mongo Link Branch')
         string(name: 'GO_VER', defaultValue: '1.22-bullseye', description: 'GOLANG docker image for building PBM from sources')
         choice(name: 'instance', choices: ['docker-64gb','docker-64gb-aarch64'], description: 'Ec2 instance type for running tests')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
@@ -59,7 +59,7 @@ pipeline {
                                 git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                                     
                                 dir('psmdb-testing') {
-                                    withCredentials([string(credentialsId: 'JNKPERCONA_TOKEN', variable: 'GIT_TOKEN')]) {
+                                    withCredentials([string(credentialsId: 'JNKPercona', variable: 'GIT_TOKEN')]) {
                                         git url: "https://${GIT_TOKEN}@github.com/Percona-Lab/percona-mongolink.git",
                                                 branch: params.TESTING_BRANCH,
                                                 poll: false
