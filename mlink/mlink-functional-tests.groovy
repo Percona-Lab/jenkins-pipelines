@@ -59,7 +59,7 @@ pipeline {
                                 git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                                     
                                 dir('psmdb-testing') {
-                                    git poll: false, branch: params.MLINK_BRANCH, url: 'https://JNKPercona:${env.JNKPercona}@github.com/Percona-Lab/percona-mongolink.git'
+                                    git credentialsId: "${github_mlink_creds}", poll: false, branch: params.MLINK_BRANCH, url: 'https://github.com/Percona-Lab/percona-mongolink.git'
 
                                     dir('mlink') {
                                         sh """
@@ -100,20 +100,4 @@ pipeline {
 //            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: MLINK ${MLINK_BRANCH} with ${PSMDB} - unexpected failure [${BUILD_URL}]")
 //        }
 //    }
-}
-
-
-pipeline {
-    agent any
-    stages {
-        stage('Checkout') {
-            steps {
-                withCredentials([usernamePassword(credentialsId: 'git-credentials-id', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_PASS')]) {
-                    git url: "https://${GIT_USER}:${GIT_PASS}@github.com/Percona-QA/psmdb-testing.git",
-                            branch: params.TESTING_BRANCH,
-                            poll: false
-                }
-            }
-        }
-    }
 }
