@@ -12,7 +12,7 @@ pipeline {
     }
     parameters {
         string(name: 'PSMDB', defaultValue: 'percona/percona-server-mongodb', description: 'PSMDB docker image')
-        string(name: 'MLINK_BRANCH', defaultValue: 'main', description: 'Mongo Link Branch')
+        string(name: 'MLINK_BRANCH', defaultValue: 'PML-66', description: 'Mongo Link Branch')
         string(name: 'GO_VER', defaultValue: '1.22-bullseye', description: 'GOLANG docker image for building PBM from sources')
         choice(name: 'instance', choices: ['docker-64gb','docker-64gb-aarch64'], description: 'Ec2 instance type for running tests')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
