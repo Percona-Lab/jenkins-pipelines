@@ -38,6 +38,7 @@ docker run --rm --shm-size=${DOCKER_SHM_SIZE} \
     export MTR_STANDALONE_TESTS_PARALLEL='${MTR_STANDALONE_TESTS_PARALLEL}'
     export CI_FS_MTR='${CI_FS_MTR}'
     export DOCKER_OS='${DOCKER_OS//:/-}'
+    export WORKER_NO='${WORKER_NO}'
 
     mkdir /tmp/results
     cp /tmp/pxc/results/*.tar.gz /tmp/results
@@ -63,11 +64,13 @@ docker run --rm --shm-size=${DOCKER_SHM_SIZE} \
         sudo grep -A16 'Conditional jump or move depends on uninitialised' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-valgrind-ConditionalJump-w_${WORKER_NO}.log > /dev/null || :
         sudo grep -A16 'are definitely lost' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-valgrind-definitelyLost-w_${WORKER_NO}.log > /dev/null || :
         sudo grep -B128 -A128 'Invalid read of size' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-valgrind-InvalidRead-w_${WORKER_NO}.log > /dev/null || :
-        sudo grep -A16 'ERROR: .*Sanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-Sanitizers-w_${WORKER_NO}.log > /dev/null || :
-        sudo grep -A16 'ERROR: AddressSanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-AddressSanitizer-w_${WORKER_NO}.log > /dev/null || :
-        sudo grep -A16 'ERROR: LeakSanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-LeakSanitizer-w_${WORKER_NO}.log > /dev/null || :
     ;;
     esac
+
+    # todo: these are for asan
+    # sudo grep -A16 'ERROR: .*Sanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-Sanitizers-w_${WORKER_NO}.log > /dev/null || :
+    # sudo grep -A16 'ERROR: AddressSanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-AddressSanitizer-w_${WORKER_NO}.log > /dev/null || :
+    # sudo grep -A16 'ERROR: LeakSanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-LeakSanitizer-w_${WORKER_NO}.log > /dev/null || :
 
     sudo chown $(id -u):$(id -g) /tmp/pxc/results/* ||:
 "

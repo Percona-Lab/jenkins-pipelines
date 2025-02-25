@@ -10,6 +10,7 @@ BUILD_NUMBER_BINARIES_FOR_RERUN = 0
 BUILD_TRIGGER_BY = ''
 PXB24_PACKAGE_TO_DOWNLOAD = ''
 PXB80_PACKAGE_TO_DOWNLOAD = ''
+JOB_TO_REBUILD = 'pxc-8.0-pipeline-parallel-mtr'
 
 // We need this map to construct proper pxb tarball name
 OsToGlibcMap = [
@@ -422,7 +423,7 @@ void triggerAbortedTestWorkersRerun() {
             echo "rerun needed: $rerunNeeded"
             if (rerunNeeded) {
                 echo "restarting aborted workers"
-                build job: 'pxc-8.0-pipeline-valgrind',
+                build job: JOB_TO_REBUILD,
                 wait: false,
                 parameters: [
                     string(name:'BUILD_NUMBER_BINARIES', value: BUILD_NUMBER_BINARIES_FOR_RERUN),
@@ -469,6 +470,7 @@ if (params.ANALYZER_OPTS.contains('-DWITH_VALGRIND=ON'))
 // OK, this is hack to access AWS from as-1015cs-tnr which uses PS (not PXC) jenkins
 if (params.LABEL == 'as-1015cs-tnr') {
     AWS_CREDENTIALS_ID = 'c8b933cd-b8ca-41d5-b639-33fe763d3f68'
+    JOB_TO_REBUILD = 'pxc-8.0-pipeline-valgrind'
 }
 
 

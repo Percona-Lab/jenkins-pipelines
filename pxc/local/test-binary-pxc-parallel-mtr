@@ -13,9 +13,62 @@
 #      DOCKER_OS
 #      ANALYZER_OPTS = (-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_MSAN=ON -DWITH_UBSAN=ON -DWITH_VALGRIND=ON)
 #      CI_FS_MTR
+#      WORKER_NO
 
 set -o errexit
 set -o xtrace
+
+
+function executeSuites() {
+    local suites=$1
+    local extraOptions=$2
+    local parallel=$3
+    local worker="WORKER_${WORKER_NO}"
+
+    if [[ -z ${suites} ]]; then
+        return
+    fi
+
+    echo "Executing suites $suites"
+
+    df -h
+    du /dev/shm
+    mount
+    ls -la /dev/shm
+    cat /proc/meminfo
+
+    MTR_ARGS_NORMAL=${MTR_ARGS}
+
+    MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
+        --parallel=${parallel} \
+        --result-file \
+        --suite=$suites \
+        --suite-timeout=9999 \
+        --testcase-timeout=${TESTCASE_TIMEOUT} \
+        --force --mysqld-env="LD_PRELOAD=${MYSQLD_ENV}" \
+        --max-test-fail=0 \
+        ${MTR_ARGS_NORMAL} \
+        ${extraOptions} \
+        --junit-output=${WORKDIR_ABS}/junit_${worker}.xml \
+        --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${worker}" || true
+
+    ln -s $PWD/var $PWD/var_${worker}
+    which rsync
+    rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${worker} $PWD/mtr_var
+
+    killall -9 mysqld || true
+    rm -rf $PWD/var_${worker}
+
+    df -h
+    du -sh /dev/shm
+
+    end=`date +%s`
+    runtime=$((end-start))
+    echo KH,SUITES,${suites},time,$runtime
+}
+
+
+
 
 echo "*******************************************************"
 whoami
@@ -106,16 +159,19 @@ if [[ -n "${MTR_REPEAT}" ]]; then
 fi
 
 if [[ "${MTR_ARGS}" == *"--suite=max_parts"* ]]; then
-    TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 3))
+    TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 6))
 fi
 
 PARALLEL=$(grep -c ^processor /proc/cpuinfo)
+galera_extra_options=
 #
 # asan/valgrind
 if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
   MTR_ARGS+=" --valgrind --valgrind-clients --valgrind-option=--leak-check=full --valgrind-option=--show-leak-kinds=all"
+  galera_extra_options=" --only-combinations=enc_off"
   [[ ${OPENSSL_VER} < '1.0.2' ]] && export OPENSSL_ia32cap=~0x200000000000000
-  TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 3))
+  # No, MTR runner already has --testcase-timeout * 10
+  # TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 6))
   if [[ ${PARALLEL} -gt 1 ]]; then
     PARALLEL=$((PARALLEL/3))
   fi
@@ -147,12 +203,16 @@ fi
 # execute big tests in separate run
 BIG_TEST=0
 ONLY_BIG_TEST=0
+big_test_extra_option=
+only_big_test_extra_option=
 if [[ $MTR_ARGS == *"--big-test"* ]]; then
     BIG_TEST=1
+    big_test_extra_option="--big-test"
 fi
 if [[ $MTR_ARGS == *"--only-big-test"* ]]; then
     ONLY_BIG_TEST=1
     BIG_TEST=1
+    only_big_test_extra_option="--only-big-test"
 fi
 MTR_ARGS=${MTR_ARGS//"--big-test"/""}
 MTR_ARGS=${MTR_ARGS//"--only-big-test"/""}
@@ -202,12 +262,74 @@ else
 fi
 ifconfig
 
+
+#
+# >>>> execute all unit tests at the beginning with main.1st
+if [[ $UNIT_TESTS == "1" ]]; then
+    tests="main.1st"
+    suiteNoSlash="UNIT_TESTS"
+    echo "Executing unit tests with $tests"
+
+    df -h
+    du /dev/shm
+    mount
+    ls -la /dev/shm
+    cat /proc/meminfo
+    start=`date +%s`
+
+    if [[ "${KEYRING_VAULT_MTR}" == 'yes' ]]; then
+        MTR_VAULT_ARRAY=(
+            MTR_VAULT_ADDRESS=${VAULT_V2_DEV_ADDRESS}
+            MTR_VAULT_ADMIN_TOKEN=${VAULT_V2_DEV_ROOT_TOKEN}
+            MTR_VAULT_PLUGIN_TOKEN=${VAULT_V2_DEV_MTR_TOKEN}
+            MTR_VAULT_VERSION=2
+        )
+    fi
+
+    pushd ${BUILD_DIR}/mysql-test
+    env "${MTR_VAULT_ARRAY[@]}" MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
+        --parallel=${PARALLEL} \
+        --result-file \
+        --unit-tests-report \
+        ${tests} \
+        ${MTR_ARGS} \
+        --force \
+        --max-test-fail=0 \
+        --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
+        --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" || true
+    popd
+
+    ln -s ${BUILD_DIR}/mysql-test/var $PWD/var_${suiteNoSlash}
+    which rsync
+    rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
+
+    killall -9 mysqld || true
+    rm -rf $PWD/var_${suiteNoSlash}
+
+    df -h
+    du -sh /dev/shm
+
+    end=`date +%s`
+    runtime=$((end-start))
+    echo KH,UNIT_TESTS,${tests},time,$runtime
+fi
+
+#
+# Execute MTR tests
 mkdir mtr_var
 
+suitesNormal=
+suitesBig=
+suitesSmall=
+suitesGaleraNormal=
+suitesGaleraBig=
+suitesGaleraSmall=
+
+# collect suites
 ARRAY_MTR_SUITES=($(echo $MTR_SUITES | sed 's/,/ /g'))
 for suite in "${ARRAY_MTR_SUITES[@]}"; do
-    only_big_tests_this=$ONLY_BIG_TEST
-    big_tests_this=$BIG_TEST
+    only_big_tests_this=0
+    only_small_tests_this=0
 
     # suite may be in form:
     # main
@@ -218,147 +340,81 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
     big=${arrSuite[1]}
 
     if [[ "${big}" == "big" ]]; then
-        only_big_tests_this=1
-        # if big tests are executed or not depends on --big-tests
-    fi
-    if [[ "${big}" == "nobig" ]]; then
-        # if normal tests are executed or not depends on --big-tests
-        big_tests_this=0
-    fi
-
-    if [[ "$suite" == *"galera"* || "${suite}" == "wsrep" ]]; then
-        WORKERS=${GALERA_PARALLEL_RUN}
-    else
-        WORKERS=${PARALLEL}
-    fi
-
-    # For replication suites, use less workers. Let's say 3 cpus per worker...
-    if [[ "${suite}" == "group_replication" || "${suite}" == *rpl* ]]; then
-        if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
-          echo "Limiting workers count for suite ${suite} skipped. Already limited for Valgrind to ${WORKERS}"        
-        else
-          WORKERS=$((PARALLEL/3))        
-          # ...but not less than GALERA_PARALLEL_RUN (to have it still configurable via Jenkins UI)
-          if [[ ${WORKERS} -lt ${GALERA_PARALLEL_RUN} ]]; then
-            WORKERS=${GALERA_PARALLEL_RUN}
-          fi
-          echo "Limiting workers count for suite ${suite} to ${WORKERS}"
+        if [[ $BIG_TEST == 0 ]]; then
+            continue
         fi
+        only_big_tests_this=1
+        # only big
+    elif [[ "${big}" == "nobig" ]]; then
+        # only nobig
+        if [[ $ONLY_BIG_TEST == 1 ]]; then
+            continue
+        fi
+        only_small_tests_this=1
+    else
+        # normal (big + nobig)
+        only_big_tests_this=0
+        only_small_tests_this=0
     fi
-    
 
-    ONLY_COMBINATIONS=
-    # our implementation of GCache encryption is not compatible with Valgrind. We heavily use sigsegv signal and Valgrind does the same.
     if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
       if [[ "$suite" == "galera_encryption" ]]; then
         echo "Skipping $suite suite for Valgrind build"
         continue
       fi
-      if [[ "${suite}" == "galera" || "${suite}" == "galera_3nodes" || "${suite}" == "galera_3nodes_nbo" || "${suite}" == "galera_3nodes_sr" || "${suite}" == "galera_nbo" || "${suite}" == "galera_sr" || "${suite}" == "wsrep" ]]; then
-        echo "Adding MTR option ${ONLY_COMBINATIONS} for suite ${suite}"
-        ONLY_COMBINATIONS=--only-combinations=enc_off     
-      fi
     fi
 
-      
-    suiteNoSlash=${suite//"/"/"_"}
-    echo "Running MTR suite: $suite (noslash: $suiteNoSlash)"
-
-    start=`date +%s`
-
-    if [[ $only_big_tests_this == "0" ]]; then
-        echo "Executing normal tests for suite $suite"
-
-        df -h
-        du /dev/shm
-        mount
-        ls -la /dev/shm
-        cat /proc/meminfo
-
-        MTR_ARGS_NORMAL=${MTR_ARGS}
-
-        if [[ $UNIT_TESTS == "1" ]]; then
-            MTR_ARGS_NORMAL+=" --unit-tests-report"
-            UNIT_TESTS=0
+    if [[ $only_big_tests_this == "1" ]]; then
+        if [[ "$suite" == *"galera"* || "${suite}" == "wsrep" ]]; then
+            suitesGaleraBig+="$suite,"
+        else
+            suitesBig+="$suite,"
         fi
-
-        MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
-            --result-file --suite=$suite \
-            --force ${MYSQLD_ENV} \
-            --max-test-fail=0 \
-            --suite-timeout=9999 --parallel=${WORKERS} \
-            --port-group-size=20 \
-            --testcase-timeout=${TESTCASE_TIMEOUT} \
-            ${MTR_ARGS_NORMAL} \
-            ${ONLY_COMBINATIONS} \
-            --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
-            --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" | tee -a ${LOG_FILE} || true
-
-        end=`date +%s`
-        runtime=$((end-start))
-        echo KH,SUITE_NOBIG,${suite},time,$runtime
-
-        ln -s $PWD/var $PWD/var_${suiteNoSlash}
-        rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
-
-        killall -9 mysqld || true
-        rm -rf $PWD/var_${suiteNoSlash}
-
-        df -h
-        du -sh /dev/shm
-    fi
-
-    if [[ $big_tests_this == "1" ]]; then
-        start_big=`date +%s`
-        echo "Executing big tests for suite $suite"
-        MTR_ARGS_BIG=${MTR_ARGS}
-        MTR_ARGS_BIG+=" --only-big-test"
-        suiteNoSlash+="_bigtest"
-        TESTCASE_TIMEOUT_BIG=$((TESTCASE_TIMEOUT * 2))
-
-        if [[ $UNIT_TESTS == "1" ]]; then
-            MTR_ARGS_BIG+=" --unit-tests-report"
-            UNIT_TESTS=0
+    elif [[ $only_small_tests_this == "1" ]]; then
+        if [[ "$suite" == *"galera"* || "${suite}" == "wsrep" ]]; then
+            suitesGaleraSmall+="$suite,"
+        else
+            suitesSmall+="$suite,"
         fi
-
-        MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
-            --result-file --suite=$suite \
-            --force ${MYSQLD_ENV} \
-            --max-test-fail=0 \
-            --suite-timeout=9999 --parallel=${WORKERS} \
-            --port-group-size=20 \
-            --testcase-timeout=${TESTCASE_TIMEOUT_BIG} \
-            ${MTR_ARGS_BIG} \
-            ${ONLY_COMBINATIONS} \
-            --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
-            --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" | tee -a ${LOG_FILE} || true
-
-
-        end=`date +%s`
-        runtime=$((end-start_big))
-        echo KH,SUITE_BIG,${suite},time,$runtime
-
-        ln -s $PWD/var $PWD/var_${suiteNoSlash}
-        rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
-
-        killall -9 mysqld || true
-        rm -rf $PWD/var_${suiteNoSlash}
-
-        df -h
-        du -sh /dev/shm
+    else
+        if [[ "$suite" == *"galera"* || "${suite}" == "wsrep" ]]; then
+            suitesGaleraNormal+="$suite,"
+        else
+            suitesNormal+="$suite,"
+        fi
     fi
-
-    end=`date +%s`
-    runtime=$((end-start))
-    echo KH,SUITE_TOTAL,${suite},time,$runtime
-
 done
+
+echo "MTR normal suites: $suitesNormal"
+echo "MTR big suites: $suitesBig"
+echo "MTR small suites: $suitesSmall"
+echo "MTR galera normal suites: $suitesGaleraNormal"
+echo "MTR galera big suites: $suitesGaleraBig"
+echo "MTR galera small suites: $suitesGaleraSmall"
+
+# Execute suites
+start=`date +%s`
+
+executeSuites "$suitesNormal" "${big_test_extra_option}" "${PARALLEL}"
+executeSuites "$suitesBig" "--only-big-test" "${PARALLEL}"
+executeSuites "$suitesSmall" "" "${PARALLEL}"
+# For galera tests, force --parallel force the value via 2nd parameter
+executeSuites "$suitesGaleraNormal" "${big_test_extra_option} $galera_extra_options --parallel=${GALERA_PARALLEL_RUN}" "${GALERA_PARALLEL_RUN}"
+executeSuites "$suitesGaleraBig" "--only-big-test $galera_extra_options --parallel=${GALERA_PARALLEL_RUN}" "${GALERA_PARALLEL_RUN}"
+executeSuites "$suitesGaleraSmall" "$galera_extra_options --parallel=${GALERA_PARALLEL_RUN}" "${GALERA_PARALLEL_RUN}"
 
 #
 # CI FS tests
 if [[ "${CI_FS_MTR}" = 'yes' ]]; then
     echo "Running CI FS tests"
     start=`date +%s`
+
+    # For CIFS tests we have a small disk. Limit the parallel option, even if
+    # it was explicitly set in MTR_ARGS
+    if [[ ${PARALLEL} -gt 10 ]]; then
+    echo "Limit parallel ${PARALLEL} -> 10"
+    PARALLEL=10
+    fi
 
     # no --mem allowed if vardir specified
     MTR_ARGS=${MTR_ARGS//"--mem"/""}
@@ -388,11 +444,11 @@ if [[ "${CI_FS_MTR}" = 'yes' ]]; then
         --force ${MYSQLD_ENV} \
         --max-test-fail=0 \
         --suite-timeout=9999 \
-        --parallel=${PARALLEL} \
         --testcase-timeout=${TESTCASE_TIMEOUT} \
         ${MTR_ARGS} \
         --tmpdir="/tmp/ps_mtr_tempdir" \
         --vardir="/tmp/ci_disk_dir/var" \
+        --parallel=${PARALLEL} \
         ${CI_TESTS} \
         --junit-output=${WORKDIR_ABS}/junit_ci_fs.xml \
         --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.ci_fs" | tee -a ${LOG_FILE} || true
@@ -419,8 +475,6 @@ if [[ -n "${MTR_STANDALONE_TESTS}" ]]; then
     ls -la /dev/shm
     cat /proc/meminfo
 
-    MTR_ARGS_NORMAL=${MTR_ARGS}
-
     MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
         --result-file \
         --force ${MYSQLD_ENV} \
@@ -428,7 +482,7 @@ if [[ -n "${MTR_STANDALONE_TESTS}" ]]; then
         --suite-timeout=9999 --parallel=${MTR_STANDALONE_TESTS_PARALLEL} \
         --port-group-size=20 \
         --testcase-timeout=${TESTCASE_TIMEOUT} \
-        ${MTR_ARGS_NORMAL} \
+        ${MTR_ARGS} \
         --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
         --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" ${MTR_STANDALONE_TESTS} | tee -a ${LOG_FILE} || true
 
