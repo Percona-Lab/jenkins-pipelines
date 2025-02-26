@@ -223,7 +223,7 @@ void runTest(Integer TEST_ID) {
                     cd source
 
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pg-operator
-                    export IMAGE=$IMAGE_OPERATOR
+                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                     export PG_VER=$PG_VER
                     export IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
                     export IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
@@ -283,7 +283,7 @@ void makeReport() {
     pipelineParameters = """
         testsuite name=$JOB_NAME
         PG_VER=$PG_VER
-        [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
+        IMAGE_OPERATOR=$IMAGE_OPERATOR
         IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
         IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
         IMAGE_BACKREST=$IMAGE_BACKREST
