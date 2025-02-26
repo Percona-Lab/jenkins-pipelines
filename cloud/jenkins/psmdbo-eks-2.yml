@@ -1,5 +1,5 @@
 - job:
-    name: psmdbo-eks
+    name: psmdbo-eks-2
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/psmdbo-eks.groovy
+      script-path: cloud/jenkins/psmdbo_eks.groovy
