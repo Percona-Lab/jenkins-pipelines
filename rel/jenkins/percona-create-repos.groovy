@@ -37,19 +37,37 @@ pipeline {
     }
     stages {
         stage('Create YUM repo') {
-            steps {
-                createRepo(REPO_NAME, 'yum', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT)
-            }
+             steps {
+                script {
+                    if (REPO_NAME.endsWith("pro")) {
+                        createRepoPrivate(REPO_NAME, 'yum', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT)
+                    } else {
+                        createRepo(REPO_NAME, 'yum', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT)
+                    }
+                }
+             }
         }
         stage('Create APT repo') {
-            steps {
-                createRepo(REPO_NAME, 'apt', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT)
-            }
+             steps {
+                script {
+                    if (REPO_NAME.endsWith("pro")) {
+                        createRepoPrivate(REPO_NAME, 'apt', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT)
+                    } else {
+                        createRepo(REPO_NAME, 'apt', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT)
+                    }
+                }
+             }
         }
         stage('Sync repo to production') {
-            steps {
-                syncRepo(REPO_NAME)
-            }
+             steps {
+                script {
+                    if (REPO_NAME.endsWith("pro")) {
+                        syncRepoPrivate(REPO_NAME)
+                    } else {
+                        syncRepo(REPO_NAME)
+                    }
+                }
+             }
         }
 
     }
