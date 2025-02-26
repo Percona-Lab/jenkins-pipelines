@@ -452,11 +452,6 @@ pipeline {
                                 ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                                 docker exec \$i kill \$ps_process_id
                                 docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
-                            elif [[ \$i == *"redis"* ]]; then
-                                docker exec \$i percona-release enable pmm3-client \$UPGRADE_TAG
-                                docker exec \$i apt install -y pmm-client
-                                docker exec \$i sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
-                                docker exec \$i systemctl restart pmm-agent
                             fi
                         done
                         sudo percona-release enable pmm3-client $CLIENT_REPOSITORY
