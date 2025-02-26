@@ -283,7 +283,7 @@ void makeReport() {
     pipelineParameters = """
         testsuite name=$JOB_NAME
         PG_VER=$PG_VER
-        IMAGE_OPERATOR=$IMAGE_OPERATOR
+        [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
         IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
         IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
         IMAGE_BACKREST=$IMAGE_BACKREST
