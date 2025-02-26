@@ -229,7 +229,7 @@ MTR_ARGS=${MTR_ARGS//"--unit-tests-report"/""}
 status=0
 
 #
-# Running MTR test cases
+# adjustments for Valgrind
 if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
     MYSQLD_ENV=--mysqld-env=\"LD_PRELOAD=${ADD_TO_LD_PRELOAD:-}${EATMYDATA}\"
 else
@@ -262,6 +262,7 @@ else
 fi
 ifconfig
 
+mkdir mtr_var
 
 #
 # >>>> execute all unit tests at the beginning with main.1st
@@ -286,7 +287,6 @@ if [[ $UNIT_TESTS == "1" ]]; then
         )
     fi
 
-    pushd ${BUILD_DIR}/mysql-test
     env "${MTR_VAULT_ARRAY[@]}" MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
         --parallel=${PARALLEL} \
         --result-file \
@@ -297,9 +297,8 @@ if [[ $UNIT_TESTS == "1" ]]; then
         --max-test-fail=0 \
         --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
         --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" || true
-    popd
 
-    ln -s ${BUILD_DIR}/mysql-test/var $PWD/var_${suiteNoSlash}
+    ln -s $PWD/var $PWD/var_${suiteNoSlash}
     which rsync
     rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
 
@@ -316,8 +315,6 @@ fi
 
 #
 # Execute MTR tests
-mkdir mtr_var
-
 suitesNormal=
 suitesBig=
 suitesSmall=
