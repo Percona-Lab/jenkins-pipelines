@@ -14,7 +14,7 @@ pipeline {
         buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
     }
     triggers {
-        cron('0 15 * * 7')
+        cron('0 15 * * 6')
     }
     stages {
         stage("Run parallel") {
