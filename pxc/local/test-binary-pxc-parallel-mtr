@@ -50,7 +50,7 @@ function executeSuites() {
         ${MTR_ARGS_NORMAL} \
         ${extraOptions} \
         --junit-output=${WORKDIR_ABS}/junit_${worker}.xml \
-        --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${worker}" || true
+        --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${worker}"  | tee -a ${LOG_FILE} || true
 
     ln -s $PWD/var $PWD/var_${worker}
     which rsync
