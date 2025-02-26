@@ -18,5 +18,5 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxco-eks.groovy
+      script-path: cloud/jenkins/pxco_eks.groovy
 

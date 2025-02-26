@@ -1,10 +1,8 @@
 - job:
-    name: weekly-psmdbo
+    name: psmdbo-eks-1
     project-type: pipeline
     description: |
         Do not edit this job through the web!
-    triggers:
-      - timed: "0 15 * * 6"
     pipeline-scm:
       scm:
         - git:
@@ -13,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/weekly-psmdbo.groovy
+      script-path: cloud/jenkins/psmdbo_eks.groovy

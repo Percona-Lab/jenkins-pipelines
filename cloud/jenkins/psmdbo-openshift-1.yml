@@ -1,10 +1,8 @@
 - job:
-    name: pxc-operator-latest-scheduler
+    name: psmdbo-openshift-1
     project-type: pipeline
     description: |
         Do not edit this job through the web!
-    triggers:
-      - timed: "0 8 * * 6"
     pipeline-scm:
       scm:
         - git:
@@ -13,5 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxc-operator-latest-scheduler.groovy
-
+      script-path: cloud/jenkins/psmdbo_openshift.groovy

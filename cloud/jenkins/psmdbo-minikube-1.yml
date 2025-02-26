@@ -1,5 +1,5 @@
 - job:
-    name: psmdbo-gke-2
+    name: psmdbo-minikube-1
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -18,4 +18,4 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/psmdbo-gke.groovy
+      script-path: cloud/jenkins/psmdbo_minikube.groovy
