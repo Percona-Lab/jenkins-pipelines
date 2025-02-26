@@ -1,5 +1,5 @@
 - job:
-    name: pgo-minikube
+    name: pgo-minikube-1
     project-type: pipeline
     description: |
         Do not edit this job through the web!
