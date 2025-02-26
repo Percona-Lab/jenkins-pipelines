@@ -1,5 +1,5 @@
 - job:
-    name: pgo-gke
+    name: pgo-openshift-1
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -19,4 +19,4 @@
             branches: ["master"]
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pgo_gke.groovy
+      script-path: cloud/jenkins/pgo_openshift.groovy

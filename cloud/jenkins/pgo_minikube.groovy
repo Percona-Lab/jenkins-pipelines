@@ -173,7 +173,6 @@ void runTest(Integer TEST_ID) {
                 sh """
                     cd source
 
-                    export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pg-operator
                     export IMAGE=$IMAGE_OPERATOR
                     export PG_VER=$PG_VER

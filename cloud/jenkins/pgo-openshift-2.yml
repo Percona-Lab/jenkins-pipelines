@@ -1,5 +1,5 @@
 - job:
-    name: pgo-os-2
+    name: pgo-openshift-2
     project-type: pipeline
     description: |
         Do not edit this job through the web!
