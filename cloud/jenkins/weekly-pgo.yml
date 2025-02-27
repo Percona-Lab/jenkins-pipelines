@@ -4,7 +4,7 @@
     description: |
         Do not edit this job through the web!
     triggers:
-      - timed: "0 6 * * 3"
+      - timed: "0 15 * * 0"
     pipeline-scm:
       scm:
         - git:
