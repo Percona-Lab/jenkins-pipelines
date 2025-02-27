@@ -160,7 +160,9 @@ void initTests() {
     withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret.yml
             cp $CLOUD_MINIO_SECRET_FILE source/e2e-tests/conf/cloud-secret-minio-gw.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret-minio-gw.yml
         """
     }
     stash includes: "source/**", name: "sourceFILES"
