@@ -143,7 +143,6 @@ void initTests() {
             cp $CLOUD_MINIO_SECRET_FILE source/e2e-tests/conf/cloud-secret-minio-gw.yml
         """
     }
-    }
 }
 
 void clusterRunner(String cluster) {
@@ -316,6 +315,11 @@ pipeline {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
                 }
             }
+            sh """
+                sudo docker system prune --volumes -af
+                sudo rm -rf *
+            """
+            deleteDir()
         }
     }
 }

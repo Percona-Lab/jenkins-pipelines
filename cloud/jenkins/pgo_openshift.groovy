@@ -467,6 +467,11 @@ pipeline {
 
                 clusters.each { shutdownCluster(it) }
             }
+            sh """
+                sudo docker system prune --volumes -af
+                sudo rm -rf *
+            """
+            deleteDir()
         }
     }
 }
