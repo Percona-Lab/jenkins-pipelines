@@ -33,7 +33,7 @@ pipeline {
                 axes {
                     axis {
                         name 'TEST'
-                        values 'replicaset', 'shard'
+                        values '6.0', '7.0', '8.0'
                     }
                 }
                 stages {
@@ -68,10 +68,11 @@ pipeline {
                                 }
 
                                 sh """
+                                    MONGODB_IMAGE = percona/percona-server-mongodb:${TEST}
                                     cd psmdb-testing/mlink
                                     docker-compose build
                                     docker-compose up -d
-                                    docker-compose run test pytest test_basic_sync_rs.py -v -s --junitxml=junit.xml -k ${TEST} || true
+                                    docker-compose run test pytest -v -s --junitxml=junit.xml || true
                                     docker-compose down -v --remove-orphans
                                     curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "Mongo Link branch": "${MLINK_BRANCH}","PSMDB docker image": "${PSMDB}","instance": "${instance}"}};type=application/json' -i || true
                                 """
@@ -95,13 +96,13 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: MLINK ${MLINK_BRANCH} with ${PSMDB} - all tests passed")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PML ${MLINK_BRANCH} - all tests passed")
         }
         unstable {
-            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: MLINK ${MLINK_BRANCH} with ${PSMDB} - some tests failed [${BUILD_URL}testReport/]")
+            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: PML ${MLINK_BRANCH} - some tests failed [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: MLINK ${MLINK_BRANCH} with ${PSMDB} - unexpected failure [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: PML ${MLINK_BRANCH} - unexpected failure [${BUILD_URL}]")
         }
     }
 }
