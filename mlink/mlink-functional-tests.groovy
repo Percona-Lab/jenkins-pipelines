@@ -9,7 +9,6 @@ pipeline {
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
-        MONGODB_IMAGE = ''
     }
     parameters {
         string(name: 'MLINK_BRANCH', defaultValue: 'main', description: 'Mongo Link Branch')
@@ -32,7 +31,7 @@ pipeline {
                 }
                 axes {
                     axis {
-                        name 'TEST'
+                        name 'MONGODB_IMAGE'
                         values '6.0', '7.0', '8.0'
                     }
                 }
@@ -68,8 +67,6 @@ pipeline {
                                 }
 
                                 sh """
-                                    echo ${TEST}
-                                    MONGODB_IMAGE=percona/percona-server-mongodb:${TEST}
                                     cd psmdb-testing/mlink
                                     docker-compose build
                                     docker-compose up -d
