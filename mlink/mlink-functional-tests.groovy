@@ -67,7 +67,7 @@ pipeline {
                                 }
 
                                 sh """
-                                    MONGODB_IMAGE = percona/percona-server-mongodb:${TEST}
+                                    export MONGODB_IMAGE=percona/percona-server-mongodb:${TEST}
                                     cd psmdb-testing/mlink
                                     docker-compose build
                                     docker-compose up -d
