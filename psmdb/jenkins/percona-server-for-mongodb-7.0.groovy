@@ -572,6 +572,76 @@ pipeline {
             }
         }
 
+        stage('Build docker containers') {
+            agent {
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+            }
+            steps {
+                script {
+                    if (env.FIPSMODE == 'YES') {
+                        echo "The step is skipped"
+                    } else {
+                        echo "====> Build docker containers"
+                        cleanUpWS()
+                        sh '''
+                            sleep 1200
+                        '''
+                        unstash 'uploadPath'
+                        sh '''
+                            sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+                            sudo apt-get install -y docker.io
+                            sudo systemctl status docker
+                            sudo apt-get install -y qemu binfmt-support qemu-user-static
+                            sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+                            git clone https://github.com/percona/percona-docker
+                            cd percona-docker/percona-server-mongodb-8.0
+                            sed -i "s/ENV PSMDB_VERSION.*/ENV PSMDB_VERSION ${PSMDB_VERSION}-${PSMDB_RELEASE}/g" Dockerfile
+                            sed -i "s/ENV PSMDB_REPO.*/ENV PSMDB_REPO ${COMPONENT}/g" Dockerfile
+                            sudo docker build --no-cache --platform "linux/amd64" -t perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE} .
+
+                            sed -i "s/ENV PSMDB_VERSION.*/ENV PSMDB_VERSION ${PSMDB_VERSION}-${PSMDB_RELEASE}/g" Dockerfile.aarch64
+                            sed -i "s/ENV PSMDB_REPO.*/ENV PSMDB_REPO ${COMPONENT}/g" Dockerfile.aarch64
+                            sudo docker build --no-cache -t perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-aarch64 --platform="linux/arm64" -f Dockerfile.aarch64 .
+
+                            sudo docker images
+                        '''
+                        withCredentials([
+                            usernamePassword(credentialsId: 'hub.docker.com',
+                            passwordVariable: 'PASS',
+                            usernameVariable: 'USER'
+                            )]) {
+                            sh '''
+                                echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
+                                sudo docker push perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}
+                                sudo docker push perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-aarch64
+
+                                PSMDB_MAJOR_VERSION=$(echo $PSMDB_VERSION | cut -d'.' -f1)
+                                PSMDB_MINOR_VERSION=$(echo $PSMDB_VERSION | cut -d'.' -f2)
+                                PSMDB_PATCH_VERSION=$(echo $PSMDB_VERSION | cut -d'.' -f3)
+                                sudo docker manifest create perconalab/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}.${PSMDB_PATCH_VERSION} \
+                                    perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE} \
+                                    perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-aarch64
+                                sudo docker manifest annotate perconalab/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}.${PSMDB_PATCH_VERSION} perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-aarch64 --os linux --arch arm64 --variant v8
+                                sudo docker manifest annotate perconalab/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}.${PSMDB_PATCH_VERSION} perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE} --os linux --arch amd64
+                                sudo docker manifest inspect perconalab/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}.${PSMDB_PATCH_VERSION}
+
+                                sudo docker manifest create perconalab/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION} \
+                                    perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE} \
+                                    perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-aarch64
+                                sudo docker manifest annotate perconalab/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION} perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-aarch64 --os linux --arch arm64 --variant v8
+                                sudo docker manifest annotate perconalab/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION} perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE} --os linux --arch amd64
+                                sudo docker manifest inspect perconalab/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}
+
+                                sudo docker manifest push perconalab/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}.${PSMDB_PATCH_VERSION}
+                                sudo docker manifest push perconalab/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}
+
+                            '''
+                           }
+                    }
+                }
+            }
+        }
+
     }
     post {
         success {
