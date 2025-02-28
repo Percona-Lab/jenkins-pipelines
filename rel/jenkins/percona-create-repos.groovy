@@ -28,6 +28,10 @@ pipeline {
             defaultValue: '5',
             description: 'Limit',
             name: 'LIMIT')
+        choice(
+            choices: 'NO\nYES',
+            description: 'PRO build repo',
+            name: 'PROBUILD')
     }
     options {
         skipDefaultCheckout()
@@ -38,17 +42,17 @@ pipeline {
     stages {
         stage('Create YUM repo') {
             steps {
-                createRepo(REPO_NAME, 'yum', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT)
+                createRepo(REPO_NAME, 'yum', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT, PROBUILD)
             }
         }
         stage('Create APT repo') {
             steps {
-                createRepo(REPO_NAME, 'apt', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT)
+                createRepo(REPO_NAME, 'apt', COMPONENTS, CENTOS_VERSIONS, DEB_CODE_NAMES, LIMIT, PROBUILD)
             }
         }
         stage('Sync repo to production') {
             steps {
-                syncRepo(REPO_NAME)
+                syncRepo(REPO_NAME, PROBUILD)
             }
         }
 
