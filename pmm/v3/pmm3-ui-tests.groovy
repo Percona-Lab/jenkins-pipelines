@@ -32,9 +32,9 @@ pipeline {
         GCP_MYSQL80_HOST=credentials('GCP_MYSQL80_HOST');
         GCP_MYSQL80_USER=credentials('GCP_MYSQL80_USER');
         GCP_MYSQL80_PASSWORD=credentials('GCP_MYSQL80_PASSWORD');
-        GCP_MYSQL56_HOST=credentials('GCP_MYSQL84_HOST');
-        GCP_MYSQL56_USER=credentials('GCP_MYSQL84_USER');
-        GCP_MYSQL56_PASSWORD=credentials('GCP_MYSQL84_PASSWORD');
+        GCP_MYSQL84_HOST=credentials('GCP_MYSQL84_HOST');
+        GCP_MYSQL84_USER=credentials('GCP_MYSQL84_USER');
+        GCP_MYSQL84_PASSWORD=credentials('GCP_MYSQL84_PASSWORD');
         GCP_PGSQL13_HOST=credentials('GCP_PGSQL13_HOST');
         GCP_PGSQL13_USER=credentials('GCP_PGSQL13_USER');
         GCP_PGSQL13_PASSWORD=credentials('GCP_PGSQL13_PASSWORD');
