@@ -32,8 +32,7 @@ pipeline {
                 axes {
                     axis {
                         name 'MONGODB_IMAGE'
-                        values 'percona/percona-server-mongodb:6.0'
-//                        , 'percona/percona-server-mongodb:7.0', 'percona/percona-server-mongodb:8.0'
+                        values 'percona/percona-server-mongodb:6.0', 'percona/percona-server-mongodb:7.0', 'percona/percona-server-mongodb:8.0'
                     }
                 }
                 stages {
