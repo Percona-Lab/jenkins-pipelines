@@ -251,7 +251,7 @@ void runTest(Integer TEST_ID) {
                         [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pg-operator
                         [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                         export PG_VER=$PG_VER
-                        if [[ $IMAGE_POSTGRESQL ]]; then 
+                        if [[ "$IMAGE_POSTGRESQL" ]]; then
                             export IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
                             export PG_VER=\$(echo \$IMAGE_POSTGRESQL | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
                         fi
