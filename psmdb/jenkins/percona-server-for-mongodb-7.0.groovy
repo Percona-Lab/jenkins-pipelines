@@ -594,7 +594,7 @@ pipeline {
                             sudo apt-get install -y qemu binfmt-support qemu-user-static
                             sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                             git clone https://github.com/percona/percona-docker
-                            cd percona-docker/percona-server-mongodb-8.0
+                            cd percona-docker/percona-server-mongodb-7.0
                             sed -i "s/ENV PSMDB_VERSION.*/ENV PSMDB_VERSION ${PSMDB_VERSION}-${PSMDB_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PSMDB_REPO.*/ENV PSMDB_REPO ${COMPONENT}/g" Dockerfile
                             sudo docker build --no-cache --platform "linux/amd64" -t perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE} .
