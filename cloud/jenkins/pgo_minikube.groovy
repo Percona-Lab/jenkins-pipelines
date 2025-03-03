@@ -140,9 +140,10 @@ void initTests() {
     withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret.yml
             cp $CLOUD_MINIO_SECRET_FILE source/e2e-tests/conf/cloud-secret-minio-gw.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret-minio-gw.yml
         """
-    }
     }
 }
 
@@ -178,7 +179,10 @@ void runTest(Integer TEST_ID) {
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pg-operator
                     [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
                     export PG_VER=$PG_VER
-                    export IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
+                    if [[ "$IMAGE_POSTGRESQL" ]]; then
+                        export IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
+                        export PG_VER=\$(echo \$IMAGE_POSTGRESQL | grep -Eo 'ppg[0-9]+'| sed 's/ppg//g')
+                    fi
                     export IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
                     export IMAGE_BACKREST=$IMAGE_BACKREST
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
@@ -316,6 +320,11 @@ pipeline {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
                 }
             }
+            sh """
+                sudo docker system prune --volumes -af
+                sudo rm -rf *
+            """
+            deleteDir()
         }
     }
 }
