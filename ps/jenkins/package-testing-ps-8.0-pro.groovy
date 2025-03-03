@@ -116,6 +116,27 @@ pipeline {
                         runNodeBuild("oracle-9")
                     }
                 }
+
+                stage("amazon linux 2023") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("amazon-linux-2023")
+                        }
+                    }
+                    steps {
+                        runNodeBuild("amazon-linux-2023")
+                    }
+                }
+                stage("amazon linux 2023 arm ") {
+                    when {
+                        expression {
+                            nodes_to_test.contains("amazon-linux-2023-arm")
+                        }
+                    }
+                    steps {
+                        runNodeBuild("amazon-linux-2023-arm")
+                    }
+                }
                 stage("Debian Bookworm") {
                     when {
                         expression {
