@@ -432,10 +432,9 @@ pipeline {
 
                         for i in \$containers; do
                             if [[ \$i == *"rs10"* ]]; then
-                                docker exec \$i percona-release enable pmm3-client \$UPGRADE_TAG
-                                docker exec \$i yum install -y pmm-client
-                                docker exec \$i sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
-                                docker exec \$i systemctl restart pmm-agent
+                                docker exec rs101 percona-release enable pmm3-client experimental
+                                docker exec rs101 yum install -y pmm-client
+                                docker exec rs101 systemctl restart pmm-agent
                             elif [[ \$i == *"proxysql"* ]]; then
                                 echo "PXC Name is: \$i name"
                             elif [[ \$i == *"pgsql"* ]]; then
