@@ -560,7 +560,7 @@ pipeline {
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                             sudo apt-get install -y docker.io
                             sudo systemctl status docker
-                            sudo apt-get install -y qemu binfmt-support qemu-user-static
+                            sudo apt-get install -y qemu-system binfmt-support qemu-user-static
                             sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                             git clone https://github.com/percona/percona-docker
                             cd percona-docker/percona-server-mongodb-8.0
