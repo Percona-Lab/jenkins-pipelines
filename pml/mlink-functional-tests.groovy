@@ -8,6 +8,7 @@ pipeline {
         label 'master'
     }
     environment {
+        GITHUB_TOKEN     = credentials('JNKPERCONA_TOKEN')
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
@@ -67,7 +68,7 @@ pipeline {
 //                                }
 
                                 sh """
-                                    git clone https://JNKPercona:${JNKPERCONA_TOKEN}@github.com/Percona-Lab/percona-mongolink.git
+                                    git clone https://JNKPercona:${GITHUB_TOKEN}@github.com/Percona-Lab/percona-mongolink.git
                                     cd psmdb-testing/mlink
                                     docker-compose build
                                     docker-compose up -d
