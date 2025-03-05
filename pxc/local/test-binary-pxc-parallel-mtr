@@ -307,6 +307,9 @@ if [[ $UNIT_TESTS == "1" ]]; then
 suitesNormal=
 suitesBig=
 suitesSmall=
+suitesReplicationNormal=
+suitesReplicationBig=
+suitesReplicationSmall=
 suitesGaleraNormal=
 suitesGaleraBig=
 suitesGaleraSmall=
@@ -353,18 +356,24 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
     if [[ $only_big_tests_this == "1" ]]; then
         if [[ "$suite" == *"galera"* || "${suite}" == "wsrep" ]]; then
             suitesGaleraBig+="$suite,"
+        elif [[ "${suite}" == "group_replication" || "${suite}" == *rpl* ]]; then
+            suitesReplicationBig+="$suite,"
         else
             suitesBig+="$suite,"
     fi
     elif [[ $only_small_tests_this == "1" ]]; then
         if [[ "$suite" == *"galera"* || "${suite}" == "wsrep" ]]; then
             suitesGaleraSmall+="$suite,"
+        elif [[ "${suite}" == "group_replication" || "${suite}" == *rpl* ]]; then
+            suitesReplicationSmall+="$suite,"
         else
             suitesSmall+="$suite,"
         fi
     else
         if [[ "$suite" == *"galera"* || "${suite}" == "wsrep" ]]; then
             suitesGaleraNormal+="$suite,"
+        elif [[ "${suite}" == "group_replication" || "${suite}" == *rpl* ]]; then
+            suitesReplicationNormal+="$suite,"
         else
             suitesNormal+="$suite,"
         fi
@@ -374,6 +383,9 @@ done
 echo "MTR normal suites: $suitesNormal"
 echo "MTR big suites: $suitesBig"
 echo "MTR small suites: $suitesSmall"
+echo "MTR replication normal suites: $suitesReplicationNormal"
+echo "MTR replication big suites: $suitesReplicationBig"
+echo "MTR replication small suites: $suitesReplicationSmall"
 echo "MTR galera normal suites: $suitesGaleraNormal"
 echo "MTR galera big suites: $suitesGaleraBig"
 echo "MTR galera small suites: $suitesGaleraSmall"
@@ -384,10 +396,24 @@ start=`date +%s`
 executeSuites "$suitesNormal" "${big_test_extra_option}" "${PARALLEL}"
 executeSuites "$suitesBig" "--only-big-test" "${PARALLEL}"
 executeSuites "$suitesSmall" "" "${PARALLEL}"
+
 # For galera tests, force --parallel force the value via 2nd parameter
 executeSuites "$suitesGaleraNormal" "${big_test_extra_option} $galera_extra_options --parallel=${GALERA_PARALLEL_RUN}" "${GALERA_PARALLEL_RUN}"
 executeSuites "$suitesGaleraBig" "--only-big-test $galera_extra_options --parallel=${GALERA_PARALLEL_RUN}" "${GALERA_PARALLEL_RUN}"
 executeSuites "$suitesGaleraSmall" "$galera_extra_options --parallel=${GALERA_PARALLEL_RUN}" "${GALERA_PARALLEL_RUN}"
+
+# For replication suites, use less workers. Let's say 3 cpus per worker...
+RPL_PARALLEL_RUN=$((PARALLEL/3))        
+# ...but not less than GALERA_PARALLEL_RUN (to have it still configurable via Jenkins UI)
+if [[ ${RPL_PARALLEL_RUN} -lt ${GALERA_PARALLEL_RUN} ]]; then
+  RPL_PARALLEL_RUN=${GALERA_PARALLEL_RUN}
+fi
+echo "Limiting workers count for replication suites to ${RPL_PARALLEL_RUN}"
+# For replication tests, force --parallel force the value via 2nd parameter
+executeSuites "$suitesReplicationNormal" "${big_test_extra_option} --parallel=${RPL_PARALLEL_RUN}" "${RPL_PARALLEL_RUN}"
+executeSuites "$suitesReplicationBig" "--only-big-test --parallel=${RPL_PARALLEL_RUN}" "${RPL_PARALLEL_RUN}"
+executeSuites "$suitesReplicationSmall" "--parallel=${RPL_PARALLEL_RUN}" "${RPL_PARALLEL_RUN}"
+
 
 #
 # CI FS tests
