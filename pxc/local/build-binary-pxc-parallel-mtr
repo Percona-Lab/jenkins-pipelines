@@ -143,6 +143,14 @@ fi
 # ------------------------------------------------------------------------------
 # Finaly, compile!
 # ------------------------------------------------------------------------------
+
+# CMAKE_OPTS may be like -DWITH_PERCONA_TELEMETRY=OFF-DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O1 -g"
+# Need to split it correctly
+if [[ -n "${CMAKE_OPTS}" ]]; then
+    eval set -- "${CMAKE_OPTS}"
+    CMAKE_ARGS+=("$@")
+fi
+
 pushd ${WORKDIR}
     ${JOB_CMAKE} \
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
@@ -175,7 +183,7 @@ pushd ${WORKDIR}
         -DMYSQL_MAINTAINER_MODE=ON \
         ${TARGET_CFLAGS:+-DCMAKE_C_FLAGS="${TARGET_CFLAGS}" -DCMAKE_CXX_FLAGS="${TARGET_CFLAGS}"} \
         ${ANALYZER_OPTS} \
-        ${CMAKE_OPTS} \
+        "${CMAKE_ARGS[@]}" \
         ${SOURCEDIR}
     make ${MAKE_OPTS}
     make DESTDIR=${INSTALL_DIR} install > make_install.log
