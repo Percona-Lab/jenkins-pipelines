@@ -7,13 +7,14 @@ ROOT_DIR=$(cd $(dirname $0)/../sources/pxc; pwd -P)
 SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
 SOURCE_IMAGE=${1:-centos:7}
 WORKER_NO=${2:-0}
+DOCKER_SHM_SIZE=${3:-32G}
 
 if [[ ${CI_FS_MTR} == 'yes' ]]; then
     CI_FS_DOCKER_FLAG="--mount type=bind,source=/mnt/ci_disk_dir_${CMAKE_BUILD_TYPE},destination=/tmp/ci_disk_dir"
 fi
 
-docker run --rm --shm-size=32G \
-    --tmpfs /dev/shm:rw,exec,size=32G \
+docker run --rm --shm-size=${DOCKER_SHM_SIZE} \
+    --tmpfs /dev/shm:rw,exec,size=${DOCKER_SHM_SIZE} \
     --security-opt seccomp=unconfined \
     --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
     --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxc \
@@ -37,6 +38,7 @@ docker run --rm --shm-size=32G \
     export MTR_STANDALONE_TESTS_PARALLEL='${MTR_STANDALONE_TESTS_PARALLEL}'
     export CI_FS_MTR='${CI_FS_MTR}'
     export DOCKER_OS='${DOCKER_OS//:/-}'
+    export WORKER_NO='${WORKER_NO}'
     export PXB_PREV_LTS_TARGET_DIR='${PXB_PREV_LTS_VERSION_TARGET_DIR}'
     export PXB_A_TARGET_DIR='${PXB_PREV_VERSION_TARGET_DIR}'
     export PXB_B_TARGET_DIR='${PXB_THIS_VERSION_TARGET_DIR}'
@@ -57,6 +59,22 @@ docker run --rm --shm-size=32G \
 
     sudo mv ./pxc80-test-mtr_logs-${WORKER_NO}.tar.gz /tmp/pxc/results/ ||:
     sudo mv /tmp/results/*.xml /tmp/pxc/results/ ||:
-    sudo mv /tmp/results/mtr.log /tmp/pxc/results/ ||:
-    sudo chown $(id -u):$(id -g) /tmp/pxc/results/*.xml ||:
+    sudo mv /tmp/results/mtr-test.log /tmp/pxc/results/mtr-test-w_${WORKER_NO}.log ||:
+
+    # In case of Valgrind build, do some more logs processing
+    case '${ANALYZER_OPTS}' in
+      *WITH_VALGRIND=ON*)
+        cd /tmp/pxc/results
+        sudo grep -A16 'Conditional jump or move depends on uninitialised' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-valgrind-ConditionalJump-w_${WORKER_NO}.log > /dev/null || :
+        sudo grep -A16 'are definitely lost' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-valgrind-definitelyLost-w_${WORKER_NO}.log > /dev/null || :
+        sudo grep -B128 -A128 'Invalid read of size' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-valgrind-InvalidRead-w_${WORKER_NO}.log > /dev/null || :
+    ;;
+    esac
+
+    # todo: these are for asan
+    # sudo grep -A16 'ERROR: .*Sanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-Sanitizers-w_${WORKER_NO}.log > /dev/null || :
+    # sudo grep -A16 'ERROR: AddressSanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-AddressSanitizer-w_${WORKER_NO}.log > /dev/null || :
+    # sudo grep -A16 'ERROR: LeakSanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-LeakSanitizer-w_${WORKER_NO}.log > /dev/null || :
+
+    sudo chown $(id -u):$(id -g) /tmp/pxc/results/* ||:
 "

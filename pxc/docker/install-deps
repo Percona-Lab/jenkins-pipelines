@@ -103,16 +103,6 @@ if [ -f /usr/bin/yum ]; then
     cyrus-sasl-devel cyrus-sasl-scram krb5-devel libudev-devel python3-pip python3-devel libevent-devel \
     "
   
-#  PKGLIST=" \
-#    gcc-c++ gperf ncurses-devel perl readline-devel openssl-devel jemalloc zip unzip \
-#    time zlib-devel libaio-devel bison cmake pam-devel jemalloc-devel valgrind \
-#    perl-Time-HiRes openldap-devel perl-Env perl-Data-Dumper libicu-devel perl-Sys-MemInfo \
-#    perl-JSON perl-Digest perl-Digest-MD5 \
-#    numactl-devel git which make rpm-build ccache libtool sudo libasan lz4-devel \
-#    libzstd-devel tzdata zstd mysql-devel perl-DBI perl-DBD-mysql jq openssl perl-XML-Simple libcurl-devel perl-Test-Simple \
-#    cyrus-sasl-devel cyrus-sasl-scram krb5-devel libudev-devel python3-pip python3-devel libevent-devel \
-#    "
-
   # PXC specific
   PKGLIST+=" libmicrohttpd-devel re2-devel check-devel scons libgcrypt-devel libev-devel vim-common \
     perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat qpress stunnel \
@@ -260,6 +250,10 @@ if [ -f /usr/bin/apt-get ]; then
     if [[ ${DIST} == "bookworm" ]] || [[ ${DIST} == "noble" ]]; then
         PKGLIST+=" gsasl-common libproc2-dev"
     else
+        # this is needed for qpress installation
+        curl https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb --output /tmp/prel.deb && dpkg -i /tmp/prel.deb && rm /tmp/prel.deb
+        percona-release enable-only tools testing
+
         PKGLIST+=" libgsasl7 libprocps-dev qpress"
     fi
 
@@ -271,7 +265,7 @@ if [ -f /usr/bin/apt-get ]; then
         PKGLIST+=" python"
     fi
 
-    if [[ ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' ]] && ${DIST} != 'noble' ]]; then
+    if [[ ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' && ${DIST} != 'noble' ]]; then
         PKGLIST+=" dh-systemd"
     fi
 
@@ -279,7 +273,7 @@ if [ -f /usr/bin/apt-get ]; then
         PKGLIST+=" libgflags-dev util-linux"
     fi
 
-    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' ]] && ${DIST} != 'noble' ]]; then
+    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' && ${DIST} != 'noble' ]]; then
         PKGLIST+=" python-mysqldb"
     else
         PKGLIST+=" python3-mysqldb"
@@ -327,14 +321,13 @@ if [ -f /usr/bin/apt-get ]; then
         PKGLIST+=" libre2-dev"
     fi
 
-
     until apt-get -y install ${PKGLIST}; do
         echo "waiting"
         sleep 1
     done
 
     # Install mysql-connector for QA framework run
-    if [[ ${DIST} != 'bookworm' ]] && ${DIST} != 'noble' ]]; then
+    if [[ ${DIST} != 'bookworm' ]] && [[ ${DIST} != 'noble' ]]; then
 	    pip3 install mysql-connector
     else
       pip3 install mysql-connector --break-system-packages

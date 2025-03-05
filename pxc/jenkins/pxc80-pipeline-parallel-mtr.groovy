@@ -8,6 +8,7 @@ S3_ROOT_DIR = 's3://pxc-build-cache'
 WORKER_ABORTED = new boolean[9]
 BUILD_NUMBER_BINARIES_FOR_RERUN = 0
 BUILD_TRIGGER_BY = ''
+JOB_TO_REBUILD = 'pxc-8.x-pipeline-parallel-mtr'
 
 // We need this map to construct proper pxb tarball name
 OsToGlibcMap = [
@@ -19,8 +20,6 @@ OsToGlibcMap = [
     "ubuntu:noble" : "2.35",
     "debian:bullseye" : "2.31",
     "debian:bookworm" : "2.35" ]
-
-def LABEL = 'docker-32gb'
 
 void uploadFileToS3(String SRC_FILE_PATH, String DST_DIRECTORY, String DST_FILE_NAME) {
     echo "Upload ${SRC_FILE_PATH} file to S3 ${S3_ROOT_DIR}/${DST_DIRECTORY}/${DST_FILE_NAME}. Max retries: ${MAX_S3_RETRIES}"
@@ -181,7 +180,7 @@ void prepareWorkspace() {
 
 void doTests(String WORKER_ID, String SUITES, String STANDALONE_TESTS = '', boolean UNIT_TESTS = false, boolean CIFS_TESTS = false) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: AWS_CREDENTIALS_ID, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
+        sh """#!/bin/bash
             echo "Starting MTR worker ${WORKER_ID}"
 
             if [[ "${CIFS_TESTS}" == "true" ]]; then
@@ -208,12 +207,13 @@ void doTests(String WORKER_ID, String SUITES, String STANDALONE_TESTS = '', bool
             MTR_STANDALONE_TESTS="${STANDALONE_TESTS}"
             export MTR_SUITES="${SUITES}"
 
-            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+            aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
+
             sg docker -c "
                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                     docker ps -q | xargs docker stop --time 1 || :
                 fi
-                ./pxc/docker/run-test-parallel-mtr ${DOCKER_OS} ${WORKER_ID}
+                ./pxc/docker/run-test-parallel-mtr ${DOCKER_OS} ${WORKER_ID} ${DOCKER_SHM_SIZE}
             "
         """
     }  // withCredentials
@@ -263,9 +263,8 @@ void doTestWorkerJob(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS =
             doTests(WORKER_ID.toString(), SUITES, STANDALONE_TESTS, UNIT_TESTS, CIFS_TESTS)
             analyzeMtrLog("pxc/sources/pxc/results/mtr.log")
         }
-
         step([$class: 'JUnitResultArchiver', testResults: 'pxc/sources/pxc/results/*.xml', healthScaleFactor: 1.0])
-        archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/pxc80-test-mtr_logs-*.tar.gz'
+        archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/pxc80-test-mtr_logs-*.tar.gz,pxc/sources/pxc/results/mtr-test*.log'
     }
 }
 
@@ -298,7 +297,7 @@ void checkoutSources(String COMPONENT) {
 void build(String SCRIPT) {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: AWS_CREDENTIALS_ID, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+            aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
             sg docker -c "
                 if [ \$(docker ps -q | wc -l) -ne 0 ]; then
                     docker ps -q | xargs docker stop --time 1 || :
@@ -310,11 +309,6 @@ void build(String SCRIPT) {
 }
 
 void setupTestSuitesSplit() {
-    sh """
-      pwd
-      ls -la
-    """
-
     def split_script = """#!/bin/bash
         if [[ "${FULL_MTR}" == "yes" ]]; then
             # Try to get suites split from PS repo. If not present, fallback to hardcoded.
@@ -411,7 +405,7 @@ void setupTestSuitesSplit() {
 
 void validatePxcBranch() {
     echo "Validating PXC branch version"
-    sh """
+    sh """#!/bin/bash
         MY_BRANCH_BASE_MAJOR=8
         MY_BRANCH_BASE_MINOR=0
 
@@ -436,7 +430,6 @@ void validatePxcBranch() {
         rm -f ${WORKSPACE}/VERSION-${BUILD_NUMBER}
     """
 }
-
 
 void triggerAbortedTestWorkersRerun() {
     script {
@@ -507,7 +500,7 @@ void triggerAbortedTestWorkersRerun() {
             echo "rerun needed: $rerunNeeded"
             if (rerunNeeded) {
                 echo "restarting aborted workers"
-                build job: 'pxc-8.x-pipeline-parallel-mtr',
+                build job: JOB_TO_REBUILD,
                 wait: false,
                 parameters: [
                     string(name:'BUILD_NUMBER_BINARIES', value: BUILD_NUMBER_BINARIES_FOR_RERUN),
@@ -522,6 +515,8 @@ void triggerAbortedTestWorkersRerun() {
                     string(name:'PXB_THIS_VERSION_TARGET_DIR', value: env.PXB_THIS_VERSION_TARGET_DIR),
                     string(name:'JOB_CMAKE', value: env.JOB_CMAKE),
                     string(name:'CMAKE_BUILD_TYPE', value: env.CMAKE_BUILD_TYPE),
+                    string(name:'DOCKER_SHM_SIZE', value: env.DOCKER_SHM_SIZE),
+                    string(name:'LABEL', value: env.LABEL),
                     string(name:'ANALYZER_OPTS', value: env.ANALYZER_OPTS),
                     string(name:'CMAKE_OPTS', value: env.CMAKE_OPTS),
                     string(name:'MAKE_OPTS', value: env.MAKE_OPTS),
@@ -555,154 +550,24 @@ if (
 if (params.ANALYZER_OPTS.contains('-DWITH_VALGRIND=ON'))
     { PIPELINE_TIMEOUT = 144 }
 
+// OK, this is hack to access AWS from as-1015cs-tnr which uses PS (not PXC) jenkins
+if (params.LABEL == 'as-1015cs-tnr') {
+    AWS_CREDENTIALS_ID = 'c8b933cd-b8ca-41d5-b639-33fe763d3f68'
+    JOB_TO_REBUILD = 'pxc-8.x-pipeline-valgrind'
+}
 
 
 pipeline {
-    parameters {
-        string(
-            defaultValue: '',
-            description: 'Reuse PXC, PXB binaries built in the specified build. Useful for quick MTR test rerun without rebuild.',
-            name: 'BUILD_NUMBER_BINARIES',
-            trim: true)
-        string(
-            defaultValue: 'https://github.com/percona/percona-xtradb-cluster',
-            description: 'URL to PXC repository',
-            name: 'GIT_REPO',
-            trim: true)
-        string(
-            defaultValue: 'trunk',
-            description: 'Tag/PR/Branch for PXC repository',
-            name: 'BRANCH',
-            trim: true)
-        string(
-            defaultValue: '',
-            description: 'Custom string that will be appended to the build name visible in Jenkins',
-            name: 'CUSTOM_BUILD_NAME',
-            trim: true)
-        string(
-            defaultValue: 'https://downloads.percona.com/downloads/Percona-XtraBackup-8.0/Percona-XtraBackup-8.0.35-31/binary/tarball/percona-xtrabackup-8.0.35-31-Linux-x86_64.glibc2.17-minimal.tar.gz',
-            description: 'PXB package URL pointing to previous LTS version. glibc version will be auto-adjusted by Jenkins script depending on platform. This will be stored in pxc_extra/PXB_PREV_LTS_VERSION_TARGET_DIR',
-            name: 'PXB_PREV_LTS_VERSION_URL',
-            trim: true)
-        string(
-            defaultValue: 'pxb-8.0',
-            description: 'PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_PREV_LTS_VERSION_TARGET_DIR',
-            name: 'PXB_PREV_LTS_VERSION_TARGET_DIR',
-            trim: true)
-        string(
-            defaultValue: 'https://downloads.percona.com/downloads/Percona-XtraBackup-innovative-release/Percona-XtraBackup-8.3.0-1/binary/tarball/percona-xtrabackup-8.3.0-1-Linux-x86_64.glibc2.17-minimal.tar.gz',
-            description: 'PXB package URL pointing to previous version. glibc version will be auto-adjusted by Jenkins script depending on platform. This will be stored in pxc_extra/PXB_PREV_VERSION_TARGET_DIR',
-            name: 'PXB_PREV_VERSION_URL',
-            trim: true)
-        string(
-            defaultValue: 'pxb-8.3',
-            description: 'PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_PREV_VERSION_TARGET_DIR',
-            name: 'PXB_PREV_VERSION_TARGET_DIR',
-            trim: true)
-        string(
-            defaultValue: 'https://downloads.percona.com/downloads/Percona-XtraBackup-8.4/Percona-XtraBackup-8.4.0-1/binary/tarball/percona-xtrabackup-8.4.0-1-Linux-x86_64.glibc2.28-minimal.tar.gz',
-            description: 'PXB package URL pointing to this version. glibc version will be auto-adjusted by Jenkins script depending on platform. This will be stored in pxc_extra/PXB_THIS_VERSION_TARGET_DIR',
-            name: 'PXB_THIS_VERSION_URL',
-            trim: true)
-        string(
-            defaultValue: 'pxb-8.4',
-            description: 'Additional PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_THIS_VERSION_TARGET_DIR',
-            name: 'PXB_THIS_VERSION_TARGET_DIR',
-            trim: true)
-        choice(
-            choices: '/usr/bin/cmake',
-            description: 'path to cmake binary',
-            name: 'JOB_CMAKE')
-        choice(
-            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:focal\nubuntu:jammy\nubuntu:noble\ndebian:bullseye\ndebian:bookworm',
-            description: 'OS version for compilation',
-            name: 'DOCKER_OS')
-        choice(
-            choices: 'Debug\nRelWithDebInfo',
-            description: 'Type of build to produce',
-            name: 'CMAKE_BUILD_TYPE')
-        string(
-            defaultValue: '-DWITH_PERCONA_TELEMETRY=ON',
-            description: 'cmake options',
-            name: 'CMAKE_OPTS')
-        string(
-            defaultValue: '',
-            description: 'make options, like VERBOSE=1',
-            name: 'MAKE_OPTS')
-        choice(
-            choices: '\n-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON\n-DWITH_ASAN=ON\n-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON\n-DWITH_ASAN=ON -DWITH_UBSAN=ON\n-DWITH_UBSAN=ON\n-DWITH_MSAN=ON\n-DWITH_VALGRIND=ON',
-            description: 'Enable code checking',
-            name: 'ANALYZER_OPTS')
-        string(
-            defaultValue: '--unit-tests-report --big-test --mem',
-            description: 'mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report',
-            name: 'MTR_ARGS')
-        choice(
-            choices: 'yes\nno',
-            description: 'Run case-insensetive MTR tests',
-            name: 'CI_FS_MTR')
-        string(
-            defaultValue: '4',
-            description: 'mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera specific test suites.',
-            name: 'GALERA_PARALLEL_RUN')
-        choice(
-            choices: 'yes\nno\ngalera_only\nskip_mtr',
-            description: 'yes - full MTR\nno - run mtr suites based on variables WORKER_N_MTR_SUITES\ngalera_only - only Galera related suites (incl. wsrep and sys_var)\nskip_mtr - skip testing phase. Only build.',
-            name: 'FULL_MTR')
-        string(
-            defaultValue: '',
-            description: 'Suites to be ran on worker 1 when FULL_MTR is no. Unit tests, if requested, can be ran here only!',
-            name: 'WORKER_1_MTR_SUITES')
-        string(
-            defaultValue: '',
-            description: 'Suites to be ran on worker 2 when FULL_MTR is no',
-            name: 'WORKER_2_MTR_SUITES')
-        string(
-            defaultValue: '',
-            description: 'Suites to be ran on worker 3 when FULL_MTR is no',
-            name: 'WORKER_3_MTR_SUITES')
-        string(
-            defaultValue: '',
-            description: 'Suites to be ran on worker 4 when FULL_MTR is no',
-            name: 'WORKER_4_MTR_SUITES')
-        string(
-            defaultValue: '',
-            description: 'Suites to be ran on worker 5 when FULL_MTR is no',
-            name: 'WORKER_5_MTR_SUITES')
-        string(
-            defaultValue: '',
-            description: 'Suites to be ran on worker 6 when FULL_MTR is no',
-            name: 'WORKER_6_MTR_SUITES')
-        string(
-            defaultValue: '',
-            description: 'Suites to be ran on worker 7 when FULL_MTR is no',
-            name: 'WORKER_7_MTR_SUITES')
-        string(
-            defaultValue: '',
-            description: 'Suites to be ran on worker 8 when FULL_MTR is no',
-            name: 'WORKER_8_MTR_SUITES')
-        string(
-            defaultValue: '',
-            description: 'Space-separated test names to be executed. Worker 1 handles this request.',
-            name: 'MTR_STANDALONE_TESTS')
-        string(
-            defaultValue: '1',
-            description: 'MTR workers count for standalone tests',
-            name: 'MTR_STANDALONE_TESTS_PARALLEL')
-        booleanParam(
-            defaultValue: true,
-            description: 'Rerun aborted workers',
-            name: 'ALLOW_ABORTED_WORKERS_RERUN')
-    }
     agent {
         label 'micro-amazon'
     }
+
     options {
         skipDefaultCheckout()
         skipStagesAfterUnstable()
         timeout(time: 6, unit: 'DAYS')
-        buildDiscarder(logRotator(numToKeepStr: '200', artifactNumToKeepStr: '200'))
-        copyArtifactPermission('pxc-8.x-param-parallel-mtr');
+        buildDiscarder(logRotator(numToKeepStr: '40', artifactNumToKeepStr: '40'))
+        copyArtifactPermission(JOB_TO_REBUILD);
     }
     stages {
         stage('Prepare') {
