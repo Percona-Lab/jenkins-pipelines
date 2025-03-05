@@ -524,6 +524,10 @@ def setup(){
 pipeline {
     agent none
 
+    environment {
+        pro = "no"
+    }
+
     parameters {
         choice(
             name: 'product_to_test',
