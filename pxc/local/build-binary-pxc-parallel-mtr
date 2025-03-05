@@ -210,4 +210,13 @@ cp -ra ${WORKDIR}/runtime_output_directory ${INSTALL_DIR}/usr/local/${PRODUCT_FU
 cp -ra ${WORKDIR}/library_output_directory ${INSTALL_DIR}/usr/local/${PRODUCT_FULL}/
 cp -ra ${WORKDIR}/plugin_output_directory ${INSTALL_DIR}/usr/local/${PRODUCT_FULL}/
 
-tar -C ${INSTALL_DIR}/usr/local --owner=0 --group=0 -czf "${WORKDIR}/${PRODUCT_FULL}.tar.gz" ${PRODUCT_FULL}
+
+if [[ -f /etc/redhat-release ]]; then
+    sudo yum install -y pigz
+else
+    sudo apt update
+    sudo apt install pigz
+fi
+
+# time tar -C ${INSTALL_DIR}/usr/local --owner=0 --group=0 -czf "${WORKDIR}/${PRODUCT_FULL}.tar.gz" ${PRODUCT_FULL}
+time tar -C ${INSTALL_DIR}/usr/local --owner=0 --group=0 --use-compress-program=pigz -cf "${WORKDIR}/${PRODUCT_FULL}.tar.gz" ${PRODUCT_FULL}
