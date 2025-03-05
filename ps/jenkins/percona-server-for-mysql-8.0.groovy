@@ -33,43 +33,66 @@ void installCli(String PLATFORM) {
 }
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
-    sh """
-        set -o xtrace
-        mkdir -p test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
-        if [ ${FIPSMODE} = "YES" ]; then
-            sed -i 's|percona-server-server/usr|percona-server-server-pro/usr|g' ps_builder.sh
-            sed -i 's|dbg-package=percona-server-dbg|dbg-package=percona-server-pro-dbg|g' ps_builder.sh
-        fi
-        grep "percona-server-server" ps_builder.sh
-        export build_dir=\$(pwd -P)
-        if [ "$DOCKER_OS" = "none" ]; then
-            set -o xtrace
-            cd \${build_dir}
-            if [ -f ./test/percona-server-8.0.properties ]; then
-                . ./test/percona-server-8.0.properties
-            fi
-            sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            if [ ${BUILD_TOKUDB_TOKUBACKUP} = "ON" ]; then
-                bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --build_tokudb_tokubackup=1 --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
-            else
-                bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
-            fi
-        else
-            docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
-                set -o xtrace
-                cd \${build_dir}
-                if [ -f ./test/percona-server-8.0.properties ]; then
-                    . ./test/percona-server-8.0.properties
-                fi
-                bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-                if [ ${BUILD_TOKUDB_TOKUBACKUP} = \"ON\" ]; then
-                    bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --build_tokudb_tokubackup=1 --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
-                else
-                    bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
-                fi"
-        fi
-    """
+    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+      sh """
+          set -o xtrace
+          mkdir -p test
+          if [ \${FIPSMODE} = "YES" ]; then
+              MYSQL_VERSION_MINOR=\$(curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${BRANCH}/MYSQL_VERSION && grep MYSQL_VERSION_MINOR MYSQL_VERSION | awk -F= '{print \$2}')
+              if [ \${MYSQL_VERSION_MINOR} = "0" ]; then
+                  PRO_BRANCH="8.0"
+              elif [ \${MYSQL_VERSION_MINOR} = "4" ]; then
+                  PRO_BRANCH="8.4"
+              else
+                  PRO_BRANCH="trunk"
+              fi
+              curl -L -H "Authorization: Bearer \${TOKEN}" \
+                      -H "Accept: application/vnd.github.v3.raw" \
+                      -o ps_builder.sh \
+                      "https://api.github.com/repos/percona/percona-server-private-build/contents/build-ps/percona-server-8.0_builder.sh?ref=\${PRO_BRANCH}"
+              sed -i 's|percona-server-server/usr|percona-server-server-pro/usr|g' ps_builder.sh
+              sed -i 's|dbg-package=percona-server-dbg|dbg-package=percona-server-pro-dbg|g' ps_builder.sh
+          else
+              wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
+          fi
+          grep "percona-server-server" ps_builder.sh
+          export build_dir=\$(pwd -P)
+          if [ "$DOCKER_OS" = "none" ]; then
+              set -o xtrace
+              cd \${build_dir}
+              if [ \${FIPSMODE} = "YES" ]; then
+                  git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/percona-server-private-build.git percona-server-private-build
+                  mv -f \${build_dir}/percona-server-private-build/build-ps \${build_dir}/test/.
+              fi
+              if [ -f ./test/percona-server-8.0.properties ]; then
+                  . ./test/percona-server-8.0.properties
+              fi
+              sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
+              if [ ${BUILD_TOKUDB_TOKUBACKUP} = "ON" ]; then
+                  bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --build_tokudb_tokubackup=1 --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+              else
+                  bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+              fi
+          else
+              docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+                  set -o xtrace
+                  cd \${build_dir}
+                  if [ \${FIPSMODE} = "YES" ]; then
+                      git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/percona-server-private-build.git percona-server-private-build
+                      mv -f \${build_dir}/percona-server-private-build/build-ps \${build_dir}/test/.
+                  fi
+                  if [ -f ./test/percona-server-8.0.properties ]; then
+                      . ./test/percona-server-8.0.properties
+                  fi
+                  bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
+                  if [ ${BUILD_TOKUDB_TOKUBACKUP} = \"ON\" ]; then
+                      bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --build_tokudb_tokubackup=1 --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+                  else
+                      bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --perconaft_branch=${PERCONAFT_BRANCH} --tokubackup_branch=${TOKUBACKUP_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+                  fi"
+          fi
+      """
+    }
 }
 
 void cleanUpWS() {
@@ -248,7 +271,13 @@ parameters {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 installCli("deb")
-                buildStage("none", "--get_sources=1")
+                script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("none", "--get_sources=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("none", "--get_sources=1")
+                            }
+                       }
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-8.0.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -415,26 +444,46 @@ parameters {
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
-/*                stage('Amazon Linux 2023') {
+                stage('Amazon Linux 2023') {
                     agent {
                         label 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'YES') {
-                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            if (env.FIPSMODE == 'NO') {
+                                echo "The step is skipped"
                             } else {
-                                buildStage("amazonlinux:2023", "--build_rpm=1 --with_zenfs=1")
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
                             }
                         }
-
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
-                }*/
+                }
+                stage('Amazon Linux 2023 ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            if (env.FIPSMODE == 'NO') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'min-focal-x64'
@@ -979,9 +1028,7 @@ parameters {
                             cd percona-docker/percona-server-8.0
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile
-                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                                sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
-                            fi
+                            sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
                                 if [ ${PS_MAJOR_RELEASE} = "84" ]; then
@@ -1002,8 +1049,8 @@ parameters {
                                 fi
                                 sed -i "s/percona-release enable mysql-shell/PS_REPO=\"testing\";percona-release enable mysql-shell/g" Dockerfile.aarch64
                             fi
-                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} .
-                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 --platform="linux/arm64" -f Dockerfile.aarch64 .
+                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 --platform="linux/amd64" .
+                            sudo docker build -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 --platform="linux/arm64" -f Dockerfile.aarch64 .
                             cd ../mysql-router
                             sed -i "s/ENV ROUTE_VERSION.*/ENV ROUTE_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
@@ -1014,7 +1061,9 @@ parameters {
                                     sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-8x-innovation testing/g" Dockerfile
                                 fi
                             fi
-                            sudo docker build -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE} .
+                            sudo docker build -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64 --platform="linux/amd64" .
+                            sudo docker build -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64 --platform="linux/arm64" .
+                            sudo docker tag perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64 perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}
                             sudo docker images
                         '''
                         withCredentials([
@@ -1031,25 +1080,28 @@ parameters {
                             else
                                 MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
                             fi
-                            sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}
-                            sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
-                            sudo docker push perconalab/percona-server:${PS_RELEASE}
-                            sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 perconalab/percona-server:${PS_RELEASE}-aarch64
-                            sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64
-                            sudo docker push perconalab/percona-server:${PS_RELEASE}-aarch64
+                            sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 perconalab/percona-server:${PS_RELEASE}-amd64
+                            sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64
+                            sudo docker push perconalab/percona-server:${PS_RELEASE}-amd64
+                            sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 perconalab/percona-server:${PS_RELEASE}-arm64
+                            sudo docker push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64
+                            sudo docker push perconalab/percona-server:${PS_RELEASE}-arm64
                             sudo docker tag perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE} perconalab/percona-mysql-router:${PS_MAJOR_RELEASE}
+                            sudo docker push perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64
+                            sudo docker push perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64
                             sudo docker push perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}
                             sudo docker push perconalab/percona-mysql-router:${PS_MAJOR_RELEASE}
                        '''
                        }
                        sh '''
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                           sudo docker manifest create perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi \
-                               perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} \
-                               perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64
-                           sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-aarch64 --os linux --arch arm64 --variant v8
-                           sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} --os linux --arch amd64
-                           sudo docker manifest inspect perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi
+                           PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                           sudo docker manifest create perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} \
+                               perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 \
+                               perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64
+                           sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 --os linux --arch amd64
+                           sudo docker manifest inspect perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                        '''
                        withCredentials([
                        usernamePassword(credentialsId: 'hub.docker.com',
@@ -1058,9 +1110,12 @@ parameters {
                        )]) {
                        sh '''
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                           PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                           sudo docker manifest push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-multi
+                           sudo docker manifest push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t perconalab/percona-server:${PS_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t perconalab/percona-server:${PS_MAJOR_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE} 
                        '''
                        }
                     }
@@ -1158,6 +1213,13 @@ parameters {
             sh '''
                 sudo rm -rf ./*
             '''
+            script {
+                if (env.FIPSMODE == 'YES') {
+                    currentBuild.description = "PRO -> Built on ${BRANCH} - packages [${COMPONENT}/${AWS_STASH_PATH}]"
+                } else {
+                    currentBuild.description = "Built on ${BRANCH} - packages [${COMPONENT}/${AWS_STASH_PATH}]"
+                }
+            }
             deleteDir()
         }
     }
