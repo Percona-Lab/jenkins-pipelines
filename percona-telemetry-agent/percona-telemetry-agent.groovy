@@ -15,7 +15,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./telemetry-agent_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./telemetry-agent_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./telemetry-agent_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${VERSION} --branch=${GIT_BRANCH} --release=${RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -37,23 +37,19 @@ pipeline {
             description: 'URL for telemetry-agent repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'phase-0',
+            defaultValue: 'main',
             description: 'Tag/Branch for telemetry-agent repository',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '1',
-            description: 'RPM release value',
-            name: 'RPM_RELEASE')
+            description: 'RPM/DEB release value',
+            name: 'RELEASE')
         string(
-            defaultValue: '1',
-            description: 'DEB release value',
-            name: 'DEB_RELEASE')
-        string(
-            defaultValue: '0.1',
+            defaultValue: '1.0.1',
             description: 'VERSION value',
             name: 'VERSION')
         string(
-            defaultValue: 'tools',
+            defaultValue: 'telemetry',
             description: 'PTA repo name',
             name: 'PTA_REPO')
         choice(
@@ -75,7 +71,7 @@ pipeline {
             steps {
                 //slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                buildStage("centos:7", "--get_sources=1")
+                buildStage("oraclelinux:8", "--get_sources=1")
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-telemetry-agent.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -101,7 +97,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_src_rpm=1")
+                        buildStage("oraclelinux:8", "--build_src_rpm=1")
 
                         pushArtifactFolder("srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
@@ -124,22 +120,22 @@ pipeline {
         } // stage
         stage('Build telemetry agent RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Centos 7') {
+                stage('Oracle Linux 8') {
                     agent {
                         label 'docker'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_rpm=1")
+                        buildStage("oraclelinux:8", "--build_rpm=1")
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Oracle Linux 8') {
+                stage('Oracle Linux 8 ARM') {
                     agent {
-                        label 'docker'
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -163,9 +159,61 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
+                stage('Oracle Linux 9 ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:9", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Amazon Linux 2023') {
+                    agent {
+                        label 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("amazonlinux:2023", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Amazon Linux 2023 ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        buildStage("amazonlinux:2023", "--build_rpm=1")
+
+                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:focal", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Focal(20.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -189,9 +237,35 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Ubuntu Jammy(22.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
 		stage('Ubuntu Noble(24.04)') {
                     agent {
                         label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:noble", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Ubuntu Noble(24.04) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
@@ -215,9 +289,35 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Debian Bullseye(11) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bullseye", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Debian Bookworm(12)') {
                     agent {
                         label 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:bookworm", "--build_deb=1")
+
+                        pushArtifactFolder("deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Bookworm(12) ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()

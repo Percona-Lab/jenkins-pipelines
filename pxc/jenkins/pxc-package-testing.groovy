@@ -878,10 +878,19 @@ pipeline {
                                     echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
                                     def convergeSuccess = true // Flag to track the success of the converge step
 
-                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                                        runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-                                    }.catch {
-                                        convergeSuccess = false // If the converge step fails, set the flag to false
+//                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+//                                        runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
+//                                    }.catch {
+//                                        convergeSuccess = false // If the converge step fails, set the flag to false
+//                                    }
+
+                                    try {
+                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
+                                        }
+                                    } catch (Exception e) {
+                                        convergeSuccess = false
+                                        echo "Converge step failed: ${e.message}"
                                     }
 
                                     if (convergeSuccess) {

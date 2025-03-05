@@ -173,6 +173,7 @@ pipeline {
         GCP_PGSQL11_HOST=credentials('GCP_PGSQL11_HOST');
         GCP_PGSQL11_USER=credentials('GCP_PGSQL11_USER');
         GCP_PGSQL11_PASSWORD=credentials('GCP_PGSQL11_PASSWORD');
+        ZEPHYR_PMM_API_KEY=credentials('ZEPHYR_PMM_API_KEY');
     }
     parameters {
         string(

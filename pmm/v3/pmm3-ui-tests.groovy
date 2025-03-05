@@ -98,6 +98,7 @@ pipeline {
         PMM_QA_AURORA3_MYSQL_PASSWORD=credentials('PMM_QA_AURORA3_MYSQL_PASSWORD')
         PMM_QA_AWS_ACCESS_KEY_ID=credentials('PMM_QA_AWS_ACCESS_KEY_ID')
         PMM_QA_AWS_ACCESS_KEY=credentials('PMM_QA_AWS_ACCESS_KEY')
+        ZEPHYR_PMM_API_KEY=credentials('ZEPHYR_PMM_API_KEY')
     }
     parameters {
         string(
@@ -207,8 +208,10 @@ pipeline {
                     steps {
                         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                             sh """
+                                docker network create pmm-qa || true
                                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                                 PWD=\$(pwd) MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
+                                docker network connect pmm-qa pmm-server || true
                             """
                         }
                         waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
@@ -232,13 +235,13 @@ pipeline {
         }
         stage('Setup Clients for PMM-Server') {
             steps {
-//                 sh '''
-//                   echo "started client setup"
-//                 '''
-//                 setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', ENABLE_PULL_MODE, 'no', 'no', 'compose_setup', ADMIN_PASSWORD, 'no')
-//                 sh '''
-//                   echo "installed local client"
-//                 '''
+                 sh '''
+                   echo "started client setup"
+                 '''
+                 setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', ENABLE_PULL_MODE, 'no', 'no', 'compose_setup', ADMIN_PASSWORD, 'no')
+                 sh '''
+                   echo "installed local client"
+                 '''
                 script {
                         env.PMM_REPO = params.CLIENT_VERSION == "pmm3-rc" ? "testing" : "experimental"
                 }
@@ -253,8 +256,6 @@ pipeline {
                         if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
                             export PMM_CLIENT_VERSION="3-dev-latest"
                         fi
-
-                        docker network create pmm-qa || true
 
                         sudo mkdir -p /srv/qa-integration || :
                         pushd /srv/qa-integration
