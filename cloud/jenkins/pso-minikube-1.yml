@@ -1,5 +1,5 @@
 - job:
-    name: pso-gke
+    name: pso-minikube-1
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -18,4 +18,4 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pso_gke.groovy
+      script-path: cloud/jenkins/pso_minikube.groovy
