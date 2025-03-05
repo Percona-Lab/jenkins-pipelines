@@ -1,5 +1,5 @@
 - job:
-    name: pxco-openshift-2
+    name: psmdbo-eks-1
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,5 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxco_openshift.groovy
-
+      script-path: cloud/jenkins/psmdbo_eks.groovy

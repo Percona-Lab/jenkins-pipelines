@@ -1,15 +1,15 @@
 - job:
-    name: pxco-openshift-2
+    name: weekly-pxco
     project-type: pipeline
     description: |
         Do not edit this job through the web!
+    triggers:
+      - timed: "0 8 * * 6"
     pipeline-scm:
       scm:
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
-            branches:
-            - 'master'
+            branches: ["master"]
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxco_openshift.groovy
-
+      script-path: cloud/jenkins/weekly_pxco.groovy

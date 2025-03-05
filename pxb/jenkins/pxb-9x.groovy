@@ -683,10 +683,8 @@ pipeline {
                                 buildStage("ubuntu:jammy", "--build_tarball=1")
                             }
 
-                            if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
-                            }
+                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
                         }
                     }
                 }

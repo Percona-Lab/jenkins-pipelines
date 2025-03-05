@@ -561,7 +561,7 @@ parameters {
         }
         stage('Build docker container') {
             agent {
-                label 'min-buster-x64'
+                label 'min-bullseye-x64'
             }
             steps {
                 script {
@@ -572,12 +572,13 @@ parameters {
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
                             scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/8/x86_64/*.rpm /tmp 
+                            scp -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/9/x86_64/*.rpm /tmp 
                             ls -la /tmp
                         """
                     }
                     sh '''
                         PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                        PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 4)}')
+                        PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
                         PS_MAJOR_MINOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 7)}' | sed "s/-//g")
                         sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                         sudo apt-get install -y docker.io
