@@ -321,8 +321,8 @@ def setup(){
                 echo "${JENWORKSPACE}"
                 installMoleculeBookworm()
                     sh '''
-                        rm -rf package-testing                    
-                        git clone https://github.com/Percona-QA/package-testing --branch pxc-pt-pro-support
+                        rm -rf package-testing
+                        git clone https://github.com/Percona-QA/package-testing --branch master
                     '''
 }
 
