@@ -1,8 +1,10 @@
 - job:
-    name: pxco-openshift-2
+    name: weekly-psmdbo
     project-type: pipeline
     description: |
         Do not edit this job through the web!
+    triggers:
+      - timed: "0 15 * * 6"
     pipeline-scm:
       scm:
         - git:
@@ -11,5 +13,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxco_openshift.groovy
-
+      script-path: cloud/jenkins/weekly_psmdbo.groovy
