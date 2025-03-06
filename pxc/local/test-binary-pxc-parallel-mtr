@@ -21,16 +21,20 @@
 set -o errexit
 set -o xtrace
 
-
+EXECUTION_GROUP_NO=0
 function executeSuites() {
     local suites=$1
     local extraOptions=$2
     local parallel=$3
-    local worker="WORKER_${WORKER_NO}"
 
     if [[ -z ${suites} ]]; then
         return
     fi
+
+    # 'worker' holds the name of the file with results.
+    # As we call this function several times, avoid overriding the file.
+    EXECUTION_GROUP_NO=$((EXECUTION_GROUP_NO+1))
+    local worker="WORKER_${WORKER_NO}_${EXECUTION_GROUP_NO}"
 
     echo "Executing suites $suites"
 
