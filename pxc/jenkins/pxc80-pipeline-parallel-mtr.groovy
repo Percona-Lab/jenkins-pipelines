@@ -9,6 +9,8 @@ WORKER_ABORTED = new boolean[9]
 BUILD_NUMBER_BINARIES_FOR_RERUN = 0
 BUILD_TRIGGER_BY = ''
 JOB_TO_REBUILD = 'pxc-8.x-pipeline-parallel-mtr'
+LABEL = 'docker-32gb'
+MICRO_LABEL = 'micro-amazon'
 
 // We need this map to construct proper pxb tarball name
 OsToGlibcMap = [
@@ -516,7 +518,7 @@ void triggerAbortedTestWorkersRerun() {
                     string(name:'JOB_CMAKE', value: env.JOB_CMAKE),
                     string(name:'CMAKE_BUILD_TYPE', value: env.CMAKE_BUILD_TYPE),
                     string(name:'DOCKER_SHM_SIZE', value: env.DOCKER_SHM_SIZE),
-                    string(name:'LABEL', value: env.LABEL),
+                    string(name:'CLOUD', value: env.CLOUD),
                     string(name:'ANALYZER_OPTS', value: env.ANALYZER_OPTS),
                     string(name:'CMAKE_OPTS', value: env.CMAKE_OPTS),
                     string(name:'MAKE_OPTS', value: env.MAKE_OPTS),
@@ -550,17 +552,27 @@ if (
 if (params.ANALYZER_OPTS.contains('-DWITH_VALGRIND=ON'))
     { PIPELINE_TIMEOUT = 144 }
 
-// OK, this is hack to access AWS from as-1015cs-tnr which uses PS (not PXC) jenkins
-if (params.LABEL == 'as-1015cs-tnr') {
+label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+if (params.CLOUD == 'Hetzner') {
+    LABEL = 'docker-x64'
+    MICRO_LABEL = 'deb12-x64'
+} else if (params.CLOUD == 'AWS') {
+    LABEL = 'docker-32gb'
+    MICRO_LABEL = 'micro-amazon'
+} else if (params.CLOUD == 'Valgrind_docker_host') {
+    LABLEL = 'as-1015cs-tnr'
+    MICRO_LABEL = 'micro-amazon'
+    // OK, this is hack to access AWS from as-1015cs-tnr which uses PS (not PXC) jenkins
     AWS_CREDENTIALS_ID = 'c8b933cd-b8ca-41d5-b639-33fe763d3f68'
     JOB_TO_REBUILD = 'pxc-8.x-pipeline-valgrind'
+} else {
+    // by default fallback to AWS
+    LABEL = 'docker-32gb'
+    MICRO_LABEL = 'micro-amazon'
 }
 
-
 pipeline {
-    agent {
-        label 'micro-amazon'
-    }
+    agent { label MICRO_LABEL }
 
     options {
         skipDefaultCheckout()
@@ -575,7 +587,7 @@ pipeline {
                 script {
                     echo "JENKINS_SCRIPTS_BRANCH: $JENKINS_SCRIPTS_BRANCH"
                     echo "JENKINS_SCRIPTS_REPO: $JENKINS_SCRIPTS_REPO"
-                    echo "Using instances with LABEL ${LABEL} for build and test stages"
+                    echo "Using instances from cloud ${CLOUD} with LABEL ${LABEL} for build and test stages"
                 }
                 git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
 

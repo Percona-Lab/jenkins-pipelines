@@ -89,10 +89,13 @@
         name: DOCKER_SHM_SIZE
         default: "32G"
         description: "Shared memory size dedicated for Docker container"
-    - string:
-        name: LABEL
-        default: "docker-32gb"
-        description: "Docker host instance type"
+    - choice:
+        name: CLOUD
+        choices: 
+          - "AWS"
+          - "Hetzner"
+          - "Valgrind_docker_host"
+        description: "Host provider for Jenkins workers"
     - choice:
         name: CMAKE_BUILD_TYPE
         choices:
