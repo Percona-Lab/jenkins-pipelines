@@ -406,12 +406,16 @@ executeSuites "$suitesGaleraNormal" "${big_test_extra_option} $galera_extra_opti
 executeSuites "$suitesGaleraBig" "--only-big-test $galera_extra_options --parallel=${GALERA_PARALLEL_RUN}" "${GALERA_PARALLEL_RUN}"
 executeSuites "$suitesGaleraSmall" "$galera_extra_options --parallel=${GALERA_PARALLEL_RUN}" "${GALERA_PARALLEL_RUN}"
 
-# For replication suites, use less workers. Let's say 3 cpus per worker...
-RPL_PARALLEL_RUN=$((PARALLEL/3))        
-# ...but not less than GALERA_PARALLEL_RUN (to have it still configurable via Jenkins UI)
-if [[ ${RPL_PARALLEL_RUN} -lt ${GALERA_PARALLEL_RUN} ]]; then
-  RPL_PARALLEL_RUN=${GALERA_PARALLEL_RUN}
-fi
+# # For replication suites, use less workers. Let's say 3 cpus per worker...
+# RPL_PARALLEL_RUN=$((PARALLEL/3))        
+# # ...but not less than GALERA_PARALLEL_RUN (to have it still configurable via Jenkins UI)
+# if [[ ${RPL_PARALLEL_RUN} -lt ${GALERA_PARALLEL_RUN} ]]; then
+#   RPL_PARALLEL_RUN=${GALERA_PARALLEL_RUN}
+# fi
+
+# Just use the same parallel as we use for Galera
+RPL_PARALLEL_RUN=${GALERA_PARALLEL_RUN}
+
 echo "Limiting workers count for replication suites to ${RPL_PARALLEL_RUN}"
 # For replication tests, force --parallel force the value via 2nd parameter
 executeSuites "$suitesReplicationNormal" "${big_test_extra_option} --parallel=${RPL_PARALLEL_RUN}" "${RPL_PARALLEL_RUN}"
