@@ -103,11 +103,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Sign packages') {
-                    steps {
-                        signRPM()
-                    }
-                }
             }
         }
         // stage('Push to public repository') {
