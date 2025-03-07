@@ -1,12 +1,7 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-13785-pmm-client-al', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
-
-library changelog: false, identifier: 'v3lib@PMM-13785-pmm-client-al', retriever: modernSCM(
-  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
-  libraryPath: 'pmm/v3/'
-)
 
 pipeline {
     agent none
