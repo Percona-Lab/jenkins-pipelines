@@ -140,7 +140,7 @@ pipeline {
                         sh """
 
                             aws s3 cp ${S3_BUCKET}/${TRIGGER_FILE} ${LOCAL_TRIGGER_FILE}
-                            sed -i 's/^PDPXC_OPERATORS=.*/PDPXC_OPERATORS=1/' ${LOCAL_TRIGGER_FILE}
+                            sed -i 's/^PXCO=.*/PXCO=1/' ${LOCAL_TRIGGER_FILE}
                             sed -i 's/^PXCO_VERSION=.*/PXCO_VERSION=${pxc_operator_version_latest}/' ${LOCAL_TRIGGER_FILE}
 
 
