@@ -1,5 +1,5 @@
 - job:
-    name: pdpxc-upgrade-parallel
+    name: pdpxc-upgrade-parallel-test
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -8,7 +8,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+            - 'pxco-integration-trigger'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pdpxc/pdpxc-upgrade-parallel.groovy
