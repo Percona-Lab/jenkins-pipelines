@@ -44,6 +44,15 @@ pipeline {
                             git rev-parse --short HEAD > shortCommit
                             echo "UPLOAD/${DESTINATION}/${JOB_NAME}/pmm3/\$(cat VERSION)/${GIT_BRANCH}/\$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
                         '''
+                        script {
+                            def versionTag = sh(returnStdout: true, script: "cat VERSION").trim()
+                            if (params.DESTINATION == "testing") {
+                                env.DOCKER_RC_TAG = "${versionTag}-rc-amd64"
+                            } else {
+                                env.DOCKER_LATEST_TAG = "3-dev-latest-amd64"
+                            }
+                        }
+
                         archiveArtifacts 'uploadPath'
                         stash includes: 'uploadPath', name: 'uploadPath'
                         archiveArtifacts 'shortCommit'
@@ -73,22 +82,58 @@ pipeline {
                         uploadTarball('binary')
                     }
                 }
+                // stage('Build client docker') {
+                //     steps {
+                //         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                //             sh '''
+                //                 echo "${PASS}" | docker login -u "${USER}" --password-stdin
+                //                 set -o xtrace
+
+                //                 export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')-amd64
+
+                //                 ${PATH_TO_SCRIPTS}/build-client-docker
+
+                //                 if [ -n "${DOCKER_RC_TAG}" ]; then
+                //                     docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_RC_TAG}
+                //                     docker push perconalab/pmm-client:${DOCKER_RC_TAG}
+                //                 else
+                //                     docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_LATEST_TAG}
+                //                     docker push perconalab/pmm-client:${DOCKER_LATEST_TAG}
+                //                 fi
+
+                //                 docker push $DOCKER_CLIENT_TAG
+                //             '''
+                //         }
+                //     }
+                // }
                 stage('Build client source rpm') {
                     steps {
                         sh """
-                            ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/amazonlinux/amazonlinux:2023
+                            ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:3
                         """
                     }
                     post {
                         success {
                             stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                            // uploadRPM()
+                            uploadRPM()
                         }
                     }
                 }
                 stage('Build client binary rpms') {
                     parallel {
-                        stage('Build client binary rpm AZ') {
+                        stage('Build client binary rpm EL8') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:8"
+                            }
+                        }
+                        stage('Build client binary rpm EL9') {
+                            steps {
+                                sh """
+                                    ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:3
+                                """
+                            }
+                        }
+                        stage('Build client binary rpm AL2023') {
                             steps {
                                 sh """
                                     ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/amazonlinux/amazonlinux:2023
@@ -99,8 +144,56 @@ pipeline {
                     post {
                         success {
                             stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
-                            // uploadRPM()
+                            uploadRPM()
                         }
+                    }
+                }
+                stage('Build client source deb') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:focal"
+                        stash includes: 'results/source_deb/*', name: 'debs'
+                        uploadDEB()
+                    }
+                }
+                stage('Build client binary debs') {
+                    parallel {
+                        stage('Build client binary deb Bullseye') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
+                            }
+                        }
+                        stage('Build client binary deb Bookworm') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bookworm"
+                            }
+                        }
+                        stage('Build client binary deb Jammy') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
+                            }
+                        }
+                        stage('Build client binary deb Focal') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
+                            }
+                        }
+                        stage('Build client binary deb Noble') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:noble"
+                            }
+                        }
+                    }
+                    post {
+                        success {
+                            stash includes: 'results/deb/*.deb', name: 'debs'
+                            uploadDEB()
+                        }
+                    }
+                }
+                stage('Sign packages') {
+                    steps {
+                        signRPM()
+                        signDEB()
                     }
                 }
             }
@@ -124,7 +217,7 @@ pipeline {
         //                         scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${UPLOAD_PATH}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
         //                     "
         //                 '''
-        //             }  
+        //             }
         //         }
         //     }
         // }
