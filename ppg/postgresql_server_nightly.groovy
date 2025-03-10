@@ -45,7 +45,7 @@ pipeline {
             description: 'Tag/Branch for postgresql',
             name: 'PG_BRANCH')
         string(
-            defaultValue: '17.0',
+            defaultValue: '17.4',
             description: 'Tag/Branch for ppg-server repository',
             name: 'GIT_BRANCH')
         string(
