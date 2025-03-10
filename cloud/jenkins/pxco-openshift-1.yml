@@ -1,5 +1,5 @@
 - job:
-    name: pxco-openshift-2
+    name: pxco-openshift-1
     project-type: pipeline
     description: |
         Do not edit this job through the web!

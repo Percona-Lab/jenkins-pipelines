@@ -1,15 +1,14 @@
 - job:
-    name: pxco-openshift-2
+    name: mlink-functional-tests
     project-type: pipeline
     description: |
-        Do not edit this job through the web!
+      Do not edit this job through the web!
     pipeline-scm:
       scm:
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+              - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/pxco_openshift.groovy
-
+      script-path: mlink/mlink-functional-tests.groovy

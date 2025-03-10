@@ -6,7 +6,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 
 def operatingsystems() {
-    return ['oracle-9','debian-12','ubuntu-jammy']
+    return ['oracle-9','debian-12','ubuntu-jammy', 'ubuntu-noble', 'al-2023']
 }
 
 
@@ -17,6 +17,7 @@ pipeline {
   environment {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
     MOLECULE_DIR = "molecule/ps80-binary-tarball-pro/";
+    PRO = "${params.PRO}"
   }
   parameters {
     string(
@@ -29,10 +30,9 @@ pipeline {
       defaultValue: '47601f19', 
       description: 'PS revision'
     )
-    choice(
-      name: "PRO",
-      choices: ["yes",],
-      description: "Is this pro test?"
+    booleanParam(
+        defaultValue: false, 
+        name: 'PRO'
     )
     string(
       defaultValue: 'master',
