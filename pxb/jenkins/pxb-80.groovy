@@ -6,18 +6,40 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 import groovy.transform.Field
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
-    sh """
-        set -o xtrace
-        mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/storage/innobase/xtrabackup/utils/percona-xtrabackup-8.0_builder.sh -O percona-xtrabackup-8.0_builder.sh
-        pwd -P
-        export build_dir=\$(pwd -P)
-        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
-            set -o xtrace
-            cd \${build_dir}
-            bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
-    """
+    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+      sh """
+          set -o xtrace
+          mkdir test
+          if [ \${FIPSMODE} = "YES" ]; then
+              MYSQL_VERSION_MINOR=\$(curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${BRANCH}/MYSQL_VERSION && grep MYSQL_VERSION_MINOR MYSQL_VERSION | awk -F= '{print \$2}')
+              if [ \${MYSQL_VERSION_MINOR} = "0" ]; then
+                  PRO_BRANCH="8.0"
+              elif [ \${MYSQL_VERSION_MINOR} = "4" ]; then
+                  PRO_BRANCH="8.4"
+              else
+                  PRO_BRANCH="trunk"
+              fi
+              curl -L -H "Authorization: Bearer \${TOKEN}" \
+                      -H "Accept: application/vnd.github.v3.raw" \
+                      -o percona-xtrabackup-8.0_builder.sh \
+                      "https://api.github.com/repos/percona/percona-xtrabackup-private-build/contents/percona-xtrabackup-8.0_builder.sh?ref=\${PRO_BRANCH}"
+          else
+              wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/storage/innobase/xtrabackup/utils/percona-xtrabackup-8.0_builder.sh -O percona-xtrabackup-8.0_builder.sh
+          fi
+          pwd -P
+          export build_dir=\$(pwd -P)
+          docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+              set -o xtrace
+              cd \${build_dir}
+              bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --install_deps=1
+              if [ \${FIPSMODE} = "YES" ]; then
+                  git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/percona-xtrabackup-private-build.git percona-xtrabackup-private-build
+                  mv -f \${build_dir}/percona-xtrabackup-private-build \${build_dir}/test/.
+                  ls \${build_dir}/test
+              fi
+              bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+      """
+    }
 }
 
 void cleanUpWS() {
@@ -213,7 +235,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
@@ -232,7 +254,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:focal", "--build_source_deb=1 --enable_fipsmode=1")
@@ -260,7 +282,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                                 buildStage("oraclelinux:8", "--build_rpm=1")
 
                                 pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -279,7 +301,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                                 buildStage("oraclelinux:8", "--build_rpm=1")
 
                                 pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -295,7 +317,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("srpm/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
                             } else {
@@ -314,7 +336,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("srpm/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
                             } else {
@@ -326,25 +348,44 @@ pipeline {
                         }
                     }
                 }
-/*                stage('Amazon Linux 2023') {
+                stage('Amazon Linux 2023') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         script {
-                            cleanUpWS()
-                            popArtifactFolder("srpm/", AWS_STASH_PATH)
-                            if (env.FIPSMODE == 'YES') {
-                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            if (env.FIPSMODE == 'NO') {
+                                echo "The step is skipped"
                             } else {
-                                buildStage("amazonlinux:2023", "--build_rpm=1")
-                            }
+                                cleanUpWS()
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
-                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            }
                         }
                     }
-                }*/
+                }
+                stage('Amazon Linux 2023 ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            if (env.FIPSMODE == 'NO') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -355,7 +396,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_deb=1")
 
                                 pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -374,7 +415,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_deb=1")
 
                                 pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -390,7 +431,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
                             } else {
@@ -409,7 +450,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
                             } else {
@@ -428,7 +469,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
                             } else {
@@ -447,7 +488,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
                             } else {
@@ -469,7 +510,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_deb=1")
 
                                 pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -488,7 +529,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_deb=1")
 
                                 pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -504,7 +545,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
                             } else {
@@ -522,7 +563,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
                             } else {
@@ -543,7 +584,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                                 buildStage("oraclelinux:8", "--build_tarball=1")
 
                                 pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
@@ -559,7 +600,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
@@ -581,7 +622,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_tarball=1")
 
                                 pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
@@ -597,7 +638,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
@@ -616,7 +657,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:noble", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
@@ -638,7 +679,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_tarball=1")
 
                                 pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
@@ -654,7 +695,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("debian:bookworm", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
@@ -684,107 +725,24 @@ pipeline {
                     // sync packages
                     if ("${MYSQL_VERSION_MINOR}" == "0") {
                         if (env.FIPSMODE == 'YES') {
-                            sync2PrivateProdAutoBuild("pxb-80-pro", COMPONENT)
+                            sync2PrivateProdAutoBuild(params.CLOUD, "pxb-80-pro", COMPONENT)
                         } else {
-                            sync2ProdAutoBuild("pxb-80", COMPONENT)
+                            sync2ProdAutoBuild(params.CLOUD, "pxb-80", COMPONENT)
                         }
                     } else {
                         if (env.FIPSMODE == 'YES') {
                             if ("${MYSQL_VERSION_MINOR}" == "4") {
-                                sync2PrivateProdAutoBuild("pxb-84-pro", COMPONENT)
+                                sync2PrivateProdAutoBuild(params.CLOUD, "pxb-84-pro", COMPONENT)
                             } else {
-                                sync2PrivateProdAutoBuild("pxb-8x-innovation-pro", COMPONENT)
+                                sync2PrivateProdAutoBuild(params.CLOUD, "pxb-8x-innovation-pro", COMPONENT)
                             }
                         } else {
                             if ("${MYSQL_VERSION_MINOR}" == "4") {
-                                sync2ProdAutoBuild("pxb-84-lts", COMPONENT)
+                                sync2ProdAutoBuild(params.CLOUD, "pxb-84-lts", COMPONENT)
                             } else {
-                                sync2ProdAutoBuild("pxb-8x-innovation", COMPONENT)
+                                sync2ProdAutoBuild(params.CLOUD, "pxb-8x-innovation", COMPONENT)
                             }
                         }
-                    }
-                }
-            }
-        }
-        stage('Build docker containers') {
-            agent {
-                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-            }
-            steps {
-                script {
-                    if (env.FIPSMODE == 'YES') {
-                        echo "The step is skipped"
-                    } else {
-                        echo "====> Build docker containers"
-                        cleanUpWS()
-                        sh '''
-                            sleep 1200
-                        '''
-                        unstash 'uploadPath'
-                        sh '''
-                            sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-                            sudo apt-get install -y docker.io
-                            sudo systemctl status docker
-                            sudo apt-get install -y qemu-system binfmt-support qemu-user-static
-                            sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-                            curl -O https://raw.githubusercontent.com/percona/percona-xtrabackup/${BRANCH}/MYSQL_VERSION
-                            . ./MYSQL_VERSION
-                            XB_VERSION_MAJOR = sh(returnStdout: true, script: "grep 'XB_VERSION_MAJOR' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
-                            XB_VERSION_MINOR = sh(returnStdout: true, script: "grep 'XB_VERSION_MINOR' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
-                            XB_VERSION_PATCH = sh(returnStdout: true, script: "grep 'XB_VERSION_PATCH' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
-                            XB_VERSION_EXTRA = sh(returnStdout: true, script: "grep 'XB_VERSION_EXTRA' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 | sed 's/-//g'").trim()
-                            XB_REVISION = sh(returnStdout: true, script: "grep 'REVISION' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
-                            PXB_RELEASE_VERSION = sh(returnStdout: true, script: """ echo ${BRANCH} | sed -nE '/release-(8\\.[0-9]{1})\\..*/s//\\1/p' """).trim()
-                            git clone https://github.com/percona/percona-docker
-                            cd percona-docker/percona-xtrabackup-8.0
-                            sed -i "s/ENV XTRABACKUP_VERSION.*/ENV XTRABACKUP_VERSION ${PXB_RELEASE_VERSION}/g" Dockerfile
-                            sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
-                            sed -i "s/pxb-80 testing/pxb-80 ${COMPONENT}/g" Dockerfile
-                            sudo docker build --no-cache --platform "linux/amd64" -t perconalab/percona-xtrabackup:${PXB_RELEASE_VERSION} .
-
-                            sed -i "s/ENV XTRABACKUP_VERSION.*/ENV XTRABACKUP_VERSION ${PXB_RELEASE_VERSION}/g" Dockerfile.aarch64
-                            sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile.aarch64
-                            sed -i "s/pxb-80 testing/pxb-80 ${COMPONENT}/g" Dockerfile.aarch64
-                            sudo docker build --no-cache -t perconalab/percona-xtrabackup:${PXB_RELEASE_VERSION}-aarch64 --platform="linux/arm64" -f Dockerfile.aarch64 .
-
-                            sudo docker images
-                        '''
-                        withCredentials([
-                            usernamePassword(credentialsId: 'hub.docker.com',
-                            passwordVariable: 'PASS',
-                            usernameVariable: 'USER'
-                            )]) {
-                            sh '''
-                                echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                                #curl -O https://raw.githubusercontent.com/percona/percona-xtrabackup/${BRANCH}/MYSQL_VERSION
-                                #. ./MYSQL_VERSION
-                                XB_VERSION_MAJOR = sh(returnStdout: true, script: "grep 'XB_VERSION_MAJOR' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
-                                XB_VERSION_MINOR = sh(returnStdout: true, script: "grep 'XB_VERSION_MINOR' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
-                                XB_VERSION_PATCH = sh(returnStdout: true, script: "grep 'XB_VERSION_PATCH' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
-                                XB_VERSION_EXTRA = sh(returnStdout: true, script: "grep 'XB_VERSION_EXTRA' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 | sed 's/-//g'").trim()
-                                XB_REVISION = sh(returnStdout: true, script: "grep 'REVISION' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 ").trim()
-                                PXB_RELEASE_VERSION = sh(returnStdout: true, script: """ echo ${BRANCH} | sed -nE '/release-(8\\.[0-9]{1})\\..*/s//\\1/p' """).trim()
-                                sudo docker push perconalab/percona-xtrabackup:${PXB_RELEASE_VERSION}
-                                sudo docker push perconalab/percona-xtrabackup:${PXB_RELEASE_VERSION}-aarch64
-
-                                sudo docker manifest create perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH} \
-                                    perconalab/percona-xtrabackup:${PXB_RELEASE_VERSION} \
-                                    perconalab/percona-xtrabackup:${PXB_RELEASE_VERSION}-aarch64
-                                sudo docker manifest annotate perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH} perconalab/percona-xtrabackup:${PXB_RELEASE_VERSION}-aarch64 --os linux --arch arm64 --variant v8
-                                sudo docker manifest annotate perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH} perconalab/percona-xtrabackup:${PXB_RELEASE_VERSION} --os linux --arch amd64
-                                sudo docker manifest inspect perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}
-
-                                sudo docker manifest create perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR} \
-                                    perconalab/percona-xtrabackup:${PXB_RELEASE_VERSION} \
-                                    perconalab/percona-xtrabackup:${PXB_RELEASE_VERSION}-aarch64
-                                sudo docker manifest annotate perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR} perconalab/percona-xtrabackup:${PXB_RELEASE_VERSION}-aarch64 --os linux --arch arm64 --variant v8
-                                sudo docker manifest annotate perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR} perconalab/percona-xtrabackup:${PXB_RELEASE_VERSION} --os linux --arch amd64
-                                sudo docker manifest inspect perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}
-
-                                sudo docker manifest push perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}
-                                sudo docker manifest push perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}
-                            '''
-                           }
                     }
                 }
             }
