@@ -21,28 +21,33 @@
 set -o errexit
 set -o xtrace
 
-EXECUTION_GROUP_NO=0
-function executeSuites() {
+# Execution mode. If suites should be executed one by one, or all together
+EXECUTE_SUITES_ONE_BY_ONE=1
+
+
+function execute() {
     local suites=$1
-    local extraOptions=$2
-    local parallel=$3
+    local parallel=$2
+    local extraOptions=$3
+    local logFileSuffix=$4
 
     if [[ -z ${suites} ]]; then
         return
     fi
 
-    # 'worker' holds the name of the file with results.
-    # As we call this function several times, avoid overriding the file.
-    EXECUTION_GROUP_NO=$((EXECUTION_GROUP_NO+1))
-    local worker="WORKER_${WORKER_NO}_${EXECUTION_GROUP_NO}"
+    local worker="WORKER_${WORKER_NO}_${logFileSuffix}"
+    # ensure that there are not / in worker name (it can come from suites that have / in their names)
+    worker=${worker//"/"/"_"}
 
-    echo "Executing suites $suites"
+    echo "Executing suites $suites $logFileSuffix"
 
     df -h
     du /dev/shm
     mount
     ls -la /dev/shm
     cat /proc/meminfo
+
+    start=`date +%s`
 
     MTR_ARGS_NORMAL=${MTR_ARGS}
 
@@ -71,10 +76,48 @@ function executeSuites() {
 
     end=`date +%s`
     runtime=$((end-start))
-    echo KH,SUITES,${suites},time,$runtime
+    echo KH,SUITES,${suites}-${logFileSuffix},time,$runtime
 }
 
 
+function executeOneSuite() {
+    if [[ ${EXECUTE_SUITES_ONE_BY_ONE} == 0 ]]; then
+      return
+    fi
+
+    local suite=$1
+    local parallel=$2
+    local extraOptions=$3
+    local extraSuffix=${4:+-"$4"}
+
+    if [[ -z ${suite} ]]; then
+        return
+    fi
+    
+    execute "${suite}" "${parallel}" "${extraOptions}" "${suite}${extraSuffix}"
+}
+
+
+EXECUTION_GROUP_NO=0
+function executeSuites() {
+    if [[ ${EXECUTE_SUITES_ONE_BY_ONE} == 1 ]]; then
+      return
+    fi
+
+    local suite=$1
+    local parallel=$2
+    local extraOptions=$3
+
+    if [[ -z ${suites} ]]; then
+        return
+    fi
+
+    # 'worker' holds the name of the file with results.
+    # As we call this function several times, avoid overriding the file.
+    EXECUTION_GROUP_NO=$((EXECUTION_GROUP_NO+1))
+    
+    execute "${suite}" "${parallel}" "${extraOptions}" "${EXECUTION_GROUP_NO}"
+}
 
 
 echo "*******************************************************"
@@ -274,11 +317,11 @@ if [[ $UNIT_TESTS == "1" ]]; then
     suiteNoSlash="UNIT_TESTS"
     echo "Executing unit tests with $tests"
 
-        df -h
-        du /dev/shm
-        mount
-        ls -la /dev/shm
-        cat /proc/meminfo
+    df -h
+    du /dev/shm
+    mount
+    ls -la /dev/shm
+    cat /proc/meminfo
     start=`date +%s`
 
     env MTR_BUILD_THREAD=auto ./mysql-test-run.pl \
@@ -304,7 +347,20 @@ if [[ $UNIT_TESTS == "1" ]]; then
     end=`date +%s`
     runtime=$((end-start))
     echo KH,UNIT_TESTS,${tests},time,$runtime
-        fi
+fi
+
+
+# # For replication suites, use less workers. Let's say 3 cpus per worker...
+# RPL_PARALLEL_RUN=$((PARALLEL/3))        
+# # ...but not less than GALERA_PARALLEL_RUN (to have it still configurable via Jenkins UI)
+# if [[ ${RPL_PARALLEL_RUN} -lt ${GALERA_PARALLEL_RUN} ]]; then
+#   RPL_PARALLEL_RUN=${GALERA_PARALLEL_RUN}
+# fi
+
+# Just use the same parallel as we use for Galera
+RPL_PARALLEL_RUN=${GALERA_PARALLEL_RUN}
+
+echo "Limiting workers count for replication suites to ${RPL_PARALLEL_RUN}"
 
 #
 # Execute MTR tests
@@ -357,71 +413,79 @@ for suite in "${ARRAY_MTR_SUITES[@]}"; do
       fi
     fi
 
+    # The idea behind passing 'parallel' value is the following:
+    # 1. By default we use above auto-detected value
+    # 2. It is possible to pass --parallel=N via MTR_ARGS, which should override 1
+    # 3. For galera and rpl tests we still need to force --parallel to lower number than auto-detected or passed via MTR_ARGS
+    #
+    # execute() function uses passes parameters to mtr framework in the order:
+    # 1. --parallel=<autodetected/galera_parallel/rpl_parallel>
+    # 2. MTR_ARGS
+    # 3. extraOptions
+    #
+    # That's why we need to force --parallel value, we pass it via extraOptions (3rd parameter)
     if [[ $only_big_tests_this == "1" ]]; then
         if [[ "$suite" == *"galera"* || "${suite}" == "wsrep" ]]; then
+            executeOneSuite "$suite" "${GALERA_PARALLEL_RUN}" "--only-big-test $galera_extra_options --parallel=${GALERA_PARALLEL_RUN}" "big"
             suitesGaleraBig+="$suite,"
         elif [[ "${suite}" == "group_replication" || "${suite}" == *rpl* ]]; then
+            executeOneSuite "$suite" "${RPL_PARALLEL_RUN}" "--only-big-test --parallel=${RPL_PARALLEL_RUN}" "big"
             suitesReplicationBig+="$suite,"
         else
+            executeOneSuite "$suite" "${PARALLEL}" "--only-big-test" "big"
             suitesBig+="$suite,"
     fi
     elif [[ $only_small_tests_this == "1" ]]; then
         if [[ "$suite" == *"galera"* || "${suite}" == "wsrep" ]]; then
+            executeOneSuite "$suite" "${GALERA_PARALLEL_RUN}" "$galera_extra_options --parallel=${GALERA_PARALLEL_RUN}" "small"
             suitesGaleraSmall+="$suite,"
         elif [[ "${suite}" == "group_replication" || "${suite}" == *rpl* ]]; then
+            executeOneSuite "$suite" "${RPL_PARALLEL_RUN}" "--parallel=${RPL_PARALLEL_RUN}" "small"
             suitesReplicationSmall+="$suite,"
         else
+            executeOneSuite "$suite" "${PARALLEL}" "" "small"
             suitesSmall+="$suite,"
         fi
     else
         if [[ "$suite" == *"galera"* || "${suite}" == "wsrep" ]]; then
+            executeOneSuite "$suite" "${GALERA_PARALLEL_RUN}" "${big_test_extra_option} $galera_extra_options --parallel=${GALERA_PARALLEL_RUN}"
             suitesGaleraNormal+="$suite,"
         elif [[ "${suite}" == "group_replication" || "${suite}" == *rpl* ]]; then
+            executeOneSuite "$suite" "${RPL_PARALLEL_RUN}" "${big_test_extra_option} --parallel=${RPL_PARALLEL_RUN}"
             suitesReplicationNormal+="$suite,"
         else
+            executeOneSuite "$suite" "${PARALLEL}" "${big_test_extra_option}"
             suitesNormal+="$suite,"
         fi
     fi
 done
 
-echo "MTR normal suites: $suitesNormal"
-echo "MTR big suites: $suitesBig"
-echo "MTR small suites: $suitesSmall"
-echo "MTR replication normal suites: $suitesReplicationNormal"
-echo "MTR replication big suites: $suitesReplicationBig"
-echo "MTR replication small suites: $suitesReplicationSmall"
-echo "MTR galera normal suites: $suitesGaleraNormal"
-echo "MTR galera big suites: $suitesGaleraBig"
-echo "MTR galera small suites: $suitesGaleraSmall"
-
 # Execute suites
-start=`date +%s`
+if [[ ${EXECUTE_SUITES_ONE_BY_ONE} == 0 ]]; then
+  echo "MTR normal suites: $suitesNormal"
+  echo "MTR big suites: $suitesBig"
+  echo "MTR small suites: $suitesSmall"
+  echo "MTR replication normal suites: $suitesReplicationNormal"
+  echo "MTR replication big suites: $suitesReplicationBig"
+  echo "MTR replication small suites: $suitesReplicationSmall"
+  echo "MTR galera normal suites: $suitesGaleraNormal"
+  echo "MTR galera big suites: $suitesGaleraBig"
+  echo "MTR galera small suites: $suitesGaleraSmall"
 
-executeSuites "$suitesNormal" "${big_test_extra_option}" "${PARALLEL}"
-executeSuites "$suitesBig" "--only-big-test" "${PARALLEL}"
-executeSuites "$suitesSmall" "" "${PARALLEL}"
+  executeSuites "$suitesNormal" "${PARALLEL}" "${big_test_extra_option}"
+  executeSuites "$suitesBig" "${PARALLEL}" "--only-big-test"
+  executeSuites "$suitesSmall" "${PARALLEL}" ""
 
-# For galera tests, force --parallel force the value via 2nd parameter
-executeSuites "$suitesGaleraNormal" "${big_test_extra_option} $galera_extra_options --parallel=${GALERA_PARALLEL_RUN}" "${GALERA_PARALLEL_RUN}"
-executeSuites "$suitesGaleraBig" "--only-big-test $galera_extra_options --parallel=${GALERA_PARALLEL_RUN}" "${GALERA_PARALLEL_RUN}"
-executeSuites "$suitesGaleraSmall" "$galera_extra_options --parallel=${GALERA_PARALLEL_RUN}" "${GALERA_PARALLEL_RUN}"
+  # For galera tests, force --parallel force the value via 2nd parameter
+  executeSuites "$suitesGaleraNormal" "${GALERA_PARALLEL_RUN}" "${big_test_extra_option} $galera_extra_options --parallel=${GALERA_PARALLEL_RUN}"
+  executeSuites "$suitesGaleraBig" "${GALERA_PARALLEL_RUN}" "--only-big-test $galera_extra_options --parallel=${GALERA_PARALLEL_RUN}"
+  executeSuites "$suitesGaleraSmall" "${GALERA_PARALLEL_RUN}" "$galera_extra_options --parallel=${GALERA_PARALLEL_RUN}"
 
-# # For replication suites, use less workers. Let's say 3 cpus per worker...
-# RPL_PARALLEL_RUN=$((PARALLEL/3))        
-# # ...but not less than GALERA_PARALLEL_RUN (to have it still configurable via Jenkins UI)
-# if [[ ${RPL_PARALLEL_RUN} -lt ${GALERA_PARALLEL_RUN} ]]; then
-#   RPL_PARALLEL_RUN=${GALERA_PARALLEL_RUN}
-# fi
-
-# Just use the same parallel as we use for Galera
-RPL_PARALLEL_RUN=${GALERA_PARALLEL_RUN}
-
-echo "Limiting workers count for replication suites to ${RPL_PARALLEL_RUN}"
-# For replication tests, force --parallel force the value via 2nd parameter
-executeSuites "$suitesReplicationNormal" "${big_test_extra_option} --parallel=${RPL_PARALLEL_RUN}" "${RPL_PARALLEL_RUN}"
-executeSuites "$suitesReplicationBig" "--only-big-test --parallel=${RPL_PARALLEL_RUN}" "${RPL_PARALLEL_RUN}"
-executeSuites "$suitesReplicationSmall" "--parallel=${RPL_PARALLEL_RUN}" "${RPL_PARALLEL_RUN}"
-
+  # For replication tests, force --parallel force the value via 2nd parameter
+  executeSuites "$suitesReplicationNormal" "${RPL_PARALLEL_RUN}" "${big_test_extra_option} --parallel=${RPL_PARALLEL_RUN}"
+  executeSuites "$suitesReplicationBig" "${RPL_PARALLEL_RUN}" "--only-big-test --parallel=${RPL_PARALLEL_RUN}"
+  executeSuites "$suitesReplicationSmall" "${RPL_PARALLEL_RUN}" "--parallel=${RPL_PARALLEL_RUN}"
+fi
 
 #
 # CI FS tests
