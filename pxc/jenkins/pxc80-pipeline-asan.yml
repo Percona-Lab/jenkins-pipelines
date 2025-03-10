@@ -1,0 +1,180 @@
+- job:
+    name: pxc-8.x-pipeline-asan
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: true
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/kamil-holubicki/jenkins-pipelines.git
+            branches:
+            - 'innovative'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pxc/jenkins/pxc80-pipeline-parallel-mtr.groovy
+    parameters:
+    - string:
+        name: BUILD_NUMBER_BINARIES
+        default: ""
+        description: Reuse PXC, PXB binaries built in the specified build. Useful for quick MTR test rerun without rebuild.
+    - string:
+        name: GIT_REPO
+        default: "https://github.com/percona/percona-xtradb-cluster"
+        description: URL to PXC repository
+    - string:
+        name: BRANCH
+        default: "trunk"
+        description: Tag/PR/Branch for PXC repository
+    - string:
+        name: CUSTOM_BUILD_NAME
+        default: ""
+        description: Custom string that will be appended to the build name visible in Jenkins
+    - string:
+        name: PXB_PREV_LTS_VERSION_URL
+        default: "https://downloads.percona.com/downloads/Percona-XtraBackup-8.0/Percona-XtraBackup-8.0.35-31/binary/tarball/percona-xtrabackup-8.0.35-31-Linux-x86_64.glibc2.17-minimal.tar.gz"
+        description: PXB package URL pointing to previous LTS version. glibc version will be auto-adjusted by Jenkins script depending on platform. This will be stored in pxc_extra/PXB_PREV_LTS_VERSION_TARGET_DIR
+    - string:
+        name: PXB_PREV_LTS_VERSION_TARGET_DIR
+        default: "pxb-8.0"
+        description: PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_PREV_LTS_VERSION_TARGET_DIR
+    - string:
+        name: PXB_PREV_VERSION_URL
+        default: "https://downloads.percona.com/downloads/Percona-XtraBackup-innovative-release/Percona-XtraBackup-8.3.0-1/binary/tarball/percona-xtrabackup-8.3.0-1-Linux-x86_64.glibc2.17-minimal.tar.gz"
+        description: PXB package URL pointing to previous version. glibc version will be auto-adjusted by Jenkins script depending on platform. This will be stored in pxc_extra/PXB_PREV_VERSION_TARGET_DIR
+    - string:
+        name: PXB_PREV_VERSION_TARGET_DIR
+        default: "pxb-8.3"
+        description: PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_PREV_VERSION_TARGET_DIR
+    - string:
+        name: PXB_THIS_VERSION_URL
+        default: "https://downloads.percona.com/downloads/Percona-XtraBackup-8.4/Percona-XtraBackup-8.4.0-1/binary/tarball/percona-xtrabackup-8.4.0-1-Linux-x86_64.glibc2.28-minimal.tar.gz"
+        description: PXB package URL pointing to this version. glibc version will be auto-adjusted by Jenkins script depending on platform. This will be stored in pxc_extra/PXB_THIS_VERSION_TARGET_DIR
+    - string:
+        name: PXB_THIS_VERSION_TARGET_DIR
+        default: "pxb-8.4"
+        description: Additional PXB package downloaded from URL will be available to PXC in pxc_extra/PXB_THIS_VERSION_TARGET_DIR
+    - choice:
+        name: JOB_CMAKE
+        choices:
+        - /usr/bin/cmake
+        description: path to cmake binary
+    - string:
+        name: CMAKE_OPTS
+        default: '-DWITH_PERCONA_TELEMETRY=ON'
+        description: cmake options
+    - string:
+        name: MAKE_OPTS
+        default:
+        description: make options, like VERBOSE=1
+    - choice:
+        name: CI_FS_MTR
+        choices:
+        - "yes"
+        - "no"
+        description: Run case-insensetive MTR tests
+    - choice:
+        name: DOCKER_OS
+        choices:
+          - ubuntu:noble
+          - centos:7
+          - centos:8
+          - oraclelinux:9
+          - ubuntu:focal
+          - ubuntu:jammy
+          - debian:bullseye
+          - debian:bookworm
+        description: OS version for compilation
+    - string:
+        name: DOCKER_SHM_SIZE
+        default: "150G"
+        description: "Shared memory size dedicated for Docker container"
+    - choice:
+        name: CLOUD
+        choices: 
+          - "Valgrind_docker_host"
+          - "AWS"
+          - "Hetzner"
+        description: "Host provider for Jenkins workers"
+    - choice:
+        name: CMAKE_BUILD_TYPE
+        choices:
+        - RelWithDebInfo
+        - Debug
+        description: Type of build to produce
+    - choice:
+        name: ANALYZER_OPTS
+        choices:
+        - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON
+        - -DWITH_VALGRIND=ON
+        - -DWITH_ASAN=ON
+        - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON
+        - -DWITH_ASAN=ON -DWITH_UBSAN=ON
+        - -DWITH_UBSAN=ON
+        - -DWITH_MSAN=ON
+        -
+        description: Enable code checking
+    - string:
+        name: GALERA_PARALLEL_RUN
+        default: "20"
+        description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera, rpl, and group_replication specific test suites."
+    - choice:
+        name: FULL_MTR
+        choices:
+        - "no"
+        - "yes"
+        - "galera_only"
+        - "skip_mtr"
+        description: |
+            yes - full MTR<br>
+            no - run mtr suites based on variables WORKER_N_MTR_SUITES<br>
+            galera_only - only Galera related suites (incl. wsrep and sys_var)<br>
+            skip_mtr - skip testing phase. Only build.
+    - string:
+        name: WORKER_1_MTR_SUITES
+        default: "innodb_undo,test_services,audit_null,service_sys_var_registration,connection_control,service_udf_registration,service_status_var_registration,procfs,interactive_utilities,percona-pam-for-mysql,galera_3nodes,galera_nbo,galera_3nodes_nbo,galera_3nodes_sr,galera_encryption,wsrep,galera-x,engines/funcs,innodb,galera_sr,main,rpl,rpl_nogtid,rpl_gtid,galera,parts,group_replication,clone,innodb_gis,stress,perfschema,component_keyring_file,binlog,innodb_fts,sys_vars,innodb_zip,x,gcol,engines/iuds,encryption,federated,funcs_1,auth_sec,binlog_nogtid,binlog_gtid,funcs_2,jp,information_schema,rpl_encryption,sysschema,json,opt_trace,collations,gis,query_rewrite_plugins,test_service_sql_api,secondary_engine,component_audit_log_filter,component_encryption_udf,percona,percona_innodb,component_masking_functions"
+        description: "Suites to be ran on worker 1 when FULL_MTR is no. Unit tests, if requested, can be ran here only!"
+    - string:
+        name: WORKER_2_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 2 when FULL_MTR is no"
+    - string:
+        name: WORKER_3_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 3 when FULL_MTR is no"
+    - string:
+        name: WORKER_4_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 4 when FULL_MTR is no"
+    - string:
+        name: WORKER_5_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 5 when FULL_MTR is no"
+    - string:
+        name: WORKER_6_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 6 when FULL_MTR is no"
+    - string:
+        name: WORKER_7_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 7 when FULL_MTR is no"
+    - string:
+        name: WORKER_8_MTR_SUITES
+        default: ""
+        description: "Suites to be ran on worker 8 when FULL_MTR is no"
+    - string:
+        name: MTR_ARGS
+        default: --mysqld=--innodb_use_native_aio=0 --suite-timeout=600000 --retry-failure=0 --parallel=64
+        description: "mysql-test-run.pl options, for options like: --big-test --only-big-test --nounit-tests --unit-tests-report"
+    - string:
+        name: MTR_STANDALONE_TESTS
+        default:
+        description: "Space-separated test names to be executed. Worker 1 handles this request."
+    - string:
+        name: MTR_STANDALONE_TESTS_PARALLEL
+        default: 1
+        description: "MTR workers count for standalone tests"
+    - bool:
+        name: ALLOW_ABORTED_WORKERS_RERUN
+        default: false
+        description: "Rerun aborted workers"

@@ -71,10 +71,16 @@ docker run --rm --shm-size=${DOCKER_SHM_SIZE} \
     ;;
     esac
 
-    # todo: these are for asan
-    # sudo grep -A16 'ERROR: .*Sanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-Sanitizers-w_${WORKER_NO}.log > /dev/null || :
-    # sudo grep -A16 'ERROR: AddressSanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-AddressSanitizer-w_${WORKER_NO}.log > /dev/null || :
-    # sudo grep -A16 'ERROR: LeakSanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-LeakSanitizer-w_${WORKER_NO}.log > /dev/null || :
+    # In case of ASAN build, do some more logs processing
+    case '${ANALYZER_OPTS}' in
+      *WITH_ASAN=ON*)
+        cd /tmp/pxc/results
+        sudo grep -A16 'ERROR: .*Sanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-Sanitizers-w_${WORKER_NO}.log > /dev/null || :
+        sudo grep -A16 'ERROR: AddressSanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-AddressSanitizer-w_${WORKER_NO}.log > /dev/null || :
+        sudo grep -A16 'ERROR: LeakSanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-LeakSanitizer-w_${WORKER_NO}.log > /dev/null || :
+    ;;
+    esac
+
 
     sudo chown $(id -u):$(id -g) /tmp/pxc/results/* ||:
 "
