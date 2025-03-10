@@ -81,6 +81,9 @@ pipeline {
     }
     stages {
         stage('Create PXC source tarball') {
+            agent {
+               label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
+            }
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
@@ -112,7 +115,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
@@ -132,7 +135,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:xenial", "--build_source_deb=1 --enable_fipsmode=1")
@@ -158,7 +161,7 @@ pipeline {
 /*
                         cleanUpWS()
                         unstash 'pxc-80.properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("centos:7", "--build_rpm=1")
 
                         stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
@@ -178,7 +181,7 @@ pipeline {
                             } else {
                                 cleanUpWS()
                                 unstash 'pxc-80.properties'
-                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                                 buildStage("centos:8", "--build_rpm=1")
 
                                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
@@ -199,7 +202,7 @@ pipeline {
                             } else {
                                 cleanUpWS()
                                 unstash 'pxc-80.properties'
-                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                                 buildStage("centos:8", "--build_rpm=1")
 
                                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
@@ -216,7 +219,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
@@ -236,7 +239,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
@@ -249,21 +252,48 @@ pipeline {
                         uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
-/*                stage('Amazon Linux 2023') {
+                stage('Amazon Linux 2023') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
-                        cleanUpWS()
-                        unstash 'pxc-80.properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("amazonlinux:2023", "--build_rpm=1")
+                        script {
+                            if (env.FIPSMODE == 'NO') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                unstash 'pxc-80.properties'
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
-                        stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
-                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                            }
+                        }
                     }
-                }*/
+                }
+                stage('Amazon Linux 2023 ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            if (env.FIPSMODE == 'NO') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                unstash 'pxc-80.properties'
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+
+                                stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -275,7 +305,7 @@ pipeline {
                             } else {
                                 cleanUpWS()
                                 unstash 'pxc-80.properties'
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_deb=1")
 
                                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
@@ -296,7 +326,7 @@ pipeline {
                             } else {
                                 cleanUpWS()
                                 unstash 'pxc-80.properties'
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_deb=1")
 
                                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
@@ -313,7 +343,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
@@ -334,7 +364,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
@@ -355,7 +385,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
@@ -376,7 +406,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
@@ -401,7 +431,7 @@ pipeline {
                             } else {
                                 cleanUpWS()
                                 unstash 'pxc-80.properties'
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_deb=1")
 
                                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
@@ -422,7 +452,7 @@ pipeline {
                             } else {
                                 cleanUpWS()
                                 unstash 'pxc-80.properties'
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_deb=1")
 
                                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
@@ -439,7 +469,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
@@ -460,7 +490,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
@@ -485,7 +515,7 @@ pipeline {
                             } else {
                                 cleanUpWS()
                                 unstash 'pxc-80.properties'
-                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                                 buildStage("centos:8", "--build_tarball=1")
 
                                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
@@ -502,7 +532,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
@@ -527,7 +557,7 @@ pipeline {
                             } else {
                                 cleanUpWS()
                                 unstash 'pxc-80.properties'
-                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_tarball=1")
 
                                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
@@ -544,7 +574,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
@@ -574,22 +604,22 @@ pipeline {
                     if ("${PXC_VERSION_MINOR}" == "0") {
                     // sync packages
                         if (env.FIPSMODE == 'YES') {
-                            sync2PrivateProdAutoBuild("pxc-80-pro", COMPONENT)
+                            sync2PrivateProdAutoBuild(params.CLOUD, "pxc-80-pro", COMPONENT)
                         } else {
-                            sync2ProdAutoBuild("pxc-80", COMPONENT)
+                            sync2ProdAutoBuild(params.CLOUD, "pxc-80", COMPONENT)
                         }
                     } else {
                         if (env.FIPSMODE == 'YES') {
                             if ("${PXC_VERSION_MINOR}" == "4") {
-                                sync2PrivateProdAutoBuild("pxc-84-pro", COMPONENT)
+                                sync2PrivateProdAutoBuild(params.CLOUD, "pxc-84-pro", COMPONENT)
                             } else {
-                                sync2PrivateProdAutoBuild("pxc-8x-innovation-pro", COMPONENT)
+                                sync2PrivateProdAutoBuild(params.CLOUD, "pxc-8x-innovation-pro", COMPONENT)
                             }
                         } else {
                             if ("${PXC_VERSION_MINOR}" == "4") {
-                                sync2ProdAutoBuild("pxc-84-lts", COMPONENT)
+                                sync2ProdAutoBuild(params.CLOUD, "pxc-84-lts", COMPONENT)
                             } else {
-                                sync2ProdAutoBuild("pxc-8x-innovation", COMPONENT)
+                                sync2ProdAutoBuild(params.CLOUD, "pxc-8x-innovation", COMPONENT)
                             }
                         }
                     }
@@ -601,9 +631,9 @@ pipeline {
                 script {
                     try {
                         if (env.FIPSMODE == 'YES') {
-                            uploadTarballToDownloadsTesting("pxc-gated", "${GIT_BRANCH}")
+                            uploadTarballToDownloadsTesting(params.CLOUD, "pxc-gated", "${GIT_BRANCH}")
                         } else {
-                            uploadTarballToDownloadsTesting("pxc", "${GIT_BRANCH}")
+                            uploadTarballToDownloadsTesting(params.CLOUD, "pxc", "${GIT_BRANCH}")
                         }
                     }
                     catch (err) {
@@ -615,7 +645,7 @@ pipeline {
         }
         stage('Build docker containers') {
             agent {
-                label 'min-focal-x64'
+               label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
             }
             steps {
                 script {
@@ -631,15 +661,28 @@ pipeline {
                         sh '''
                             PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
                             PXC_MAJOR_RELEASE=$(echo ${GIT_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                            sudo apt-get -y install apparmor
+                            sudo aa-status
+                            sudo systemctl stop apparmor
+                            sudo systemctl disable apparmor
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-                            sudo apt-get install -y docker.io
-                            sudo systemctl status docker
-                            sudo apt-get install -y qemu binfmt-support qemu-user-static
+                            sudo apt-get -y install apparmor
+                            sudo aa-status
+                            sudo systemctl stop apparmor
+                            sudo systemctl disable apparmor
+                            sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+                            export DOCKER_CLI_EXPERIMENTAL=enabled
+                            sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                            sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                            sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                            sudo systemctl restart docker
+                            sudo apt-get install -y qemu-system binfmt-support qemu-user-static
+                            sudo qemu-system-x86_64 --version
                             sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                             curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
                             . ./MYSQL_VERSION
                             git clone https://github.com/percona/percona-docker
-                            cd percona-docker/percona-xtradb-cluster-8.0
+                            cd percona-docker/percona-xtradb-cluster-${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}
                             sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}-${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile
@@ -654,8 +697,8 @@ pipeline {
                                     sed -i "s/--skip-ssl//g" dockerdir/entrypoint.sh
                                 fi
                             fi
-                            sudo docker build --no-cache --platform "linux/amd64" -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} .
-                            sudo docker build --no-cache --platform "linux/amd64" --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug .
+                            sudo docker build --no-cache --platform "linux/amd64" -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-amd64 .
+                            sudo docker build --no-cache --platform "linux/amd64" --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-amd64 .
 
                             sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile.aarch64
                             sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}-${RPM_RELEASE}/g" Dockerfile.aarch64
@@ -671,8 +714,8 @@ pipeline {
                                     sed -i "s/--skip-ssl//g" dockerdir/entrypoint.sh
                                 fi
                             fi
-                            sudo docker build --no-cache -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-aarch64 --platform="linux/arm64" -f Dockerfile.aarch64 .
-                            sudo docker build --no-cache --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-aarch64 --platform="linux/arm64" -f Dockerfile.aarch64 .
+                            sudo docker build --no-cache -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-arm64 --platform="linux/arm64" -f Dockerfile.aarch64 .
+                            sudo docker build --no-cache --build-arg DEBUG=1 -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-arm64 --platform="linux/arm64" -f Dockerfile.aarch64 .
 
                             if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
                                 cd ../percona-xtradb-cluster-8.0-backup
@@ -709,22 +752,22 @@ pipeline {
                                 echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                                 curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
                                 . ./MYSQL_VERSION
-                                sudo docker push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
-                                sudo docker push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug
-                                sudo docker push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-aarch64
-                                sudo docker push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-aarch64
+                                sudo docker push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-amd64
+                                sudo docker push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-amd64
+                                sudo docker push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-arm64
+                                sudo docker push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-arm64
                                 sudo docker push perconalab/percona-xtradb-cluster-operator:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}-pxc8.${MYSQL_VERSION_MINOR}-backup
                             '''
                         }
                         sh '''
                            curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
                            . ./MYSQL_VERSION
-                           sudo docker manifest create perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-multi \
-                               perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} \
-                               perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-aarch64
-                           sudo docker manifest annotate perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-multi perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-aarch64 --os linux --arch arm64 --variant v8
-                           sudo docker manifest annotate perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-multi perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} --os linux --arch amd64
-                           sudo docker manifest inspect perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-multi
+                           sudo docker manifest create perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} \
+                               perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-amd64 \
+                               perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-arm64
+                           sudo docker manifest annotate perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-multi perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-amd64 --os linux --arch amd64
+                           sudo docker manifest inspect perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
                        '''
                        withCredentials([
                        usernamePassword(credentialsId: 'hub.docker.com',
@@ -735,7 +778,9 @@ pipeline {
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                            curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
                            . ./MYSQL_VERSION
-                           sudo docker manifest push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-multi
+                           sudo docker manifest push perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR} perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t perconalab/percona-xtradb-cluster:latest perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
                        '''
                        }
                     }
