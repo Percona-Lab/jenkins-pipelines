@@ -337,14 +337,14 @@ pipeline {
 
         stage('Sign packages') {
             steps {
-                signRPM()
-                signDEB()
+                signRPM(params.CLOUD)
+                signDEB(params.CLOUD)
             }
         }
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(PTA_REPO, COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, PTA_REPO, COMPONENT)
             }
         }
 
