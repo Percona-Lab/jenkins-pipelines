@@ -108,7 +108,13 @@ pipeline {
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                buildStage("centos:7", "--get_sources=1")
+                script {
+                    if (env.FIPSMODE == 'YES') {
+                        buildStage("centos:7", "--get_sources=1 --enable_fipsmode=1")
+                    } else {
+                        buildStage("centos:7", "--get_sources=1")
+                    }
+                }
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "DEST=UPLOAD" test/pxc-80.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
