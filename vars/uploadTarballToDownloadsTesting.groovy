@@ -6,6 +6,7 @@ def call(String CLOUD_NAME, String PRODUCT_NAME, String PRODUCT_VERSION) {
         def path_to_build = sh(returnStdout: true, script: "cat uploadPath").trim()
         withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
             sh """
+                #!/bin/bash
                 set -o xtrace
 
                 cat /etc/hosts > hosts
@@ -16,7 +17,7 @@ def call(String CLOUD_NAME, String PRODUCT_NAME, String PRODUCT_VERSION) {
                 cutProductVersion=\$(echo ${PRODUCT_VERSION} | sed 's/release-//g');
 
                 # Get PXC version from a file
-                if [ "x${PRODUCT_NAME}" = "xpxc" ]; then
+                if [ \"x${PRODUCT_NAME}\" = \"xpxc\" ]; then
                     curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${PRODUCT_VERSION}/MYSQL_VERSION
                     MYSQL_VERSION_MAJOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MAJOR | awk -F= '{print \$2}')
                     MYSQL_VERSION_MINOR=\$(cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print \$2}')
