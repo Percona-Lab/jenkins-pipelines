@@ -1,5 +1,5 @@
 - job:
-    name: pxc-package-testing
+    name: pxc-package-testing-pro
     project-type: pipeline
     description: |
         Work in progress, please ignore
@@ -19,15 +19,13 @@
                     - 'master'
                 wipe-workspace: true
         lightweight-checkout: true
-        script-path: pxc/jenkins/pxc-package-testing.groovy
+        script-path: pxc/jenkins/pxc-package-testing-pro.groovy
     parameters:
         - choice:
             name: product_to_test
             choices:
                 - 'pxc84'
                 - 'pxc80'
-                - 'pxc57'
-                - 'pxc-innovation-lts'
             description: "PXC version to test"
         - choice:
             name: node_to_test
@@ -41,6 +39,8 @@
                 - 'debian-11'
                 - 'debian-12-arm'
                 - 'debian-11-arm'
+                - 'debian-10'
+                - 'centos-7'
                 - 'ol-8'
                 - 'ol-9'
                 - 'rhel-8'
@@ -60,13 +60,7 @@
             choices:
                 - "install_and_upgrade"
                 - "install"
-                - "min_upgrade"
-                - "maj_upgrade"
+                - "min_upgrade_pro_pro"
+                - "min_upgrade_nonpro_pro"
+                - "min_upgrade_pro_nonpro"
             description: "Set test type for testing"     
-        - choice:
-            name: pxc57_repo
-            choices:
-                - "original"
-                - "pxc57"
-                - "EOL"
-            description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."
