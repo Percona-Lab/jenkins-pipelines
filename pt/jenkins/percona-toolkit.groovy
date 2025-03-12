@@ -347,10 +347,23 @@ pipeline {
                     '''
                     unstash 'uploadPath'
                     sh '''
+                        sudo apt-get -y install apparmor
+                        sudo aa-status
+                        sudo systemctl stop apparmor
+                        sudo systemctl disable apparmor
                         sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-                        sudo apt-get install -y docker.io
-                        sudo systemctl status docker
+                        sudo apt-get -y install apparmor
+                        sudo aa-status
+                        sudo systemctl stop apparmor
+                        sudo systemctl disable apparmor
+                        sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+                        export DOCKER_CLI_EXPERIMENTAL=enabled
+                        sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                        sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                        sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                        sudo systemctl restart docker
                         sudo apt-get install -y qemu-system binfmt-support qemu-user-static
+                        sudo qemu-system-x86_64 --version
                         sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                         git clone https://github.com/percona/percona-docker
                         cd percona-docker/percona-toolkit
