@@ -462,7 +462,7 @@ parameters {
                                 cleanUpWS()
                                 installCli("rpm")
                                 unstash 'properties'
-                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                                 buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
                                 pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -482,7 +482,7 @@ parameters {
                                 cleanUpWS()
                                 installCli("rpm")
                                 unstash 'properties'
-                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                                 buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
                                 pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
