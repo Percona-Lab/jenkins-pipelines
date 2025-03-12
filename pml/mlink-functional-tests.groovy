@@ -59,16 +59,16 @@ pipeline {
                                     git poll: false, branch: params.PSMDB_TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                                 }
 
-//                                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GIT_TOKEN')]) {
-//                                    dir('percona-mongolink') {
-//                                        git url: "https://x-access-token:${GIT_TOKEN}@github.com/Percona-Lab/percona-mongolink.git",
-//                                                branch: params.MLINK_BRANCH,
-//                                                poll: false
-//                                    }
-//                                }
+                                withCredentials([string(credentialsId: 'JNKPERCONA_TOKEN', variable: 'GIT_TOKEN')]) {
+                                    dir('percona-mongolink') {
+                                        git url: "https://x-access-token:${GIT_TOKEN}@github.com/Percona-Lab/percona-mongolink.git",
+                                                branch: params.MLINK_BRANCH,
+                                                poll: false
+                                    }
+                                }
 
                                 sh """
-                                    git clone https://JNKPercona:${GITHUB_TOKEN}@github.com/Percona-Lab/percona-mongolink.git
+//                                    git clone https://JNKPercona:${GITHUB_TOKEN}@github.com/Percona-Lab/percona-mongolink.git
                                     cd psmdb-testing/mlink
                                     docker-compose build
                                     docker-compose up -d
