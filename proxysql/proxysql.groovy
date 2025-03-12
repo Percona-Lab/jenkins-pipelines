@@ -393,7 +393,7 @@ pipeline {
                         cd percona-docker/proxysql
                         sed -i "s/ENV PROXYSQL_VERSION.*/ENV PROXYSQL_VERSION ${VERSION}-${RPM_RELEASE}/g" Dockerfile
                         sed -i "s/enable proxysql testing/enable proxysql ${COMPONENT}/g" Dockerfile
-                        sudo docker build --no-cache --platform "linux/amd64" -t perconalab/proxysql2:${VERSION} .
+                        sudo docker build --no-cache --platform "linux/amd64" -t perconalab/proxysql2:${VERSION}-${RPM_RELEASE} .
 
                         sudo docker images
                     '''
@@ -404,15 +404,17 @@ pipeline {
                         )]) {
                         sh '''
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                            sudo docker push perconalab/proxysql2:${VERSION}
+                            sudo docker push perconalab/proxysql2:${VERSION}-${RPM_RELEASE}
 
                             PROXYSQL_MAJOR_VERSION=$(echo $VERSION | cut -d'.' -f1)
                             PROXYSQL_MINOR_VERSION=$(echo $VERSION | cut -d'.' -f2)
                             PROXYSQL_PATCH_VERSION=$(echo $VERSION | cut -d'.' -f3)
 
-                            docker tag perconalab/proxysql2:${VERSION} perconalab/proxysql2:${PROXYSQL_MAJOR_VERSION}.${PROXYSQL_MINOR_VERSION}
-                            docker tag perconalab/proxysql2:${VERSION} perconalab/proxysql2:${PROXYSQL_MAJOR_VERSION}
+                            docker tag perconalab/proxysql2:${VERSION}-${RPM_RELEASE} perconalab/proxysql2:${PROXYSQL_MAJOR_VERSION}.${PROXYSQL_MINOR_VERSION}.${PROXYSQL_PATCH_VERSION}
+                            docker tag perconalab/proxysql2:${VERSION}-${RPM_RELEASE} perconalab/proxysql2:${PROXYSQL_MAJOR_VERSION}.${PROXYSQL_MINOR_VERSION}
+                            docker tag perconalab/proxysql2:${VERSION}-${RPM_RELEASE} perconalab/proxysql2:${PROXYSQL_MAJOR_VERSION}
 
+                            sudo docker push perconalab/proxysql2:${PROXYSQL_MAJOR_VERSION}.${PROXYSQL_MINOR_VERSION}.${PROXYSQL_PATCH_VERSION}
                             sudo docker push perconalab/proxysql2:${PROXYSQL_MAJOR_VERSION}.${PROXYSQL_MINOR_VERSION}
                             sudo docker push perconalab/proxysql2:${PROXYSQL_MAJOR_VERSION}
 
