@@ -10,7 +10,7 @@ def call(String REPO_NAME, String PROBUILD) {
                     else
                         PRO_FOLDER=""
                     fi
-                    # Update /srv/repo-copy/${PRO_FOLDER}/version
+                    # Update /srv/repo-copy/version
                     date +%s > /srv/repo-copy/\${PRO_FOLDER}version
 
                     rsync -avt --bwlimit=50000 --delete --progress --exclude=.nfs* --exclude=rsync-* --exclude=*.bak \
