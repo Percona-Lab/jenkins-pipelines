@@ -68,7 +68,7 @@ pipeline {
 //                                }
 
                                 sh """
-                                    git clone https://${JNKPERCONA_TOKEN}@github.com/Percona-Lab/percona-mongolink.git
+                                    git clone https://${GITHUB_TOKEN}@github.com/Percona-Lab/percona-mongolink.git
                                     cd psmdb-testing/mlink
                                     docker-compose build
                                     docker-compose up -d
