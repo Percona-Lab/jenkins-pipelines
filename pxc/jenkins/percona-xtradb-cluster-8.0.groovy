@@ -294,7 +294,7 @@ pipeline {
                                 buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
                                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
-                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                                 uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                             }
                         }
