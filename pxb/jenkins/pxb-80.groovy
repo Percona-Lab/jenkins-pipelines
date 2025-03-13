@@ -6,18 +6,40 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 import groovy.transform.Field
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
-    sh """
-        set -o xtrace
-        mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/storage/innobase/xtrabackup/utils/percona-xtrabackup-8.0_builder.sh -O percona-xtrabackup-8.0_builder.sh
-        pwd -P
-        export build_dir=\$(pwd -P)
-        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
-            set -o xtrace
-            cd \${build_dir}
-            bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
-    """
+    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+      sh """
+          set -o xtrace
+          mkdir test
+          if [ \${FIPSMODE} = "YES" ]; then
+              MYSQL_VERSION_MINOR=\$(curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${BRANCH}/MYSQL_VERSION && grep MYSQL_VERSION_MINOR MYSQL_VERSION | awk -F= '{print \$2}')
+              if [ \${MYSQL_VERSION_MINOR} = "0" ]; then
+                  PRO_BRANCH="8.0"
+              elif [ \${MYSQL_VERSION_MINOR} = "4" ]; then
+                  PRO_BRANCH="8.4"
+              else
+                  PRO_BRANCH="trunk"
+              fi
+              curl -L -H "Authorization: Bearer \${TOKEN}" \
+                      -H "Accept: application/vnd.github.v3.raw" \
+                      -o percona-xtrabackup-8.0_builder.sh \
+                      "https://api.github.com/repos/percona/percona-xtrabackup-private-build/contents/percona-xtrabackup-8.0_builder.sh?ref=\${PRO_BRANCH}"
+          else
+              wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/storage/innobase/xtrabackup/utils/percona-xtrabackup-8.0_builder.sh -O percona-xtrabackup-8.0_builder.sh
+          fi
+          pwd -P
+          export build_dir=\$(pwd -P)
+          docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+              set -o xtrace
+              cd \${build_dir}
+              bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --install_deps=1
+              if [ \${FIPSMODE} = "YES" ]; then
+                  git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/percona-xtrabackup-private-build.git percona-xtrabackup-private-build
+                  mv -f \${build_dir}/percona-xtrabackup-private-build \${build_dir}/test/.
+                  ls \${build_dir}/test
+              fi
+              bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+      """
+    }
 }
 
 void cleanUpWS() {
@@ -179,7 +201,13 @@ pipeline {
             steps {
                 // slackNotify("", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                buildStage("ubuntu:focal", "--get_sources=1")
+                script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:focal", "--get_sources=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:focal", "--get_sources=1")
+                            }
+                       }
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-xtrabackup-8.0.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -322,25 +350,44 @@ pipeline {
                         }
                     }
                 }
-/*                stage('Amazon Linux 2023') {
+                stage('Amazon Linux 2023') {
                     agent {
                         label 'docker-32gb'
                     }
                     steps {
                         script {
-                            cleanUpWS()
-                            popArtifactFolder("srpm/", AWS_STASH_PATH)
-                            if (env.FIPSMODE == 'YES') {
-                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            if (env.FIPSMODE == 'NO') {
+                                echo "The step is skipped"
                             } else {
-                                buildStage("amazonlinux:2023", "--build_rpm=1")
-                            }
+                                cleanUpWS()
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
-                            pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                            uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                            }
                         }
                     }
-                }*/
+                }
+                stage('Amazon Linux 2023 ARM') {
+                    agent {
+                        label 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            if (env.FIPSMODE == 'NO') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+
+                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label 'docker-32gb'
