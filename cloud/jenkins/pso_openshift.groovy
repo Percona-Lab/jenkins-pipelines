@@ -234,12 +234,14 @@ platform:
 publish: External
 EOF
             cat $OPENSHIFT_CONF_FILE >> openshift/$CLUSTER_SUFFIX/install-config.yaml
+            cat $OPENSHIFT_CONF_FILE
         """
 
         sshagent(['aws-openshift-41-key']) {
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
                 export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                cat "openshift/$CLUSTER_SUFFIX/auth/kubeconfig"
             """
         }
     }
