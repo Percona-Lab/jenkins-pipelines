@@ -1,14 +1,16 @@
 - job:
-    name: ps-operator-eks-version
+    name: weekly-pso
     project-type: pipeline
     description: |
         Do not edit this job through the web!
+    triggers:
+      - timed: "0 8 * * 0"
     pipeline-scm:
       scm:
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - master
+            - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/ps_operator_eks_version.groovy
+      script-path: cloud/jenkins/weekly_pso.groovy
