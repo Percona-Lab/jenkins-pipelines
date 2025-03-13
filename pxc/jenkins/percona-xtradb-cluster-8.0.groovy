@@ -179,24 +179,6 @@ pipeline {
         } // stage
         stage('Build PXC RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Centos 7') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-                    }
-                    steps {
-                        echo "The step is skipped"
-/*
-                        cleanUpWS()
-                        unstash 'pxc-80.properties'
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_rpm=1")
-
-                        stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
-                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-*/
-                    }
-                }
                 stage('Centos 8') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -295,7 +277,7 @@ pipeline {
 
                                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
                                 pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                             }
                         }
                     }
