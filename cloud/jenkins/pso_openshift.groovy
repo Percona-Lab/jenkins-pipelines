@@ -1,4 +1,4 @@
-region='eu-west-2'
+region='eu-west-3'
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
@@ -162,7 +162,9 @@ void initTests() {
     withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE'), file(credentialsId: 'cloud-minio-secret-file', variable: 'CLOUD_MINIO_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret.yml
             cp $CLOUD_MINIO_SECRET_FILE source/e2e-tests/conf/cloud-secret-minio-gw.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret-minio-gw.yml
         """
     }
     stash includes: "source/**", name: "sourceFILES"
@@ -276,7 +278,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+                    export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
                     export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
 
                     kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
