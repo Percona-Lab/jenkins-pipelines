@@ -11,6 +11,16 @@ pipeline {
         stage('Clean Workspace'){
             steps {
                 deleteDir() // Cleans the workspace
+                sh """
+                
+                ls -la
+                
+                rm -rf * 
+                
+                ls -la 
+                """
+
+
             }
         }
     
@@ -35,14 +45,14 @@ pipeline {
                 script{
                     def pxcoValue = sh(script: "grep '^PXCO=' ${LOCAL_TRIGGER_FILE} | cut -d '=' -f2", returnStdout: true).trim()
                     
-                   // if (pxcoValue) {
+                    if (pxcoValue) {
                         echo "PXCO value: ${pxcoValue}"
                         
                         // Perform specific actions based on the PDPS_OPERATORS value
-                       // if (pxcoValue == "0") {
+                        if (pxcoValue == "0") {
                             echo "PXCO is set to 0. Setting build status to UNSTABLE."
                             currentBuild.result = 'UNSTABLE'  // Set build status to UNSTABLE
-                       // } else if (pxcoValue == "1") {
+                        } else if (pxcoValue == "1") {
                             echo "PXCO is set to 1. Keeping build status SUCCESS."
                             def jobId = env.BUILD_ID
                             
@@ -56,7 +66,7 @@ pipeline {
                                 """
                             }
                             
-                       //     currentBuild.result = 'SUCCESS'  // Explicitly set build status to SUCCESS
+                            currentBuild.result = 'SUCCESS'  // Explicitly set build status to SUCCESS
                         
 
                             // Trigger the PXC Operator Jobs on cloud.cd jenkins
@@ -72,14 +82,15 @@ pipeline {
                             echo "Environment variables set!"
                             
                             build(
-                                job: 'pxco-eks-1',
+                                job: 'pxco-gke-1',
                                 parameters: [
                                     string(name: "TEST_SUITE", value: "run-release.csv"),
                                     string(name: "IGNORE_PREVIOUS_RUN", value: "YES"),
                                     string(name: "PILLAR_VERSION", value: "80"),
-                                    string(name: "GIT_BRANCH", value: "${PXCO_VERSION}"),
+                                    string(name: "GIT_BRANCH", value: "v${PXCO_VERSION}"),
                                     string(name: "GIT_REPO", value: "https://github.com/percona/percona-xtradb-cluster-operator"),
-                                    string(name: "PLATFORM_VER", value: "1.28"),
+                                    string(name: "PLATFORM_VER", value: "max"),
+                                    string(name: "GKE_RELEASE_CHANNEL", value: "rapid"),
                                     string(name: "CLUSTER_WIDE", value: "YES"),
                                     string(name: "IMAGE_OPERATOR", value: "percona/percona-xtradb-cluster-operator:${PXCO_VERSION}"),
                                     string(name: "IMAGE_PXC", value: "perconalab/percona-xtradb-cluster:${PXC_VERSION}"),
@@ -94,16 +105,14 @@ pipeline {
                                 wait: true
                             )
 
-
-
-                       // } else {
-                         //   echo "PXCO has an unexpected value: ${pxcoValue}. No status change."
-                      //  }
-                   // } else {
+                        } else {
+                            echo "PXCO has an unexpected value: ${pxcoValue}. No status change."
+                        }
+                    } else {
                       
-                      //  echo "PXCO variable not found in the file."
+                        echo "PXCO variable not found in the file."
                     
-                    //}
+                    }
                 }
             }
         }

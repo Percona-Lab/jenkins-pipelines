@@ -12,3 +12,5 @@
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pdpxc/pdpxc-integration-pull.groovy
+    triggers:
+      - timed: "H/15 * * * *"  # Runs every 5 minutes
