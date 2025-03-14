@@ -373,6 +373,8 @@ void setInventories(String param_test_type){
 
                 }else if(param_test_type == "min_upgrade"){
 
+                    echo "Inside min_upgrade setting inventories"
+
                     def UPGRADE_Bootstrap_Instance = sh(
                         script: """cat ${UPGRADE_BOOTSTRAP_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.instance] | jq -r .[]""",
                         returnStdout: true
@@ -795,8 +797,19 @@ pipeline {
                                     echo "UPGRADE STAGE INSIDE"
                                     def param_test_type = "min_upgrade"   
                                     echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
-                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-                                    setInventories("min_upgrade")
+                                    
+                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                        runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
+                                    }
+
+                                    echo "1-2 Setting INVENTORIES"
+
+                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                        setInventories("min_upgrade")
+                                    }
+
+                                    echo "2-2 Setting INVENTORIES COMPLETE"
+
                                     echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
                                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
                                             runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
