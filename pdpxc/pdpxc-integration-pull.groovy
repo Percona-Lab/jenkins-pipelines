@@ -70,37 +70,25 @@ pipeline {
                                 }
                             }
                             echo "Environment variables set!"
-
-                            echo """
-                                GIT_BRANCH: ${PXCO_VERSION}
-                                GIT_REPO: "https://github.com/percona/percona-xtradb-cluster-operator"
-                                PLATFORM_VER: ${params.test_repo}
-                                GKE_RELEASE_CHANNEL: ${test_type}
-                                IMAGE_OPERATOR: ${params.pxc57_repo}
-                                IMAGE_PXC: ${params.pxc57_repo}
-                                IMAGE_PROXY: ${params.pxc57_repo}
-                                IMAGE_HAPROXY: ${params.pxc57_repo}
-                                IMAGE_BACKUP: ${params.pxc57_repo}
-                                IMAGE_LOGCOLLECTOR: ${params.pxc57_repo}
-                                IMAGE_PMM_CLIENT: ${params.pxc57_repo}
-                                IMAGE_PMM_SERVER: ${params.pxc57_repo}
-                            """
                             
                             build(
-                                job: 'pxco-gke-1',
+                                job: 'pxco-eks-1',
                                 parameters: [
-                                    string(name: "GIT_BRANCH", value: PXCO_VERSION),
+                                    string(name: "TEST_SUITE", value: "run-release.csv"),
+                                    string(name: "IGNORE_PREVIOUS_RUN", value: "YES"),
+                                    string(name: "PILLAR_VERSION", value: "80"),
+                                    string(name: "GIT_BRANCH", value: "${PXCO_VERSION}"),
                                     string(name: "GIT_REPO", value: "https://github.com/percona/percona-xtradb-cluster-operator"),
-                                    string(name: "PLATFORM_VER", value: params.test_repo),
-                                    string(name: "GKE_RELEASE_CHANNEL", value: "${test_type}"),
-                                    string(name: "IMAGE_OPERATOR", value: params.pxc57_repo),
-                                    string(name: "IMAGE_PXC", value: params.pxc57_repo),
-                                    string(name: "IMAGE_PROXY", value: params.pxc57_repo),
-                                    string(name: "IMAGE_HAPROXY", value: params.pxc57_repo),
-                                    string(name: "IMAGE_BACKUP", value: params.pxc57_repo),
-                                    string(name: "IMAGE_LOGCOLLECTOR", value: params.pxc57_repo),
-                                    string(name: "IMAGE_PMM_CLIENT", value: params.pxc57_repo),
-                                    string(name: "IMAGE_PMM_SERVER", value: params.pxc57_repo)
+                                    string(name: "PLATFORM_VER", value: "1.28"),
+                                    string(name: "CLUSTER_WIDE", value: "YES"),
+                                    string(name: "IMAGE_OPERATOR", value: "percona/percona-xtradb-cluster-operator:${PXCO_VERSION}"),
+                                    string(name: "IMAGE_PXC", value: "perconalab/percona-xtradb-cluster:${PXC_VERSION}"),
+                                    string(name: "IMAGE_PROXY", value: "percona/proxysql2:${PROXYSQL_VERSION}"),
+                                    string(name: "IMAGE_HAPROXY", value: "perconalab/haproxy:${HAPROXY_VERSION}"),
+                                    string(name: "IMAGE_BACKUP", value: "perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup"),
+                                    string(name: "IMAGE_LOGCOLLECTOR", value: "perconalab/percona-xtradb-cluster-operator:main-logcollector"),
+                                    string(name: "IMAGE_PMM_CLIENT", value: "perconalab/pmm-client:dev-latest"),
+                                    string(name: "IMAGE_PMM_SERVER", value: "perconalab/pmm-server:dev-latest")
                                 ],
                                 propagate: true,
                                 wait: true
