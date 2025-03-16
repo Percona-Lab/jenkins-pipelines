@@ -169,6 +169,7 @@ void initTests() {
     withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret.yml
         """
     }
     stash includes: "source/**", name: "sourceFILES"
@@ -195,6 +196,8 @@ void clusterRunner(String cluster) {
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
+    clusters.add("$CLUSTER_SUFFIX")
+
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
@@ -255,9 +258,8 @@ void runTest(Integer TEST_ID) {
                 sh """
                     cd source
 
-                    export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=ps-operator
-                    export IMAGE=$IMAGE_OPERATOR
+                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
                     export IMAGE_MYSQL=$IMAGE_MYSQL
                     export IMAGE_BACKUP=$IMAGE_BACKUP
                     export IMAGE_ROUTER=$IMAGE_ROUTER
@@ -440,6 +442,14 @@ pipeline {
                         clusterRunner('cluster4')
                     }
                 }
+                stage('cluster5') {
+                    agent { label 'docker' }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster5')
+                    }
+                }
             }
         }
     }
@@ -457,6 +467,11 @@ pipeline {
 
                 clusters.each { shutdownCluster(it) }
             }
+            sh """
+                    sudo docker system prune --volumes -af
+                    sudo rm -rf *
+                """
+            deleteDir()
         }
     }
 }
