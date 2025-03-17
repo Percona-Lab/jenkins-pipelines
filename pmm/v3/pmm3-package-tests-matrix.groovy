@@ -79,15 +79,18 @@ void setup_package_tests() {
     sh '''
         LINUX_DISTRIBUTION=$(cat /proc/version)
         if [[ $LINUX_DISTRIBUTION == *"Red Hat"* ]]; then
+            echo "Distribution is Red Hat Based"
             sudo yum install -y epel-release
             sudo yum -y update
             sudo yum install -y ansible-core git wget dpkg
         elif [[ $LINUX_DISTRIBUTION == *"Ubuntu"* ]]; then
+            echo "Distribution is Ubuntu based"
             sudo apt update -y
             sudo apt install -y software-properties-common
             sudo apt-add-repository --yes --update ppa:ansible/ansible
             sudo apt-get install -y ansible git wget
         else
+            echo "Other distribution"
             sudo apt-get install -y dirmngr gnupg2 software-properties-common
             sudo apt-add-repository --yes --update ppa:ansible/ansible
             echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
