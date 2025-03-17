@@ -54,12 +54,14 @@ def generateStage(LABEL, PLAYBOOK) {
                 label "${LABEL}"
             }
             node(LABEL) {
-                setup_package_tests()
-                run_package_tests(
-                    GIT_BRANCH,
-                    PLAYBOOK,
-                    INSTALL_REPO,
-                )
+                retry(2) {
+                    setup_package_tests()
+                    run_package_tests(
+                        GIT_BRANCH,
+                        PLAYBOOK,
+                        INSTALL_REPO,
+                    )
+                }
             }
 
 //             steps {
