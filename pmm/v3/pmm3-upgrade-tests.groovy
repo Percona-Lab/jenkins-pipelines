@@ -80,10 +80,10 @@ pipeline {
                         }
                     }
                 }
-                stage('Run settings and metrics upgrade tests'){
+                stage('Run external services upgrade tests'){
                     steps {
                         script {
-                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'SETTINGS-METRICS');
+                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'EXTERNAL SERVICES');
                         }
                     }
                 }
