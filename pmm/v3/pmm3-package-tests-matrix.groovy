@@ -91,8 +91,7 @@ void setup_package_tests() {
             sudo apt-get install -y ansible git wget
         else
             echo "Other distribution"
-            sudo apt-get install -y dirmngr gnupg2 software-properties-common
-            sudo apt-add-repository --yes --update ppa:ansible/ansible
+            sudo apt-get install -y dirmngr gnupg2
             echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
             sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
             sudo apt update -y
