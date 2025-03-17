@@ -264,7 +264,7 @@ pipeline {
                         expression { env.SERVER_TYPE == "docker" }
                     }
                     steps {
-                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--database external --database haproxy', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('Setup OVF Server Instance') {
@@ -294,6 +294,11 @@ pipeline {
         }
         stage('Setup PMM Clients') {
             parallel {
+                stage('external client') {
+                    steps {
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database external --database haproxy', 'yes', env.VM_IP, 'external-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
+                    }
+                }
                 stage('ps-group-replication client') {
                     steps {
                         runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=gr', 'yes', env.VM_IP, 'ps-gr-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
