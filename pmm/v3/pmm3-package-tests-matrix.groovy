@@ -76,14 +76,14 @@ def generateStage(LABEL, PLAYBOOK) {
 }
 
 void setup_package_tests() {
-    sh """
-        LINUX_DISTRIBUTION=\$(cat /proc/version)
-        if [[ "\$LINUX_DISTRIBUTION" == *"Red Hat"* ]]; then
+    sh '''
+        LINUX_DISTRIBUTION=$(cat /proc/version)
+        if [[ "${LINUX_DISTRIBUTION}" == *"Red Hat"* ]]; then
             echo "Distribution is Red Hat Based"
             sudo yum install -y epel-release
             sudo yum -y update
             sudo yum install -y ansible-core git wget dpkg
-        elif [[ "\$LINUX_DISTRIBUTION" =~ "Ubuntu" ]]; then
+        elif [[ "${LINUX_DISTRIBUTION}" == *"Ubuntu"* ]]; then
             echo "Distribution is Ubuntu based"
             sudo apt update -y
             sudo apt install -y software-properties-common
@@ -97,7 +97,7 @@ void setup_package_tests() {
             sudo apt update -y
             sudo apt-get install -y ansible git wget
         fi
-    """
+    '''
 }
 
 def latestVersion = pmmVersion()
