@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 import groovy.transform.Field
 
-def runMoleculeAction(String action, String product_to_test, String scenario, String param_test_type, String install_repo, String test_repo, String version_check, String pro) {
+def runMoleculeAction(String action, String product_to_test, String scenario, String param_test_type, String test_repo, String version_check, String pro) {
     def awsCredentials = [
         sshUserPrivateKey(
             credentialsId: 'MOLECULE_AWS_PRIVATE_KEY',
@@ -65,6 +65,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
             }else if(param_test_type == "min_upgrade"){
                     
                 def check_version="${version_check}"
+                def install_repo="main"
                 def upgrade_repo="${test_repo}"
 
                 if(action != "create" && action != "destroy"){
@@ -84,6 +85,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     ).trim()
                     sh """
                         echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                        echo 'upgrade_repo: "${test_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         echo 'pro: "${pro}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         echo 'PXC1_IP: "${UP_PXC1_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
@@ -424,7 +426,7 @@ pipeline {
                             def param_test_type = "install"
                             echo "1. Creating Molecule Instances for running INSTALL PXC tests.. Molecule create step"
                             try {
-                                runMoleculeAction("create", params.product_to_test, params.node_to_test, "install", params.test_repo, params.test_repo, "yes", "yes")
+                                runMoleculeAction("create", params.product_to_test, params.node_to_test, "install" params.test_repo, "yes", "yes")
                             } catch (Exception e) {
                                 echo "Failed during Molecule create step: ${e.message}"
                                 throw e
@@ -433,7 +435,7 @@ pipeline {
                             echo "2. Run Install scripts and tests for PXC INSTALL PXC tests.. Molecule converge step"
                             catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                                 try {
-                                    runMoleculeAction("converge", params.product_to_test, params.node_to_test, "install", params.test_repo, params.test_repo, "yes", "yes")
+                                    runMoleculeAction("converge", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes", "yes")
                                 } catch (Exception e) {
                                     echo "Failed during Molecule converge step: ${e.message}"
                                     throw e
@@ -460,7 +462,7 @@ pipeline {
                                 // Ensure Molecule instances are destroyed no matter what
                                 echo "4. Destroy the Molecule instances for the PXC INSTALL tests.."
                                 try {
-                                    runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "install", params.test_repo, params.test_repo, "yes","yes")
+                                    runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes","yes")
                                 } catch (Exception e) {
                                     echo "Failed during Molecule destroy step: ${e.message}"
                                 }
@@ -518,15 +520,15 @@ pipeline {
                                     echo "UPGRADE STAGE INSIDE"
                                     def param_test_type = "min_upgrade"   
                                     echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
-                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", "testing", "no","no")
+                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "testing", "no","no")
                                     setInventories("min_upgrade")
                                     echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
                                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "testing", "no", "no")
+                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "testing", "no", "no")
                                         }
                                     echo "3. Run UPGRADE scripts and playbooks for running PXC UPGRADE tests.. Molecule side-effect step"
                                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", "main", params.test_repo, "yes","yes")
+                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes","yes")
                                         }
                                 }
                             }
@@ -542,7 +544,7 @@ pipeline {
                                             echo "Failed during logs backup"
                                         }
                                         echo "5. Destroy the Molecule instances for PXC UPGRADE tests.."
-                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "min_upgrade", "main", params.test_repo, "yes","no")
+                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes","no")
                                     }
                                     catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
                                         archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
@@ -592,15 +594,15 @@ pipeline {
                                     echo "UPGRADE STAGE INSIDE"
                                     def param_test_type = "min_upgrade"   
                                     echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
-                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", params.test_repo, "no", "yes")
+                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "no", "yes")
                                     setInventories("min_upgrade")
                                     echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
                                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", params.test_repo, "no", "yes")
+                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "no", "yes")
                                         }
                                     echo "3. Run UPGRADE scripts and playbooks for running PXC UPGRADE tests.. Molecule side-effect step"
                                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", "main", params.test_repo, "yes")
+                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes","yes")
                                         }
                                 }
                             }
@@ -616,7 +618,7 @@ pipeline {
                                             echo "Failed during logs backup"
                                         }
                                         echo "5. Destroy the Molecule instances for PXC UPGRADE tests.."
-                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "min_upgrade", "main", params.test_repo, "yes", "yes")
+                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes", "yes")
 
                                     }
                                     catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
@@ -665,14 +667,14 @@ pipeline {
                                     echo "UPGRADE STAGE INSIDE"
                                     def param_test_type = "min_upgrade"
                                     echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
-                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade",  params.test_repo, "main", "no", "yes")
+                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade",  params.test_repo, "no", "yes")
                                     setInventories("min_upgrade")
                                     
                                     echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
                                     def convergeSuccess = true // Flag to track the success of the converge step
 
                                     catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                                        runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade",  params.test_repo, "main", "no", "yes")
+                                        runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade",  params.test_repo, "no", "yes")
                                     }.catch {
                                         convergeSuccess = false // If the converge step fails, set the flag to false
                                     }
@@ -680,7 +682,7 @@ pipeline {
                                     if (convergeSuccess) {
                                         echo "3. Run UPGRADE scripts and playbooks for running PXC UPGRADE tests.. Molecule side-effect step"
                                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "main", "yes", "no")
+                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes", "no")
                                         }
                                     } else {
                                         echo "Skipping side-effect step due to failure in converge step."

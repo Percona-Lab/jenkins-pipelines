@@ -315,10 +315,12 @@ void setInventories(String param_test_type){
 
                     if(("${params.node_to_test}" == "ubuntu-noble") || ("${params.node_to_test}" == "ubuntu-focal") || ("${params.node_to_test}" == "ubuntu-jammy") || ("${params.node_to_test}" == "ubuntu-noble-arm") || ("${params.node_to_test}" == "ubuntu-jammy-arm")){
                         SSH_USER="ubuntu"            
-                    }else if(("${params.node_to_test}" == "debian-11") ||("${params.node_to_test}" == "debian-12") || ("${params.node_to_test}" == "debian-11-arm") || ("${params.node_to_test}" == "debian-12-arm")){
+                    }else if(("${params.node_to_test}" == "debian-11") ||("${params.node_to_test}" == "debian-12") || ("${params.node_to_test}" == "debian-11-arm") || ("${params.node_to_test}" == "debian-12-arm") || ("${params.node_to_test}" == "debian-10")){
                         SSH_USER="admin"
                     }else if(("${params.node_to_test}" == "ol-8") || ("${params.node_to_test}" == "ol-9") || ("${params.node_to_test}" == "min-amazon-2") || ("${params.node_to_test}" == "rhel-8") || ("${params.node_to_test}" == "rhel-9") ("${params.node_to_test}" == "rhel-8-arm") || ("${params.node_to_test}" == "rhel-9-arm")){
                         SSH_USER="ec2-user"
+                    }else if(("${params.node_to_test}" == "centos-7")){
+                        SSH_USER="centos"
                     }else{
                         echo "OS Not yet in list of Keypath setup"
                     }
@@ -372,6 +374,8 @@ void setInventories(String param_test_type){
                     """
 
                 }else if(param_test_type == "min_upgrade"){
+
+                    echo "Inside min_upgrade setting inventories"
 
                     def UPGRADE_Bootstrap_Instance = sh(
                         script: """cat ${UPGRADE_BOOTSTRAP_INSTANCE_PUBLIC_IP} | jq -r .[0] | jq [.instance] | jq -r .[]""",
@@ -549,6 +553,8 @@ pipeline {
                 'debian-11',
                 'debian-12-arm',
                 'debian-11-arm',
+                'debian-10',
+                'centos-7',
                 'ol-8',
                 'ol-9',
                 'rhel-8',
@@ -795,8 +801,19 @@ pipeline {
                                     echo "UPGRADE STAGE INSIDE"
                                     def param_test_type = "min_upgrade"   
                                     echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
-                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-                                    setInventories("min_upgrade")
+                                    
+                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                        runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
+                                    }
+
+                                    echo "1-2 Setting INVENTORIES"
+
+                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                                        setInventories("min_upgrade")
+                                    }
+
+                                    echo "2-2 Setting INVENTORIES COMPLETE"
+
                                     echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
                                         catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
                                             runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")

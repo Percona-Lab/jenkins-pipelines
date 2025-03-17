@@ -186,9 +186,8 @@ void runTest(Integer TEST_ID) {
                 sh """
                     cd source
 
-                    export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=ps-operator
-                    export IMAGE=$IMAGE_OPERATOR
+                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
                     export IMAGE_MYSQL=$IMAGE_MYSQL
                     export IMAGE_BACKUP=$IMAGE_BACKUP
                     export IMAGE_ROUTER=$IMAGE_ROUTER
@@ -339,6 +338,11 @@ pipeline {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
                 }
             }
+            sh """
+                    sudo docker system prune --volumes -af
+                    sudo rm -rf *
+                """
+            deleteDir()
         }
     }
 }

@@ -267,9 +267,8 @@ void runTest(Integer TEST_ID) {
                 sh """
                     cd source
 
-                    export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=ps-operator
-                    export IMAGE=$IMAGE_OPERATOR
+                    [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
                     export IMAGE_MYSQL=$IMAGE_MYSQL
                     export IMAGE_BACKUP=$IMAGE_BACKUP
                     export IMAGE_ROUTER=$IMAGE_ROUTER
@@ -330,7 +329,7 @@ void makeReport() {
     echo "=========================[ Generating Parameters Report ]========================="
     pipelineParameters = """
         testsuite name=$JOB_NAME
-        IMAGE_OPERATOR=$IMAGE_OPERATOR
+        [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
         IMAGE_MYSQL=$IMAGE_MYSQL
         IMAGE_BACKUP=$IMAGE_BACKUP
         IMAGE_ROUTER=$IMAGE_ROUTER

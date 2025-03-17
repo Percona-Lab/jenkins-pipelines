@@ -19,17 +19,17 @@ pipeline {
             parallel {
                 stage('Trigger pso-gke job 3 times') {
                     steps {
-                        triggerJobMultiple("pso-gke")
+                        triggerJobMultiple("pso-gke-1")
                     }
                 }
                 stage('Trigger pso-eks job 3 times') {
                     steps {
-                        triggerJobMultiple("pso-eks")
+                        triggerJobMultiple("pso-eks-1")
                     }
                 }
                 stage('Trigger pso-os job 3 times') {
                     steps {
-                        triggerJobMultiple("pso-os")
+                        triggerJobMultiple("pso-openshift-1")
                     }
                 }
             }
@@ -37,9 +37,9 @@ pipeline {
     }
     post {
         always {
-            copyArtifacts(projectName: 'pso-gke', selector: lastCompleted(), target: 'pso-gke')
-            copyArtifacts(projectName: 'pso-eks', selector: lastCompleted(), target: 'pso-eks')
-            copyArtifacts(projectName: 'pso-os', selector: lastCompleted(), target: 'pso-os')
+            copyArtifacts(projectName: 'pso-gke', selector: lastCompleted(), target: 'pso-gke-1')
+            copyArtifacts(projectName: 'pso-eks', selector: lastCompleted(), target: 'pso-eks-1')
+            copyArtifacts(projectName: 'pso-os', selector: lastCompleted(), target: 'pso-openshift-1')
             archiveArtifacts '*/*.xml'
             step([$class: 'JUnitResultArchiver', testResults: '*/*.xml', healthScaleFactor: 1.0])
         }
