@@ -37,7 +37,7 @@ pipeline {
             defaultValue: "3-dev-latest",
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
-        choice(
+        string(
             defaultValue: "3.1.0",
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
