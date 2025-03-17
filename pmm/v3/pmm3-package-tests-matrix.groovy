@@ -77,7 +77,7 @@ def generateStage(LABEL, PLAYBOOK) {
 
 void setup_package_tests() {
     sh """
-        LINUX_DISTRIBUTION=$(cat /proc/version)
+        LINUX_DISTRIBUTION=\$(cat /proc/version)
         if [[ "\$LINUX_DISTRIBUTION" == *"Red Hat"* ]]; then
             echo "Distribution is Red Hat Based"
             sudo yum install -y epel-release
