@@ -86,7 +86,7 @@ void setup_package_tests() {
             sudo apt update -y
             sudo apt install -y software-properties-common
             sudo apt-add-repository --yes --update ppa:ansible/ansible
-            sudo apt-get install -y ansible git wget
+            sudo apt-get install -y ansible git wget python3-paramiko
         else
             sudo apt-get install -y dirmngr gnupg2
             echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
