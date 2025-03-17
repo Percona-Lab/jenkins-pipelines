@@ -25,7 +25,7 @@ def call(String CLOUD_NAME, String PRODUCT_NAME, String PRODUCT_VERSION) {
                     cutProductVersion=\${MYSQL_VERSION_MAJOR}.\${MYSQL_VERSION_MINOR}.\${MYSQL_VERSION_PATCH}
                 fi
                 echo \${cutProductVersion}
-                if expr \"\${PRODUCT_NAME}\" : \".*gated.*\" > /dev/null; then
+                if expr \"${PRODUCT_NAME}\" : \".*gated.*\" > /dev/null; then
                     echo "Processing gated product"
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                         mkdir -p /srv/repo-copy/private/qa-test/${PRODUCT_NAME}-\${cutProductVersion}
