@@ -35,20 +35,14 @@ void runStaging(String DOCKER_VERSION, CLIENTS) {
     env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
 }
 
-def matrixVariant = generateVariants();
-
-def generateVariants() {
+def generateVariants(String playbookName) {
     def results = new HashMap<>();
     def labels = ["min-bookworm-arm64", "min-bullseye-arm64", "min-noble-arm64", "min-jammy-arm64", "min-focal-arm64", "min-ol-9-arm64", "min-ol-8-arm64"]
-    def playbooks = ["pmm3-client_integration", "pmm3-client_integration_custom_path", "pmm3-client_integration_custom_port"]
+
 
     for(label in labels) {
-        for(playbook in playbooks) {
-            results.put("${label}-${playbook}", generateStage(label, playbook))
-        }
+        results.put("${label}-${playbookName}", generateStage(label, playbookName))
     }
-
-    println results
 
     return results;
 }
@@ -154,10 +148,24 @@ pipeline {
                 runStaging(DOCKER_VERSION, '--help')
             }
         }
-        stage('Package tests matrix') {
+        stage('Package tests: "pmm3-client_integration"') {
             steps {
                 script {
-                    parallel matrixVariant
+                    parallel generateVariants("pmm3-client_integration")
+                }
+            }
+        }
+        stage('Package tests: "pmm3-client_integration_custom_path"') {
+            steps {
+                script {
+                    parallel generateVariants("pmm3-client_integration_custom_path")
+                }
+            }
+        }
+        stage('Package tests: "pmm3-client_integration_custom_port"') {
+            steps {
+                script {
+                    parallel generateVariants("pmm3-client_integration_custom_port")
                 }
             }
         }
