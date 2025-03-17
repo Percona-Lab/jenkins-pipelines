@@ -83,7 +83,7 @@ void setup_package_tests() {
             sudo yum install -y epel-release
             sudo yum -y update
             sudo yum install -y ansible-core git wget dpkg
-        elif [[ "${DISTRIBUTION}" =~ "Ubuntu" ]]; then
+        elif [[ "$LINUX_DISTRIBUTION" =~ "Ubuntu" ]]; then
             echo "Distribution is Ubuntu based"
             sudo apt update -y
             sudo apt install -y software-properties-common
