@@ -157,87 +157,10 @@ pipeline {
                 runStaging(DOCKER_VERSION, '--help')
             }
         }
-        stage('Package Testing') {
+        stage('Package Tests') {
             steps {
                 script {
                     parallel generateRunnerVariants()
-                }
-            }
-        }
-        stage('pmm3-client') {
-            steps {
-                script {
-                    parallel generateVariants("pmm3-client")
-                }
-            }
-        }
-        stage('pmm3-client_custom_path') {
-            steps {
-                script {
-                    parallel generateVariants("pmm3-client_custom_path")
-                }
-            }
-        }
-        stage('pmm3-client_integration') {
-            steps {
-                script {
-                    parallel generateVariants("pmm3-client_integration")
-                }
-            }
-        }
-        stage('pmm3-client_integration_auth_config') {
-            steps {
-                script {
-                    parallel generateVariants("pmm3-client_integration_auth_config")
-                }
-            }
-        }
-        stage('pmm3-client_integration_auth_register') {
-            steps {
-                script {
-                    parallel generateVariants("pmm3-client_integration_auth_register")
-                }
-            }
-        }
-        stage('pmm3-client_integration_custom_path') {
-            steps {
-                script {
-                    parallel generateVariants("pmm3-client_integration_custom_path")
-                }
-            }
-        }
-        stage('pmm3-client_integration_custom_port') {
-            steps {
-                script {
-                    parallel generateVariants("pmm3-client_integration_custom_port")
-                }
-            }
-        }
-        stage('pmm3-client_integration_upgrade') {
-            steps {
-                script {
-                    parallel generateVariants("pmm3-client_integration_upgrade")
-                }
-            }
-        }
-        stage('pmm3-client_integration_upgrade_custom_path') {
-            steps {
-                script {
-                    parallel generateVariants("pmm3-client_integration_upgrade_custom_path")
-                }
-            }
-        }
-        stage('pmm3-client_integration_upgrade_custom_port') {
-            steps {
-                script {
-                    parallel generateVariants("pmm3-client_integration_upgrade_custom_port")
-                }
-            }
-        }
-        stage('pmm3-client_upgrade') {
-            steps {
-                script {
-                    parallel generateVariants("pmm3-client_upgrade")
                 }
             }
         }
