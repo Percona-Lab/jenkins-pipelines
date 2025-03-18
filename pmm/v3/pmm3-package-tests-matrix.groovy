@@ -157,7 +157,7 @@ pipeline {
                 runStaging(DOCKER_VERSION, '--help')
             }
         }
-        stage('pmm3-client') {
+        stage('Package Testing') {
             steps {
                 script {
                     parallel generateRunnerVariants("pmm3-client")
