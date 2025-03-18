@@ -50,9 +50,9 @@ def generateVariants(String playbookName) {
 def generateStage(LABEL, PLAYBOOK) {
     return {
         stage("${LABEL}-${PLAYBOOK}") {
-            options {
-                retry(3)
-            }
+//             options {
+//                 retry(3)
+//             }
             agent {
                 label "${LABEL}"
             }
