@@ -247,6 +247,7 @@ EOF
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
                 export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                cat openshift/$CLUSTER_SUFFIX/auth/kubeconfig
             """
         }
     }
