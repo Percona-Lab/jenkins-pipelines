@@ -160,7 +160,7 @@ pipeline {
                 stage("min-bookworm-arm64") {
                     steps {
                         script {
-                            generateRunnerVariants("min-bookworm-arm64")
+                            parallel generateRunnerVariants("min-bookworm-arm64")
                         }
                     }
                 }
