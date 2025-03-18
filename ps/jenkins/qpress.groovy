@@ -212,7 +212,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "RPM")
                         sh '''
                             pwd
@@ -233,7 +233,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "RPM")
                         sh '''
                             pwd
@@ -254,7 +254,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "RPM")
                         sh '''
                             pwd
@@ -275,7 +275,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "RPM")
                         sh '''
                             pwd
@@ -296,7 +296,28 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("amazonlinux:2023", "RPM")
+                        sh '''
+                            pwd
+                            ls -la test/rpm
+                            cp -r test/srpm .
+                            cp -r test/rpm .
+                        '''
+
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Amazon Linux 2023 ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("amazonlinux:2023", "RPM")
                         sh '''
                             pwd
@@ -317,7 +338,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "DEB")
                         sh '''
                             pwd
@@ -335,7 +356,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "DEB")
                         sh '''
                             pwd
@@ -353,7 +374,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "DEB")
                         sh '''
                             pwd
@@ -371,7 +392,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "DEB")
                         sh '''
                             pwd
@@ -389,7 +410,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "DEB")
                         sh '''
                             pwd
@@ -407,7 +428,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "DEB")
                         sh '''
                             pwd
@@ -425,7 +446,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "DEB")
                         sh '''
                             pwd
@@ -443,7 +464,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "DEB")
                         sh '''
                             pwd
@@ -461,7 +482,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:noble", "DEB")
                         sh '''
                             pwd
@@ -479,7 +500,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:noble", "DEB")
                         sh '''
                             pwd
@@ -495,14 +516,14 @@ pipeline {
         } 
         stage('Sign packages') {
             steps {
-                signRPM()
-                signDEB()
+                signRPM(params.CLOUD)
+                signDEB(params.CLOUD)
             }
         }
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild('tools', COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, 'tools', COMPONENT)
             }
         }
 
