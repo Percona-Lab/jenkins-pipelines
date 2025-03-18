@@ -552,10 +552,9 @@ if (
 if (params.ANALYZER_OPTS.contains('-DWITH_VALGRIND=ON'))
     { PIPELINE_TIMEOUT = 144 }
 
-label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
 if (params.CLOUD == 'Hetzner') {
     LABEL = 'docker-x64'
-    MICRO_LABEL = 'deb12-x64'
+    MICRO_LABEL = 'launcher-x64'
 } else if (params.CLOUD == 'AWS') {
     LABEL = 'docker-32gb'
     MICRO_LABEL = 'micro-amazon'
