@@ -158,7 +158,11 @@ pipeline {
         stage() {
             parallel
                 stage("min-bookworm-arm64") {
-                    generateRunnerVariants("min-bookworm-arm64")
+                    steps {
+                        script {
+                            generateRunnerVariants("min-bookworm-arm64")
+                        }
+                    }
                 }
             }
         stage('pmm3-client') {
