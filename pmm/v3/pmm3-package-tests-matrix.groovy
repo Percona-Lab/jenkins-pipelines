@@ -156,7 +156,7 @@ pipeline {
             }
         }
         stage() {
-            parallel
+            parallel {
                 stage("min-bookworm-arm64") {
                     steps {
                         script {
