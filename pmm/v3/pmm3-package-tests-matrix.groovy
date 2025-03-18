@@ -160,7 +160,7 @@ pipeline {
         stage('Package Testing') {
             steps {
                 script {
-                    parallel generateRunnerVariants("pmm3-client")
+                    parallel generateRunnerVariants()
                 }
             }
         }
