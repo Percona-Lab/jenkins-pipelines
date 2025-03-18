@@ -50,40 +50,41 @@ def generateVariants(String playbookName) {
 def generateStage(LABEL, PLAYBOOK) {
     return {
         stage("${LABEL}-${PLAYBOOK}") {
+            options {
+                retry(3)
+            }
             agent {
                 label "${LABEL}"
             }
             node(LABEL) {
-                retry(2) {
-                    String DISTRIBUTION = sh(script: "cat /proc/version", , returnStdout: true).trim()
-                    if(DISTRIBUTION.contains("Red Hat")) {
-                        sh '''
-                            sudo yum install -y epel-release
-                            sudo yum -y update
-                            sudo yum install -y ansible-core git wget dpkg
-                        '''
-                    } else if (DISTRIBUTION.contains("Ubuntu")) {
-                        sh '''
-                            sudo apt update -y
-                            sudo apt install -y software-properties-common
-                            sudo apt-add-repository --yes --update ppa:ansible/ansible
-                            sudo apt-get install -y ansible git wget
-                        '''
-                    } else {
-                        sh '''
-                            sudo apt-get install -y dirmngr gnupg2
-                            echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
-                            sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
-                            sudo apt update -y
-                            sudo apt-get install -y ansible git wget
-                        '''
-                    }
-                    run_package_tests(
-                        GIT_BRANCH,
-                        PLAYBOOK,
-                        INSTALL_REPO,
-                    )
+                String DISTRIBUTION = sh(script: "cat /proc/version", , returnStdout: true).trim()
+                if(DISTRIBUTION.contains("Red Hat")) {
+                    sh '''
+                        sudo yum install -y epel-release
+                        sudo yum -y update
+                        sudo yum install -y ansible-core git wget dpkg
+                    '''
+                } else if (DISTRIBUTION.contains("Ubuntu")) {
+                    sh '''
+                        sudo apt update -y
+                        sudo apt install -y software-properties-common
+                        sudo apt-add-repository --yes --update ppa:ansible/ansible
+                        sudo apt-get install -y ansible git wget
+                   '''
+                } else {
+                   sh '''
+                        sudo apt-get install -y dirmngr gnupg2
+                        echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
+                        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
+                        sudo apt update -y
+                        sudo apt-get install -y ansible git wget
+                   '''
                 }
+                run_package_tests(
+                    GIT_BRANCH,
+                    PLAYBOOK,
+                    INSTALL_REPO,
+                )
             }
         }
     }
