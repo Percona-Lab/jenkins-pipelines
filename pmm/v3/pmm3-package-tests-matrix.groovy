@@ -47,13 +47,15 @@ def generateVariants(String playbookName) {
     return results;
 }
 
-def generateRunnerVariants(String runnerName) {
+def generateRunnerVariants() {
     def results = new HashMap<>();
+    def agents = ["min-bookworm-arm64", "min-bullseye-arm64", "min-noble-arm64", "min-jammy-arm64", "min-focal-arm64", "min-ol-9-arm64", "min-ol-8-arm64"]
     def playbooks = ["pmm3-client", "pmm3-client_custom_path", "pmm3-client_integration", "pmm3-client_integration_auth_config", "pmm3-client_integration_auth_register", "pmm3-client_integration_custom_path", "pmm3-client_integration_custom_port", "pmm3-client_integration_upgrade", "pmm3-client_integration_upgrade_custom_path", "pmm3-client_integration_upgrade_custom_port", "pmm3-client_upgrade"]
 
-
-    for(playbook in playbooks) {
-        results.put("${runnerName}-${playbook}", generateStage(runnerName, playbook))
+    for(agent in agents) {
+        for(playbook in playbooks) {
+            results.put("${agent}-${playbook}", generateStage(agent, playbook))
+        }
     }
 
     return results;
@@ -155,14 +157,10 @@ pipeline {
                 runStaging(DOCKER_VERSION, '--help')
             }
         }
-        stage() {
-            parallel {
-                stage("min-bookworm-arm64") {
-                    steps {
-                        script {
-                            parallel generateRunnerVariants("min-bookworm-arm64")
-                        }
-                    }
+        stage('pmm3-client') {
+            steps {
+                script {
+                    parallel generateRunnerVariants("pmm3-client")
                 }
             }
         }
