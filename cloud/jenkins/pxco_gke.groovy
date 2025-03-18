@@ -195,47 +195,47 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            maxRetries=15
-            exitCode=1
+    // withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+    //     sh """
+    //         export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+    //         maxRetries=15
+    //         exitCode=1
 
-            while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
-                gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                    --release-channel $GKE_RELEASE_CHANNEL \
-                    --zone $region \
-                    --cluster-version $PLATFORM_VER \
-                    --preemptible \
-                    --disk-size 30 \
-                    --machine-type n1-standard-4 \
-                    --num-nodes=4 \
-                    --min-nodes=4 \
-                    --max-nodes=6 \
-                    --network=jenkins-vpc \
-                    --subnetwork=jenkins-$CLUSTER_SUFFIX \
-                    --cluster-ipv4-cidr=/21 \
-                    --labels delete-cluster-after-hours=6 \
-                    --enable-ip-alias &&\
-                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
-                exitCode=\$?
-                if [[ \$exitCode == 0 ]]; then break; fi
-                (( maxRetries -- ))
-                sleep 1
-            done
-            if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
+    //         while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
+    //             gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
+    //                 --release-channel $GKE_RELEASE_CHANNEL \
+    //                 --zone $region \
+    //                 --cluster-version $PLATFORM_VER \
+    //                 --preemptible \
+    //                 --disk-size 30 \
+    //                 --machine-type n1-standard-4 \
+    //                 --num-nodes=4 \
+    //                 --min-nodes=4 \
+    //                 --max-nodes=6 \
+    //                 --network=jenkins-vpc \
+    //                 --subnetwork=jenkins-$CLUSTER_SUFFIX \
+    //                 --cluster-ipv4-cidr=/21 \
+    //                 --labels delete-cluster-after-hours=6 \
+    //                 --enable-ip-alias &&\
+    //             kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
+    //             exitCode=\$?
+    //             if [[ \$exitCode == 0 ]]; then break; fi
+    //             (( maxRetries -- ))
+    //             sleep 1
+    //         done
+    //         if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
 
-            CURRENT_TIME=\$(date --rfc-3339=seconds)
-            FUTURE_TIME=\$(date -d '6 hours' --rfc-3339=seconds)
+    //         CURRENT_TIME=\$(date --rfc-3339=seconds)
+    //         FUTURE_TIME=\$(date -d '6 hours' --rfc-3339=seconds)
 
-            gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                --zone $region \
-                --add-maintenance-exclusion-start "\$CURRENT_TIME" \
-                --add-maintenance-exclusion-end "\$FUTURE_TIME"
+    //         gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \
+    //             --zone $region \
+    //             --add-maintenance-exclusion-start "\$CURRENT_TIME" \
+    //             --add-maintenance-exclusion-end "\$FUTURE_TIME"
 
-            kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints,AGE:.metadata.creationTimestamp"
-        """
-    }
+    //         kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints,AGE:.metadata.creationTimestamp"
+    //     """
+    // }
 }
 
 void runTest(Integer TEST_ID) {
@@ -312,20 +312,23 @@ void makeReport() {
 
     echo "=========================[ Generating Parameters Report ]========================="
     pipelineParameters = """
-        testsuite name=$JOB_NAME
-        IMAGE_OPERATOR=$IMAGE_OPERATOR
-        IMAGE_PXC=$IMAGE_PXC
-        IMAGE_PROXY=$IMAGE_PROXY
-        IMAGE_HAPROXY=$IMAGE_HAPROXY
-        IMAGE_BACKUP=$IMAGE_BACKUP
-        IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
-        IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
-        IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-        PLATFORM_VER=$PLATFORM_VER
-    """
+testsuite name=${JOB_NAME ?: 'e2e_defaults'}
+IMAGE_OPERATOR=${IMAGE_OPERATOR ?: 'e2e_defaults'}
+IMAGE_PXC=${IMAGE_PXC ?: 'e2e_defaults'}
+IMAGE_PROXY=${IMAGE_PROXY ?: 'e2e_defaults'}
+IMAGE_HAPROXY=${IMAGE_HAPROXY ?: 'e2e_defaults'}
+IMAGE_BACKUP=${IMAGE_BACKUP ?: 'e2e_defaults'}
+IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR ?: 'e2e_defaults'}
+IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
+IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
+PLATFORM_VER=${PLATFORM_VER ?: 'e2e_defaults'}"""
 
     writeFile file: "TestsReport.xml", text: testsReport
     writeFile file: 'PipelineParameters.txt', text: pipelineParameters
+
+    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+        text:  "<pre>${pipelineParameters}</pre>"
+    )
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
@@ -453,58 +456,63 @@ pipeline {
                         clusterRunner('cluster1')
                     }
                 }
-                stage('cluster2') {
-                    steps {
-                        clusterRunner('cluster2')
-                    }
-                }
-                stage('cluster3') {
-                    steps {
-                        clusterRunner('cluster3')
-                    }
-                }
-                stage('cluster4') {
-                    steps {
-                        clusterRunner('cluster4')
-                    }
-                }
-                stage('cluster5') {
-                    steps {
-                        clusterRunner('cluster5')
-                    }
-                }
-                stage('cluster6') {
-                    steps {
-                        clusterRunner('cluster6')
-                    }
-                }
-                stage('cluster7') {
-                    steps {
-                        clusterRunner('cluster7')
-                    }
-                }
-                stage('cluster8') {
-                    steps {
-                        clusterRunner('cluster8')
-                    }
-                }
+                // stage('cluster2') {
+                //     steps {
+                //         clusterRunner('cluster2')
+                //     }
+                // }
+                // stage('cluster3') {
+                //     steps {
+                //         clusterRunner('cluster3')
+                //     }
+                // }
+                // stage('cluster4') {
+                //     steps {
+                //         clusterRunner('cluster4')
+                //     }
+                // }
+                // stage('cluster5') {
+                //     steps {
+                //         clusterRunner('cluster5')
+                //     }
+                // }
+                // stage('cluster6') {
+                //     steps {
+                //         clusterRunner('cluster6')
+                //     }
+                // }
+                // stage('cluster7') {
+                //     steps {
+                //         clusterRunner('cluster7')
+                //     }
+                // }
+                // stage('cluster8') {
+                //     steps {
+                //         clusterRunner('cluster8')
+                //     }
+                // }
             }
         }
     }
     post {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
+            script {
+                def envFile = "env_variables.txt"
+                writeFile file: envFile, text: env.collect { key, value -> "${key}=${value}" }.join("\n")
+                echo "Environment variables saved to ${envFile}"
+            }
             makeReport()
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml,*.txt'
 
-            script {
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
-                }
+            // script {
+            //     if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
+            //         slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+            //     }
 
-                clusters.each { shutdownCluster(it) }
-            }
+            //     clusters.each { shutdownCluster(it) }
+            // }
 
             sh """
                 sudo docker system prune --volumes -af

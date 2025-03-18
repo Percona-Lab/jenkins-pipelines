@@ -320,6 +320,9 @@ void makeReport() {
 
     writeFile file: "TestsReport.xml", text: testsReport
     writeFile file: 'PipelineParameters.txt', text: pipelineParameters
+
+    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+            text: pipelineParameters)
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
