@@ -165,6 +165,7 @@ pipeline {
                     }
                 }
             }
+        }
         stage('pmm3-client') {
             steps {
                 script {
