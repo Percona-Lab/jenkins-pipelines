@@ -55,6 +55,8 @@ def generateStage(LABEL, PLAYBOOK) {
             }
             node(LABEL) {
                 retry(2) {
+                    DISTRIBUTION = sh(script: "cat /proc/version", , returnStdout: true).trim()
+                    println DISTRIBUTION
                     setup_package_tests()
                     run_package_tests(
                         GIT_BRANCH,
