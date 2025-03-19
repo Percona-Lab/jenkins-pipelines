@@ -707,7 +707,6 @@ pipeline {
             }
         }
 */
-    }
     post {
         success {
             script {
