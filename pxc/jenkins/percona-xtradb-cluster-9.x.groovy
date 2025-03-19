@@ -413,7 +413,6 @@ pipeline {
                         stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        }
                     }
                 }
                 stage('Ubuntu Noble(24.04)') {
@@ -707,6 +706,7 @@ pipeline {
             }
         }
 */
+    }
     post {
         success {
             script {
