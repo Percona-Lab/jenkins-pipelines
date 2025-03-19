@@ -279,9 +279,11 @@ pipeline {
                     }
                     steps {
                         script {
-                        #    if (env.FIPSMODE == 'NO') {
-                        #        echo "The step is skipped"
-                        #    } else {
+/*
+                            if (env.FIPSMODE == 'NO') {
+                                echo "The step is skipped"
+                            } else {
+*/
                                 cleanUpWS()
                                 unstash 'pxc-9x.properties'
                                 popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
@@ -292,7 +294,9 @@ pipeline {
                                     pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                                     uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                                 }
-                       #     }
+/*
+                            }
+*/
                         }
                     }
                 }
