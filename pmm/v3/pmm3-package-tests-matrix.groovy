@@ -65,7 +65,7 @@ def generateRunnerVariants() {
 def generateStage(LABEL, PLAYBOOK) {
     return {
         stage("${LABEL}-${PLAYBOOK}") {
-            retry(3) {
+            retry(5) {
                 agent {
                     label "${LABEL}"
                 }
