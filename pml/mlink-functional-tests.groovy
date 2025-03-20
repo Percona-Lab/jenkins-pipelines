@@ -61,8 +61,8 @@ pipeline {
 
                                 withCredentials([usernamePassword(credentialsId: 'JNKPercona_API_token', usernameVariable: 'USERNAME', passwordVariable: 'GIT_TOKEN')]) {
                                     dir('percona-mongolink') {
-                                        env.GIT_URL = "https://${GIT_TOKEN}@github.com/Percona-Lab/percona-mongolink.git"
-                                        git url: env.GIT_URL, branch: params.MLINK_BRANCH, poll: false
+                                        def gitUrl = "https://${GIT_TOKEN}@github.com/Percona-Lab/percona-mongolink.git"
+                                        git url: gitUrl, branch: params.MLINK_BRANCH, poll: false
                                     }
                                 }
 
