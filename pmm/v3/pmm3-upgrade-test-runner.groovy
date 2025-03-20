@@ -207,10 +207,6 @@ pipeline {
                         env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
                         env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss"
-                    } else if (env.UPGRADE_FLAG == "MONGO BACKUP") {
-                        env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
-                        env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss"
                     } else if (env.UPGRADE_FLAG == "CUSTOM PASSWORD") {
                         env.PRE_UPGRADE_FLAG = "@pre-custom-password-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-custom-password-upgrade"

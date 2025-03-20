@@ -16,6 +16,29 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLI
     ]
 }
 
+def generateVariant() {
+    def results = new HashMap<>();
+    def upgradeVariants = ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"]
+    for (upgradeVariant in upgradeVariants) {
+        results.put("Run \"${upgradeVariant}\" upgade tests", generateStage(upgradeVariant)
+    }
+}
+
+def generateStage(LABEL) {
+    return {
+        stage("Run \"${LABEL}\" upgade tests") {
+            options {
+                retry(2)
+            }
+            steps {
+                script {
+                    runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'SSL');
+                }
+            }
+        }
+    }
+}
+
 pipeline {
     agent {
         label 'cli'
@@ -56,47 +79,10 @@ pipeline {
     triggers {
         cron('0 3 * * *')
     }
-    stages {
-        stage('UI tests Upgrade Matrix') {
-            parallel {
-                stage('Run SSL upgrade tests'){
-                    options {
-                        retry(2)
-                    }
-                    steps {
-                        script {
-                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'SSL');
-                        }
-                    }
-                }
-                stage('Run custom password upgrade tests'){
-                    steps {
-                        script {
-                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'CUSTOM PASSWORD');
-                        }
-                    }
-                }
-                stage('Run custom dashboards upgrade tests'){
-                    steps {
-                        script {
-                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'CUSTOM DASHBOARDS');
-                        }
-                    }
-                }
-                stage('Run external services upgrade tests'){
-                    steps {
-                        script {
-                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'EXTERNAL SERVICES');
-                        }
-                    }
-                }
-                stage('Run mongo backup upgrade tests'){
-                    steps {
-                        script {
-                            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, 'MONGO BACKUP');
-                        }
-                    }
-                }
+    stage('UI tests Upgrade Matrix') {
+        steps {
+            script {
+                parallel generateRunnerVariants()
             }
         }
     }
