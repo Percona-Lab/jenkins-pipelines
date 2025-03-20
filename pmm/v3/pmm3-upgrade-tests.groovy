@@ -24,7 +24,7 @@ def generateVariants() {
     }
 }
 
-def generateStage(LABEL) {
+def generateStage(String LABEL) {
     return {
         stage("Run \"${LABEL}\" upgade tests") {
             options {
