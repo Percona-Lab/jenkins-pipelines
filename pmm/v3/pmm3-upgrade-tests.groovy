@@ -28,7 +28,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, C
 
 def generateStage(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, LABEL) {
     return {
-        stage("Run \"${LABEL}\" upgrade tests") {
+        stage("Run \"$LABEL\" upgrade tests") {
             options {
                 retry(2)
             }
