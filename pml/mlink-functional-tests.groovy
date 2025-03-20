@@ -67,16 +67,6 @@ pipeline {
                                     }
                                 }
 
-                                withCredentials([usernamePassword(credentialsId: 'amazon', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
-                                    // available as an env variable, but will be masked if you try to print it out any which way
-                                    // note: single quotes prevent Groovy interpolation; expansion is by Bourne Shell, which is what you want
-                                    sh 'echo $PASSWORD'
-                                    // also available as a Groovy variable
-                                    echo USERNAME
-                                    // or inside double quotes for string interpolation
-                                    echo "username is $USERNAME"
-                                }
-
                                 sh """
 //                                    git clone https://${JNKPercona_API_token}@github.com/Percona-Lab/percona-mongolink.git
                                     cd psmdb-testing/mlink
