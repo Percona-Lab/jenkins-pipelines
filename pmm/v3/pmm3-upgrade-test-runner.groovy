@@ -120,7 +120,7 @@ pipeline {
             name: 'PMM_SERVER_LATEST')
         choice(
             choices: ["experimental", "testing", "release"],
-            description: 'latest PMM Server Version',
+            description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
         string(
             defaultValue: 'PMM-13481',
