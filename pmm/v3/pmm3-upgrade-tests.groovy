@@ -16,7 +16,7 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLI
     ]
 }
 
-def generateVariant() {
+def generateVariants() {
     def results = new HashMap<>();
     def upgradeVariants = ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"]
     for (upgradeVariant in upgradeVariants) {
@@ -83,7 +83,7 @@ pipeline {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
-                    parallel generateRunnerVariants()
+                    parallel generateVariants()
                 }
             }
         }
