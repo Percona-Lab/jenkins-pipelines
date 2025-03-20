@@ -120,7 +120,7 @@ pipeline {
                     post {
                         success {
                             stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                            uploadRPM()
+                            uploadPMM3RPM()
                         }
                     }
                 }
@@ -149,7 +149,7 @@ pipeline {
                     post {
                         success {
                             stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
-                            uploadRPM()
+                            uploadPMM3RPM()
                         }
                     }
                 }
