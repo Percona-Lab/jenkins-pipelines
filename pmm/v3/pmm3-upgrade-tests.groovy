@@ -20,7 +20,7 @@ def generateVariant() {
     def results = new HashMap<>();
     def upgradeVariants = ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"]
     for (upgradeVariant in upgradeVariants) {
-        results.put("Run \"${upgradeVariant}\" upgade tests", generateStage(upgradeVariant)
+        results.put("Run \"${upgradeVariant}\" upgade tests", generateStage(upgradeVariant))
     }
 }
 
