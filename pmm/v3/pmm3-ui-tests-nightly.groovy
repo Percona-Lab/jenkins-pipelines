@@ -203,6 +203,10 @@ pipeline {
         string(
             defaultValue: 'v3',
             description: 'Tag/Branch for qa-integration repository',
+            name: 'QA_INTEGRATION_GIT_BRANCH')
+        string(
+            defaultValue: 'v3',
+            description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ['8.0','5.7'],
@@ -251,7 +255,7 @@ pipeline {
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
                     sudo mkdir -p /srv/qa-integration || :
-                    sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
+                    sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
                     sudo chmod -R 755 /srv/qa-integration
 
                 '''
