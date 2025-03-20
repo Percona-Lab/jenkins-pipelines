@@ -20,7 +20,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, C
     def results = new HashMap<>();
     def upgradeVariants = ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"]
     for (upgradeVariant in upgradeVariants) {
-        results.put("Run \"${upgradeVariant}\" upgade tests", generateStage(upgradeVariant))
+        results.put("Run \"${upgradeVariant}\" upgade tests", generateStage(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, upgradeVariant))
     }
 }
 
