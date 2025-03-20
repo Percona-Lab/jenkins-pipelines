@@ -1,0 +1,35 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+ROOT_DIR=$(cd $(dirname $0)/../sources/pxc_scheduler_handler; pwd -P)
+SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
+SOURCE_IMAGE=${1:-ubuntu:focal}
+
+docker run --rm \
+    --security-opt seccomp=unconfined \
+    --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxc_scheduler_handler \
+    --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
+    public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    sh -c "
+    set -o errexit
+    set -o xtrace
+
+    export MTR_ARGS='${MTR_ARGS}'
+    export MTR_REPEAT='${MTR_REPEAT}'
+    export PXC_TARBALL='${PXC_TARBALL}'
+
+    mkdir /tmp/results
+    cp /tmp/pxc_scheduler_handler/results/*.tar.gz /tmp/results
+
+    bash -x /tmp/scripts/test-binary-pxc-scheduler-handler /tmp/results
+
+    mkdir /tmp/results/log
+    rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/PXC/mysql-test/var /tmp/results/log
+    sudo tar -C /tmp/results/log -czf "pxc-scheduler-handler-test-mtr_logs.tar.gz" var
+
+    sudo mv ./pxc-scheduler-handler-test-mtr_logs.tar.gz /tmp/pxc_scheduler_handler/results/
+    sudo mv /tmp/results/*.xml /tmp/results/*.output  /tmp/pxc_scheduler_handler/results/
+    sudo chown $(id -u):$(id -g) /tmp/pxc_scheduler_handler/results/*.xml /tmp/pxc_scheduler_handler/results/*.output
+"
