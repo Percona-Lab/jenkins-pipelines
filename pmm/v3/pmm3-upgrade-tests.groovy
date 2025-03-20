@@ -45,11 +45,11 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-7-upgrade-job-pmm3',
+            defaultValue: 'PMM-13481-settings-metrics',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
-            defaultValue: 'perconalab/pmm-server:3.0.0',
+            defaultValue: 'percona/pmm-server:3.0.0',
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
         string(
@@ -57,7 +57,7 @@ pipeline {
             description: 'PMM Server Version to upgrade to',
             name: 'DOCKER_TAG_UPGRADE')
         string(
-            defaultValue: "3-dev-latest",
+            defaultValue: "3.0.0",
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
@@ -79,10 +79,12 @@ pipeline {
     triggers {
         cron('0 3 * * *')
     }
-    stage('UI tests Upgrade Matrix') {
-        steps {
-            script {
-                parallel generateRunnerVariants()
+    stages {
+        stage('UI tests Upgrade Matrix') {
+            steps {
+                script {
+                    parallel generateRunnerVariants()
+                }
             }
         }
     }
