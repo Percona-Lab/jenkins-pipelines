@@ -59,7 +59,7 @@ pipeline {
                                     git poll: false, branch: params.PSMDB_TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                                 }
 
-                                withCredentials([string(credentialsId: 'JNKPercona_API_token', variable: 'GIT_TOKEN')]) {
+                                withCredentials([usernamePassword(credentialsId: 'JNKPercona_API_token', usernameVariable: 'USERNAME', passwordVariable: 'GIT_TOKEN')]) {
                                     dir('percona-mongolink') {
                                         git url: "https://${GIT_TOKEN}@github.com/Percona-Lab/percona-mongolink.git",
                                                 branch: params.MLINK_BRANCH,
