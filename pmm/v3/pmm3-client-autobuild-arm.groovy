@@ -3,6 +3,11 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+library changelog: false, identifier: 'v3lib@PMM-13785-pmm-client-al', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
+
 pipeline {
     agent {
         label 'agent-arm64-ol9'
@@ -132,6 +137,13 @@ pipeline {
                     steps {
                         sh """
                             ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:3
+                        """
+                    }
+                }
+                stage('Build client binary rpm AL2023') {
+                    steps {
+                        sh """
+                            ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/amazonlinux/amazonlinux:2023
                         """
                     }
                 }
