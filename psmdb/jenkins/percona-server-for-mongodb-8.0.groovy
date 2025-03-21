@@ -4,19 +4,34 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 ]) _
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
-    sh """
-        set -o xtrace
-        mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-packaging/scripts/psmdb_builder.sh -O psmdb_builder.sh
-        pwd -P
-        ls -laR
-        export build_dir=\$(pwd -P)
-        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
+        sh """
             set -o xtrace
-            cd \${build_dir}
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
-    """
+            mkdir test
+            if [ \${FULL_FEATURED} = "yes" ]; then
+                PRO_BRANCH="v8.0"
+                curl -L -H "Authorization: Bearer \${TOKEN}" \
+                       -H "Accept: application/vnd.github.v3.raw" \
+                       -o psmdb_builder.sh \
+                       "https://api.github.com/repos/percona/mongo-build-scripts/contents/scripts/psmdb_builder.sh?ref=\${PRO_BRANCH}"
+            else
+                wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-packaging/scripts/psmdb_builder.sh -O psmdb_builder.sh
+            fi
+            pwd -P
+            ls -laR
+            export build_dir=\$(pwd -P)
+            docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+                set -o xtrace
+                cd \${build_dir}
+                bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
+                if [ \${FULL_FEATURED} = "yes" ]; then
+                    git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/mongo-build-scripts.git percona-packaging
+                    mv -f \${build_dir}/percona-packaging \${build_dir}/test/.
+                    ls -la \${build_dir}/percona-packaging
+                fi
+                bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
+        """
+    }
 }
 
 void cleanUpWS() {
@@ -62,8 +77,8 @@ pipeline {
             name: 'PSMDB_REPO')
         choice(
             choices: 'no\nyes',
-            description: 'Enable fipsmode',
-            name: 'FIPSMODE')
+            description: 'Enable all pro features',
+            name: 'FULL_FEATURED')
         choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
@@ -83,7 +98,13 @@ pipeline {
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                buildStage("oraclelinux:8", "--get_sources=1")
+                script {
+                    if (env.FULL_FEATURED == 'yes') {
+                        buildStage("oraclelinux:8", "--get_sources=1 --full_featured=1")
+                    } else {
+                        buildStage("oraclelinux:8", "--get_sources=1")
+                    }
+                }
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-80.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -111,8 +132,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("oraclelinux:8", "--build_src_rpm=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("oraclelinux:8", "--build_src_rpm=1 --full_featured=1")
                             } else {
                                 buildStage("oraclelinux:8", "--build_src_rpm=1")
                             }
@@ -130,8 +151,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:focal", "--build_src_deb=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("ubuntu:focal", "--build_src_deb=1 --full_featured=1")
                             } else {
                                 buildStage("ubuntu:focal", "--build_src_deb=1")
                             }
@@ -152,8 +173,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("oraclelinux:8", "--build_rpm=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("oraclelinux:8", "--build_rpm=1 --full_featured=1")
                             } else {
                                 buildStage("oraclelinux:8", "--build_rpm=1")
                             }
@@ -169,8 +190,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("oraclelinux:8", "--build_rpm=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("oraclelinux:8", "--build_rpm=1 --full_featured=1")
                             } else {
                                 buildStage("oraclelinux:8", "--build_rpm=1")
                             }
@@ -186,8 +207,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("oraclelinux:9", "--build_rpm=1 --full_featured=1")
                             } else {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
                             }
@@ -203,8 +224,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("oraclelinux:9", "--build_rpm=1 --full_featured=1")
                             } else {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
                             }
@@ -220,8 +241,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --full_featured=1")
                             } else {
                                 buildStage("amazonlinux:2023", "--build_rpm=1")
                             }
@@ -237,8 +258,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --full_featured=1")
                             } else {
                                 buildStage("amazonlinux:2023", "--build_rpm=1")
                             }
@@ -254,8 +275,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:focal", "--build_deb=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("ubuntu:focal", "--build_deb=1 --full_featured=1")
                             } else {
                                 buildStage("ubuntu:focal", "--build_deb=1")
                             }
@@ -271,8 +292,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:focal", "--build_deb=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("ubuntu:focal", "--build_deb=1 --full_featured=1")
                             } else {
                                 buildStage("ubuntu:focal", "--build_deb=1")
                             }
@@ -288,8 +309,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("ubuntu:jammy", "--build_deb=1 --full_featured=1")
                             } else {
                                 buildStage("ubuntu:jammy", "--build_deb=1")
                             }
@@ -305,8 +326,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("ubuntu:jammy", "--build_deb=1 --full_featured=1")
                             } else {
                                 buildStage("ubuntu:jammy", "--build_deb=1")
                             }
@@ -322,8 +343,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("ubuntu:noble", "--build_deb=1 --full_featured=1")
                             } else {
                                 buildStage("ubuntu:noble", "--build_deb=1")
                             }
@@ -339,8 +360,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("ubuntu:noble", "--build_deb=1 --full_featured=1")
                             } else {
                                 buildStage("ubuntu:noble", "--build_deb=1")
                             }
@@ -356,8 +377,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("debian:bookworm", "--build_deb=1 --full_featured=1")
                             } else {
                                 buildStage("debian:bookworm", "--build_deb=1")
                             }
@@ -373,8 +394,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("oraclelinux:8", "--build_tarball=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("oraclelinux:8", "--build_tarball=1 --full_featured=1")
                             } else {
                                 buildStage("oraclelinux:8", "--build_tarball=1")
                             }
@@ -390,8 +411,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("oraclelinux:9", "--build_tarball=1 --full_featured=1")
                             } else {
                                 buildStage("oraclelinux:9", "--build_tarball=1")
                             }
@@ -407,8 +428,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("amazonlinux:2023", "--build_tarball=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("amazonlinux:2023", "--build_tarball=1 --full_featured=1")
                             } else {
                                 buildStage("amazonlinux:2023", "--build_tarball=1")
                             }
@@ -424,8 +445,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:focal", "--build_tarball=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("ubuntu:focal", "--build_tarball=1 --full_featured=1")
                             } else {
                                 buildStage("ubuntu:focal", "--build_tarball=1")
                             }
@@ -441,8 +462,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("ubuntu:jammy", "--build_tarball=1 --full_featured=1")
                             } else {
                                 buildStage("ubuntu:jammy", "--build_tarball=1")
                             }
@@ -458,8 +479,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("ubuntu:noble", "--build_tarball=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("ubuntu:noble", "--build_tarball=1 --full_featured=1")
                             } else {
                                 buildStage("ubuntu:noble", "--build_tarball=1")
                             }
@@ -475,8 +496,8 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FIPSMODE == 'yes') {
-                                buildStage("debian:bookworm", "--build_tarball=1 --enable_fipsmode=1")
+                            if (env.FULL_FEATURED == 'yes') {
+                                buildStage("debian:bookworm", "--build_tarball=1 --full_featured=1")
                             } else {
                                 buildStage("debian:bookworm", "--build_tarball=1")
                             }
@@ -510,7 +531,7 @@ pipeline {
             steps {
                 // sync packages
                 script {
-                    if (env.FIPSMODE == 'yes') {
+                    if (env.FULL_FEATURED == 'yes') {
                         sync2PrivateProdAutoBuild(params.CLOUD, PSMDB_REPO+"-pro", COMPONENT)
                     } else {
                         sync2ProdAutoBuild(params.CLOUD, PSMDB_REPO, COMPONENT)
@@ -521,7 +542,7 @@ pipeline {
         stage('Push Tarballs to TESTING download area') {
             steps {
                 script {
-                    if (env.FIPSMODE == 'yes') {
+                    if (env.FULL_FEATURED == 'yes') {
                         try {
                             uploadTarballToDownloadsTesting(params.CLOUD, "psmdb-gated", "${PSMDB_VERSION}")
                         }
@@ -547,7 +568,7 @@ pipeline {
             }
             steps {
                 script {
-                    if (env.FIPSMODE == 'YES') {
+                    if (env.FULL_FEATURED == 'YES') {
                         echo "The step is skipped"
                     } else {
                         echo "====> Build docker containers"
@@ -628,7 +649,7 @@ pipeline {
         success {
             slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
-                if (env.FIPSMODE == 'yes') {
+                if (env.FULL_FEATURED == 'yes') {
                     currentBuild.description = "!!! PRO Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
                 } else {
                     currentBuild.description = "Built on ${GIT_BRANCH}. Path to packages: experimental/${AWS_STASH_PATH}"
