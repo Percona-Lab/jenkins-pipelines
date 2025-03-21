@@ -60,7 +60,7 @@ def call() {
                     fi
 
                     if [ `find . -name "*.noarch.rpm" | wc -l` -gt 0 ]; then
-                        Vers=("6" "7" "8" "9" "2023")
+                        Vers=("8" "9" "2023")
                         for osVer in "\${Vers[@]}"; do
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                                 mkdir -p \${path_to_build}/binary/redhat/\${osVer}/\${arch}
