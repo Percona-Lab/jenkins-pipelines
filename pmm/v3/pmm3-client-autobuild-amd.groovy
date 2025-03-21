@@ -140,7 +140,7 @@ pipeline {
                         }
                         stage('Build client binary rpm AL2023') {
                             steps {
-                                sh """
+                                sh '''
                                     ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/amazonlinux/amazonlinux:2023
                                 """
                             }
