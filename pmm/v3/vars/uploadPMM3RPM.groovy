@@ -19,22 +19,6 @@ def call() {
                 export arch_list=\$( find . -name '*.el[6-9].*.rpm' -o -name '*.amzn2023.*.rpm' -o -name '*.noarch.rpm' | awk -F'[.]' '{print \$(NF -1)}' | sort -n | uniq )
 
                 for arch in \${arch_list}; do
-                    if [ `find . -name "*.el6.\${arch}.rpm" | wc -l` -gt 0 ]; then
-                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            mkdir -p \${path_to_build}/binary/redhat/6/\${arch}
-                        scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                            `find . -name "*.el6.\${arch}.rpm"` \
-                            ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/6/\${arch}/
-                    fi
-
-                    if [ `find . -name "*.el7.\${arch}.rpm" | wc -l` -gt 0 ]; then
-                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
-                            mkdir -p \${path_to_build}/binary/redhat/7/\${arch}
-                        scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                            `find . -name "*.el7.\${arch}.rpm"` \
-                            ${USER}@repo.ci.percona.com:\${path_to_build}/binary/redhat/7/\${arch}/
-                    fi
-
                     if [ `find . -name "*.el8.\${arch}.rpm" | wc -l` -gt 0 ]; then
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                             mkdir -p \${path_to_build}/binary/redhat/8/\${arch}

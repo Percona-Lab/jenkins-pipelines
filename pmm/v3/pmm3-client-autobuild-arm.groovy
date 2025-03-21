@@ -71,7 +71,7 @@ pipeline {
         stage('Build client binary') {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
+                    sh '''
                         ${PATH_TO_SCRIPTS}/build-client-binary
                         ls -la "results/tarball" || :
                         aws s3 cp --only-show-errors --acl public-read results/tarball/pmm-client-*.tar.gz \
@@ -79,7 +79,7 @@ pipeline {
                         aws s3 cp --only-show-errors --acl public-read --copy-props none \
                             s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest-${BUILD_ID}.tar.gz \
                             s3://pmm-build-cache/PR-BUILDS/pmm-client-arm/pmm-client-latest.tar.gz
-                    """
+                    '''
                 }
                 stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
                 uploadTarball('binary')
@@ -113,9 +113,9 @@ pipeline {
             parallel {
                 stage('Build client source rpm EL9') {
                     steps {
-                        sh """
+                        sh '''
                             ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:3
-                        """
+                        '''
                     }
                 }
             }
@@ -135,16 +135,16 @@ pipeline {
                 }
                 stage('Build client binary rpm EL9') {
                     steps {
-                        sh """
+                        sh '''
                             ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:3
-                        """
+                        '''
                     }
                 }
                 stage('Build client binary rpm AL2023') {
                     steps {
-                        sh """
+                        sh '''
                             ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/amazonlinux/amazonlinux:2023
-                        """
+                        '''
                     }
                 }
             }
