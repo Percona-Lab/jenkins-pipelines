@@ -195,6 +195,7 @@ pipeline {
 //                 }
 //             }
             deleteDir()
+            }
         }
     }
 }
