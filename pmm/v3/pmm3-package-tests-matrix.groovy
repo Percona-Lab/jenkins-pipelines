@@ -43,7 +43,7 @@ void runPackageTest(String GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, TESTS, INSTA
         string(name: 'TESTS', value: TESTS),
         string(name: 'INSTALL_REPO', value: INSTALL_REPO),
         string(name: 'TARBALL', value: TARBALL),
-        string(name: 'METRICS_MODE', value: METRICS_MODE)
+        string(name: 'METRICS_MODE', value: METRICS_MODE),
         string(name: 'CLIENTS', value: CLIENTS)
     ]
 }
