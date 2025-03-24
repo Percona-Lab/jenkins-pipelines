@@ -111,6 +111,10 @@ pipeline {
             defaultValue: '',
             description: 'PMM Client tarball link or FB-code',
             name: 'TARBALL')
+        string(
+            defaultValue: '--database ps=5.7,QUERY_SOURCE=perfschema',
+            description: 'PMM Client tarball link or FB-code',
+            name: 'CLIENTS')
         choice(
             choices: ['auto', 'push', 'pull'],
             description: 'Select the Metrics Mode for Client',
@@ -122,7 +126,7 @@ pipeline {
     stages {
         stage('Setup Server Instance') {
             steps {
-                runStaging(DOCKER_VERSION, '--database ps=5.7,QUERY_SOURCE=perfschema')
+                runStaging(DOCKER_VERSION, CLIENTS)
             }
         }
         stage('Execute Package Tests') {
