@@ -177,7 +177,7 @@ pipeline {
 //             }
 //         }
     stages {
-        stage('Run Package Tests') {
+        stage('Run first set of package tests') {
             parallel {
                 stage('Run \"pmm3-client\" package tests') {
                     steps {
@@ -199,6 +199,9 @@ pipeline {
                         runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_auth_config", INSTALL_REPO, TARBALL, METRICS_MODE)
                     }
                 }
+            }
+        }
+        stage('Run second set of package tests') {
                 stage('Run \"pmm3-client_integration_auth_register\" package tests') {
                     steps {
                         runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_auth_register", INSTALL_REPO, TARBALL, METRICS_MODE)
@@ -219,6 +222,9 @@ pipeline {
                         runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade", INSTALL_REPO, TARBALL, METRICS_MODE)
                     }
                 }
+            }
+        }
+        stage('Run Third set of package tests') {
                 stage('Run \"pmm3-client_integration_upgrade_custom_path\" package tests') {
                     steps {
                         runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade_custom_path", INSTALL_REPO, TARBALL, METRICS_MODE)
