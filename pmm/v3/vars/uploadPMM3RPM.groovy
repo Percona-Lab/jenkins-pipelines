@@ -16,7 +16,7 @@ def call() {
                         ${USER}@repo.ci.percona.com:${path_to_build}/source/redhat/
                 fi
 
-                export arch_list=$( find . -name '*.el[6-9].*.rpm' -o -name '*.amzn2023.*.rpm' -o -name '*.noarch.rpm' | awk -F'[.]' '{print $(NF -1)}' | sort -n | uniq )
+                export arch_list=$( find . -name '*.el[8-9].*.rpm' -o -name '*.amzn2023.*.rpm' -o -name '*.noarch.rpm' | awk -F'[.]' '{print $(NF -1)}' | sort -n | uniq )
 
                 for arch in ${arch_list}; do
                     if [ `find . -name "*.el8.${arch}.rpm" | wc -l` -gt 0 ]; then
