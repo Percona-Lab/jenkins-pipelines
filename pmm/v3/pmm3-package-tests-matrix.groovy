@@ -202,6 +202,7 @@ pipeline {
             }
         }
         stage('Run second set of package tests') {
+            parallel {
                 stage('Run \"pmm3-client_integration_auth_register\" package tests') {
                     steps {
                         runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_auth_register", INSTALL_REPO, TARBALL, METRICS_MODE)
@@ -225,6 +226,7 @@ pipeline {
             }
         }
         stage('Run Third set of package tests') {
+            parallel {
                 stage('Run \"pmm3-client_integration_upgrade_custom_path\" package tests') {
                     steps {
                         runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade_custom_path", INSTALL_REPO, TARBALL, METRICS_MODE)
