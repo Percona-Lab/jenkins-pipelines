@@ -220,23 +220,19 @@ pipeline {
                         runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade", INSTALL_REPO, TARBALL, METRICS_MODE, '    --help')
                     }
                 }
-            }
-        }
-        stage('Run Third set of package tests') {
-            parallel {
                 stage('Run \"pmm3-client_integration_upgrade_custom_path\" package tests') {
                     steps {
-                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade_custom_path", INSTALL_REPO, TARBALL, METRICS_MODE)
+                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade_custom_path", INSTALL_REPO, TARBALL, METRICS_MODE, '    --help ')
                     }
                 }
                 stage('Run \"pmm3-client_integration_upgrade_custom_port\" package tests') {
                     steps {
-                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade_custom_port", INSTALL_REPO, TARBALL, METRICS_MODE)
+                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade_custom_port", INSTALL_REPO, TARBALL, METRICS_MODE, '    --help  ')
                     }
                 }
                 stage('Run \"pmm3-client_upgrade\" package tests') {
                     steps {
-                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_upgrade", INSTALL_REPO, TARBALL, METRICS_MODE)
+                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_upgrade", INSTALL_REPO, TARBALL, METRICS_MODE, '    --help   ')
                     }
                 }
             }
