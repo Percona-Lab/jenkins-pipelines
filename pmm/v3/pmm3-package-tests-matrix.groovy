@@ -181,7 +181,7 @@ pipeline {
             parallel {
                 stage('Run \"pmm3-client\" package tests') {
                     steps {
-                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client", INSTALL_REPO, TARBALL, METRICS_MODE) {
+                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client", INSTALL_REPO, TARBALL, METRICS_MODE)
                     }
                 }
             }
