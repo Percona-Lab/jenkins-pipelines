@@ -212,12 +212,12 @@ pipeline {
                 }
                 stage('Run \"pmm3-client_integration_custom_port\" package tests') {
                     steps {
-                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_custom_port", INSTALL_REPO, TARBALL, METRICS_MODE, '  --help')
+                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_custom_port", INSTALL_REPO, TARBALL, METRICS_MODE, '   --help')
                     }
                 }
                 stage('Run \"pmm3-client_integration_upgrade\" package tests') {
                     steps {
-                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade", INSTALL_REPO, TARBALL, METRICS_MODE, '  --help')
+                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade", INSTALL_REPO, TARBALL, METRICS_MODE, '    --help')
                     }
                 }
             }
