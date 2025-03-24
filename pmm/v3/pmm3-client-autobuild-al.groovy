@@ -87,30 +87,30 @@ pipeline {
                         uploadTarball('binary')
                     }
                 }
-                stage('Build client docker') {
-                    steps {
-                        withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                            sh '''
-                                echo "${PASS}" | docker login -u "${USER}" --password-stdin
-                                set -o xtrace
+                // stage('Build client docker') {
+                //     steps {
+                //         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                //             sh '''
+                //                 echo "${PASS}" | docker login -u "${USER}" --password-stdin
+                //                 set -o xtrace
 
-                                export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')-amd64
+                //                 export DOCKER_CLIENT_TAG=perconalab/pmm-client:$(date -u '+%Y%m%d%H%M')-amd64
 
-                                ${PATH_TO_SCRIPTS}/build-client-docker
+                //                 ${PATH_TO_SCRIPTS}/build-client-docker
 
-                                if [ -n "${DOCKER_RC_TAG}" ]; then
-                                    docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_RC_TAG}
-                                    docker push perconalab/pmm-client:${DOCKER_RC_TAG}
-                                else
-                                    docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_LATEST_TAG}
-                                    docker push perconalab/pmm-client:${DOCKER_LATEST_TAG}
-                                fi
+                //                 if [ -n "${DOCKER_RC_TAG}" ]; then
+                //                     docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_RC_TAG}
+                //                     docker push perconalab/pmm-client:${DOCKER_RC_TAG}
+                //                 else
+                //                     docker tag $DOCKER_CLIENT_TAG perconalab/pmm-client:${DOCKER_LATEST_TAG}
+                //                     docker push perconalab/pmm-client:${DOCKER_LATEST_TAG}
+                //                 fi
 
-                                docker push $DOCKER_CLIENT_TAG
-                            '''
-                        }
-                    }
-                }
+                //                 docker push $DOCKER_CLIENT_TAG
+                //             '''
+                //         }
+                //     }
+                // }
                 stage('Build client source rpm') {
                     steps {
                         sh '''
@@ -153,52 +153,52 @@ pipeline {
                         }
                     }
                 }
-                stage('Build client source deb') {
-                    steps {
-                        sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:focal"
-                        stash includes: 'results/source_deb/*', name: 'debs'
-                        uploadDEB()
-                    }
-                }
-                stage('Build client binary debs') {
-                    parallel {
-                        stage('Build client binary deb Bullseye') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
-                            }
-                        }
-                        stage('Build client binary deb Bookworm') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bookworm"
-                            }
-                        }
-                        stage('Build client binary deb Jammy') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
-                            }
-                        }
-                        stage('Build client binary deb Focal') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
-                            }
-                        }
-                        stage('Build client binary deb Noble') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:noble"
-                            }
-                        }
-                    }
-                    post {
-                        success {
-                            stash includes: 'results/deb/*.deb', name: 'debs'
-                            uploadDEB()
-                        }
-                    }
-                }
+                // stage('Build client source deb') {
+                //     steps {
+                //         sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:focal"
+                //         stash includes: 'results/source_deb/*', name: 'debs'
+                //         uploadDEB()
+                //     }
+                // }
+                // stage('Build client binary debs') {
+                //     parallel {
+                //         stage('Build client binary deb Bullseye') {
+                //             steps {
+                //                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
+                //             }
+                //         }
+                //         stage('Build client binary deb Bookworm') {
+                //             steps {
+                //                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bookworm"
+                //             }
+                //         }
+                //         stage('Build client binary deb Jammy') {
+                //             steps {
+                //                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
+                //             }
+                //         }
+                //         stage('Build client binary deb Focal') {
+                //             steps {
+                //                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
+                //             }
+                //         }
+                //         stage('Build client binary deb Noble') {
+                //             steps {
+                //                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:noble"
+                //             }
+                //         }
+                //     }
+                //     post {
+                //         success {
+                //             stash includes: 'results/deb/*.deb', name: 'debs'
+                //             uploadDEB()
+                //         }
+                //     }
+                // }
                 stage('Sign packages') {
                     steps {
                         signRPM()
-                        signDEB()
+                        // signDEB()
                     }
                 }
             }
@@ -230,22 +230,22 @@ pipeline {
     post {
         success {
             script {
-                slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
+                // slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
                 if (params.DESTINATION == "testing") {
                     env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz"
                     currentBuild.description = "RC Build, tarball: " + env.TARBALL_URL
-                    slackSend botUser: true,
-                              channel: '#pmm-qa',
-                              color: '#00FF00',
-                              message: "[${JOB_NAME}]: ${BUILD_URL} RC Client build finished\nClient Tarball: ${env.TARBALL_URL}"
+                    // slackSend botUser: true,
+                    //           channel: '#pmm-qa',
+                    //           color: '#00FF00',
+                    //           message: "[${JOB_NAME}]: ${BUILD_URL} RC Client build finished\nClient Tarball: ${env.TARBALL_URL}"
                 }
             }
         }
         failure {
             script {
                 echo "Pipeline failed"
-                slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                // slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                // slackSend botUser: true, channel: '#pmm-qa', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
             }
         }
     }
