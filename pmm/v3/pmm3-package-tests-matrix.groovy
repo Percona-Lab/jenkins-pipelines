@@ -165,11 +165,11 @@ pipeline {
         cron('0 4 * * *')
     }
     stages {
-        stage('Setup Server Instance') {
-            steps {
-                runStaging(DOCKER_VERSION, '--help')
-            }
-        }
+//         stage('Setup Server Instance') {
+//             steps {
+//                 runStaging(DOCKER_VERSION, '--help')
+//             }
+//         }
         stage('Run Package Tests') {
             parallel {
                 stage('') {
@@ -189,11 +189,11 @@ pipeline {
     }
     post {
         always {
-            script {
-                if(env.VM_NAME) {
-                    destroyStaging(VM_NAME)
-                }
-            }
+//             script {
+//                 if(env.VM_NAME) {
+//                     destroyStaging(VM_NAME)
+//                 }
+//             }
             deleteDir()
         }
     }
