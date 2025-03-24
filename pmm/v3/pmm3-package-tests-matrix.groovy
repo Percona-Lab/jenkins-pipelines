@@ -36,7 +36,7 @@ void runStaging(String DOCKER_VERSION, CLIENTS) {
 }
 
 void runPackageTest(String GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, TESTS, INSTALL_REPO, TARBALL, METRICS_MODE) {
-    packageTestJob = build job: 'pmm3-package-testing', parameters: [
+    packageTestJob = build job: 'pmm3-package-testing-arm', parameters: [
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'PMM_VERSION', value: PMM_VERSION),
@@ -182,6 +182,11 @@ pipeline {
                 stage('Run \"pmm3-client\" package tests') {
                     steps {
                         runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client", INSTALL_REPO, TARBALL, METRICS_MODE)
+                    }
+                }
+                stage('Run \"pmm3-client_custom_path\" package tests') {
+                    steps {
+                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_custom_path", INSTALL_REPO, TARBALL, METRICS_MODE)
                     }
                 }
             }
