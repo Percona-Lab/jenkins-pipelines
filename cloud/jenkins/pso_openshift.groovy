@@ -280,7 +280,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                     export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
                     export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-
+                    PLATFORM_OPENSHIFT=true
                     kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
                 """
             }
