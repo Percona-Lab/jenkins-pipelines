@@ -164,21 +164,11 @@ pipeline {
     triggers {
         cron('0 4 * * *')
     }
-    stages {
-//         stage('Setup Server Instance') {
+    //         stage('Setup Server Instance') {
 //             steps {
 //                 runStaging(DOCKER_VERSION, '--help')
 //             }
 //         }
-        stage('Run Package Tests') {
-            parallel {
-                stage('') {
-                    steps {
-                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client", INSTALL_REPO, TARBALL, METRICS_MODE) {
-                    }
-                }
-            }
-        }
 //         stage('Package Tests') {
 //             steps {
 //                 script {
@@ -186,16 +176,26 @@ pipeline {
 //                 }
 //             }
 //         }
+    stages {
+        stage('Run Package Tests') {
+            parallel {
+                stage('Run \"pmm3-client\" package tests') {
+                    steps {
+                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client", INSTALL_REPO, TARBALL, METRICS_MODE) {
+                    }
+                }
+            }
+        }
     }
     post {
         always {
+            deleteDir()
+        }
+    }
+}
+
 //             script {
 //                 if(env.VM_NAME) {
 //                     destroyStaging(VM_NAME)
 //                 }
 //             }
-            deleteDir()
-            }
-        }
-    }
-}
