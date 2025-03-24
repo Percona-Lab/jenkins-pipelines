@@ -35,6 +35,18 @@ void runStaging(String DOCKER_VERSION, CLIENTS) {
     env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
 }
 
+void runPackageTest(String GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, TESTS, INSTALL_REPO, TARBALL, METRICS_MODE) {
+    packageTestJob = build job: 'pmm3-package-testing', parameters: [
+        string(name: 'GIT_BRANCH', value: GIT_BRANCH),
+        string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
+        string(name: 'PMM_VERSION', value: PMM_VERSION),
+        string(name: 'TESTS', value: TESTS),
+        string(name: 'INSTALL_REPO', value: INSTALL_REPO),
+        string(name: 'TARBALL', value: TARBALL)
+        string(name: 'METRICS_MODE', value: METRICS_MODE)
+    ]
+}
+
 def generateVariants(String playbookName) {
     def results = new HashMap<>();
     def labels = ["min-bookworm-arm64", "min-bullseye-arm64", "min-noble-arm64", "min-jammy-arm64", "min-focal-arm64", "min-ol-9-arm64", "min-ol-8-arm64"]
@@ -158,13 +170,22 @@ pipeline {
                 runStaging(DOCKER_VERSION, '--help')
             }
         }
-        stage('Package Tests') {
-            steps {
-                script {
-                    parallel generateRunnerVariants()
+        stage('Run Package Tests') {
+            parallel {
+                stage('') {
+                    steps {
+                        runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client", INSTALL_REPO, TARBALL, METRICS_MODE) {
+                    }
                 }
             }
         }
+//         stage('Package Tests') {
+//             steps {
+//                 script {
+//                     parallel generateRunnerVariants()
+//                 }
+//             }
+//         }
     }
     post {
         always {
