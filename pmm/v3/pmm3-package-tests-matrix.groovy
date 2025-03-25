@@ -7,16 +7,16 @@ void run_package_tests(String GIT_BRANCH, String PLAYBOOK, String INSTALL_REPO)
 {
     deleteDir()
     git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/package-testing'
-    sh """
-        export install_repo=${INSTALL_REPO}
-        export TARBALL_LINK=${TARBALL}
+    sh '''
+        export install_repo=\${INSTALL_REPO}
+        export TARBALL_LINK=\${TARBALL}
         ls playbooks
         ansible-playbook \
         -vvv \
         --connection=local \
         --inventory 127.0.0.1, \
         --limit 127.0.0.1 playbooks/${PLAYBOOK}.yml
-    """
+    '''
 }
 
 void runStaging(String DOCKER_VERSION, CLIENTS) {
@@ -86,9 +86,9 @@ def generateStage(LABEL, PLAYBOOK) {
                     String DISTRIBUTION = sh(script: "cat /proc/version", , returnStdout: true).trim()
                     if(DISTRIBUTION.contains("Red Hat")) {
                         sh '''
-                            sudo yum install -y epel-release
-                            sudo yum -y update
-                            sudo yum install -y ansible-core git wget dpkg
+                            sudo dnf install -y epel-release
+                            sudo dnf -y update
+                            sudo dnf install -y ansible-core git wget dpkg
                         '''
                     } else if (DISTRIBUTION.contains("Ubuntu")) {
                         sh '''
