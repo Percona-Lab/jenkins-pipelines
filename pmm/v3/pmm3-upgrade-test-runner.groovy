@@ -154,18 +154,6 @@ pipeline {
             defaultValue: 'admin',
             description: "Password for PMM Server ",
             name: 'ADMIN_PASSWORD')
-        string(
-            defaultValue: '0',
-            description: '''
-            Verbosity Levels in Ansible:
-                0: Default verbosity.
-                1: Show additional information (e.g., tasks being executed).
-                2: Display extra debug information (e.g., task details).
-                3: Show detailed information about task execution.
-                4: Debug-level verbosity.
-                5: Maximal verbosity, showing all possible debug output.
-            ''',
-            name: 'VERBOSE_LEVEL')
     }
     options {
         skipDefaultCheckout()
@@ -174,7 +162,6 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    env.VERBOSE_LEVEL = params.VERBOSE_LEVEL
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
@@ -182,7 +169,6 @@ pipeline {
                     branch: PMM_UI_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
-//                 slackSend channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
@@ -253,10 +239,7 @@ pipeline {
                         perconalab/watchtower:latest
 
                     sleep 10
-
-                    echo $DOCKER_TAG_UPGRADE
                     export DOCKER_TAG_UPGRADE=${DOCKER_TAG_UPGRADE}
-                    echo $DOCKER_TAG_UPGRADE
 
                     if [[ -z \$DOCKER_TAG_UPGRADE ]]; then
                         docker run --detach --restart always \
@@ -488,17 +471,6 @@ pipeline {
                 }
             }
         }
-//         stage('Check Client Upgrade') {
-//             steps {
-//                 checkClientAfterUpgrade(PMM_SERVER_LATEST);
-//                 sh '''
-//                     export PWD=$(pwd)
-//                     export CHROMIUM_PATH=/usr/bin/chromium
-//                     sleep 60
-//                     ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@post-client-upgrade'
-//                 '''
-//             }
-//         }
     }
     post {
         always {
@@ -538,23 +510,14 @@ pipeline {
                 } catch (err) {
                     error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
                 }
-//                 slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
+                slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
             }
-            /*
-            allure([
-                includeProperties: false,
-                jdk: '',
-                properties: [],
-                reportBuildPolicy: 'ALWAYS',
-                results: [[path: 'tests/output/allure']]
-            ])
-            */
         }
         failure {
             archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
-//             slackSend channel: '#pmm-notifications',
-//                       color: '#FF0000',
-//                       message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, ver: ${DOCKER_TAG}"
+            slackSend channel: '#pmm-notifications',
+                      color: '#FF0000',
+                      message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}, ver: ${DOCKER_TAG}"
         }
     }
 }
