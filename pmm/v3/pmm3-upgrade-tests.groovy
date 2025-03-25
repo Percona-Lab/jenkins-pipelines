@@ -4,7 +4,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, UPGRADE_FLAG) {
-    println "Upgrade Variant is: $UPGRADE_FLAG with variables $PMM_UI_GIT_BRANCH, $DOCKER_TAG, $DOCKER_TAG_UPGRADE, $CLIENT_VERSION, $CLIENT_REPOSITORY, $PMM_SERVER_LATEST, $PMM_QA_GIT_BRANCH, $QA_INTEGRATION_GIT_BRANCH"
     upgradeJob = build job: 'pmm3-upgrade-test-runner', parameters: [
         string(name: 'PMM_UI_GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
         string(name: 'DOCKER_TAG', value: DOCKER_TAG),
@@ -32,7 +31,6 @@ def generateStage(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIE
     return {
         stage("Run \"$LABEL\" upgrade tests") {
             retry(2) {
-                println "Upgrade Variant is: $LABEL with variables $PMM_UI_GIT_BRANCH, $DOCKER_TAG, $DOCKER_TAG_UPGRADE, $CLIENT_VERSION, $CLIENT_REPOSITORY, $PMM_SERVER_LATEST, $PMM_QA_GIT_BRANCH, $QA_INTEGRATION_GIT_BRANCH"
                 runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, LABEL);
             }
         }
@@ -45,7 +43,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-13481-settings-metrics',
+            defaultValue: 'v3',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
@@ -53,8 +51,8 @@ pipeline {
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
         string(
-            defaultValue: 'perconalab/pmm-server:3-dev-latest',
-            description: 'PMM Server Version to upgrade to',
+            defaultValue: '',
+            description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
             name: 'DOCKER_TAG_UPGRADE')
         string(
             defaultValue: "3.0.0",
@@ -69,7 +67,7 @@ pipeline {
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: 'PMM-13481',
+            defaultValue: 'v3',
             description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
