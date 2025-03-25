@@ -33,7 +33,6 @@ void checkClientAfterUpgrade(String PMM_SERVER_VERSION) {
 }
 
 void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) {
-//     getPMMVersion(PMM_SERVER_VERSION);
     def pmm_version = CLIENT_VERSION.trim();
     sh """
         echo $pmm_version
@@ -99,16 +98,16 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-7-upgrade-job-pmm3',
+            defaultValue: 'v3',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
-                defaultValue: 'perconalab/pmm-server:3.0.0',
+            defaultValue: 'percona/pmm-server:3.0.0',
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
         string(
-            defaultValue: 'perconalab/pmm-server:3-dev-latest',
-            description: 'PMM Server Version to upgrade to',
+            defaultValue: '',
+            description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
             name: 'DOCKER_TAG_UPGRADE')
         string(
             defaultValue: "3.0.0",
@@ -123,11 +122,11 @@ pipeline {
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
         string(
-            defaultValue: 'PMM-13481',
+            defaultValue: 'v3',
             description: 'Tag/Branch for pmm qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: 'PMM-13481',
+            defaultValue: 'v3',
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(
@@ -396,8 +395,7 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
-                    echo ${PRE_UPGRADE_FLAG}
-                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${PRE_UPGRADE_FLAG}
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${PRE_UPGRADE_FLAG}
                     """
                 }
             }
@@ -406,7 +404,7 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
                     '''
                 }
             }
@@ -458,8 +456,7 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh """
-                    echo ${PRE_UPGRADE_FLAG}
-                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
                     """
                 }
             }
@@ -491,11 +488,6 @@ pipeline {
                 docker cp pmm-server:/srv/logs srv-logs
                 tar -zcvf srv-logs.tar.gz srv-logs
 
-                # stop the containers
-                docker-compose down || true
-                docker rm -f $(sudo docker ps -a -q) || true
-                docker volume rm $(sudo docker volume ls -q) || true
-                sudo chown -R ec2-user:ec2-user . || true
             '''
             script {
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
