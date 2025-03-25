@@ -62,7 +62,6 @@ def generateVariants(String playbookName) {
 
 def generateRunnerVariants() {
     def results = new HashMap<>();
-    //  "min-noble-arm64", "min-jammy-arm64", "min-focal-arm64", "min-ol-9-arm64", "min-ol-8-arm64"
     def agents = ["min-bookworm-arm64", "min-bullseye-arm64"]
     def playbooks = ["pmm3-client", "pmm3-client_custom_path", "pmm3-client_integration", "pmm3-client_integration_auth_config", "pmm3-client_integration_auth_register", "pmm3-client_integration_custom_path", "pmm3-client_integration_custom_port", "pmm3-client_integration_upgrade", "pmm3-client_integration_upgrade_custom_path", "pmm3-client_integration_upgrade_custom_port", "pmm3-client_upgrade"]
 
@@ -165,18 +164,6 @@ pipeline {
     triggers {
         cron('0 4 * * *')
     }
-    //         stage('Setup Server Instance') {
-//             steps {
-//                 runStaging(DOCKER_VERSION, '--help')
-//             }
-//         }
-//         stage('Package Tests') {
-//             steps {
-//                 script {
-//                     parallel generateRunnerVariants()
-//                 }
-//             }
-//         }
     stages {
         stage('Run package tests') {
             parallel {
@@ -266,9 +253,3 @@ pipeline {
         }
     }
 }
-
-//             script {
-//                 if(env.VM_NAME) {
-//                     destroyStaging(VM_NAME)
-//                 }
-//             }
