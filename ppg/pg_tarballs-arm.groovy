@@ -20,7 +20,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
 String getPostgreSQLVersion(String BRANCH_NAME, String configureFileName) {
     def packageVersion = sh(script: """
         # Download the configure file
-        if [[ "${BRANCH_NAME}" == *TDE* ]]; then
+        if echo "${BRANCH_NAME}" | grep -q "release-"; then
             wget https://raw.githubusercontent.com/Percona-Lab/postgres/${BRANCH_NAME}/configure -O ${configureFileName}
         else
             wget https://raw.githubusercontent.com/postgres/postgres/${BRANCH_NAME}/configure -O ${configureFileName}
@@ -124,7 +124,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=17
-                                def BRANCH_NAME = "TDE_REL_17_STABLE"
+                                def BRANCH_NAME = "release-17.4.1"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -150,7 +150,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=17
-                                def BRANCH_NAME = 'TDE_REL_17_STABLE'
+                                def BRANCH_NAME = 'release-17.4.1'
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
