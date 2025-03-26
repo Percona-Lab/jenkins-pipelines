@@ -3,6 +3,11 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
+
 pipeline {
     agent none
     parameters {
@@ -68,7 +73,7 @@ pipeline {
                 stage('Build client binary') {
                     steps {
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            sh """
+                            sh '''
                                 ${PATH_TO_SCRIPTS}/build-client-binary
                                 ls -la "results/tarball" || :
                                 aws s3 cp --only-show-errors --acl public-read results/tarball/pmm-client-*.tar.gz \
@@ -76,7 +81,7 @@ pipeline {
                                 aws s3 cp --only-show-errors --acl public-read --copy-props none \
                                   s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz \
                                   s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz                                    
-                            """
+                            '''
                         }
                         stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
                         uploadTarball('binary')
@@ -108,14 +113,14 @@ pipeline {
                 }
                 stage('Build client source rpm') {
                     steps {
-                        sh """
+                        sh '''
                             ${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:3
-                        """
+                        '''
                     }
                     post {
                         success {
                             stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                            uploadRPM()
+                            uploadPMM3RPM()
                         }
                     }
                 }
@@ -128,16 +133,23 @@ pipeline {
                         }
                         stage('Build client binary rpm EL9') {
                             steps {
-                                sh """
+                                sh '''
                                     ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:3
-                                """
+                                '''
+                            }
+                        }
+                        stage('Build client binary rpm AL2023') {
+                            steps {
+                                sh '''
+                                    ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/amazonlinux/amazonlinux:2023
+                                '''
                             }
                         }
                     }
                     post {
                         success {
                             stash includes: 'results/rpm/pmm*-client-*.rpm', name: 'rpms'
-                            uploadRPM()
+                            uploadPMM3RPM()
                         }
                     }
                 }
