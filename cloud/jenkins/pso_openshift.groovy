@@ -84,11 +84,6 @@ void prepareAgent() {
         kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/336ef83542fd2f783bfa2c075b24599e834dcc77/plugins/kuttl.yaml
         echo \$(kubectl kuttl --version) is installed
 
-        curl -fsSLO https://releases.hashicorp.com/terraform/0.11.14/terraform_0.11.14_linux_amd64.zip
-        unzip terraform_0.11.14_linux_amd64.zip
-        sudo mv terraform /usr/local/bin
-        sudo chmod +x /usr/local/bin/terraform
-
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OC_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
     """
@@ -247,7 +242,6 @@ EOF
             sh """
                 /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
                 export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
-                cat openshift/$CLUSTER_SUFFIX/auth/kubeconfig
             """
         }
     }
