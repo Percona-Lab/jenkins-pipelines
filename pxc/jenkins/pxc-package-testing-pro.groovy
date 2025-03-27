@@ -426,7 +426,7 @@ pipeline {
                             def param_test_type = "install"
                             echo "1. Creating Molecule Instances for running INSTALL PXC tests.. Molecule create step"
                             try {
-                                runMoleculeAction("create", params.product_to_test, params.node_to_test, "install" params.test_repo, "yes", "yes")
+                                runMoleculeAction("create", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes", "yes")
                             } catch (Exception e) {
                                 echo "Failed during Molecule create step: ${e.message}"
                                 throw e
