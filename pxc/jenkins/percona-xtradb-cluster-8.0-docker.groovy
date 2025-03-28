@@ -185,25 +185,40 @@ pipeline {
                     }
             }
         }
+        stage('Check by trivy') {
+            agent {
+               label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
+            }
+            steps {
+                catchError {
+                        sh '''
+                            curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
+                            . ./MYSQL_VERSION
+                            sudo apt-get update
+                            sudo apt-get -y install wget apt-transport-https gnupg lsb-release
+                            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+                            echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+                            sudo apt-get update
+                            sudo apt-get -y install trivy
+                            sudo trivy -q image --format table \
+                                          --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-amd64 | tee -a trivy-hight-junit.xml
+                            sudo trivy -q image --format table \
+                                          --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-arm64 | tee -a trivy-hight-junit.xml
+                        '''
+                }
+            }
+        }
     }
     post {
         success {
             script {
-                if (env.FIPSMODE == 'YES') {
-                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO build has been finished successfully for ${GIT_BRANCH}")
-                } else {
-                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH}")
-                }
+                slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH}")
             }
             deleteDir()
         }
         failure {
             script {
-                if (env.FIPSMODE == 'YES') {
-                    slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: PRO build failed for ${GIT_BRANCH}]")
-                } else {
-                    slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH}]")
-                }
+                slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH}]")
             }
             deleteDir()
         }
@@ -212,11 +227,7 @@ pipeline {
                 sudo rm -rf ./*
             '''
             script {
-                if (env.FIPSMODE == 'YES') {
-                    currentBuild.description = "PRO -> Built on ${GIT_BRANCH}"
-                } else {
-                    currentBuild.description = "Built on ${GIT_BRANCH}"
-                }
+                currentBuild.description = "Built on ${GIT_BRANCH}"
             }
             deleteDir()
         }
