@@ -19,6 +19,7 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
 
 void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) {
     def PMM_VERSION = CLIENT_VERSION.trim();
+    env.PMM_VERSION = PMM_VERSION;
     if (PMM_VERSION == '3-dev-latest') {
         sh '''
             GET_PMM_CLIENT_VERSION=$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
@@ -34,7 +35,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     } else {
         sh '''
             sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
-            python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py \${PMM_VERSION}
+            python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py ${PMM_VERSION}
         '''
     }
 }
