@@ -9,32 +9,17 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 )
 
 void checkUpgrade(String PMM_VERSION, String PRE_POST) {
-
     def pmm_version = PMM_VERSION.trim();
-    sh """
-        export PRE_POST=${PRE_POST}
+    sh '''
+        export PRE_POST=\${PRE_POST}
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-        echo ${pmm_version}
-        echo $PRE_POST
-        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v ${pmm_version} -p ${PRE_POST}
-    """
-}
-
-void checkClientAfterUpgrade(String PMM_SERVER_VERSION) {
-    sh """
-        echo "Upgrading pmm-client";
-        sudo yum clean all
-        sudo yum makecache
-        sudo yum -y install pmm-client
-        sleep 30
-        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.sh
-        bash -xe /srv/pmm-qa/pmm-tests/check_client_upgrade.sh ${PMM_SERVER_VERSION}
-    """
+        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \${pmm_version} -p \${PRE_POST}
+    '''
 }
 
 void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) {
     def pmm_version = CLIENT_VERSION.trim();
-    sh """
+    sh '''
         echo $pmm_version
         if [ "$pmm_version" = "3-dev-latest" ]; then
             GET_PMM_CLIENT_VERSION=\$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
@@ -49,8 +34,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
 
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
         python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py \$GET_PMM_CLIENT_VERSION
-        sudo docker ps -a
-    """
+    '''
 }
 
 def latestVersion = pmmVersion()
@@ -218,10 +202,10 @@ pipeline {
         }
         stage('Start Server Instance') {
             steps {
-                sh """
+                sh '''
                     sudo mkdir -p /srv/qa-integration || true
                     pushd /srv/qa-integration
-                        sudo git clone --single-branch --branch ${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+                        sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
                     popd
                     sudo chown ec2-user -R /srv/qa-integration
 
@@ -238,7 +222,7 @@ pipeline {
                         perconalab/watchtower:latest
 
                     sleep 10
-                    export DOCKER_TAG_UPGRADE=${DOCKER_TAG_UPGRADE}
+                    export DOCKER_TAG_UPGRADE=\${DOCKER_TAG_UPGRADE}
 
                     if [[ -z \$DOCKER_TAG_UPGRADE ]]; then
                         docker run --detach --restart always \
@@ -266,13 +250,13 @@ pipeline {
                             -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com \
                             -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
                             -e PMM_ENABLE_UPDATES=1 \
-                            -e PMM_DEV_UPDATE_DOCKER_IMAGE=${DOCKER_TAG_UPGRADE} \
+                            -e PMM_DEV_UPDATE_DOCKER_IMAGE=\${DOCKER_TAG_UPGRADE} \
                             --publish 80:8080 --publish 443:8443 \
                             --volume pmm-volume:/srv \
                             --name pmm-server \
-                            ${DOCKER_TAG}
+                            \${DOCKER_TAG}
                     fi
-                """
+                '''
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
                 waitForContainer('pmm-server', 'The HTTP API is enabled at :8080.')
                 script {
@@ -306,7 +290,7 @@ pipeline {
         }
         stage('Setup Databases for PMM-Server') {
             steps {
-                sh """
+                sh '''
                     set -o errexit
                     set -o xtrace
 
@@ -319,11 +303,11 @@ pipeline {
                     pip install -r requirements.txt
 
                     python pmm-framework.py --verbose \
-                        --client-version=${CLIENT_VERSION} \
-                        --pmm-server-password=${ADMIN_PASSWORD} \
-                        ${PMM_CLIENTS}
+                        --client-version=\${CLIENT_VERSION} \
+                        --pmm-server-password=\${ADMIN_PASSWORD} \
+                        \${PMM_CLIENTS}
                     popd
-                """
+                '''
             }
         }
         stage('Sanity check') {
@@ -376,11 +360,11 @@ pipeline {
         stage('Check Packages before Upgrade') {
             steps {
                 script {
-                    sh """
+                    sh '''
                         export PMM_VERSION=\$(curl --location 'http://localhost/v1/server/version' --header 'Authorization: Basic YWRtaW46YWRtaW4=' | jq -r '.version' | awk -F "-" \'{print \$1}\')
                         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
                         python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
-                    """
+                    '''
                 }
             }
         }
@@ -394,9 +378,9 @@ pipeline {
         stage('Run pre upgrade UI tests') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh """
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${PRE_UPGRADE_FLAG}
-                    """
+                    sh '''
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep \${PRE_UPGRADE_FLAG}
+                    '''
                 }
             }
         }
@@ -412,17 +396,16 @@ pipeline {
         stage('Run post pmm server upgrade UI tests') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh """
-                    echo ${PRE_UPGRADE_FLAG}
-                    ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
-                    """
+                    sh '''
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                    '''
                 }
             }
         }
         stage('Upgrade PMM client') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh """
+                    sh '''
                         containers=\$(docker ps --format "{{ .Names }}")
 
                         for i in \$containers; do
@@ -458,16 +441,16 @@ pipeline {
                         done
                         sudo percona-release enable pmm3-client $CLIENT_REPOSITORY
                         sudo yum install -y pmm-client
-                    """
+                    '''
                 }
             }
         }
         stage('Run post pmm client upgrade UI tests') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh """
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
-                    """
+                    sh '''
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep \${POST_UPGRADE_FLAG}
+                    '''
                 }
             }
         }
