@@ -18,23 +18,25 @@ void checkUpgrade(String PMM_VERSION, String PRE_POST) {
 }
 
 void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) {
-    def pmm_version = CLIENT_VERSION.trim();
-    sh '''
-        echo \$pmm_version
-        if [ "\$pmm_version" = "3-dev-latest" ]; then
+    def PMM_VERSION = CLIENT_VERSION.trim();
+    if(pmm_version == '3-dev-latest') {
+        sh '''
             GET_PMM_CLIENT_VERSION=$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
-        elif [ "\$pmm_version" = "pmm3-rc"]; then
-            wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name
-            GET_PMM_CLIENT_VERSION=$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 3.*.*-rc\$ | sort -V | tail -n1)
-        else
-            GET_PMM_CLIENT_VERSION="\$pmm_version"
-        fi
-
-        echo "Returned PMM Version is: $GET_PMM_CLIENT_VERSION"
-
-        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
-        python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py $GET_PMM_CLIENT_VERSION
-    '''
+            sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
+            python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py ${GET_PMM_CLIENT_VERSION}
+        '''
+    } else if (pmm_version == 'pmm3-rc') {
+        sh '''
+            GET_PMM_CLIENT_VERSION=$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 3.*.*-rc$ | sort -V | tail -n1)
+            sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
+            python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py ${GET_PMM_CLIENT_VERSION}
+        '''
+    } else {
+        sh '''
+            sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
+            python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py \${PMM_VERSION}
+        '''
+    }
 }
 
 def latestVersion = pmmVersion()
