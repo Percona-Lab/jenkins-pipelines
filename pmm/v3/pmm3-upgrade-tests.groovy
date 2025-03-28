@@ -55,7 +55,7 @@ pipeline {
             description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
             name: 'DOCKER_TAG_UPGRADE')
         string(
-            defaultValue: "3.0.0",
+            defaultValue: '3.0.0',
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         choice(
@@ -63,7 +63,7 @@ pipeline {
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
         string(
-            defaultValue: "3.1.0",
+            defaultValue: '3.1.0',
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(

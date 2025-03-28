@@ -8,14 +8,6 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
   libraryPath: 'pmm/v3/'
 )
 
-void checkUpgrade(String PMM_VERSION, String PRE_POST) {
-    sh '''
-        export PRE_POST=\${PRE_POST}
-        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \${PMM_VERSION} -p \${PRE_POST}
-    '''
-}
-
 void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) {
     def PMM_VERSION = CLIENT_VERSION.trim();
     env.PMM_VERSION = PMM_VERSION;
@@ -96,11 +88,11 @@ pipeline {
             description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
             name: 'DOCKER_TAG_UPGRADE')
         string(
-            defaultValue: "3.0.0",
+            defaultValue: '3.0.0',
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: "3.1.0",
+            defaultValue: '3.1.0',
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         choice(
@@ -362,7 +354,6 @@ pipeline {
         stage('Check Packages before Upgrade') {
             steps {
                 script {
-//                     checkUpgrade()
                     sh '''
                         export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
                         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
@@ -460,7 +451,11 @@ pipeline {
         stage('Check Packages after Upgrade') {
             steps {
                 script {
-                    checkUpgrade(PMM_SERVER_LATEST, "post")
+                    sh '''
+                        export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
+                        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
+                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p post
+                    '''
                 }
             }
         }
