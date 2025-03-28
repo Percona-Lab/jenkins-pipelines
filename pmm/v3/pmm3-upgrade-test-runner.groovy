@@ -9,11 +9,10 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 )
 
 void checkUpgrade(String PMM_VERSION, String PRE_POST) {
-    def pmm_version = PMM_VERSION.trim();
     sh '''
         export PRE_POST=\${PRE_POST}
         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \${pmm_version} -p \${PRE_POST}
+        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \${PMM_VERSION} -p \${PRE_POST}
     '''
 }
 
@@ -363,8 +362,9 @@ pipeline {
         stage('Check Packages before Upgrade') {
             steps {
                 script {
+//                     checkUpgrade()
                     sh '''
-                        export PMM_VERSION=\$(curl --location 'http://localhost/v1/server/version' --header 'Authorization: Basic YWRtaW46YWRtaW4=' | jq -r '.version' | awk -F "-" \'{print \$1}\')
+                        export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
                         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
                         python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
                     '''
