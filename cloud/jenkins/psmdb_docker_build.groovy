@@ -11,19 +11,42 @@ void build(String IMAGE_SUFFIX){
     """
 }
 void checkImageForDocker(String IMAGE_SUFFIX){
-     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'SNYK_ID', variable: 'SNYK_ID')]) {
-        sh """
-            IMAGE_SUFFIX=${IMAGE_SUFFIX}
-            IMAGE_NAME='percona-server-mongodb-operator'
-            DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
+    try {
+             withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'SNYK_ID', variable: 'SNYK_ID')]) {
+                sh """
+                    IMAGE_SUFFIX=${IMAGE_SUFFIX}
+                    IMAGE_NAME='percona-server-mongodb-operator'
+                    MONGODB_VER=\$(echo ${IMAGE_SUFFIX} | tr -d '\\-debug' | tr -d 'mongod')
+                    PATH_TO_DOCKERFILE="source/percona-server-mongodb-\${MONGODB_VER}"
+                    IMAGE_TAG="main-\${IMAGE_SUFFIX}"
+                    if [ ${IMAGE_SUFFIX} = backup ]; then
+                        PATH_TO_DOCKERFILE="source/percona-backup-mongodb"
+                    elif [ ${IMAGE_SUFFIX} = operator ]; then
+                        PATH_TO_DOCKERFILE="operator-source/build"
+                        IMAGE_TAG='main'
+                    fi
 
-            sg docker -c "
-                docker login -u '${USER}' -p '${PASS}'
-                ls -al ./source/
-                docker run -e SNYK_TOKEN='${SNYK_ID}' --workdir /github/workspace --rm -v '$WORKSPACE/source/percona-server-mongodb-\$DOCKER_FILE_PREFIX':'/github/workspace' -e CI=true snyk/snyk:docker snyk container test --platform=linux/amd64 --file=./Dockerfile --severity-threshold=high --exclude-base-image-vulns -fail-on=upgradable --json-file-output=./snyk-\$IMAGE_NAME-\${IMAGE_SUFFIX}-psmdb.json --docker perconalab/\$IMAGE_NAME:main-\${IMAGE_SUFFIX}
-                cp ./source/percona-server-mongodb-\$DOCKER_FILE_PREFIX/snyk-percona-server-mongodb-operator-mongod5.0-psmdb.json $WORKSPACE/
-            "
+                    sg docker -c "
+                        set -e
+                        docker login -u '${USER}' -p '${PASS}'
+
+                        snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
+                            --fail-on=all --severity-threshold=high --json-file-output=\${IMAGE_SUFFIX}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
+                    "
+                """
+             }
+    } catch (Exception e) {
+        echo "Stage failed: ${e.getMessage()}"
+        sh """
+            exit 1
         """
+    } finally {
+         echo "Executing post actions..."
+         sh """
+             IMAGE_SUFFIX=${IMAGE_SUFFIX}
+             snyk-to-html -i \${IMAGE_SUFFIX}-report.json -o \${IMAGE_SUFFIX}-report.html
+         """
+        archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
     }
 }
 
@@ -32,6 +55,7 @@ void pushImageToDocker(String IMAGE_SUFFIX){
         sh """
             IMAGE_SUFFIX=${IMAGE_SUFFIX}
             sg docker -c "
+                set -e
                 docker login -u '${USER}' -p '${PASS}'
                 docker push perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX}
                 docker logout
@@ -62,6 +86,8 @@ pipeline {
          label 'docker'
     }
     environment {
+        PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
+        SNYK_TOKEN=credentials('SNYK_ID')
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
     }
     options {
@@ -74,13 +100,10 @@ pipeline {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
-                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
-                    wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                    sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
-
-                    if [ ! -f junit.tpl ]; then
-                        wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
-                    fi
+                    curl -sL https://static.snyk.io/cli/latest/snyk-linux -o snyk
+                    chmod +x snyk
+                    sudo mv ./snyk /usr/local/bin/
+                    sudo npm install snyk-to-html -g
 
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
@@ -125,7 +148,7 @@ pipeline {
             steps {
                 unstash "checkout"
                 sh """
-                    sudo rm -rf ./source
+                    sudo mv ./source ./operator-source
                     export GIT_REPO=$GIT_PD_REPO
                     export GIT_BRANCH=$GIT_PD_BRANCH
                     ./cloud/local/checkout
@@ -145,18 +168,16 @@ pipeline {
             }
         }
 */
-       stage('Snyk Checks') {
+       stage('Snyk CVEs Checks') {
             parallel {
-                stage('psmdb operator'){
+                stage('operator'){
                     steps {
-                        checkImageForDocker('main')
-                        archiveArtifacts '*.json'
+                        checkImageForDocker('operator')
                     }
                 }
                 stage('mongod5.0'){
                     steps {
                         checkImageForDocker('mongod5.0')
-                        archiveArtifacts '*.json'
                     }
                 }
                 stage('mongod6.0'){
