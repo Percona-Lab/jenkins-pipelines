@@ -30,7 +30,7 @@ void setup_rhel_package_tests()
     sh '''
         sudo yum install -y epel-release
         sudo yum -y update
-        sudo yum install -y ansible-core git wget
+        sudo yum install -y ansible-core git wget dpkg
     '''
 }
 
@@ -61,8 +61,10 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
     git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/package-testing'
     sh '''
         export install_repo=\${INSTALL_REPO}
+        export TARBALL_LINK=\${TARBALL}
         git clone https://github.com/Percona-QA/ppg-testing
         ansible-playbook \
+        -vvv \
         --connection=local \
         --inventory 127.0.0.1, \
         --limit 127.0.0.1 playbooks/\${TESTS}.yml
@@ -102,9 +104,17 @@ pipeline {
             name: 'TESTS',
             trim: true)
         choice(
-            choices: ['experimental', 'testing', 'main', 'pmm-client-main'],
+            choices: ['experimental', 'testing', 'release'],
             description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
+        string(
+            defaultValue: '',
+            description: 'PMM Client tarball link or FB-code',
+            name: 'TARBALL')
+        string(
+            defaultValue: '--database ps=5.7,QUERY_SOURCE=perfschema',
+            description: 'PMM Client tarball link or FB-code',
+            name: 'CLIENTS')
         choice(
             choices: ['auto', 'push', 'pull'],
             description: 'Select the Metrics Mode for Client',
@@ -116,7 +126,7 @@ pipeline {
     stages {
         stage('Setup Server Instance') {
             steps {
-                runStaging(DOCKER_VERSION, '--database ps=5.7,QUERY_SOURCE=perfschema')
+                runStaging(DOCKER_VERSION, CLIENTS)
             }
         }
         stage('Execute Package Tests') {

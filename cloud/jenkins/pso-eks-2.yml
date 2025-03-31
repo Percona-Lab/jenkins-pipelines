@@ -1,5 +1,5 @@
 - job:
-    name: ps-operator-eks-version
+    name: pso-eks-2
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/ps_operator_eks_version.groovy
+      script-path: cloud/jenkins/pso_eks.groovy
