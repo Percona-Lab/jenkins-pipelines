@@ -13,8 +13,9 @@ pipeline {
     parameters {
         string(name: 'MLINK_BRANCH', defaultValue: 'main', description: 'Mongo Link Branch')
         string(name: 'GO_VER', defaultValue: 'latest', description: 'GOLANG docker image for building PBM from sources')
-        choice(name: 'instance', choices: ['docker-64gb','docker-64gb-aarch64'], description: 'Ec2 instance type for running tests')
+        choice(name: 'INSTANCE', choices: ['docker-64gb','docker-64gb-aarch64'], description: 'Ec2 instance type for running tests')
         string(name: 'PSMDB_TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
+        string(name: 'TEST_FILTER', defaultValue: '', description: 'Optional pytest filter, f.e. T2 or T3')
     }
     stages {
         stage('Set build name'){
@@ -27,7 +28,7 @@ pipeline {
         stage ('Run tests') {
             matrix {
                 agent {
-                    label "${params.instance}"
+                    label "${params.INSTANCE}"
                 }
                 axes {
                     axis {
@@ -45,7 +46,7 @@ pipeline {
                                     docker rmi -f \$(docker images -q | uniq) || true
                                     sudo rm -rf ./*
                                     if [ ! -f "/usr/local/bin/docker-compose" ] ; then
-                                        if [ ${params.instance} = "docker-64gb-aarch64" ]; then
+                                        if [ ${params.INSTANCE} = "docker-64gb-aarch64" ]; then
                                             sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-aarch64 -o /usr/local/bin/docker-compose
                                         else 
                                             sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
@@ -58,9 +59,9 @@ pipeline {
                                     git poll: false, branch: params.PSMDB_TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                                 }
 
-                                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GIT_TOKEN')]) {
+                                withCredentials([usernamePassword(credentialsId: 'JNKPercona_API_token', usernameVariable: 'USERNAME', passwordVariable: 'PASSWORD')]) {
                                     dir('percona-mongolink') {
-                                        git url: "https://x-access-token:${GIT_TOKEN}@github.com/Percona-Lab/percona-mongolink.git",
+                                        git url: "https://${USERNAME}:${PASSWORD}@github.com/Percona-Lab/percona-mongolink.git",
                                                 branch: params.MLINK_BRANCH,
                                                 poll: false
                                     }
@@ -70,9 +71,13 @@ pipeline {
                                     cd psmdb-testing/mlink
                                     docker-compose build
                                     docker-compose up -d
-                                    docker-compose run test pytest -v -s --junitxml=junit.xml || true
+                                    if [ -n "${params.TEST_FILTER}" ]; then
+                                        docker-compose run test pytest -v -s -k "${params.TEST_FILTER}" --junitxml=junit.xml || true
+                                    else
+                                        docker-compose run test pytest -v -s --junitxml=junit.xml || true
+                                    fi
                                     docker-compose down -v --remove-orphans
-                                    curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "Mongo Link branch": "${MLINK_BRANCH}","PSMDB docker image": "${MONGODB_IMAGE}","instance": "${instance}"}};type=application/json' -i || true
+                                    curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "Mongo Link branch": "${MLINK_BRANCH}","PSMDB docker image": "${MONGODB_IMAGE}","Instance": "${params.INSTANCE}"}};type=application/json' -i || true
                                 """
                             }
                         }
