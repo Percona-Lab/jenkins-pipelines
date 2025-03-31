@@ -24,6 +24,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                         "https://api.github.com/repos/percona/percona-xtradb-cluster-private-build/contents/build-ps/pxc_builder.sh?ref=\${PRO_BRANCH}"
                     sed -i "s/PRIVATE_USERNAME/${USERNAME}/g" pxc_builder.sh
                     sed -i "s/PRIVATE_TOKEN/${PASSWORD}/g" pxc_builder.sh
+                    grep "percona-release enable" pxc_builder.sh
                 else
                     wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/build-ps/pxc_builder.sh -O pxc_builder.sh
                 fi
