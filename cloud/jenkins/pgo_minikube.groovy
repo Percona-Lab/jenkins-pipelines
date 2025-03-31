@@ -237,19 +237,22 @@ void makeReport() {
 
     echo "=========================[ Generating Parameters Report ]========================="
     pipelineParameters = """
-        testsuite name=$JOB_NAME
-        PG_VER=$PG_VER
-        IMAGE_OPERATOR=$IMAGE_OPERATOR
-        IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
-        IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
-        IMAGE_BACKREST=$IMAGE_BACKREST
-        IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
-        IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-        PLATFORM_VER=$PLATFORM_VER
-    """
+testsuite name=$JOB_NAME
+PG_VER=${PG_VER ?: 'e2e_defaults'}
+IMAGE_OPERATOR=${IMAGE_OPERATOR ?: 'e2e_defaults'}
+IMAGE_POSTGRESQL=${IMAGE_POSTGRESQL ?: 'e2e_defaults'}
+IMAGE_PGBOUNCER=${IMAGE_PGBOUNCER ?: 'e2e_defaults'}
+IMAGE_BACKREST=${IMAGE_BACKREST ?: 'e2e_defaults'}
+IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
+IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
+PLATFORM_VER=$PLATFORM_VER"""
 
     writeFile file: "TestsReport.xml", text: testsReport
     writeFile file: 'PipelineParameters.txt', text: pipelineParameters
+
+    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+        text: "<pre>${pipelineParameters}</pre>"
+    )
 }
 
 pipeline {
