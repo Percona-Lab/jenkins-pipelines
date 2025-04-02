@@ -18,6 +18,7 @@ pipeline {
         string(name: 'BRANCH',description: 'PBM repo branch',defaultValue: 'main')
         choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-70','psmdb-80','psmdb-60','psmdb-50'])
         string(name: 'PML_BRANCH',description: 'PML Branch for testing',defaultValue: 'main')
+        string(name: 'GO_VERSION',description: 'Version of Golang used',defaultValue: '1.24.1')
         choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['t2.micro','i3.large','i3en.large','i3.xlarge','i3en.xlarge'])
         choice(name: 'LAYOUT',description: 'Layout',choices: ['replicaset','sharded','aws'])
         string(name: 'TIMEOUT',description: 'Timeout for the job',defaultValue: '3600')
