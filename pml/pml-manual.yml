@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pbm/pml-manual.groovy
+      script-path: pml/pml-manual.groovy
