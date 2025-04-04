@@ -19,12 +19,10 @@ pipeline {
         string(name: 'PML_BRANCH',description: 'PML Branch for testing',defaultValue: 'main')
         string(name: 'GO_VERSION',description: 'Version of Golang used',defaultValue: '1.24.1')
         choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['t2.micro','i3.large','i3en.large','i3.xlarge','i3en.xlarge'])
-        choice(name: 'LAYOUT',description: 'Layout',choices: ['aws'])
         string(name: 'TIMEOUT',description: 'Timeout for the job',defaultValue: '3600')
         string(name: 'TESTING_BRANCH',description: 'Branch for testing repository',defaultValue: 'main')
         string(name: 'SSH_USER',description: 'User for debugging',defaultValue: 'none')
         string(name: 'SSH_PUBKEY',description: 'User ssh public key for debugging',defaultValue: 'none')
-        password(name: 'PMM_HOST', description: 'PMM host with credentials, format https://user:password@x.x.x.x',defaultValue: 'none')
     }
     options {
         withCredentials(moleculePbmJenkinsCreds())
@@ -34,7 +32,7 @@ pipeline {
         stage('Set build name'){ 
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SSH_USER}-${env.LAYOUT}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SSH_USER}-aws"
                 }
             }
         }
@@ -54,14 +52,14 @@ pipeline {
         stage ('Create instances') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "create", params.LAYOUT)
+                    moleculeExecuteActionWithScenario(moleculeDir, "create", "aws")
                 }
             }
         }
         stage ('Prepare instances') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "prepare", params.LAYOUT)
+                    moleculeExecuteActionWithScenario(moleculeDir, "prepare", "aws")
                 }
             }
         }
@@ -73,7 +71,7 @@ pipeline {
                             cp $PBM_GCS_S3_YML /tmp/pbm-agent-storage-gcp.conf
                             cp $PBM_AZURE_YML /tmp/pbm-agent-storage-azure.conf
                         """
-                        moleculeExecuteActionWithScenario(moleculeDir, "converge", params.LAYOUT)
+                        moleculeExecuteActionWithScenario(moleculeDir, "converge", "aws")
                     }
                 }
             }
@@ -81,14 +79,14 @@ pipeline {
         stage ('Run tests') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "verify", params.LAYOUT)
+                    moleculeExecuteActionWithScenario(moleculeDir, "verify", "aws")
                 }
             }
         }
         stage ('Cleanup') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "cleanup", params.LAYOUT)
+                    moleculeExecuteActionWithScenario(moleculeDir, "cleanup", "aws")
                 }
             }
         }
@@ -100,7 +98,7 @@ pipeline {
                     rm -f /tmp/pbm-agent-storage-gcp.conf
                     rm -f /tmp/pbm-agent-storage-azure.conf
                 """
-                moleculeExecuteActionWithScenario(moleculeDir, "destroy", params.LAYOUT)
+                moleculeExecuteActionWithScenario(moleculeDir, "destroy", "aws")
             }
         }
     }
