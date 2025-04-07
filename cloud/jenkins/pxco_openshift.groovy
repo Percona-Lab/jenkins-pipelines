@@ -428,7 +428,7 @@ pipeline {
             name: 'IMAGE_PMM_SERVER')
         string(
             defaultValue: 'eu-west-2',
-            description: 'AWS region to use for openshift cluster. ',
+            description: 'AWS region to use for openshift cluster',
             name: 'AWS_REGION')
     }
     agent {

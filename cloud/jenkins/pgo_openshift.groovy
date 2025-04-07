@@ -1,4 +1,3 @@
-region='eu-west-3'
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
@@ -228,7 +227,7 @@ networking:
   - 172.30.0.0/16
 platform:
   aws:
-    region: $region
+    region: ${AWS_REGION}
     userTags:
       iit-billing-tag: openshift
       delete-cluster-after-hours: 8
@@ -384,6 +383,7 @@ pipeline {
         string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-pgbackrest')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
+        string(name: 'AWS_REGION', defaultValue: 'eu-west-3', description: 'AWS region to use for openshift cluster')
     }
     agent {
         label 'docker'

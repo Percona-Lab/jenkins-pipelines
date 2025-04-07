@@ -338,32 +338,32 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
             done
             kubectl get svc --all-namespaces || true
 
-            VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region  ${EKS_REGION} -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
+            VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region ${EKS_REGION} -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
             if [ -n "\$VPC_ID" ]; then
-                LOADBALS=\$(aws elb describe-load-balancers --region  ${EKS_REGION} --output json | jq --raw-output '.LoadBalancerDescriptions[] | select(.VPCId == "'\$VPC_ID'").LoadBalancerName')
+                LOADBALS=\$(aws elb describe-load-balancers --region ${EKS_REGION} --output json | jq --raw-output '.LoadBalancerDescriptions[] | select(.VPCId == "'\$VPC_ID'").LoadBalancerName')
                 for loadbal in \$LOADBALS; do
-                    aws elb delete-load-balancer --load-balancer-name \$loadbal --region  ${EKS_REGION}
+                    aws elb delete-load-balancer --load-balancer-name \$loadbal --region ${EKS_REGION}
                 done
                 eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction || true
 
-                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region  ${EKS_REGION} || true)
+                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region ${EKS_REGION} || true)
                 if [ -n "\$VPC_DESC" ]; then
-                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region  ${EKS_REGION} || true
+                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region ${EKS_REGION} || true
                 fi
-                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region  ${EKS_REGION} || true)
+                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region ${EKS_REGION} || true)
                 if [ -n "\$VPC_DESC" ]; then
-                    for secgroup in \$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=\$VPC_ID --query 'SecurityGroups[*].GroupId' --output text --region  ${EKS_REGION}); do
-                        aws ec2 delete-security-group --group-id \$secgroup --region  ${EKS_REGION} || true
+                    for secgroup in \$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=\$VPC_ID --query 'SecurityGroups[*].GroupId' --output text --region ${EKS_REGION}); do
+                        aws ec2 delete-security-group --group-id \$secgroup --region ${EKS_REGION} || true
                     done
 
-                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region  ${EKS_REGION} || true
+                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region ${EKS_REGION} || true
                 fi
             fi
             aws cloudformation delete-stack --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region ${EKS_REGION} || true
-            aws cloudformation wait stack-delete-complete --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region  ${EKS_REGION} || true
+            aws cloudformation wait stack-delete-complete --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region ${EKS_REGION} || true
 
-            eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region  ${EKS_REGION} || true
-            aws cloudformation list-stacks --region  ${EKS_REGION} | jq '.StackSummaries[] | select(.StackName | startswith("'eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster'"))' || true
+            eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region ${EKS_REGION} || true
+            aws cloudformation list-stacks --region ${EKS_REGION} | jq '.StackSummaries[] | select(.StackName | startswith("'eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster'"))' || true
         """
     }
 }
@@ -440,7 +440,7 @@ pipeline {
             name: 'IMAGE_PMM_SERVER')
         string(
             defaultValue: 'eu-west-3',
-            description: 'EKS region to use for cluster. ',
+            description: 'EKS region to use for cluster',
             name: 'EKS_REGION')
     }
     agent {

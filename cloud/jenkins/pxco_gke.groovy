@@ -425,7 +425,7 @@ pipeline {
             name: 'IMAGE_PMM_SERVER')
         string(
             defaultValue: 'us-central1-a',
-            description: 'GKE region to use for cluster. ',
+            description: 'GKE region to use for cluster',
             name: 'GKE_REGION')
     }
     agent {
