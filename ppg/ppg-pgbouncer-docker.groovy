@@ -1,16 +1,17 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@hetzner", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
 pipeline {
     agent {
-        label 'docker-32gb'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
+        choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
 	string(name: 'PGBOUNCER_VERSION', defaultValue: '1.22.1-1', description: 'pgBouncer version')
         choice(name: 'PPG_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PPG_VERSION', defaultValue: '17.0', description: 'PPG version')
@@ -35,7 +36,7 @@ pipeline {
                     cd percona-docker/percona-pgbouncer
                     sed -E "s/ENV PG_VERSION (.+)/ENV PG_VERSION ${params.PPG_VERSION}/" -i Dockerfile
                     sed -E "s/ENV PPG_REPO (.+)/ENV PPG_REPO ${params.PPG_REPO}/" -i Dockerfile
-                    docker build . -t percona-pgbouncer:${params.PGBOUNCER_VERSION} 
+                    docker build . -t percona-pgbouncer
                     """
             }
         }
@@ -48,10 +49,10 @@ pipeline {
                     wget https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
                     if [ ${params.PPG_REPO} = "release" ]; then
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-pgbouncer:${params.PGBOUNCER_VERSION}
+                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-pgbouncer
                     else
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-pgbouncer:${params.PGBOUNCER_VERSION}
+                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-pgbouncer
                     fi
                """
             }
@@ -73,10 +74,10 @@ pipeline {
                          unzip -o awscliv2.zip
                          sudo ./aws/install
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
-                         docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} public.ecr.aws/e7j3v3n0/percona-pgbouncer-build:percona-pgbouncer:${params.PGBOUNCER_VERSION}
+                         docker tag percona-pgbouncer public.ecr.aws/e7j3v3n0/percona-pgbouncer-build:percona-pgbouncer:${params.PGBOUNCER_VERSION}
                          docker push public.ecr.aws/e7j3v3n0/percona-pgbouncer-build:percona-pgbouncer:${params.PGBOUNCER_VERSION}
                          if [ ${params.LATEST} = "yes" ]; then
-                            docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} public.ecr.aws/e7j3v3n0/percona-pgbouncer:latest
+                            docker tag percona-pgbouncer public.ecr.aws/e7j3v3n0/percona-pgbouncer:latest
                             docker push public.ecr.aws/e7j3v3n0/percona-pgbouncer:latest
                          fi
                      """
@@ -92,12 +93,12 @@ pipeline {
                      sh """
                          MAJ_VER=\$(echo ${params.PGBOUNCER_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64
+                         docker tag percona-pgbouncer perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64
                          docker push perconalab/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64
-                         docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} perconalab/percona-pgbouncer:\$MAJ_VER-amd64
+                         docker tag percona-pgbouncer perconalab/percona-pgbouncer:\$MAJ_VER-amd64
                          docker push perconalab/percona-pgbouncer:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
-                            docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} perconalab/percona-pgbouncer:latest
+                            docker tag percona-pgbouncer perconalab/percona-pgbouncer:latest
                             docker push perconalab/percona-pgbouncer:latest
                          fi
                      """
@@ -113,12 +114,12 @@ pipeline {
                      sh """
                          MAJ_VER=\$(echo ${params.PGBOUNCER_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64
+                         docker tag percona-pgbouncer percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64
                          docker push percona/percona-pgbouncer:${params.PGBOUNCER_VERSION}-amd64
-                         docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} percona/percona-pgbouncer:\$MAJ_VER-amd64
+                         docker tag percona-pgbouncer percona/percona-pgbouncer:\$MAJ_VER-amd64
                          docker push percona/percona-pgbouncer:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
-                            docker tag percona-pgbouncer:${params.PGBOUNCER_VERSION} percona/percona-pgbouncer:latest
+                            docker tag percona-pgbouncer percona/percona-pgbouncer:latest
                             docker push percona/percona-pgbouncer:latest
                          fi
                      """

@@ -1,17 +1,18 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@hetzner", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
 pipeline {
     agent {
-        label 'docker-32gb'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
-	string(name: 'PGBACKREST_VERSION', defaultValue: '2.51-1', description: 'pgBackrest version')
+        choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
+        string(name: 'PGBACKREST_VERSION', defaultValue: '2.51-1', description: 'pgBackrest version')
         choice(name: 'PPG_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PPG_VERSION', defaultValue: '17.0', description: 'PPG version')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
@@ -35,7 +36,7 @@ pipeline {
                     cd percona-docker/percona-pgbackrest
                     sed -E "s/ENV PG_VERSION (.+)/ENV PG_VERSION ${params.PPG_VERSION}/" -i Dockerfile
                     sed -E "s/ENV PPG_REPO (.+)/ENV PPG_REPO ${params.PPG_REPO}/" -i Dockerfile
-                    docker build . -t percona-pgbackrest:${params.PGBACKREST_VERSION} 
+                    docker build . -t percona-pgbackrest
                     """
             }
         }
@@ -48,10 +49,10 @@ pipeline {
                     wget https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
                     if [ ${params.PPG_REPO} = "release" ]; then
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-pgbackrest:${params.PGBACKREST_VERSION}
+                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-pgbackrest
                     else
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-pgbackrest:${params.PGBACKREST_VERSION}
+                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-pgbackrest
                     fi
                """
             }
@@ -73,10 +74,10 @@ pipeline {
                          unzip -o awscliv2.zip
                          sudo ./aws/install
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
-                         docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} public.ecr.aws/e7j3v3n0/percona-pgbackrest-build:percona-pgbackrest:${params.PGBACKREST_VERSION}
+                         docker tag percona-pgbackrest public.ecr.aws/e7j3v3n0/percona-pgbackrest-build:percona-pgbackrest:${params.PGBACKREST_VERSION}
                          docker push public.ecr.aws/e7j3v3n0/percona-pgbackrest-build:percona-pgbackrest:${params.PGBACKREST_VERSION}
                          if [ ${params.LATEST} = "yes" ]; then
-                            docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} public.ecr.aws/e7j3v3n0/percona-pgbackrest:latest
+                            docker tag percona-pgbackrest public.ecr.aws/e7j3v3n0/percona-pgbackrest:latest
                             docker push public.ecr.aws/e7j3v3n0/percona-pgbackrest:latest
                          fi
                      """
@@ -92,12 +93,12 @@ pipeline {
                      sh """
                          MAJ_VER=\$(echo ${params.PGBACKREST_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64
+                         docker tag percona-pgbackrest perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64
                          docker push perconalab/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64
-                         docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} perconalab/percona-pgbackrest:\$MAJ_VER-amd64
+                         docker tag percona-pgbackrest perconalab/percona-pgbackrest:\$MAJ_VER-amd64
                          docker push perconalab/percona-pgbackrest:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
-                            docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} perconalab/percona-pgbackrest:latest
+                            docker tag percona-pgbackrest perconalab/percona-pgbackrest:latest
                             docker push perconalab/percona-pgbackrest:latest
                          fi
                      """
@@ -113,12 +114,12 @@ pipeline {
                      sh """
                          MAJ_VER=\$(echo ${params.PGBACKREST_VERSION} | cut -f1 -d'-')
                          docker login -u '${USER}' -p '${PASS}'
-                         docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64
+                         docker tag percona-pgbackrest percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64
                          docker push percona/percona-pgbackrest:${params.PGBACKREST_VERSION}-amd64
-                         docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} percona/percona-pgbackrest:\$MAJ_VER-amd64
+                         docker tag percona-pgbackrest percona/percona-pgbackrest:\$MAJ_VER-amd64
                          docker push percona/percona-pgbackrest:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
-                            docker tag percona-pgbackrest:${params.PGBACKREST_VERSION} percona/percona-pgbackrest:latest
+                            docker tag percona-pgbackrest percona/percona-pgbackrest:latest
                             docker push percona/percona-pgbackrest:latest
                          fi
                      """
