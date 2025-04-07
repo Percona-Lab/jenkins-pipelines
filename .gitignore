@@ -4,3 +4,7 @@
 .vscode
 .history
 .idea/*
+*.iml
+*.ldif
+lib/*
+
