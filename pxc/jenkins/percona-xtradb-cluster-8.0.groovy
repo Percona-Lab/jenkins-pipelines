@@ -5,38 +5,41 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
-      sh """
-          set -o xtrace
-          mkdir -p test
-          if [ \${FIPSMODE} = "YES" ]; then
-              PXC_VERSION_MINOR=\$(curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${GIT_BRANCH}/MYSQL_VERSION && cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print \$2}')
-              if [ \${PXC_VERSION_MINOR} = "0" ]; then
-                  PRO_BRANCH="8.0"
-              elif [ \${PXC_VERSION_MINOR} = "4" ]; then
-                  PRO_BRANCH="8.4"
-              else
-                  PRO_BRANCH="trunk"
-              fi
-              curl -L -H "Authorization: Bearer \${TOKEN}" \
-                      -H "Accept: application/vnd.github.v3.raw" \
-                      -o pxc_builder.sh \
-                      "https://api.github.com/repos/percona/percona-xtradb-cluster-private-build/contents/build-ps/pxc_builder.sh?ref=\${PRO_BRANCH}"
-          else
-              wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/build-ps/pxc_builder.sh -O pxc_builder.sh
-          fi
-          pwd -P
-          ls -laR
-          export build_dir=\$(pwd -P)
-          docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
-              set -o xtrace
-              cd \${build_dir}
-              bash -x ./pxc_builder.sh --builddir=\${build_dir}/test --install_deps=1
-              if [ \${FIPSMODE} = "YES" ]; then
-                  git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/percona-xtradb-cluster-private-build.git percona-xtradb-cluster-private-build
-                  mv -f \${build_dir}/percona-xtradb-cluster-private-build/build-ps \${build_dir}/test/.
-              fi
-              bash -x ./pxc_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} --bin_release=${BIN_RELEASE} ${STAGE_PARAM}"
-      """
+        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+            sh """
+                set -o xtrace
+                mkdir -p test
+                if [ \${FIPSMODE} = "YES" ]; then
+                    PXC_VERSION_MINOR=\$(curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${GIT_BRANCH}/MYSQL_VERSION && cat MYSQL_VERSION | grep MYSQL_VERSION_MINOR | awk -F= '{print \$2}')
+                    if [ \${PXC_VERSION_MINOR} = "0" ]; then
+                        PRO_BRANCH="8.0"
+                    elif [ \${PXC_VERSION_MINOR} = "4" ]; then
+                        PRO_BRANCH="8.4"
+                    else
+                        PRO_BRANCH="trunk"
+                    fi
+                    curl -L -H "Authorization: Bearer \${TOKEN}" \
+                        -H "Accept: application/vnd.github.v3.raw" \
+                        -o pxc_builder.sh \
+                        "https://api.github.com/repos/percona/percona-xtradb-cluster-private-build/contents/build-ps/pxc_builder.sh?ref=\${PRO_BRANCH}"
+                    sed -i "s/PRIVATE_USERNAME/\${USERNAME}/g" pxc_builder.sh
+                    sed -i "s/PRIVATE_TOKEN/\${PASSWORD}/g" pxc_builder.sh
+                else
+                    wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/build-ps/pxc_builder.sh -O pxc_builder.sh
+                fi
+                pwd -P
+                export build_dir=\$(pwd -P)
+                docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+                    set -o xtrace
+                    cd \${build_dir}
+                    bash -x ./pxc_builder.sh --builddir=\${build_dir}/test --install_deps=1
+                    if [ \${FIPSMODE} = "YES" ]; then
+                        git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/percona-xtradb-cluster-private-build.git percona-xtradb-cluster-private-build
+                        mv -f \${build_dir}/percona-xtradb-cluster-private-build/build-ps \${build_dir}/test/.
+                    fi
+                    bash -x ./pxc_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} --bin_release=${BIN_RELEASE} ${STAGE_PARAM}"
+            """
+        }
     }
 }
 
@@ -77,10 +80,6 @@ pipeline {
             defaultValue: '1',
             description: 'BIN release value',
             name: 'BIN_RELEASE')
-        choice(
-            choices: 'pxc-80\npxc-8x-innovation\npxc-84-lts',
-            description: 'PXC repo name',
-            name: 'PXC_REPO')
         choice(
             choices: 'NO\nYES',
             description: 'Enable fipsmode',
@@ -775,7 +774,7 @@ pipeline {
                                perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-amd64 \
                                perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-arm64
                            sudo docker manifest annotate perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
-                           sudo docker manifest annotate perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-multi perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-amd64 --os linux --arch amd64
+                           sudo docker manifest annotate perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE} perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-amd64 --os linux --arch amd64
                            sudo docker manifest inspect perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
                        '''
                        withCredentials([
