@@ -443,7 +443,6 @@ pipeline {
             description: 'EKS region to use for cluster. ',
             name: 'EKS_REGION')
     }
-    }
     agent {
         label 'docker'
     }
