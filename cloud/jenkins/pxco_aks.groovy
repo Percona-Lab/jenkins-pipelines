@@ -1,7 +1,15 @@
-location='eastus'
+location=AKS_LOCATION ?: getLocation(JOB_NAME)
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
+
+String getLocation(String job_name) {
+    if ("$job_name" == 'pxco-aks-1') {
+        return 'eastus'
+    } else {
+        return 'norwayeast'
+    }
+}
 
 String getParam(String paramName, String keyName = null) {
     keyName = keyName ?: paramName
@@ -390,6 +398,10 @@ pipeline {
             defaultValue: '',
             description: 'PMM server image: perconalab/pmm-server:dev-latest',
             name: 'IMAGE_PMM_SERVER')
+        string(
+            defaultValue: '',
+            description: 'AKS location to use for cluster. By default "eastus" is for aks-1 job and "norwayeast" for aks-2',
+            name: 'AKS_LOCATION')
     }
     agent {
         label 'docker'
