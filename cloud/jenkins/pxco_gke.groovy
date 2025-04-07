@@ -1,4 +1,3 @@
-region='us-central1-a'
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
@@ -83,7 +82,7 @@ EOF
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.validVersions)' | cut -d- -f1", returnStdout: true).trim()
+        PLATFORM_VER = sh(script: "gcloud container get-server-config --region= ${GKE_REGION} --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.validVersions)' | cut -d- -f1", returnStdout: true).trim()
     }
 
     if ("$IMAGE_PXC") {
@@ -204,7 +203,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
                     --release-channel $GKE_RELEASE_CHANNEL \
-                    --zone $region \
+                    --zone  ${GKE_REGION} \
                     --cluster-version $PLATFORM_VER \
                     --preemptible \
                     --disk-size 30 \
@@ -229,7 +228,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             FUTURE_TIME=\$(date -d '6 hours' --rfc-3339=seconds)
 
             gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                --zone $region \
+                --zone  ${GKE_REGION} \
                 --add-maintenance-exclusion-start "\$CURRENT_TIME" \
                 --add-maintenance-exclusion-end "\$FUTURE_TIME"
 
@@ -345,7 +344,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
                 kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
             done
             kubectl get svc --all-namespaces || true
-            gcloud container clusters delete --zone $region $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
+            gcloud container clusters delete --zone  ${GKE_REGION} $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
         """
     }
 }
@@ -424,6 +423,10 @@ pipeline {
             defaultValue: '',
             description: 'PMM server image: perconalab/pmm-server:dev-latest',
             name: 'IMAGE_PMM_SERVER')
+        string(
+            defaultValue: 'us-central1-a',
+            description: 'GKE region to use for cluster. ',
+            name: 'GKE_REGION')
     }
     agent {
         label 'docker'

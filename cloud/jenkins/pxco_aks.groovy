@@ -1,4 +1,4 @@
-location=AKS_LOCATION ?: getLocation(JOB_NAME)
+location=params.AKS_LOCATION ?: getLocation(JOB_NAME)
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
