@@ -697,12 +697,6 @@ pipeline {
                             if [ ${PXC_MAJOR_RELEASE} != "80" ]; then
                                 if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
                                     sed -i "s/pxc-80/pxc-8x-innovation/g" Dockerfile
-                                else
-                                    sed -i "s/pdpxc-8.0/pdpxc-84-lts/g" Dockerfile
-                                    sed -i "s/pxc-80/pxc-84-lts/g" Dockerfile
-                                    sed -i "s/default_authentication_plugin=mysql_native_password/mysql-native-password=ON\\nrequire_secure_transport=OFF/g" dockerdir/etc/mysql/node.cnf
-                                    sed -i "s/skip-host-cache/host_cache_size = 0/g" dockerdir/etc/mysql/node.cnf
-                                    sed -i "s/--skip-ssl//g" dockerdir/entrypoint.sh
                                 fi
                             fi
                             sudo docker build --no-cache --platform "linux/amd64" -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-amd64 .
@@ -714,12 +708,6 @@ pipeline {
                             if [ ${PXC_MAJOR_RELEASE} != "80" ]; then
                                 if [ ${PXC_MAJOR_RELEASE} != "84" ]; then
                                     sed -i "s/pxc-80/pxc-8x-innovation/g" Dockerfile.aarch64
-                                else
-                                    sed -i "s/pdpxc-8.0/pdpxc-84-lts/g" Dockerfile.aarch64
-                                    sed -i "s/pxc-80/pxc-84-lts/g" Dockerfile.aarch64
-                                    sed -i "s/default_authentication_plugin=mysql_native_password/mysql-native-password=ON\\nrequire_secure_transport=OFF/g" dockerdir/etc/mysql/node.cnf
-                                    sed -i "s/skip-host-cache/host_cache_size = 0/g" dockerdir/etc/mysql/node.cnf
-                                    sed -i "s/--skip-ssl//g" dockerdir/entrypoint.sh
                                 fi
                             fi
                             sudo docker build --no-cache -t perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-arm64 --platform="linux/arm64" -f Dockerfile.aarch64 .
