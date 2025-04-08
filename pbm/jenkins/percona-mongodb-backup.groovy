@@ -424,21 +424,21 @@ pipeline {
                             PBM_MAJOR_VERSION=$(echo $VERSION | cut -d'.' -f1)
                             PBM_MINOR_VERSION=$(echo $VERSION | cut -d'.' -f2)
                             PBM_PATCH_VERSION=$(echo $VERSION | cut -d'.' -f3)
-                            sudo docker manifest create perconalab/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION}.${PBM_PATCH_VERSION} \
+                            sudo docker manifest create --amend perconalab/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION}.${PBM_PATCH_VERSION} \
                                 perconalab/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-amd64 \
                                 perconalab/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-arm64
                             sudo docker manifest annotate perconalab/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION}.${PBM_PATCH_VERSION} perconalab/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
                             sudo docker manifest annotate perconalab/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION}.${PBM_PATCH_VERSION} perconalab/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
                             sudo docker manifest inspect perconalab/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION}.${PBM_PATCH_VERSION}
 
-                            sudo docker manifest create perconalab/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION} \
+                            sudo docker manifest create --amend perconalab/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION} \
                                 perconalab/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-amd64 \
                                 perconalab/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-arm64
                             sudo docker manifest annotate perconalab/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION} perconalab/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
                             sudo docker manifest annotate perconalab/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION} perconalab/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
                             sudo docker manifest inspect perconalab/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION}
 
-                            sudo docker manifest create perconalab/percona-backup-mongodb:${PBM_MAJOR_VERSION} \
+                            sudo docker manifest create --amend perconalab/percona-backup-mongodb:${PBM_MAJOR_VERSION} \
                                 perconalab/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-amd64 \
                                 perconalab/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-arm64
                             sudo docker manifest annotate perconalab/percona-backup-mongodb:${PBM_MAJOR_VERSION} perconalab/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
@@ -512,21 +512,21 @@ pipeline {
                             PBM_MAJOR_VERSION=$(echo $VERSION | cut -d'.' -f1)
                             PBM_MINOR_VERSION=$(echo $VERSION | cut -d'.' -f2)
                             PBM_PATCH_VERSION=$(echo $VERSION | cut -d'.' -f3)
-                            sudo docker manifest create percona/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION}.${PBM_PATCH_VERSION} \
+                            sudo docker manifest create --amend percona/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION}.${PBM_PATCH_VERSION} \
                                 percona/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-amd64 \
                                 percona/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-arm64
                             sudo docker manifest annotate percona/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION}.${PBM_PATCH_VERSION} percona/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
                             sudo docker manifest annotate percona/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION}.${PBM_PATCH_VERSION} percona/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
                             sudo docker manifest inspect percona/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION}.${PBM_PATCH_VERSION}
 
-                            sudo docker manifest create percona/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION} \
+                            sudo docker manifest create --amend percona/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION} \
                                 percona/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-amd64 \
                                 percona/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-arm64
                             sudo docker manifest annotate percona/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION} percona/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
                             sudo docker manifest annotate percona/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION} percona/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
                             sudo docker manifest inspect percona/percona-backup-mongodb:${PBM_MAJOR_VERSION}.${PBM_MINOR_VERSION}
 
-                            sudo docker manifest create percona/percona-backup-mongodb:${PBM_MAJOR_VERSION} \
+                            sudo docker manifest create --amend percona/percona-backup-mongodb:${PBM_MAJOR_VERSION} \
                                 percona/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-amd64 \
                                 percona/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-arm64
                             sudo docker manifest annotate percona/percona-backup-mongodb:${PBM_MAJOR_VERSION} percona/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
