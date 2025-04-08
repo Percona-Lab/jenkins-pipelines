@@ -380,10 +380,7 @@ pipeline {
                     echo "====> Build docker containers"
                     cleanUpWS()
                     sh '''
-                        sleep 300
-                    '''
-                    unstash 'uploadPath'
-                    sh '''
+                        sleep 1200
                         sudo apt-get -y install apparmor
                         sudo aa-status
                         sudo systemctl stop apparmor
@@ -472,9 +469,6 @@ pipeline {
                     cleanUpWS()
                     sh '''
                         sleep 1200
-                    '''
-                    unstash 'uploadPath'
-                    sh '''
                         sudo apt-get -y install apparmor
                         sudo aa-status
                         sudo systemctl stop apparmor
