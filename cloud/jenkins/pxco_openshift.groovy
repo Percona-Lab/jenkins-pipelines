@@ -1,4 +1,3 @@
-region='eu-west-2'
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
@@ -219,7 +218,7 @@ networking:
   - 172.30.0.0/16
 platform:
   aws:
-    region: $region
+    region: ${AWS_REGION}
     userTags:
       iit-billing-tag: openshift
       delete-cluster-after-hours: 8
@@ -427,6 +426,10 @@ pipeline {
             defaultValue: '',
             description: 'PMM server image: perconalab/pmm-server:dev-latest',
             name: 'IMAGE_PMM_SERVER')
+        string(
+            defaultValue: 'eu-west-2',
+            description: 'AWS region to use for openshift cluster',
+            name: 'AWS_REGION')
     }
     agent {
         label 'docker'
