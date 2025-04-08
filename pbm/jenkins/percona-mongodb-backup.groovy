@@ -380,7 +380,7 @@ pipeline {
                     echo "====> Build docker containers"
                     cleanUpWS()
                     sh '''
-                        sleep 1200
+                        sleep 300
                     '''
                     unstash 'uploadPath'
                     sh '''
