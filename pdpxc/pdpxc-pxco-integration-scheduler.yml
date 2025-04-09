@@ -12,3 +12,5 @@
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pdpxc/pdpxc-pxco-integration-scheduler.groovy
+    triggers:
+      - timed: "* */1 * * *"
