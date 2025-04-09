@@ -3,7 +3,7 @@ pipeline {
         label 'docker'
     }
     triggers {
-        cron('H * * * *') 
+        cron('* */1 * * *') 
     }
     environment {
         S3_BUCKET = "s3://package-testing-status-test"
