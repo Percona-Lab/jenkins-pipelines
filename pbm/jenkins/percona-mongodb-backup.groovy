@@ -76,6 +76,10 @@ pipeline {
             name: 'TARGET_REPO',
             choices: ['PerconaLab','DockerHub'],
             description: 'Target repo for docker image, use DockerHub for release only')
+        choice(
+            name: 'PBM_REPO_TYPE',
+            choices: ['testing','release','experimental'],
+            description: 'Packages repo for docker images')
     }
     options {
         skipDefaultCheckout()
@@ -402,12 +406,12 @@ pipeline {
                         git clone https://github.com/percona/percona-docker
                         cd percona-docker/percona-backup-mongodb
                         sed -i "s/ENV PBM_VERSION.*/ENV PBM_VERSION ${VERSION}-${RPM_RELEASE}/g" Dockerfile
-                        sed -i "s/ENV PBM_REPO_CH.*/ENV PBM_REPO_CH ${COMPONENT}/g" Dockerfile
+                        sed -i "s/ENV PBM_REPO_CH.*/ENV PBM_REPO_CH ${PBM_REPO_TYPE}/g" Dockerfile
                         sudo docker build --no-cache --platform "linux/amd64" -t percona-backup-mongodb-amd64 -f Dockerfile .
                         sudo docker tag percona-backup-mongodb-amd64 perconalab/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-amd64
 
                         sed -i "s/ENV PBM_VERSION.*/ENV PBM_VERSION ${VERSION}-${RPM_RELEASE}/g" Dockerfile.aarch64
-                        sed -i "s/ENV PBM_REPO_CH.*/ENV PBM_REPO_CH ${COMPONENT}/g" Dockerfile.aarch64
+                        sed -i "s/ENV PBM_REPO_CH.*/ENV PBM_REPO_CH ${PBM_REPO_TYPE}/g" Dockerfile.aarch64
                         sudo docker build --no-cache --platform "linux/arm64" -t percona-backup-mongodb-arm64 -f Dockerfile.aarch64 .
                         sudo docker tag percona-backup-mongodb-arm64 perconalab/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-arm64
                         sudo docker images
@@ -490,12 +494,12 @@ pipeline {
                         git clone https://github.com/percona/percona-docker
                         cd percona-docker/percona-backup-mongodb
                         sed -i "s/ENV PBM_VERSION.*/ENV PBM_VERSION ${VERSION}-${RPM_RELEASE}/g" Dockerfile
-                        sed -i "s/ENV PBM_REPO_CH.*/ENV PBM_REPO_CH ${COMPONENT}/g" Dockerfile
+                        sed -i "s/ENV PBM_REPO_CH.*/ENV PBM_REPO_CH ${PBM_REPO_TYPE}/g" Dockerfile
                         sudo docker build --no-cache --platform "linux/amd64" -t percona-backup-mongodb-amd64 -f Dockerfile .
                         sudo docker tag percona-backup-mongodb-amd64 percona/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-amd64
 
                         sed -i "s/ENV PBM_VERSION.*/ENV PBM_VERSION ${VERSION}-${RPM_RELEASE}/g" Dockerfile.aarch64
-                        sed -i "s/ENV PBM_REPO_CH.*/ENV PBM_REPO_CH ${COMPONENT}/g" Dockerfile.aarch64
+                        sed -i "s/ENV PBM_REPO_CH.*/ENV PBM_REPO_CH ${PBM_REPO_TYPE}/g" Dockerfile.aarch64
                         sudo docker build --no-cache --platform "linux/arm64" -t percona-backup-mongodb-arm64 -f Dockerfile.aarch64 .
                         sudo docker tag percona-backup-mongodb-arm64 percona/percona-backup-mongodb:${VERSION}-${RPM_RELEASE}-arm64
                         sudo docker images
