@@ -3,14 +3,22 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
+def extractMajorVersion(version) {
+    def parts = version.split("\\.")
+    return parts[0] + parts[1]
+}
 
 pipeline {
   agent {
   label 'min-bookworm-x64'
   }
   environment {
-      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "molecule/pdmysql/pdpxc_minor_upgrade";
+    PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
+    MOLECULE_DIR = "molecule/pdmysql/pdpxc_minor_upgrade";
+    S3_BUCKET = "s3://package-testing-status-test"
+    TRIGGER_FILE = "PXCO"
+    LOCAL_TRIGGER_FILE = "PXCO"
+
   }
   parameters {
         choice(
@@ -105,6 +113,10 @@ pipeline {
           steps {
                 script {
                    installMoleculeBookworm()
+                   sh """
+                   sudo apt-get update -y
+                   sudo apt-get install -y jq
+                   """
              }
            }
         }
@@ -115,11 +127,41 @@ pipeline {
                 }
             }
          }
+
+        stage('Fetch and Update PXCO Trigger Job') {
+            steps {
+                script {
+                    
+                        def pxc_operator_version_latest = sh(script: "curl -s https://api.github.com/repos/percona/percona-xtradb-cluster-operator/releases/latest | jq -r '.tag_name' | cut -c 2-", returnStdout: true).trim()
+                        def PILLAR_VERSION = extractMajorVersion("${VERSION}")
+
+                        echo "Latest PXC Operator version: ${pxc_operator_version_latest}"
+
+                        sh """
+                            aws s3 cp ${S3_BUCKET}/${TRIGGER_FILE} ${LOCAL_TRIGGER_FILE}
+
+                            sed -i 's/^PXCO=.*/PXCO=1/' ${LOCAL_TRIGGER_FILE}
+                            sed -i 's/^PXCO_VERSION=.*/PXCO_VERSION=${pxc_operator_version_latest}/' ${LOCAL_TRIGGER_FILE}
+                            sed -i 's/^PXC_VERSION=.*/PXC_VERSION=${VERSION}/' ${LOCAL_TRIGGER_FILE}
+                            sed -i 's/^PXB_VERSION=.*/PXB_VERSION=${PXB_VERSION}/' ${LOCAL_TRIGGER_FILE}
+                            sed -i 's/^PROXYSQL_VERSION=.*/PROXYSQL_VERSION=${PROXYSQL_VERSION}/' ${LOCAL_TRIGGER_FILE}
+                            sed -i 's/^HAPROXY_VERSION=.*/HAPROXY_VERSION=${HAPROXY_VERSION}/' ${LOCAL_TRIGGER_FILE}
+                            sed -i 's/^PILLAR_VERSION=.*/PILLAR_VERSION=${PILLAR_VERSION}/' ${LOCAL_TRIGGER_FILE}
+
+                            aws s3 cp ${LOCAL_TRIGGER_FILE} ${S3_BUCKET}/${TRIGGER_FILE}
+
+                        """
+                }
+            }
+        }
+
+
+
   }
     post {
         always {
           script {
-              moleculeParallelPostDestroy(pdpxcOperatingSystems(), env.MOLECULE_DIR)
+             moleculeParallelPostDestroy(pdpxcOperatingSystems(), env.MOLECULE_DIR)
          }
       }
    }
