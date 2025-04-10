@@ -6,6 +6,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 def versionsList = pmmVersion('list').reverse()
 def latestVersion = versionsList.first()
 def getMinorVersion(VERSION) {
+    println('Version is: ' + VERSION)
     return VERSION.split("\\.")[1].toInteger()
 }
 
