@@ -676,7 +676,7 @@ pipeline {
                     } else {
                         echo "====> Build docker containers"
                         cleanUpWS()
-                        sh '''
+                        sh '''#!/bin/bash
                             sleep 12
                             sudo apt-get -y install apparmor
                             sudo aa-status
@@ -720,7 +720,7 @@ pipeline {
                             passwordVariable: 'PASS',
                             usernameVariable: 'USER'
                             )]) {
-                            sh '''
+                            sh '''#!/bin/bash
                                 echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                                 sudo docker push perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-amd64
                                 sudo docker push perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-arm64
