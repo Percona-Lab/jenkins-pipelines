@@ -607,7 +607,7 @@ pipeline {
                 }
             }
         }
-        stage ('Push image to aws ecr') {
+        stage ('Build docker container for aws ecr') {
             when {
                 allOf {
                     expression { return params.BUILD_DOCKER == 'true' }
@@ -677,7 +677,7 @@ pipeline {
                         echo "====> Build docker containers"
                         cleanUpWS()
                         sh '''
-                            sleep 1200
+                            sleep 12
                             sudo apt-get -y install apparmor
                             sudo aa-status
                             sudo systemctl stop apparmor
@@ -707,7 +707,7 @@ pipeline {
                                  sed -E "s/FROM percona(.+)/FROM percona-server-mongodb/" -i Dockerfile.debug
                                  sudo docker build . -f Dockerfile.debug --no-cache --platform "linux/amd64" -t percona-server-mongodb-debug
                             fi
-
+                            echo "Building ARM image"
                             sed -i "s/ENV PSMDB_VERSION.*/ENV PSMDB_VERSION ${PSMDB_VERSION}-${PSMDB_RELEASE}/g" Dockerfile.aarch64
                             sed -i "s/ENV PSMDB_REPO.*/ENV PSMDB_REPO ${PSMDB_REPO_TYPE}/g" Dockerfile.aarch64
                             sudo docker build --no-cache --platform "linux/arm64" -t percona-server-mongodb-arm64 -f Dockerfile.aarch64 .
