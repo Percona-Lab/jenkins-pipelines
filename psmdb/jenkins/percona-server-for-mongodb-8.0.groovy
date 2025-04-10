@@ -645,15 +645,15 @@ pipeline {
                          sed -i "s/ENV PSMDB_VERSION.*/ENV PSMDB_VERSION ${PSMDB_VERSION}-${PSMDB_RELEASE}/g" Dockerfile
                          sed -i "s/ENV PSMDB_REPO.*/ENV PSMDB_REPO ${PSMDB_REPO_TYPE}/g" Dockerfile
                          sudo docker build --no-cache --platform "linux/amd64" -t percona-server-mongodb-amd64 -f Dockerfile .
-                         if [ ${params.DEBUG} = "yes" ]; then
+                         if [ ${DEBUG} = "yes" ]; then
                               sed -E "s/FROM percona(.+)/FROM percona-server-mongodb/" -i Dockerfile.debug
                               sudo docker build . -f Dockerfile.debug --no-cache --platform "linux/amd64" -t percona-server-mongodb-debug
                          fi
-                         sudo docker tag percona-server-mongodb public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}-amd64
-                         sudo docker push public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}-amd64
-                         if [ ${params.DEBUG} = "yes" ]; then
-                            sudo docker tag percona-server-mongodb-debug public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}-debug
-                            sudo docker push public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}-debug
+                         sudo docker tag percona-server-mongodb public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${PSMDB_VERSION}-amd64
+                         sudo docker push public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${PSMDB_VERSION}-amd64
+                         if [ ${DEBUG} = "yes" ]; then
+                            sudo docker tag percona-server-mongodb-debug public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${PSMDB_VERSION}-debug
+                            sudo docker push public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${PSMDB_VERSION}-debug
                          fi
                      """
                 }
@@ -676,7 +676,7 @@ pipeline {
                     } else {
                         echo "====> Build docker containers"
                         cleanUpWS()
-                        sh '''#!/bin/bash
+                        sh '''
                             sleep 12
                             sudo apt-get -y install apparmor
                             sudo aa-status
@@ -703,7 +703,7 @@ pipeline {
                             sudo docker build --no-cache --platform "linux/amd64" -t percona-server-mongodb-amd64 -f Dockerfile .
                             sudo docker tag percona-server-mongodb-amd64 perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-amd64
 
-                            if [ ${params.DEBUG} = "yes" ]; then
+                            if [ ${DEBUG} = "yes" ]; then
                                  sed -E "s/FROM percona(.+)/FROM percona-server-mongodb/" -i Dockerfile.debug
                                  sudo docker build . -f Dockerfile.debug --no-cache --platform "linux/amd64" -t percona-server-mongodb-debug
                             fi
@@ -720,7 +720,7 @@ pipeline {
                             passwordVariable: 'PASS',
                             usernameVariable: 'USER'
                             )]) {
-                            sh '''#!/bin/bash
+                            sh '''
                                 echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                                 sudo docker push perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-amd64
                                 sudo docker push perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-arm64
@@ -745,7 +745,7 @@ pipeline {
                                 sudo docker manifest push perconalab/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}.${PSMDB_PATCH_VERSION}
                                 sudo docker manifest push perconalab/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}
 
-                                if [ ${params.DEBUG} = "yes" ]; then
+                                if [ ${DEBUG} = "yes" ]; then
                                      sudo docker tag percona-server-mongodb-debug perconalab/percona-server-mongodb:${PSMDB_VERSION}-debug
                                      sudo docker push perconalab/percona-server-mongodb:${PSMDB_VERSION}-debug
                                 fi
@@ -799,7 +799,7 @@ pipeline {
                             sudo docker build --no-cache --platform "linux/amd64" -t percona-server-mongodb-amd64 -f Dockerfile .
                             sudo docker tag percona-server-mongodb-amd64 percona/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-amd64
 
-                            if [ ${params.DEBUG} = "yes" ]; then
+                            if [ ${DEBUG} = "yes" ]; then
                                  sed -E "s/FROM percona(.+)/FROM percona-server-mongodb/" -i Dockerfile.debug
                                  sudo docker build . -f Dockerfile.debug --no-cache --platform "linux/amd64" -t percona-server-mongodb-debug
                             fi
@@ -841,7 +841,7 @@ pipeline {
                                 sudo docker manifest push percona/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}.${PSMDB_PATCH_VERSION}
                                 sudo docker manifest push percona/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}
 
-                                if [ ${params.DEBUG} = "yes" ]; then
+                                if [ ${DEBUG} = "yes" ]; then
                                      sudo docker tag percona-server-mongodb-debug percona/percona-server-mongodb:${PSMDB_VERSION}-debug
                                      sudo docker push percona/percona-server-mongodb:${PSMDB_VERSION}-debug
                                 fi
