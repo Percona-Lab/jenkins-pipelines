@@ -99,6 +99,14 @@ pipeline {
             name: 'PSMDB_REPO_TYPE',
             choices: ['testing','release','experimental'],
             description: 'Packages repo for docker images')
+        choice(
+            name: 'DEBUG',
+            choices: ['no','yes'],
+            description: 'Additionally build debug image')
+         choice(
+             name: 'TESTS',
+             choices: ['yes','no'],
+             description: 'Run tests after building')
     }
     options {
         skipDefaultCheckout()
@@ -599,6 +607,58 @@ pipeline {
                 }
             }
         }
+        stage ('Push image to aws ecr') {
+            when {
+                allOf {
+                    expression { return params.BUILD_DOCKER == 'true' }
+                    environment name: 'TARGET_REPO', value: 'AWS_ECR'
+                }
+            }
+            steps {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                     sh """
+                         sudo apt-get -y install apparmor
+                         sudo aa-status
+                         sudo systemctl stop apparmor
+                         sudo systemctl disable apparmor
+                         sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+                         sudo apt-get -y install apparmor
+                         sudo aa-status
+                         sudo systemctl stop apparmor
+                         sudo systemctl disable apparmor
+                         sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+                         export DOCKER_CLI_EXPERIMENTAL=enabled
+                         sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                         sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                         sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                         sudo systemctl restart docker
+                         sudo apt-get install -y qemu-system binfmt-support qemu-user-static
+                         sudo qemu-system-x86_64 --version
+                         sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+                         curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+                         if [ -f "/usr/bin/yum" ] ; then sudo yum install -y unzip ; else sudo apt-get update && sudo apt-get -y install unzip ; fi
+                         unzip -o awscliv2.zip
+                         sudo ./aws/install
+                         aws ecr-public get-login-password --region us-east-1 | sudo docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
+                         git clone https://github.com/percona/percona-docker
+                         cd percona-docker/percona-server-mongodb-8.0
+                         sed -i "s/ENV PSMDB_VERSION.*/ENV PSMDB_VERSION ${PSMDB_VERSION}-${PSMDB_RELEASE}/g" Dockerfile
+                         sed -i "s/ENV PSMDB_REPO.*/ENV PSMDB_REPO ${PSMDB_REPO_TYPE}/g" Dockerfile
+                         sudo docker build --no-cache --platform "linux/amd64" -t percona-server-mongodb-amd64 -f Dockerfile .
+                         if [ ${params.DEBUG} = "yes" ]; then
+                              sed -E "s/FROM percona(.+)/FROM percona-server-mongodb/" -i Dockerfile.debug
+                              sudo docker build . -f Dockerfile.debug --no-cache --platform "linux/amd64" -t percona-server-mongodb-debug
+                         fi
+                         sudo docker tag percona-server-mongodb public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}-amd64
+                         sudo docker push public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}-amd64
+                         if [ ${params.DEBUG} = "yes" ]; then
+                            sudo docker tag percona-server-mongodb-debug public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}-debug
+                            sudo docker push public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-${params.PSMDB_VERSION}-debug
+                         fi
+                     """
+                }
+            }
+        }
         stage('Build docker containers for PerconaLab') {
             when {
                 allOf {
@@ -643,6 +703,11 @@ pipeline {
                             sudo docker build --no-cache --platform "linux/amd64" -t percona-server-mongodb-amd64 -f Dockerfile .
                             sudo docker tag percona-server-mongodb-amd64 perconalab/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-amd64
 
+                            if [ ${params.DEBUG} = "yes" ]; then
+                                 sed -E "s/FROM percona(.+)/FROM percona-server-mongodb/" -i Dockerfile.debug
+                                 sudo docker build . -f Dockerfile.debug --no-cache --platform "linux/amd64" -t percona-server-mongodb-debug
+                            fi
+
                             sed -i "s/ENV PSMDB_VERSION.*/ENV PSMDB_VERSION ${PSMDB_VERSION}-${PSMDB_RELEASE}/g" Dockerfile.aarch64
                             sed -i "s/ENV PSMDB_REPO.*/ENV PSMDB_REPO ${PSMDB_REPO_TYPE}/g" Dockerfile.aarch64
                             sudo docker build --no-cache --platform "linux/arm64" -t percona-server-mongodb-arm64 -f Dockerfile.aarch64 .
@@ -680,6 +745,10 @@ pipeline {
                                 sudo docker manifest push perconalab/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}.${PSMDB_PATCH_VERSION}
                                 sudo docker manifest push perconalab/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}
 
+                                if [ ${params.DEBUG} = "yes" ]; then
+                                     sudo docker tag percona-server-mongodb-debug perconalab/percona-server-mongodb:${PSMDB_VERSION}-debug
+                                     sudo docker push perconalab/percona-server-mongodb:${PSMDB_VERSION}-debug
+                                fi
                             '''
                            }
                     }
@@ -730,6 +799,11 @@ pipeline {
                             sudo docker build --no-cache --platform "linux/amd64" -t percona-server-mongodb-amd64 -f Dockerfile .
                             sudo docker tag percona-server-mongodb-amd64 percona/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-amd64
 
+                            if [ ${params.DEBUG} = "yes" ]; then
+                                 sed -E "s/FROM percona(.+)/FROM percona-server-mongodb/" -i Dockerfile.debug
+                                 sudo docker build . -f Dockerfile.debug --no-cache --platform "linux/amd64" -t percona-server-mongodb-debug
+                            fi
+
                             sed -i "s/ENV PSMDB_VERSION.*/ENV PSMDB_VERSION ${PSMDB_VERSION}-${PSMDB_RELEASE}/g" Dockerfile.aarch64
                             sed -i "s/ENV PSMDB_REPO.*/ENV PSMDB_REPO ${PSMDB_REPO_TYPE}/g" Dockerfile.aarch64
                             sudo docker build --no-cache --platform "linux/arm64" -t percona-server-mongodb-arm64 -f Dockerfile.aarch64 .
@@ -767,9 +841,39 @@ pipeline {
                                 sudo docker manifest push percona/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}.${PSMDB_PATCH_VERSION}
                                 sudo docker manifest push percona/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}
 
+                                if [ ${params.DEBUG} = "yes" ]; then
+                                     sudo docker tag percona-server-mongodb-debug percona/percona-server-mongodb:${PSMDB_VERSION}-debug
+                                     sudo docker push percona/percona-server-mongodb:${PSMDB_VERSION}-debug
+                                fi
+
                             '''
                            }
                     }
+                }
+            }
+        }
+        stage ('Run testing job') {
+            when {
+                allOf {
+                    expression { return params.BUILD_DOCKER == 'true' }
+                    environment name: 'TESTS', value: 'yes'
+                }
+            }
+            steps {
+                script {
+                    def psmdb_image = 'percona/percona-server-mongodb:' + params.PSMDB_VERSION + '-amd64'
+                    if ( params.PSMDB_REPO_TYPE == 'testing' ) {
+                        psmdb_image = 'perconalab/percona-server-mongodb:' + params.PSMDB_VERSION + '-amd64'
+                    }
+                    if ( params.PSMDB_REPO_TYPE == 'experimental' ) {
+                        psmdb_image = 'public.ecr.aws/e7j3v3n0/psmdb-build:psmdb-' + params.PSMDB_VERSION + '-amd64'
+                    }
+                    def pbm_branch = sh(returnStdout: true, script: """
+                        git clone https://github.com/percona/percona-backup-mongodb.git >/dev/null 2>/dev/null
+                        PBM_RELEASE=\$(cd percona-backup-mongodb && git branch -r | grep release | sed 's|origin/||' | sort --version-sort | tail -1)
+                        echo \$PBM_RELEASE
+                        """).trim()
+                    build job: 'pbm-functional-tests', propagate: false, wait: false, parameters: [string(name: 'PBM_BRANCH', value: pbm_branch ), string(name: 'PSMDB', value: psmdb_image ), string(name: 'TESTING_BRANCH', value: "pbm-${pbm_branch}")]
                 }
             }
         }
