@@ -42,7 +42,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                     --region us-east-2 \
                     --output text \
                     --filters "Name=tag:aws:cloudformation:stack-name,Values=pmm-staging" \
-                              "Name=group-name,Values=nomad" \
+                              "Name=group-name,Values=SNOMAD" \
                     --query 'SecurityGroups[].GroupId'
             )
 
