@@ -144,6 +144,21 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
+  SNOMADSecurityGroup: # allow nomad access to staging instances
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: SNOMAD
+      GroupDescription: Allows connecting to Nomad RPC
+      VpcId: !Ref SVPC
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 4647
+          ToPort: 4647
+          CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: iit-billing-tag
+          Value: !Ref SShortName
+
   SHTTPSecurityGroup: # allow http and https access
     Type: AWS::EC2::SecurityGroup
     Properties:
@@ -352,7 +367,7 @@ Resources:
       Handler: index.lambda_handler
       MemorySize: 128
       Role: !GetAtt LambdaExecutionRole.Arn
-      Runtime: python2.7
+      Runtime: python3.11
       Timeout: 10
       Tags:
         - Key: iit-billing-tag
