@@ -8,7 +8,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+library changelog: false, identifier: 'v3lib@PMM-13917-add-nomad-sg', retriever: modernSCM(
   scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
   libraryPath: 'pmm/v3/'
 )
@@ -247,6 +247,7 @@ pipeline {
                                         -p 80:8080 \
                                         -p 443:8443 \
                                         -p 9000:9000 \
+                                        -p 4647:4647 \
                                         --volume pmm-data:/srv \
                                         --name pmm-server \
                                         --hostname pmm-server \
