@@ -96,7 +96,8 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                         },
                         "SecurityGroupIds": [
                             "security-group-id-1",
-                            "security-group-id-2"
+                            "security-group-id-2",
+                            "security-group-id-3"
                         ],
                         "SubnetId": "subnet-id"
                     },
