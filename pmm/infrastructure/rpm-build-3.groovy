@@ -14,7 +14,7 @@ pipeline {
     environment {
         ECR_REGISTRY = "public.ecr.aws/e7j3v3n0"
         DOCKERHUB_REGISTRY = "docker.io"
-        DOCKER_TAG = "rpmbuild:3"
+        IMAGE_NAME = "rpmbuild:3"
     }
     stages {
         stage('Prepare') {
@@ -65,8 +65,8 @@ pipeline {
                 sh '''
                     cd build/docker/rpmbuild/
                     docker buildx build --pull --platform linux/amd64,linux/arm64 \
-                      --tag ${ECR_REGISTRY}/${DOCKER_TAG} \
-                      --tag ${DOCKERHUB_REGISTRY}/perconalab/${DOCKER_TAG} \
+                      --tag ${ECR_REGISTRY}/${IMAGE_NAME} \
+                      --tag ${DOCKERHUB_REGISTRY}/perconalab/${IMAGE_NAME} \
                       -f Dockerfile.el9 --push .
                 '''
             }
