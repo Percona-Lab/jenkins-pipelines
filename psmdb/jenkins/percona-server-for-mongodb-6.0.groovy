@@ -825,14 +825,14 @@ pipeline {
                                 sudo docker manifest create --amend percona/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}.${PSMDB_PATCH_VERSION} \
                                     percona/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-amd64 \
                                     percona/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-arm64
- --arch arm64 --variant v8
- --arch amd64
+                                sudo docker manifest annotate percona/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}.${PSMDB_PATCH_VERSION} percona/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-arm64 --os linux --arch arm64 --variant v8
+                                sudo docker manifest annotate percona/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}.${PSMDB_PATCH_VERSION} percona/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-amd64 --os linux --arch amd64
                                 sudo docker manifest inspect percona/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}.${PSMDB_PATCH_VERSION}
 
                                 sudo docker manifest create --amend percona/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION} \
                                     percona/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-amd64 \
                                     percona/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-arm64
- v8
+                                sudo docker manifest annotate percona/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION} percona/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-arm64 --os linux --arch arm64 --variant v8
                                 sudo docker manifest annotate percona/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION} percona/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-amd64 --os linux --arch amd64
                                 sudo docker manifest inspect percona/percona-server-mongodb:${PSMDB_MAJOR_VERSION}.${PSMDB_MINOR_VERSION}
 
