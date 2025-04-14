@@ -809,6 +809,7 @@ pipeline {
                             sed -i "s/ENV PSMDB_REPO.*/ENV PSMDB_REPO ${PSMDB_REPO_TYPE}/g" Dockerfile.aarch64
                             sudo docker build --no-cache --platform "linux/arm64" -t percona-server-mongodb-arm64 -f Dockerfile.aarch64 .
                             sudo docker tag percona-server-mongodb-arm64 percona/percona-server-mongodb:${PSMDB_VERSION}-${PSMDB_RELEASE}-arm64
+                        '''
                         withCredentials([
                             usernamePassword(credentialsId: 'hub.docker.com',
                             passwordVariable: 'PASS',
