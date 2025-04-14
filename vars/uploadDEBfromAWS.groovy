@@ -26,7 +26,12 @@ def call(String CLOUD_NAME, String FOLDER_NAME, String AWS_STASH_PATH) {
                     dist=`echo \${deb} | sed -re 's/.*\\.([^.]+)_(amd64|arm64|all).deb/\\1/'`
                     package=`echo \${deb} | sed -re 's/\\.\\/deb\\/(.*)_(.*)\\.([^.]+)_(amd64|arm64|all).deb/\\1/'`
                     version=`echo \${deb} | sed -re 's/\\.\\/deb\\/(.*)_(.*)\\.([^.]+)_(amd64|arm64|all).deb/\\2/'`
-                    path_to_dist=\${path_to_build}/binary/debian/\${dist}/x86_64
+                    arch=`echo \${deb} | sed -re 's/\\.\\/deb\\/(.*)_(.*)\\.([^.]+)_(amd64|arm64|all).deb/\\4/'`
+                    if [ "\${arch}" = "arm64" ]; then
+                        path_to_dist=\${path_to_build}/binary/debian/\${dist}/aarch64
+                    else
+                        path_to_dist=\${path_to_build}/binary/debian/\${dist}/x86_64
+                    fi
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                         mkdir -p \${path_to_dist}
                     if [ "\${package}" = "percona-release" ]; then
