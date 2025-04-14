@@ -65,9 +65,7 @@ pipeline {
 
 
     post {
-
         always {
-
                 script{
                     def buildNumber = currentBuild.number
                     def jobName = env.JOB_NAME
@@ -77,75 +75,72 @@ pipeline {
                     def artifactUrlqa = "${env.JENKINS_URL}/job/${jobName}/${buildNumber}/artifact/${artifactPathqa}"
                     archiveArtifacts artifacts: '*.txt' , followSymlinks: false
 
-//                    def instance_ids = sh(script: "grep -o 'i-[a-zA-Z0-9]*' ${artifactPathqa}", returnStdout: true).trim()
+                    def region = ""
+                    def instanceIdRegionPairs = []
+                    def lines = readFile(artifactPathqa).readLines()
 
-                    def instance_ids_raw = sh(
-                        script: "awk '{ for(i=1;i<=NF;i++) if (\$i ~ /^i-[a-zA-Z0-9]+\$/) print \$i }' ${artifactPathqa}",
-                        returnStdout: true
-                    ).trim()
+                    lines.each { line ->
 
-                    def instance_ids = instance_ids_raw.readLines()
+                        def regionMatch = line =~ /-+Region\s+([a-z0-9-]+)\s+has/
+                        if (regionMatch) {
+                            region = regionMatch[0][1]
+                        }
 
-                    echo "PRINTING instance_ids one by one:"
-
-                    instance_ids.each { id ->
-                        echo "line by line ${id}"
-                        echo "Deleting Instance: ${id}"
-                        id = id.trim()
-                        sh "aws ec2 terminate-instances --instance-ids ${id}"
+                        def instanceMatch = line =~ /(i-[a-zA-Z0-9]+)/
+                        if (instanceMatch) {
+                            def instanceId = instanceMatch[0][1]
+                            instanceIdRegionPairs << [id: instanceId, region: region]
+                        }
                     }
 
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
 
+                        instanceIdRegionPairs.each { pair ->
+                            def id = pair.id
+                            def regionForId = pair.region
+                            //echo "Preparing to terminate instance: ${id} in region: ${regionForId}"
+                            //sh "aws ec2 terminate-instances --instance-ids ${id} --region ${regionForId}"
+                            //echo "Instance ${id} in region ${regionForId} terminated."
+                            echo "Instance ${id} in region ${regionForId}"
+                        }
 
-
-
-                    slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
-${instance_ids} is the instance ids of the instances with molecule QA Tests up since past 2 days
-=========================
-${env.ovall}
-=========================
-${artifactUrlall} is the url for the detailed info of all running instances
-=========================
-=========================
-
-"""
-            echo "${env.ovqacount} is word count of up qa server regions"
-
-            if("${env.ovqacount}" >= 1){
-                    slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
-
-Following are the Instances with molecule QA Tests up since past 2 days
----------------------------------------------------
-${env.ovqa}
----------------------------------------------------
-${artifactUrlqa} is the url for the detailed info of instances with QA Tests
-
-"""
-
-
-
-
+                    }
 
                     slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
 
-Deleted the following Instances with molecule QA Tests that were up since past 2 days
----------------------------------------------------
-${env.ovqa}
----------------------------------------------------
-${artifactUrlqa} is the url for the detailed info of instances which were deleted
-"""
+                    ${env.ovall}
+                    =========================
+                    ${artifactUrlall} is the url for the detailed info of all running instances
+                    =========================
+                    =========================
 
+                    """
+                                echo "${env.ovqacount} is word count of up qa server regions"
 
+                    if("${env.ovqacount}" >= 1){
+                        slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
 
-            }else{
-                    echo "No QA servers are running since past 2 days"
-                 }
+                        Following are the Instances with molecule QA Tests up since past 2 days
+                        ---------------------------------------------------
+                        ${env.ovqa}
+                        ---------------------------------------------------
+                        ${artifactUrlqa} is the url for the detailed info of instances with QA Tests
 
-                
+                        """
+
+                        slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
+
+                        Deleted the following Instances with molecule QA Tests that were up since past 2 days
+                        ---------------------------------------------------
+                        ${env.ovqa}
+                        ---------------------------------------------------
+                        ${artifactUrlqa} is the url for the detailed info of instances which were deleted
+                        """
+
+                    }else{
+                            echo "No QA servers are running since past 2 days"
+                    }
                 }
-
-
              }
         }
-
     }
