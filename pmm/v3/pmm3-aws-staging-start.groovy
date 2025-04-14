@@ -247,6 +247,7 @@ pipeline {
                                         -p 80:8080 \
                                         -p 443:8443 \
                                         -p 9000:9000 \
+                                        -p 4647:4647 \
                                         --volume pmm-data:/srv \
                                         --name pmm-server \
                                         --hostname pmm-server \
