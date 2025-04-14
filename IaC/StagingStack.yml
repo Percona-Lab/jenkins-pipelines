@@ -147,7 +147,7 @@ Resources:
   SNOMADSecurityGroup: # allow nomad access to staging instances
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupName: SNOMAD
+      GroupName: NOMAD
       GroupDescription: Allows connecting to Nomad RPC
       VpcId: !Ref SVPC
       SecurityGroupIngress:
