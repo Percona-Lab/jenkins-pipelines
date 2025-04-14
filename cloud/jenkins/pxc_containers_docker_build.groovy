@@ -2,26 +2,26 @@ void build(String IMAGE_PREFIX){
     sh """
         cd ./source/
         if [ ${IMAGE_PREFIX} = pxc5.7 ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-5.7/Dockerfile percona-xtradb-cluster-5.7
-            docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX}-debug -f percona-xtradb-cluster-5.7/Dockerfile percona-xtradb-cluster-5.7
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtradb-cluster-5.7/Dockerfile percona-xtradb-cluster-5.7
+            docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX}-debug -f percona-xtradb-cluster-5.7/Dockerfile percona-xtradb-cluster-5.7
         elif [ ${IMAGE_PREFIX} = pxc8.0 ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0/Dockerfile percona-xtradb-cluster-8.0
-            docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX}-debug -f percona-xtradb-cluster-8.0/Dockerfile percona-xtradb-cluster-8.0
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0/Dockerfile percona-xtradb-cluster-8.0
+            docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX}-debug -f percona-xtradb-cluster-8.0/Dockerfile percona-xtradb-cluster-8.0
         elif [ ${IMAGE_PREFIX} = pxc8.4 ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.4/Dockerfile percona-xtradb-cluster-8.4
-            docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX}-debug -f percona-xtradb-cluster-8.4/Dockerfile percona-xtradb-cluster-8.4
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.4/Dockerfile percona-xtradb-cluster-8.4
+            docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX}-debug -f percona-xtradb-cluster-8.4/Dockerfile percona-xtradb-cluster-8.4
         elif [ ${IMAGE_PREFIX} = proxysql ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f proxysql/Dockerfile proxysql
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f proxysql/Dockerfile proxysql
         elif [ ${IMAGE_PREFIX} = pxc5.7-backup ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-5.7-backup/Dockerfile percona-xtradb-cluster-5.7-backup
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtradb-cluster-5.7-backup/Dockerfile percona-xtradb-cluster-5.7-backup
         elif [ ${IMAGE_PREFIX} = pxc8.0-backup ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0-backup/Dockerfile percona-xtradb-cluster-8.0-backup
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0-backup/Dockerfile percona-xtradb-cluster-8.0-backup
         elif [ ${IMAGE_PREFIX} = pxc8.4-backup ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.4-backup/Dockerfile percona-xtradb-cluster-8.4-backup
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.4-backup/Dockerfile percona-xtradb-cluster-8.4-backup
         elif [ ${IMAGE_PREFIX} = haproxy ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f haproxy/Dockerfile haproxy
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f haproxy/Dockerfile haproxy
         elif [ ${IMAGE_PREFIX} = logcollector ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX} -f fluentbit/Dockerfile fluentbit
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f fluentbit/Dockerfile fluentbit
         fi
     """
 }
@@ -34,7 +34,7 @@ void checkImageForDocker(String IMAGE_PREFIX){
 
             sg docker -c "
                 docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --ignore-unfixed  --timeout 10m --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:main-${IMAGE_PREFIX}
+                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --ignore-unfixed  --timeout 10m --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-${IMAGE_PREFIX}
             "
         """
     }
@@ -50,7 +50,7 @@ void pushImageToDocker(String IMAGE_PREFIX){
                 fi
 
                 docker login -u '${USER}' -p '${PASS}'
-                docker push perconalab/percona-xtradb-cluster-operator:main-${IMAGE_PREFIX}
+                docker push perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX}
                 docker logout
             "
         """

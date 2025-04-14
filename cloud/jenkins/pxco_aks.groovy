@@ -1,7 +1,15 @@
-location='eastus'
+location=params.AKS_LOCATION ?: getLocation(JOB_NAME)
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
+
+String getLocation(String job_name) {
+    if ("$job_name" == 'pxco-aks-1') {
+        return 'eastus'
+    } else {
+        return 'norwayeast'
+    }
+}
 
 String getParam(String paramName, String keyName = null) {
     keyName = keyName ?: paramName
@@ -281,20 +289,23 @@ void makeReport() {
 
     echo "=========================[ Generating Parameters Report ]========================="
     pipelineParameters = """
-        testsuite name=$JOB_NAME
-        IMAGE_OPERATOR=$IMAGE_OPERATOR
-        IMAGE_PXC=$IMAGE_PXC
-        IMAGE_PROXY=$IMAGE_PROXY
-        IMAGE_HAPROXY=$IMAGE_HAPROXY
-        IMAGE_BACKUP=$IMAGE_BACKUP
-        IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
-        IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
-        IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-        PLATFORM_VER=$PLATFORM_VER
-    """
+testsuite name=$JOB_NAME
+IMAGE_OPERATOR=${IMAGE_OPERATOR ?: 'e2e_defaults'}
+IMAGE_PXC=${IMAGE_PXC ?: 'e2e_defaults'}
+IMAGE_PROXY=${IMAGE_PROXY ?: 'e2e_defaults'}
+IMAGE_HAPROXY=${IMAGE_HAPROXY ?: 'e2e_defaults'}
+IMAGE_BACKUP=${IMAGE_BACKUP ?: 'e2e_defaults'}
+IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR ?: 'e2e_defaults'}
+IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
+IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
+PLATFORM_VER=$PLATFORM_VER"""
 
     writeFile file: "TestsReport.xml", text: testsReport
     writeFile file: 'PipelineParameters.txt', text: pipelineParameters
+
+    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+        text: "<pre>${pipelineParameters}</pre>"
+    )
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
@@ -387,6 +398,10 @@ pipeline {
             defaultValue: '',
             description: 'PMM server image: perconalab/pmm-server:dev-latest',
             name: 'IMAGE_PMM_SERVER')
+        string(
+            defaultValue: '',
+            description: 'AKS location to use for cluster. By default "eastus" is for aks-1 job and "norwayeast" for aks-2',
+            name: 'AKS_LOCATION')
     }
     agent {
         label 'docker'

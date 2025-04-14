@@ -1,4 +1,3 @@
-region='us-central1-a'
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
@@ -76,7 +75,7 @@ EOF
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        PLATFORM_VER = sh(script: "gcloud container get-server-config --region=$region --flatten=channels --filter='channels.channel=$GKE_RELEASE_CHANNEL' --format='value(channels.validVersions)' | cut -d- -f1", returnStdout: true).trim()
+        PLATFORM_VER = sh(script: "gcloud container get-server-config --region=${GKE_REGION} --flatten=channels --filter='channels.channel=$GKE_RELEASE_CHANNEL' --format='value(channels.validVersions)' | cut -d- -f1", returnStdout: true).trim()
     }
 
     if ("$ARCH" == "amd64") {
@@ -203,7 +202,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
                     --release-channel $GKE_RELEASE_CHANNEL \
-                    --zone $region \
+                    --zone ${GKE_REGION} \
                     --cluster-version $PLATFORM_VER \
                     --preemptible \
                     --disk-size 30 \
@@ -229,7 +228,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             FUTURE_TIME=\$(date -d '6 hours' --rfc-3339=seconds)
 
             gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                --zone $region \
+                --zone ${GKE_REGION} \
                 --add-maintenance-exclusion-start "\$CURRENT_TIME" \
                 --add-maintenance-exclusion-end "\$FUTURE_TIME"
 
@@ -309,17 +308,21 @@ void makeReport() {
 
     echo "=========================[ Generating Parameters Report ]========================="
     pipelineParameters = """
-        testsuite name=$JOB_NAME
-        IMAGE_OPERATOR=$IMAGE_OPERATOR
-        IMAGE_MONGOD=$IMAGE_MONGOD
-        IMAGE_BACKUP=$IMAGE_BACKUP
-        IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
-        IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-        PLATFORM_VER=$PLATFORM_VER
-    """
+testsuite name=$JOB_NAME
+IMAGE_OPERATOR=${IMAGE_OPERATOR ?: 'e2e_defaults'}
+IMAGE_MONGOD=${IMAGE_MONGOD ?: 'e2e_defaults'}
+IMAGE_BACKUP=${IMAGE_BACKUP ?: 'e2e_defaults'}
+IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
+IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
+PLATFORM_VER=$PLATFORM_VER
+GKE_RELEASE_CHANNEL=$GKE_RELEASE_CHANNEL"""
 
     writeFile file: "TestsReport.xml", text: testsReport
     writeFile file: 'PipelineParameters.txt', text: pipelineParameters
+
+    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+        text: "<pre>${pipelineParameters}</pre>"
+    )
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
@@ -335,7 +338,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
                 kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
             done
             kubectl get svc --all-namespaces || true
-            gcloud container clusters delete --zone $region $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
+            gcloud container clusters delete --zone ${GKE_REGION} $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
         """
     }
 }
@@ -360,6 +363,7 @@ pipeline {
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
+        string(name: 'GKE_REGION', defaultValue: 'us-central1-a', description: 'GKE region to use for cluster')
     }
     agent {
         label 'docker'

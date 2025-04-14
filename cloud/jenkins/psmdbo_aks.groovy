@@ -1,7 +1,15 @@
-location='eastus'
+location=params.AKS_LOCATION ?: getLocation(JOB_NAME)
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
+
+String getLocation(String job_name) {
+    if ("$job_name" == 'psmdbo-aks-1') {
+        return 'eastus'
+    } else {
+        return 'norwayeast'
+    }
+}
 
 String getParam(String paramName, String keyName = null) {
     keyName = keyName ?: paramName
@@ -271,17 +279,20 @@ void makeReport() {
 
     echo "=========================[ Generating Parameters Report ]========================="
     pipelineParameters = """
-        testsuite name=$JOB_NAME
-        IMAGE_OPERATOR=$IMAGE_OPERATOR
-        IMAGE_MONGOD=$IMAGE_MONGOD
-        IMAGE_BACKUP=$IMAGE_BACKUP
-        IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
-        IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-        PLATFORM_VER=$PLATFORM_VER
-    """
+testsuite name=$JOB_NAME
+IMAGE_OPERATOR=${IMAGE_OPERATOR ?: 'e2e_defaults'}
+IMAGE_MONGOD=${IMAGE_MONGOD ?: 'e2e_defaults'}
+IMAGE_BACKUP=${IMAGE_BACKUP ?: 'e2e_defaults'}
+IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
+IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
+PLATFORM_VER=$PLATFORM_VER"""
 
     writeFile file: "TestsReport.xml", text: testsReport
     writeFile file: 'PipelineParameters.txt', text: pipelineParameters
+
+    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+        text: "<pre>${pipelineParameters}</pre>"
+    )
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
@@ -321,6 +332,7 @@ pipeline {
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
+        string(name: 'AKS_LOCATION', defaultValue: '', description: 'AKS location to use for cluster. By default "eastus" is for aks-1 job and "norwayeast" for aks-2')
     }
     agent {
         label 'docker'

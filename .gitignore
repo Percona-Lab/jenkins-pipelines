@@ -3,3 +3,4 @@
 *.tfstate*
 .vscode
 .history
+.idea/*
