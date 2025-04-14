@@ -76,8 +76,31 @@ pipeline {
                     def artifactUrlall = "${env.JENKINS_URL}/job/${jobName}/${buildNumber}/artifact/${artifactPathall}"
                     def artifactUrlqa = "${env.JENKINS_URL}/job/${jobName}/${buildNumber}/artifact/${artifactPathqa}"
                     archiveArtifacts artifacts: '*.txt' , followSymlinks: false
-                    slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
 
+//                    def instance_ids = sh(script: "grep -o 'i-[a-zA-Z0-9]*' ${artifactPathqa}", returnStdout: true).trim()
+
+                    def instance_ids_raw = sh(
+                        script: "awk '{ for(i=1;i<=NF;i++) if (\$i ~ /^i-[a-zA-Z0-9]+\$/) print \$i }' ${artifactPathqa}",
+                        returnStdout: true
+                    ).trim()
+
+                    def instance_ids = instance_ids_raw.readLines()
+
+                    echo "PRINTING instance_ids one by one:"
+
+                    instance_ids.each { id ->
+                        echo "line by line ${id}"
+                        echo "Deleting Instance: ${id}"
+                        id = id.trim()
+                        sh "aws ec2 terminate-instances --instance-ids ${id}"
+                    }
+
+
+
+
+
+                    slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
+${instance_ids} is the instance ids of the instances with molecule QA Tests up since past 2 days
 =========================
 ${env.ovall}
 =========================
@@ -88,7 +111,7 @@ ${artifactUrlall} is the url for the detailed info of all running instances
 """
             echo "${env.ovqacount} is word count of up qa server regions"
 
-	        if("${env.ovqacount}" >= 1){
+            if("${env.ovqacount}" >= 1){
                     slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
 
 Following are the Instances with molecule QA Tests up since past 2 days
@@ -98,6 +121,22 @@ ${env.ovqa}
 ${artifactUrlqa} is the url for the detailed info of instances with QA Tests
 
 """
+
+
+
+
+
+                    slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
+
+Deleted the following Instances with molecule QA Tests that were up since past 2 days
+---------------------------------------------------
+${env.ovqa}
+---------------------------------------------------
+${artifactUrlqa} is the url for the detailed info of instances which were deleted
+"""
+
+
+
             }else{
                     echo "No QA servers are running since past 2 days"
                  }
