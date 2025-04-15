@@ -1,0 +1,15 @@
+- job:
+    name: test_telemetry_agent
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'master'
+            wipe-workspace: true
+      lightweight-checkout: true
+      script-path: percona-telemetry-agent/test_telemetry_agent.groovy
+

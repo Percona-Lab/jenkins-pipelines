@@ -1,0 +1,66 @@
+- job:
+    name: pxc-package-testing-pro
+    project-type: pipeline
+    description: |
+        Work in progress, please ignore
+        Do not edit this job through the web!
+    concurrent: true
+    properties:
+        - build-discarder:
+            artifact-days-to-keep: -1
+            artifact-num-to-keep: 20
+            days-to-keep: -1
+            num-to-keep: 20
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'master'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: pxc/jenkins/pxc-package-testing-pro.groovy
+    parameters:
+        - choice:
+            name: product_to_test
+            choices:
+                - 'pxc84'
+                - 'pxc80'
+            description: "PXC version to test"
+        - choice:
+            name: node_to_test
+            choices:
+                - 'ubuntu-noble'
+                - 'ubuntu-jammy'
+                - 'ubuntu-noble-arm'
+                - 'ubuntu-jammy-arm'
+                - 'ubuntu-focal'
+                - 'debian-12'
+                - 'debian-11'
+                - 'debian-12-arm'
+                - 'debian-11-arm'
+                - 'amazon-linux-2023'
+                - 'amazon-linux-2023-arm'
+                - 'ol-8'
+                - 'ol-9'
+                - 'rhel-8'
+                - 'rhel-9'
+                - 'rhel-8-arm'
+                - 'rhel-9-arm'
+            description: "Distribution to run test"
+        - choice:
+            name: test_repo
+            choices:
+                - "testing"
+                - "main"
+                - "experimental"
+            description: "Repo to install packages from"
+        - choice:
+            name: test_type
+            choices:
+                - "install_and_upgrade"
+                - "install"
+                - "min_upgrade_pro_pro"
+                - "min_upgrade_nonpro_pro"
+                - "min_upgrade_pro_nonpro"
+            description: "Set test type for testing"     

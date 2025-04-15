@@ -71,11 +71,11 @@ pipeline {
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         choice(
-            choices: ['8.0', '5.7', '5.7.30', '5.6'],
+            choices: ['8.0', '8.4', '5.7', '5.7.30', '5.6'],
             description: "Percona Server for MySQL version",
             name: 'PS_VERSION')
         choice(
-            choices: ['8.0', '5.7', '5.6'],
+            choices: ['8.0', '8.4', '5.7', '5.6'],
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
@@ -87,9 +87,13 @@ pipeline {
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
-            choices: ['8.0.1-1', '7.0.7-4', '6.0.14-11', '5.0.26-22', '4.4.29-28'],
+            choices: ['8.0', '7.0', '6.0', '5.0', '4.4'],
             description: "Percona Server for MongoDB version",
             name: 'PSMDB_VERSION')
+        choice(
+            choices: ['8.0', '7.0', '6.0', '5.0', '4.4'],
+            description: "Official MongoDB version",
+            name: 'MODB_VERSION')
         text(
             defaultValue: '--database ps=5.7,QUERY_SOURCE=perfschema',
             description: '''
@@ -102,6 +106,7 @@ pipeline {
             Additional options:
                 QUERY_SOURCE=perfschema|slowlog
             --database psmdb - Percona Server for MongoDB (ex: --database psmdb=latest,SETUP_TYPE=pss)
+            --database modb - Official MongoDB
             Additional options:
                 SETUP_TYPE=pss(Primary-Secondary-Secondary)|psa(Primary-Secondary-Arbiter)|shards(Sharded cluster)
             --database pdpgsql - Percona Distribution for PostgreSQL (ex: --database pdpgsql=16)
@@ -156,6 +161,7 @@ pipeline {
                         PS_VERSION:      ${PS_VERSION}
                         MS_VERSION:      ${MS_VERSION}
                         MO_VERSION:      ${PSMDB_VERSION}
+                        MODB_VERSION:    ${MODB_VERSION}
                         PGSQL_VERSION:   ${PGSQL_VERSION}
                         PDPGSQL_VERSION: ${PDPGSQL_VERSION}
                         OWNER:           ${OWNER}
@@ -241,6 +247,7 @@ pipeline {
                                         -p 80:8080 \
                                         -p 443:8443 \
                                         -p 9000:9000 \
+                                        -p 4647:4647 \
                                         --volume pmm-data:/srv \
                                         --name pmm-server \
                                         --hostname pmm-server \

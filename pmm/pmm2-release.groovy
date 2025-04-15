@@ -394,8 +394,6 @@ ENDSSH
                         set -ex
                         # push pmm-server el9
                         docker pull \${SERVER_IMAGE}
-                        docker tag \${SERVER_IMAGE} percona/pmm-server:latest
-                        docker push percona/pmm-server:latest
 
                         docker tag \${SERVER_IMAGE} percona/pmm-server:\${TOP_VER}
                         docker tag \${SERVER_IMAGE} percona/pmm-server:\${DOCKER_MID}
@@ -414,8 +412,6 @@ ENDSSH
                         docker save percona/pmm-server:\${VERSION} | xz > pmm-server-\${VERSION}.docker
 
                         # push pmm-client
-                        docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:latest
-
                         docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${TOP_VER}
                         docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${DOCKER_MID}
                         docker buildx imagetools create \${CLIENT_IMAGE} --tag percona/pmm-client:\${VERSION}
