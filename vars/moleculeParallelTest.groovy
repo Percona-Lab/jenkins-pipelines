@@ -6,8 +6,8 @@ def call(operatingSystems, moleculeDir) {
             sh """
                   . virtenv/bin/activate
                   cd ${moleculeDir}
-                  export MOLECULE_AL2023_AMI=ami-0a897ba00eaed7398
-                  export MOLECULE_AL2023_ARM_AMI=ami-067d435ee698a3ff3
+                  export MOLECULE_AL2023_AMI=ami-01634322a170b5fd0
+                  export MOLECULE_AL2023_ARM_AMI=ami-0804ef6ecd6b2f0fa
                   export MOLECULE_DEBIAN10_AMI=ami-0f5d8e2951e3f83a5
                   export MOLECULE_DEBIAN11_AMI=ami-05f9dcaa9ddb9a15e
                   export MOLECULE_DEBIAN12_AMI=ami-0b6edd8449255b799
