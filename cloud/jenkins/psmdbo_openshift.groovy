@@ -226,7 +226,7 @@ EOF
 
         sshagent(['aws-openshift-41-key']) {
             sh """
-                /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
+                /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX --log-level=debug
                 cat openshift/$CLUSTER_SUFFIX/.openshift_install.log || :
                 export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
 
