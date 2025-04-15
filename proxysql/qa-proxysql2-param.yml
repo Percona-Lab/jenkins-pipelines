@@ -82,12 +82,10 @@
          type: user-defined
          name: DOCKER_OS
          values:
-          - centos:7
           - centos:8
           - ubuntu:jammy
           - ubuntu:focal
           - ubuntu:noble
-          - debian:buster
           - debian:bullseye
           - debian:bookworm  
     builders:
