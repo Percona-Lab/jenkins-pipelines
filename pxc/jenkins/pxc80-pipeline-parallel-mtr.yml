@@ -92,8 +92,8 @@
     - choice:
         name: CLOUD
         choices: 
-          - "AWS"
           - "Hetzner"
+          - "AWS"
           - "Valgrind_docker_host"
         description: "Host provider for Jenkins workers"
     - choice:
