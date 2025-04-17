@@ -165,7 +165,6 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh """
-                        docker login -u '${USER}' -p '${PASS}'
                         MAJ_VER=\$(echo ${params.PSMDB_VERSION} | awk -F "." '{print \$1"."\$2}')
                         MIN_VER=\$(echo ${params.PSMDB_VERSION} | awk -F "-" '{print \$1}')
 
@@ -239,15 +238,6 @@ pipeline {
                 sudo rm -rf ${WORKSPACE}/*
             """
             deleteDir()
-        }
-        success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Building of PSMDB PRO ${PSMDB_VERSION}, repo ${PSMDB_REPO} succeed")
-        }
-        unstable {
-            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: Building of PSMDB PRO ${PSMDB_VERSION}, repo ${PSMDB_REPO} unstable - [${BUILD_URL}testReport/]")
-        }
-        failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: Building of PSMDB PRO ${PSMDB_VERSION}, repo ${PSMDB_REPO} failed - [${BUILD_URL}]")
         }
 }
 }
