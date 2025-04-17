@@ -177,6 +177,28 @@ export WSREP_PROVIDER=${WORKDIR_ABS}/PXC/lib/libgalera_smm.so
 LOG_FILE=${WORKDIR_ABS}/mtr-test.log
 
 cd ${WORKDIR_ABS}/PXC/mysql-test
+
+# >>> temporary patch start
+# Temporary patch for execution on Hetzner machines
+# Why we need this:
+# GCache encryption uses mmap. It may happen that in some Docker environments mmap
+# fails. This causes Galera to emit warning, and this causes test to fail.
+# Despite of the warning, the functionality works fine.
+# Suppression is added to mtr_warnings.sql, but previous versions don't have it.
+# So if someone starts from early GCA and tries to build, may hit this problem.
+# Add the suppression here.
+# Remove this patch one day, when we are far away from the point without suppression
+# in mtr_warnings.sql
+echo "*****************************************************************************"
+echo "Applying temporary patch to mtr_warnings.sql. CONSIDER REMOVING THIS PATCH!!!"
+echo "*****************************************************************************"
+pushd include
+sed -i '/("THE_LAST_SUPPRESSION");/i\
+(".*mlock failed. It will still work, but swap pages into the disk, so performance will be affected"),
+' mtr_warnings.sql
+popd
+# <<< temporary patch end
+
 TESTCASE_TIMEOUT=10
 # CentOS 7
 if [[ -f /opt/rh/devtoolset-8/enable ]]; then
