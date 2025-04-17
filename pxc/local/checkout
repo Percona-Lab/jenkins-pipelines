@@ -32,7 +32,7 @@ if [ "$SOURCE_NAME" == 'PXC80' -o "$SOURCE_NAME" == 'ALL' ]; then
 
     git clone --depth 1 "${GIT_REPO:-https://github.com/percona/percona-xtradb-cluster}" "${PXC_ROOT_DIR}" -b "${BRANCH}"
 
-    pushd $PXC_ROOT_DIR         
+    pushd $PXC_ROOT_DIR
         git reset --hard
         git clean -xdf
 

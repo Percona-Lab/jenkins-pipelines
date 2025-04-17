@@ -143,6 +143,14 @@ fi
 # ------------------------------------------------------------------------------
 # Finaly, compile!
 # ------------------------------------------------------------------------------
+
+# CMAKE_OPTS may be like -DWITH_PERCONA_TELEMETRY=OFF-DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O1 -g"
+# Need to split it correctly
+if [[ -n "${CMAKE_OPTS}" ]]; then
+    eval set -- "${CMAKE_OPTS}"
+    CMAKE_ARGS+=("$@")
+fi
+
 pushd ${WORKDIR}
     ${JOB_CMAKE} \
         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE} \
@@ -175,7 +183,7 @@ pushd ${WORKDIR}
         -DMYSQL_MAINTAINER_MODE=ON \
         ${TARGET_CFLAGS:+-DCMAKE_C_FLAGS="${TARGET_CFLAGS}" -DCMAKE_CXX_FLAGS="${TARGET_CFLAGS}"} \
         ${ANALYZER_OPTS} \
-        ${CMAKE_OPTS} \
+        "${CMAKE_ARGS[@]}" \
         ${SOURCEDIR}
     make ${MAKE_OPTS}
     make DESTDIR=${INSTALL_DIR} install > make_install.log
@@ -202,4 +210,13 @@ cp -ra ${WORKDIR}/runtime_output_directory ${INSTALL_DIR}/usr/local/${PRODUCT_FU
 cp -ra ${WORKDIR}/library_output_directory ${INSTALL_DIR}/usr/local/${PRODUCT_FULL}/
 cp -ra ${WORKDIR}/plugin_output_directory ${INSTALL_DIR}/usr/local/${PRODUCT_FULL}/
 
-tar -C ${INSTALL_DIR}/usr/local --owner=0 --group=0 -czf "${WORKDIR}/${PRODUCT_FULL}.tar.gz" ${PRODUCT_FULL}
+
+if [[ -f /etc/redhat-release ]]; then
+    sudo yum install -y pigz
+else
+    sudo apt update
+    sudo apt install pigz
+fi
+
+# time tar -C ${INSTALL_DIR}/usr/local --owner=0 --group=0 -czf "${WORKDIR}/${PRODUCT_FULL}.tar.gz" ${PRODUCT_FULL}
+time tar -C ${INSTALL_DIR}/usr/local --owner=0 --group=0 --use-compress-program=pigz -cf "${WORKDIR}/${PRODUCT_FULL}.tar.gz" ${PRODUCT_FULL}
