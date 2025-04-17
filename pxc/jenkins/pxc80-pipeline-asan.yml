@@ -1,5 +1,5 @@
 - job:
-    name: pxc-8.0-pipeline-valgrind
+    name: pxc-8.0-pipeline-asan
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -102,8 +102,8 @@
     - choice:
         name: ANALYZER_OPTS
         choices:
-        - -DWITH_VALGRIND=ON
         - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON
+        - -DWITH_VALGRIND=ON
         - -DWITH_ASAN=ON
         - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON
         - -DWITH_ASAN=ON -DWITH_UBSAN=ON
