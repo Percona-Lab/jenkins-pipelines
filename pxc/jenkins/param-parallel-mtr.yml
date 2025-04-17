@@ -153,6 +153,13 @@
         name: ALLOW_ABORTED_WORKERS_RERUN
         default: true
         description: "Rerun aborted workers"
+    - choice:
+        name: CLOUD
+        choices: 
+          - "AWS"
+          - "Hetzner"
+          - "Valgrind_docker_host"
+        description: "Host provider for Jenkins workers"          
     axes:
       - axis:
          type: user-defined

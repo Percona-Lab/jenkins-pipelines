@@ -61,7 +61,7 @@
         description: path to cmake binary
     - string:
         name: CMAKE_OPTS
-        default: "-DWITH_PERCONA_TELEMETRY=ON"
+        default: '-DWITH_PERCONA_TELEMETRY=ON -DCMAKE_CXX_FLAGS_RELWITHDEBINFO="-O1 -g"'
         description: cmake options
     - string:
         name: MAKE_OPTS
@@ -89,10 +89,13 @@
         name: DOCKER_SHM_SIZE
         default: "150G"
         description: "Shared memory size dedicated for Docker container"
-    - string:
-        name: LABEL
-        default: "as-1015cs-tnr"
-        description: "Docker host instance type"
+    - choice:
+        name: CLOUD
+        choices: 
+          - "Valgrind_docker_host"
+          - "AWS"
+          - "Hetzner"
+        description: "Host provider for Jenkins workers"
     - choice:
         name: CMAKE_BUILD_TYPE
         choices:

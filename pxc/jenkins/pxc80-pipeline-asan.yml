@@ -61,7 +61,7 @@
         description: path to cmake binary
     - string:
         name: CMAKE_OPTS
-        default: "-DWITH_PERCONA_TELEMETRY=ON"
+        default: '-DWITH_PERCONA_TELEMETRY=ON'
         description: cmake options
     - string:
         name: MAKE_OPTS
@@ -89,10 +89,13 @@
         name: DOCKER_SHM_SIZE
         default: "150G"
         description: "Shared memory size dedicated for Docker container"
-    - string:
-        name: LABEL
-        default: "as-1015cs-tnr"
-        description: "Docker host instance type"
+    - choice:
+        name: CLOUD
+        choices: 
+          - "Valgrind_docker_host"
+          - "AWS"
+          - "Hetzner"
+        description: "Host provider for Jenkins workers"
     - choice:
         name: CMAKE_BUILD_TYPE
         choices:
@@ -113,8 +116,8 @@
         description: Enable code checking
     - string:
         name: GALERA_PARALLEL_RUN
-        default: "25"
-        description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera specific test suites."
+        default: "20"
+        description: "mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for the Galera, rpl, and group_replication specific test suites."
     - choice:
         name: FULL_MTR
         choices:

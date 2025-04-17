@@ -1,4 +1,4 @@
-PIPELINE_TIMEOUT = 10
+PIPELINE_TIMEOUT = 24
 JENKINS_SCRIPTS_BRANCH = 'pxc-8.0'
 JENKINS_SCRIPTS_REPO = 'https://github.com/kamil-holubicki/jenkins-pipelines'
 AWS_CREDENTIALS_ID = 'c42456e5-c28d-4962-b32c-b75d161bff27'
@@ -8,9 +8,11 @@ S3_ROOT_DIR = 's3://pxc-build-cache'
 WORKER_ABORTED = new boolean[9]
 BUILD_NUMBER_BINARIES_FOR_RERUN = 0
 BUILD_TRIGGER_BY = ''
+JOB_TO_REBUILD = 'pxc-8.0-pipeline-parallel-mtr'
 PXB24_PACKAGE_TO_DOWNLOAD = ''
 PXB80_PACKAGE_TO_DOWNLOAD = ''
-JOB_TO_REBUILD = 'pxc-8.0-pipeline-parallel-mtr'
+LABEL = 'docker-32gb'
+MICRO_LABEL = 'micro-amazon'
 
 // We need this map to construct proper pxb tarball name
 OsToGlibcMap = [
@@ -173,6 +175,36 @@ void doTests(String WORKER_ID, String SUITES, String STANDALONE_TESTS = '', bool
     }  // withCredentials
 }
 
+void analyzeMtrLog(String logFile) {
+    script {
+        res = sh (
+        script: """
+            echo \$(cat ${logFile} | grep -c 'Not all tests completed')
+            """,
+            returnStdout: true
+        ).trim()
+
+        if (res != "0") {
+            catchError(stageResult: 'FAILURE', buildResult: null) {
+                error 'Not all tests executed.'
+            }
+        }
+
+        res = sh (
+        script: """
+            echo \$(cat ${logFile} | grep -c 'mysql-test-run: \\*\\*\\* ERROR')
+            """,
+            returnStdout: true
+        ).trim()
+
+        if (res != "0") {
+            catchError(stageResult: 'FAILURE', buildResult: null) {
+                error 'Not all tests executed.'
+            }
+        }
+    }
+}
+
 void doTestWorkerJob(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS = '', boolean UNIT_TESTS = false, boolean CIFS_TESTS = false) {
     timeout(time: PIPELINE_TIMEOUT, unit: 'HOURS')  {
         script {
@@ -185,6 +217,7 @@ void doTestWorkerJob(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS =
             prepareWorkspace()
             downloadFilesForTests()
             doTests(WORKER_ID.toString(), SUITES, STANDALONE_TESTS, UNIT_TESTS, CIFS_TESTS)
+            analyzeMtrLog("pxc/sources/pxc/results/mtr-test-w_${WORKER_ID}.log")
         }
         step([$class: 'JUnitResultArchiver', testResults: 'pxc/sources/pxc/results/*.xml', healthScaleFactor: 1.0])
         archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/pxc80-test-mtr_logs-*.tar.gz,pxc/sources/pxc/results/mtr-test*.log'
@@ -433,7 +466,7 @@ void triggerAbortedTestWorkersRerun() {
                     string(name:'JOB_CMAKE', value: env.JOB_CMAKE),
                     string(name:'CMAKE_BUILD_TYPE', value: env.CMAKE_BUILD_TYPE),
                     string(name:'DOCKER_SHM_SIZE', value: env.DOCKER_SHM_SIZE),
-                    string(name:'LABEL', value: env.LABEL),
+                    string(name:'CLOUD', value: env.CLOUD),
                     string(name:'ANALYZER_OPTS', value: env.ANALYZER_OPTS),
                     string(name:'CMAKE_OPTS', value: env.CMAKE_OPTS),
                     string(name:'MAKE_OPTS', value: env.MAKE_OPTS),
@@ -467,53 +500,41 @@ if (
 if (params.ANALYZER_OPTS.contains('-DWITH_VALGRIND=ON'))
     { PIPELINE_TIMEOUT = 144 }
 
-// OK, this is hack to access AWS from as-1015cs-tnr which uses PS (not PXC) jenkins
-if (params.LABEL == 'as-1015cs-tnr') {
+if (params.CLOUD == 'Hetzner') {
+    LABEL = 'docker-x64'
+    MICRO_LABEL = 'launcher-x64'
+} else if (params.CLOUD == 'AWS') {
+    LABEL = 'docker-32gb'
+    MICRO_LABEL = 'micro-amazon'
+} else if (params.CLOUD == 'Valgrind_docker_host') {
+    LABEL = 'as-1015cs-tnr'
+    MICRO_LABEL = 'micro-amazon'
+    // OK, this is hack to access AWS from as-1015cs-tnr which uses PS (not PXC) jenkins
     AWS_CREDENTIALS_ID = 'c8b933cd-b8ca-41d5-b639-33fe763d3f68'
     JOB_TO_REBUILD = 'pxc-8.0-pipeline-valgrind'
+} else {
+    // by default fallback to AWS
+    LABEL = 'docker-32gb'
+    MICRO_LABEL = 'micro-amazon'
 }
 
-
 pipeline {
-    agent {
-        label 'micro-amazon'
-    }
+    agent { label MICRO_LABEL }
 
     options {
         skipDefaultCheckout()
         skipStagesAfterUnstable()
         timeout(time: 6, unit: 'DAYS')
         buildDiscarder(logRotator(numToKeepStr: '40', artifactNumToKeepStr: '40'))
-        copyArtifactPermission('pxc-8.0-param-parallel-mtr');
+        copyArtifactPermission(JOB_TO_REBUILD);
     }
-
     stages {
-        stage('Install AWS CLI') {
-            agent { label LABEL }
-            steps {
-                sh '''
-                    exit 0
-                    if ! command -v aws &> /dev/null; then
-                        echo "aws not installed"
-                        sudo apt update && sudo apt install -y unzip curl
-                        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-                        unzip awscliv2.zip
-                        sudo ./aws/install
-                    else
-                        echo "aws installed"
-                        which aws
-                        echo $PATH
-                        aws --version
-                    fi
-                '''
-            }
-        }
         stage('Prepare') {
             steps {
                 script {
                     echo "JENKINS_SCRIPTS_BRANCH: $JENKINS_SCRIPTS_BRANCH"
                     echo "JENKINS_SCRIPTS_REPO: $JENKINS_SCRIPTS_REPO"
-                    echo "Using instances with LABEL ${LABEL} for build and test stages"
+                    echo "Using instances from cloud ${CLOUD} with LABEL ${LABEL} for build and test stages"
                 }
                 git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
 
