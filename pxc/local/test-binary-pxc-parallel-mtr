@@ -57,7 +57,7 @@ function execute() {
         --suite=$suites \
         --suite-timeout=9999 \
         --testcase-timeout=${TESTCASE_TIMEOUT} \
-        --force --mysqld-env="LD_PRELOAD=${MYSQLD_ENV}" \
+        --force ${MYSQLD_ENV} \
         --max-test-fail=0 \
         ${MTR_ARGS_NORMAL} \
         ${extraOptions} \
