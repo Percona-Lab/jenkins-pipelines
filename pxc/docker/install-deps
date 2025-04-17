@@ -102,7 +102,7 @@ if [ -f /usr/bin/yum ]; then
     libzstd-devel tzdata zstd mysql-devel perl-DBI perl-DBD-mysql jq openssl perl-XML-Simple libcurl-devel perl-Test-Simple \
     cyrus-sasl-devel cyrus-sasl-scram krb5-devel libudev-devel python3-pip python3-devel libevent-devel \
     "
-  
+
   # PXC specific
   PKGLIST+=" libmicrohttpd-devel re2-devel check-devel scons libgcrypt-devel libev-devel vim-common \
     perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat qpress stunnel \
