@@ -702,13 +702,13 @@ pipeline {
             }
             steps {
                 script {
-                    if (env.FULL_FEATURED == 'YES') {
+                    if (env.FULL_FEATURED == 'yes') {
                         echo "The step is skipped"
                     } else {
                         echo "====> Build docker containers"
                         cleanUpWS()
                         sh '''
-                            sleep 1200
+                            sleep 1500
                             sudo apt-get -y install apparmor
                             sudo aa-status
                             sudo systemctl stop apparmor
@@ -798,13 +798,13 @@ pipeline {
             }
             steps {
                 script {
-                    if (env.FULL_FEATURED == 'YES') {
+                    if (env.FULL_FEATURED == 'yes') {
                         echo "The step is skipped"
                     } else {
                         echo "====> Build docker containers"
                         cleanUpWS()
                         sh '''
-                            sleep 1200
+                            sleep 1500
                             sudo apt-get -y install apparmor
                             sudo aa-status
                             sudo systemctl stop apparmor
