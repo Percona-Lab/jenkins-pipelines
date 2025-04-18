@@ -64,6 +64,13 @@ docker run --rm --shm-size=${DOCKER_SHM_SIZE} \
         sudo grep -A16 'Conditional jump or move depends on uninitialised' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-valgrind-ConditionalJump-w_${WORKER_NO}.log > /dev/null || :
         sudo grep -A16 'are definitely lost' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-valgrind-definitelyLost-w_${WORKER_NO}.log > /dev/null || :
         sudo grep -B128 -A128 'Invalid read of size' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-valgrind-InvalidRead-w_${WORKER_NO}.log > /dev/null || :
+
+        sudo bash -x -c '
+          wget https://raw.githubusercontent.com/inikep/ps-build/refs/heads/8.0/jenkins/jenkins-common.sh ||:
+          source jenkins-common.sh ||:
+          filter_valgrind_log mtr-test-w_${WORKER_NO}.log mtr-test-w_${WORKER_NO}.log.processed ||:
+          mv -f mtr-test-w_${WORKER_NO}.log.processed mtr-test-w_${WORKER_NO}.log ||:
+        '
     ;;
     esac
 
@@ -76,6 +83,7 @@ docker run --rm --shm-size=${DOCKER_SHM_SIZE} \
         sudo grep -A16 'ERROR: LeakSanitizer' mtr-test-w_${WORKER_NO}.log | sudo tee mtr-test-Errors-LeakSanitizer-w_${WORKER_NO}.log > /dev/null || :
     ;;
     esac
+
 
 
     sudo chown $(id -u):$(id -g) /tmp/pxc/results/* ||:
