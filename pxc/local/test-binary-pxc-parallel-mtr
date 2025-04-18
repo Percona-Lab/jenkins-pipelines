@@ -36,7 +36,7 @@ function execute() {
     # ensure that there are not / in worker name (it can come from suites that have / in their names)
     worker=${worker//"/"/"_"}
 
-    echo "Executing suites $suites $logFileSuffix"
+    echo "Executing suites $suites, logFileSuffix: $logFileSuffix"
 
     df -h
     du /dev/shm
