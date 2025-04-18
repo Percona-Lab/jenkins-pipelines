@@ -253,6 +253,11 @@ initMap['docker'] = '''
     sudo systemctl status docker || sudo systemctl start docker
     sudo service docker status || sudo service docker start
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+
+    #Meteorops cloudwatch
+    sudo yum -y install amazon-cloudwatch-agent
+    sudo curl https://raw.githubusercontent.com/vorsel/aux/master/amazon-cloudwatch-agent-config/config.json -o /mnt/config.json
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/mnt/config.json
 '''
 
 initMap['docker-32gb-hirsute'] = '''
@@ -321,6 +326,16 @@ initMap['docker-32gb-hirsute'] = '''
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl restart docker
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+
+    #Meteorops cloudwatch
+    if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]] || [[ ${DEB_VER} == "bookworm" ]]; then
+        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/debian/amd64/latest/amazon-cloudwatch-agent.deb -o /tmp/amazon-cloudwatch-agent.deb
+    else
+        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb -o /tmp/amazon-cloudwatch-agent.deb
+    fi
+    sudo apt -y install /tmp/amazon-cloudwatch-agent.deb
+    sudo curl https://raw.githubusercontent.com/vorsel/aux/master/amazon-cloudwatch-agent-config/config.json -o /mnt/config.json
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/mnt/config.json
 '''
 initMap['docker-32gb-focal'] = initMap['docker-32gb-hirsute']
 initMap['docker-32gb-jammy'] = initMap['docker-32gb-hirsute']
@@ -461,6 +476,16 @@ initMap['rpmMap'] = '''
         sudo umount /dev/shm
         sudo mount /dev/shm
     fi
+
+    #Meteorops cloudwatch
+    if [[ ${RHVER} == "8" ]] || [[ ${RHVER} == "9" ]]; then
+        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/oracle_linux/amd64/latest/amazon-cloudwatch-agent.rpm -o /tmp/amazon-cloudwatch-agent.rpm
+    else
+        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/centos/amd64/latest/amazon-cloudwatch-agent.rpm -o /tmp/amazon-cloudwatch-agent.rpm
+    fi
+    sudo yum -y install /tmp/amazon-cloudwatch-agent.rpm
+    sudo curl https://raw.githubusercontent.com/vorsel/aux/master/amazon-cloudwatch-agent-config/config.json -o /mnt/config.json
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/mnt/config.json
 '''
 
 initMap['debMap'] = '''
@@ -506,6 +531,16 @@ initMap['debMap'] = '''
     fi
 
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+
+    #Meteorops cloudwatch
+    if [[ ${DEB_VER} == "buster" ]] || [[ ${DEB_VER} == "bullseye" ]] || [[ ${DEB_VER} == "bookworm" ]]; then
+        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/debian/amd64/latest/amazon-cloudwatch-agent.deb -o /tmp/amazon-cloudwatch-agent.deb
+    else
+        sudo curl https://amazoncloudwatch-agent.s3.amazonaws.com/ubuntu/amd64/latest/amazon-cloudwatch-agent.deb -o /tmp/amazon-cloudwatch-agent.deb
+    fi
+    sudo apt -y install /tmp/amazon-cloudwatch-agent.deb
+    sudo curl https://raw.githubusercontent.com/vorsel/aux/master/amazon-cloudwatch-agent-config/config.json -o /mnt/config.json
+    sudo /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -s -c file:/mnt/config.json
 '''
 
 initMap['docker-32gb'] = initMap['docker']
