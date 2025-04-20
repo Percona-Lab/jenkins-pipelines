@@ -71,11 +71,11 @@ pipeline {
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         choice(
-            choices: ['8.0', '5.7', '5.7.30', '5.6'],
+            choices: ['8.0', '8.4', '5.7', '5.7.30', '5.6'],
             description: "Percona Server for MySQL version",
             name: 'PS_VERSION')
         choice(
-            choices: ['8.0', '5.7', '5.6'],
+            choices: ['8.0', '8.4', '5.7', '5.6'],
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
@@ -247,6 +247,7 @@ pipeline {
                                         -p 80:8080 \
                                         -p 443:8443 \
                                         -p 9000:9000 \
+                                        -p 4647:4647 \
                                         --volume pmm-data:/srv \
                                         --name pmm-server \
                                         --hostname pmm-server \
