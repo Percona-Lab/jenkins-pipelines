@@ -112,16 +112,16 @@ pipeline {
             }
         }
     }
-//    post {
-//        always {
-//            script {
-//                if (params.DESTROY || stageFailed) {
-//                    echo "Running destroy because DESTROY=true or build failed"
-//                    moleculeExecuteActionWithScenario(moleculeDir, "destroy", "aws")
-//                } else {
-//                    echo "Skipping destroy because DESTROY is false and build succeeded"
-//                }
-//            }
-//        }
-//    }
+    post {
+        always {
+            script {
+                if (params.DESTROY || stageFailed) {
+                    echo "Running destroy because DESTROY=true or build failed"
+                    moleculeExecuteActionWithScenario(moleculeDir, "destroy", "aws")
+                } else {
+                    echo "Skipping destroy because DESTROY is false and build succeeded"
+                }
+            }
+        }
+    }
 }
