@@ -4,6 +4,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def moleculeDir = "pml-functional/replicaset"
+def stageFailed = false
 
 pipeline {
     agent {
@@ -27,6 +28,7 @@ pipeline {
         string(name: 'TIMEOUT',description: 'Timeout for the job',defaultValue: '3600')
         string(name: 'SSH_USER',description: 'User for debugging',defaultValue: 'none')
         string(name: 'SSH_PUBKEY',description: 'User ssh public key for debugging',defaultValue: 'none')
+        booleanParam(name: 'DESTROY', defaultValue: true, description: 'Automatically dismantle environment upon finishing tests, leave unchecked if you do not want to dismantle.')
     }
     options {
         withCredentials(moleculePbmJenkinsCreds())
@@ -56,14 +58,26 @@ pipeline {
         stage ('Create instances') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "create", "aws")
+                    try {
+                        moleculeExecuteActionWithScenario(moleculeDir, "create", "aws")
+                    } catch (e) {
+                        echo "Create stage failed"
+                        stageFailed = true
+                        throw e
+                    }
                 }
             }
         }
         stage ('Prepare instances') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "prepare", "aws")
+                    try {
+                        moleculeExecuteActionWithScenario(moleculeDir, "prepare", "aws")
+                    } catch (e) {
+                        echo "Prepare stage failed"
+                        stageFailed = true
+                        throw e
+                    }
                 }
             }
         }
@@ -71,11 +85,13 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'), file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML'), string(credentialsId: 'GITHUB_API_TOKEN', variable: 'MONGO_REPO_TOKEN')]) {
                     script{
-                        sh """
-                            cp $PBM_GCS_S3_YML /tmp/pbm-agent-storage-gcp.conf
-                            cp $PBM_AZURE_YML /tmp/pbm-agent-storage-azure.conf
-                        """
-                        moleculeExecuteActionWithScenario(moleculeDir, "converge", "aws")
+                        try {
+                            moleculeExecuteActionWithScenario(moleculeDir, "converge", "aws")
+                        } catch (e) {
+                            echo "Converge stage failed"
+                            stageFailed = true
+                            throw e
+                        }
                     }
                 }
             }
@@ -98,11 +114,12 @@ pipeline {
     post {
         always {
             script {
-                sh """
-                    rm -f /tmp/pbm-agent-storage-gcp.conf
-                    rm -f /tmp/pbm-agent-storage-azure.conf
-                """
-                moleculeExecuteActionWithScenario(moleculeDir, "destroy", "aws")
+                if (params.DESTROY || stageFailed) {
+                    echo "Running destroy because DESTROY=true or build failed"
+                    moleculeExecuteActionWithScenario(moleculeDir, "destroy", "aws")
+                } else {
+                    echo "Skipping destroy because DESTROY is false and build succeeded"
+                }
             }
         }
     }
