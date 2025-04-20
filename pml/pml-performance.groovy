@@ -16,7 +16,7 @@ pipeline {
         STORAGE = 'aws'
     }
     parameters {
-        choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-70','psmdb-80','psmdb-60','psmdb-50'])
+        choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-60', 'psmdb-70','psmdb-80'])
         string(name: 'PML_BRANCH',description: 'PML Branch for testing',defaultValue: 'main')
         string(name: 'PSMDB_VERSION',description: 'Version of PSMDB you want to test',defaultValue: '7.0.16')
         string(name: 'TESTING_BRANCH',description: 'Branch for testing repository',defaultValue: 'main')
@@ -112,16 +112,16 @@ pipeline {
             }
         }
     }
-    post {
-        always {
-            script {
-                if (params.DESTROY || stageFailed) {
-                    echo "Running destroy because DESTROY=true or build failed"
-                    moleculeExecuteActionWithScenario(moleculeDir, "destroy", "aws")
-                } else {
-                    echo "Skipping destroy because DESTROY is false and build succeeded"
-                }
-            }
-        }
-    }
+//    post {
+//        always {
+//            script {
+//                if (params.DESTROY || stageFailed) {
+//                    echo "Running destroy because DESTROY=true or build failed"
+//                    moleculeExecuteActionWithScenario(moleculeDir, "destroy", "aws")
+//                } else {
+//                    echo "Skipping destroy because DESTROY is false and build succeeded"
+//                }
+//            }
+//        }
+//    }
 }
