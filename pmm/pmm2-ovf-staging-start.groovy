@@ -111,7 +111,7 @@ pipeline {
                 node(env.VM_NAME){
                     sh """
                         if [[ ${OVA_VERSION} = 2* ]]; then
-                            wget -nv -O ${VM_NAME}.ova https://downloads.percona.com/downloads/pmm2/${OVA_VERSION}/ova/pmm-server-${OVA_VERSION}-1.ova
+                            wget -nv -O ${VM_NAME}.ova https://downloads.percona.com/downloads/pmm2/${OVA_VERSION}/ova/PMM2-Server-${OVA_VERSION}-1.ova
                         else
                             wget -nv -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
                         fi
