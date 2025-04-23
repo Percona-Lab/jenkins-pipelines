@@ -375,10 +375,12 @@ parameters {
                        sh '''
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                            PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                           PS_MAJOR_FULL_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/-.*//g")
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                            sudo docker manifest push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                            sudo docker buildx imagetools create -t perconalab/percona-server:${PS_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t perconalab/percona-server:${PS_MAJOR_FULL_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                            sudo docker buildx imagetools create -t perconalab/percona-server:${PS_MAJOR_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                        '''
                        }
