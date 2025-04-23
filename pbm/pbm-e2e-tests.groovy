@@ -52,7 +52,7 @@ void prepareCluster(String TEST_TYPE) {
     }
 }
 
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@hetzner", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
@@ -60,12 +60,13 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'micro-amazon'
+        label params.CLOUD == 'Hetzner' ? 'launcher-x64' : 'micro-amazon'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
+        choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         string(name: 'PBM_BRANCH', defaultValue: 'dev', description: 'PBM branch')
     }
     triggers {
@@ -83,7 +84,7 @@ pipeline {
             parallel {
                 stage('New cluster 8.0 logical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('80-newc-logic')
@@ -92,7 +93,7 @@ pipeline {
                 }
                 stage('New cluster 6.0 logical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('60-newc-logic')
@@ -101,7 +102,7 @@ pipeline {
                 }
                 stage('New cluster 7.0 logical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('70-newc-logic')
@@ -110,7 +111,7 @@ pipeline {
                 }
                 stage('Sharded 8.0 logical') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
 			prepareCluster('80-shrd-logic')
@@ -119,7 +120,7 @@ pipeline {
                 }
                 stage('Sharded 6.0 logical') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
 			prepareCluster('60-shrd-logic')
@@ -128,7 +129,7 @@ pipeline {
                 }
                 stage('Sharded 7.0 logical') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
 			prepareCluster('70-shrd-logic')
@@ -137,7 +138,7 @@ pipeline {
                 }
                 stage('Non-sharded 8.0 logical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('80-rs-logic')
@@ -146,7 +147,7 @@ pipeline {
                 }
                 stage('Non-sharded 6.0 logical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('60-rs-logic')
@@ -155,7 +156,7 @@ pipeline {
                 }
                 stage('Non-sharded 7.0 logical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('70-rs-logic')
@@ -164,7 +165,7 @@ pipeline {
                 }
                 stage('Single-node 8.0 logical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('80-single-logic')
@@ -173,7 +174,7 @@ pipeline {
                 }
                 stage('Single-node 6.0 logical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('60-single-logic')
@@ -182,7 +183,7 @@ pipeline {
                 }
                 stage('Single-node 7.0 logical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('70-single-logic')
@@ -191,7 +192,7 @@ pipeline {
                 }
                 stage('Sharded 8.0 physical') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
 			prepareCluster('80-shrd-phys')
@@ -200,7 +201,7 @@ pipeline {
                 }
                 stage('Sharded 6.0 physical') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
 			prepareCluster('60-shrd-phys')
@@ -209,7 +210,7 @@ pipeline {
                 }
                 stage('Sharded 7.0 physical') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
 			prepareCluster('70-shrd-phys')
@@ -218,7 +219,7 @@ pipeline {
                 }
                 stage('Non-sharded 8.0 physical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('80-rs-phys')
@@ -227,7 +228,7 @@ pipeline {
                 }
                 stage('Non-sharded 6.0 physical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('60-rs-phys')
@@ -236,7 +237,7 @@ pipeline {
                 }
                 stage('Non-sharded 7.0 physical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('70-rs-phys')
@@ -245,7 +246,7 @@ pipeline {
                 }
                 stage('Single-node 8.0 physical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('80-single-phys')
@@ -254,7 +255,7 @@ pipeline {
                 }
                 stage('Single-node 6.0 physical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('60-single-phys')
@@ -263,7 +264,7 @@ pipeline {
                 }
                 stage('Single-node 7.0 physical') {
                     agent {
-                        label 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
 			prepareCluster('70-single-phys')
