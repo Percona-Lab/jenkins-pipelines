@@ -451,16 +451,16 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !GetAtt JMasterTemplate.LatestVersionNumber
           Overrides:
-          - InstanceType: c5.xlarge
-            AvailabilityZone:
-              Fn::Select: [ 1, !GetAZs '' ]
           - InstanceType: c5a.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5ad.xlarge
+          - InstanceType: c5d.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: c5d.xlarge
+          - InstanceType: c6in.xlarge
+            AvailabilityZone:
+              Fn::Select: [ 1, !GetAZs '' ]
+          - InstanceType: c7i-flex.xlarge
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
 
@@ -737,7 +737,7 @@ Resources:
               		EOF
                   fi
 
-                  ln -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
+                  ln -f -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
                   sed -i'' -e 's/listen/#listen/; s/mime.types/jenkins.conf/' /usr/local/openresty/nginx/conf/nginx.conf
 
                   systemctl enable --now openresty
