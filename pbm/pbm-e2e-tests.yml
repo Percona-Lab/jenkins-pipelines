@@ -1,5 +1,5 @@
 - job:
-    name: pbm-e2e-tests
+    name: hetzner-pbm-e2e-tests
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -8,7 +8,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'PBM_psmdb_jenkins'
+            - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pbm/pbm-e2e-tests.groovy
