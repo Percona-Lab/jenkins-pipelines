@@ -6,7 +6,7 @@ def call(operatingSystems, moleculeDir) {
         stage("${os}") {
             sh """
                   . virtenv/bin/activate
-                  source molecule_ami_env.sh
+                  . molecule_ami_env.sh
                   cd ${moleculeDir}
                   molecule test -s ${os}
                """
