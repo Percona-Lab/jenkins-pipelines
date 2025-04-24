@@ -203,7 +203,7 @@ pipeline {
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'PMM-13873-add-support-qa-framework-ps-84',
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         string(
@@ -215,7 +215,7 @@ pipeline {
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         choice(
-            choices: ['8.0', '8.4', '5.7', '5.7.30', '5.6'],
+            choices: ['8.4', '8.0', '5.7', '5.7.30', '5.6'],
             description: "Percona Server for MySQL version",
             name: 'PS_VERSION')
         choice(
@@ -389,7 +389,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        npx codeceptjs run-workers --suites 5 --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu'
                     """
                 }
             }
