@@ -5,12 +5,13 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'master'
+        label params.CLOUD == 'Hetzner' ? 'launcher-x64' : 'master'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
+        choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         string(name: 'PSMDB_VERSION', defaultValue: '4.4.17', description: 'PSMDB Version')
         string(name: 'PSMDB_RELEASE', defaultValue: '17', description: 'PSMDB Release')
     }
@@ -36,8 +37,8 @@ pipeline {
             steps { 
                 script {
                     def version = params.PSMDB_VERSION + '-' + params.PSMDB_RELEASE 
-                    build job: 'psmdb-docker', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'TARGET_REPO', value: "PerconaLab") ]
-                    build job: 'psmdb-docker-arm', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'TARGET_REPO', value: "PerconaLab") ]
+                    build job: 'hetzner-psmdb-docker', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'TARGET_REPO', value: "PerconaLab") ]
+                    build job: 'hetzner-psmdb-docker-arm', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'TARGET_REPO', value: "PerconaLab") ]
                 }
             }
         }
@@ -45,8 +46,8 @@ pipeline {
             steps {
                 script {
                     def version = params.PSMDB_VERSION + '-' + params.PSMDB_RELEASE
-                    build job: 'psmdb-integration', parameters: [string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "release"), string(name: 'PMM_IMAGE', value: "percona/pmm-server:latest") ]
-                    build job: 'psmdb-integration', parameters: [string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "experimental"), string(name: 'PMM_IMAGE', value: "perconalab/pmm-server:dev-latest") ]
+                    build job: 'hetzner-psmdb-integration', parameters: [string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "release"), string(name: 'PMM_IMAGE', value: "percona/pmm-server:latest") ]
+                    build job: 'hetzner-psmdb-integration', parameters: [string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "experimental"), string(name: 'PMM_IMAGE', value: "perconalab/pmm-server:dev-latest") ]
                 }
             }
         }
