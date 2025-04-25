@@ -5,12 +5,13 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'docker'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
+        choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         string(name: 'PSMDB_VERSION', defaultValue: 'latest', description: 'PSMDB version')
         string(name: 'PBM_VERSION', defaultValue: 'latest', description: 'PBM version')
         string(name: 'PMM_VERSION', defaultValue: 'latest', description: 'PMM2 agent version')

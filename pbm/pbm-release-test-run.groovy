@@ -11,10 +11,7 @@ pipeline {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
-        choice(
-             choices: [ 'Hetzner','AWS' ],
-             description: 'Cloud infra for build',
-             name: 'CLOUD' )
+        choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         string(name: 'PBM_VERSION', defaultValue: '2.0.5', description: 'PBM Version')
         string(name: 'PBM_BRANCH', defaultValue: 'release-2.0.5', description: 'PBM Branch')
     }
@@ -24,7 +21,7 @@ pipeline {
     stages {
         stage ('Run e2e tests') {
             steps {
-                build job: 'pbm-functional-tests-full', propagate: false, wait: true, parameters: [ string(name: 'PBM_BRANCH', value: params.PBM_BRANCH) ]
+                build job: 'hetzner-pbm-functional-tests-full', propagate: false, wait: true, parameters: [ string(name: 'PBM_BRANCH', value: params.PBM_BRANCH) ]
             }
         }
         stage ('Run package tests') {
@@ -36,7 +33,7 @@ pipeline {
             steps { 
                 script {
                     def version = params.PBM_VERSION + '-1'
-                    build job: 'pbm-docker', parameters: [string(name: 'PBM_REPO_CH', value: "testing"), string(name: 'PBM_VERSION', value: version ), string(name: 'LATEST', value: "no") ]
+                    build job: 'hetzner-pbm-docker', parameters: [string(name: 'PBM_REPO_CH', value: "testing"), string(name: 'PBM_VERSION', value: version ), string(name: 'LATEST', value: "no") ]
                 }
             }
         }
