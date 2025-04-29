@@ -122,13 +122,15 @@ pipeline {
         always {
             script {
                 if (params.DESTROY || stageFailed) {
-                    echo "Running destroy because DESTROY=true or build failed"
+                    echo "Destroying AWS instances because DESTROY=true or build failed"
                     moleculeExecuteActionWithScenario(moleculeDir, "destroy", "aws")
                 } else {
-                    echo "Skipping destroy because DESTROY is false and build succeeded"
-                    echo "To access PMM, run the following command: 'ssh -L 8443:127.0.0.1:443 <SSH-USER>@<AWS-MONGOLINK-IP>' \n" +
-                            "The IP address for Mongolink can be found in this Jenkins log under the 'TASK [Wait for SSH]' section. \n" +
-                            "Once SSH has been established you can access PMM through your local browser on https://localhost:8443"
+                    echo "Skipping destroy because DESTROY variable is false and build succeeded"
+                    echo "##################################### NOTE ##########################################################\n" +
+                            "To access PMM to see performance stats, run the following command: 'ssh -L 8443:127.0.0.1:443 <SSH-USER>@<AWS-MONGOLINK-IP>'\n" +
+                            "The IP address for Mongolink can be found in this Jenkins log under the 'TASK [Wait for SSH]' section.\n" +
+                            "Once SSH has been established you can access PMM through your local browser on https://localhost:8443 using login details admin:admin \n" +
+                            "##################################### NOTE ##########################################################"
                 }
             }
         }
