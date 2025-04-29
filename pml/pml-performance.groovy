@@ -117,13 +117,6 @@ pipeline {
                 }
             }
         }
-        stage ('Cleanup') {
-            steps {
-                script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "cleanup", "aws")
-                }
-            }
-        }
     }
     post {
         always {
