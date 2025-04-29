@@ -36,6 +36,13 @@ pipeline {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
         ANSIBLE_DISPLAY_SKIPPED_HOSTS = false
         STORAGE = 'aws'
+        PML_USE_COLLECTION_BULK_WRITE = "${params.PML_USE_COLLECTION_BULK_WRITE}"
+        PML_CLONE_NUM_PARALLEL_COLLECTIONS = "${params.PML_CLONE_NUM_PARALLEL_COLLECTIONS}"
+        PML_CLONE_NUM_READ_WORKERS = "${params.PML_CLONE_NUM_READ_WORKERS}"
+        PML_CLONE_NUM_INSERT_WORKERS = "${params.PML_CLONE_NUM_INSERT_WORKERS}"
+        PML_CLONE_SEGMENT_SIZE = "${params.PML_CLONE_SEGMENT_SIZE}"
+        PML_CLONE_READ_BATCH_SIZE = "${params.PML_CLONE_READ_BATCH_SIZE}"
+        PML_DEV_TARGET_CLIENT_COMPRESSORS = "${params.PML_DEV_TARGET_CLIENT_COMPRESSORS}"
     }
     options {
         withCredentials(moleculePbmJenkinsCreds())
