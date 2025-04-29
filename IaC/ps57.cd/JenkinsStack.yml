@@ -99,8 +99,9 @@ Resources:
       VpcId: !Ref JVPC
       CidrBlock: 10.177.2.0/24
       MapPublicIpOnLaunch: true
-      AvailabilityZone:
-        Fn::Select: [ 2, !GetAZs '' ]
+      AvailabilityZone: eu-central-1c
+      #AvailabilityZone:
+      #  Fn::Select: [ 2, !GetAZs '' ]
       Tags:
       - Key: Name
         Value: !Join [ '-', [ !Ref JShortName, 'C' ]]
@@ -442,7 +443,7 @@ Resources:
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true
-        SpotPrice: 0.15
+        SpotPrice: 0.17
         TargetCapacity: 1
         TerminateInstancesWithExpiration: false
         Type: maintain
@@ -451,16 +452,16 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !GetAtt JMasterTemplate.LatestVersionNumber
           Overrides:
-          - InstanceType: m5a.large
+          - InstanceType: i3en.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: m5d.large
+          - InstanceType: i4i.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: m5zn.large
+          - InstanceType: r5a.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: m5ad.large
+          - InstanceType: r5dn.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
 
@@ -737,7 +738,7 @@ Resources:
               		EOF
                   fi
 
-                  ln -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
+                  ln -f -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
                   sed -i'' -e 's/listen/#listen/; s/mime.types/jenkins.conf/' /usr/local/openresty/nginx/conf/nginx.conf
 
                   systemctl enable --now openresty
