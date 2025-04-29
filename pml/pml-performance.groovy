@@ -30,7 +30,7 @@ pipeline {
         string(name: 'TIMEOUT',description: 'Timeout for the job',defaultValue: '3600')
         string(name: 'SSH_USER',description: 'User for debugging',defaultValue: 'none')
         string(name: 'SSH_PUBKEY',description: 'User ssh public key for debugging',defaultValue: 'none')
-        booleanParam(name: 'DESTROY', defaultValue: true, description: 'Automatically dismantle environment upon finishing tests, leave unchecked if you do not want to dismantle.')
+        booleanParam(name: 'DESTROY', defaultValue: true, description: 'Automatically destroys environment upon finishing tests, leave unchecked if you do not want to delete instances.')
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -126,6 +126,10 @@ pipeline {
                     moleculeExecuteActionWithScenario(moleculeDir, "destroy", "aws")
                 } else {
                     echo "Skipping destroy because DESTROY is false and build succeeded"
+                    echo "To access PMM, run the following command: \n" +
+                            " 'ssh -L 8443:127.0.0.1:443 <SSH-USER>@<AWS-MONGOLINK-IP>' \n" +
+                            " The IP address for Mongolink can be found this Jenkins log under the 'TASK [Wait for SSH]' section. \n" +
+                            "Once SSH has been established you can access PMM through your local browser on https://localhost:8443"
                 }
             }
         }
