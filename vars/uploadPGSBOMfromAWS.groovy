@@ -16,7 +16,7 @@ def call(String CLOUD_NAME, String FOLDER_NAME, String AWS_STASH_PATH, String SB
                     mkdir -p \${path_to_build}/${SBOMType}/
 
                 scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
-                    `find . -name '*.tar.*'` \
+                    `find . -name '*.json'` \
                     ${USER}@repo.ci.percona.com:\${path_to_build}/${SBOMType}/
 
             """
