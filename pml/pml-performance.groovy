@@ -115,6 +115,11 @@ pipeline {
             steps {
                 script{
                     moleculeExecuteActionWithScenario(moleculeDir, "verify", params.OPERATING_SYSTEM)
+                    withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN')]) {
+                    sh """
+                       curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@report.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "Mongo Link branch": "${PML_BRANCH}","Instance Type": "${params.INSTANCE_TYPE}", "Operating System": "${params.OPERATING_SYSTEM}", "PSMDB Version": "${params.PSMDB_VERSION}", "Datasize": "${params.DATASIZE}", "Number of Collections": "${params.COLLECTIONS}"}};type=application/json' -i || true
+                    """
+                    }
                 }
             }
         }
