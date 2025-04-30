@@ -115,12 +115,16 @@ pipeline {
             steps {
                 script{
                     moleculeExecuteActionWithScenario(moleculeDir, "verify", params.OPERATING_SYSTEM)
+                    sh """
+                        curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@report.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "Mongo Link branch": "${MLINK_BRANCH}","PSMDB docker image": "${MONGODB_IMAGE}","Instance": "${params.INSTANCE}"}};type=application/json' -i || true
+                    """
                 }
             }
         }
     }
     post {
         always {
+            junit testResults: "**/report.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
             script {
                 if (params.DESTROY || stageFailed) {
                     echo "Destroying AWS instances because DESTROY=true or build failed"
