@@ -96,9 +96,10 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
     else if ( NODE_TYPE == 'postgres-node' ) {
         env.VM_CLIENT_IP_PGSQL = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_PGSQL = stagingJob.buildVariables.VM_NAME
-    }
-    else
-    {
+    } else if ( NODE_TYPE == 'external-node' ) {
+        env.VM_CLIENT_IP_EXTERNAL = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_EXTERNAL = stagingJob.buildVariables.VM_NAME
+    } else {
         env.VM_CLIENT_IP_MONGO = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_MONGO = stagingJob.buildVariables.VM_NAME
     }
@@ -359,6 +360,11 @@ pipeline {
         }
         stage('Check agent status') {
             parallel {
+                stage('Check Agent Status on external node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_EXTERNAL, env.PMM_QA_GIT_BRANCH)
+                    }
+                }
                 stage('Check Agent Status on ps single and mongo pss') {
                     steps {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_MYSQL, env.PMM_QA_GIT_BRANCH)
