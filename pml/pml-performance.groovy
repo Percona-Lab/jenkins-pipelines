@@ -115,7 +115,6 @@ pipeline {
             steps {
                 script{
                     moleculeExecuteActionWithScenario(moleculeDir, "verify", params.OPERATING_SYSTEM)
-                    }
                 }
             }
         }
