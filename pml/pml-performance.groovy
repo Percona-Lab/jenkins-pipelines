@@ -19,7 +19,7 @@ pipeline {
         string(name: 'GO_VERSION',description: 'Version of Golang used',defaultValue: '1.24.1')
         choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['t2.micro','i3.large','i3en.large','i3.xlarge','i3en.xlarge'])
         string(name: 'DATASIZE',description: 'The max size of the data in mb. This is distributed over the amount of collections stated',defaultValue: '10')
-        string(name: 'COLLECTIONS',description: 'The number of collections',defaultValue: '5')
+        string(name: 'COLLECTIONS', description: 'The number of collections',defaultValue: '5')
         booleanParam(name: 'RANDOM_DISTRIBUTE_DATA', defaultValue: false, description: 'Randomly distribute data throughout Collections')
         string(name: 'PML_USE_COLLECTION_BULK_WRITE',description: 'Determines whether to use the Collection Bulk Write API',defaultValue: '1')
         string(name: 'PML_CLONE_NUM_PARALLEL_COLLECTIONS',description: 'The number of collections cloned in parallel during the clone process',defaultValue: '0')
@@ -115,9 +115,7 @@ pipeline {
             steps {
                 script{
                     moleculeExecuteActionWithScenario(moleculeDir, "verify", params.OPERATING_SYSTEM)
-                    sh """
-                        curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@report.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "Mongo Link branch": "${MLINK_BRANCH}","PSMDB docker image": "${MONGODB_IMAGE}","Instance": "${params.INSTANCE}"}};type=application/json' -i || true
-                    """
+                    }
                 }
             }
         }
