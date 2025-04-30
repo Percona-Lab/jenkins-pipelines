@@ -645,7 +645,7 @@ labelMap['min-xenial-x64']    = 'min-xenial-x64'
 labelMap['min-bullseye-x64']  = 'min-bullseye-x64'
 labelMap['min-bookworm-x64']  = 'min-bookworm-x64'
 labelMap['min-al2023-x64']    = 'min-al2023-x64'
-labelMap['min-al2023-aarch64'] = 'min-al2023-aarch64'
+labelMap['min-al2023-aarch64'] = 'min-al2023-aarch64 docker-32gb-aarch64'
 
 labelMap['ramdisk-centos-6-x64'] = 'ramdisk-centos-6-x64'
 labelMap['ramdisk-centos-7-x64'] = 'ramdisk-centos-7-x64'

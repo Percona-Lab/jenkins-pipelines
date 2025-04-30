@@ -12,8 +12,9 @@ pipeline {
         buildDiscarder(logRotator(artifactNumToKeepStr: '20'))
     }
     environment {
-        IMAGE_REGISTRY = "public.ecr.aws/e7j3v3n0"
-        DOCKER_TAG = "rpmbuild:3"
+        ECR_REGISTRY = "public.ecr.aws/e7j3v3n0"
+        DOCKERHUB_REGISTRY = "docker.io"
+        IMAGE_NAME = "rpmbuild:3"
     }
     stages {
         stage('Prepare') {
@@ -45,7 +46,16 @@ pipeline {
                     credentialsId: 'ECRRWUser',
                     secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
-                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin ${IMAGE_REGISTRY}
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin ${ECR_REGISTRY}
+                    '''
+                }
+            }
+        }
+        stage('Login to Dockerhub') {
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh '''
+                        echo "${PASS}" | docker login -u "${USER}" --password-stdin ${DOCKERHUB_REGISTRY}
                     '''
                 }
             }
@@ -54,7 +64,10 @@ pipeline {
             steps {
                 sh '''
                     cd build/docker/rpmbuild/
-                    docker buildx build --pull --platform linux/amd64,linux/arm64 --tag ${IMAGE_REGISTRY}/${DOCKER_TAG} -f Dockerfile.el9 --push .
+                    docker buildx build --pull --platform linux/amd64,linux/arm64 \
+                      --tag ${ECR_REGISTRY}/${IMAGE_NAME} \
+                      --tag ${DOCKERHUB_REGISTRY}/perconalab/${IMAGE_NAME} \
+                      -f Dockerfile.el9 --push .
                 '''
             }
         }
