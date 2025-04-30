@@ -13,7 +13,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./pg_generate_sbom.sh --pg_version=${PG_VERSION} --repo_type=${REPO_TYPE}"
+            bash -x ./pg_generate_sbom.sh --pg_version=${PG_VERSION} --repo_type=${REPO_TYPE} ${STAGE_PARAM}"
     """
 }
 
@@ -106,7 +106,7 @@ pipeline {
                                         cat uploadPath-${PG_VERSION}
                                 """
                                 stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
-                                buildStage("oraclelinux:8")
+                                buildStage("oraclelinux:8", "")
                                 pushArtifactFolder(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH)
                                 uploadPGSBOMfromAWS(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH, "json", "${PG_VERSION}")
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
@@ -127,7 +127,7 @@ pipeline {
                                         cat uploadPath-${PG_VERSION}
                                 """
                                 stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
-                                buildStage("oraclelinux:8")
+                                buildStage("oraclelinux:8", "")
                                 pushArtifactFolder(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH)
                                 uploadPGSBOMfromAWS(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH, "json", "${PG_VERSION}")
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
@@ -148,7 +148,7 @@ pipeline {
                                         cat uploadPath-${PG_VERSION}
                                 """
                                 stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
-                                buildStage("oraclelinux:9")
+                                buildStage("oraclelinux:9", "")
                                 pushArtifactFolder(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH)
                                 uploadPGSBOMfromAWS(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH, "json", "${PG_VERSION}")
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
@@ -169,7 +169,7 @@ pipeline {
                                         cat uploadPath-${PG_VERSION}
                                 """
                                 stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
-                                buildStage("oraclelinux:9")
+                                buildStage("oraclelinux:9", "")
                                 pushArtifactFolder(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH)
                                 uploadPGSBOMfromAWS(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH, "json", "${PG_VERSION}")
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
@@ -190,7 +190,7 @@ pipeline {
                                         cat uploadPath-${PG_VERSION}
                                 """
                                 stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
-                                buildStage("ubuntu:focal")
+                                buildStage("ubuntu:focal", "")
                                 pushArtifactFolder(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH)
                                 uploadPGSBOMfromAWS(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH, "json", "${PG_VERSION}")
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
@@ -211,7 +211,7 @@ pipeline {
                                         cat uploadPath-${PG_VERSION}
                                 """
                                 stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
-                                buildStage("ubuntu:focal")
+                                buildStage("ubuntu:focal", "")
                                 pushArtifactFolder(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH)
                                 uploadPGSBOMfromAWS(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH, "json", "${PG_VERSION}")
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
@@ -232,7 +232,7 @@ pipeline {
                                         cat uploadPath-${PG_VERSION}
                                 """
                                 stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
-                                buildStage("ubuntu:jammy")
+                                buildStage("ubuntu:jammy", "")
                                 pushArtifactFolder(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH)
                                 uploadPGSBOMfromAWS(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH, "json", "${PG_VERSION}")
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
@@ -253,7 +253,7 @@ pipeline {
                                         cat uploadPath-${PG_VERSION}
                                 """
                                 stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
-                                buildStage("ubuntu:jammy")
+                                buildStage("ubuntu:jammy", "")
                                 pushArtifactFolder(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH)
                                 uploadPGSBOMfromAWS(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH, "json", "${PG_VERSION}")
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
@@ -274,7 +274,7 @@ pipeline {
                                         cat uploadPath-${PG_VERSION}
                                 """
                                 stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
-                                buildStage("ubuntu:noble")
+                                buildStage("ubuntu:noble", "")
                                 pushArtifactFolder(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH)
                                 uploadPGSBOMfromAWS(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH, "json", "${PG_VERSION}")
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
@@ -295,7 +295,7 @@ pipeline {
                                         cat uploadPath-${PG_VERSION}
                                 """
                                 stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
-                                buildStage("ubuntu:noble")
+                                buildStage("ubuntu:noble", "")
                                 pushArtifactFolder(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH)
                                 uploadPGSBOMfromAWS(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH, "json", "${PG_VERSION}")
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
@@ -316,7 +316,7 @@ pipeline {
                                         cat uploadPath-${PG_VERSION}
                                 """
                                 stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
-                                buildStage("debian:bullseye")
+                                buildStage("debian:bullseye", "")
                                 pushArtifactFolder(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH)
                                 uploadPGSBOMfromAWS(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH, "json", "${PG_VERSION}")
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
@@ -337,7 +337,7 @@ pipeline {
                                         cat uploadPath-${PG_VERSION}
                                 """
                                 stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
-                                buildStage("debian:bullseye")
+                                buildStage("debian:bullseye", "")
                                 pushArtifactFolder(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH)
                                 uploadPGSBOMfromAWS(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH, "json", "${PG_VERSION}")
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
@@ -358,7 +358,7 @@ pipeline {
                                         cat uploadPath-${PG_VERSION}
                                 """
                                 stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
-                                buildStage("debian:bookworm")
+                                buildStage("debian:bookworm", "")
                                 pushArtifactFolder(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH)
                                 uploadPGSBOMfromAWS(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH, "json", "${PG_VERSION}")
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
@@ -379,7 +379,7 @@ pipeline {
                                         cat uploadPath-${PG_VERSION}
                                 """
                                 stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
-                                buildStage("debian:bookworm")
+                                buildStage("debian:bookworm", "")
                                 pushArtifactFolder(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH)
                                 uploadPGSBOMfromAWS(params.CLOUD, "pg_sbom-${PG_VERSION}/", AWS_STASH_PATH, "json", "${PG_VERSION}")
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
