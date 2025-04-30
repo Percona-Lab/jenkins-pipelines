@@ -25,7 +25,7 @@ pipeline {
     }
     stages {
         stage('Integration Tests') {
-            agent { label 'docker-32gb' }
+            agent { label LABEL }
             steps {
                 git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
                 echo 'Run Orchestrator integration tests'
