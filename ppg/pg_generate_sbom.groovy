@@ -100,7 +100,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
                                 sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                         cat uploadPath-${PG_VERSION}
@@ -121,7 +121,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
                                 sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                         cat uploadPath-${PG_VERSION}
@@ -142,7 +142,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
                                 sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                         cat uploadPath-${PG_VERSION}
@@ -163,7 +163,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
                                 sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                         cat uploadPath-${PG_VERSION}
@@ -184,7 +184,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
                                 sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                         cat uploadPath-${PG_VERSION}
@@ -205,7 +205,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
                                 sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                         cat uploadPath-${PG_VERSION}
@@ -226,7 +226,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
                                 sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                         cat uploadPath-${PG_VERSION}
@@ -247,7 +247,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
                                 sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                         cat uploadPath-${PG_VERSION}
@@ -268,7 +268,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
                                 sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                         cat uploadPath-${PG_VERSION}
@@ -289,7 +289,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
                                 sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                         cat uploadPath-${PG_VERSION}
@@ -310,7 +310,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
                                 sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                         cat uploadPath-${PG_VERSION}
@@ -331,7 +331,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
                                 sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                         cat uploadPath-${PG_VERSION}
@@ -352,7 +352,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
                                 sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                         cat uploadPath-${PG_VERSION}
@@ -373,7 +373,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${DESTINATION}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
                                 sh """
                                         echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
                                         cat uploadPath-${PG_VERSION}
