@@ -74,7 +74,7 @@ pipeline {
             steps {
                 script{
                     try {
-                        moleculeExecuteActionWithScenario(moleculeDir, "create", ${params.OPERATING_SYSTEM})
+                        moleculeExecuteActionWithScenario(moleculeDir, "create", params.OPERATING_SYSTEM)
                     } catch (e) {
                         echo "Create stage failed"
                         stageFailed = true
@@ -87,7 +87,7 @@ pipeline {
             steps {
                 script{
                     try {
-                        moleculeExecuteActionWithScenario(moleculeDir, "prepare", ${params.OPERATING_SYSTEM})
+                        moleculeExecuteActionWithScenario(moleculeDir, "prepare", params.OPERATING_SYSTEM)
                     } catch (e) {
                         echo "Prepare stage failed"
                         stageFailed = true
@@ -101,7 +101,7 @@ pipeline {
                 withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'), file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML'), string(credentialsId: 'GITHUB_API_TOKEN', variable: 'MONGO_REPO_TOKEN')]) {
                     script{
                         try {
-                            moleculeExecuteActionWithScenario(moleculeDir, "converge", ${params.OPERATING_SYSTEM})
+                            moleculeExecuteActionWithScenario(moleculeDir, "converge", params.OPERATING_SYSTEM)
                         } catch (e) {
                             echo "Converge stage failed"
                             stageFailed = true
@@ -114,7 +114,7 @@ pipeline {
         stage ('Run tests') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "verify", ${params.OPERATING_SYSTEM})
+                    moleculeExecuteActionWithScenario(moleculeDir, "verify", params.OPERATING_SYSTEM)
                 }
             }
         }
@@ -124,7 +124,7 @@ pipeline {
             script {
                 if (params.DESTROY || stageFailed) {
                     echo "Destroying AWS instances because DESTROY=true or build failed"
-                    moleculeExecuteActionWithScenario(moleculeDir, "destroy", ${params.OPERATING_SYSTEM})
+                    moleculeExecuteActionWithScenario(moleculeDir, "destroy", params.OPERATING_SYSTEM)
                 } else {
                     echo "Skipping destroy because DESTROY variable is false and build succeeded"
                     echo "########################################################### NOTE ##########################################################\n" +
