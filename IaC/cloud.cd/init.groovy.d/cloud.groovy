@@ -26,28 +26,33 @@ imageMap['eu-west-1a.docker'] = 'ami-05247819264504af0'
 imageMap['eu-west-1a.docker-32gb'] = 'ami-05247819264504af0'
 imageMap['eu-west-1a.docker2'] = 'ami-05247819264504af0'
 imageMap['eu-west-1a.micro-amazon'] = 'ami-05247819264504af0'
+imageMap['eu-west-1a.docker-32gb-aarch64'] = 'ami-0b3f5005d71118f36'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
 imageMap['eu-west-1b.docker2'] = imageMap['eu-west-1a.docker2']
 imageMap['eu-west-1b.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
+imageMap['eu-west-1b.docker-32gb-aarch64'] = imageMap['eu-west-1a.docker-32gb-aarch64']
 
 imageMap['eu-west-1c.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1c.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
 imageMap['eu-west-1c.docker2'] = imageMap['eu-west-1a.docker2']
 imageMap['eu-west-1c.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
+imageMap['eu-west-1b.docker-32gb-aarch64'] = imageMap['eu-west-1a.docker-32gb-aarch64']
 
 priceMap = [:]
-priceMap['t2.small'] = '0.02'     // type=t2.small, vCPU=1, memory=2GiB, saving=64%, interruption='<5%', price=0.009200
-priceMap['c5.xlarge'] = '0.15'    // type=c5.xlarge, vCPU=4, memory=8GiB, saving=52%, interruption='<5%', price=0.096000
-priceMap['m5n.2xlarge'] = '0.33' // type=m5n.2xlarge, vCPU=8, memory=32GiB, saving=59%, interruption='<5%', price=0.254900
-priceMap['r7a.4xlarge'] = '0.60'  // type=r7a.4xlarge, vCPU=16, memory=128GiB, saving=67%, interruption='<5%', price=0.532900
+priceMap['t2.small'] = '0.02'      // type=t2.small, vCPU=1, memory=2GiB, saving=64%, interruption='<5%', price=0.009200
+priceMap['c5.xlarge'] = '0.15'     // type=c5.xlarge, vCPU=4, memory=8GiB, saving=52%, interruption='<5%', price=0.096000
+priceMap['m5n.2xlarge'] = '0.33'   // type=m5n.2xlarge, vCPU=8, memory=32GiB, saving=59%, interruption='<5%', price=0.254900
+priceMap['r7a.4xlarge'] = '0.60'   // type=r7a.4xlarge, vCPU=16, memory=128GiB, saving=67%, interruption='<5%', price=0.532900
+priceMap['c6g.4xlarge'] = '0.35'     // aarch64 type=c6g.4xlarge, vCPU=16, memory=32GiB, saving=54%, interruption='<5%', price=0.280900
 
 userMap = [:]
 userMap['docker'] = 'ec2-user'
 userMap['docker-32gb'] = userMap['docker']
 userMap['docker2'] = userMap['docker']
 userMap['micro-amazon'] = userMap['docker']
+userMap['docker-32gb-aarch64'] = userMap['docker']
 
 initMap = [:]
 initMap['docker'] = '''
@@ -79,7 +84,7 @@ initMap['docker'] = '''
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
 
-        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "/tmp/awscliv2.zip"; do
             sleep 1
             echo try again
         done
@@ -207,21 +212,25 @@ initMap['micro-amazon'] = '''
     sudo yum -y install git aws-cli || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
+initMap['docker-32gb-aarch64'] = initMap['docker']
 
 capMap = [:]
 capMap['c5.xlarge'] = '40'
 capMap['m5n.2xlarge'] = '40'
 capMap['r7a.4xlarge'] = '40'
+capMap['c6g.4xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 't2.small'
 typeMap['docker'] = 'c5.xlarge'
 typeMap['docker-32gb'] = 'm5n.2xlarge'
 typeMap['docker2'] = 'r7a.4xlarge'
+typeMap['docker-32gb-aarch64'] = 'c6g.4xlarge'
 
 execMap = [:]
 execMap['docker'] = '1'
 execMap['docker-32gb'] = execMap['docker']
+execMap['docker-32gb-aarch64'] = execMap['docker']
 execMap['docker2'] = execMap['docker']
 execMap['micro-amazon'] = '30'
 
@@ -229,11 +238,13 @@ devMap = [:]
 devMap['docker'] = '/dev/xvda=:15:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker2'] = '/dev/xvda=:15:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb'] = devMap['docker']
+devMap['docker-32gb-aarch64'] = devMap['docker']
 devMap['micro-amazon'] = devMap['docker']
 
 labelMap = [:]
 labelMap['docker'] = ''
 labelMap['docker-32gb'] = ''
+labelMap['docker-32gb-aarch64'] = 'docker-32gb-aarch64'
 labelMap['docker2'] = 'docker-32gb'
 labelMap['micro-amazon'] = 'master'
 
@@ -305,9 +316,10 @@ String region = 'eu-west-1'
         sshKeysCredentialsId,                   // String sshKeysCredentialsId
         '240',                                   // String instanceCapStr
         [
-            getTemplate('docker',           "${region}${it}"),
-            getTemplate('docker-32gb',      "${region}${it}"),
-            getTemplate('micro-amazon',     "${region}${it}"),
+            getTemplate('docker',              "${region}${it}"),
+            getTemplate('docker-32gb',         "${region}${it}"),
+            getTemplate('micro-amazon',        "${region}${it}"),
+            getTemplate('docker-32gb-aarch64', "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
