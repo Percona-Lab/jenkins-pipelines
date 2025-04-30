@@ -203,7 +203,7 @@ pipeline {
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         string(
-            defaultValue: 'PMM-13873-add-support-qa-framework-ps-84',
+            defaultValue: 'v3',
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         string(
