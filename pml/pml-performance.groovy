@@ -118,20 +118,24 @@ pipeline {
                     moleculeExecuteActionWithScenario(moleculeDir, "verify", params.OPERATING_SYSTEM)
                     withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN')]) {
                         sh """
+                            cat <<EOF > testcycle.json
+                            {
+                              "name": "${JOB_NAME}-${BUILD_NUMBER}",
+                              "customFields": {
+                                "Mongo Link branch": "${PML_BRANCH}",
+                                "Instance Type": "${params.INSTANCE_TYPE}",
+                                "Operating System": "${params.OPERATING_SYSTEM}",
+                                "PSMDB Version": "${params.PSMDB_VERSION}",
+                                "Datasize": "${params.DATASIZE}",
+                                "Number of Collections": "${params.COLLECTIONS}"
+                              }
+                            }
+                            EOF
+                            
                             curl -H "Content-Type:multipart/form-data" \\
                                  -H "Authorization: Bearer ${ZEPHYR_TOKEN}" \\
                                  -F "file=@report.xml;type=application/xml" \\
-                                 --form-string "testCycle={
-                                     \\"name\\": \\"${JOB_NAME}-${BUILD_NUMBER}\\",
-                                     \\"customFields\\": {
-                                         \\"Mongo Link branch\\": \\"${PML_BRANCH}\\",
-                                         \\"Instance Type\\": \\"${params.INSTANCE_TYPE}\\",
-                                         \\"Operating System\\": \\"${params.OPERATING_SYSTEM}\\",
-                                         \\"PSMDB Version\\": \\"${params.PSMDB_VERSION}\\",
-                                         \\"Datasize\\": \\"${params.DATASIZE}\\",
-                                         \\"Number of Collections\\": \\"${params.COLLECTIONS}\\"
-                                     }
-                                 }" \\
+                                 -F "testCycle=@testcycle.json;type=application/json" \\
                                  'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' \\
                                  -i || true
                         """
