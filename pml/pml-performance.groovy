@@ -21,13 +21,14 @@ pipeline {
         string(name: 'DATASIZE',description: 'The max size of the data in mb. This is distributed over the amount of collections stated',defaultValue: '10')
         string(name: 'COLLECTIONS', description: 'The number of collections',defaultValue: '5')
         booleanParam(name: 'RANDOM_DISTRIBUTE_DATA', defaultValue: false, description: 'Randomly distribute data throughout Collections')
-        string(name: 'PML_USE_COLLECTION_BULK_WRITE',description: 'Determines whether to use the Collection Bulk Write API',defaultValue: '1')
-        string(name: 'PML_CLONE_NUM_PARALLEL_COLLECTIONS',description: 'The number of collections cloned in parallel during the clone process',defaultValue: '0')
-        string(name: 'PML_CLONE_NUM_READ_WORKERS',description: 'The number of read workers used during the clone',defaultValue: '0')
-        string(name: 'PML_CLONE_NUM_INSERT_WORKERS',description: 'The number of insert workers used during the clone',defaultValue: '0')
-        string(name: 'PML_CLONE_SEGMENT_SIZE',description: 'The segment size in bytes used during the clone',defaultValue: '0')
-        string(name: 'PML_CLONE_READ_BATCH_SIZE',description: 'The read batch size in bytes used during the clone',defaultValue: '0')
-        string(name: 'PML_DEV_TARGET_CLIENT_COMPRESSORS',description: 'The read batch size in bytes used during the clone')
+        string(name: 'EXTRA_VARS', description: 'Any extra Environment Variables for Mongolink',defaultValue: '')
+//        string(name: 'PML_USE_COLLECTION_BULK_WRITE',description: 'Determines whether to use the Collection Bulk Write API',defaultValue: '1')
+//        string(name: 'PML_CLONE_NUM_PARALLEL_COLLECTIONS',description: 'The number of collections cloned in parallel during the clone process',defaultValue: '0')
+//        string(name: 'PML_CLONE_NUM_READ_WORKERS',description: 'The number of read workers used during the clone',defaultValue: '0')
+//        string(name: 'PML_CLONE_NUM_INSERT_WORKERS',description: 'The number of insert workers used during the clone',defaultValue: '0')
+//        string(name: 'PML_CLONE_SEGMENT_SIZE',description: 'The segment size in bytes used during the clone',defaultValue: '0')
+//        string(name: 'PML_CLONE_READ_BATCH_SIZE',description: 'The read batch size in bytes used during the clone',defaultValue: '0')
+//        string(name: 'PML_DEV_TARGET_CLIENT_COMPRESSORS',description: 'The read batch size in bytes used during the clone')
         string(name: 'TIMEOUT',description: 'Timeout for the job',defaultValue: '3600')
         string(name: 'SSH_USER',description: 'User for debugging',defaultValue: 'none')
         string(name: 'SSH_PUBKEY',description: 'User ssh public key for debugging',defaultValue: 'none')
@@ -116,21 +117,24 @@ pipeline {
                 script{
                     moleculeExecuteActionWithScenario(moleculeDir, "verify", params.OPERATING_SYSTEM)
                     withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN')]) {
-                    sh """
-                       curl -H "Content-Type:multipart/form-data" \\
-                         -H "Authorization: Bearer ${ZEPHYR_TOKEN}" \\
-                         -F "file=@report.xml;type=application/xml" \\
-                         -F 'testCycle={"name":"'"${JOB_NAME}-${BUILD_NUMBER}"'","customFields": {
-                             "Mongo Link branch": "'"${PML_BRANCH}"'",
-                             "Instance\\u0020Type": "'"${params.INSTANCE_TYPE}"'",
-                             "Operating System": "'"${params.OPERATING_SYSTEM}"'",
-                             "PSMDB Version": "'"${params.PSMDB_VERSION}"'",
-                             "Datasize": "'"${params.DATASIZE}"'",
-                             "Number of Collections": "'"${params.COLLECTIONS}"'"
-                         }};type=application/json' \\
-                         'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' \\
-                         -i || true
-                    """
+                        sh """
+                        curl -H "Content-Type:multipart/form-data" \\
+                             -H "Authorization: Bearer ${ZEPHYR_TOKEN}" \\
+                             -F "file=@report.xml;type=application/xml" \\
+                             --form-string 'testCycle={
+                                 "name": "${JOB_NAME}-${BUILD_NUMBER}",
+                                 "customFields": {
+                                     "Mongo Link branch": "${PML_BRANCH}",
+                                     "Instance Type": "${params.INSTANCE_TYPE}",
+                                     "Operating System": "${params.OPERATING_SYSTEM}",
+                                     "PSMDB Version": "${params.PSMDB_VERSION}",
+                                     "Datasize": "${params.DATASIZE}",
+                                     "Number of Collections": "${params.COLLECTIONS}"
+                                 }
+                             }' \\
+                             'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' \\
+                             -i || true
+                        """
                     }
                 }
             }
