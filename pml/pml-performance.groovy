@@ -103,37 +103,7 @@ pipeline {
                 script{
                     moleculeExecuteActionWithScenario(moleculeDir, "verify", params.OPERATING_SYSTEM)
                     withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN')]) {
-                        sh '''
-                        REPORT_FILE=$(find . -name report.xml | head -n1)
-                    
-                        cat <<EOF > testcycle.json
-                        {
-                          "name": "'${JOB_NAME}-${BUILD_NUMBER}'",
-                          "customFields": {
-                            "Mongo Link branch": "'${PML_BRANCH}'",
-                            "Instance Type": "'${params.INSTANCE_TYPE}'",
-                            "Operating System": "'${params.OPERATING_SYSTEM}'",
-                            "PSMDB Version": "'${params.PSMDB_VERSION}'",
-                            "Datasize": "'${params.DATASIZE}'",
-                            "Number of Collections": "'${params.COLLECTIONS}'"
-                          }
-                        }
-                        EOF
-                        
-                        if [ ! -f "$REPORT_FILE" ]; then
-                          echo "report.xml not found. Skipping Zephyr upload."
-                          exit 0
-                        fi
-                        
-                        echo "Uploading $REPORT_FILE to Zephyr Scale..."
-                        
-                        curl -H "Content-Type:multipart/form-data" \
-                             -H "Authorization: Bearer $ZEPHYR_TOKEN" \
-                             -F "file=@$REPORT_FILE;type=application/xml" \
-                             -F "testCycle=@testcycle.json;type=application/json" \
-                             'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' \
-                             -i || true
-                      '''
+                        sh 'REPORT_FILE=$(find . -name report.xml | head -n1) && echo "{ \\"name\\": \\"${JOB_NAME}-${BUILD_NUMBER}\\", \\"customFields\\": { \\"Mongo Link branch\\": \\"${PML_BRANCH}\\", \\"Instance Type\\": \\"${INSTANCE_TYPE}\\", \\"Operating System\\": \\"${OPERATING_SYSTEM}\\", \\"PSMDB Version\\": \\"${PSMDB_VERSION}\\", \\"Datasize\\": \\"${DATASIZE}\\", \\"Number of Collections\\": \\"${COLLECTIONS}\\" } }" > testcycle.json && [ -f "$REPORT_FILE" ] || { echo "report.xml not found. Skipping Zephyr upload."; exit 0; } && echo "Uploading $REPORT_FILE to Zephyr Scale..." && curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer $ZEPHYR_TOKEN" -F "file=@$REPORT_FILE;type=application/xml" -F "testCycle=@testcycle.json;type=application/json" "https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML" -i || true'
                     }
                 }
             }
