@@ -117,7 +117,19 @@ pipeline {
                     moleculeExecuteActionWithScenario(moleculeDir, "verify", params.OPERATING_SYSTEM)
                     withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN')]) {
                     sh """
-                       curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@report.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "Mongo_Link_branch": "${PML_BRANCH}","Instance_Type": "${params.INSTANCE_TYPE}", "Operating_System": "${params.OPERATING_SYSTEM}", "PSMDB_Version": "${params.PSMDB_VERSION}", "Datasize": "${params.DATASIZE}", "Number_of_Collections": "${params.COLLECTIONS}"}};type=application/json' -i || true
+                       curl -H "Content-Type:multipart/form-data" \\
+                         -H "Authorization: Bearer ${ZEPHYR_TOKEN}" \\
+                         -F "file=@report.xml;type=application/xml" \\
+                         -F 'testCycle={"name":"'"${JOB_NAME}-${BUILD_NUMBER}"'","customFields": {
+                             "Mongo Link branch": "'"${PML_BRANCH}"'",
+                             "Instance\\u0020Type": "'"${params.INSTANCE_TYPE}"'",
+                             "Operating System": "'"${params.OPERATING_SYSTEM}"'",
+                             "PSMDB Version": "'"${params.PSMDB_VERSION}"'",
+                             "Datasize": "'"${params.DATASIZE}"'",
+                             "Number of Collections": "'"${params.COLLECTIONS}"'"
+                         }};type=application/json' \\
+                         'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' \\
+                         -i || true
                     """
                     }
                 }
