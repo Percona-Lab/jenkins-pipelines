@@ -17,7 +17,7 @@ pipeline {
         string(name: 'PSMDB_VERSION',description: 'Version of PSMDB you want to test',defaultValue: '7.0.16')
         string(name: 'TESTING_BRANCH',description: 'Branch for testing repository',defaultValue: 'main')
         string(name: 'GO_VERSION',description: 'Version of Golang used',defaultValue: '1.24.1')
-        choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['t2.micro','i3.large','i3en.large','i3.xlarge','i3en.xlarge'])
+        choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['t2.micro','i3.large','i3en.large','i3.xlarge','i3en.xlarge', 'i3en.24xlarge'])
         string(name: 'DATASIZE',description: 'The max size of the data in mb. This is distributed over the amount of collections stated',defaultValue: '10')
         string(name: 'COLLECTIONS', description: 'The number of collections',defaultValue: '5')
         booleanParam(name: 'RANDOM_DISTRIBUTE_DATA', defaultValue: false, description: 'Randomly distribute data throughout Collections')
