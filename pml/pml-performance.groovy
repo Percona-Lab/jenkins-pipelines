@@ -104,6 +104,8 @@ pipeline {
                     moleculeExecuteActionWithScenario(moleculeDir, "verify", params.OPERATING_SYSTEM)
                     withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN')]) {
                         sh """
+                            REPORT_FILE=\\\$(find . -name report.xml | head -n1)
+                            
                             cat <<EOF > testcycle.json
                             {
                               "name": "${JOB_NAME}-${BUILD_NUMBER}",
@@ -120,7 +122,7 @@ pipeline {
                             
                             curl -H "Content-Type:multipart/form-data" \\
                                  -H "Authorization: Bearer ${ZEPHYR_TOKEN}" \\
-                                 -F "file=@report.xml;type=application/xml" \\
+                                 -F "file=@\$REPORT_FILE;type=application/xml" \\
                                  -F "testCycle=@testcycle.json;type=application/json" \\
                                  'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML' \\
                                  -i || true

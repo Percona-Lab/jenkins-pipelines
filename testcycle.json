@@ -1,0 +1,11 @@
+{
+  "name": "Test-1234",
+  "customFields": {
+    "Mongo Link branch": "Test",
+    "Instance Type": "Test",
+    "Operating System": "Test",
+    "PSMDB Version": "Test",
+    "Datasize": "Test",
+    "Number of Collections": "Test"
+  }
+}
