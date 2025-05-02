@@ -21,7 +21,7 @@ pipeline {
         string(name: 'DATASIZE',description: 'The max size of the data in mb. This is distributed over the amount of collections stated',defaultValue: '10')
         string(name: 'COLLECTIONS', description: 'The number of collections',defaultValue: '5')
         booleanParam(name: 'RANDOM_DISTRIBUTE_DATA', defaultValue: false, description: 'Randomly distribute data throughout Collections')
-        string(name: 'EXTRA_VARS', description: 'Any extra Environment Variables for Mongolink (e.g. PML_CLONE_NUM_INSERT_WORKERS: 0, PML_CLONE_NUM_PARALLEL_COLLECTIONS: 0. Make sure to seperate using commas)',defaultValue: '')
+        string(name: 'EXTRA_VARS', description: 'Any extra Environment Variables for Mongolink (e.g. PML_CLONE_NUM_INSERT_WORKERS: 0, PML_CLONE_NUM_PARALLEL_COLLECTIONS: 0. Make sure to separate using commas)',defaultValue: '')
         string(name: 'TIMEOUT',description: 'Timeout for the data replication',defaultValue: '3600')
         string(name: 'SSH_USER',description: 'User for debugging',defaultValue: 'none')
         string(name: 'SSH_PUBKEY',description: 'User ssh public key for debugging',defaultValue: 'none')
