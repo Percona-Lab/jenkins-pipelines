@@ -22,7 +22,7 @@ pipeline {
         string(name: 'COLLECTIONS', description: 'The number of collections',defaultValue: '5')
         booleanParam(name: 'RANDOM_DISTRIBUTE_DATA', defaultValue: false, description: 'Randomly distribute data throughout Collections')
         string(name: 'EXTRA_VARS', description: 'Any extra Environment Variables for Mongolink (e.g. PML_CLONE_NUM_INSERT_WORKERS: 0, PML_CLONE_NUM_PARALLEL_COLLECTIONS: 0. Make sure to seperate using commas)',defaultValue: '')
-        string(name: 'TIMEOUT',description: 'Timeout for the job',defaultValue: '3600')
+        string(name: 'TIMEOUT',description: 'Timeout for the data replication',defaultValue: '3600')
         string(name: 'SSH_USER',description: 'User for debugging',defaultValue: 'none')
         string(name: 'SSH_PUBKEY',description: 'User ssh public key for debugging',defaultValue: 'none')
         booleanParam(name: 'DESTROY', defaultValue: true, description: 'Automatically destroys environment upon finishing tests, leave unchecked if you do not want to delete instances.')
