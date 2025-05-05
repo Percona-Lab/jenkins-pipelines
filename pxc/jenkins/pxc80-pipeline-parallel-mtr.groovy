@@ -616,7 +616,7 @@ pipeline {
                 expression { env.BUILD_NUMBER_BINARIES == '' }
             }
             parallel {
-                stage('Build PXC80') {
+                stage('Build PXC') {
                     agent { label LABEL }
                     steps {
                         script {

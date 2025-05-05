@@ -2,7 +2,8 @@
     name: pxc-8.x-pipeline-parallel-mtr
     project-type: pipeline
     description: |
-        Do not edit this job through the web!
+        Do not edit this job through the web!<br>
+        Use this job to build and test versions > 8.0
     concurrent: true
     pipeline-scm:
       scm:
@@ -24,7 +25,7 @@
         description: URL to PXC repository
     - string:
         name: BRANCH
-        default: "trunk"
+        default: "8.4"
         description: Tag/PR/Branch for PXC repository
     - string:
         name: CUSTOM_BUILD_NAME

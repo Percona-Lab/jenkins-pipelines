@@ -28,7 +28,7 @@
         description: URL to PXC repository
     - string:
         name: BRANCH
-        default: "trunk"
+        default: "8.4"
         description: Tag/PR/Branch for PXC repository
     - string:
         name: CUSTOM_BUILD_NAME
