@@ -10,6 +10,7 @@
 #      MTR_SUITES
 #      MTR_STANDALONE_TESTS
 #      MTR_STANDALONE_TESTS_PARALLEL
+#      MTR_STANDALONE_TESTS_TESTCASE_TIMEOUT
 #      DOCKER_OS
 #      ANALYZER_OPTS = (-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_MSAN=ON -DWITH_UBSAN=ON -DWITH_VALGRIND=ON)
 #      CI_FS_MTR
@@ -93,7 +94,7 @@ function executeOneSuite() {
     if [[ -z ${suite} ]]; then
         return
     fi
-    
+
     execute "${suite}" "${parallel}" "${extraOptions}" "${suite}${extraSuffix}"
 }
 
@@ -115,7 +116,7 @@ function executeSuites() {
     # 'worker' holds the name of the file with results.
     # As we call this function several times, avoid overriding the file.
     EXECUTION_GROUP_NO=$((EXECUTION_GROUP_NO+1))
-    
+
     execute "${suite}" "${parallel}" "${extraOptions}" "${EXECUTION_GROUP_NO}"
 }
 
@@ -373,7 +374,7 @@ fi
 
 
 # # For replication suites, use less workers. Let's say 3 cpus per worker...
-# RPL_PARALLEL_RUN=$((PARALLEL/3))        
+# RPL_PARALLEL_RUN=$((PARALLEL/3))
 # # ...but not less than GALERA_PARALLEL_RUN (to have it still configurable via Jenkins UI)
 # if [[ ${RPL_PARALLEL_RUN} -lt ${GALERA_PARALLEL_RUN} ]]; then
 #   RPL_PARALLEL_RUN=${GALERA_PARALLEL_RUN}
@@ -569,7 +570,8 @@ fi
 #
 # standalone tests
 if [[ -n "${MTR_STANDALONE_TESTS}" ]]; then
-    echo "Running standalone tests"
+    MTR_STANDALONE_TESTS_TESTCASE_TIMEOUT=${MTR_STANDALONE_TESTS_TESTCASE_TIMEOUT:-$TESTCASE_TIMEOUT}
+    echo "Running standalone tests with tescase-timeout: $MTR_STANDALONE_TESTS_TESTCASE_TIMEOUT"
     MTR_ARGS+=" --big-test"
     suiteNoSlash="standalone_tests"
 
@@ -587,7 +589,7 @@ if [[ -n "${MTR_STANDALONE_TESTS}" ]]; then
         --max-test-fail=0 \
         --suite-timeout=9999 --parallel=${MTR_STANDALONE_TESTS_PARALLEL} \
         --port-group-size=20 \
-        --testcase-timeout=${TESTCASE_TIMEOUT} \
+        --testcase-timeout=${MTR_STANDALONE_TESTS_TESTCASE_TIMEOUT} \
         ${MTR_ARGS} \
         --junit-output=${WORKDIR_ABS}/junit_${suiteNoSlash}.xml \
         --junit-package="${DOCKER_OS}.${CMAKE_BUILD_TYPE}.${suiteNoSlash}" ${MTR_STANDALONE_TESTS} | tee -a ${LOG_FILE} || true

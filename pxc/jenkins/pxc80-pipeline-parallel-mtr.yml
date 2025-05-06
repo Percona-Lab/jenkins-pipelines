@@ -176,6 +176,22 @@
         default: 1
         description: "MTR workers count for standalone tests"
     - bool:
+        name: ENABLE_LONG_TESTS_WORKER
+        default: true
+        description: Enable execution of the Long Tests worker
+    - string:
+        name: MTR_LONG_TESTS
+        default: main.mysql_upgrade_grant innodb.tinytext-groupby main.dd_schema_definition_after_upgrade_80_debug component_encryption_udf.dh_4096_ext percona_innodb.xtradb_compressed_columns_consistency innodb_fts.sync galera_3nodes.galera_parallel_autoinc_manytrx2 group_replication.gr_autorejoin_while_applier_locked group_replication.gr_concurrent_ticket_pop_with_channel_2 group_replication.gr_lower_case_table_names_different innodb.ddl_crash_alter_table_partition galera.galera_kill_connection innodb.log_upgrade
+        description: "Space-separated test names that are known to be long (usually error with timeout)."
+    - string:
+        name: MTR_LONG_TESTS_PARALLEL
+        default: 4
+        description: "MTR workers count for long tests"
+    - string:
+        name: MTR_LONG_TESTS_TESTCASE_TIMEOUT
+        default: 120
+        description: "MTR timeout for long test"
+    - bool:
         name: ALLOW_ABORTED_WORKERS_RERUN
         default: true
         description: "Rerun aborted workers"

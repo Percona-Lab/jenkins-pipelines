@@ -5,7 +5,7 @@ AWS_CREDENTIALS_ID = 'c42456e5-c28d-4962-b32c-b75d161bff27'
 MAX_S3_RETRIES = 12
 S3_ROOT_DIR = 's3://pxc-build-cache'
 // boolean default is false, 1st item unused.
-WORKER_ABORTED = new boolean[9]
+WORKER_ABORTED = new boolean[10]
 BUILD_NUMBER_BINARIES_FOR_RERUN = 0
 BUILD_TRIGGER_BY = ''
 JOB_TO_REBUILD = 'pxc-8.x-pipeline-parallel-mtr'
@@ -180,7 +180,7 @@ void prepareWorkspace() {
     }
 }
 
-void doTests(String WORKER_ID, String SUITES, String STANDALONE_TESTS = '', boolean UNIT_TESTS = false, boolean CIFS_TESTS = false) {
+void doTests(String WORKER_ID, String SUITES, String STANDALONE_TESTS = '', String STANDALONE_TESTS_TESTCASE_TIMEOUT = '', String STANDALONE_TESTS_PARALLEL = '', boolean UNIT_TESTS = false, boolean CIFS_TESTS = false, String MTR_ARGS_EXTRA = '') {
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: AWS_CREDENTIALS_ID, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """#!/bin/bash
             echo "Starting MTR worker ${WORKER_ID}"
@@ -206,7 +206,11 @@ void doTests(String WORKER_ID, String SUITES, String STANDALONE_TESTS = '', bool
                 CI_FS_MTR=yes
             fi
 
-            MTR_STANDALONE_TESTS="${STANDALONE_TESTS}"
+            MTR_ARGS="${MTR_ARGS} ${MTR_ARGS_EXTRA}"
+
+            export MTR_STANDALONE_TESTS="${STANDALONE_TESTS}"
+            export MTR_STANDALONE_TESTS_TESTCASE_TIMEOUT="${STANDALONE_TESTS_TESTCASE_TIMEOUT}"
+            export MTR_STANDALONE_TESTS_PARALLEL="${STANDALONE_TESTS_PARALLEL}"
             export MTR_SUITES="${SUITES}"
 
             aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
@@ -251,7 +255,7 @@ void analyzeMtrLog(String logFile) {
     }
 }
 
-void doTestWorkerJob(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS = '', boolean UNIT_TESTS = false, boolean CIFS_TESTS = false) {
+void doTestWorkerJob(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS = '', String STANDALONE_TESTS_TESTCASE_TIMEOUT = '', String STANDALONE_TESTS_PARALLEL = '', boolean UNIT_TESTS = false, boolean CIFS_TESTS = false, String MTR_ARGS_EXTRA = '') {
     timeout(time: PIPELINE_TIMEOUT, unit: 'HOURS')  {
         script {
             echo "JENKINS_SCRIPTS_BRANCH: ${JENKINS_SCRIPTS_BRANCH}"
@@ -262,7 +266,7 @@ void doTestWorkerJob(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS =
         script {
             prepareWorkspace()
             downloadFilesForTests()
-            doTests(WORKER_ID.toString(), SUITES, STANDALONE_TESTS, UNIT_TESTS, CIFS_TESTS)
+            doTests(WORKER_ID.toString(), SUITES, STANDALONE_TESTS, STANDALONE_TESTS_TESTCASE_TIMEOUT, STANDALONE_TESTS_PARALLEL, UNIT_TESTS, CIFS_TESTS, MTR_ARGS_EXTRA)
             analyzeMtrLog("pxc/sources/pxc/results/mtr-test-w_${WORKER_ID}.log")
         }
         step([$class: 'JUnitResultArchiver', testResults: 'pxc/sources/pxc/results/*.xml', healthScaleFactor: 1.0])
@@ -270,13 +274,13 @@ void doTestWorkerJob(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS =
     }
 }
 
-void doTestWorkerJobWithGuard(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS = '', boolean UNIT_TESTS = false, boolean CIFS_TESTS = false) {
+void doTestWorkerJobWithGuard(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS = '', String STANDALONE_TESTS_TESTCASE_TIMEOUT = '', String STANDALONE_TESTS_PARALLEL = '', boolean UNIT_TESTS = false, boolean CIFS_TESTS = false, String MTR_ARGS_EXTRA = '') {
     catchError(buildResult: 'UNSTABLE') {
         script {
             WORKER_ABORTED[WORKER_ID] = true
             echo "WORKER_${WORKER_ID.toString()}_ABORTED = true"
         }
-        doTestWorkerJob(WORKER_ID, SUITES, STANDALONE_TESTS, UNIT_TESTS, CIFS_TESTS)
+        doTestWorkerJob(WORKER_ID, SUITES, STANDALONE_TESTS, STANDALONE_TESTS_TESTCASE_TIMEOUT, STANDALONE_TESTS_PARALLEL, UNIT_TESTS, CIFS_TESTS, MTR_ARGS_EXTRA)
         script {
             WORKER_ABORTED[WORKER_ID] = false
             echo "WORKER_${WORKER_ID.toString()}_ABORTED = false"
@@ -445,6 +449,7 @@ void triggerAbortedTestWorkersRerun() {
             echo "WORKER_6_ABORTED: ${WORKER_ABORTED[6]}"
             echo "WORKER_7_ABORTED: ${WORKER_ABORTED[7]}"
             echo "WORKER_8_ABORTED: ${WORKER_ABORTED[8]}"
+            echo "WORKER_9_ABORTED: ${WORKER_ABORTED[9]}"
             def rerunNeeded = false
             def WORKER_1_RERUN_SUITES = ""
             def WORKER_2_RERUN_SUITES = ""
@@ -454,6 +459,8 @@ void triggerAbortedTestWorkersRerun() {
             def WORKER_6_RERUN_SUITES = ""
             def WORKER_7_RERUN_SUITES = ""
             def WORKER_8_RERUN_SUITES = ""
+            def WORKER_9_RERUN_SUITES = ""
+            def ENABLE_LONG_TESTS_WORKER_RERUN = false
 
             if (WORKER_ABORTED[1]) {
                 echo "rerun worker 1"
@@ -498,6 +505,11 @@ void triggerAbortedTestWorkersRerun() {
                 WORKER_8_RERUN_SUITES = env.WORKER_8_MTR_SUITES
                 rerunNeeded = true
             }
+            if (WORKER_ABORTED[9]) {
+                echo "rerun worker 9"
+                rerunNeeded = true
+                ENABLE_LONG_TESTS_WORKER_RERUN = true
+            }
 
             echo "rerun needed: $rerunNeeded"
             if (rerunNeeded) {
@@ -536,6 +548,10 @@ void triggerAbortedTestWorkersRerun() {
                     string(name:'WORKER_8_MTR_SUITES', value: WORKER_8_RERUN_SUITES),
                     string(name:'MTR_STANDALONE_TESTS', value: MTR_STANDALONE_TESTS),
                     string(name:'MTR_STANDALONE_TESTS_PARALLEL', value: MTR_STANDALONE_TESTS_PARALLEL),
+                    booleanParam(name:'ENABLE_LONG_TESTS_WORKER', value: ENABLE_LONG_TESTS_WORKER_RERUN),
+                    string(name:'MTR_LONG_TESTS', value: MTR_LONG_TESTS),
+                    string(name:'MTR_LONG_TESTS_TESTCASE_TIMEOUT', value: MTR_LONG_TESTS_TESTCASE_TIMEOUT),
+                    string(name:'MTR_LONG_TESTS_PARALLEL', value: MTR_LONG_TESTS_PARALLEL),
                     booleanParam(name: 'ALLOW_ABORTED_WORKERS_RERUN', value: false),
                     string(name:'CUSTOM_BUILD_NAME', value: "${BUILD_TRIGGER_BY} ${env.CUSTOM_BUILD_NAME} (${BUILD_NUMBER} retry)")
                 ]
@@ -655,7 +671,7 @@ pipeline {
                     }
                     agent { label LABEL }
                     steps {
-                        doTestWorkerJobWithGuard(1, "${WORKER_1_MTR_SUITES}", "${MTR_STANDALONE_TESTS}", true, env.CI_FS_MTR?.trim() == 'yes')
+                        doTestWorkerJobWithGuard(1, "${WORKER_1_MTR_SUITES}", "${MTR_STANDALONE_TESTS}", "", "${MTR_STANDALONE_TESTS_PARALLEL}", true, env.CI_FS_MTR?.trim() == 'yes')
                     }
                 }
                 stage('Test - 2') {
@@ -726,6 +742,16 @@ pipeline {
                     agent { label LABEL }
                     steps {
                         doTestWorkerJobWithGuard(8, "${WORKER_8_MTR_SUITES}")
+                    }
+                }
+                stage('Test - Long') {
+                    when {
+                        beforeAgent true
+                        expression { (env.ENABLE_LONG_TESTS_WORKER == 'true' && env.MTR_LONG_TESTS?.trim() )}
+                    }
+                    agent { label LABEL }
+                    steps {
+                        doTestWorkerJobWithGuard(9, "", "${MTR_LONG_TESTS}", "${MTR_LONG_TESTS_TESTCASE_TIMEOUT}", "${MTR_LONG_TESTS_PARALLEL}", false, false, "--retry=0 --retry-failure=0")
                     }
                 }
             }
