@@ -191,7 +191,7 @@ pipeline {
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
-            choices: 'laboratory\ntesting\nexperimental',
+            choices: 'testing\nlaboratory\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }

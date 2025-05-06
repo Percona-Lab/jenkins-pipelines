@@ -182,6 +182,10 @@ pipeline {
             defaultValue: '1',
             description: 'RPM release value',
             name: 'RPM_RELEASE')
+        choice(
+            choices: 'testing\nlaboratory\nexperimental',
+            description: 'Repo component to push packages to',
+            name: 'COMPONENT')
     }
     options {
         skipDefaultCheckout()
