@@ -182,18 +182,6 @@ pipeline {
             defaultValue: '1',
             description: 'RPM release value',
             name: 'RPM_RELEASE')
-        string(
-            defaultValue: '1',
-            description: 'DEB release value',
-            name: 'DEB_RELEASE')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Enable fipsmode',
-            name: 'FIPSMODE')
-        choice(
-            choices: 'laboratory\ntesting\nexperimental',
-            description: 'Repo component to push packages to',
-            name: 'COMPONENT')
     }
     options {
         skipDefaultCheckout()
@@ -211,8 +199,6 @@ pipeline {
                         echo "The step is skipped"
                     } else {
                         echo "====> Build docker containers"
-                        cleanUpWS()
-                        unstash 'uploadPath'
                         sh '''
                             sudo apt-get -y install apparmor
                             sudo aa-status
