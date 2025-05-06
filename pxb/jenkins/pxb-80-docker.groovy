@@ -212,9 +212,6 @@ pipeline {
                     } else {
                         echo "====> Build docker containers"
                         cleanUpWS()
-                        sh '''
-                            sleep 1200
-                        '''
                         unstash 'uploadPath'
                         sh '''
                             sudo apt-get -y install apparmor
