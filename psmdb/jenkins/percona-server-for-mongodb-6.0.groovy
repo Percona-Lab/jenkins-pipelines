@@ -872,7 +872,7 @@ pipeline {
                         PBM_RELEASE=\$(cd percona-backup-mongodb && git branch -r | grep release | sed 's|origin/||' | sort --version-sort | tail -1)
                         echo \$PBM_RELEASE
                         """).trim()
-                    build job: 'pbm-functional-tests', propagate: false, wait: false, parameters: [string(name: 'PBM_BRANCH', value: pbm_branch ), string(name: 'PSMDB', value: psmdb_image ), string(name: 'TESTING_BRANCH', value: "pbm-${pbm_branch}")]
+                    build job: 'hetzner-pbm-functional-tests', propagate: false, wait: false, parameters: [string(name: 'PBM_BRANCH', value: pbm_branch ), string(name: 'PSMDB', value: psmdb_image ), string(name: 'TESTING_BRANCH', value: "pbm-${pbm_branch}")]
                 }
             }
         }

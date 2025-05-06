@@ -1,5 +1,5 @@
 - job:
-    name: hetzner-pbm-docker-arm
+    name: hetzner-pg_generate_sbom
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,5 @@
             - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pbm/pbm-docker-arm.groovy
+      script-path: ppg/pg_generate_sbom.groovy
+
