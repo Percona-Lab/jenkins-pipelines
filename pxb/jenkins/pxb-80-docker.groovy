@@ -222,6 +222,7 @@ pipeline {
                             . ./XB_VERSION
                             curl -O https://raw.githubusercontent.com/percona/percona-server/refs/heads/${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}/MYSQL_VERSION
                             . ./MYSQL_VERSION
+                            rm -rf percona-docker
                             git clone https://github.com/percona/percona-docker
                             if [ \${MYSQL_VERSION_MINOR} = "0" ]; then
                                 cd percona-docker/percona-xtrabackup-8.0
