@@ -109,28 +109,28 @@ pipeline {
     stage ('Create virtual machines') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "create", env.PLATFORM)
             }
         }
     }
     stage ('Run playbook for test') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "converge", env.PLATFORM)
             }
         }
     }
     stage ('Start testinfra tests') {
       steps {
             script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "verify", env.PLATFORM)
             }
         }
     }
       stage ('Start Cleanup ') {
         steps {
              script {
-               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
+               moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
             }
         }
     }
@@ -139,7 +139,7 @@ pipeline {
     always {
           script {
             if (env.DESTROY_ENV == "yes") {
-                moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
             }
         }
     }
