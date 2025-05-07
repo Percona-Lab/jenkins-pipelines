@@ -5,102 +5,10 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 
 import groovy.transform.Field
 
-void buildStage(String DOCKER_OS, String STAGE_PARAM) {
-    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
-      sh """
-          set -o xtrace
-          mkdir test
-          if [ \${FIPSMODE} = "YES" ]; then
-              MYSQL_VERSION_MINOR=\$(curl -s -O \$(echo \${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/\${BRANCH}/MYSQL_VERSION && grep MYSQL_VERSION_MINOR MYSQL_VERSION | awk -F= '{print \$2}')
-              if [ \${MYSQL_VERSION_MINOR} = "0" ]; then
-                  PRO_BRANCH="8.0"
-              elif [ \${MYSQL_VERSION_MINOR} = "4" ]; then
-                  PRO_BRANCH="8.4"
-              else
-                  PRO_BRANCH="trunk"
-              fi
-              curl -L -H "Authorization: Bearer \${TOKEN}" \
-                      -H "Accept: application/vnd.github.v3.raw" \
-                      -o percona-xtrabackup-8.0_builder.sh \
-                      "https://api.github.com/repos/percona/percona-xtrabackup-private-build/contents/percona-xtrabackup-8.0_builder.sh?ref=\${PRO_BRANCH}"
-          else
-              wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/storage/innobase/xtrabackup/utils/percona-xtrabackup-8.0_builder.sh -O percona-xtrabackup-8.0_builder.sh
-          fi
-          pwd -P
-          export build_dir=\$(pwd -P)
-          docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
-              set -o xtrace
-              cd \${build_dir}
-              bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --install_deps=1
-              if [ \${FIPSMODE} = "YES" ]; then
-                  git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/percona-xtrabackup-private-build.git percona-xtrabackup-private-build
-                  mv -f \${build_dir}/percona-xtrabackup-private-build \${build_dir}/test/.
-                  ls \${build_dir}/test
-              fi
-              bash -x ./percona-xtrabackup-8.0_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
-      """
-    }
-}
-
 void cleanUpWS() {
     sh """
         sudo rm -rf ./*
     """
-}
-
-def AWS_STASH_PATH
-
-def installDependencies(def nodeName) {
-    def aptNodes = ['min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64']
-    def yumNodes = ['min-ol-8-x64', 'min-centos-7-x64', 'min-ol-9-x64', 'min-amazon-2-x64']
-    try{
-        if (aptNodes.contains(nodeName)) {
-            if(nodeName == "min-bullseye-x64" || nodeName == "min-bookworm-x64"){            
-                sh '''
-                    sudo apt-get update
-                    sudo apt-get install -y ansible git wget
-                '''
-            }else if(nodeName == "min-focal-x64" || nodeName == "min-jammy-x64"){
-                sh '''
-                    sudo apt-get update
-                    sudo apt-get install -y software-properties-common
-                    sudo apt-add-repository --yes --update ppa:ansible/ansible
-                    sudo apt-get install -y ansible git wget
-                '''
-            }else {
-                error "Node Not Listed in APT"
-            }
-        } else if (yumNodes.contains(nodeName)) {
-
-            if(nodeName == "min-centos-7-x64" || nodeName == "min-ol-9-x64"){            
-                sh '''
-                    sudo yum install -y epel-release
-                    sudo yum -y update
-                    sudo yum install -y ansible git wget tar
-                '''
-            }else if(nodeName == "min-ol-8-x64"){
-                sh '''
-                    sudo yum install -y epel-release
-                    sudo yum -y update
-                    sudo yum install -y ansible-2.9.27 git wget tar
-                '''
-            }else if(nodeName == "min-amazon-2-x64"){
-                sh '''
-                    sudo amazon-linux-extras install epel
-                    sudo yum -y update
-                    sudo yum install -y ansible git wget
-                '''
-            }
-            else {
-                error "Node Not Listed in YUM"
-            }
-        } else {
-            echo "Unexpected node name: ${nodeName}"
-        }
-    } catch (Exception e) {
-        slackNotify( "#FF0000", "[${JOB_NAME}]: Server Provision for Mini Package Testing for ${nodeName} at ${BRANCH}  FAILED !!")
-    }
-
 }
 
 def runPlaybook(def nodeName) {
@@ -199,9 +107,6 @@ pipeline {
             }
             steps {
                 script {
-                    if (env.FIPSMODE == 'YES') {
-                        echo "The step is skipped"
-                    } else {
                         echo "====> Build docker containers"
                         sh '''
                             sudo apt-get -y install apparmor
@@ -271,7 +176,6 @@ pipeline {
                                 sudo docker buildx imagetools create -t perconalab/percona-xtrabackup:latest perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}
                             '''
                            }
-                    } // if
                 } // scripts
             } // steps
         } // stage
