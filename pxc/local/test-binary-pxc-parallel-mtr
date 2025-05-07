@@ -21,6 +21,13 @@ set -o xtrace
 # Execution mode. If suites should be executed one by one, or all together
 EXECUTE_SUITES_ONE_BY_ONE=1
 
+# Some galera tests if failed, leave socat hanging. It consumes 100% CPU and blocks ports.
+# If there are any mysqld hanging, kill them as well
+function kill_socat_and_mysqld() {
+    # It may happen that pid found by grep disappears in the meantime, so ||:
+    pgrep -f socat | xargs -r kill -9 2>/dev/null || true
+    pgrep -f mysqld | xargs -r kill -9 2>/dev/null || true
+}
 
 function execute() {
     local suites=$1
@@ -65,7 +72,8 @@ function execute() {
     which rsync
     rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${worker} $PWD/mtr_var
 
-    killall -9 mysqld || true
+    kill_socat_and_mysqld
+
     rm -rf $PWD/var_${worker}
 
     df -h
@@ -90,7 +98,7 @@ function executeOneSuite() {
     if [[ -z ${suite} ]]; then
         return
     fi
-    
+
     execute "${suite}" "${parallel}" "${extraOptions}" "${suite}${extraSuffix}"
 }
 
@@ -112,7 +120,7 @@ function executeSuites() {
     # 'worker' holds the name of the file with results.
     # As we call this function several times, avoid overriding the file.
     EXECUTION_GROUP_NO=$((EXECUTION_GROUP_NO+1))
-    
+
     execute "${suite}" "${parallel}" "${extraOptions}" "${EXECUTION_GROUP_NO}"
 }
 
@@ -370,7 +378,8 @@ if [[ $UNIT_TESTS == "1" ]]; then
     ln -s $PWD/var $PWD/var_${suiteNoSlash}
     rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
 
-    killall -9 mysqld || true
+    kill_socat_and_mysqld
+
     rm -rf $PWD/var_${suiteNoSlash}
 
     df -h
@@ -383,7 +392,7 @@ fi
 
 
 # # For replication suites, use less workers. Let's say 3 cpus per worker...
-# RPL_PARALLEL_RUN=$((PARALLEL/3))        
+# RPL_PARALLEL_RUN=$((PARALLEL/3))
 # # ...but not less than GALERA_PARALLEL_RUN (to have it still configurable via Jenkins UI)
 # if [[ ${RPL_PARALLEL_RUN} -lt ${GALERA_PARALLEL_RUN} ]]; then
 #   RPL_PARALLEL_RUN=${GALERA_PARALLEL_RUN}
@@ -571,6 +580,8 @@ if [[ "${CI_FS_MTR}" = 'yes' ]]; then
 
     rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/ci_disk_dir $PWD/mtr_var
 
+    kill_socat_and_mysqld
+
     end=`date +%s`
     runtime=$((end-start))
     echo KH,SUITE_TOTAL,CI_FS_tests,time,$runtime
@@ -605,7 +616,8 @@ if [[ -n "${MTR_STANDALONE_TESTS}" ]]; then
     ln -s $PWD/var $PWD/var_${suiteNoSlash}
     rsync -a -L --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' $PWD/var_${suiteNoSlash} $PWD/mtr_var
 
-    killall -9 mysqld || true
+    kill_socat_and_mysqld
+
     rm -rf $PWD/var_${suiteNoSlash}
 
     df -h
