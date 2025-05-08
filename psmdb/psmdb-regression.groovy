@@ -1,11 +1,11 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@hetzner", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
 pipeline {
     agent {
-        label 'master'
+        label 'launcher-x64'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
@@ -22,7 +22,7 @@ pipeline {
         string(name: 'parallelexecutors', defaultValue: '1', description: 'Number of parallel executors')
         string(name: 'testsuites', defaultValue: 'core,unittests,dbtest', description: 'Comma-separated list of testuites')
         string(name: 'listsuites', defaultValue: '', description: 'URL with list of testuites')
-        choice(name: 'instance', choices: ['docker-64gb','docker-64gb-aarch64'], description: 'Ec2 instance type for running suites')
+        choice(name: 'instance', choices: ['docker-x64','docker-aarch64'], description: 'Hetzner instance type for running suites')
         string(name: 'paralleljobs', defaultValue: '4', description: 'Number of parallel jobs passed to resmoke.py')
         booleanParam(name: 'unittests',defaultValue: true, description: 'Check if list of suites contains unittests')
         booleanParam(name: 'integrationtests',defaultValue: false, description: 'Check if list of suites contains integration tests')
