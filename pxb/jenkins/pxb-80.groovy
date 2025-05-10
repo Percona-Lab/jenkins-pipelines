@@ -772,7 +772,6 @@ pipeline {
                     if (env.FIPSMODE == 'YES') {
                         echo "The step is skipped"
                     } else {
-                script {
                         echo "====> Build docker containers"
                         cleanUpWS()
                         sh '''
