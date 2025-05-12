@@ -4,7 +4,7 @@ import hudson.model.*
 import jenkins.model.Jenkins
 import java.util.logging.Logger
 
-def cloudName = "ps57-htz"
+def cloudName = "ps3-htz"
 
 imageMap = [:]                          // ID          TYPE     NAME                 DESCRIPTION          ARCHITECTURE   IMAGE SIZE   DISK SIZE   CREATED                         DEPRECATED
 imageMap['deb12-x64']     = '114690387' // 114690387   system   debian-12            Debian 12            x86            -            5 GB        Tue Jun 13 09:00:02 EEST 2023   -
