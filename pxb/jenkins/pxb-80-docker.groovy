@@ -11,34 +11,6 @@ void cleanUpWS() {
     """
 }
 
-def runPlaybook(def nodeName) {
-
-    try {
-        def playbook = "pxb_innovation_lts.yml"
-        def playbook_path = "package-testing/playbooks/${playbook}"
-
-        sh '''
-            set -xe
-            git clone --depth 1 -b master https://github.com/Percona-QA/package-testing
-        '''
-        sh """
-            set -xe
-            export install_repo="\${install_repo}"
-            export client_to_test="ps80"
-            export check_warning="\${check_warnings}"
-            export install_mysql_shell="\${install_mysql_shell}"
-            ansible-playbook \
-            --connection=local \
-            --inventory 127.0.0.1, \
-            --limit 127.0.0.1 \
-            ${playbook_path}
-        """
-    } catch (Exception e) {
-        slackNotify( "#FF0000", "[${JOB_NAME}]: Mini Package Testing for ${nodeName} at ${BRANCH}  FAILED !!!")
-        mini_test_error="True"
-    }
-}
-
 def minitestNodes = [  "min-bullseye-x64",
                        "min-bookworm-x64",
                        "min-centos-7-x64",
@@ -46,28 +18,6 @@ def minitestNodes = [  "min-bullseye-x64",
                        "min-focal-x64",
                        "min-jammy-x64",
                        "min-ol-9-x64"     ]
-
-def package_tests_pxb(def nodes) {
-    def stepsForParallel = [:]
-    for (int i = 0; i < nodes.size(); i++) {
-        def nodeName = nodes[i]
-        stepsForParallel[nodeName] = {
-            stage("Minitest run on ${nodeName}") {
-                node(nodeName) {
-                        installDependencies(nodeName)
-                        runPlaybook(nodeName)
-                }
-            }
-        }
-    }
-    parallel stepsForParallel
-}
-
-@Field def mini_test_error = "False"
-def product_to_test = "pxb_innovation_lts"
-def install_repo = "testing"
-def git_repo = "https://github.com/Percona-QA/package-testing.git"
-
 
 pipeline {
     agent {
@@ -191,21 +141,24 @@ stage('Check by Trivy') {
             try {
                 // 🔹 Fetch XtraBackup Version
                 echo "🔄 Fetching XtraBackup version..."
-                sh 'curl -O https://raw.githubusercontent.com/percona/percona-xtrabackup/${BRANCH}/XB_VERSION'
-                
-                // ✅ Source the version file
-                def xbVersion = readFile('XB_VERSION').trim()
-                def versionMatcher = xbVersion =~ /(\d+)\.(\d+)\.(\d+)(.*)/
+                sh '''
+                    curl -O https://raw.githubusercontent.com/percona/percona-xtrabackup/${BRANCH}/XB_VERSION
+                    cat XB_VERSION
+                '''
 
-                if (!versionMatcher) {
-                    error "❌ Failed to parse XtraBackup version from XB_VERSION file."
+                // ✅ Source the version file to get variables
+                def versionContent = readFile('XB_VERSION')
+                def versionEnv = versionContent.readLines().collectEntries { 
+                    def (key, value) = it.split('=')*.trim()
+                    [(key): value]
                 }
 
-                def XB_VERSION_MAJOR = versionMatcher[0][1]
-                def XB_VERSION_MINOR = versionMatcher[0][2]
-                def XB_VERSION_PATCH = versionMatcher[0][3]
-                def XB_VERSION_EXTRA = versionMatcher[0][4]
-
+                // 🔹 Extract version components
+                def XB_VERSION_MAJOR = versionEnv['XB_VERSION_MAJOR']
+                def XB_VERSION_MINOR = versionEnv['XB_VERSION_MINOR']
+                def XB_VERSION_PATCH = versionEnv['XB_VERSION_PATCH']
+                def XB_VERSION_EXTRA = versionEnv['XB_VERSION_EXTRA']
+                
                 // 🔹 Install Trivy if not already installed
                 sh '''
                     if ! command -v trivy &> /dev/null; then
