@@ -22,17 +22,17 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '17.0-multi',
+            defaultValue: '17.5',
             description: 'TAG of the docker to test. For example, 16, 16.1, 16.1-multi.',
             name: 'DOCKER_TAG'
         )
         string(
-            defaultValue: '17.0',
+            defaultValue: '17.5',
             description: 'Docker PG version to test, including both major and minor version. For example, 15.4.',
             name: 'SERVER_VERSION'
         )
         string(
-            defaultValue: 'main',
+            defaultValue: 'Q2-2025',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
@@ -81,14 +81,14 @@ pipeline {
     stage ('Create virtual machines') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "create", env.PLATFORM)
             }
         }
     }
     stage ('Run playbook for test') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "converge", env.PLATFORM)
             }
         }
     }
@@ -97,7 +97,7 @@ pipeline {
     always {
           script {
              if (env.DESTROY_ENV == "yes") {
-                        moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                        moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
                     }
         }
     }

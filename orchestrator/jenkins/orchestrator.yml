@@ -15,7 +15,7 @@
         description: Tag/Branch for the Orchestrator repository
     - string:
         name: PS_TARBALL
-        default: "https://downloads.percona.com/downloads/Percona-Server-8.0/Percona-Server-8.0.30-22/binary/tarball/Percona-Server-8.0.30-22-Linux.x86_64.glibc2.17-minimal.tar.gz"
+        default: "https://downloads.percona.com/downloads/Percona-Server-8.0/Percona-Server-8.0.41-32/binary/tarball/Percona-Server-8.0.41-32-Linux.x86_64.glibc2.31-minimal.tar.gz"
         description: PS tarball to be used for testing
     - string:
         name: CI_ENV_GIT_REPO
@@ -25,6 +25,12 @@
         name: CI_ENV_BRANCH
         default: "master"
         description: Tag/Branch for the Orchestrator CI repository
+    - choice:
+        name: CLOUD
+        choices: 
+          - "Hetzner"
+          - "AWS"
+        description: "Host provider for Jenkins workers"          
     pipeline-scm:
       scm:
         - git:

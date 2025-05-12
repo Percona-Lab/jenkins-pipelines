@@ -9,7 +9,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PMM_DATA_RETENTION=48h -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PMM_DATA_RETENTION=48h -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
@@ -58,7 +58,7 @@ void runAMIStagingStart(String AMI_ID) {
 }
 
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION,
-PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION , QUERY_SOURCE, ADMIN_PASSWORD = "admin") {
+PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION , QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -78,6 +78,7 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
         string(name: 'PSMDB_VERSION', value: PSMDB_VERSION),
         string(name: 'MODB_VERSION', value: MODB_VERSION),
         string(name: 'QUERY_SOURCE', value: QUERY_SOURCE),
+        string(name: 'PMM_QA_GIT_BRANCH', value: QA_INTEGRATION_GIT_BRANCH),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
     ]
     if ( NODE_TYPE == 'mysql-node' ) {
@@ -95,9 +96,10 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
     else if ( NODE_TYPE == 'postgres-node' ) {
         env.VM_CLIENT_IP_PGSQL = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_PGSQL = stagingJob.buildVariables.VM_NAME
-    }
-    else
-    {
+    } else if ( NODE_TYPE == 'external-node' ) {
+        env.VM_CLIENT_IP_EXTERNAL = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_EXTERNAL = stagingJob.buildVariables.VM_NAME
+    } else {
         env.VM_CLIENT_IP_MONGO = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_MONGO = stagingJob.buildVariables.VM_NAME
     }
@@ -204,17 +206,21 @@ pipeline {
         string(
             defaultValue: 'v3',
             description: 'Tag/Branch for qa-integration repository',
+            name: 'QA_INTEGRATION_GIT_BRANCH')
+        string(
+            defaultValue: 'v3',
+            description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ['8.0','5.7'],
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         choice(
-            choices: ['8.0', '5.7', '5.7.30', '5.6'],
+            choices: ['8.4', '8.0', '5.7', '5.7.30', '5.6'],
             description: "Percona Server for MySQL version",
             name: 'PS_VERSION')
         choice(
-            choices: ['8.0', '5.7', '5.6'],
+            choices: ['8.0', '8.4', '5.7', '5.6'],
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
@@ -256,7 +262,7 @@ pipeline {
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh '''
                     sudo mkdir -p /srv/qa-integration || :
-                    sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
+                    sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
                     sudo chmod -R 755 /srv/qa-integration
 
                 '''
@@ -269,7 +275,7 @@ pipeline {
                         expression { env.SERVER_TYPE == "docker" }
                     }
                     steps {
-                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--database external --database haproxy', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('Setup OVF Server Instance') {
@@ -299,24 +305,29 @@ pipeline {
         }
         stage('Setup PMM Clients') {
             parallel {
+                stage('external client') {
+                    steps {
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database external --database haproxy', 'yes', env.VM_IP, 'external-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                    }
+                }
                 stage('ps-group-replication client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=gr', 'yes', env.VM_IP, 'ps-gr-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=gr', 'yes', env.VM_IP, 'ps-gr-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('ps-replication and pxc') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=replica --database pxc', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=replica --database pxc', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('ps single and mongo pss') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps --database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps --database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('pdpgsql, pgsql and mysql') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pdpgsql --database pgsql --database mysql', 'yes', env.VM_IP, 'postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pdpgsql --database pgsql --database mysql', 'yes', env.VM_IP, 'postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
             }
@@ -349,6 +360,11 @@ pipeline {
         }
         stage('Check agent status') {
             parallel {
+                stage('Check Agent Status on external node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_EXTERNAL, env.PMM_QA_GIT_BRANCH)
+                    }
+                }
                 stage('Check Agent Status on ps single and mongo pss') {
                     steps {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_MYSQL, env.PMM_QA_GIT_BRANCH)

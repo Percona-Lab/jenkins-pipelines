@@ -1,4 +1,3 @@
-region='eu-west-2'
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
@@ -182,7 +181,7 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
         sh """
             mkdir -p openshift/$CLUSTER_SUFFIX
             timestamp="\$(date +%s)"
@@ -219,7 +218,7 @@ networking:
   - 172.30.0.0/16
 platform:
   aws:
-    region: $region
+    region: ${AWS_REGION}
     userTags:
       iit-billing-tag: openshift
       delete-cluster-after-hours: 8
@@ -232,11 +231,18 @@ EOF
             cat $OPENSHIFT_CONF_FILE >> openshift/$CLUSTER_SUFFIX/install-config.yaml
         """
 
-        sshagent(['aws-openshift-41-key']) {
-            sh """
-                /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
-                export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
-            """
+        withEnv(["CLUSTER_SUFFIX=${CLUSTER_SUFFIX}"]) {
+            sshagent(['aws-openshift-41-key']) {
+                sh '''
+                    /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
+                    export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                    TMP=$(mktemp)
+                    oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > $TMP
+                    oc registry login --registry='docker.io' --auth-basic="$DOCKER_READ_USER:$DOCKER_READ_PASS" --to=$TMP
+                    oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=$TMP
+                    rm -rf $TMP
+                '''
+            }
         }
     }
 }
@@ -427,6 +433,10 @@ pipeline {
             defaultValue: '',
             description: 'PMM server image: perconalab/pmm-server:dev-latest',
             name: 'IMAGE_PMM_SERVER')
+        string(
+            defaultValue: 'eu-west-2',
+            description: 'AWS region to use for openshift cluster',
+            name: 'AWS_REGION')
     }
     agent {
         label 'docker'

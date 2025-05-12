@@ -5,10 +5,10 @@ set -o xtrace
 
 ROOT_DIR=$(cd $(dirname $0)/../sources; pwd -P)
 SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
-SOURCE_IMAGE=${1:-centos:7}
+SOURCE_IMAGE=${1:-centos:8}
 
 if [[ ${SOURCE_IMAGE} == 'asan' ]]; then
-    SOURCE_IMAGE='centos:7'
+    SOURCE_IMAGE='centos:8'
     ASAN_SWITCH=ON
 fi
 

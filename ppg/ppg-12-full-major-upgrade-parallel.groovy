@@ -103,7 +103,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(ppgOperatingSystems(), moleculeDir)
+              moleculeParallelPostDestroyPPG(ppgOperatingSystems(), moleculeDir)
          }
       }
    }

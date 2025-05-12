@@ -1,7 +1,15 @@
-location='eastus'
+location=params.AKS_LOCATION ?: getLocation(JOB_NAME)
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
+
+String getLocation(String job_name) {
+    if ("$job_name" == 'pgo-aks-1') {
+        return 'eastus'
+    } else {
+        return 'norwayeast'
+    }
+}
 
 String getParam(String paramName, String keyName = null) {
     keyName = keyName ?: paramName
@@ -342,6 +350,7 @@ pipeline {
         string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-pgbackrest')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
+        string(name: 'AKS_LOCATION', defaultValue: '', description: 'AKS location to use for cluster. By default "eastus" is for aks-1 job and "norwayeast" for aks-2')
     }
     agent {
         label 'docker'

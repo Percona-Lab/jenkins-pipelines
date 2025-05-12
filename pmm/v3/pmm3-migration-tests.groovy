@@ -56,7 +56,7 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository PMM V2',
             name: 'PMM_V2_UI_GIT_BRANCH')
         string(
-            defaultValue: latestVersion,
+            defaultValue: 'perconalab/pmm-server:' + latestVersion,
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_VERSION')
         string(
@@ -103,7 +103,7 @@ pipeline {
                 sh '''
                     docker network create pmm-qa || true
                     git checkout ${PMM_V2_UI_GIT_BRANCH}
-                    PWD=$(pwd) PMM_SERVER_IMAGE=percona/pmm-server:${DOCKER_VERSION} docker-compose up -d
+                    PWD=$(pwd) PMM_SERVER_IMAGE=${DOCKER_VERSION} docker-compose up -d
 
                 '''
                 waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
