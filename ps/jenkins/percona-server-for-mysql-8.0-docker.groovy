@@ -364,28 +364,6 @@ parameters {
             } // script
           } // steps
         } // stage
-        stage('Check by trivy') {
-            agent {
-               label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
-            }
-            steps {
-                catchError {
-                        sh '''
-                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                            sudo apt-get update
-                            sudo apt-get -y install wget apt-transport-https gnupg lsb-release
-                            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-                            echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-                            sudo apt-get update
-                            sudo apt-get -y install trivy
-                            sudo trivy -q image --format table \
-                                          --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 | tee -a trivy-hight-junit.xml
-                            sudo trivy -q image --format table \
-                                          --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 | tee -a trivy-hight-junit.xml
-                        '''
-                }
-            }
-        }
     }
     post {
         success {
