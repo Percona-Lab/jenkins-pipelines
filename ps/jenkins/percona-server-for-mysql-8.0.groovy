@@ -1137,7 +1137,7 @@ parameters {
         success {
             script {
                 if (env.FIPSMODE == 'YES') {
-                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO -> build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
                 } else {
                     slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
                 }
@@ -1213,7 +1213,13 @@ parameters {
             deleteDir()
         }
         failure {
-            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
+            script {
+                if (env.FIPSMODE == 'YES') {
+                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO -> build failed for ${BRANCH} - [${BUILD_URL}]")
+                } else {
+                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
+                }
+            }
             script {
                 currentBuild.description = "Built on ${BRANCH}"
             }
