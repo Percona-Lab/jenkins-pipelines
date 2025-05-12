@@ -25,7 +25,9 @@ execMap['deb12-x64-fsn1-min']     = execMap['deb']
 execMap['deb12-aarch64-nbg1-min'] = execMap['deb']
 execMap['deb12-aarch64-hel1-min'] = execMap['deb']
 execMap['deb12-aarch64-fsn1-min'] = execMap['deb']
-execMap['launcher-x64-fsn1']  = 10
+execMap['launcher-x64-nbg1']  = 30
+execMap['launcher-x64-hel1']  = 30
+execMap['launcher-x64-fsn1']  = 30
 
 bootDeadlineMap =[:]
 bootDeadlineMap['default']            = 3
@@ -41,6 +43,8 @@ bootDeadlineMap['deb12-x64-fsn1-min']     = bootDeadlineMap['default']
 bootDeadlineMap['deb12-aarch64-nbg1-min'] = bootDeadlineMap['default']
 bootDeadlineMap['deb12-aarch64-hel1-min'] = bootDeadlineMap['default']
 bootDeadlineMap['deb12-aarch64-fsn1-min'] = bootDeadlineMap['default']
+bootDeadlineMap['launcher-x64-nbg1']  = bootDeadlineMap['default']
+bootDeadlineMap['launcher-x64-hel1']  = bootDeadlineMap['default']
 bootDeadlineMap['launcher-x64-fsn1']  = bootDeadlineMap['default']
 
 jvmOptsMap = [:]
@@ -57,6 +61,8 @@ jvmOptsMap['deb12-x64-fsn1-min']     = jvmOptsMap['deb12']
 jvmOptsMap['deb12-aarch64-nbg1-min'] = jvmOptsMap['deb12']
 jvmOptsMap['deb12-aarch64-hel1-min'] = jvmOptsMap['deb12']
 jvmOptsMap['deb12-aarch64-fsn1-min'] = jvmOptsMap['deb12']
+jvmOptsMap['launcher-x64-nbg1']  = jvmOptsMap['deb12']
+jvmOptsMap['launcher-x64-hel1']  = jvmOptsMap['deb12']
 jvmOptsMap['launcher-x64-fsn1']  = jvmOptsMap['deb12']
 
 labelMap = [:]
@@ -135,6 +141,8 @@ initMap['deb12-x64-fsn1-min']     = initMap['deb-docker']
 initMap['deb12-aarch64-nbg1-min'] = initMap['deb-docker']
 initMap['deb12-aarch64-hel1-min'] = initMap['deb-docker']
 initMap['deb12-aarch64-fsn1-min'] = initMap['deb-docker']
+initMap['launcher-x64-nbg1']  = initMap['deb-docker']
+initMap['launcher-x64-hel1']  = initMap['deb-docker']
 initMap['launcher-x64-fsn1']  = initMap['deb-docker']
 
 def templates = [
@@ -152,6 +160,8 @@ def templates = [
         new HetznerServerTemplate("deb12-aarch64-hel1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "hel1", "cax41"),
         new HetznerServerTemplate("deb12-x64-fsn1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "fsn1", "cpx51"),
         new HetznerServerTemplate("deb12-aarch64-fsn1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "fsn1", "cax41"),
+        new HetznerServerTemplate("launcher-x64-nbg1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "nbg1", "cpx21"),
+        new HetznerServerTemplate("launcher-x64-hel1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "hel1", "cpx21"),
         new HetznerServerTemplate("launcher-x64-fsn1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "fsn1", "cpx21")
 ]
 
@@ -159,7 +169,6 @@ templates.each { it ->
                        def sshConnector = new SshConnectorAsRoot("htz.cd.key")
                        sshConnector.setConnectionMethod(new PublicAddressOnly())  // Replace with the desired method
                        it.setConnector(sshConnector)
-                       // it.setConnector(new SshConnectorAsRoot("hz.psmdb.cd"))
                        def tmplName = it.name
                        it.setNumExecutors(execMap[tmplName])
                        it.bootDeadline = bootDeadlineMap[tmplName]
