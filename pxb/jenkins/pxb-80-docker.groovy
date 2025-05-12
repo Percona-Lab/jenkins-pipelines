@@ -146,11 +146,13 @@ stage('Check by Trivy') {
                     cat XB_VERSION
                 '''
 
-                // ✅ Source the version file to get variables
-                def versionContent = readFile('XB_VERSION')
-                def versionEnv = versionContent.readLines().collectEntries { 
-                    def (key, value) = it.split('=')*.trim()
-                    [(key): value]
+                // ✅ Read the version file and parse it manually (CPS-compatible way)
+                def versionEnv = [:]
+                readFile('XB_VERSION').eachLine { line ->
+                    def parts = line.split('=')
+                    if (parts.length == 2) {
+                        versionEnv[parts[0].trim()] = parts[1].trim()
+                    }
                 }
 
                 // 🔹 Extract version components
