@@ -189,7 +189,7 @@ stage('Check by Trivy') {
                 imageList.each { image ->
                     echo "🔍 Scanning ${image}..."
                     def result = sh(script: """#!/bin/bash
-                        sudo trivy image --quiet \
+                        LANG=C.UTF-8 sudo trivy image --quiet \
                                          --format table \
                                          --timeout 10m0s \
                                          --ignore-unfixed \
