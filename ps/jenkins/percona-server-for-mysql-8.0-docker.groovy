@@ -208,6 +208,7 @@ parameters {
                             sudo qemu-system-x86_64 --version
                             sudo lscpu | grep -q 'sse4_2' && grep -q 'popcnt' /proc/cpuinfo && echo "Supports x86-64-v2" || echo "Does NOT support x86-64-v2"
                             sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+                            rm -rf percona-docker
                             git clone https://github.com/percona/percona-docker
                             cd percona-docker/percona-server-8.0
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
