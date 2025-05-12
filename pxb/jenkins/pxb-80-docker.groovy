@@ -148,7 +148,10 @@ stage('Check by Trivy') {
 
                 // ✅ Read the version file and parse it manually (CPS-compatible way)
                 def versionEnv = [:]
-                readFile('XB_VERSION').eachLine { line ->
+                def versionContent = readFile('XB_VERSION')
+                
+                // 🔹 Manually split lines and process them
+                versionContent.split("\n").each { line ->
                     def parts = line.split('=')
                     if (parts.length == 2) {
                         versionEnv[parts[0].trim()] = parts[1].trim()
