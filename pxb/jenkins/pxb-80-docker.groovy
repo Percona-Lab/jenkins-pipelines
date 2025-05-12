@@ -246,6 +246,9 @@ stage('Check by Trivy') {
             sh '''
                 sudo rm -rf ./*
             '''
+            script {
+                currentBuild.description = "Built on ${BRANCH}"
+            }
             deleteDir()
         }
     }
