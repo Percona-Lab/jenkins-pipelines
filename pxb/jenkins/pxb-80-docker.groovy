@@ -179,6 +179,85 @@ pipeline {
                 } // scripts
             } // steps
         } // stage
+stage('Check by Trivy') {
+    agent {
+       label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
+    }
+    environment {
+        TRIVY_LOG = "trivy-high-junit.xml"
+    }
+    steps {
+        script {
+            try {
+                // 🔹 Fetch XtraBackup Version
+                echo "🔄 Fetching XtraBackup version..."
+                sh 'curl -O https://raw.githubusercontent.com/percona/percona-xtrabackup/${BRANCH}/XB_VERSION'
+                
+                // ✅ Source the version file
+                def xbVersion = readFile('XB_VERSION').trim()
+                def versionMatcher = xbVersion =~ /(\d+)\.(\d+)\.(\d+)(.*)/
+
+                if (!versionMatcher) {
+                    error "❌ Failed to parse XtraBackup version from XB_VERSION file."
+                }
+
+                def XB_VERSION_MAJOR = versionMatcher[0][1]
+                def XB_VERSION_MINOR = versionMatcher[0][2]
+                def XB_VERSION_PATCH = versionMatcher[0][3]
+                def XB_VERSION_EXTRA = versionMatcher[0][4]
+
+                // 🔹 Install Trivy if not already installed
+                sh '''
+                    if ! command -v trivy &> /dev/null; then
+                        echo "🔄 Installing Trivy..."
+                        sudo apt-get update
+                        sudo apt-get -y install wget apt-transport-https gnupg lsb-release
+                        wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+                        echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+                        sudo apt-get update
+                        sudo apt-get -y install trivy
+                    else
+                        echo "✅ Trivy is already installed."
+                    fi
+                '''
+
+                // 🔹 Define the image tags
+                def imageList = [
+                    "perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}-amd64",
+                    "perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}-arm64"
+                ]
+
+                // 🔹 Scan images and store logs
+                imageList.each { image ->
+                    echo "🔍 Scanning ${image}..."
+                    def result = sh(script: """#!/bin/bash
+                        sudo trivy image --quiet \
+                                         --format table \
+                                         --timeout 10m0s \
+                                         --ignore-unfixed \
+                                         --exit-code 1 \
+                                         --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
+                    """, returnStatus: true)
+
+                    if (result != 0) {
+                        error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                    } else {
+                        echo "✅ No critical vulnerabilities found in ${image}."
+                    }
+                }
+            } catch (Exception e) {
+                error "❌ Trivy scan failed: ${e.message}"
+            }
+        }
+    }
+    post {
+        always {
+            // 🔹 Archive the report
+            archiveArtifacts artifacts: "${TRIVY_LOG}", allowEmptyArchive: true
+        }
+    }
+}
+/*
         stage('Check by trivy') {
             agent {
                label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
@@ -202,6 +281,7 @@ pipeline {
                 }
             }
         }
+*/
     }
     post {
         always {
