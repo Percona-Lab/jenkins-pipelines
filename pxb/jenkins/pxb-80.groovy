@@ -205,10 +205,12 @@ pipeline {
             steps {
                 // slackNotify("", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                if (env.FIPSMODE == 'YES') {
-                    buildStage("ubuntu:focal", "--get_sources=1 --enable_fipsmode=1")
-                } else {
-                    buildStage("ubuntu:focal", "--get_sources=1")
+                script {
+                   if (env.FIPSMODE == 'YES') {
+                      buildStage("ubuntu:focal", "--get_sources=1 --enable_fipsmode=1")
+                   } else {
+                      buildStage("ubuntu:focal", "--get_sources=1")
+                   }
                 }
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-xtrabackup-8.0.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
