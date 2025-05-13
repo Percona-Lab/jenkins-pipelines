@@ -72,6 +72,8 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh '''
+                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3-ol8
+
                         ${PATH_TO_SCRIPTS}/build-client-binary
                         ls -la "results/tarball" || :
                         aws s3 cp --only-show-errors --acl public-read results/tarball/pmm-client-*.tar.gz \
