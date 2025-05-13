@@ -1213,22 +1213,19 @@ parameters {
             deleteDir()
         }
         failure {
-            script {
-                if (env.FIPSMODE == 'YES') {
-                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO -> build failed for ${BRANCH} - [${BUILD_URL}]")
-                } else {
-                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
-                }
-            }
-            script {
-                currentBuild.description = "Built on ${BRANCH}"
-            }
             deleteDir()
         }
         always {
             sh '''
                 sudo rm -rf ./*
             '''
+            script {
+                if (env.FIPSMODE == 'YES') {
+                    currentBuild.description = "Pro -> Build on ${BRANCH}"
+                } else {
+                    currentBuild.description = "Build on ${BRANCH}"
+                }
+            }
             deleteDir()
         }
     }
