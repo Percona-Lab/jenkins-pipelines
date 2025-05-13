@@ -11,4 +11,4 @@
               - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: mlink/mlink-functional-tests.groovy
+      script-path: pml/pml-functional-tests.groovy

@@ -1,5 +1,5 @@
 - job:
-    name: ps-operator-eks-latest
+    name: pml-manual
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -8,7 +8,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - master
+            - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/ps_operator_eks_latest.groovy
+      script-path: pml/pml-manual.groovy

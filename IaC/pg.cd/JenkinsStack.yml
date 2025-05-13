@@ -99,8 +99,9 @@ Resources:
       VpcId: !Ref JVPC
       CidrBlock: 10.177.2.0/24
       MapPublicIpOnLaunch: true
-      AvailabilityZone:
-        Fn::Select: [ 2, !GetAZs '' ]
+      AvailabilityZone: eu-central-1c
+      #AvailabilityZone:
+      #  Fn::Select: [ 2, !GetAZs '' ]
       Tags:
       - Key: Name
         Value: !Join [ '-', [ !Ref JShortName, 'C' ]]
@@ -442,7 +443,7 @@ Resources:
         ExcessCapacityTerminationPolicy: default
         IamFleetRole: !GetAtt SpotFleetRole.Arn
         ReplaceUnhealthyInstances: true
-        SpotPrice: 0.17
+        SpotPrice: 0.1702
         TargetCapacity: 1
         TerminateInstancesWithExpiration: false
         Type: maintain
@@ -451,16 +452,16 @@ Resources:
             LaunchTemplateId: !Ref JMasterTemplate
             Version: !GetAtt JMasterTemplate.LatestVersionNumber
           Overrides:
-          - InstanceType: m5a.large
+          - InstanceType: i3en.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: m5d.large
+          - InstanceType: i4i.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: m6a.large
+          - InstanceType: r5a.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
-          - InstanceType: m6i.large
+          - InstanceType: r5dn.large
             AvailabilityZone:
               Fn::Select: [ 1, !GetAZs '' ]
 
@@ -668,10 +669,10 @@ Resources:
                   fi
                   cp /mnt/$JENKINS_HOST/ssl/certificate.key /etc/nginx/ssl/certificate.key
                   cp /mnt/$JENKINS_HOST/ssl/certificate.crt /etc/nginx/ssl/certificate.crt
-                  if [ ! -f /mnt/$JENKINS_HOST/ssl/dhparam-1024.pem ]; then
-                      openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-1024.pem 1024
+                  if [ ! -f /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem ]; then
+                      openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem 4096
                   fi
-                  cp /mnt/$JENKINS_HOST/ssl/dhparam-1024.pem /etc/nginx/ssl/dhparam.pem
+                  cp /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem /etc/nginx/ssl/dhparam.pem
                   curl https://letsencrypt.org/certs/isrgrootx1.pem                          > /etc/nginx/ssl/ca-certs.pem
                   curl https://letsencrypt.org/certs/lets-encrypt-x1-cross-signed.pem       >> /etc/nginx/ssl/ca-certs.pem
                   curl https://letsencrypt.org/certs/letsencryptauthorityx1.pem             >> /etc/nginx/ssl/ca-certs.pem
@@ -744,7 +745,7 @@ Resources:
               		EOF
                   fi
 
-                  ln -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
+                  ln -f -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
                   sed -i'' -e 's/listen/#listen/; s/mime.types/jenkins.conf/' /usr/local/openresty/nginx/conf/nginx.conf
 
                   wget -O /usr/local/openresty/lualib/resty/http.lua \
@@ -852,3 +853,6 @@ Outputs:
   JMasterInstance:
     Description: Master Spot Fleet
     Value: !Ref JMasterInstance
+  AZList:
+    Description: "List of AZs available"
+    Value: !Join [ ", ", !GetAZs '' ]

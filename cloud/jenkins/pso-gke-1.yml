@@ -1,8 +1,15 @@
 - job:
-    name: ps-operator-eks-version
+    name: pso-gke-1
     project-type: pipeline
     description: |
         Do not edit this job through the web!
+    concurrent: false
+    properties:
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 10
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 10
     pipeline-scm:
       scm:
         - git:
@@ -11,4 +18,4 @@
             - master
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/ps_operator_eks_version.groovy
+      script-path: cloud/jenkins/pso_gke.groovy

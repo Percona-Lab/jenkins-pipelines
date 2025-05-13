@@ -554,7 +554,7 @@ Resources:
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
                   yum -y install java-17-amazon-corretto
                   yum -y update --security
-                  yum -y install jenkins-2.462.1 certbot git dnf-automatic aws-cli xfsprogs openresty
+                  yum -y install jenkins-2.492.3 certbot git dnf-automatic aws-cli xfsprogs openresty
 
                   sed -i 's/upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'         /etc/dnf/automatic.conf
@@ -667,10 +667,10 @@ Resources:
                   fi
                   cp /mnt/$JENKINS_HOST/ssl/certificate.key /etc/nginx/ssl/certificate.key
                   cp /mnt/$JENKINS_HOST/ssl/certificate.crt /etc/nginx/ssl/certificate.crt
-                  if [ ! -f /mnt/$JENKINS_HOST/ssl/dhparam-1024.pem ]; then
-                      openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-1024.pem 1024
+                  if [ ! -f /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem ]; then
+                      openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem 4096
                   fi
-                  cp /mnt/$JENKINS_HOST/ssl/dhparam-1024.pem /etc/nginx/ssl/dhparam.pem
+                  cp /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem /etc/nginx/ssl/dhparam.pem
                   curl https://letsencrypt.org/certs/isrgrootx1.pem                          > /etc/nginx/ssl/ca-certs.pem
                   curl https://letsencrypt.org/certs/lets-encrypt-x1-cross-signed.pem       >> /etc/nginx/ssl/ca-certs.pem
                   curl https://letsencrypt.org/certs/letsencryptauthorityx1.pem             >> /etc/nginx/ssl/ca-certs.pem
@@ -736,7 +736,7 @@ Resources:
               		EOF
                   fi
 
-                  ln -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
+                  ln -f -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
                   sed -i'' -e 's/listen/#listen/; s/mime.types/jenkins.conf/' /usr/local/openresty/nginx/conf/nginx.conf
 
                   systemctl enable --now openresty
@@ -757,6 +757,8 @@ Resources:
                   systemctl stop openresty
                   sleep 2
                   systemctl start openresty
+                  systemctl enable certbot-renew.timer
+                  systemctl restart certbot-renew.timer
               }
 
               setup_dhparam() {

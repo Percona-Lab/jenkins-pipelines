@@ -41,6 +41,9 @@ imageMap['docker']           = 'ami-098023750985977ad'
 imageMap['docker-32gb']      = imageMap['docker']
 imageMap['min-bullseye-x64'] = 'ami-0bf166b48bbe2bf7c'
 imageMap['min-bookworm-x64'] = 'ami-02ee139f24936eba5'
+imageMap['min-al2023-x64']   = 'ami-01eb4eefd88522422'
+
+imageMap['min-al2023-aarch64'] = 'ami-0288dbce011958818'
 
 imageMap['ramdisk-centos-6-x64'] = imageMap['min-centos-6-x64']
 imageMap['ramdisk-centos-7-x64'] = imageMap['min-centos-7-x64']
@@ -65,6 +68,7 @@ priceMap['m1.medium'] = '0.13' // centos6
 priceMap['c5.2xlarge'] = '0.28' // type=c5.2xlarge, vCPU=8, memory=16GiB, saving=53%, interruption='<5%', price=0.216700
 priceMap['r3.2xlarge'] = '0.21' // centos6
 priceMap['c5.4xlarge'] = '0.40' // type=c5.4xlarge, vCPU=16, memory=64GiB, saving=65%, interruption='<5%', price=0.200200
+priceMap['m6gd.4xlarge'] = '0.40' // aarch64 type=m6gd.4xlarge, vCPU=16, memory=64GiB, saving=62%, interruption='<5%', price=0.290000
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
@@ -86,6 +90,8 @@ userMap['min-buster-x64']    = 'admin'
 userMap['min-xenial-x64']    = 'ubuntu'
 userMap['min-bullseye-x64']  = 'admin'
 userMap['min-bookworm-x64']  = 'admin'
+userMap['min-al2023-x64']    = 'ec2-user'
+userMap['min-al2023-aarch64'] = 'ec2-user'
 
 userMap['ramdisk-centos-6-x64'] = userMap['min-centos-6-x64']
 userMap['ramdisk-centos-7-x64'] = userMap['min-centos-7-x64']
@@ -430,10 +436,72 @@ initMap['performance-centos-6-x64']  = '''
     echo "*  hard  nproc  1048575"  | sudo tee -a /etc/security/limits.conf
 '''
 
+initMap['min-al2023-x64'] = '''
+    set -o xtrace
+
+    if ! mountpoint -q /mnt; then
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext4 ${DEVICE}
+            sudo mount -o noatime ${DEVICE} /mnt
+        fi
+    fi
+    sudo ethtool -K eth0 sg off
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+
+    sudo yum -y install java-11-amazon-corretto-headless || :
+    sudo yum -y install git docker p7zip
+    sudo yum -y remove awscli
+
+    if ! $(aws --version | grep -q 'aws-cli/2'); then
+        find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
+
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "/tmp/awscliv2.zip"; do
+            sleep 1
+            echo try again
+        done
+
+        7za -o/tmp x /tmp/awscliv2.zip
+        cd /tmp/aws && sudo ./install
+    fi
+
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+
+    sudo sysctl net.ipv4.tcp_fin_timeout=15
+    sudo sysctl net.ipv4.tcp_tw_reuse=1
+    sudo sysctl net.ipv6.conf.all.disable_ipv6=1
+    sudo sysctl net.ipv6.conf.default.disable_ipv6=1
+    sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
+    sudo sysctl -w fs.aio-max-nr=1048576 || true
+    sudo sysctl -w fs.file-max=6815744 || true
+    echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
+    sudo sed -i.bak -e 's/nofile=1024:4096/nofile=900000:900000/; s/DAEMON_MAXFILES=.*/DAEMON_MAXFILES=990000/' /etc/sysconfig/docker
+    echo 'DOCKER_STORAGE_OPTIONS="--data-root=/mnt/docker"' | sudo tee -a /etc/sysconfig/docker-storage
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service
+    sudo systemctl daemon-reload
+    sudo install -o root -g root -d /mnt/docker
+    sudo usermod -aG docker $(id -u -n)
+    sudo mkdir -p /etc/docker
+    echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
+    sudo systemctl status docker || sudo systemctl start docker
+    sudo service docker status || sudo service docker start
+    #echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+'''
+initMap['min-al2023-aarch64'] = initMap['min-al2023-x64']
+
 capMap = [:]
 capMap['c5.2xlarge'] = '40'
 capMap['c5.4xlarge'] = '80'
 capMap['r3.2xlarge'] = '40'
+capMap['m6gd.4xlarge'] = '40'
 
 typeMap = [:]
 typeMap['micro-amazon'] = 'm4.xlarge'
@@ -458,6 +526,8 @@ typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-bookworm-x64']  = typeMap['min-centos-7-x64']
+typeMap['min-al2023-x64']    = 'c5.2xlarge'
+typeMap['min-al2023-aarch64'] = 'm6gd.4xlarge'
 
 typeMap['ramdisk-centos-6-x64'] = 'r3.2xlarge'
 typeMap['ramdisk-centos-7-x64'] = typeMap['docker-32gb']
@@ -494,6 +564,8 @@ execMap['min-stretch-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
 execMap['min-bullseye-x64'] = '1'
 execMap['min-bookworm-x64'] = '1'
+execMap['min-al2023-x64']    = '1'
+execMap['min-al2023-aarch64'] = '1'
 
 execMap['ramdisk-centos-6-x64'] = execMap['docker-32gb']
 execMap['ramdisk-centos-7-x64'] = execMap['docker-32gb']
@@ -532,6 +604,8 @@ devMap['min-bullseye-x64']  = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-bookworm-x64']  = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-centos-6-x32']  = '/dev/sda=:12:true:gp2,/dev/sdd=:80:true:gp2'
+devMap['min-al2023-x64']    = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-al2023-aarch64'] = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
 
 devMap['ramdisk-centos-6-x64'] = '/dev/sda1=:12:true:gp2'
 devMap['ramdisk-centos-7-x64'] = devMap['ramdisk-centos-6-x64']
@@ -570,6 +644,8 @@ labelMap['min-buster-x64']    = 'min-buster-x64'
 labelMap['min-xenial-x64']    = 'min-xenial-x64'
 labelMap['min-bullseye-x64']  = 'min-bullseye-x64'
 labelMap['min-bookworm-x64']  = 'min-bookworm-x64'
+labelMap['min-al2023-x64']    = 'min-al2023-x64'
+labelMap['min-al2023-aarch64'] = 'min-al2023-aarch64 docker-32gb-aarch64'
 
 labelMap['ramdisk-centos-6-x64'] = 'ramdisk-centos-6-x64'
 labelMap['ramdisk-centos-7-x64'] = 'ramdisk-centos-7-x64'
@@ -611,6 +687,8 @@ maxUseMap['min-buster-x64']    = maxUseMap['singleUse']
 maxUseMap['min-xenial-x64']    = maxUseMap['singleUse']
 maxUseMap['min-bullseye-x64']  = maxUseMap['singleUse']
 maxUseMap['min-bookworm-x64']  = maxUseMap['singleUse']
+maxUseMap['min-al2023-x64']    = maxUseMap['singleUse']
+maxUseMap['min-al2023-aarch64'] = maxUseMap['singleUse']
 
 maxUseMap['ramdisk-centos-6-x64'] = maxUseMap['singleUse']
 maxUseMap['ramdisk-centos-7-x64'] = maxUseMap['singleUse']
@@ -649,6 +727,8 @@ jvmoptsMap['min-buster-x64']    = jvmoptsMap['docker']
 jvmoptsMap['min-xenial-x64']    = jvmoptsMap['docker']
 jvmoptsMap['min-bullseye-x64']  = jvmoptsMap['docker']
 jvmoptsMap['min-bookworm-x64']  = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
+jvmoptsMap['min-al2023-x64']    = '-Xmx512m -Xms512m'
+jvmoptsMap['min-al2023-aarch64'] = '-Xmx512m -Xms512m'
 
 jvmoptsMap['ramdisk-centos-6-x64'] = jvmoptsMap['docker']
 jvmoptsMap['ramdisk-centos-7-x64'] = jvmoptsMap['docker']
@@ -753,6 +833,8 @@ String region = 'us-west-1'
             getTemplate('min-focal-x64',    "${region}${it}"),
             getTemplate('min-jammy-x64',    "${region}${it}"),
             getTemplate('min-noble-x64',    "${region}${it}"),
+            getTemplate('min-al2023-x64',       "${region}${it}"),
+            getTemplate('min-al2023-aarch64',   "${region}${it}"),
             // getTemplate('ramdisk-centos-6-x64', "${region}${it}"),
             getTemplate('ramdisk-centos-7-x64', "${region}${it}"),
             getTemplate('ramdisk-centos-8-x64', "${region}${it}"),

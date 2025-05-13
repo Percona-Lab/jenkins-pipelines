@@ -31,7 +31,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'ppg-17.0',
+            defaultValue: 'ppg-17.5',
             description: 'PG version for test',
             name: 'VERSION'
         )
@@ -41,7 +41,7 @@ pipeline {
             choices: ppgScenarios()
         )
         string(
-            defaultValue: 'main',
+            defaultValue: 'Q2-2025',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
         booleanParam(
@@ -81,7 +81,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -89,7 +89,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+              moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
               sendSlackNotification(env.SCENARIO, env.VERSION)
          }
       }

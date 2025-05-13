@@ -12,7 +12,7 @@ SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
 SOURCE_IMAGE=${1:-centos:7}
 
 if [[ ${SOURCE_IMAGE} == 'asan' ]]; then
-    SOURCE_IMAGE='centos:7'
+    SOURCE_IMAGE='centos:8'
 fi
 
 function check_pxb_network() {
