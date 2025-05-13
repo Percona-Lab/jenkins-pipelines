@@ -12,7 +12,7 @@ pipeline {
     }
     parameters {
         string(name: 'PBM_BRANCH', defaultValue: 'main', description: 'PBM branch or commit')
-        string(name: 'GO_VER', defaultValue: '1.22-bullseye', description: 'GOLANG docker image for building PBM from sources')
+        string(name: 'GO_VER', defaultValue: 'bullseye', description: 'GOLANG docker image for building PBM from sources')
         choice(name: 'instance', choices: ['docker-x64','docker-aarch64'], description: 'Instance type for running tests')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
         string(name: 'PYTEST_PARAMS', defaultValue: '', description: 'Extra args passed to pytest')
