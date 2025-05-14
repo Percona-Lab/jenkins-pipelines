@@ -38,17 +38,17 @@
     - copyartifact:
         project: percona-xtrabackup-8.0-compile-param
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_compile_param}"
+        build-number: "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_compile_param}}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_compile_param}" > COMPILE_PIPELINE_BUILD_NUMBER
+        echo "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_compile_param}}" > COMPILE_PIPELINE_BUILD_NUMBER
     - copyartifact:
         project: percona-xtrabackup-8.0-test-param
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_test_param}"
+        build-number: "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_test_param}}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_test_param}" > TEST_PIPELINE_BUILD_NUMBER
+        echo "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_test_param}}" > TEST_PIPELINE_BUILD_NUMBER
     publishers:
     - raw:
         xml: !!binary |
