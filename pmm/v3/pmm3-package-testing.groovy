@@ -127,7 +127,7 @@ pipeline {
     stages {
         stage('Setup Server Instance') {
             steps {
-                runStaging(DOCKER_VERSION, CLIENTS)
+                runStaging(DOCKER_VERSION, ADMIN_PASSWORD)
                 script {
                     def ip = sh(script: "curl -s ifconfig.me", returnStdout: true).trim()
                     echo "Public IP: ${ip}"
