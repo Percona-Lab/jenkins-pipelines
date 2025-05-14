@@ -100,8 +100,8 @@ pipeline {
             name: 'PMM_VERSION',
             trim: true)
         string(
-            defaultValue: 'pmm-client',
-            description: 'Name of Playbook? ex: pmm-client_integration, pmm-client_integration_custom_path',
+            defaultValue: 'pmm3-client_integration',
+            description: 'Name of Playbook? ex: pmm3-client_integration, pmm3-client_integration_custom_path',
             name: 'TESTS',
             trim: true)
         choice(
