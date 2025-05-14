@@ -1,5 +1,5 @@
 - job:
-    name: pxb-rhel-tarballs-86-89
+    name: pxb-tarball-molecule
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: true
       lightweight-checkout: true
-      script-path: pxb/jenkins/pxb-rhel-tarballs-86-89.groovy
+      script-path: pxb/jenkins/pxb-tarball-molecule.groovy
