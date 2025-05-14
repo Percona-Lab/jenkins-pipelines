@@ -24,26 +24,22 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'https://github.com/Percona-Lab/pg_tde.git',
-            description: 'TDE repo that we want to test, we could also use forked developer repo here.',
-            name: 'TDE_REPO'
+            defaultValue: 'https://github.com/percona/postgres',
+            description: 'PSP repo that we want to test, we could also use forked developer repo here.',
+            name: 'PSP_REPO'
         )
         string(
-            defaultValue: 'main',
-            description: 'TDE repo version/branch/tag to use; e.g main, 2.0.5',
-            name: 'TDE_BRANCH'
+            defaultValue: 'TDE_REL_17_STABLE',
+            description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE',
+            name: 'PSP_BRANCH'
         )
         string(
-            defaultValue: 'ppg-17.0',
-            description: 'Server PG version for test, including major and minor version, e.g ppg-16.2, ppg-15.5',
+            defaultValue: 'ppg-17.5',
+            description: 'Server PG version for test, including major and minor version, e.g ppg-17.4, ppg-17.3',
             name: 'VERSION'
         )
-        booleanParam(
-            name: 'TDE_PACKAGE_INSTALL',
-            description: "Select if want to install TDE using native package from repo.percona.com, one shipped with VERSION above."
-        )
         string(
-            defaultValue: 'main',
+            defaultValue: 'Q2-2025',
             description: 'Branch for ppg-testing testing repository',
             name: 'TESTING_BRANCH'
         )
@@ -54,7 +50,7 @@ pipeline {
         )
         booleanParam(
             name: 'MAJOR_REPO',
-            description: "Enable to use major (ppg-16) repo instead of ppg-16.2"
+            description: "Enable to use major (ppg-17) repo instead of ppg-17.4"
         )
   }
   environment {
@@ -89,28 +85,28 @@ pipeline {
     stage ('Create virtual machines') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "create", env.PLATFORM)
             }
         }
     }
     stage ('Run playbook for test') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "converge", env.PLATFORM)
             }
         }
     }
     stage ('Start testinfra tests') {
       steps {
             script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "verify", env.PLATFORM)
             }
         }
     }
       stage ('Start Cleanup ') {
         steps {
              script {
-               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
+               moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
             }
         }
     }
@@ -119,7 +115,7 @@ pipeline {
     always {
           script {
             if (env.DESTROY_ENV == "yes") {
-                moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
             }
         }
     }

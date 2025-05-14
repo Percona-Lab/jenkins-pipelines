@@ -31,7 +31,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'main',
+            defaultValue: 'Q2-2025',
             description: 'Branch for tests',
             name: 'TEST_BRANCH'
          )
@@ -46,7 +46,7 @@ pipeline {
             name: 'COMPONENT_VERSION'
          )
         string(
-            defaultValue: 'ppg-16.4',
+            defaultValue: 'ppg-17.5',
             description: 'PPG version for test',
             name: 'VERSION'
          )
@@ -108,7 +108,7 @@ pipeline {
     stage ('Run tests') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "test", "default")
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "test", "default")
             }
         }
     }
@@ -117,7 +117,7 @@ pipeline {
     always {
           script {
              if (env.DESTROY_ENV == "yes") {
-             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", "default")
+             moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", "default")
              }
              sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION)
         }
