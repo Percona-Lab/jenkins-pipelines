@@ -1,8 +1,8 @@
 
 
-    library changelog: false, identifier: "lib@fix-ps-sys", retriever: modernSCM([
+    library changelog: false, identifier: "lib@master", retriever: modernSCM([
         $class: 'GitSCMSource',
-        remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
+        remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
     ])
 
     pipeline {
@@ -78,7 +78,7 @@
             stage('Checkout') {
                 steps {
                     deleteDir()
-                    git poll: false, branch: "fix-ps-sys", url: "https://github.com/kaushikpuneet07/package-testing.git"
+                    git poll: false, branch: "master", url: "https://github.com/Percona-QA/package-testing.git"
                 }
             }
 
