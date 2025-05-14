@@ -400,7 +400,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild('mysql-shell', COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, 'mysql-shell', COMPONENT)
             }
         }
 
