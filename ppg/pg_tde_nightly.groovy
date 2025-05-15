@@ -41,11 +41,11 @@ pipeline {
             description: 'URL for pg_tde repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'main',
+            defaultValue: 'TDE_REL_17_STABLE',
             description: 'Tag/Branch for pg_tde repository',
             name: 'PG_BRANCH')
         string(
-            defaultValue: '17.0',
+            defaultValue: 'TDE_NIGHTLY',
             description: 'Tag/Branch for pg_tde packaging repository',
             name: 'GIT_BRANCH')
         string(
