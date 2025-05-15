@@ -121,8 +121,8 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
                 sudo mkdir -p /srv/pmm-qa || :
                 sudo git clone --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa
                 sudo chmod -R 755 /srv/pmm-qa
-                sudo chmod 755 /srv/pmm-qa/pmm-tests/agent_status.sh
-                bash -xe /srv/pmm-qa/pmm-tests/agent_status.sh
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/agent_status.py
+                python3 /srv/pmm-qa/pmm-tests/agent_status.py
             '
         """
     }
@@ -220,7 +220,7 @@ pipeline {
             description: "Percona Server for MySQL version",
             name: 'PS_VERSION')
         choice(
-            choices: ['8.0', '8.4', '5.7', '5.6'],
+            choices: ['8.4', '8.0', '5.7', '5.6'],
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
@@ -275,7 +275,7 @@ pipeline {
                         expression { env.SERVER_TYPE == "docker" }
                     }
                     steps {
-                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('Setup OVF Server Instance') {
@@ -317,7 +317,7 @@ pipeline {
                 }
                 stage('ps-replication and pxc') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=replica --database pxc', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=replication --database pxc', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('ps single and mongo pss') {
