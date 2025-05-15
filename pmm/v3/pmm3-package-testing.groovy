@@ -129,8 +129,8 @@ pipeline {
             steps {
                 runStaging(DOCKER_VERSION, ADMIN_PASSWORD)
                 script {
-                    def ip = sh(script: "curl -s ifconfig.me", returnStdout: true).trim()
-                    echo "Public IP: ${ip}"
+                    def PUBLIC_IP = sh(script: "curl -s ifconfig.me", returnStdout: true).trim()
+                    echo "Public IP: ${PUBLIC_IP}"
                      sh """
                         curl --location --request PUT "http://${PUBLIC_IP}/v1/server/settings" \
                         --header 'Content-Type: application/json' \
