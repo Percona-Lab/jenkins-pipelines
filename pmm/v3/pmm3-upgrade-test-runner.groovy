@@ -405,7 +405,7 @@ pipeline {
                         for i in \$containers; do
                             if [[ \$i == *"rs10"* ]]; then
                                 docker exec rs101 percona-release enable pmm3-client $CLIENT_REPOSITORY
-                                docker exec rs101 yum install -y pmm-client
+                                docker exec rs101 dnf install -y pmm-client
                                 docker exec rs101 systemctl restart pmm-agent
                             elif [[ \$i == *"mysql_"* ]]; then
                                 docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
@@ -434,7 +434,7 @@ pipeline {
                             fi
                         done
                         sudo percona-release enable pmm3-client $CLIENT_REPOSITORY
-                        sudo yum install -y pmm-client
+                        sudo dnf install -y pmm-client
                     '''
                 }
             }
