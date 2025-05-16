@@ -73,21 +73,31 @@ if [ -f /usr/bin/yum ]; then
     fi
   fi
 else
-  if [[ $(lsb_release -sc) == "focal" ]] || [[ $(lsb_release -sc) == "buster" ]]; then
-    sudo apt update
-    sudo DEBIAN_FRONTEND=noninteractive apt install -y libtirpc3
-    if [[ ${XTRABACKUP_TARGET} == "galera56" ]] || [[ ${XTRABACKUP_TARGET} == "xtradb56" ]]; then
-      errmsg
-    fi
-  elif [[ $(lsb_release -sc) == "xenial" ]]; then
-    if [[ ${XTRABACKUP_TARGET} == "xtradb56" ]]; then
-      errmsg
-    fi
-  elif [[ $(lsb_release -sc) == "bionic" ]]; then
-    if [[ ${XTRABACKUP_TARGET} == "galera56" ]]; then
-      errmsg
-    fi
-  fi
+  CODENAME=$(lsb_release -sc)
+  case "$CODENAME" in
+    focal|buster)
+      sudo apt update
+      sudo DEBIAN_FRONTEND=noninteractive apt install -y libtirpc3
+      if [[ ${XTRABACKUP_TARGET} == "galera56" || ${XTRABACKUP_TARGET} == "xtradb56" ]]; then
+        errmsg
+      fi
+      ;;
+    noble|bookworm)
+      sudo apt update
+      sudo DEBIAN_FRONTEND=noninteractive apt install -y python3-subunit python3-junitxml
+      SUBUNIT2JUNITXML_CMD="./subunit2junitxml_python3"
+      ;;
+    xenial)
+      if [[ ${XTRABACKUP_TARGET} == "xtradb56" ]]; then
+        errmsg
+      fi
+      ;;
+    bionic)
+      if [[ ${XTRABACKUP_TARGET} == "galera56" ]]; then
+        errmsg
+      fi
+      ;;
+  esac
 fi
 
 mkdir -p server-tarball/${XTRABACKUP_TARGET}
