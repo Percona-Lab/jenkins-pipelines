@@ -12,7 +12,7 @@
             - git:
                 url: https://github.com/Percona-Lab/jenkins-pipelines.git
                 branches:
-                    - 'pxb-tarball-testing-job-addition'
+                    - 'master'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: pxb/jenkins/pxb-pt-testing-molecule.groovy
