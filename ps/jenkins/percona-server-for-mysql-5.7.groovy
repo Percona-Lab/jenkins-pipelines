@@ -100,7 +100,7 @@ parameters {
     stages {
         stage('Create PS source tarball') {
             agent {
-               label 'min-bionic-x64'
+                label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-bionic-x64'
             }
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
@@ -129,13 +129,13 @@ parameters {
             parallel {
                 stage('Build PS generic source rpm') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-centos-7-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("centos:7", "--build_src_rpm=1")
 
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
@@ -144,13 +144,13 @@ parameters {
                 }
                 stage('Build PS generic source deb') {
                     agent {
-                        label 'min-bionic-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-bionic-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:bionic", "--build_source_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
@@ -163,13 +163,13 @@ parameters {
             parallel {
                 stage('Centos 7') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-centos-7-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("centos:7", "--build_rpm=1")
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -177,13 +177,13 @@ parameters {
                 }
                 stage('Centos 8') {
                     agent {
-                        label 'min-ol-8-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-ol-8-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("centos:8", "--build_rpm=1")
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -191,13 +191,13 @@ parameters {
                 }
                 stage('Oracle Linux 9') {
                     agent {
-                        label 'min-ol-9-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-ol-9-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_rpm=1")
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -205,13 +205,13 @@ parameters {
                 }
                 stage('Ubuntu Bionic(18.04)') {
                     agent {
-                        label 'min-bionic-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-bionic-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:bionic", "--build_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -219,13 +219,13 @@ parameters {
                 }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
-                        label 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-focal-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -233,13 +233,13 @@ parameters {
                 }
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
-                        label 'min-jammy-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-jammy-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -247,7 +247,7 @@ parameters {
                 }
                 stage('Ubuntu Noble(24.04)') {
                     agent {
-                        label 'min-noble-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-noble-x64'
                     }
                     steps {
                         script {
@@ -257,7 +257,7 @@ parameters {
                                 cleanUpWS()
                                 installCli("deb")
                                 unstash 'properties'
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("ubuntu:noble", "--build_deb=1")
 
                                 pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -267,13 +267,13 @@ parameters {
                 }
                 stage('Debian Buster(10)') {
                     agent {
-                        label 'min-buster-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-buster-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:buster", "--build_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -281,13 +281,13 @@ parameters {
                 }
                 stage('Debian Bullseye(11)') {
                     agent {
-                        label 'min-bullseye-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-bullseye-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "--build_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -295,13 +295,13 @@ parameters {
                 }
                 stage('Debian Bookworm(12)') {
                     agent {
-                        label 'min-bookworm-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-bookworm-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--build_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -309,234 +309,234 @@ parameters {
                 }
                 stage('Centos 7 tarball') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-centos-7-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("centos:7", "--build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Centos 7 debug tarball') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-centos-7-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("centos:7", "--debug=1 --build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Centos 8 tarball') {
                     agent {
-                        label 'min-ol-8-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-ol-8-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("centos:8", "--build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Centos 8 debug tarball') {
                     agent {
-                        label 'min-ol-8-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-ol-8-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("centos:8", "--debug=1 --build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9 tarball') {
                     agent {
-                        label 'min-ol-9-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-ol-9-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9 debug tarball') {
                     agent {
-                        label 'min-ol-9-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-ol-9-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--debug=1 --build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Bionic tarball') {
                     agent {
-                        label 'min-bionic-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-bionic-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:bionic", "--build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Bionic debug tarball') {
                     agent {
-                        label 'min-bionic-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-bionic-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:bionic", "--debug=1 --build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal tarball') {
                     agent {
-                        label 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-focal-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Focal debug tarball') {
                     agent {
-                        label 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-focal-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--debug=1 --build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy tarball') {
                     agent {
-                        label 'min-jammy-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-jammy-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy debug tarball') {
                     agent {
-                        label 'min-jammy-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-jammy-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--debug=1 --build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Buster tarball') {
                     agent {
-                        label 'min-buster-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-buster-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:buster", "--build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Buster debug tarball') {
                     agent {
-                        label 'min-buster-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-buster-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:buster", "--debug=1 --build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bullseye tarball') {
                     agent {
-                        label 'min-bullseye-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-bullseye-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "--build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bullseye debug tarball') {
                     agent {
-                        label 'min-bullseye-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-bullseye-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "--debug=1 --build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bookworm tarball') {
                     agent {
-                        label 'min-bookworm-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-bookworm-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bookworm debug tarball') {
                     agent {
-                        label 'min-bookworm-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-bookworm-x64'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--debug=1 --build_tarball=1 ")
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
@@ -545,7 +545,7 @@ parameters {
         }
         stage('Upload packages and tarballs from S3') {
             agent {
-                label 'min-jammy-x64'
+                label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-jammy-x64'
             }
             steps {
                 cleanUpWS()
@@ -565,7 +565,7 @@ parameters {
         }
         stage('Build docker container') {
             agent {
-                label 'min-buster-x64'
+                label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-buster-x64'
             }
             steps {
                 script {
