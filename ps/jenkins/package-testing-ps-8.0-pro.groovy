@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@fix-al2023", retriever: modernSCM([
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
 List all_actions = [
@@ -123,13 +123,7 @@ pipeline {
                         }
                     }
                     steps {
-                        script {
-                            if (params.cur_action_to_test in ["install", "pro_to_pro"]) {
-                                runNodeBuild("amazon-linux-2023")
-                            } else {
-                                echo "Skipping ${params.cur_action_to_test} on amazon-linux-2023"
-                            }
-                        }
+                        runNodeBuild("amazon-linux-2023")
                     }
                 }
 
@@ -140,13 +134,7 @@ pipeline {
                         }
                     }
                     steps {
-                        script {
-                            if (params.cur_action_to_test in ["install", "pro_to_pro"]) {
-                                runNodeBuild("amazon-linux-2023-arm")
-                            } else {
-                                echo "Skipping ${params.cur_action_to_test} on amazon-linux-2023-arm"
-                            }
-                        }
+                        runNodeBuild("amazon-linux-2023-arm")
                     }
                 }
                 stage("Debian Bookworm") {
