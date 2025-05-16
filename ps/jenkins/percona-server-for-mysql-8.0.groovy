@@ -1038,9 +1038,7 @@ parameters {
                             cd percona-docker/percona-server-8.0
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile
-                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                                sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
-                            fi
+                            sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" Dockerfile
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
                                 if [ ${PS_MAJOR_RELEASE} = "84" ]; then
@@ -1121,10 +1119,9 @@ parameters {
                        )]) {
                        sh '''
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                           PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+                           PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
                            PS_MAJOR_FULL_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/-.*//g")
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                           PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                            sudo docker manifest push perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                            sudo docker buildx imagetools create -t perconalab/percona-server:${PS_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
                            sudo docker buildx imagetools create -t perconalab/percona-server:${PS_MAJOR_FULL_RELEASE} perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}
@@ -1140,7 +1137,7 @@ parameters {
         success {
             script {
                 if (env.FIPSMODE == 'YES') {
-                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO -> build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
                 } else {
                     slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
                 }
@@ -1216,16 +1213,19 @@ parameters {
             deleteDir()
         }
         failure {
-            slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
-            script {
-                currentBuild.description = "Built on ${BRANCH}"
-            }
             deleteDir()
         }
         always {
             sh '''
                 sudo rm -rf ./*
             '''
+            script {
+                if (env.FIPSMODE == 'YES') {
+                    currentBuild.description = "Pro -> Build on ${BRANCH}"
+                } else {
+                    currentBuild.description = "Build on ${BRANCH}"
+                }
+            }
             deleteDir()
         }
     }
