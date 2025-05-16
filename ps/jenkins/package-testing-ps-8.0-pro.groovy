@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@fix-al2023", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 List all_actions = [
@@ -116,7 +116,6 @@ pipeline {
                         runNodeBuild("oracle-9")
                     }
                 }
-
                 stage("amazon linux 2023") {
                     when {
                         expression {
@@ -124,17 +123,30 @@ pipeline {
                         }
                     }
                     steps {
-                        runNodeBuild("amazon-linux-2023")
+                        script {
+                            if (params.cur_action_to_test in ["install", "pro_to_pro"]) {
+                                runNodeBuild("amazon-linux-2023")
+                            } else {
+                                echo "Skipping ${params.cur_action_to_test} on amazon-linux-2023"
+                            }
+                        }
                     }
                 }
-                stage("amazon linux 2023 arm ") {
+
+                stage("amazon linux 2023 arm") {
                     when {
                         expression {
                             nodes_to_test.contains("amazon-linux-2023-arm")
                         }
                     }
                     steps {
-                        runNodeBuild("amazon-linux-2023-arm")
+                        script {
+                            if (params.cur_action_to_test in ["install", "pro_to_pro"]) {
+                                runNodeBuild("amazon-linux-2023-arm")
+                            } else {
+                                echo "Skipping ${params.cur_action_to_test} on amazon-linux-2023-arm"
+                            }
+                        }
                     }
                 }
                 stage("Debian Bookworm") {
