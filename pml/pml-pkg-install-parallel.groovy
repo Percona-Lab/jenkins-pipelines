@@ -23,6 +23,10 @@ pipeline {
         ]
     )
     string(
+            name: 'TESTING_BRANCH',
+            description: 'Branch for testing repository',
+            defaultValue: 'PML-134')
+    string(
             name: 'PML_BRANCH',
             description: 'PML Branch for testing',
             defaultValue: 'main')
