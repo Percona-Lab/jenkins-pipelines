@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@fix-al2023", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 List all_actions = [
@@ -170,7 +170,9 @@ pipeline {
                     when {
                         allOf{
                             expression{actions_to_test.contains("not_pro_to_pro")}
-                            expression{params.install_repo != "main"}                
+                            expression{params.install_repo != "main"}
+                            expression{params.node_to_test != "amazon-linux-2023"}
+                            expression{params.node_to_test != "amazon-linux-2023-arm"}                
                         }
                     }
                     steps{
@@ -192,7 +194,9 @@ pipeline {
                     when {
                         allOf{
                             expression{actions_to_test.contains("downgrade")}
-                            expression{params.install_repo != "main"}                
+                            expression{params.install_repo != "main"}
+                            expression{params.node_to_test != "amazon-linux-2023"}
+                            expression{params.node_to_test != "amazon-linux-2023-arm"}                
                         }
                     }
                     steps{
