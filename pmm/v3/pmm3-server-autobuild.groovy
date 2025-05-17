@@ -14,8 +14,8 @@ pipeline {
             name: 'GIT_BRANCH')
         choice(
             // default is 'experimental'
-            choices: ['experimental', 'testing', 'laboratory'],
-            description: 'Repo component to push packages to',
+            choices: ['experimental', 'testing'],
+            description: 'Repository to push packages to',
             name: 'DESTINATION')
     }
     options {
@@ -78,23 +78,23 @@ pipeline {
         }
         stage('Build client source rpm') {
             steps {
-                sh "${PATH_TO_SCRIPTS}/build-client-srpm public.ecr.aws/e7j3v3n0/rpmbuild:3"
+                sh "${PATH_TO_SCRIPTS}/build-client-srpm"
                 stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                uploadRPM()
+                uploadPMM3RPM()
             }
         }
         stage('Build client binary rpm') {
             steps {
-                sh """
+                sh '''
                     set -o errexit
 
-                    ${PATH_TO_SCRIPTS}/build-client-rpm public.ecr.aws/e7j3v3n0/rpmbuild:3
+                    ${PATH_TO_SCRIPTS}/build-client-rpm
 
                     mkdir -p tmp/pmm-server/RPMS/
                     cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
-                """
+                '''
                 stash includes: 'tmp/pmm-server/RPMS/*.rpm', name: 'rpms'
-                uploadRPM()
+                uploadPMM3RPM()
             }
         }
         stage('Build server packages') {
@@ -103,14 +103,11 @@ pipeline {
                     sh '''
                         set -o errexit
 
-                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3
-                        export RPMBUILD_DIST="el9"
-
                         ${PATH_TO_SCRIPTS}/build-server-rpm-all
                     '''
                 }
                 stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'
-                uploadRPM()
+                uploadPMM3RPM()
             }
         }
         stage('Build server docker') {
@@ -125,10 +122,7 @@ pipeline {
                     set -o errexit
 
                     export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
-                    export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3
-                    export RPMBUILD_DIST="el9"
                     export DOCKERFILE=Dockerfile.el9
-                    # Build a docker image
                     ${PATH_TO_SCRIPTS}/build-server-docker
 
                     if [ -n "${DOCKER_RC_TAG}" ]; then
@@ -139,11 +133,9 @@ pipeline {
                     docker push ${DOCKER_TAG}
                     docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
                     echo "${DOCKER_LATEST_TAG}" > DOCKER_TAG
-                    echo "${DOCKER_TAG}" > TIMESTAMP_TAG
                 '''
                 script {
                     env.IMAGE = sh(returnStdout: true, script: "cat DOCKER_TAG").trim()
-                    env.TIMESTAMP_TAG = sh(returnStdout: true, script: "cat TIMESTAMP_TAG").trim()
                 }
             }
         }

@@ -167,7 +167,7 @@ pipeline {
                             ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
                                 echo "${DEFAULT_SSH_KEYS}" >> /home/admin/.ssh/authorized_keys
                                 if [ -n "$SSH_KEY" ]; then
-                                    echo "$SSH_KEY" | sudo tee -a /home/admin/.ssh/authorized_keysj
+                                    echo "$SSH_KEY" | sudo tee -a /home/admin/.ssh/authorized_keys
                                 fi
                             '
                         """
