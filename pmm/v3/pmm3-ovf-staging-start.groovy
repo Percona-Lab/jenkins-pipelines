@@ -103,13 +103,13 @@ pipeline {
                             wget -nv -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
                         fi
                     """
-                    sh """
+                    sh '''
                         export BUILD_ID=dont-kill-virtualbox
                         export JENKINS_NODE_COOKIE=dont-kill-virtualbox
 
                         tar xvf ${VM_NAME}.ova
-                        export OVF_NAME=\$(find -type f -name '*.ovf');
-                        VBoxManage import \$OVF_NAME --vsys 0 --memory ${VM_MEMORY} --vmname ${VM_NAME}
+                        export OVF_NAME=$(find -type f -name '*.ovf');
+                        VBoxManage import $OVF_NAME --vsys 0 --memory ${VM_MEMORY} --vmname ${VM_NAME}
                         VBoxManage modifyvm ${VM_NAME} \
                             --memory ${VM_MEMORY} \
                             --audio none \
@@ -119,15 +119,16 @@ pipeline {
                             --groups "/pmm"
                         VBoxManage modifyvm ${VM_NAME} --natpf1 "guesthttps,tcp,,443,,443"
                         VBoxManage modifyvm ${VM_NAME} --natpf1 "guestssh,tcp,,3022,,22"
-                        for p in \$(seq 0 30); do
-                            VBoxManage modifyvm ${VM_NAME} --natpf1 "guestexporters\$p,tcp,,4200\$p,,4200\$p"
+                        for p in $(seq 0 30); do
+                            PORT=$((42000+p))
+                            VBoxManage modifyvm ${VM_NAME} --natpf1 "guestexporters$p,tcp,,$PORT,,$PORT"
                         done
                         VBoxManage modifyvm ${VM_NAME} --vrde on
                         VBoxManage modifyvm ${VM_NAME} --vrdeport 5000
                         VBoxManage startvm --type headless ${VM_NAME}
                         cat /tmp/${VM_NAME}-console.log
-                        timeout 100 bash -c 'until curl --insecure -LI https://${IP}; do sleep 5; done' || true
-                    """
+                        timeout 100 bash -c "until curl --insecure -LI https://${IP}; do sleep 5; done" || true
+                    '''
                     sh """
                         # This fails sometimes, so we want to isolate this step
                         sleep 180
