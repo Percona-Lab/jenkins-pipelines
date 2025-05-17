@@ -80,7 +80,7 @@ pipeline {
             steps {
                 sh "${PATH_TO_SCRIPTS}/build-client-srpm"
                 stash includes: 'results/srpm/pmm*-client-*.src.rpm', name: 'rpms'
-                uploadPMM3RPM()
+                uploadRPM()
             }
         }
         stage('Build client binary rpm') {
@@ -94,7 +94,7 @@ pipeline {
                     cp results/rpm/pmm*-client-*.rpm tmp/pmm-server/RPMS/
                 '''
                 stash includes: 'tmp/pmm-server/RPMS/*.rpm', name: 'rpms'
-                uploadPMM3RPM()
+                uploadRPM()
             }
         }
         stage('Build server packages') {
@@ -107,7 +107,7 @@ pipeline {
                     '''
                 }
                 stash includes: 'tmp/pmm-server/RPMS/*/*/*.rpm', name: 'rpms'
-                uploadPMM3RPM()
+                uploadRPM()
             }
         }
         stage('Build server docker') {
