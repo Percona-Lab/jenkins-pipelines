@@ -96,13 +96,9 @@ pipeline {
                     Jenkins.instance.addNode(node)
                 }
                 node(env.VM_NAME){
-                    sh """
-                        if [[ ${OVA_VERSION} = 2* ]]; then
-                            curl -sSL -o pmm-server.ova https://downloads.percona.com/downloads/pmm/${OVA_VERSION}/ova/pmm-server-${OVA_VERSION}.ova
-                        else
-                            curl -ksL -o pmm-server.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
-                        fi
-                    """
+                    sh '''
+                        curl -kL -o pmm-server.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
+                    '''
                     sh '''
                         export BUILD_ID=dont-kill-virtualbox
                         export JENKINS_NODE_COOKIE=dont-kill-virtualbox
@@ -127,12 +123,12 @@ pipeline {
                         VBoxManage modifyvm pmm-server --vrdeport 5000
                         VBoxManage startvm --type headless pmm-server
                         cat /tmp/pmm-server-console.log
-                        timeout 100 bash -c "until curl -ksI https://${IP}/graph/login; do sleep 5; done" || true
+                        timeout 200 bash -c "until curl -ksf https://${IP}/graph/login > /dev/null; do sleep 5; done" || true
                     '''
                     sh '''
-                        # This fails sometimes, so we want to isolate this step
-                        sleep 120
-                        curl -k --user admin:admin -X PUT https://${IP}/v1/server/settings --data '{"ssh_key": "${OVF_PUBLIC_KEY}"}'
+                        # Isolate this step in case it fails
+                        sleep 10
+                        curl -k --user admin:admin -X PUT https://${IP}/v1/server/settings --data '{"ssh_key": "'"$OVF_PUBLIC_KEY"'"}'
                     '''
                 }
             }
@@ -143,8 +139,6 @@ pipeline {
                     withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
                             ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
-                                export PMM_QA_GIT_BRANCH=${PMM_QA_GIT_BRANCH}
-                                export PMM_QA_GIT_COMMIT_HASH=${PMM_QA_GIT_COMMIT_HASH}
                                 sudo dnf install -y wget git
                                 sudo mkdir -p /srv/pmm-qa || :
                                 pushd /srv/pmm-qa
@@ -175,7 +169,6 @@ pipeline {
                     }
                 }
             }
-
         }
     }
     post {
@@ -200,13 +193,13 @@ pipeline {
         failure {
             withCredentials([string(credentialsId: 'f5415992-e274-45c2-9eb9-59f9e8b90f43', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
                 node(env.VM_NAME){
-                sh '''
-                    set -o xtrace
+                    sh '''
+                        set -o xtrace
 
-                    # https://docs.digitalocean.com/products/droplets/how-to/retrieve-droplet-metadata/
-                    DROPLET_ID=$(curl -s http://169.254.169.254/metadata/v1/id)
-                    doctl compute droplet delete $DROPLET_ID --force
-                '''
+                        # https://docs.digitalocean.com/products/droplets/how-to/retrieve-droplet-metadata/
+                        DROPLET_ID=$(curl -s http://169.254.169.254/metadata/v1/id)
+                        doctl compute droplet delete $DROPLET_ID --force
+                    '''
                 }
             }
         }
