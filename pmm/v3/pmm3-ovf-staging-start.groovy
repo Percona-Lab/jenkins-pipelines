@@ -127,13 +127,13 @@ pipeline {
                         VBoxManage modifyvm pmm-server --vrdeport 5000
                         VBoxManage startvm --type headless pmm-server
                         cat /tmp/pmm-server-console.log
-                        timeout 100 bash -c "until curl --insecure -LI https://${IP}; do sleep 5; done" || true
+                        timeout 100 bash -c "until curl -ksI https://${IP}/graph/login; do sleep 5; done" || true
                     '''
-                    sh """
+                    sh '''
                         # This fails sometimes, so we want to isolate this step
-                        sleep 180
-                        curl -k --user admin:admin -X PUT https://${IP}/v1/server/settings --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
-                    """
+                        sleep 120
+                        curl -k --user admin:admin -X PUT https://${IP}/v1/server/settings --data '{"ssh_key": "${OVF_PUBLIC_KEY}"}'
+                    '''
                 }
             }
         }
