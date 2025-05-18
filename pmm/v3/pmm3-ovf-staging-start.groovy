@@ -98,35 +98,35 @@ pipeline {
                 node(env.VM_NAME){
                     sh """
                         if [[ ${OVA_VERSION} = 2* ]]; then
-                            wget -nv -O ${VM_NAME}.ova https://downloads.percona.com/downloads/pmm/${OVA_VERSION}/ova/pmm-server-${OVA_VERSION}.ova
+                            curl -sSL -o pmm-server.ova https://downloads.percona.com/downloads/pmm/${OVA_VERSION}/ova/pmm-server-${OVA_VERSION}.ova
                         else
-                            wget -nv -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
+                            curl -ksL -o pmm-server.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
                         fi
                     """
                     sh '''
                         export BUILD_ID=dont-kill-virtualbox
                         export JENKINS_NODE_COOKIE=dont-kill-virtualbox
 
-                        tar xvf ${VM_NAME}.ova
+                        tar xvf pmm-server.ova
                         export OVF_NAME=$(find -type f -name '*.ovf');
-                        VBoxManage import $OVF_NAME --vsys 0 --memory ${VM_MEMORY} --vmname ${VM_NAME}
-                        VBoxManage modifyvm ${VM_NAME} \
+                        VBoxManage import $OVF_NAME --vsys 0 --memory ${VM_MEMORY} --vmname pmm-server
+                        VBoxManage modifyvm pmm-server \
                             --memory ${VM_MEMORY} \
                             --audio none \
                             --cpus 6 \
                             --natpf1 "guestweb,tcp,,80,,80" \
-                            --uart1 0x3F8 4 --uartmode1 file /tmp/${VM_NAME}-console.log \
+                            --uart1 0x3F8 4 --uartmode1 file /tmp/pmm-server-console.log \
                             --groups "/pmm"
-                        VBoxManage modifyvm ${VM_NAME} --natpf1 "guesthttps,tcp,,443,,443"
-                        VBoxManage modifyvm ${VM_NAME} --natpf1 "guestssh,tcp,,3022,,22"
+                        VBoxManage modifyvm pmm-server --natpf1 "guesthttps,tcp,,443,,443"
+                        VBoxManage modifyvm pmm-server --natpf1 "guestssh,tcp,,3022,,22"
                         for p in $(seq 0 30); do
                             PORT=$((42000+p))
-                            VBoxManage modifyvm ${VM_NAME} --natpf1 "guestexporters$p,tcp,,$PORT,,$PORT"
+                            VBoxManage modifyvm pmm-server --natpf1 "guestexporters$p,tcp,,$PORT,,$PORT"
                         done
-                        VBoxManage modifyvm ${VM_NAME} --vrde on
-                        VBoxManage modifyvm ${VM_NAME} --vrdeport 5000
-                        VBoxManage startvm --type headless ${VM_NAME}
-                        cat /tmp/${VM_NAME}-console.log
+                        VBoxManage modifyvm pmm-server --vrde on
+                        VBoxManage modifyvm pmm-server --vrdeport 5000
+                        VBoxManage startvm --type headless pmm-server
+                        cat /tmp/pmm-server-console.log
                         timeout 100 bash -c "until curl --insecure -LI https://${IP}; do sleep 5; done" || true
                     '''
                     sh """
