@@ -1,4 +1,4 @@
-library changelog: false, identifier: "lib@PML-134", retriever: modernSCM([
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
@@ -50,12 +50,16 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN')]) {
-                    dir('psmdb-testing') {
-                        git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
-                    }
-                }
+                deleteDir()
+                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
             }
+        }
+        stage ('Prepare') {
+          steps {
+                script {
+                   installMoleculeBookworm()
+             }
+           }
         }
         stage('Test') {
           steps {
