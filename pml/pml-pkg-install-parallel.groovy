@@ -63,20 +63,18 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'), string(credentialsId: 'GITHUB_API_TOKEN', variable: 'MONGO_REPO_TOKEN')]) {
-                        script{
-                            try {
-                                moleculeParallelTest(pdmdbOperatingSystems("psmdb-70"), moleculeDir)
-                            } catch (e) {
-                                echo "Converge stage failed"
-                                throw e
-                            }
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'MONGO_REPO_TOKEN')]) {
+                        try {
+                            moleculeParallelTest(pdmdbOperatingSystems("psmdb-70"), moleculeDir)
+                        } catch (e) {
+                            echo "Converge stage failed"
+                            throw e
                         }
                     }
                 }
             }
          }
-  }
+    }
 //    post {
 //        success {
 //            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PBM ${VERSION} repo ${install_repo} finished succesfully - [${BUILD_URL}]")
