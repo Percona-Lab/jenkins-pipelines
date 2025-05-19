@@ -64,7 +64,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(pdmdbOperatingSystems("psmdb-70"), moleculeDir)
+                    moleculeParallelTest(pdmdbOperatingSystems("psmdb-70"), moleculeDir, "--debug")
                 }
             }
          }
