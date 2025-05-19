@@ -11,7 +11,7 @@ pipeline {
   }
   environment {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-    MOLECULE_DIR = "molecule/pxb-rhel-binary-tarball/";
+    MOLECULE_DIR = "molecule/pxb-binary-tarball/";
     PXB_VERSION = "${params.PXB_VERSION}";
     install_repo = "${params.install_repo}";
     TESTING_BRANCH = "${params.TESTING_BRANCH}";
