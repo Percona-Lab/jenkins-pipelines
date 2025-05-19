@@ -57,20 +57,6 @@ pipeline {
                 }
             }
         }
-        stage ('Create instances') {
-            steps {
-                script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "create", "aws")
-                }
-            }
-        }
-        stage ('Prepare instances') {
-            steps {
-                script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "prepare", "aws")
-                }
-            }
-        }
         stage('Test') {
           steps {
                 script {
