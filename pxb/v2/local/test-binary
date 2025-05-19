@@ -125,6 +125,36 @@ else
     fi
     ./bootstrap.sh --pxb-type=${CMAKE_BUILD_TYPE} --type=${XTRABACKUP_TARGET} --version=${XTRABACKUP_TARGET_VERSION}
 fi
+
+fix_libaio_symlink() {
+    local server_dir="$1"
+    local binary="$server_dir/bin/mysqld"
+    local missing_lib="libaio.so.1"
+    local target_path="/usr/lib/x86_64-linux-gnu"
+    local real_lib="$target_path/${missing_lib}t64"
+    local link_lib="$target_path/$missing_lib"
+
+    if [ ! -x "$binary" ]; then
+        echo "Error: $binary does not exist or is not executable."
+        return 1
+    fi
+
+    if ldd "$binary" | grep -q "$missing_lib => not found"; then
+        echo "$missing_lib is missing in $binary."
+
+        if [ -e "$real_lib" ]; then
+            echo "$real_lib exists. Creating symlink..."
+            sudo ln -sf "$real_lib" "$link_lib"
+            echo "Symlink created: $link_lib -> $real_lib"
+        else
+            echo "Error: $real_lib not found. Cannot fix missing $missing_lib."
+            return 2
+        fi
+    fi
+}
+
+fix_libaio_symlink ./server
+
 if [[ ${CMAKE_BUILD_TYPE} == "Debug" ]]; then
     if [[ ${XTRABACKUP_TARGET} == "innodb80" ]] || [[ ${XTRABACKUP_TARGET} == "innodb57" ]]; then
         XBTR_ARGS+=" -D"
