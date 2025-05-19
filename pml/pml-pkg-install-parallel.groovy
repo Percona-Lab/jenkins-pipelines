@@ -84,7 +84,7 @@ pipeline {
         }
         always {
             script {
-                moleculeParallelPostDestroy(pdmdbOperatingSystems(psmdb_to_test), moleculeDir)
+                moleculeParallelPostDestroy(pmlOperatingSystems("pml"), moleculeDir)
             }
         }
     }
