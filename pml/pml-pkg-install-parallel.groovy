@@ -52,7 +52,7 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN')]) {
                     dir('psmdb-testing') {
-                        git poll: false, branch: params.PSMDB_TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
+                        git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                     }
                     dir('/tmp/percona-mongolink') {
                         git credentialsId: 'JNKPercona_API_token',
