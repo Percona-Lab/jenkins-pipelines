@@ -133,9 +133,11 @@ pipeline {
                     docker push ${DOCKER_TAG}
                     docker push perconalab/pmm-server:${DOCKER_LATEST_TAG}
                     echo "${DOCKER_LATEST_TAG}" > DOCKER_TAG
+                    echo "${DOCKER_TAG}" > TIMESTAMP_TAG
                 '''
                 script {
                     env.IMAGE = sh(returnStdout: true, script: "cat DOCKER_TAG").trim()
+                    env.TIMESTAMP_TAG = sh(returnStdout: true, script: "cat TIMESTAMP_TAG").trim()
                 }
             }
         }
