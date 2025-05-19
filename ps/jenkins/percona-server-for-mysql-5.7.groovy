@@ -49,20 +49,37 @@ void installCli32(String PLATFORM) {
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
         sh """
-            set -o xtrace
-            mkdir -p test
-            wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O ps_builder.sh \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/percona-server-5.7_builder.sh?ref=${BRANCH}
-            sed -i "s|git clone \\\"\\\$REPO\\\"|git clone \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-server|g" ps_builder.sh
-            grep "git clone" ps_builder.sh
-            pwd -P
-            export build_dir=\$(pwd -P)
-            set -o xtrace
-            cd \${build_dir}
-            if [ -f ./test/percona-server-5.7.properties ]; then
-                . ./test/percona-server-5.7.properties
+            if [ "$DOCKER_OS" = "none" ]; then
+                set -o xtrace
+                mkdir -p test
+                wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O ps_builder.sh \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/percona-server-5.7_builder.sh?ref=${BRANCH}
+                sed -i "s|git clone \\\"\\\$REPO\\\"|git clone \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-server|g" ps_builder.sh
+                pwd -P
+                export build_dir=\$(pwd -P)
+                set -o xtrace
+                cd \${build_dir}
+                if [ -f ./test/percona-server-5.7.properties ]; then
+                    . ./test/percona-server-5.7.properties
+                fi
+                sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
+                bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+            else
+                docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+                    set -o xtrace
+                    mkdir -p test
+                    wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O ps_builder.sh \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/percona-server-5.7_builder.sh?ref=${BRANCH}
+                    sed -i "s|git clone \\\"\\\$REPO\\\"|git clone \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-server|g" ps_builder.sh
+                    pwd -P
+                    export build_dir=\$(pwd -P)
+                    set -o xtrace
+                    cd \${build_dir}
+                    if [ -f ./test/percona-server-5.7.properties ]; then
+                        . ./test/percona-server-5.7.properties
+                    fi
+                    bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
+                    bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+                "
             fi
-            sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
     """
     }
 }
