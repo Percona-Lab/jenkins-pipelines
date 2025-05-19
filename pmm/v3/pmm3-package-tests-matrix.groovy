@@ -170,77 +170,77 @@ pipeline {
                 stage('Run \"pmm3-client\" package tests') {
                     steps {
                         retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client", INSTALL_REPO, TARBALL, METRICS_MODE, '--help')
+                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client", INSTALL_REPO, TARBALL, METRICS_MODE, '--database ps')
                         }
                     }
                 }
                 stage('Run \"pmm3-client_custom_path\" package tests') {
                     steps {
                         retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_custom_path", INSTALL_REPO, TARBALL, METRICS_MODE, '--help ')
+                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_custom_path", INSTALL_REPO, TARBALL, METRICS_MODE, '--database ps=8.4')
                         }
                     }
                 }
                 stage('Run \"pmm3-client_integration\" package tests') {
                     steps {
                         retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration", INSTALL_REPO, TARBALL, METRICS_MODE, '--help  ')
+                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration", INSTALL_REPO, TARBALL, METRICS_MODE, '--database ps=8.0')
                         }
                     }
                 }
                 stage('Run \"pmm3-client_integration_auth_config\" package tests') {
                     steps {
                         retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_auth_config", INSTALL_REPO, TARBALL, METRICS_MODE, '--help   ')
+                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_auth_config", INSTALL_REPO, TARBALL, METRICS_MODE, '--database ps=5.7')
                         }
                     }
                 }
                 stage('Run \"pmm3-client_integration_auth_register\" package tests') {
                     steps {
                         retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_auth_register", INSTALL_REPO, TARBALL, METRICS_MODE, ' --help')
+                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_auth_register", INSTALL_REPO, TARBALL, METRICS_MODE, '--database mysql')
                         }
                     }
                 }
                 stage('Run \"pmm3-client_integration_custom_path\" package tests') {
                     steps {
                         retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_custom_path", INSTALL_REPO, TARBALL, METRICS_MODE, '  --help')
+                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_custom_path", INSTALL_REPO, TARBALL, METRICS_MODE, '--database mysql=8.4')
                         }
                     }
                 }
                 stage('Run \"pmm3-client_integration_custom_port\" package tests') {
                     steps {
                         retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_custom_port", INSTALL_REPO, TARBALL, METRICS_MODE, '   --help')
+                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_custom_port", INSTALL_REPO, TARBALL, METRICS_MODE, '--database mysql=8.0')
                         }
                     }
                 }
                 stage('Run \"pmm3-client_integration_upgrade\" package tests') {
                     steps {
                         retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade", INSTALL_REPO, TARBALL, METRICS_MODE, '    --help')
+                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade", INSTALL_REPO, TARBALL, METRICS_MODE, '--database pdpgsql=17')
                         }
                     }
                 }
                 stage('Run \"pmm3-client_integration_upgrade_custom_path\" package tests') {
                     steps {
                         retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade_custom_path", INSTALL_REPO, TARBALL, METRICS_MODE, '    --help ')
+                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade_custom_path", INSTALL_REPO, TARBALL, METRICS_MODE, '--database pdpgsql=16')
                         }
                     }
                 }
                 stage('Run \"pmm3-client_integration_upgrade_custom_port\" package tests') {
                     steps {
                         retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade_custom_port", INSTALL_REPO, TARBALL, METRICS_MODE, '    --help  ')
+                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade_custom_port", INSTALL_REPO, TARBALL, METRICS_MODE, '--database pdpgsql=15')
                         }
                     }
                 }
                 stage('Run \"pmm3-client_upgrade\" package tests') {
                     steps {
                         retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_upgrade", INSTALL_REPO, TARBALL, METRICS_MODE, '    --help   ')
+                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_upgrade", INSTALL_REPO, TARBALL, METRICS_MODE, '--database pdpgsql=14)
                         }
                     }
                 }
