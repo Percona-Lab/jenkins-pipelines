@@ -50,7 +50,6 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                deleteDir()
                 git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
             }
         }
@@ -64,7 +63,16 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(pdmdbOperatingSystems("psmdb-70"), moleculeDir, "--debug")
+                    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'), string(credentialsId: 'GITHUB_API_TOKEN', variable: 'MONGO_REPO_TOKEN')]) {
+                        script{
+                            try {
+                                moleculeParallelTest(pdmdbOperatingSystems("psmdb-70"), moleculeDir)
+                            } catch (e) {
+                                echo "Converge stage failed"
+                                throw e
+                            }
+                        }
+                    }
                 }
             }
          }
