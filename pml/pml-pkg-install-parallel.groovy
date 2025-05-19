@@ -23,7 +23,7 @@ pipeline {
         ]
     )
     string(
-            name: 'TESTING_BRANCH',
+            name: 'PSMDB_BRANCH',
             description: 'Branch for testing repository',
             defaultValue: 'PML-134')
     string(
@@ -50,7 +50,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
+                git poll: false, branch: PSMDB_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
             }
         }
         stage ('Prepare') {
@@ -77,10 +77,10 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PBM ${VERSION} repo ${install_repo} finished succesfully - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PML ${PML_BRANCH} against PSMDB Version ${PSMDB_BRANCH} finished succesfully - [${BUILD_URL}]")
         }
         failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PBM ${VERSION} repo ${install_repo} failed - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PML ${PML_BRANCH} against PSMDB Version ${PSMDB_BRANCH} failed - [${BUILD_URL}]")
         }
         always {
             script {
