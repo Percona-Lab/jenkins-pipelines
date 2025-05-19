@@ -77,10 +77,10 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PML ${PML_BRANCH} against PSMDB Version ${PSMDB_BRANCH} finished succesfully - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PML(${PML_BRANCH}) with PSMDB Version(${PSMDB_BRANCH}) finished succesfully - [${BUILD_URL}]")
         }
         failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PML ${PML_BRANCH} against PSMDB Version ${PSMDB_BRANCH} failed - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PML(${PML_BRANCH}) with PSMDB Version(${PSMDB_BRANCH}) failed - [${BUILD_URL}]")
         }
         always {
             script {
