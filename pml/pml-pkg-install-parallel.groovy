@@ -50,12 +50,15 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                deleteDir()
-                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
-                dir('/tmp/percona-mongolink') {
-                    git credentialsId: 'JNKPercona_API_token',
-                            url: 'https://github.com/Percona-Lab/percona-mongolink.git',
-                            branch: params.MLINK_BRANCH
+                withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN')]) {
+                    dir('psmdb-testing') {
+                        git poll: false, branch: params.PSMDB_TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
+                    }
+                    dir('/tmp/percona-mongolink') {
+                        git credentialsId: 'JNKPercona_API_token',
+                                url: 'https://github.com/Percona-Lab/percona-mongolink.git',
+                                branch: params.PML_BRANCH
+                    }
                 }
             }
         }
