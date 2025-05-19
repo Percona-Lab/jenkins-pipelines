@@ -240,7 +240,7 @@ pipeline {
                 stage('Run \"pmm3-client_upgrade\" package tests') {
                     steps {
                         retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_upgrade", INSTALL_REPO, TARBALL, METRICS_MODE, '--database pdpgsql=14)
+                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_upgrade", INSTALL_REPO, TARBALL, METRICS_MODE, '--database pdpgsql=14')
                         }
                     }
                 }
