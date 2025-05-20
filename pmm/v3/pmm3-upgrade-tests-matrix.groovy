@@ -7,16 +7,16 @@ def pmmVersions = pmmVersion('v3')[1..-1]
 def latestVersion = pmmVersion('v3')[0]
 
 void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
-//     upgradeJob = build job: 'pmm3-upgrade-test', parameters: [
-//         string(name: 'PMM_UI_GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
-//         string(name: 'DOCKER_TAG', value: DOCKER_TAG),
-//         string(name: 'DOCKER_TAG_UPGRADE', value: DOCKER_TAG_UPGRADE),
-//         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-//         string(name: 'CLIENT_REPOSITORY', value: CLIENT_REPOSITORY),
-//         string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
-//         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-//         string(name: 'QA_INTEGRATION_GIT_BRANCH', value: QA_INTEGRATION_GIT_BRANCH),
-//     ]
+    upgradeJob = build job: 'pmm3-upgrade-test', parameters: [
+        string(name: 'PMM_UI_GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
+        string(name: 'DOCKER_TAG', value: DOCKER_TAG),
+        string(name: 'DOCKER_TAG_UPGRADE', value: DOCKER_TAG_UPGRADE),
+        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
+        string(name: 'CLIENT_REPOSITORY', value: CLIENT_REPOSITORY),
+        string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
+        string(name: 'QA_INTEGRATION_GIT_BRANCH', value: QA_INTEGRATION_GIT_BRANCH),
+    ]
 }
 
 def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions) {
