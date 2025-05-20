@@ -90,6 +90,6 @@ def call(String type='dev-latest') {
     case 'dbaas':
       return dbaasVersions
     case 'v3':
-      return 'It is v3'
+      return v3
   }
 }
