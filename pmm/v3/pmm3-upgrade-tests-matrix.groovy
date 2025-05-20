@@ -24,15 +24,19 @@ def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_REPOSI
     for (pmmVersion in pmmVersions) {
         results.put(
             "Run matrix upgrade tests from version: \"$pmmVersion\"",
-            {
-                stage("Run \"$pmmVersion\" upgrade tests") {
-                    runUpgradeJob(PMM_UI_GIT_BRANCH, 'percona/pmm-server:' + pmmVersion, DOCKER_TAG_UPGRADE, pmmVersion, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH);
-                }
-            }
+            generateStage(PMM_UI_GIT_BRANCH, 'percona/pmm-server:' + pmmVersion, DOCKER_TAG_UPGRADE, pmmVersion, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH);
         )
     }
 
     return results;
+}
+
+def generateStage(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
+    return {
+        stage("Run \"$pmmVersion\" upgrade tests") {
+            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH);
+        }
+    }
 }
 
 
