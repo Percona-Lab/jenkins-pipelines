@@ -81,7 +81,6 @@ pipeline {
             steps {
                 script {
                     echo "Version: ${pmmVersions}"
-                    echo "Old Version: ${pmmVersionsOld}"
                     parallel generateVariants(PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions)
                 }
             }
