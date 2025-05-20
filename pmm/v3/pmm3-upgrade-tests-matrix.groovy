@@ -4,7 +4,7 @@ library changelog: false, identifier: 'lib@PMM-7-PMM-v3-upgrade-job-matrix', ret
 ]) _
 
 def pmmVersions = pmmVersion('v3')
-def pmmVersionsOld = pmmVersion('stable')
+def latestVersion = pmmVersion('v3')[0]
 
 void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, UPGRADE_FLAG) {
     upgradeJob = build job: 'pmm3-upgrade-test-runner', parameters: [
@@ -38,7 +38,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_REPOSI
     return results;
 }
 
-// def latestVersion = pmmVersion('v3')[0]
+
 
 pipeline {
     agent {
@@ -58,7 +58,7 @@ pipeline {
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
         string(
-            defaultValue: '3.2.0',
+            defaultValue: latestVersion,
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
