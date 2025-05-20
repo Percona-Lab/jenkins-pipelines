@@ -24,11 +24,11 @@ def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_REPOSI
     def results = new HashMap<>();
     for (pmmVersion in pmmVersions) {
         results.put(
-            "Run matrix upgrade tests from version: \"$version\"",
+            "Run matrix upgrade tests from version: \"$pmmVersion\"",
             {
                 stage("Run \"$LABEL\" upgrade tests") {
                     retry(2) {
-                        runUpgradeJob(PMM_UI_GIT_BRANCH, 'percona/pmm-server:' + version, DOCKER_TAG_UPGRADE, version, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, LABEL);
+                        runUpgradeJob(PMM_UI_GIT_BRANCH, 'percona/pmm-server:' + pmmVersion, DOCKER_TAG_UPGRADE, pmmVersion, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, LABEL);
                     }
                 }
             }
