@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@PMM-7-PMM-v3-upgrade-job-matrix', ret
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-def pmmVersions = pmmVersion('v3')
+def pmmVersions = pmmVersion('v3')[1..-1]
 def latestVersion = pmmVersion('v3')[0]
 
 void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, UPGRADE_FLAG) {
