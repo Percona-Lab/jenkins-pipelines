@@ -38,7 +38,7 @@ def generateStage(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIE
 }
 
 def versions = pmmVersion('v3')
-def latestVersion = pmmVersion('v3')[0]
+// def latestVersion = pmmVersion('v3')[0]
 
 pipeline {
     agent {
@@ -58,7 +58,7 @@ pipeline {
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
         string(
-            defaultValue: latestVersion,
+            defaultValue: '3.2.0',
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
@@ -80,6 +80,7 @@ pipeline {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
+                    echo versions
                     parallel generateVariants(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH)
                 }
             }
