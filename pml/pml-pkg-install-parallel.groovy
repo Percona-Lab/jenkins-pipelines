@@ -13,32 +13,41 @@ pipeline {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
   }
   parameters {
-    choice(
-        name: 'psmdb_version',
-        description: 'Version of PSMDB PML will interact with',
-        choices: [
-            '6.0',
-            '7.0',
-            '8.0'
-        ]
-    )
-    string(
-            name: 'PSMDB_BRANCH',
-            description: 'Branch for testing repository',
-            defaultValue: 'main')
-    string(
-            name: 'PML_BRANCH',
-            description: 'PML Branch for testing',
-            defaultValue: 'main')
-    string(
-            name: 'GO_VERSION',
-            description: 'Version of Golang used',
-            defaultValue: '1.24.1')
-    string(
+      choice(
+          name: 'install_repo',
+          description: 'Repo for testing',
+          choices: [
+              'testing',
+              'main',
+              'experimental'
+          ]
+      )
+      choice(
+          name: 'psmdb_version',
+          description: 'Version of PSMDB PML will interact with',
+          choices: [
+              '6.0',
+              '7.0',
+              '8.0'
+          ]
+      )
+      string(
+          name: 'TEST_BRANCH',
+          description: 'Branch for testing repository',
+          defaultValue: 'main')
+      string(
+          name: 'PML_BRANCH',
+          description: 'PML Branch for testing',
+          defaultValue: 'main')
+      string(
+          name: 'GO_VERSION',
+          description: 'Version of Golang used',
+          defaultValue: '1.24.1')
+      string(
           name: 'SSH_USER',
           description: 'User for debugging',
           defaultValue: 'none')
-    string(
+      string(
           name: 'SSH_PUBKEY',
           description: 'User ssh public key for debugging',
           defaultValue: 'none')
@@ -50,7 +59,7 @@ pipeline {
     stages {
         stage('Checkout') {
             steps {
-                git poll: false, branch: PSMDB_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
+                git poll: false, branch: TEST_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
             }
         }
         stage ('Prepare') {
