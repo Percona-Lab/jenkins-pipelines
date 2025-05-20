@@ -4,6 +4,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 def pmmVersions = pmmVersion('v3')
+def pmmVersionsOld = pmmVersion()
 
 void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, UPGRADE_FLAG) {
     upgradeJob = build job: 'pmm3-upgrade-test-runner', parameters: [
@@ -19,16 +20,17 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLI
     ]
 }
 
-def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
+def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
     def results = new HashMap<>();
     echo "Version: ${pmmVersions}"
+    echo "Old Version: ${pmmVersionsOld}"
     for (pmmVersion in pmmVersions) {
         results.put(
             "Run matrix upgrade tests from version: \"$version\"",
             {
                 stage("Run \"$LABEL\" upgrade tests") {
                     retry(2) {
-                        runUpgradeJob(PMM_UI_GIT_BRANCH, 'percona/pmm-server:' + version, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, LABEL);
+                        runUpgradeJob(PMM_UI_GIT_BRANCH, 'percona/pmm-server:' + version, DOCKER_TAG_UPGRADE, version, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, LABEL);
                     }
                 }
             }
@@ -81,7 +83,7 @@ pipeline {
             steps {
                 script {
                     echo "Version: ${pmmVersions}"
-                    parallel generateVariants(PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH)
+                    parallel generateVariants(PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH)
                 }
             }
         }
