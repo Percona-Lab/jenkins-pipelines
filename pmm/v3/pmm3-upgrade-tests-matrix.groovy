@@ -3,6 +3,8 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+def pmmVersions = pmmVersion('v3')
+
 void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, UPGRADE_FLAG) {
     upgradeJob = build job: 'pmm3-upgrade-test-runner', parameters: [
         string(name: 'PMM_UI_GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
@@ -19,9 +21,18 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLI
 
 def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
     def results = new HashMap<>();
-    echo "Version: ${versions}"
-    for (version in versions) {
-        results.put("Run matrix upgrade tests from version: \"$version\"", generateStage(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, UPGRADE_VARIANT))
+    echo "Version: ${pmmVersions}"
+    for (pmmVersion in pmmVersions) {
+        results.put(
+            "Run matrix upgrade tests from version: \"$version\"",
+            {
+                stage("Run \"$LABEL\" upgrade tests") {
+                    retry(2) {
+                        runUpgradeJob(PMM_UI_GIT_BRANCH, 'percona/pmm-server:' + version, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, LABEL);
+                    }
+                }
+            }
+        )
     }
 
     return results;
@@ -37,7 +48,7 @@ def generateStage(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIE
     }
 }
 
-def versions = pmmVersion('v3')
+
 // def latestVersion = pmmVersion('v3')[0]
 
 pipeline {
@@ -80,7 +91,7 @@ pipeline {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
-                    echo "Version: ${versions}"
+                    echo "Version: ${pmmVersions}"
                     parallel generateVariants(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH)
                 }
             }
