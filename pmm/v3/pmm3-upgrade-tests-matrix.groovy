@@ -7,7 +7,7 @@ def pmmVersions = pmmVersion('v3')[1..-1]
 def latestVersion = pmmVersion('v3')[0]
 
 void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
-    upgradeJob = build job: 'pmm3-upgrade-test', parameters: [
+    upgradeJob = build job: 'pmm3-upgrade-tests', parameters: [
         string(name: 'PMM_UI_GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
         string(name: 'DOCKER_TAG', value: DOCKER_TAG),
         string(name: 'DOCKER_TAG_UPGRADE', value: DOCKER_TAG_UPGRADE),
