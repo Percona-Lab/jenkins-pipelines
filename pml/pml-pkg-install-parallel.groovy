@@ -1,4 +1,4 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@PML-134", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
@@ -38,11 +38,7 @@ pipeline {
       string(
           name: 'PML_BRANCH',
           description: 'PML Branch for testing',
-          defaultValue: 'main')
-      string(
-          name: 'GO_VERSION',
-          description: 'Version of Golang used',
-          defaultValue: '1.24.1')
+          defaultValue: 'latest')
       string(
           name: 'SSH_USER',
           description: 'User for debugging',
