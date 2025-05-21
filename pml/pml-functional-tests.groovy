@@ -76,12 +76,6 @@ pipeline {
                                     git poll: false, branch: params.PSMDB_TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                                 }
 
-                                dir('percona-mongolink') {
-                                    git credentialsId: 'JNKPercona_API_token',
-                                            url: 'https://github.com/Percona-Lab/percona-mongolink.git',
-                                            branch: params.MLINK_BRANCH
-                                }
-
                                 sh """
                                     cd psmdb-testing/mlink
                                     docker-compose build
