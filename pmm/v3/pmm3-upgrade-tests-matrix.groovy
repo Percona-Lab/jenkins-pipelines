@@ -1,9 +1,9 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-7-PMM-v3-upgrade-job-matrix', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-def pmmVersions = ['3.2.0','3.1.0','3.0.0']
+def pmmVersions = pmmVersion('v3')
 def latestVersion = pmmVersions[0]
 
 void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
