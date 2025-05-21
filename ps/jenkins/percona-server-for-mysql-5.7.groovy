@@ -653,6 +653,8 @@ parameters {
                         sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
                         sudo docker images
                         sudo docker save -o percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_RELEASE} percona/percona-server:${PS_MAJOR_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
+                        sudo addgroup admin
+                        sudo useradd -m -s /bin/bash -g admin -G admin admin
                         sudo chown admin:admin percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar
                         sudo chmod a+r percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar
                         ls -la
