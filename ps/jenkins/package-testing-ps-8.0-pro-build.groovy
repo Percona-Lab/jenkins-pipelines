@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@fix-al2023", retriever: modernSCM([
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
 List all_actions = [
