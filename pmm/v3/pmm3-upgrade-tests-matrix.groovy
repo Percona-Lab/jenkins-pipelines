@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-7-PMM-v3-upgrade-job-matrix', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -19,7 +19,7 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLI
     ]
 }
 
-def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions) {
+def generateVariants(String PMM_UI_GIT_BRANCH, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions) {
     def results = new HashMap<>();
 
     for (pmmVersion in pmmVersions) {
@@ -58,10 +58,6 @@ pipeline {
             defaultValue: 'v3',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
-        string(
-            defaultValue: '',
-            description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
-            name: 'DOCKER_TAG_UPGRADE')
         choice(
             choices: ["experimental", "testing", "release"],
             description: 'PMM client repository',
@@ -90,7 +86,7 @@ pipeline {
             steps {
                 script {
                     echo "Version: ${pmmVersions}"
-                    parallel generateVariants(PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions)
+                    parallel generateVariants(PMM_UI_GIT_BRANCH, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions)
                 }
             }
         }
