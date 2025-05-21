@@ -589,14 +589,14 @@ parameters {
             steps {
                 // sync packages
                 //sync2ProdAutoBuild('ps-57', COMPONENT)
-                sync2PrivateProdAutoBuild("ps-57-eol", COMPONENT)
+                sync2PrivateProdAutoBuild(params.CLOUD, "ps-57-eol", COMPONENT)
             }
         }
         stage('Push Tarballs to TESTING download area') {
             steps {
                 script {
                     try {
-                        uploadTarballToDownloadsTesting("ps-gated", "${BRANCH}")
+                        uploadTarballToDownloadsTesting(params.CLOUD, "ps-gated", "${BRANCH}")
                     }
                     catch (err) {
                         echo "Caught: ${err}"
