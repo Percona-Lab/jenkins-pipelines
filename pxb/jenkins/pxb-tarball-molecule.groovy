@@ -5,11 +5,13 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 pipeline {
   agent {
-    label 'min-centos-7-x64'
+
+    label 'min-bookworm-x64'
+
   }
   environment {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-    MOLECULE_DIR = "molecule/pxb-rhel-binary-tarball/";
+    MOLECULE_DIR = "molecule/pxb-binary-tarball/";
     PXB_VERSION = "${params.PXB_VERSION}";
     install_repo = "${params.install_repo}";
     TESTING_BRANCH = "${params.TESTING_BRANCH}";
@@ -21,11 +23,11 @@ pipeline {
       defaultValue: '8.0.30-22.1', 
       description: 'PXB full version'
     )
-    string(
-      name: 'install_repo',
-      defaultValue: 'main',
-      description: 'Repository to install PXB from'
-    )
+    //string(
+    //  name: 'install_repo',
+    //  defaultValue: 'main',
+    //  description: 'Repository to install PXB from'
+    //)
     string(
       defaultValue: 'master',
       description: 'Branch for package-testing repository',
@@ -38,7 +40,8 @@ pipeline {
     )
   }
   options {
-    withCredentials(moleculepxcJenkinsCreds())
+    //withCredentials(moleculepxcJenkinsCreds())
+    withCredentials(moleculepxbJenkinsCreds())
     disableConcurrentBuilds()
   }
 
@@ -61,7 +64,7 @@ pipeline {
     stage ('Prepare') {
       steps {
         script {
-          installMolecule()
+          installMoleculeBookworm()
         }
       }
     }
@@ -69,7 +72,7 @@ pipeline {
     stage('Run tarball molecule') {
       steps {
           script {
-            moleculeParallelTest(pxbTarballRHEL8689(), env.MOLECULE_DIR)
+            moleculeParallelTest(pxbTarball(), env.MOLECULE_DIR)
           }
       }
     }
@@ -77,8 +80,8 @@ pipeline {
   post {
     always {
       script {
-        archiveArtifacts artifacts: "*.tar.gz" , followSymlinks: false
-        moleculeParallelPostDestroy(pxbTarballRHEL8689(), env.MOLECULE_DIR)
+        //archiveArtifacts artifacts: "*.tar.gz" , followSymlinks: false
+        moleculeParallelPostDestroy(pxbTarball(), env.MOLECULE_DIR)
       }
     }
   }
