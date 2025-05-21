@@ -38,7 +38,7 @@ pipeline {
       string(
           name: 'PML_BRANCH',
           description: 'PML Branch for testing',
-          defaultValue: 'latest')
+          defaultValue: '0.5.0-1.el8')
       string(
           name: 'SSH_USER',
           description: 'User for debugging',
@@ -81,12 +81,12 @@ pipeline {
          }
     }
     post {
-        success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PML(${PML_BRANCH}) with PSMDB Version(${psmdb_version}) finished succesfully - [${BUILD_URL}]")
-        }
-        failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PML(${PML_BRANCH}) with PSMDB Version(${psmdb_version}) failed - [${BUILD_URL}]")
-        }
+//        success {
+//            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PML(${PML_BRANCH}) with PSMDB Version(${psmdb_version}) finished succesfully - [${BUILD_URL}]")
+//        }
+//        failure {
+//            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PML(${PML_BRANCH}) with PSMDB Version(${psmdb_version}) failed - [${BUILD_URL}]")
+//        }
         always {
             script {
                 moleculeParallelPostDestroy(pmlOperatingSystems("pml"), moleculeDir)
