@@ -27,7 +27,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, CLIENT_REPOSITORY, PMM_SERVER_LAT
         if(pmmVersion == latestVersion) {
             results.put(
                 "Run matrix upgrade tests from version: \"$pmmVersion\"",
-                generateStage(PMM_UI_GIT_BRANCH, "perconalab/pmm-server:${pmmVersion}-rc", '', pmmVersion, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH)
+                generateStage(PMM_UI_GIT_BRANCH, "perconalab/pmm-server:${pmmVersion}-rc", '', 'pmm3-rc', CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH)
             )
         } else {
             results.put(
