@@ -75,9 +75,6 @@ pipeline {
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
     }
-    options {
-        disableConcurrentBuilds()
-    }
     triggers {
         cron('0 3 * * *')
     }
