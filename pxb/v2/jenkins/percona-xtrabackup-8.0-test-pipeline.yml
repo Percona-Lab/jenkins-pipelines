@@ -19,6 +19,7 @@
         choices:
           - centos:8
           - oraclelinux:9
+          - ubuntu:focal
           - ubuntu:jammy
           - ubuntu:noble
           - debian:bullseye

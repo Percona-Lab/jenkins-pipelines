@@ -145,8 +145,8 @@ pipeline {
                                 set -o xtrace
                                 docker exec pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec pmm-server percona-release enable pmm2-client experimental
-                                docker exec pmm-server yum clean all
-                                docker exec pmm-server yum clean metadata
+                                docker exec pmm-server dnf clean all
+                                docker exec pmm-server dnf clean metadata
                             """
                         }
                     }
@@ -162,8 +162,8 @@ pipeline {
                                 set -o xtrace
                                 docker exec pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec pmm-server percona-release enable pmm2-client testing
-                                docker exec pmm-server yum clean all
-                                docker exec pmm-server yum clean metadata
+                                docker exec pmm-server dnf clean all
+                                docker exec pmm-server dnf clean metadata
                             """
                         }
                     }
@@ -177,8 +177,8 @@ pipeline {
                             sh """
                                 set -o errexit
                                 set -o xtrace
-                                docker exec pmm-server yum clean all
-                                docker exec pmm-server yum clean metadata
+                                docker exec pmm-server dnf clean all
+                                docker exec pmm-server dnf clean metadata
                             """
                         }
                     }
@@ -222,7 +222,7 @@ pipeline {
                 script {
                     sh """
                         curl -sL https://rpm.nodesource.com/setup_20.x | sudo bash -
-                        sudo yum install -y nodejs
+                        sudo dnf install -y nodejs
                         node --version
                         npm ci
                         npx playwright install
@@ -271,14 +271,14 @@ pipeline {
                         ./get-pmm.sh -n pmm-server -b --network-name pmm-qa --tag "\$DOCKER_TAG" --repo "\$DOCKER_REPO"
 
                         sudo percona-release enable pmm3-client \$UPGRADE_TAG
-                        sudo yum install -y pmm-client
+                        sudo dnf install -y pmm-client
 
                         listVar="rs101 rs102 rs103 rs201 rs202 rs203"
 
                         for i in \$listVar; do
                             echo "\$i"
                             docker exec \$i percona-release enable pmm3-client \$UPGRADE_TAG
-                            docker exec \$i yum install -y pmm-client
+                            docker exec \$i dnf install -y pmm-client
                             docker exec \$i sed -i "s/443/8443/g" /usr/local/percona/pmm/config/pmm-agent.yaml
                             docker exec \$i cat /usr/local/percona/pmm/config/pmm-agent.yaml
                             docker exec \$i systemctl restart pmm-agent
