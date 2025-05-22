@@ -66,10 +66,11 @@ pipeline {
         }
         stage ('Create infrastructure') {
             steps {
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'), file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML')]) {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'),file(credentialsId: 'PBM-GCS-HMAC-S3', variable: 'PBM_GCS_HMAC_S3_YML'), file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML')]) {
                     script{
                         sh """
                             cp $PBM_GCS_S3_YML /tmp/pbm-agent-storage-gcp.conf
+                            cp $PBM_GCS_HMAC_S3_YML /tmp/pbm-agent-storage-gcp-hmac.conf
                             cp $PBM_AZURE_YML /tmp/pbm-agent-storage-azure.conf
                         """
                         moleculeExecuteActionWithScenario(moleculeDir, "converge", params.LAYOUT)
@@ -97,6 +98,7 @@ pipeline {
             script {
                 sh """
                     rm -f /tmp/pbm-agent-storage-gcp.conf
+                    rm -f /tmp/pbm-agent-storage-gcp-hmac.conf
                     rm -f /tmp/pbm-agent-storage-azure.conf
                 """
                 moleculeExecuteActionWithScenario(moleculeDir, "destroy", params.LAYOUT)

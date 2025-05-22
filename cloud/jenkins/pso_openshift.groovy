@@ -1,4 +1,3 @@
-region='eu-west-2'
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
@@ -13,32 +12,6 @@ String getParam(String paramName, String keyName = null) {
         error("$keyName not found in params file $release_versions")
     }
     return param
-}
-
-void prepareAgent() {
-    echo "=========================[ Installing tools on the Jenkins executor ]========================="
-    sh """
-        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
-        kubectl version --client --output=yaml
-
-        curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-
-        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.45.4/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
-        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
-
-        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
-        ./krew-linux_amd64 install krew
-        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-
-        kubectl krew install assert
-
-        # v0.22.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
-        echo \$(kubectl kuttl --version) is installed
-
-        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OC_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
-        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
-    """
 }
 
 void prepareSources() {
@@ -71,7 +44,7 @@ void initParams() {
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        OC_VER = "4.15.25"
+        OC_VER="4.15.25"
         PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", returnStdout: true).trim()
     } else {
         if ("$PLATFORM_VER" <= "4.15.25") {
@@ -87,6 +60,32 @@ void initParams() {
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
         currentBuild.description = "$PLATFORM_VER " + "$IMAGE_MYSQL".split(":")[1] + " $cw"
     }
+}
+
+void prepareAgent() {
+    echo "=========================[ Installing tools on the Jenkins executor ]========================="
+    sh """
+        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+        kubectl version --client --output=yaml
+
+        curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+
+        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.45.4/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
+        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
+
+        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
+        ./krew-linux_amd64 install krew
+        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+
+        kubectl krew install assert
+
+        # v0.22.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
+        echo \$(kubectl kuttl --version) is installed
+
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OC_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
+    """
 }
 
 void dockerBuildPush() {
@@ -188,7 +187,7 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE')]) {
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
         sh """
             mkdir -p openshift/$CLUSTER_SUFFIX
             timestamp="\$(date +%s)"
@@ -225,7 +224,7 @@ networking:
   - 172.30.0.0/16
 platform:
   aws:
-    region: $region
+    region: ${AWS_REGION}
     userTags:
       iit-billing-tag: openshift
       delete-cluster-after-hours: 8
@@ -238,11 +237,18 @@ EOF
             cat $OPENSHIFT_CONF_FILE >> openshift/$CLUSTER_SUFFIX/install-config.yaml
         """
 
-        sshagent(['aws-openshift-41-key']) {
-            sh """
-                /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
-                export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
-            """
+        withEnv(["CLUSTER_SUFFIX=${CLUSTER_SUFFIX}"]) {
+            sshagent(['aws-openshift-41-key']) {
+                sh '''
+                    /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
+                    export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                    TMP=$(mktemp)
+                    oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > $TMP
+                    oc registry login --registry='docker.io' --auth-basic="$DOCKER_READ_USER:$DOCKER_READ_PASS" --to=$TMP
+                    oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=$TMP
+                    rm -rf $TMP
+                '''
+            }
         }
     }
 }
@@ -272,9 +278,8 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
-                    export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+                    export KUBECONFIG=$WORKSPACE/openshift/$clusterSuffix/auth/kubeconfig
                     export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-
                     kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
                 """
             }
@@ -384,6 +389,7 @@ pipeline {
         string(name: 'IMAGE_TOOLKIT', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-toolkit')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
+        string(name: 'AWS_REGION', defaultValue: 'eu-west-3', description: 'AWS region to use for openshift cluster')
     }
     agent {
         label 'docker'
@@ -419,35 +425,43 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
-                    agent { label 'docker' }
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
-                        clusterRunner('c1')
+                        clusterRunner('cluster1')
                     }
                 }
                 stage('cluster2') {
-                    agent { label 'docker' }
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
-                        clusterRunner('c2')
+                        clusterRunner('cluster2')
                     }
                 }
                 stage('cluster3') {
-                    agent { label 'docker' }
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
-                        clusterRunner('c3')
+                        clusterRunner('cluster3')
                     }
                 }
                 stage('cluster4') {
-                    agent { label 'docker' }
+                    agent {
+                        label 'docker'
+                    }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
-                        clusterRunner('c4')
+                        clusterRunner('cluster4')
                     }
                 }
             }
@@ -468,9 +482,9 @@ pipeline {
                 clusters.each { shutdownCluster(it) }
             }
             sh """
-                    sudo docker system prune --volumes -af
-                    sudo rm -rf *
-                """
+                sudo docker system prune --volumes -af
+                sudo rm -rf *
+            """
             deleteDir()
         }
     }

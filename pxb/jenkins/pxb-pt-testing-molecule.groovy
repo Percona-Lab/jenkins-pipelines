@@ -64,8 +64,7 @@
 
     }
     options {
-//        withCredentials(moleculepxbJenkinsCreds())
-        withCredentials(moleculePdpsJenkinsCreds())
+        withCredentials(moleculepxbJenkinsCreds())
     }
 
         stages {

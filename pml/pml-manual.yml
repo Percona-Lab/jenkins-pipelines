@@ -1,5 +1,5 @@
 - job:
-    name: pxb-rhel-tarballs-86-89
+    name: pml-manual
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -9,6 +9,6 @@
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
             - 'master'
-            wipe-workspace: true
+            wipe-workspace: false
       lightweight-checkout: true
-      script-path: pxb/jenkins/pxb-rhel-tarballs-86-89.groovy
+      script-path: pml/pml-manual.groovy

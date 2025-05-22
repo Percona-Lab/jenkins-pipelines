@@ -64,14 +64,13 @@
         type: user-defined
         name: DOCKER_OS
         values:
-        - centos:7
         - centos:8
         - oraclelinux:9
-        - ubuntu:bionic
         - ubuntu:focal
         - ubuntu:jammy
-        - debian:buster
+        - ubuntu:noble
         - debian:bullseye
+        - debian:bookworm
         - asan
     - axis:
         name: XTRABACKUP_TARGET
@@ -84,9 +83,9 @@
       - project: percona-xtrabackup-8.0-test-pipeline
         current-parameters: true
         predefined-parameters: |
-          DOCKER_OS=$DOCKER_OS
-          CMAKE_BUILD_TYPE=$CMAKE_BUILD_TYPE
-          XTRABACKUP_TARGET=$XTRABACKUP_TARGET
+          DOCKER_OS=${{DOCKER_OS}}
+          CMAKE_BUILD_TYPE=${{CMAKE_BUILD_TYPE}}
+          XTRABACKUP_TARGET=${{XTRABACKUP_TARGET}}
         block: true
         block-thresholds:
           build-step-failure-threshold: FAILURE
@@ -97,10 +96,10 @@
     - copyartifact:
         project: percona-xtrabackup-8.0-test-pipeline
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_test_pipeline}"
+        build-number: "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_test_pipeline}}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_test_pipeline}" > PIPELINE_BUILD_NUMBER
+        echo "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_8_0_test_pipeline}}" > PIPELINE_BUILD_NUMBER
     publishers:
     - junit:
         results: "**/junit.xml"

@@ -15,7 +15,7 @@ pipeline {
             choices: ['ol-9', 'debian-12', 'ubuntu-noble', 'ol-9-arm', 'debian-12-arm', 'ubuntu-noble-arm']
         )
         string(
-            defaultValue: 'ppg-17.0',
+            defaultValue: 'ppg-17.5',
             description: 'Server PG version for test, including major and minor version, e.g ppg-16.2, ppg-15.5',
             name: 'VERSION'
         )
@@ -109,28 +109,28 @@ pipeline {
     stage ('Create virtual machines') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "create", env.PLATFORM)
             }
         }
     }
     stage ('Run playbook for test') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "converge", env.PLATFORM)
             }
         }
     }
     stage ('Start testinfra tests') {
       steps {
             script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "verify", env.PLATFORM)
             }
         }
     }
       stage ('Start Cleanup ') {
         steps {
              script {
-               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
+               moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
             }
         }
     }
@@ -139,7 +139,7 @@ pipeline {
     always {
           script {
             if (env.DESTROY_ENV == "yes") {
-                moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
             }
         }
     }

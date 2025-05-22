@@ -20,20 +20,20 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             fi
 
             if ! command -v percona-release > /dev/null; then
-                sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-                sudo yum clean all
-                sudo yum makecache
+                sudo dnf -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+                sudo dnf clean all
+                sudo dnf makecache
             fi
 
             if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
                 sudo percona-release enable-only pmm3-client experimental
-                sudo yum -y install pmm-client
+                sudo dnf -y install pmm-client
             elif [ "${CLIENT_VERSION}" = pmm3-rc ]; then
                 sudo percona-release enable-only pmm3-client testing
-                sudo yum -y install pmm-client
+                sudo dnf -y install pmm-client
             elif [ "${CLIENT_VERSION}" = pmm3-latest ]; then
                 sudo percona-release enable-only pmm3-client experimental
-                sudo yum -y install pmm-client
+                sudo dnf -y install pmm-client
             elif [[ "${CLIENT_VERSION}" = 3* ]]; then
                 if [ "${ENABLE_TESTING_REPO}" = yes ]; then
                     sudo percona-release enable-only pmm3-client testing
@@ -43,8 +43,8 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                     sudo percona-release enable-only pmm3-client release
                 fi
 
-                export FULL_CLIENT_VERSION=$(yum list pmm-client --showduplicates | grep -w "${CLIENT_VERSION}" | awk '{print $2}')
-                sudo yum -y install "pmm-client-${FULL_CLIENT_VERSION}"
+                export FULL_CLIENT_VERSION=$(dnf list pmm-client --showduplicates | grep -w "${CLIENT_VERSION}" | awk '{print $2}')
+                sudo dnf -y install "pmm-client-${FULL_CLIENT_VERSION}"
                 sleep 10
             else
                 if [[ "${CLIENT_VERSION}" = http* ]]; then
