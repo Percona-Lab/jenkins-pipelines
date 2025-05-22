@@ -1,5 +1,5 @@
 - job:
-    name: pml-pkg-install-parallel.groovy
+    name: pml-packaging.groovy
     project-type: pipeline
     description: |
       Do not edit this job through the web!
@@ -11,4 +11,4 @@
               - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pml/pml-pkg-install-parallel.groovy
+      script-path: pml/pml-packaging.groovy
