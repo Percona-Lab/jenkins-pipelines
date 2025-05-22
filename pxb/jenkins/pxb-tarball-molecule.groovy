@@ -3,11 +3,11 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def PXB80skipOSPRO() {
+def PXBskipOSPRO() {
   return ['debian-11', 'oracle-8', 'rhel-8','ubuntu-focal']
 }
 
-def PXB80skipOSNONPRO() {
+def PXBskipOSNONPRO() {
   return ['al-2023']
 }
 
@@ -35,7 +35,7 @@ pipeline {
   parameters {
     string(
       name: 'PXB_VERSION', 
-      defaultValue: '8.0.30-22.1', 
+      defaultValue: '8.0.35-33', 
       description: 'PXB full version'
     )
     //string(
@@ -74,6 +74,9 @@ pipeline {
     stage('Set build name'){
       steps {
         script {
+          def PXB_RELEASE = params.PXB_VERSION.tokenize('-')[0].tokenize('.').with { it[0] + it[1] }
+          env.PXB_RELEASE = PXB_RELEASE
+          
           currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PXB_VERSION}-${params.REPO_TYPE}-${params.TESTING_REPO}"
           currentBuild.description = "${env.PXB_REVISION}"
         }
@@ -89,6 +92,7 @@ pipeline {
     stage ('Prepare') {
       steps {
         script {
+          echo "PXB_RELEASE is ${env.PXB_RELEASE}"
           installMoleculeBookworm()
         }
       }
@@ -99,10 +103,13 @@ pipeline {
           script {
               withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
 
-                if (params.REPO_TYPE == 'PRO'){
-                  moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXB80skipOSPRO())
-                } else {
-                  moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXB80skipOSNONPRO())
+                if (params.REPO_TYPE == 'PRO') {
+                  moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXBskipOSPRO())
+                } else if (params.REPO_TYPE != 'PRO') {
+                  moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXBskipOSNONPRO())
+                }
+                else {
+                  error "Release type not recognized"
                 }
               }
           }
