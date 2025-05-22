@@ -4,14 +4,14 @@ void build(String IMAGE_SUFFIX){
 
         cd ./source/
         if [ ${IMAGE_SUFFIX} = backup ]; then
-            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX} \
+            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
                          -f percona-backup-mongodb/Dockerfile percona-backup-mongodb
         else
             DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
-            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX} \
+            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
                          -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
 
-            docker build --build-arg DEBUG=1 --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX}-debug \
+            docker build --build-arg DEBUG=1 --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}-debug \
                          -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
         fi
     """
@@ -24,12 +24,12 @@ void checkImageForDocker(String IMAGE_SUFFIX){
                     IMAGE_NAME='percona-server-mongodb-operator'
                     MONGODB_VER=\$(echo ${IMAGE_SUFFIX} | tr -d '\\-debug' | tr -d 'mongod')
                     PATH_TO_DOCKERFILE="source/percona-server-mongodb-\${MONGODB_VER}"
-                    IMAGE_TAG="main-\${IMAGE_SUFFIX}"
+                    IMAGE_TAG="\${GIT_PD_BRANCH}-\${IMAGE_SUFFIX}"
                     if [ ${IMAGE_SUFFIX} = backup ]; then
                         PATH_TO_DOCKERFILE="source/percona-backup-mongodb"
                     elif [ ${IMAGE_SUFFIX} = operator ]; then
                         PATH_TO_DOCKERFILE="operator-source/build"
-                        IMAGE_TAG='main'
+                        IMAGE_TAG=${GIT_BRANCH}
                     fi
 
                     sg docker -c "
@@ -63,10 +63,10 @@ void pushImageToDocker(String IMAGE_SUFFIX){
             sg docker -c "
                 set -e
                 docker login -u '${USER}' -p '${PASS}'
-                docker push perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX}
+                docker push perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}
                 docker logout
             "
-            echo "perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX}" >> list-of-images.txt
+            echo "perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}" >> list-of-images.txt
         """
     }
 }
@@ -153,10 +153,13 @@ pipeline {
                                 docker buildx create --use
                                 sg docker -c "
                                     docker login -u '${USER}' -p '${PASS}'
-                                    RHEL=1 DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./source/e2e-tests/build
+                                    pushd source
+                                    export IMAGE=perconalab/percona-server-mongodb-operator:${GIT_BRANCH}
+                                    DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
+                                    popd
                                     docker logout
                                 "
-                                echo "perconalab/percona-server-mongodb-operator:main" >> list-of-images.txt
+                                echo "perconalab/percona-server-mongodb-operator:${GIT_BRANCH}" >> list-of-images.txt
                             '''
                         }
                     }
