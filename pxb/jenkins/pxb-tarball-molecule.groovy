@@ -3,6 +3,20 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
+def PXB80skipOSPRO() {
+  return ['debian-11', 'oracle-8', 'rhel-8','ubuntu-focal']
+}
+
+def PXB80skipOSNONPRO() {
+  return ['al-2023']
+}
+
+
+def noSkip() {
+  return []
+}
+
+
 pipeline {
   agent {
 
@@ -13,9 +27,10 @@ pipeline {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
     MOLECULE_DIR = "molecule/pxb-binary-tarball/";
     PXB_VERSION = "${params.PXB_VERSION}";
-    install_repo = "${params.install_repo}";
+    install_repo = "${params.TESTING_REPO}";
     TESTING_BRANCH = "${params.TESTING_BRANCH}";
     TESTING_GIT_ACCOUNT = "${params.TESTING_GIT_ACCOUNT}";
+    REPO_TYPE = "${params.REPO_TYPE}";
   }
   parameters {
     string(
@@ -38,6 +53,16 @@ pipeline {
       description: 'Git account for package-testing repository',
       name: 'TESTING_GIT_ACCOUNT'
     )
+    choice(
+        choices: ['NORMAL', 'PRO'],
+        description: 'Choose the product to test',
+        name: 'REPO_TYPE'
+    )
+    choice(
+        choices: ['main', 'testing'],
+        description: 'Choose the product to test',
+        name: 'TESTING_REPO'
+    )
   }
   options {
     //withCredentials(moleculepxcJenkinsCreds())
@@ -49,7 +74,7 @@ pipeline {
     stage('Set build name'){
       steps {
         script {
-          currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PXB_VERSION}-${env.PXB_REVISION}"
+          currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PXB_VERSION}-${params.REPO_TYPE}-${params.TESTING_REPO}"
           currentBuild.description = "${env.PXB_REVISION}"
         }
       }
@@ -72,7 +97,14 @@ pipeline {
     stage('Run tarball molecule') {
       steps {
           script {
-            moleculeParallelTest(pxbTarball(), env.MOLECULE_DIR)
+              withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+
+                if (params.REPO_TYPE == 'PRO'){
+                  moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXB80skipOSPRO())
+                } else {
+                  moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXB80skipOSNONPRO())
+                }
+              }
           }
       }
     }
