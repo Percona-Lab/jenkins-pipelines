@@ -66,7 +66,7 @@ pipeline {
                 script {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'MONGO_REPO_TOKEN')]) {
                         try {
-                            moleculeParallelTest(pmlOperatingSystems("pml"), moleculeDir)
+                            moleculeParallelTest(pmlOperatingSystems(), moleculeDir)
                         } catch (e) {
                             echo "Converge stage failed"
                             throw e
