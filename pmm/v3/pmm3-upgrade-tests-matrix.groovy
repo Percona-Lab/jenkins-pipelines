@@ -86,8 +86,6 @@ pipeline {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
-                    currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
-                    echo "Version: ${pmmVersions}"
                     parallel generateVariants(PMM_UI_GIT_BRANCH, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions)
                 }
             }
