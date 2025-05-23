@@ -94,10 +94,6 @@ pipeline {
     post {
         always {
             script {
-                sh """
-                    rm -f /tmp/pbm-agent-storage-gcp.conf
-                    rm -f /tmp/pbm-agent-storage-azure.conf
-                """
                 moleculeExecuteActionWithScenario(moleculeDir, "destroy", "aws")
             }
         }

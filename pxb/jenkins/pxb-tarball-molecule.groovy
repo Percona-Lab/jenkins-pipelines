@@ -102,7 +102,6 @@ pipeline {
       steps {
           script {
               withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
-
                 if (params.REPO_TYPE == 'PRO') {
                   moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXBskipOSPRO())
                 } else if (params.REPO_TYPE != 'PRO') {
