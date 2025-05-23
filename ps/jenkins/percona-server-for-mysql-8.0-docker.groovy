@@ -379,15 +379,15 @@ parameters {
         }
         failure {
             slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
-            script {
-                currentBuild.description = "Built on ${BRANCH}"
-            }
             deleteDir()
         }
         always {
             sh '''
                 sudo rm -rf ./*
             '''
+            script {
+                currentBuild.description = "Built on ${BRANCH}"
+            }
             deleteDir()
         }
     }
