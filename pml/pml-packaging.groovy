@@ -15,8 +15,8 @@ pipeline {
   parameters {
       string(
           name: 'pml_version',
-          description: 'Version of PML used to compare for testing (e.g. v0.5.0)',
-          defaultValue: 'v0.5.0')
+          description: 'Release branch version (e.g. 1.0.0)',
+          defaultValue: '1.0.0')
       choice(
           name: 'install_repo',
           description: 'Repo for testing',
