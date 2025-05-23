@@ -349,7 +349,8 @@ parameters {
                                          --ignore-unfixed \
                                          --exit-code 1 \
                                          --scanners vuln \
-                                         --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
+                                         --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG} \
+                            echo "Exit Code: $?"
                         """, returnStatus: true)
 
                     // 🔴 Fail the build if vulnerabilities are found
