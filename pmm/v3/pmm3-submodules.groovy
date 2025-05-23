@@ -144,8 +144,6 @@ pipeline {
 
                         export RPM_EPOCH=1
                         export PATH=${PATH}:$(pwd -P)/${PATH_TO_SCRIPTS}
-                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3
-                        export RPMBUILD_DIST="el9"
 
                         ${PATH_TO_SCRIPTS}/build-server-rpm-all
                     '''
@@ -156,7 +154,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        docker login -u "${USER}" -p "${PASS}"
+                        echo "${PASS}" | docker login -u "${USER}" --password-stdin
                     '''
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -166,8 +164,6 @@ pipeline {
                         export PUSH_DOCKER=1
                         export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${SHORTENED_COMMIT}
 
-                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3
-                        export RPMBUILD_DIST=el9
                         export DOCKERFILE=Dockerfile.el9
 
                         ${PATH_TO_SCRIPTS}/build-server-docker

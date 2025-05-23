@@ -17,8 +17,8 @@ pipeline {
             name: 'GIT_BRANCH'
         )
         choice(
-            choices: ['experimental', 'testing', 'laboratory'],
-            description: 'Publish packages to repositories: testing for RC, experimental for 3-dev-latest, laboratory for FBs',
+            choices: ['experimental', 'testing'],
+            description: 'Publish packages to repositories: testing for RC, experimental for 3-dev-latest',
             name: 'DESTINATION'
         )
     }
@@ -215,7 +215,6 @@ pipeline {
                   env.UPLOAD_PATH = sh(returnStdout: true, script: "cat uploadPath").trim()
                 }
                 // Upload packages to the repo defined in `DESTINATION`
-                // sync2ProdPMMClient(DESTINATION, 'yes')
                 sync2ProdPMMClientRepo(DESTINATION, env.UPLOAD_PATH, 'pmm3-client')
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     script {
