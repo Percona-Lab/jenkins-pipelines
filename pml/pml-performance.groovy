@@ -24,6 +24,7 @@ pipeline {
         string(name: 'TIMEOUT',description: 'Timeout for the data replication',defaultValue: '3600')
         string(name: 'SSH_USER',description: 'User for debugging',defaultValue: 'none')
         string(name: 'SSH_PUBKEY',description: 'User ssh public key for debugging',defaultValue: 'none')
+        string(name: 'INSTANCE_TIMEOUT',description: 'Time until instances destroy automatically (minutes)',defaultValue: '1440')
         booleanParam(name: 'DESTROY', defaultValue: true, description: 'Automatically destroys environment upon finishing tests, leave unchecked if you do not want to delete instances.')
     }
     environment {
@@ -123,6 +124,9 @@ pipeline {
                             "The IP address for Mongolink can be found in this Jenkins log under the 'TASK [Wait for SSH]' section.\n" +
                             "Once SSH has been established you can access PMM through your local browser on https://localhost:8443 using login details admin:admin \n" +
                             "########################################################### NOTE ##########################################################"
+                    instance_timeout = params.INSTANCE_TIMEOUT.toInteger()
+                    echo "Instances will destroy automatically after ${instance_timeout} minutes"
+                    sleep(time: instance_timeout, unit: 'MINUTES')
                 }
             }
         }
