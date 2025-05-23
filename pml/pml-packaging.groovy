@@ -13,6 +13,10 @@ pipeline {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
   }
   parameters {
+      string(
+          name: 'pml_version',
+          description: 'Release branch version (e.g. 1.0.0)',
+          defaultValue: '1.0.0')
       choice(
           name: 'install_repo',
           description: 'Repo for testing',
