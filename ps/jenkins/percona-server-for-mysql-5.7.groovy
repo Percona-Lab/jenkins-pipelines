@@ -588,21 +588,7 @@ parameters {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                //sync2ProdAutoBuild('ps-57', COMPONENT)
                 sync2PrivateProdAutoBuild(params.CLOUD, "ps-57-eol", COMPONENT)
-            }
-        }
-        stage('Push Tarballs to TESTING download area') {
-            steps {
-                script {
-                    try {
-                        uploadTarballToDownloadsTesting(params.CLOUD, "ps-gated", "${BRANCH}")
-                    }
-                    catch (err) {
-                        echo "Caught: ${err}"
-                        currentBuild.result = 'UNSTABLE'
-                    }
-                }
             }
         }
         stage('Build docker container') {
@@ -667,6 +653,19 @@ parameters {
                         """
                     }
                }
+            }
+        }
+        stage('Push Tarballs to TESTING download area') {
+            steps {
+                script {
+                    try {
+                        uploadTarballToDownloadsTesting(params.CLOUD, "ps-gated", "${BRANCH}")
+                    }
+                    catch (err) {
+                        echo "Caught: ${err}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
             }
         }
     }

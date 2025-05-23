@@ -348,6 +348,7 @@ parameters {
                                          --timeout 10m0s \
                                          --ignore-unfixed \
                                          --exit-code 1 \
+                                         --scanners vuln \
                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
                         """, returnStatus: true)
 
