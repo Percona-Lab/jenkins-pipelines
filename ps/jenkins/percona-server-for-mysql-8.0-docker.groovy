@@ -349,12 +349,21 @@ parameters {
                                          --ignore-unfixed \
                                          --exit-code 1 \
                                          --scanners vuln \
-                                         --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}; echo "\$?" 
+                                         --severity HIGH,CRITICAL ${image}; echo "\$?" 
                         """, returnStatus: true)
 
                     // 🔴 Fail the build if vulnerabilities are found
                         if (result != 0) {
                             error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                            sh """
+                            sudo trivy image --quiet \
+                                         --format table \
+                                         --timeout 10m0s \
+                                         --ignore-unfixed \
+                                         --exit-code 1 \
+                                         --scanners vuln \
+                                         --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
+                            """
                         } else {
                             echo "✅ No critical vulnerabilities found in ${image}."
                         }
