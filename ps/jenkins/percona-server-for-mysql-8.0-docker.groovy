@@ -357,7 +357,6 @@ parameters {
 
                     // 🔴 Fail the build if vulnerabilities are found
                         if (result != 0) {
-                            error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                             sh """
                             sudo trivy image --quiet \
                                          --format table \
@@ -367,6 +366,7 @@ parameters {
                                          --scanners vuln \
                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
                             """
+                            error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                         } else {
                             echo "✅ No critical vulnerabilities found in ${image}."
                         }
