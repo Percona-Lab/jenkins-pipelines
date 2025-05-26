@@ -2,7 +2,7 @@ void build(String IMAGE_PREFIX){
     sh """
         cd ./source/
         docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f fluentbit/Dockerfile fluentbit
-        docker tag perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} perconalab/fluentbit:${GIT_PD_BRANCH}-fluentbit
+        docker tag perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} perconalab/fluentbit:${GIT_PD_BRANCH}-${IMAGE_PREFIX}
     """
 }
 void checkImageForDocker(String IMAGE_PREFIX){
@@ -31,7 +31,7 @@ void pushImageToDocker(String IMAGE_PREFIX){
 
                 docker login -u '${USER}' -p '${PASS}'
                 docker push perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX}
-                docker push perconalab/fluentbit:${GIT_PD_BRANCH}-fluentbit
+                docker push perconalab/fluentbit:${GIT_PD_BRANCH}-${IMAGE_PREFIX}
                 docker logout
             "
         """
