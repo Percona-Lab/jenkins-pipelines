@@ -77,12 +77,10 @@ pipeline {
     }
     options {
         disableConcurrentBuilds()
+        timeout(time: 90, unit: 'MINUTES')
     }
     triggers {
         cron('0 3 * * *')
-    }
-    options {
-        timeout(time: 90, unit: 'MINUTES')
     }
     stages {
         stage('UI tests Upgrade Matrix') {
