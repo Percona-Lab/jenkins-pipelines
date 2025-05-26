@@ -39,7 +39,7 @@ def generateStage(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIE
 
 pipeline {
     agent {
-        label 'cli'
+        label 'docker'
     }
     parameters {
         string(
