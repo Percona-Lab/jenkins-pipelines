@@ -78,7 +78,7 @@ pipeline {
 
                                 sh """
                                     cd psmdb-testing/mlink
-                                    docker-compose build
+                                    docker-compose build --no-cache
                                     docker-compose up -d
                                     if [ -n "${params.TEST_FILTER}" ]; then
                                         docker-compose run test pytest -v -s -k "${params.TEST_FILTER}" --junitxml=junit.xml || true
