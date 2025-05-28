@@ -41,6 +41,8 @@ def call(Map config = [:]) {
         sh """
             echo "Attempting to download ccache from: ${s3Path}"
             mkdir -p ${workspace}/.ccache
+            # Set permissions to allow Docker container to write
+            chmod -R 777 ${workspace}/.ccache
 
             if aws s3 cp ${s3Path} ${workspace}/ccache.tar.gz; then
                 echo "Successfully downloaded ccache archive"
@@ -48,6 +50,8 @@ def call(Map config = [:]) {
                 tar -xzf ccache.tar.gz
                 rm -f ccache.tar.gz
                 echo "ccache extracted successfully"
+                # Ensure permissions are set after extraction
+                chmod -R 777 .ccache/
                 ls -la .ccache/
             else
                 echo "No existing ccache found at ${s3Path} or download failed"
