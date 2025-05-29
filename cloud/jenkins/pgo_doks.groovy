@@ -1,5 +1,18 @@
 tests=[]
 clusters=[]
+release_versions="source/e2e-tests/release_versions"
+
+String getParam(String paramName, String keyName = null) {
+    keyName = keyName ?: paramName
+
+    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
+    if ("$param") {
+        echo "$paramName=$param (from params file)"
+    } else {
+        error("$keyName not found in params file $release_versions")
+    }
+    return param
+}
 
 void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
@@ -40,6 +53,22 @@ void prepareAgent() {
 }
 
 void initParams() {
+    if ("$PILLAR_VERSION" != "none") {
+        echo "=========================[ Getting parameters for release test ]========================="
+        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
+        IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: getParam("IMAGE_POSTGRESQL", "IMAGE_POSTGRESQL${PILLAR_VERSION}")
+        IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${PILLAR_VERSION}")
+        IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${PILLAR_VERSION}")
+        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
+
+        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
+            PLATFORM_VER = getParam("PLATFORM_VER", "DOKS_${PLATFORM_VER}")
+        }
+    } else {
+        echo "=========================[ Not a release run. Using job params only! ]========================="
+    }
+
     if ("$PLATFORM_VER" == "latest") {
         withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
             PLATFORM_VER = sh(script: "doctl kubernetes options versions | awk 'NR==2 { print \$2 }'", returnStdout: true).trim()
@@ -302,8 +331,9 @@ pipeline {
         choice(name: 'TEST_SUITE', choices: ['run-pr.csv', 'run-minikube.csv', 'run-release.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
+        choice(name: 'PILLAR_VERSION', choices: 'none\n12\n13\n14\n15\n16\n17', description: 'Implies release run')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
-        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'Digital Ocean kubernetes version')
+        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'Digital Ocean Kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
         string(name: 'PG_VER', defaultValue: '', description: 'PG version')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main')
