@@ -335,7 +335,7 @@ pipeline {
                 }
                 stage('psmdb sharded') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=sharded', 'yes', env.VM_IP, 'sharded-psmdb', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=sharding', 'yes', env.VM_IP, 'sharded-psmdb', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
             }
