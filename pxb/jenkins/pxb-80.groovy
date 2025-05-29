@@ -278,7 +278,7 @@ pipeline {
 
         stage('Build PXB RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Oracle Linux 8') {
+                stage('Centos 7') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -289,7 +289,7 @@ pipeline {
                             } else {
                                 cleanUpWS()
                                 popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                                buildStage("oraclelinux:8", "--build_rpm=1")
+                                buildStage("centos:7", "--build_rpm=1")
 
                                 pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                                 uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -297,6 +297,7 @@ pipeline {
                         }
                     }
                 }
+/*
                 stage('Oracle Linux 8 ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -713,15 +714,17 @@ pipeline {
                         }
                     }
                 }
+*/
             }
         }
 
         stage('Sign packages') {
             steps {
                 signRPM()
-                signDEB()
+ //               signDEB()
             }
         }
+/*
         stage('Push Tarballs to TESTING download area') {
             steps {
                 script {
@@ -739,6 +742,7 @@ pipeline {
                 }
             }
         }        
+*/
         stage('Push to public repository') {
             steps {
                 script {
@@ -769,6 +773,7 @@ pipeline {
                 }
             }
         }
+/*
         stage('Build docker containers') {
             agent {
                 label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -855,6 +860,7 @@ pipeline {
                 } // scripts
             }
         }
+*/
     }
     post {
         success {
