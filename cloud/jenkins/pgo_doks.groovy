@@ -195,20 +195,19 @@ void createCluster(String CLUSTER_SUFFIX) {
                 doctl kubernetes cluster create $CLUSTER_NAME-$CLUSTER_SUFFIX \
                     --region $DO_REGION \
                     --version \$cluster_version \
-                    --node-pool "name=default-pool;size=s-2vcpu-4gb;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
+                    --node-pool "name=default-pool;size=s-2vcpu-4gb;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6" && \
+                doctl kubernetes cluster kubeconfig save $CLUSTER_NAME-$CLUSTER_SUFFIX
+                exitCode=\$?
 
-                # Assign the cluster to a specific project
+                # Move cluster to a specific project to organize resources created by the pipeline
                 cluster_id="\$(doctl kubernetes cluster list --output json | jq -r --arg name $CLUSTER_NAME-$CLUSTER_SUFFIX '.[] | select(.name == \$name) | .id')"
                 urn="do:kubernetes:\$cluster_id"
                 doctl projects resources assign \$PROJECT --resource \$urn
 
-                # Configure kubeconfig
-                doctl kubernetes cluster kubeconfig save $CLUSTER_NAME-$CLUSTER_SUFFIX
-
-                exitCode=\$?
                 if [[ \$exitCode == 0 ]]; then break; fi
                 (( maxRetries -- ))
                 sleep 1
+
             done
             if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
         """
