@@ -99,7 +99,10 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
     } else if ( NODE_TYPE == 'external-node' ) {
         env.VM_CLIENT_IP_EXTERNAL = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_EXTERNAL = stagingJob.buildVariables.VM_NAME
-    } else {
+    } else if ( NODE_TYPE == 'sharded-psmdb' ) {
+        env.VM_CLIENT_IP_PSMDB_SHARDED = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_PSMDB_SHARDED = stagingJob.buildVariables.VM_NAME
+    }else {
         env.VM_CLIENT_IP_MONGO = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_MONGO = stagingJob.buildVariables.VM_NAME
     }
@@ -180,7 +183,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
+            defaultValue: 'v3-typescript',
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         choice(
@@ -330,6 +333,11 @@ pipeline {
                         runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pdpgsql --database pgsql --database mysql', 'yes', env.VM_IP, 'postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
+                stage('psmdb sharded') {
+                    steps {
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=sharded', 'yes', env.VM_IP, 'sharded-psmdb', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                    }
+                }
             }
         }
         stage('Disable upgrade on nightly PMM instance') {
@@ -385,6 +393,12 @@ pipeline {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_PGSQL, env.PMM_QA_GIT_BRANCH)
                     }
                 }
+                stage('Check Agent Status on psmdb sharded node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PSMDB_SHARDED, env.PMM_QA_GIT_BRANCH)
+                    }
+                }
+
             }
         }
         stage('Run UI Tests') {
