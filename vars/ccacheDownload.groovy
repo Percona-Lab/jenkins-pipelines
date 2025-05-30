@@ -24,11 +24,9 @@ def call(Map config = [:]) {
     def awsMaxAttempts = (awsRetries.toInteger() + 1).toString()
 
     if (env.USE_CCACHE != 'true') {
-        echo 'ccache is disabled (USE_CCACHE != true)'
+        echo 'ccache disabled'
         return
     }
-
-    echo '=== Downloading ccache ==='
 
     // Use CCACHE_PROJECT environment parameter or config override
     def projectName = env.CCACHE_PROJECT ?: config.get('projectName', 'percona-server')
@@ -57,10 +55,12 @@ def call(Map config = [:]) {
     // Join components with underscores for better readability
     def cacheKey = keyComponents.join('_')
 
+    echo "ccache key: ${cacheKey}"
+
     if (forceCacheMiss) {
         // Add timestamp to force cache miss for testing
         cacheKey = "${cacheKey}-${currentBuild.startTimeInMillis}"
-        echo "Forcing cache miss with unique key: ${cacheKey}"
+        echo "Forcing cache miss"
     }
 
     def s3Path = "${s3Bucket}ccache/${projectName}/${cacheKey}/${cacheArchiveName}"
@@ -70,34 +70,24 @@ def call(Map config = [:]) {
                       credentialsId: awsCredentialsId,
                       secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         sh """
-            # Configure AWS CLI retry behavior
             export AWS_RETRY_MODE=${awsRetryMode}
             export AWS_MAX_ATTEMPTS=${awsMaxAttempts}
 
-            echo "Attempting to download ccache from: ${s3Path}"
-            echo "AWS CLI configured with retry mode: ${awsRetryMode}, retries: ${awsRetries} (max attempts: ${awsMaxAttempts})"
+            echo "Downloading from: ${s3Path}"
             mkdir -p "${workspace}/${cacheDir}"
-            # Set permissions to allow Docker container to write
             chmod -R "${cachePermissions}" "${workspace}/${cacheDir}"
 
-            # Try to download cache from S3
             if aws s3 cp --no-progress "${s3Path}" "${workspace}/${cacheArchiveName}" 2>/dev/null; then
-                echo "Successfully downloaded ccache archive from ${s3Path}"
                 cd "${workspace}"
                 tar -xzf "${cacheArchiveName}"
                 rm -f "${cacheArchiveName}"
-                echo "ccache extracted successfully"
-                # Ensure permissions are set after extraction
                 chmod -R "${cachePermissions}" "${cacheDir}/"
 
-                # Verify cache integrity using ccache built-in checks
-                echo "Verifying cache integrity..."
                 if command -v ccache >/dev/null 2>&1; then
-                    CCACHE_DIR="${cacheDir}" ccache -sv | grep -E "Files:|Cache size:" || true
+                    CCACHE_DIR="${cacheDir}" ccache -s | grep -E "Files:|Cache size:" || true
                 fi
             else
-                echo "No existing ccache found at ${s3Path} (object may have expired or does not exist)"
-                echo "Starting with empty ccache"
+                echo "No ccache found"
             fi
         """
     }

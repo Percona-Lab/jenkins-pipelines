@@ -29,7 +29,7 @@ def call(Map config = [:]) {
     def awsMaxAttempts = (awsRetries.toInteger() + 1).toString()
 
     if (env.USE_CCACHE != 'true') {
-        echo 'ccache is disabled (USE_CCACHE != true)'
+        echo 'ccache disabled'
         return
     }
 
@@ -62,8 +62,10 @@ def call(Map config = [:]) {
     // Join components with underscores for better readability
     def cacheKey = keyComponents.join('_')
 
+    echo "ccache key: ${cacheKey}"
+
     if (forceCacheMiss) {
-        echo 'Skipping cache upload for forced cache miss test'
+        echo 'Skipping cache upload for forced cache miss'
         return
     }
 
@@ -78,38 +80,27 @@ def call(Map config = [:]) {
             export AWS_RETRY_MODE=${awsRetryMode}
             export AWS_MAX_ATTEMPTS=${awsMaxAttempts}
 
-            # Comprehensive ccache validation before upload
-            echo "=== Validating ccache before upload ==="
-
             # Check if directory exists
             if [ ! -d "${workspace}/${cacheDir}" ]; then
-                echo "✗ ccache directory missing - skipping upload"
+                echo "ccache directory missing"
                 exit 0
             fi
-
 
             # Validate with ccache tool
             if command -v ccache >/dev/null 2>&1; then
                 if CCACHE_DIR="${workspace}/${cacheDir}" ccache -s >/dev/null 2>&1; then
-                    echo "✓ ccache integrity check passed"
+                    echo "ccache validation passed"
                 else
-                    echo "✗ ccache integrity check failed - skipping upload"
+                    echo "ccache integrity check failed"
                     exit 0
                 fi
-            else
-                echo "⚠ ccache tool not available for validation, proceeding with upload"
             fi
 
-            echo "=== Proceeding with cache upload ==="
-
             if [ -d "${workspace}/${cacheDir}" ]; then
-                echo "Compressing ccache directory..."
                 cd "${workspace}"
                 tar -czf "${cacheArchiveName}" "${cacheDir}/"
 
-                echo "Uploading ccache to: ${s3Path}"
-                echo "Cache retention period: ${cacheRetentionDays} days"
-                echo "AWS CLI configured with retry mode: ${awsRetryMode}, retries: ${awsRetries} (max attempts: ${awsMaxAttempts})"
+                echo "Uploading to: ${s3Path}"
 
                 # Upload cache archive
                 aws s3 cp --no-progress "${cacheArchiveName}" "${s3Path}" \
@@ -123,24 +114,19 @@ def call(Map config = [:]) {
 
                 rm -f "${cacheArchiveName}"
 
-                echo "ccache uploaded successfully"
+                echo "ccache uploaded"
 
-                # Show cache statistics and verify integrity
-                echo "=== ccache Statistics ==="
+                # Show cache statistics
                 CACHE_SIZE="${cacheSize}"
                 docker run --rm -v "${workspace}/${cacheDir}:/tmp/ccache" \\
                     -e CCACHE_DIR=/tmp/ccache \\
                     "${dockerRegistry}/${dockerImage}:${cleanDockerOs}" \\
                     bash -c "
                         ccache --max-size=\${CACHE_SIZE}
-                        # Show detailed stats including integrity info
-                        ccache -sv
-                        # Extract key metrics for monitoring
-                        echo '=== Key Metrics ==='
                         ccache -s | grep -E 'Hits:|Misses:|Cache size'
                     " || true
             else
-                echo "No ccache directory found, skipping upload"
+                echo "No ccache directory found"
             fi
         """
     }
