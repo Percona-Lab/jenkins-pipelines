@@ -98,13 +98,21 @@ def call(Map config = [:]) {
 
             if [ -d "${workspace}/${cacheDir}" ]; then
                 cd "${workspace}"
+                
+                echo "Compressing cache..."
+                COMPRESS_START=\$(date +%s)
                 tar -czf "${cacheArchiveName}" "${cacheDir}/"
-
+                COMPRESS_TIME=\$(((\$(date +%s) - COMPRESS_START)))
+                FILE_SIZE=\$(ls -lh "${cacheArchiveName}" | awk '{print \$5}')
+                
+                echo "Cache compressed to \${FILE_SIZE} in \${COMPRESS_TIME}s"
                 echo "Uploading to: ${s3Path}"
 
                 # Upload cache archive
+                UPLOAD_START=\$(date +%s)
                 aws s3 cp --no-progress "${cacheArchiveName}" "${s3Path}" \
                     --metadata "project=${projectName},branch=${branch},build-type=${cmakeBuildType}"
+                UPLOAD_TIME=\$(((\$(date +%s) - UPLOAD_START)))
 
                 # Add retention tags for lifecycle policy
                 aws s3api put-object-tagging \
@@ -114,16 +122,17 @@ def call(Map config = [:]) {
 
                 rm -f "${cacheArchiveName}"
 
-                echo "ccache uploaded"
+                echo "ccache uploaded (\${FILE_SIZE}) in \${UPLOAD_TIME}s"
 
                 # Show cache statistics
                 CACHE_SIZE="${cacheSize}"
+                echo "ccache statistics after build:"
                 docker run --rm -v "${workspace}/${cacheDir}:/tmp/ccache" \\
                     -e CCACHE_DIR=/tmp/ccache \\
                     "${dockerRegistry}/${dockerImage}:${cleanDockerOs}" \\
                     bash -c "
                         ccache --max-size=\${CACHE_SIZE}
-                        ccache -s | grep -E 'Hits:|Misses:|Cache size'
+                        ccache -s
                     " || true
             else
                 echo "No ccache directory found"
