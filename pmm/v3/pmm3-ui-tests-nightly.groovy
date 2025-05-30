@@ -212,7 +212,7 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ['8.0','5.7'],
+            choices: ['8.4', '8.0','5.7'],
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         choice(
@@ -244,7 +244,7 @@ pipeline {
             description: "Official MongoDB version",
             name: 'MODB_VERSION')
         choice(
-            choices: ['perfschema', 'slowlog'],
+            choices: ['slowlog', 'perfschema'],
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
     }
@@ -328,6 +328,11 @@ pipeline {
                 stage('pdpgsql, pgsql and mysql') {
                     steps {
                         runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pdpgsql --database pgsql --database mysql', 'yes', env.VM_IP, 'postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                    }
+                }
+                stage('extra pxc') {
+                    steps {
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pxc', 'yes', env.VM_IP, 'extra-pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
             }
