@@ -112,7 +112,7 @@ def call(Map config = [:]) {
                 echo "AWS CLI configured with retry mode: ${awsRetryMode}, retries: ${awsRetries} (max attempts: ${awsMaxAttempts})"
 
                 # Upload cache archive
-                aws s3 cp "${cacheArchiveName}" "${s3Path}" \
+                aws s3 cp --no-progress "${cacheArchiveName}" "${s3Path}" \
                     --metadata "project=${projectName},branch=${branch},build-type=${cmakeBuildType}"
 
                 # Add retention tags for lifecycle policy
