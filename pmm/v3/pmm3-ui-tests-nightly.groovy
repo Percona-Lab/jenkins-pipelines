@@ -244,7 +244,7 @@ pipeline {
             description: "Official MongoDB version",
             name: 'MODB_VERSION')
         choice(
-            choices: ['perfschema', 'slowlog'],
+            choices: ['slowlog', 'perfschema'],
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
     }
