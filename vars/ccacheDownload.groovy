@@ -81,7 +81,7 @@ def call(Map config = [:]) {
             chmod -R "${cachePermissions}" "${workspace}/${cacheDir}"
 
             # Try to download cache from S3
-            if aws s3 cp "${s3Path}" "${workspace}/${cacheArchiveName}" 2>/dev/null; then
+            if aws s3 cp --no-progress "${s3Path}" "${workspace}/${cacheArchiveName}" 2>/dev/null; then
                 echo "Successfully downloaded ccache archive from ${s3Path}"
                 cd "${workspace}"
                 tar -xzf "${cacheArchiveName}"
