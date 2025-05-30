@@ -342,9 +342,13 @@ pipeline {
         }
         stage('Disable upgrade on nightly PMM instance') {
             steps {
-                sh """
-                    curl --location -i --insecure --request PUT --user 'admin:${ADMIN_PASSWORD}' "\${PMM_UI_URL}/v1/server/settings' --header 'Content-Type: application/json' --data '{ "enable_updates": false }'"
-                """
+                sh '''#!/bin/bash
+                        curl --location -i --insecure --request PUT \
+                        --user "admin:$ADMIN_PASSWORD" \
+                        "$PMM_UI_URL/v1/server/settings" \
+                        --header "Content-Type: application/json" \
+                        --data '{ "enable_updates": false }'
+                '''
             }
         }
         stage('Setup Node') {
