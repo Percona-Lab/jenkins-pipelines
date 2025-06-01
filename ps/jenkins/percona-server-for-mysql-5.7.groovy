@@ -6,19 +6,29 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 
 void installCli(String PLATFORM) {
     sh """
-        set -o xtrace
-        if [ -d aws ]; then
-            rm -rf aws
-        fi
-        if [ ${PLATFORM} = "deb" ]; then
-            sudo apt-get update
-            sudo apt-get -y install wget curl unzip
-        elif [ ${PLATFORM} = "rpm" ]; then
-            sudo yum -y install wget curl unzip
-        fi
-        curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
-        unzip awscliv2.zip
-        sudo ./aws/install || true
+        if [ \${CLOUD} = "AWS" ]; then
+            set -o xtrace
+            if [ -d aws ]; then
+                rm -rf aws
+            fi
+            if [ ${PLATFORM} = "deb" ]; then
+                sudo apt-get update
+                sudo apt-get -y install wget curl unzip
+            elif [ ${PLATFORM} = "rpm" ]; then
+                export RHVER=\$(rpm --eval %rhel)
+                if [ \${RHVER} = "7" ]; then
+                    sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
+                    sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
+                    if [ -e "/etc/yum.repos.d/CentOS-SCLo-scl.repo" ]; then
+                        cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
+                    fi
+                fi
+                sudo yum -y install wget curl unzip
+            fi
+            curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+            unzip awscliv2.zip
+            sudo ./aws/install || true
+       fi
     """
 }
 
@@ -43,16 +53,28 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             mkdir -p test
             wget --header="Authorization: token ${TOKEN}" --header="Accept: application/vnd.github.v3.raw" -O ps_builder.sh \$(echo ${GIT_REPO} | sed -re 's|github.com|api.github.com/repos|; s|\\.git\$||')/contents/build-ps/percona-server-5.7_builder.sh?ref=${BRANCH}
             sed -i "s|git clone \\\"\\\$REPO\\\"|git clone \$(echo ${GIT_REPO}| sed -re 's|github.com|${TOKEN}@github.com|') percona-server|g" ps_builder.sh
-            grep "git clone" ps_builder.sh
             pwd -P
             export build_dir=\$(pwd -P)
             set -o xtrace
-            cd \${build_dir}
-            if [ -f ./test/percona-server-5.7.properties ]; then
-                . ./test/percona-server-5.7.properties
+            if [ "$DOCKER_OS" = "none" ]; then
+                cd \${build_dir}
+                if [ -f ./test/percona-server-5.7.properties ]; then
+                    . ./test/percona-server-5.7.properties
+                fi
+                sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
+                bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+            else
+                docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+                    export build_dir=\$(pwd -P)
+                    set -o xtrace
+                    cd \${build_dir}
+                    if [ -f ./test/percona-server-5.7.properties ]; then
+                        . ./test/percona-server-5.7.properties
+                    fi
+                    bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
+                    bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
+                "
             fi
-            sudo bash -x ./ps_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./ps_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}
     """
     }
 }
@@ -563,9 +585,15 @@ parameters {
                 signDEB()
             }
         }
+        stage('Push to public repository') {
+            steps {
+                // sync packages
+                sync2PrivateProdAutoBuild(params.CLOUD, "ps-57-eol", COMPONENT)
+            }
+        }
         stage('Build docker container') {
             agent {
-                label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'min-buster-x64'
+                label params.CLOUD == 'Hetzner' ? 'launcher-x64' : 'min-buster-x64'
             }
             steps {
                 script {
@@ -583,11 +611,23 @@ parameters {
                         PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                         PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 4)}')
                         PS_MAJOR_MINOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 7)}' | sed "s/-//g")
+
                         sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
-                        sudo apt-get install -y docker.io
-                        sudo systemctl status docker
-                        sudo apt-get install -y qemu binfmt-support qemu-user-static
+                        sudo apt-get -y install apparmor
+                        sudo aa-status
+                        sudo systemctl stop apparmor
+                        sudo systemctl disable apparmor
+                        sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+                        export DOCKER_CLI_EXPERIMENTAL=enabled
+                        sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                        sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                        sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                        sudo systemctl restart docker
+                        sudo apt-get install -y qemu-system binfmt-support qemu-user-static
+                        sudo qemu-system-x86_64 --version
+                        sudo lscpu | grep -q 'sse4_2' && grep -q 'popcnt' /proc/cpuinfo && echo "Supports x86-64-v2" || echo "Does NOT support x86-64-v2"
                         sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
                         git clone https://github.com/percona/percona-docker
                         cd percona-docker/percona-server-5.7
                         mv /tmp/*.rpm .
@@ -599,6 +639,8 @@ parameters {
                         sudo docker tag percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
                         sudo docker images
                         sudo docker save -o percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar percona/percona-server:${PS_RELEASE}.${RPM_RELEASE} percona/percona-server:${PS_RELEASE} percona/percona-server:${PS_MAJOR_RELEASE} percona/percona-server:${PS_MAJOR_MINOR_RELEASE}
+                        sudo addgroup admin
+                        sudo useradd -m -s /bin/bash -g admin -G admin admin
                         sudo chown admin:admin percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar
                         sudo chmod a+r percona-server-${PS_RELEASE}-${RPM_RELEASE}.docker.tar
                         ls -la
@@ -613,18 +655,11 @@ parameters {
                }
             }
         }
-        stage('Push to public repository') {
-            steps {
-                // sync packages
-                //sync2ProdAutoBuild('ps-57', COMPONENT)
-                sync2PrivateProdAutoBuild("ps-57-eol", COMPONENT)
-            }
-        }
         stage('Push Tarballs to TESTING download area') {
             steps {
                 script {
                     try {
-                        uploadTarballToDownloadsTesting("ps-gated", "${BRANCH}")
+                        uploadTarballToDownloadsTesting(params.CLOUD, "ps-gated", "${BRANCH}")
                     }
                     catch (err) {
                         echo "Caught: ${err}"
@@ -636,11 +671,8 @@ parameters {
     }
     post {
         success {
-            slackNotify("#releases", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
             unstash 'properties'
-            script {
-                currentBuild.description = "Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
-            }
             deleteDir()
         }
         failure {
@@ -651,6 +683,9 @@ parameters {
             sh '''
                 sudo rm -rf ./*
             '''
+            script {
+                currentBuild.description = "Built on ${BRANCH}; path to packages: ${COMPONENT}/${AWS_STASH_PATH}"
+            }
             deleteDir()
         }
     }

@@ -343,16 +343,29 @@ parameters {
                     imageList.each { image ->
                         echo "🔍 Scanning ${image}..."
                         def result = sh(script: """#!/bin/bash
+                            set -e
+                            sudo trivy image --quiet \
+                                      --format table \
+                                      --timeout 10m0s \
+                                      --ignore-unfixed \
+                                      --exit-code 1 \
+                                      --scanners vuln \
+                                      --severity HIGH,CRITICAL ${image}
+                            echo "TRIVY_EXIT_CODE=\$?"
+                        """, returnStatus: true)
+                        echo "Actual Trivy exit code: ${result}"
+
+                    // 🔴 Fail the build if vulnerabilities are found
+                        if (result != 0) {
+                            sh """
                             sudo trivy image --quiet \
                                          --format table \
                                          --timeout 10m0s \
                                          --ignore-unfixed \
-                                         --exit-code 1 \
+                                         --exit-code 0 \
+                                         --scanners vuln \
                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
-                        """, returnStatus: true)
-
-                    // 🔴 Fail the build if vulnerabilities are found
-                        if (result != 0) {
+                            """
                             error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                         } else {
                             echo "✅ No critical vulnerabilities found in ${image}."
@@ -378,15 +391,15 @@ parameters {
         }
         failure {
             slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
-            script {
-                currentBuild.description = "Built on ${BRANCH}"
-            }
             deleteDir()
         }
         always {
             sh '''
                 sudo rm -rf ./*
             '''
+            script {
+                currentBuild.description = "Built on ${BRANCH}"
+            }
             deleteDir()
         }
     }
