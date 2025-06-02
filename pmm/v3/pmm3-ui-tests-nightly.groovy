@@ -99,6 +99,9 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
     } else if ( NODE_TYPE == 'external-node' ) {
         env.VM_CLIENT_IP_EXTERNAL = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_EXTERNAL = stagingJob.buildVariables.VM_NAME
+    } else if ( NODE_TYPE == 'sharded-psmdb' ) {
+        env.VM_CLIENT_IP_PSMDB_SHARDED = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_PSMDB_SHARDED = stagingJob.buildVariables.VM_NAME
     } else {
         env.VM_CLIENT_IP_MONGO = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_MONGO = stagingJob.buildVariables.VM_NAME
@@ -330,13 +333,23 @@ pipeline {
                         runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pdpgsql --database pgsql --database mysql', 'yes', env.VM_IP, 'postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
+                stage('psmdb sharded') {
+                    steps {
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=sharding', 'yes', env.VM_IP, 'sharded-psmdb', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                    }
+                }
             }
         }
         stage('Disable upgrade on nightly PMM instance') {
             steps {
-                sh """
-                    curl --location -i --insecure --request PUT "\${PMM_URL}/v1/server/settings' --header 'Content-Type: application/json' --data '{ "enable_updates": false }"
-                """
+                sh '''
+                    #!/bin/bash
+                        curl --location -i --insecure --request PUT \
+                        --user "admin:$ADMIN_PASSWORD" \
+                        "$PMM_UI_URL/v1/server/settings" \
+                        --header "Content-Type: application/json" \
+                        --data '{ "enable_updates": false }'
+                '''
             }
         }
         stage('Setup Node') {
@@ -383,6 +396,11 @@ pipeline {
                 stage('Check Agent Status on postgresql node') {
                     steps {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_PGSQL, env.PMM_QA_GIT_BRANCH)
+                    }
+                }
+                stage('Check Agent Status on psmdb sharded node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PSMDB_SHARDED, env.PMM_QA_GIT_BRANCH)
                     }
                 }
             }
