@@ -93,6 +93,10 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
         env.VM_CLIENT_IP_PXC = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_PXC = stagingJob.buildVariables.VM_NAME
     }
+    else if ( NODE_TYPE == 'extra-pxc-node' ) {
+        env.VM_CLIENT_IP_EXTRA_PXC = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_EXTRA_PXC = stagingJob.buildVariables.VM_NAME
+    }
     else if ( NODE_TYPE == 'postgres-node' ) {
         env.VM_CLIENT_IP_PGSQL = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_PGSQL = stagingJob.buildVariables.VM_NAME
@@ -388,6 +392,11 @@ pipeline {
                 stage('Check Agent Status on postgresql node') {
                     steps {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_PGSQL, env.PMM_QA_GIT_BRANCH)
+                    }
+                }
+                stage('Check Agent Status on extra pxc node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_EXTRA_PXC, env.PMM_QA_GIT_BRANCH)
                     }
                 }
             }
