@@ -42,8 +42,8 @@ void prepareAgent() {
 
         kubectl krew install assert
 
-        # v0.17.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/336ef83542fd2f783bfa2c075b24599e834dcc77/plugins/kuttl.yaml
+        # v0.22.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
         echo \$(kubectl kuttl --version) is installed
 
         client_version=\$(curl -s https://api.github.com/repos/digitalocean/doctl/releases/latest | grep '"tag_name":' | cut -d '"' -f4 | sed 's/^v//')
@@ -324,13 +324,13 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 
 pipeline {
     environment {
-        DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", , returnStdout: true).trim()
+        DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg16", returnStdout: true).trim()
     }
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-pr.csv', 'run-minikube.csv', 'run-release.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'PILLAR_VERSION', choices: 'none\n12\n13\n14\n15\n16\n17', description: 'Implies release run')
+        choice(name: 'PILLAR_VERSION', choices: 'none\n13\n14\n15\n16\n17', description: 'Implies release run')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'Digital Ocean Kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
