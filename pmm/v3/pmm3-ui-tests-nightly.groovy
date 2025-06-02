@@ -354,7 +354,7 @@ pipeline {
         stage('Setup Node') {
             steps {
                 sh """
-                    curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
+                    curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
                     sudo bash nodesource_setup.sh
                     sudo apt install nodejs
                     sudo apt-get install -y gettext
@@ -411,10 +411,9 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' codecept.conf.ts
-                        npx codeceptjs run --reporter mocha-multi -c codecept.conf.ts --grep 'PMM-T305'
-                    """
+                    sh '''
+                        npx codeceptjs run --reporter mocha-multi --grep 'PMM-T305'
+                    '''
                 }
             }
         }
