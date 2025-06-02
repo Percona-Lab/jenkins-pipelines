@@ -57,7 +57,7 @@ def call(Map config = [:]) {
     // Collect all cache key components
     def keyComponents = [cleanDockerOs, cmakeBuildType]
 
-    if (compiler) {
+    if (compiler && compiler != 'default') {
         keyComponents.add(compiler)
     }
     if (compilerVersion) {
