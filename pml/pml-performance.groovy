@@ -16,10 +16,12 @@ pipeline {
         string(name: 'PML_BRANCH',description: 'PML Branch for testing',defaultValue: 'main')
         string(name: 'TESTING_BRANCH',description: 'Branch for testing repository',defaultValue: 'main')
         string(name: 'GO_VERSION',description: 'Version of Golang used',defaultValue: '1.24.1')
-        choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['t2.micro','i3.large','i3en.large','i3.xlarge','i3en.xlarge', 'i3en.24xlarge'])
+        choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['t2.micro','i3.large','i3en.large','i3.xlarge','i3en.xlarge','i3en.3xlarge','i3en.24xlarge'])
         string(name: 'DATASIZE',description: 'The max size of the data in mb. This is distributed over the amount of collections stated',defaultValue: '10')
         string(name: 'COLLECTIONS', description: 'The number of collections',defaultValue: '5')
+        choice(name: 'DOC_TEMPLATE',description: 'Type of doc template, random or compact(compressible)',choices: ['random', 'compact'])
         booleanParam(name: 'RANDOM_DISTRIBUTE_DATA', defaultValue: false, description: 'Randomly distribute data throughout Collections')
+        booleanParam(name: 'FULL_DATA_COMPARE', defaultValue: false, description: 'Run full data comparison after sync (not recommended for large datasets)')
         string(name: 'EXTRA_VARS', description: 'Any extra Environment Variables for Mongolink (e.g. PML_CLONE_NUM_INSERT_WORKERS: 0, PML_CLONE_NUM_PARALLEL_COLLECTIONS: 0. Make sure to separate using commas)',defaultValue: '')
         string(name: 'TIMEOUT',description: 'Timeout for the data replication',defaultValue: '3600')
         string(name: 'SSH_USER',description: 'User for debugging',defaultValue: 'none')
@@ -117,12 +119,25 @@ pipeline {
                     echo "Destroying AWS instances because DESTROY=true or build failed"
                     moleculeExecuteActionWithScenario(moleculeDir, "destroy", params.OPERATING_SYSTEM)
                 } else {
-                    echo "Skipping destroy because DESTROY variable is false and build succeeded"
+                    def timeoutSeconds = params.TIMEOUT.toInteger()
+                    echo "Build succeeded and DESTROY=false - sleeping for ${timeoutSeconds} seconds"
                     echo "########################################################### NOTE ##########################################################\n" +
                             "To access PMM to see performance stats, run the following command: 'ssh -L 8443:127.0.0.1:443 <SSH-USER>@<AWS-MONGOLINK-IP>'\n" +
                             "The IP address for Mongolink can be found in this Jenkins log under the 'TASK [Wait for SSH]' section.\n" +
                             "Once SSH has been established you can access PMM through your local browser on https://localhost:8443 using login details admin:admin \n" +
                             "########################################################### NOTE ##########################################################"
+                    try {
+                        timeout(time: timeoutSeconds, unit: 'SECONDS') {
+                            waitUntil { return false }
+                        }
+                    }
+                    catch (e) {
+                        echo "Error during sleep: ${e}"
+                    }
+                    finally {
+                        echo "Destroying AWS instances after timeout or manual abort"
+                        moleculeExecuteActionWithScenario(moleculeDir, "destroy", params.OPERATING_SYSTEM)
+                    }
                 }
             }
         }

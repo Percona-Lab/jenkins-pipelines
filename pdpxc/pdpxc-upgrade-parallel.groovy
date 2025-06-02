@@ -137,20 +137,29 @@ pipeline {
 
                         echo "Latest PXC Operator version: ${pxc_operator_version_latest}"
 
-                        sh """
-                            aws s3 cp ${S3_BUCKET}/${TRIGGER_FILE} ${LOCAL_TRIGGER_FILE}
+                            withCredentials([string(credentialsId: 'JNKPERCONA_CLOUD_TOKEN', variable: 'TOKEN')]) {
 
-                            sed -i 's/^PXCO=.*/PXCO=1/' ${LOCAL_TRIGGER_FILE}
-                            sed -i 's/^PXCO_VERSION=.*/PXCO_VERSION=${pxc_operator_version_latest}/' ${LOCAL_TRIGGER_FILE}
-                            sed -i 's/^PXC_VERSION=.*/PXC_VERSION=${VERSION}/' ${LOCAL_TRIGGER_FILE}
-                            sed -i 's/^PXB_VERSION=.*/PXB_VERSION=${PXB_VERSION}/' ${LOCAL_TRIGGER_FILE}
-                            sed -i 's/^PROXYSQL_VERSION=.*/PROXYSQL_VERSION=${PROXYSQL_VERSION}/' ${LOCAL_TRIGGER_FILE}
-                            sed -i 's/^HAPROXY_VERSION=.*/HAPROXY_VERSION=${HAPROXY_VERSION}/' ${LOCAL_TRIGGER_FILE}
-                            sed -i 's/^PILLAR_VERSION=.*/PILLAR_VERSION=${PILLAR_VERSION}/' ${LOCAL_TRIGGER_FILE}
+                                sh """
+                                        curl -X POST \
+                                        -u ${TOKEN} \
+                                        --data-urlencode TEST_SUITE=run-distro.csv \
+                                        --data-urlencode TEST_LIST= \
+                                        --data-urlencode IGNORE_PREVIOUS_RUN=NO \
+                                        --data-urlencode PILLAR_VERSION=${PILLAR_VERSION} \
+                                        --data-urlencode GIT_BRANCH=v${pxc_operator_version_latest} \
+                                        --data-urlencode GIT_REPO=https://github.com/percona/percona-xtradb-cluster-operator \
+                                        --data-urlencode PLATFORM_VER=max \
+                                        --data-urlencode IMAGE_PXC=perconalab/percona-xtradb-cluster:${VERSION} \
+                                        --data-urlencode IMAGE_PROXY=percona/proxysql2:${PROXYSQL_VERSION} \
+                                        --data-urlencode IMAGE_HAPROXY=perconalab/haproxy:${HAPROXY_VERSION} \
+                                        --data-urlencode IMAGE_PMM_SERVER=perconalab/pmm-server:dev-latest https://cloud.cd.percona.com/job/pxco-gke-1/buildWithParameters
+                                """
 
-                            aws s3 cp ${LOCAL_TRIGGER_FILE} ${S3_BUCKET}/${TRIGGER_FILE}
+                            }
 
-                        """
+
+
+
                 }
             }
         }

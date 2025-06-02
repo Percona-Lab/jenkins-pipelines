@@ -93,6 +93,10 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
         env.VM_CLIENT_IP_PXC = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_PXC = stagingJob.buildVariables.VM_NAME
     }
+    else if ( NODE_TYPE == 'extra-pxc-node' ) {
+        env.VM_CLIENT_IP_EXTRA_PXC = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_EXTRA_PXC = stagingJob.buildVariables.VM_NAME
+    }
     else if ( NODE_TYPE == 'postgres-node' ) {
         env.VM_CLIENT_IP_PGSQL = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_PGSQL = stagingJob.buildVariables.VM_NAME
@@ -102,7 +106,7 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
     } else if ( NODE_TYPE == 'sharded-psmdb' ) {
         env.VM_CLIENT_IP_PSMDB_SHARDED = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_PSMDB_SHARDED = stagingJob.buildVariables.VM_NAME
-    }else {
+    } else {
         env.VM_CLIENT_IP_MONGO = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_MONGO = stagingJob.buildVariables.VM_NAME
     }
@@ -133,7 +137,7 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
 
 pipeline {
     agent {
-        label 'min-noble-x64'
+        label 'min-focal-x64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -215,7 +219,7 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ['8.0','5.7'],
+            choices: ['8.4', '8.0','5.7'],
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         choice(
@@ -247,7 +251,7 @@ pipeline {
             description: "Official MongoDB version",
             name: 'MODB_VERSION')
         choice(
-            choices: ['perfschema', 'slowlog'],
+            choices: ['slowlog', 'perfschema'],
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
     }
@@ -338,11 +342,17 @@ pipeline {
                         runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=sharding', 'yes', env.VM_IP, 'sharded-psmdb', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
+                stage('extra pxc') {
+                    steps {
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pxc', 'yes', env.VM_IP, 'extra-pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                    }
+                }
             }
         }
         stage('Disable upgrade on nightly PMM instance') {
             steps {
-                sh '''#!/bin/bash
+                sh '''
+                    #!/bin/bash
                         curl --location -i --insecure --request PUT \
                         --user "admin:$ADMIN_PASSWORD" \
                         "$PMM_UI_URL/v1/server/settings" \
@@ -402,7 +412,11 @@ pipeline {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_PSMDB_SHARDED, env.PMM_QA_GIT_BRANCH)
                     }
                 }
-
+                stage('Check Agent Status on extra pxc node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_EXTRA_PXC, env.PMM_QA_GIT_BRANCH)
+                    }
+                }
             }
         }
         stage('Run UI Tests') {

@@ -134,6 +134,7 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
+        timeout(time: 60, unit: 'MINUTES')
     }
     stages {
         stage('Prepare') {
@@ -426,6 +427,12 @@ pipeline {
                                 docker exec \$i kill \$pgsql_process_id
                                 docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                             elif [[ \$i == *"ps_"* ]]; then
+                                docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                docker exec \$i apt install -y pmm-client
+                                ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
+                                docker exec \$i kill \$ps_process_id
+                                docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                            elif [[ \$i == *"external_pmm"* ]]; then
                                 docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
                                 docker exec \$i apt install -y pmm-client
                                 ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
