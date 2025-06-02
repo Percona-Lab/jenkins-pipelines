@@ -1,6 +1,11 @@
 def call(Map config = [:]) {
     // ccacheDownload: Downloads ccache from S3 if available
     // Objects are tagged with RetentionDays for custom lifecycle policies
+    //
+    // CACHE RETENTION: Objects in S3 are automatically cleaned up based on tags
+    // Configured retention periods: 7, 14, 21, 30 days
+    // Default: 14 days (if not specified)
+    //
     // Set default values
     def awsCredentialsId = config.get('awsCredentialsId', 'AWS_CREDENTIALS_ID')
     def s3Bucket = config.get('s3Bucket', 's3://ps-build-cache/')

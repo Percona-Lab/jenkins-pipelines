@@ -2,6 +2,11 @@ def call(Map config = [:]) {
     // ccacheUpload: Uploads ccache to S3 with retention tags
     // Objects are tagged with RetentionDays, Project, CacheType, and CreatedDate
     // for custom S3 lifecycle policies
+    // 
+    // ALLOWED RETENTION DAYS: 7, 14, 21, 30
+    // S3 lifecycle rules are configured for these specific retention periods only.
+    // Using any other value will cause the cache to fall back to the default 30-day cleanup.
+    //
     // Set default values
     def awsCredentialsId = config.get('awsCredentialsId', 'AWS_CREDENTIALS_ID')
     def s3Bucket = config.get('s3Bucket', 's3://ps-build-cache/')
@@ -31,6 +36,14 @@ def call(Map config = [:]) {
     if (env.USE_CCACHE != 'true') {
         echo 'ccache disabled'
         return
+    }
+
+    // Validate retention days
+    def allowedRetentionDays = ['7', '14', '21', '30']
+    if (!allowedRetentionDays.contains(cacheRetentionDays)) {
+        echo "WARNING: Invalid retention days '${cacheRetentionDays}'. Allowed values: ${allowedRetentionDays.join(', ')}"
+        echo "WARNING: Cache will use default 30-day cleanup instead of ${cacheRetentionDays} days"
+        echo "INFO: To use custom retention, update S3 lifecycle rules in ps-build-cache bucket"
     }
 
     echo '=== Uploading ccache ==='
