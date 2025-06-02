@@ -24,7 +24,7 @@ def call(Map config = [:]) {
 
     // Build cache key
     def cleanDockerOs = dockerOs.replace(':', '-')
-    def compilerSuffix = compiler ? "-${compiler}" : ''
+    def compilerSuffix = (compiler && compiler != 'default') ? "-${compiler}" : ''
     def cacheKey = "${cleanDockerOs}-${cmakeBuildType}${compilerSuffix}-${buildParamsType}"
 
     if (forceCacheMiss) {
