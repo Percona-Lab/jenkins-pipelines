@@ -10,15 +10,12 @@ def call(Map config = [:]) {
     def awsCredentialsId = config.get('awsCredentialsId', 'AWS_CREDENTIALS_ID')
     def s3Bucket = config.get('s3Bucket', 's3://ps-build-cache/')
     def workspace = config.get('workspace', env.WORKSPACE)
-    def jobName = config.get('jobName', env.JOB_NAME)
-    def branch = config.get('branch', env.BRANCH ?: '8.0')
     def dockerOs = config.get('dockerOs', env.DOCKER_OS)
     def cmakeBuildType = config.get('cmakeBuildType', env.CMAKE_BUILD_TYPE)
-    def compiler = config.get('compiler', env.COMPILER ?: '')
+    def toolset = config.get('toolset', env.TOOLSET ?: '')
     def buildParamsType = config.get('buildParamsType', env.BUILD_PARAMS_TYPE ?: 'standard')
     def forceCacheMiss = config.get('forceCacheMiss', env.FORCE_CACHE_MISS == 'true')
-    def mysqlVersion = config.get('mysqlVersion', env.MYSQL_VERSION ?: '')
-    def compilerVersion = config.get('compilerVersion', env.COMPILER_VERSION ?: '')
+    def serverVersion = config.get('serverVersion', env.SERVER_VERSION ?: '')
     def awsRetryMode = config.get('awsRetryMode', env.AWS_RETRY_MODE ?: 'standard')
     def awsRetries = config.get('awsRetries', env.AWS_RETRIES ?: '5')
     def cacheDir = config.get('cacheDir', '.ccache')
@@ -42,20 +39,14 @@ def call(Map config = [:]) {
     // Collect all cache key components
     def keyComponents = [cleanDockerOs, cmakeBuildType]
 
-    if (compiler && compiler != 'default') {
-        keyComponents.add(compiler)
+    if (toolset) {
+        keyComponents.add(toolset)
     }
-    if (compilerVersion) {
-        keyComponents.add("v${compilerVersion}")
-    }
-    if (mysqlVersion) {
-        keyComponents.add("mysql${mysqlVersion}")
+    if (serverVersion) {
+        keyComponents.add("mysql${serverVersion}")
     }
 
     keyComponents.add(buildParamsType)
-    
-    // Add branch to cache key (replace / with - for branch names like release/8.0.35)
-    keyComponents.add(branch.replace('/', '-'))
 
     // Join components with underscores for better readability
     def cacheKey = keyComponents.join('_')
