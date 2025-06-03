@@ -13,15 +13,13 @@ void build(String IMAGE_PREFIX){
         elif [ ${IMAGE_PREFIX} = proxysql ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f proxysql/Dockerfile proxysql
         elif [ ${IMAGE_PREFIX} = pxc5.7-backup ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtradb-cluster-5.7-backup/Dockerfile percona-xtradb-cluster-5.7-backup
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtrabackup-2.4/Dockerfile percona-xtrabackup-2.4
         elif [ ${IMAGE_PREFIX} = pxc8.0-backup ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0-backup/Dockerfile percona-xtradb-cluster-8.0-backup
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtrabackup-8.0/Dockerfile percona-xtrabackup-8.0
         elif [ ${IMAGE_PREFIX} = pxc8.4-backup ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.4-backup/Dockerfile percona-xtradb-cluster-8.4-backup
+            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtrabackup-8.x/Dockerfile percona-xtrabackup-8.x
         elif [ ${IMAGE_PREFIX} = haproxy ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f haproxy/Dockerfile haproxy
-        elif [ ${IMAGE_PREFIX} = logcollector ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f fluentbit/Dockerfile fluentbit
         fi
     """
 }
@@ -136,9 +134,6 @@ pipeline {
                 retry(3) {
                     build('haproxy')
                 }
-                retry(3) {
-                    build('logcollector')
-                }
             }
         }
         stage('Push Images to Docker registry') {
@@ -154,7 +149,6 @@ pipeline {
                 pushImageToDocker('pxc8.0-backup')
                 pushImageToDocker('pxc8.4-backup')
                 pushImageToDocker('haproxy')
-                pushImageToDocker('logcollector')
             }
         }
        stage('Trivy Checks') {
@@ -266,16 +260,6 @@ pipeline {
                     post {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-haproxy.xml"
-                        }
-                    }
-                }
-                stage('logcollector'){
-                    steps {
-                        checkImageForDocker('logcollector')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-logcollector.xml"
                         }
                     }
                 }

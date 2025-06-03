@@ -14,6 +14,7 @@
         install_repo = "${params.install_repo}"
         server_to_test  = "${params.server_to_test}"
         scenario_to_test = "${params.scenario_to_test}"
+        TESTING_BRANCH = "${params.TESTING_BRANCH}"
     }
     parameters {
         choice(
@@ -31,6 +32,11 @@
             description: 'repo name',
             name: 'git_repo',
             trim: false
+        )
+        string(
+            defaultValue: 'master',
+            description: 'Branch for package-testing repository',
+            name: 'TESTING_BRANCH'
         )
         choice(
             choices: [
@@ -124,7 +130,8 @@ void runpxbptjob(String scenario_to_test) {
             string(name: "server_to_test", value: params.server_to_test),
             string(name: "git_repo", value: git_repo),
             string(name: "install_repo", value: params.install_repo),
-            string(name: "product_to_test", value: params.product_to_test)
+            string(name: "product_to_test", value: params.product_to_test),
+            string(name: "TESTING_BRANCH", value: params.TESTING_BRANCH)
         ],
         propagate: true,
         wait: true

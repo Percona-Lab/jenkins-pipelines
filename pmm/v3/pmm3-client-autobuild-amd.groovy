@@ -17,8 +17,8 @@ pipeline {
             name: 'GIT_BRANCH'
         )
         choice(
-            choices: ['experimental', 'testing', 'laboratory'],
-            description: 'Publish packages to repositories: testing for RC, experimental for 3-dev-latest, laboratory for FBs',
+            choices: ['experimental', 'testing'],
+            description: 'Publish packages to repositories: testing for RC, experimental for 3-dev-latest',
             name: 'DESTINATION'
         )
     }
@@ -74,6 +74,8 @@ pipeline {
                     steps {
                         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                             sh '''
+                                export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3-ol8
+
                                 ${PATH_TO_SCRIPTS}/build-client-binary
                                 ls -la "results/tarball" || :
                                 aws s3 cp --only-show-errors --acl public-read results/tarball/pmm-client-*.tar.gz \
@@ -213,7 +215,6 @@ pipeline {
                   env.UPLOAD_PATH = sh(returnStdout: true, script: "cat uploadPath").trim()
                 }
                 // Upload packages to the repo defined in `DESTINATION`
-                // sync2ProdPMMClient(DESTINATION, 'yes')
                 sync2ProdPMMClientRepo(DESTINATION, env.UPLOAD_PATH, 'pmm3-client')
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     script {

@@ -29,7 +29,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'ppg-17.0',
+            defaultValue: 'ppg-17.5',
             description: 'PG version for test',
             name: 'VERSION'
         )
@@ -39,7 +39,7 @@ pipeline {
             name: 'TARBALL_URL'
         )
         string(
-            defaultValue: 'main',
+            defaultValue: 'Q2-2025',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
@@ -81,7 +81,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(ppgOperatingSystemsSSL3(), env.MOLECULE_DIR)
+                    moleculeParallelTestPPG(ppgOperatingSystemsSSL3(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -89,7 +89,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(ppgOperatingSystemsSSL3(), env.MOLECULE_DIR)
+              moleculeParallelPostDestroyPPG(ppgOperatingSystemsSSL3(), env.MOLECULE_DIR)
               sendSlackNotification(env.VERSION)
          }
       }
