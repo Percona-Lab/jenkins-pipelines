@@ -219,7 +219,7 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ['8.4', '8.0','5.7'],
+            choices: ['8.0', '8.4', '5.7'],
             description: 'Percona XtraDB Cluster version',
             name: 'PXC_VERSION')
         choice(
