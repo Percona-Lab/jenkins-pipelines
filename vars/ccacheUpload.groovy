@@ -129,15 +129,11 @@ def call(Map config = [:]) {
                 echo "ccache uploaded (\${FILE_SIZE}) in \${UPLOAD_TIME}s"
 
                 # Show cache statistics
-                CACHE_SIZE="${cacheSize}"
                 echo "ccache statistics after build:"
                 docker run --rm -v "${workspace}/${cacheDir}:/tmp/ccache" \\
                     -e CCACHE_DIR=/tmp/ccache \\
                     "${dockerRegistry}/${dockerImage}:${cleanDockerOs}" \\
-                    bash -c "
-                        ccache --max-size=\${CACHE_SIZE}
-                        ccache -s
-                    " || true
+                    bash -c "ccache -s" || true
             else
                 echo "No ccache directory found"
             fi
