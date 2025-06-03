@@ -56,7 +56,7 @@ def call(Map config = [:]) {
     if (forceCacheMiss) {
         // Add timestamp to force cache miss for testing
         cacheKey = "${cacheKey}-${currentBuild.startTimeInMillis}"
-        echo "Forcing cache miss"
+        echo 'Forcing cache miss'
     }
 
     def s3Path = "${s3Bucket}ccache/${projectName}/${cacheKey}/${cacheArchiveName}"
@@ -77,14 +77,14 @@ def call(Map config = [:]) {
             if aws s3 cp --no-progress "${s3Path}" "${workspace}/${cacheArchiveName}" 2>/dev/null; then
                 DOWNLOAD_TIME=\$(((\$(date +%s) - START_TIME)))
                 FILE_SIZE=\$(ls -lh "${workspace}/${cacheArchiveName}" | awk '{print \$5}')
-                
+
                 cd "${workspace}"
                 tar -xzf "${cacheArchiveName}"
                 rm -f "${cacheArchiveName}"
                 chmod -R "${cachePermissions}" "${cacheDir}/"
 
                 echo "ccache downloaded (\${FILE_SIZE}) in \${DOWNLOAD_TIME}s"
-                
+
                 if command -v ccache >/dev/null 2>&1; then
                     echo "ccache statistics after download:"
                     CCACHE_DIR="${cacheDir}" ccache -s || true

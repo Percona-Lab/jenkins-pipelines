@@ -2,7 +2,7 @@ def call(Map config = [:]) {
     // ccacheUpload: Uploads ccache to S3 with retention tags
     // Objects are tagged with RetentionDays, Project, CacheType, and CreatedDate
     // for custom S3 lifecycle policies
-    // 
+    //
     // ALLOWED RETENTION DAYS: 7, 14, 21, 30
     // S3 lifecycle rules are configured for these specific retention periods only.
     // Using any other value will cause the cache to fall back to the default 30-day cleanup.
@@ -40,7 +40,7 @@ def call(Map config = [:]) {
     if (!allowedRetentionDays.contains(cacheRetentionDays)) {
         echo "WARNING: Invalid retention days '${cacheRetentionDays}'. Allowed values: ${allowedRetentionDays.join(', ')}"
         echo "WARNING: Cache will use default 30-day cleanup instead of ${cacheRetentionDays} days"
-        echo "INFO: To use custom retention, update S3 lifecycle rules in ps-build-cache bucket"
+        echo 'INFO: To use custom retention, update S3 lifecycle rules in ps-build-cache bucket'
     }
 
     echo '=== Uploading ccache ==='
@@ -102,13 +102,13 @@ def call(Map config = [:]) {
 
             if [ -d "${workspace}/${cacheDir}" ]; then
                 cd "${workspace}"
-                
+
                 echo "Compressing cache..."
                 COMPRESS_START=\$(date +%s)
                 tar -czf "${cacheArchiveName}" "${cacheDir}/"
                 COMPRESS_TIME=\$(((\$(date +%s) - COMPRESS_START)))
                 FILE_SIZE=\$(ls -lh "${cacheArchiveName}" | awk '{print \$5}')
-                
+
                 echo "Cache compressed to \${FILE_SIZE} in \${COMPRESS_TIME}s"
                 echo "Uploading to: ${s3Path}"
 
