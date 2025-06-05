@@ -99,7 +99,7 @@ void cleanUpWS() {
 }
 def installDependencies(def nodeName) {
     def aptNodes = ['min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64', 'min-noble-x64']
-    def yumNodes = ['min-ol-8-x64' , 'min-ol-9-x64', 'min-amazon-2-x64']
+    def yumNodes = ['min-ol-8-x64' , 'min-ol-9-x64']
     try{
         if (aptNodes.contains(nodeName)) {
             if(nodeName == "min-bullseye-x64" || nodeName == "min-bookworm-x64"){            
@@ -130,12 +130,6 @@ def installDependencies(def nodeName) {
                     sudo yum install -y epel-release
                     sudo yum -y update
                     sudo yum install -y ansible-2.9.27 git wget tar
-                '''
-            }else if(nodeName == "min-amazon-2-x64"){
-                sh '''
-                    sudo amazon-linux-extras install epel
-                    sudo yum -y update
-                    sudo yum install -y ansible git wget
                 '''
             }
             else {
@@ -189,7 +183,6 @@ def minitestNodes =   [  "min-bullseye-x64",
                          "min-bookworm-x64",
                          "min-ol-8-x64",
                          "min-focal-x64",
-                         "min-amazon-2-x64",
                          "min-jammy-x64",
                          "min-noble-x64",
                          "min-ol-9-x64"]
