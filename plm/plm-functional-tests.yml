@@ -11,4 +11,4 @@
               - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pml/plm-functional-tests.groovy
+      script-path: plm/plm-functional-tests.groovy
