@@ -262,7 +262,7 @@ void runTest(Integer TEST_ID) {
                 sh """
                     cd source
 
-                    export DEBUG_TESTS=1
+                    [[ "$DEBUG_TESTS" == "YES" ]] && export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pxc-operator
                     [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
                     export IMAGE_PXC=$IMAGE_PXC
@@ -437,6 +437,10 @@ pipeline {
             defaultValue: 'eu-west-2',
             description: 'AWS region to use for openshift cluster',
             name: 'AWS_REGION')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with debug',
+            name: 'DEBUG_TESTS')
     }
     agent {
         label 'docker'
