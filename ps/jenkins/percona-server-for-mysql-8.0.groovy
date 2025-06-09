@@ -99,7 +99,7 @@ void cleanUpWS() {
 }
 def installDependencies(def nodeName) {
     def aptNodes = ['min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64', 'min-noble-x64']
-    def yumNodes = ['min-ol-8-x64' , 'min-ol-9-x64']
+    def yumNodes = ['min-ol-8-x64' , 'min-ol-9-x64', 'min-centos-7-x64']
     try{
         if (aptNodes.contains(nodeName)) {
             if(nodeName == "min-bullseye-x64" || nodeName == "min-bookworm-x64"){            
@@ -185,6 +185,7 @@ def minitestNodes =   [  "min-bullseye-x64",
                          "min-focal-x64",
                          "min-jammy-x64",
                          "min-noble-x64",
+                         "min-centos-7-x64",
                          "min-ol-9-x64"]
 
 def package_tests_ps80(def nodes) {
@@ -1321,6 +1322,7 @@ parameters {
                              try {
                                 package_tests_ps80(minitestNodes)
                                 echo "Minitests completed successfully. Triggering next stages."
+                                slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: minitest sucessfully run for ${BRANCH} - [${BUILD_URL}]")
                                 echo "TRIGGERING THE PACKAGE TESTING JOB!!!"
                                 build job: 'ps-package-testing-molecule', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: "${product_to_test}"),string(name: 'install_repo', value: "testing"),string(name: 'action_to_test', value: "install"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
                                 echo "Trigger PMM_PS Github Actions Workflow"
@@ -1333,6 +1335,7 @@ parameters {
                                     -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
                                     """ 
                                     }
+                                slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: PMM sucessfully run for ${BRANCH} - [${BUILD_URL}]")
                             } catch (err) {
                                     echo " Minitests block failed: ${err}"
                                     currentBuild.result = 'FAILURE'
@@ -1349,9 +1352,7 @@ parameters {
                                 throw err
                             }
                             }
-                        slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: minitest sucessfully run for ${BRANCH} - [${BUILD_URL}]")
-                    )
-                    echo "Start Minitests for PS"                
+                    )          
                 }    
                         else{
                             error "Skipping MINITESTS and Other Triggers as invalid RELEASE VERSION FOR THIS JOB"
