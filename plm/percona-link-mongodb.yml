@@ -1,5 +1,5 @@
 - job:
-    name: hetzner-pml-autobuild-RELEASE
+    name: hetzner-plm-autobuild-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,5 +11,5 @@
             - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pml/percona-mongolink.groovy
+      script-path: plm/percona-link-mongodb.groovy
 

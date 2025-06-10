@@ -1,5 +1,5 @@
 - job:
-    name: hetzner-pml-functional-tests
+    name: hetzner-plm-functional-tests
     project-type: pipeline
     description: |
       Do not edit this job through the web!
@@ -11,4 +11,4 @@
               - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pml/pml-functional-tests.groovy
+      script-path: plm/plm-functional-tests.groovy
