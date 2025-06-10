@@ -419,8 +419,9 @@ parameters {
                                 buildStage("none", "--build_deb=1 --with_zenfs=1")
                             }
                         }
-
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        if (env.EXPERIMENTALMODE == 'NO') {
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Ubuntu Noble(24.04)') {
@@ -438,9 +439,7 @@ parameters {
                             } else {
                                 buildStage("none", "--build_deb=1 --with_zenfs=1")
                             }
-                            if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            }
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         }
                     }
                 }
