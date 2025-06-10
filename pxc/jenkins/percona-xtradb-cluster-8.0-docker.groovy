@@ -174,7 +174,7 @@ pipeline {
                     }
             }
         }
-stage('Check by Trivy') {
+stage('Check by trivy') {
     agent {
        label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
     }
@@ -186,7 +186,10 @@ stage('Check by Trivy') {
             try {
                 // 🔹 Fetch MySQL Version
                 echo "🔄 Fetching MySQL version..."
-                sh 'curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION'
+                sh '''
+                    curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
+                    cut MYSQL_VERSION
+                '''
                 
                 // ✅ Source the version file
                 def mysqlVersion = readFile('MYSQL_VERSION').trim()
