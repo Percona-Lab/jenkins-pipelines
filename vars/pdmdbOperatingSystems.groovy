@@ -15,6 +15,7 @@ def call(String version = 'default', String newVersion = null, String gatedBuild
 
     if (isGatedBuild) {
         versionValues.addAll(['ubuntu-focal', 'ubuntu-focal-arm'])
+        newVersionValues.addAll(['ubuntu-focal', 'ubuntu-focal-arm'])
     }
 
     return versionValues.intersect(newVersionValues)
