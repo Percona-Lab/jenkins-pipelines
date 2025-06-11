@@ -45,23 +45,23 @@ pipeline {
             description: 'Tag/Branch for pg_tde repository',
             name: 'PG_BRANCH')
         string(
-            defaultValue: '17.0',
+            defaultValue: '17.5.2',
             description: 'Tag/Branch for pg_tde packaging repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '1',
+            defaultValue: '2',
             description: 'RPM release value',
             name: 'RPM_RELEASE')
         string(
-            defaultValue: '1',
+            defaultValue: '2',
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
-            defaultValue: 'ppg-17.0',
+            defaultValue: 'ppg-17.5',
             description: 'PPG repo name',
             name: 'PPG_REPO')
         choice(
-            choices: 'experimental\nlaboratory\ntesting',
+            choices: 'experimental\nlaboratory\ntestinh',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }
