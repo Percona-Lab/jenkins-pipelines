@@ -195,7 +195,7 @@ stage('Check by trivy') {
                 // ✅ Source the version file
                 def versionMatcher = mysqlVersion =~ /(\d+)\.(\d+)\.(\d+)(.*)/
                 
-                if (!versionMatcher) {
+                if (!versionMatcher.find()) {
                     error "❌ Failed to parse MySQL version from MYSQL_VERSION file."
                 }
                 
