@@ -218,6 +218,8 @@ pipeline {
                                 uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17, "binary", "${PACKAGE_VERSION}")
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
+                    }
+                }
             }  //parallel
         } // stage
 
