@@ -61,7 +61,7 @@ pipeline {
             description: 'PPG repo name',
             name: 'PPG_REPO')
         choice(
-            choices: 'experimental\nlaboratory\ntestinh',
+            choices: 'experimental\nlaboratory\ntesting',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }
