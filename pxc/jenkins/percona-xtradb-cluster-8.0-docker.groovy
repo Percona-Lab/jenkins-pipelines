@@ -197,19 +197,21 @@ stage('Check by trivy') {
                 if (!mysqlVersion) {
                     error "❌ MYSQL_VERSION file is empty or not found!"
                 }
-                
-                // ✅ Source the version file
-                def versionMatcher = mysqlVersion =~ /(\d+)\.(\d+)\.(\d+)(.*)/
-                
-                if (!versionMatcher.find()) {
-                    error "❌ Failed to parse MySQL version from MYSQL_VERSION file."
-                }
-                
-                def MYSQL_VERSION_MAJOR = versionMatcher[0][1]
-                def MYSQL_VERSION_MINOR = versionMatcher[0][2]
-                def MYSQL_VERSION_PATCH = versionMatcher[0][3]
-                def MYSQL_VERSION_EXTRA = versionMatcher[0][4]
 
+                def versionMap = [:]
+                mysqlVersionRaw.split('\n').each { line ->
+                    def (key, value) = line.tokenize('=')
+                    versionMap[key.trim()] = value.trim().replaceAll('"', '')
+                }
+
+                def MYSQL_VERSION_MAJOR = versionMap['MYSQL_VERSION_MAJOR']
+                def MYSQL_VERSION_MINOR = versionMap['MYSQL_VERSION_MINOR']
+                def MYSQL_VERSION_PATCH = versionMap['MYSQL_VERSION_PATCH']
+                def MYSQL_VERSION_EXTRA = versionMap['MYSQL_VERSION_EXTRA']
+                def fullVersion = "${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}"
+
+                echo "✅ Parsed MySQL version: ${fullVersion}"
+                
                 // 🔹 Install Trivy if not already installed
                 sh '''
                     if ! command -v trivy &> /dev/null; then
