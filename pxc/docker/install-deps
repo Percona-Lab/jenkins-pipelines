@@ -105,7 +105,7 @@ if [ -f /usr/bin/yum ]; then
 
   # PXC specific
   PKGLIST+=" libmicrohttpd-devel re2-devel check-devel scons libgcrypt-devel libev-devel vim-common \
-    perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat qpress stunnel \
+    perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat qpress stunnel pigz net-tools netcat \
     "
 
     if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 9 ]]; then
@@ -125,7 +125,12 @@ if [ -f /usr/bin/yum ]; then
         PKGLIST_DEVTOOLSET12+=" gcc-toolset-12-libatomic-devel"
         PKGLIST_DEVTOOLSET12+=" gcc-toolset-12-libasan-devel gcc-toolset-12-libubsan-devel"
         PKGLIST_DEVTOOLSET12+=" valgrind valgrind-devel"
-        PKGLIST_DEVTOOLSET12+=" gcc-toolset-12-annobin-annocheck gcc-toolset-12-annobin-plugin-gcc"        
+        PKGLIST_DEVTOOLSET12+=" gcc-toolset-12-annobin-annocheck gcc-toolset-12-annobin-plugin-gcc"       
+        
+        # Next packages are required by 9.2.0
+        PKGLIST_DEVTOOLSET13+=" gcc-toolset-13-gcc gcc-toolset-13-gcc-c++ gcc-toolset-13-binutils"
+        PKGLIST_DEVTOOLSET13+=" gcc-toolset-13-annobin-annocheck gcc-toolset-13-annobin-plugin-gcc"
+        PKGLIST_DEVTOOLSET13+=" gcc-toolset-13-libatomic-devel" 
     fi
 
     # KH: why?
@@ -174,7 +179,7 @@ if [ -f /usr/bin/yum ]; then
     done
 
     if [[ ${RHVER} -eq 9 ]]; then
-        until yum -y install ${PKGLIST_DEVTOOLSET12}; do
+        until yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13}; do
             echo "waiting"
             sleep 1
         done           
@@ -182,7 +187,7 @@ if [ -f /usr/bin/yum ]; then
         yum -y install centos-release-stream
         sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
         sed -i 's|#\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
-        until yum -y install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11} ${PKGLIST_DEVTOOLSET12}; do
+        until yum -y install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11} ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13}; do
             echo "waiting"
             sleep 1
         done       
@@ -242,7 +247,7 @@ if [ -f /usr/bin/apt-get ]; then
     # PXC specific
     PKGLIST+=" make build-essential check scons  libgcrypt-dev libev-dev  libasio-dev  vim-common python3-pip \
         libboost-all-dev rsync python3 sysbench patch patchelf librtmp-dev lsof socat \
-        python3-sphinx stunnel \
+        python3-sphinx stunnel pigz net-tools netcat-openbsd \
     "
     # PXC specific - TODO: these packages are not present in PS, but were specified in common list. Verify if/why they are needed
     PGKLIST+=" libsasl2-modules-gssapi-mit libgnutls28-dev"
@@ -429,13 +434,16 @@ sed -re "s/^(::1.*)\slocalhost\b(.*)$/\1 \2/g" /etc/hosts 1<> /etc/hosts
 
 # NB: resulting docker image will be used for building all branches: 5.6, 5.7, 8.0
 # boost 1.59.0 needed for percona-server 5.7
-wget_loop 'boost_1_59_0.tar.gz' 'http://downloads.sourceforge.net/boost/boost/1.59.0/boost_1_59_0.tar.gz'
+wget_loop 'boost_1_59_0.tar.gz' 'https://archives.boost.io/release/1.59.0/source/boost_1_59_0.tar.gz'
 
 # boost 1.77.0 needed for percona-server 8.0
-wget_loop 'boost_1_77_0.tar.bz2' 'http://downloads.sourceforge.net/boost/boost/1.77.0/boost_1_77_0.tar.bz2'
+wget_loop 'boost_1_77_0.tar.bz2' 'https://archives.boost.io/release/1.77.0/source/boost_1_77_0.tar.bz2'
 
 # boost 1.84.0 needed for percona-server 8.4
-wget_loop 'boost_1_84_0.tar.bz2' 'http://downloads.sourceforge.net/boost/boost/1.84.0/boost_1_84_0.tar.bz2'
+wget_loop 'boost_1_84_0.tar.bz2' 'https://archives.boost.io/release/1.84.0/source/boost_1_84_0.tar.bz2'
+
+# boost 1.85.0 needed for percona-server 9.x
+wget_loop 'boost_1_85_0.tar.bz2' 'https://archives.boost.io/release/1.85.0/source/boost_1_85_0.tar.bz2'
 
 # googletest 1.8.0 needed for percona-server versions 5.6 to 8.0
 wget_loop 'googletest-release-1.8.0.zip' 'https://github.com/google/googletest/archive/release-1.8.0.zip'

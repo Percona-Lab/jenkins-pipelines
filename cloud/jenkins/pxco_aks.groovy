@@ -230,7 +230,7 @@ void runTest(Integer TEST_ID) {
                 sh """
                     cd source
 
-                    export DEBUG_TESTS=1
+                    [[ "$DEBUG_TESTS" == "YES" ]] && export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pxc-operator
                     [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
                     export IMAGE_PXC=$IMAGE_PXC
@@ -402,6 +402,10 @@ pipeline {
             defaultValue: '',
             description: 'AKS location to use for cluster. By default "eastus" is for aks-1 job and "norwayeast" for aks-2',
             name: 'AKS_LOCATION')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with debug',
+            name: 'DEBUG_TESTS')
     }
     agent {
         label 'docker'

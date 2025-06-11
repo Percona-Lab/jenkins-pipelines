@@ -164,7 +164,7 @@ void runTest(Integer TEST_ID) {
             sh """
                 cd source
 
-                export DEBUG_TESTS=1
+                [[ "$DEBUG_TESTS" == "YES" ]] && export DEBUG_TESTS=1
                 [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=psmdb-operator
                 [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                 export IMAGE_MONGOD=$IMAGE_MONGOD
@@ -253,6 +253,7 @@ pipeline {
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
+        choice(name: 'DEBUG_TESTS', choices: 'NO\nYES', description: 'Run tests with debug')
     }
     agent {
         label 'docker-32gb'
