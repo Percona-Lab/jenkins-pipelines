@@ -184,12 +184,13 @@ stage('Check by trivy') {
     steps {
         script {
             try {
-                // 🔹 Fetch MySQL Version
                 echo "🔄 Fetching MySQL version..."
-                sh '''
-                    curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
-                    cut MYSQL_VERSION
-                '''
+
+                // 🔹 Capture the file content directly from curl
+                def mysqlVersion = sh(
+                    script: "curl -s https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION",
+                    returnStdout: true
+                ).trim()
                 
                 // ✅ Source the version file
                 def mysqlVersion = readFile('MYSQL_VERSION').trim()
