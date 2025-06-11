@@ -157,18 +157,13 @@ pipeline {
                 }
                 stage('Build client source deb') {
                     steps {
-                        sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:focal"
+                        sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:jammy"
                         stash includes: 'results/source_deb/*', name: 'debs'
                         uploadDEB()
                     }
                 }
                 stage('Build client binary debs') {
                     parallel {
-                        stage('Build client binary deb Bullseye') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
-                            }
-                        }
                         stage('Build client binary deb Bookworm') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bookworm"
@@ -177,11 +172,6 @@ pipeline {
                         stage('Build client binary deb Jammy') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
-                            }
-                        }
-                        stage('Build client binary deb Focal') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
                             }
                         }
                         stage('Build client binary deb Noble') {
