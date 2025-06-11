@@ -193,7 +193,6 @@ stage('Check by trivy') {
                 ).trim()
                 
                 // ✅ Source the version file
-                def mysqlVersion = readFile('MYSQL_VERSION').trim()
                 def versionMatcher = mysqlVersion =~ /(\d+)\.(\d+)\.(\d+)(.*)/
                 
                 if (!versionMatcher) {
