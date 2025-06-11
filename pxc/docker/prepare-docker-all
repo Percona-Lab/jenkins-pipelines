@@ -1,0 +1,12 @@
+#!/bin/bash
+
+./prepare-docker centos:7
+./prepare-docker centos:8
+./prepare-docker oraclelinux:9
+
+./prepare-docker ubuntu:focal
+./prepare-docker ubuntu:jammy
+./prepare-docker ubuntu:noble
+
+./prepare-docker debian:bullseye
+./prepare-docker debian:bookworm
