@@ -56,7 +56,6 @@ pipeline {
                 script {
                         echo "====> Build docker containers"
                         cleanUpWS()
-/*
                         sh '''
                             PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
                             PXC_MAJOR_RELEASE=$(echo ${GIT_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
@@ -172,8 +171,6 @@ pipeline {
                            sudo docker buildx imagetools create -t perconalab/percona-xtradb-cluster:latest perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
                        '''
                        }
-
-*/
                  }
             }
         }
