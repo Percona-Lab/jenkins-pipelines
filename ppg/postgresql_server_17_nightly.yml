@@ -1,0 +1,17 @@
+- job:
+    name: hetzner-postgresql-server-17_nightly
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ppg/postgresql_server_17_nightly.groovy
+    triggers:
+      - timed: "0 0 * * *"
+
