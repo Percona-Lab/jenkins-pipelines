@@ -56,6 +56,7 @@ pipeline {
                 script {
                         echo "====> Build docker containers"
                         cleanUpWS()
+/*
                         sh '''
                             PXC_RELEASE=$(echo ${GIT_BRANCH} | sed 's/release-//g')
                             PXC_MAJOR_RELEASE=$(echo ${GIT_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
@@ -171,7 +172,9 @@ pipeline {
                            sudo docker buildx imagetools create -t perconalab/percona-xtradb-cluster:latest perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
                        '''
                        }
-                    }
+
+*/
+                 }
             }
         }
 stage('Check by trivy') {
@@ -191,6 +194,12 @@ stage('Check by trivy') {
                     script: "curl -s https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION",
                     returnStdout: true
                 ).trim()
+
+                echo "🔎 Raw MYSQL_VERSION: '${mysqlVersion}'"
+
+                if (!mysqlVersion) {
+                    error "❌ MYSQL_VERSION file is empty or not found!"
+                }
                 
                 // ✅ Source the version file
                 def versionMatcher = mysqlVersion =~ /(\d+)\.(\d+)\.(\d+)(.*)/
