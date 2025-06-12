@@ -199,7 +199,7 @@ stage('Check by trivy') {
                 }
 
                 def versionMap = [:]
-                mysqlVersionRaw.split('\n').each { line ->
+                mysqlVersion.split('\n').each { line ->
                     def (key, value) = line.tokenize('=')
                     versionMap[key.trim()] = value.trim().replaceAll('"', '')
                 }
