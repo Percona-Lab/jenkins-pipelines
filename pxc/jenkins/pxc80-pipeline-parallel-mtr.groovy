@@ -508,7 +508,7 @@ if (params.CLOUD == 'Hetzner') {
     MICRO_LABEL = 'micro-amazon'
 } else if (params.CLOUD == 'Valgrind_docker_host') {
     LABEL = 'as-1015cs-tnr'
-    MICRO_LABEL = 'micro-amazon'
+    MICRO_LABEL = 'launcher-x64'
     // OK, this is hack to access AWS from as-1015cs-tnr which uses PS (not PXC) jenkins
     AWS_CREDENTIALS_ID = 'c8b933cd-b8ca-41d5-b639-33fe763d3f68'
     JOB_TO_REBUILD = 'pxc-8.0-pipeline-valgrind'
