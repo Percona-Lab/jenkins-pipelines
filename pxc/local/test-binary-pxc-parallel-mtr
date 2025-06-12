@@ -331,12 +331,24 @@ EOF
     popd
 fi
 
+# Add needed temporary packages here, but then rebuild docker images
+# and remove from here
+# Example:
+#
+# if [[ -f /etc/redhat-release ]]; then
+#    sudo yum install -y pigz
+# else
+#    sudo apt update
+#    sudo apt install pigz
+# fi
+
 if [[ -f /etc/redhat-release ]]; then
-    sudo yum install -y net-tools netcat
+    :
 else
-    sudo apt update
-    sudo apt install -y net-tools netcat-openbsd
+    :
 fi
+
+
 ifconfig
 
 mkdir mtr_var
