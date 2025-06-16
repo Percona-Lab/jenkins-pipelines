@@ -29,6 +29,8 @@ def call(Map config = [:]) {
     // Override credentials and endpoint for Hetzner
     if (cloud == 'Hetzner') {
         awsCredentialsId = config.get('awsCredentialsId', 'HTZ_STASH')
+        // Use existing Hetzner bucket
+        s3Bucket = config.get('s3Bucket', 's3://percona-jenkins-artifactory/')
     }
     def s3Endpoint = (cloud == 'Hetzner') ? '--endpoint-url https://fsn1.your-objectstorage.com' : ''
 
