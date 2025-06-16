@@ -3,9 +3,14 @@ def call(Map config = [:]) {
     // Objects are tagged with RetentionDays, Project, CacheType, and CreatedDate
     // for custom S3 lifecycle policies
     //
-    // ALLOWED RETENTION DAYS: 7, 14, 21, 30
-    // S3 lifecycle rules are configured for these specific retention periods only.
-    // Using any other value will cause the cache to fall back to the default 30-day cleanup.
+    // RETENTION PERIODS:
+    // - Normal builds: 60 days
+    // - Sanitizer builds (ASAN/Valgrind): 120 days
+    //
+    // IMPORTANT: S3 lifecycle rules must be configured to support these retention periods:
+    // - Create lifecycle rule for RetentionDays=60 to expire after 60 days
+    // - Create lifecycle rule for RetentionDays=120 to expire after 120 days
+    // Without proper S3 lifecycle configuration, caches may not be cleaned up as expected.
     //
     // Set default values
     def awsCredentialsId = config.get('awsCredentialsId', 'AWS_CREDENTIALS_ID')
@@ -39,8 +44,7 @@ def call(Map config = [:]) {
         return
     }
 
-    // Note: S3 lifecycle rules should be configured to handle 60 and 120 day retention periods
-    echo "Using retention period: ${cacheRetentionDays} days"
+    echo "Using retention period: ${cacheRetentionDays} days (${buildParamsType} build)"
 
     echo '=== Uploading ccache ==='
 
