@@ -171,7 +171,7 @@ pipeline {
                            sudo docker buildx imagetools create -t perconalab/percona-xtradb-cluster:latest perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
                        '''
                        }
-                    }
+                 }
             }
         }
 stage('Check by trivy') {
@@ -184,26 +184,34 @@ stage('Check by trivy') {
     steps {
         script {
             try {
-                // 🔹 Fetch MySQL Version
                 echo "🔄 Fetching MySQL version..."
-                sh '''
-                    curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
-                    cut MYSQL_VERSION
-                '''
-                
-                // ✅ Source the version file
-                def mysqlVersion = readFile('MYSQL_VERSION').trim()
-                def versionMatcher = mysqlVersion =~ /(\d+)\.(\d+)\.(\d+)(.*)/
-                
-                if (!versionMatcher) {
-                    error "❌ Failed to parse MySQL version from MYSQL_VERSION file."
-                }
-                
-                def MYSQL_VERSION_MAJOR = versionMatcher[0][1]
-                def MYSQL_VERSION_MINOR = versionMatcher[0][2]
-                def MYSQL_VERSION_PATCH = versionMatcher[0][3]
-                def MYSQL_VERSION_EXTRA = versionMatcher[0][4]
 
+                // 🔹 Capture the file content directly from curl
+                def mysqlVersion = sh(
+                    script: "curl -s https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION",
+                    returnStdout: true
+                ).trim()
+
+                echo "🔎 Raw MYSQL_VERSION: '${mysqlVersion}'"
+
+                if (!mysqlVersion) {
+                    error "❌ MYSQL_VERSION file is empty or not found!"
+                }
+
+                def versionMap = [:]
+                mysqlVersion.split('\n').each { line ->
+                    def (key, value) = line.tokenize('=')
+                    versionMap[key.trim()] = value.trim().replaceAll('"', '')
+                }
+
+                def MYSQL_VERSION_MAJOR = versionMap['MYSQL_VERSION_MAJOR']
+                def MYSQL_VERSION_MINOR = versionMap['MYSQL_VERSION_MINOR']
+                def MYSQL_VERSION_PATCH = versionMap['MYSQL_VERSION_PATCH']
+                def MYSQL_VERSION_EXTRA = versionMap['MYSQL_VERSION_EXTRA']
+                def fullVersion = "${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}"
+
+                echo "✅ Parsed MySQL version: ${fullVersion}"
+                
                 // 🔹 Install Trivy if not already installed
                 sh '''
                     if ! command -v trivy &> /dev/null; then
