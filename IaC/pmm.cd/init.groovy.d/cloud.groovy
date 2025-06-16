@@ -27,55 +27,43 @@ imageMap['us-east-2a.min-rhel-8-x64']     = 'ami-0426a691fd088149c'             
 imageMap['us-east-2a.min-ol-8-x64']       = 'ami-0eeed66f8f65afdba'               // oraclelinux 8.9
 imageMap['us-east-2a.min-rhel-9-x64']     = 'ami-0b5a1d936f517ad3e'               // oraclelinux 9.3
 imageMap['us-east-2a.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64'] // oraclelinux 9.3
-imageMap['us-east-2a.min-focal-x64']      = 'ami-0f511dde9605eb0b6'               // ubuntu 20
 imageMap['us-east-2a.min-jammy-x64']      = 'ami-003932de22c285676'               // ubuntu 22
 imageMap['us-east-2a.min-noble-x64']      = 'ami-0cb1abde5aafd0260'               // ubuntu 24
-imageMap['us-east-2a.min-bullseye-x64']   = 'ami-039026ca4c44ea7da'               // debian 11
 imageMap['us-east-2a.min-bookworm-x64']   = 'ami-0b40807e5dc1afecf'               // debian 12
 
 imageMap['us-east-2b.min-rhel-8-x64']     = imageMap['us-east-2a.min-rhel-8-x64']
 imageMap['us-east-2b.min-ol-8-x64']       = imageMap['us-east-2a.min-ol-8-x64']   // oraclelinux 8
 imageMap['us-east-2b.min-rhel-9-x64']     = imageMap['us-east-2a.min-rhel-9-x64']
 imageMap['us-east-2b.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64'] // oraclelinux 9
-imageMap['us-east-2b.min-focal-x64']      = imageMap['us-east-2a.min-focal-x64']
 imageMap['us-east-2b.min-jammy-x64']      = imageMap['us-east-2a.min-jammy-x64']
 imageMap['us-east-2b.min-noble-x64']      = imageMap['us-east-2a.min-noble-x64']
-imageMap['us-east-2b.min-bullseye-x64']   = imageMap['us-east-2a.min-bullseye-x64']
 imageMap['us-east-2b.min-bookworm-x64']   = imageMap['us-east-2a.min-bookworm-x64']
 
 imageMap['us-east-2c.min-rhel-8-x64']     = imageMap['us-east-2a.min-rhel-8-x64']
 imageMap['us-east-2c.min-ol-8-x64']       = imageMap['us-east-2a.min-ol-8-x64']   // oraclelinux 8
 imageMap['us-east-2c.min-rhel-9-x64']     = imageMap['us-east-2a.min-rhel-9-x64']
 imageMap['us-east-2c.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64'] // oraclelinux 9
-imageMap['us-east-2c.min-focal-x64']      = imageMap['us-east-2a.min-focal-x64']
 imageMap['us-east-2c.min-jammy-x64']      = imageMap['us-east-2a.min-jammy-x64']
 imageMap['us-east-2c.min-noble-x64']      = imageMap['us-east-2a.min-noble-x64']
-imageMap['us-east-2c.min-bullseye-x64']   = imageMap['us-east-2a.min-bullseye-x64']
 imageMap['us-east-2c.min-bookworm-x64']   = imageMap['us-east-2a.min-bookworm-x64']
 
 // ARM64 based AMIs
 imageMap['us-east-2a.min-ol-8-arm64']       = 'ami-0f77cbbab56907b6c'               // oraclelinux 8.9 arm64
 imageMap['us-east-2a.min-ol-9-arm64']       = 'ami-0ffbdb6ee492c2cd5'               // oraclelinux 9.3 arm64
-imageMap['us-east-2a.min-focal-arm64']      = 'ami-0c9212cf4cd1d5894'               // ubuntu 20.04 arm64
 imageMap['us-east-2a.min-jammy-arm64']      = 'ami-03772d93fb1879bbe'               // ubuntu 22.04 arm64
 imageMap['us-east-2a.min-noble-arm64']      = 'ami-0e9af7032a7f96163'               // ubuntu 24.04 arm64
-imageMap['us-east-2a.min-bullseye-arm64']   = 'ami-0bdce15f646d6ffc5'               // debian 11 arm64
 imageMap['us-east-2a.min-bookworm-arm64']   = 'ami-093aaca871a94bd3a'               // debian 12 arm64
 
 imageMap['us-east-2b.min-ol-8-arm64']       = imageMap['us-east-2a.min-ol-8-arm64']
 imageMap['us-east-2b.min-ol-9-arm64']       = imageMap['us-east-2a.min-ol-9-arm64']
-imageMap['us-east-2b.min-focal-arm64']      = imageMap['us-east-2a.min-focal-arm64']
 imageMap['us-east-2b.min-jammy-arm64']      = imageMap['us-east-2a.min-jammy-arm64']
 imageMap['us-east-2b.min-noble-arm64']      = imageMap['us-east-2a.min-noble-arm64']
-imageMap['us-east-2b.min-bullseye-arm64']   = imageMap['us-east-2a.min-bullseye-arm64']
 imageMap['us-east-2b.min-bookworm-arm64']   = imageMap['us-east-2a.min-bookworm-arm64']
 
 imageMap['us-east-2c.min-ol-8-arm64']       = imageMap['us-east-2a.min-ol-8-arm64']
 imageMap['us-east-2c.min-ol-9-arm64']       = imageMap['us-east-2a.min-ol-9-arm64']
-imageMap['us-east-2c.min-focal-arm64']      = imageMap['us-east-2a.min-focal-arm64']
 imageMap['us-east-2c.min-jammy-arm64']      = imageMap['us-east-2a.min-jammy-arm64']
 imageMap['us-east-2c.min-noble-arm64']      = imageMap['us-east-2a.min-noble-arm64']
-imageMap['us-east-2c.min-bullseye-arm64']   = imageMap['us-east-2a.min-bullseye-arm64']
 imageMap['us-east-2c.min-bookworm-arm64']   = imageMap['us-east-2a.min-bookworm-arm64']
 
 priceMap = [:]
@@ -91,18 +79,14 @@ userMap['min-rhel-8-x64']      = 'rocky'
 userMap['min-ol-8-x64']        = 'ec2-user'
 userMap['min-rhel-9-x64']      = 'ec2-user'
 userMap['min-ol-9-x64']        = 'ec2-user'
-userMap['min-focal-x64']       = 'ubuntu'
 userMap['min-jammy-x64']       = 'ubuntu'
 userMap['min-noble-x64']       = 'ubuntu'
-userMap['min-bullseye-x64']    = 'admin'
 userMap['min-bookworm-x64']    = 'admin'
 
 userMap['min-ol-8-arm64']      = 'ec2-user'
 userMap['min-ol-9-arm64']      = 'ec2-user'
-userMap['min-focal-arm64']     = 'ubuntu'
 userMap['min-jammy-arm64']     = 'ubuntu'
 userMap['min-noble-arm64']     = 'ubuntu'
-userMap['min-bullseye-arm64']  = 'admin'
 userMap['min-bookworm-arm64']  = 'admin'
 
 initMap = [:]
@@ -228,18 +212,14 @@ initMap['min-rhel-8-x64']     = initMap['rpmMap']
 initMap['min-ol-8-x64']       = initMap['rpmMap']
 initMap['min-rhel-9-x64']     = initMap['rpmMap']
 initMap['min-ol-9-x64']       = initMap['rpmMap']
-initMap['min-focal-x64']      = initMap['debMap']
 initMap['min-jammy-x64']      = initMap['debMap']
 initMap['min-noble-x64']      = initMap['debMap']
-initMap['min-bullseye-x64']   = initMap['debMap']
 initMap['min-bookworm-x64']   = initMap['debMap']
 
 initMap['min-ol-8-arm64']     = initMap['rpmMap']
 initMap['min-ol-9-arm64']     = initMap['rpmMap']
-initMap['min-focal-arm64']    = initMap['debMap']
 initMap['min-jammy-arm64']    = initMap['debMap']
 initMap['min-noble-arm64']    = initMap['debMap']
-initMap['min-bullseye-arm64'] = initMap['debMap']
 initMap['min-bookworm-arm64'] = initMap['debMap']
 
 capMap = [:]
@@ -254,18 +234,14 @@ typeMap['min-rhel-8-x64']     = 'm6a.large'
 typeMap['min-ol-8-x64']       = typeMap['min-rhel-8-x64']
 typeMap['min-rhel-9-x64']     = typeMap['min-rhel-8-x64']
 typeMap['min-ol-9-x64']       = typeMap['min-rhel-8-x64']
-typeMap['min-focal-x64']      = typeMap['min-rhel-8-x64']
 typeMap['min-jammy-x64']      = typeMap['min-rhel-8-x64']
 typeMap['min-noble-x64']      = typeMap['min-rhel-8-x64']
-typeMap['min-bullseye-x64']   = typeMap['min-rhel-8-x64']
 typeMap['min-bookworm-x64']   = typeMap['min-rhel-8-x64']
 
 typeMap['min-ol-8-arm64']     = 'm7g.large'
 typeMap['min-ol-9-arm64']     = typeMap['min-ol-8-arm64']
-typeMap['min-focal-arm64']    = typeMap['min-ol-8-arm64']
 typeMap['min-jammy-arm64']    = typeMap['min-ol-8-arm64']
 typeMap['min-noble-arm64']    = typeMap['min-ol-8-arm64']
-typeMap['min-bullseye-arm64'] = typeMap['min-ol-8-arm64']
 typeMap['min-bookworm-arm64'] = typeMap['min-ol-8-arm64']
 
 execMap = [:]
@@ -273,18 +249,14 @@ execMap['min-rhel-8-x64']     = '1'
 execMap['min-ol-8-x64']       = '1'
 execMap['min-rhel-9-x64']     = '1'
 execMap['min-ol-9-x64']       = '1'
-execMap['min-focal-x64']      = '1'
 execMap['min-jammy-x64']      = '1'
 execMap['min-noble-x64']      = '1'
-execMap['min-bullseye-x64']   = '1'
 execMap['min-bookworm-x64']   = '1'
 
 execMap['min-ol-8-arm64']     = '1'
 execMap['min-ol-9-arm64']     = '1'
-execMap['min-focal-arm64']    = '1'
 execMap['min-jammy-arm64']    = '1'
 execMap['min-noble-arm64']    = '1'
-execMap['min-bullseye-arm64'] = '1'
 execMap['min-bookworm-arm64'] = '1'
 
 devMap = [:]
@@ -292,18 +264,14 @@ devMap['min-rhel-8-x64']     = '/dev/sda1=:80:true:gp3,/dev/sdd=:20:true:gp3'
 devMap['min-ol-8-x64']       = devMap['min-rhel-8-x64']
 devMap['min-rhel-9-x64']     = devMap['min-rhel-8-x64']
 devMap['min-ol-9-x64']       = devMap['min-rhel-8-x64']
-devMap['min-focal-x64']      = devMap['min-rhel-8-x64']
 devMap['min-jammy-x64']      = devMap['min-rhel-8-x64']
 devMap['min-noble-x64']      = devMap['min-rhel-8-x64']
-devMap['min-bullseye-x64']   = '/dev/xvda=:80:true:gp3,/dev/xvdd=:20:true:gp3'
 devMap['min-bookworm-x64']   = '/dev/xvda=:80:true:gp3,/dev/xvdd=:20:true:gp3'
 
 devMap['min-ol-8-arm64']     = devMap['min-rhel-8-x64']
 devMap['min-ol-9-arm64']     = devMap['min-rhel-8-x64']
-devMap['min-focal-arm64']    = devMap['min-rhel-8-x64']
 devMap['min-jammy-arm64']    = devMap['min-rhel-8-x64']
 devMap['min-noble-arm64']    = devMap['min-rhel-8-x64']
-devMap['min-bullseye-arm64'] = '/dev/xvda=:80:true:gp3,/dev/xvdd=:20:true:gp3'
 devMap['min-bookworm-arm64'] = '/dev/xvda=:80:true:gp3,/dev/xvdd=:20:true:gp3'
 
 labelMap = [:]
@@ -311,18 +279,14 @@ labelMap['min-rhel-8-x64']     = 'min-rhel-8-x64'
 labelMap['min-ol-8-x64']       = 'min-ol-8-x64'
 labelMap['min-rhel-9-x64']     = 'min-rhel-9-x64'
 labelMap['min-ol-9-x64']       = 'min-ol-9-x64'
-labelMap['min-focal-x64']      = 'min-focal-x64'
 labelMap['min-jammy-x64']      = 'min-jammy-x64'
 labelMap['min-noble-x64']      = 'min-noble-x64'
-labelMap['min-bullseye-x64']   = 'min-bullseye-x64'
 labelMap['min-bookworm-x64']   = 'min-bookworm-x64'
 
 labelMap['min-ol-8-arm64']     = 'min-ol-8-arm64'
 labelMap['min-ol-9-arm64']     = 'min-ol-9-arm64'
-labelMap['min-focal-arm64']    = 'min-focal-arm64'
 labelMap['min-jammy-arm64']    = 'min-jammy-arm64'
 labelMap['min-noble-arm64']    = 'min-noble-arm64'
-labelMap['min-bullseye-arm64'] = 'min-bullseye-arm64'
 labelMap['min-bookworm-arm64'] = 'min-bookworm-arm64'
 
 jvmoptsMap = [:]
@@ -330,18 +294,14 @@ jvmoptsMap['min-rhel-8-x64']     = '-Xmx512m -Xms512m'
 jvmoptsMap['min-ol-8-x64']       = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-rhel-9-x64']     = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-ol-9-x64']       = jvmoptsMap['min-rhel-8-x64']
-jvmoptsMap['min-focal-x64']      = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-jammy-x64']      = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-noble-x64']      = jvmoptsMap['min-rhel-8-x64']
-jvmoptsMap['min-bullseye-x64']   = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-bookworm-x64']   = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
 
 jvmoptsMap['min-ol-8-arm64']     = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-ol-9-arm64']     = jvmoptsMap['min-rhel-8-x64']
-jvmoptsMap['min-focal-arm64']    = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-jammy-arm64']    = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-noble-arm64']    = jvmoptsMap['min-rhel-8-x64']
-jvmoptsMap['min-bullseye-arm64'] = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-bookworm-arm64'] = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
@@ -417,17 +377,13 @@ String region = 'us-east-2'
             getTemplate('min-ol-8-x64',        "${region}${it}"),
             getTemplate('min-rhel-9-x64',      "${region}${it}"),
             getTemplate('min-ol-9-x64',        "${region}${it}"),
-            getTemplate('min-focal-x64',       "${region}${it}"),
             getTemplate('min-jammy-x64',       "${region}${it}"),
             getTemplate('min-noble-x64',       "${region}${it}"),
-            getTemplate('min-bullseye-x64',    "${region}${it}"),
             getTemplate('min-bookworm-x64',    "${region}${it}"),
             getTemplate('min-ol-8-arm64',      "${region}${it}"),
             getTemplate('min-ol-9-arm64',      "${region}${it}"),
-            getTemplate('min-focal-arm64',     "${region}${it}"),
             getTemplate('min-jammy-arm64',     "${region}${it}"),
             getTemplate('min-noble-arm64',     "${region}${it}"),
-            getTemplate('min-bullseye-arm64',  "${region}${it}"),
             getTemplate('min-bookworm-arm64',  "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
