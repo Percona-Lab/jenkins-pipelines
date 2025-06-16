@@ -17,6 +17,7 @@ def call(Map config = [:]) {
     // - Default: Objects without RetentionDays tag expire after 30 days
     //
     // Set default values
+    def cloud = config.get('cloud', env.CLOUD ?: 'AWS')
     def awsCredentialsId = config.get('awsCredentialsId', 'AWS_CREDENTIALS_ID')
     def s3Bucket = config.get('s3Bucket', 's3://ps-build-cache/')
     def workspace = config.get('workspace', env.WORKSPACE)
@@ -42,6 +43,12 @@ def call(Map config = [:]) {
     // AWS_MAX_ATTEMPTS includes the initial attempt, so add 1
     // See: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-retries.html
     def awsMaxAttempts = (awsRetries.toInteger() + 1).toString()
+
+    // Override credentials and endpoint for Hetzner
+    if (cloud == 'Hetzner') {
+        awsCredentialsId = config.get('awsCredentialsId', 'HTZ_STASH')
+    }
+    def s3Endpoint = (cloud == 'Hetzner') ? '--endpoint-url https://fsn1.your-objectstorage.com' : ''
 
     if (env.USE_CCACHE != 'yes') {
         echo 'ccache disabled'
@@ -121,12 +128,12 @@ def call(Map config = [:]) {
 
                 # Upload cache archive
                 UPLOAD_START=\$(date +%s)
-                aws s3 cp --no-progress "${cacheArchiveName}" "${s3Path}" \
+                aws s3 cp ${s3Endpoint} --no-progress "${cacheArchiveName}" "${s3Path}" \
                     --metadata "project=${projectName},branch=${branch},build-type=${cmakeBuildType}"
                 UPLOAD_TIME=\$(((\$(date +%s) - UPLOAD_START)))
 
                 # Add retention tags for lifecycle policy
-                aws s3api put-object-tagging \
+                aws s3api put-object-tagging ${s3Endpoint} \
                     --bucket \$(echo "${s3Path}" | cut -d'/' -f3) \
                     --key \$(echo "${s3Path}" | sed 's|s3://[^/]*/||') \
                     --tagging "TagSet=[{Key=RetentionDays,Value=${cacheRetentionDays}},{Key=Project,Value=${projectName}},{Key=CacheType,Value=ccache},{Key=CreatedDate,Value=\$(date -u +%Y-%m-%d)}]"
@@ -144,7 +151,7 @@ def call(Map config = [:]) {
 
                 # List all ccache buckets for this project
                 echo "\nListing all ccache buckets for ${projectName}:"
-                aws s3 ls "${s3Bucket}ccache/${projectName}/" --recursive | grep -E "ccache\\.tar\\.gz\$" | \\
+                aws s3 ls ${s3Endpoint} "${s3Bucket}ccache/${projectName}/" --recursive | grep -E "ccache\\.tar\\.gz\$" | \\
                     awk '{print \$4}' | sed "s|ccache/${projectName}/||" | sed 's|/ccache.tar.gz||' | \\
                     sort -u | tail -20 || echo "Failed to list ccache buckets"
             else

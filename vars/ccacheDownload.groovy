@@ -7,6 +7,7 @@ def call(Map config = [:]) {
     // Default: 14 days (if not specified)
     //
     // Set default values
+    def cloud = config.get('cloud', env.CLOUD ?: 'AWS')
     def awsCredentialsId = config.get('awsCredentialsId', 'AWS_CREDENTIALS_ID')
     def s3Bucket = config.get('s3Bucket', 's3://ps-build-cache/')
     def workspace = config.get('workspace', env.WORKSPACE)
@@ -24,6 +25,12 @@ def call(Map config = [:]) {
     // AWS_MAX_ATTEMPTS includes the initial attempt, so add 1
     // See: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-retries.html
     def awsMaxAttempts = (awsRetries.toInteger() + 1).toString()
+
+    // Override credentials and endpoint for Hetzner
+    if (cloud == 'Hetzner') {
+        awsCredentialsId = config.get('awsCredentialsId', 'HTZ_STASH')
+    }
+    def s3Endpoint = (cloud == 'Hetzner') ? '--endpoint-url https://fsn1.your-objectstorage.com' : ''
 
     if (env.USE_CCACHE != 'yes') {
         echo 'ccache disabled'
@@ -74,7 +81,7 @@ def call(Map config = [:]) {
             chmod -R "${cachePermissions}" "${workspace}/${cacheDir}"
 
             START_TIME=\$(date +%s)
-            if aws s3 cp --no-progress "${s3Path}" "${workspace}/${cacheArchiveName}" 2>/dev/null; then
+            if aws s3 cp ${s3Endpoint} --no-progress "${s3Path}" "${workspace}/${cacheArchiveName}" 2>/dev/null; then
                 DOWNLOAD_TIME=\$(((\$(date +%s) - START_TIME)))
                 FILE_SIZE=\$(ls -lh "${workspace}/${cacheArchiveName}" | awk '{print \$5}')
 
