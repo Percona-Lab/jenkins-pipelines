@@ -25,7 +25,7 @@ def call(Map config = [:]) {
     // See: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-retries.html
     def awsMaxAttempts = (awsRetries.toInteger() + 1).toString()
 
-    if (env.USE_CCACHE != 'true') {
+    if (env.USE_CCACHE != 'yes') {
         echo 'ccache disabled'
         return
     }

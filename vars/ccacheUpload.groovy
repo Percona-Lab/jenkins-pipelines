@@ -43,7 +43,7 @@ def call(Map config = [:]) {
     // See: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-retries.html
     def awsMaxAttempts = (awsRetries.toInteger() + 1).toString()
 
-    if (env.USE_CCACHE != 'true') {
+    if (env.USE_CCACHE != 'yes') {
         echo 'ccache disabled'
         return
     }
@@ -141,6 +141,12 @@ def call(Map config = [:]) {
                     -e CCACHE_DIR=/tmp/ccache \\
                     "${dockerRegistry}/${dockerImage}:${cleanDockerOs}" \\
                     bash -c "ccache -s" || true
+
+                # List all ccache buckets for this project
+                echo "\nListing all ccache buckets for ${projectName}:"
+                aws s3 ls "${s3Bucket}ccache/${projectName}/" --recursive | grep -E "ccache\\.tar\\.gz\$" | \\
+                    awk '{print \$4}' | sed "s|ccache/${projectName}/||" | sed 's|/ccache.tar.gz||' | \\
+                    sort -u | tail -20 || echo "Failed to list ccache buckets"
             else
                 echo "No ccache directory found"
             fi
