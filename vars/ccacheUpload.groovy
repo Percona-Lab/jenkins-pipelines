@@ -17,9 +17,13 @@ def call(Map config = [:]) {
     def toolset = config.get('toolset', env.TOOLSET ?: '')
     def buildParamsType = config.get('buildParamsType', env.BUILD_PARAMS_TYPE ?: 'standard')
     def forceCacheMiss = config.get('forceCacheMiss', env.FORCE_CACHE_MISS == 'true')
-    def cacheSize = config.get('cacheSize', env.CACHE_SIZE ?: '8G')
     def serverVersion = config.get('serverVersion', env.SERVER_VERSION ?: '')
-    def cacheRetentionDays = config.get('cacheRetentionDays', env.CACHE_RETENTION_DAYS ?: '14')
+    // Determine retention days based on build type
+    def retentionDays = '60' // Default for normal builds
+    if (buildParamsType && (buildParamsType.toLowerCase().contains('asan') || buildParamsType.toLowerCase().contains('valgrind'))) {
+        retentionDays = '120' // Longer retention for sanitizer builds
+    }
+    def cacheRetentionDays = config.get('cacheRetentionDays', retentionDays)
     def awsRetryMode = config.get('awsRetryMode', env.AWS_RETRY_MODE ?: 'standard')
     def awsRetries = config.get('awsRetries', env.AWS_RETRIES ?: '5')
     def cacheDir = config.get('cacheDir', '.ccache')
@@ -35,13 +39,8 @@ def call(Map config = [:]) {
         return
     }
 
-    // Validate retention days
-    def allowedRetentionDays = ['7', '14', '21', '30']
-    if (!allowedRetentionDays.contains(cacheRetentionDays)) {
-        echo "WARNING: Invalid retention days '${cacheRetentionDays}'. Allowed values: ${allowedRetentionDays.join(', ')}"
-        echo "WARNING: Cache will use default 30-day cleanup instead of ${cacheRetentionDays} days"
-        echo 'INFO: To use custom retention, update S3 lifecycle rules in ps-build-cache bucket'
-    }
+    // Note: S3 lifecycle rules should be configured to handle 60 and 120 day retention periods
+    echo "Using retention period: ${cacheRetentionDays} days"
 
     echo '=== Uploading ccache ==='
 
