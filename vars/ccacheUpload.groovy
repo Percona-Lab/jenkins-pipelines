@@ -50,7 +50,7 @@ def call(Map config = [:]) {
     }
     def s3Endpoint = (cloud == 'Hetzner') ? '--endpoint-url https://fsn1.your-objectstorage.com' : ''
 
-    if (env.USE_CCACHE != 'yes') {
+    if (env.USE_CCACHE != 'yes' && env.USE_CCACHE != 'true') {
         echo 'ccache disabled'
         return
     }
