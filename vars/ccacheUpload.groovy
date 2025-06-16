@@ -7,10 +7,14 @@ def call(Map config = [:]) {
     // - Normal builds: 60 days
     // - Sanitizer builds (ASAN/Valgrind): 120 days
     //
-    // IMPORTANT: S3 lifecycle rules must be configured to support these retention periods:
-    // - Create lifecycle rule for RetentionDays=60 to expire after 60 days
-    // - Create lifecycle rule for RetentionDays=120 to expire after 120 days
-    // Without proper S3 lifecycle configuration, caches may not be cleaned up as expected.
+    // S3 LIFECYCLE RULES (configured in ps-build-cache bucket):
+    // - RetentionDays=7: Objects expire after 7 days
+    // - RetentionDays=14: Objects expire after 14 days
+    // - RetentionDays=21: Objects expire after 21 days
+    // - RetentionDays=30: Objects expire after 30 days
+    // - RetentionDays=60: Objects expire after 60 days (for normal builds)
+    // - RetentionDays=120: Objects expire after 120 days (for sanitizer builds)
+    // - Default: Objects without RetentionDays tag expire after 30 days
     //
     // Set default values
     def awsCredentialsId = config.get('awsCredentialsId', 'AWS_CREDENTIALS_ID')
