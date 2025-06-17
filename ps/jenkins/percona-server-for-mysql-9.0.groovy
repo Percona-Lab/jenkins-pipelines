@@ -384,6 +384,7 @@ parameters {
                         }
                     }
                 }
+/*
                 stage('Ubuntu Focal(20.04)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -405,6 +406,7 @@ parameters {
                         }
                     }
                 }
+*/
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -445,6 +447,7 @@ parameters {
                         }
                     }
                 }
+/*
                 stage('Debian Bullseye(11)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -466,6 +469,7 @@ parameters {
                         }
                     }
                 }
+*/
                 stage('Debian Bookworm(12)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -487,6 +491,7 @@ parameters {
                         }
                     }
                 }
+/*
                 stage('Ubuntu Focal(20.04) ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -508,6 +513,7 @@ parameters {
                         }
                     }
                 }
+*/
                 stage('Ubuntu Jammy(22.04) ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -549,6 +555,7 @@ parameters {
                         }
                     }
                 }
+/*
                 stage('Debian Bullseye(11) ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -571,6 +578,7 @@ parameters {
                         }
                     }
                 }
+*/
                 stage('Debian Bookworm(12) ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -698,6 +706,7 @@ parameters {
                         }
                     }
                 }
+/*
                 stage('Ubuntu Focal(20.04) tarball') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -740,6 +749,7 @@ parameters {
                         }
                     }
                 }
+*/
                 stage('Ubuntu Jammy(22.04) tarball') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
