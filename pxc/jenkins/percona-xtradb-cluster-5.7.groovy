@@ -132,7 +132,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("centos:7", "--build_src_rpm=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -147,7 +147,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:xenial", "--build_source_deb=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -166,7 +166,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("centos:7", "--build_rpm=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -180,7 +180,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("centos:8", "--build_rpm=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -194,7 +194,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_rpm=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -208,7 +208,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:bionic", "--build_deb=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -222,7 +222,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_deb=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -236,7 +236,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_deb=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -250,7 +250,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:noble", "--build_deb=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -264,7 +264,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:buster", "--build_deb=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -278,7 +278,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "--build_deb=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -292,7 +292,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--build_deb=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -306,7 +306,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("centos:7", "--build_tarball=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -321,7 +321,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("centos:7", "--build_tarball=1 --debug=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -336,7 +336,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("centos:8", "--build_tarball=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -350,7 +350,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_tarball=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -364,7 +364,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:bionic", "--build_tarball=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -378,7 +378,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:focal", "--build_tarball=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -392,7 +392,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_tarball=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -406,7 +406,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:buster", "--build_tarball=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -420,7 +420,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "--build_tarball=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -434,7 +434,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--build_tarball=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
@@ -467,7 +467,7 @@ pipeline {
             steps {
                 // sync packages
                 // sync2ProdAutoBuild(PXC_REPO, COMPONENT)
-                sync2PrivateProdAutoBuild("pxc-57-eol", COMPONENT)
+                sync2PrivateProdAutoBuild(params.CLOUD, "pxc-57-eol", COMPONENT)
             }
         }
         stage('Build docker container') {
@@ -537,7 +537,7 @@ pipeline {
             steps {
                 script {
                     try {
-                        uploadTarballToDownloadsTesting("pxc-gated", "${GIT_BRANCH}")
+                        uploadTarballToDownloadsTesting(params.CLOUD, "pxc-gated", "${GIT_BRANCH}")
                     }
                     catch (err) {
                         echo "Caught: ${err}"
