@@ -196,7 +196,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                 doctl kubernetes cluster create $CLUSTER_NAME-$CLUSTER_SUFFIX \
                     --region $DO_REGION \
                     --version \$cluster_version \
-                    --node-pool "name=default-pool;size=s-2vcpu-4gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6" && \
+                    --node-pool "name=default-pool;size=s-4vcpu-8gb;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6" && \
                 doctl kubernetes cluster kubeconfig save $CLUSTER_NAME-$CLUSTER_SUFFIX
                 exitCode=\$?
 
