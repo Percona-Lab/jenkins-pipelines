@@ -96,9 +96,10 @@ void dockerBuildPush() {
             else
                 cd source
                 sg docker -c "
+                    docker buildx create --use
                     docker login -u '$USER' -p '$PASS'
                     export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
-                    make build-docker-image
+                    e2e-tests/build
                     docker logout
                 "
                 sudo rm -rf build
