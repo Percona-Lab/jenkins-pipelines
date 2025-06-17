@@ -28,12 +28,8 @@ def call(Map config = [:]) {
     def buildParamsType = config.get('buildParamsType', env.BUILD_PARAMS_TYPE ?: 'standard')
     def forceCacheMiss = config.get('forceCacheMiss', env.FORCE_CACHE_MISS == 'true')
     def serverVersion = config.get('serverVersion', env.SERVER_VERSION ?: '')
-    // Determine retention days based on build type
-    def retentionDays = '60' // Default for normal builds
-    if (buildParamsType && (buildParamsType.toLowerCase().contains('asan') || buildParamsType.toLowerCase().contains('valgrind'))) {
-        retentionDays = '120' // Longer retention for sanitizer builds
-    }
-    def cacheRetentionDays = config.get('cacheRetentionDays', retentionDays)
+    // Default retention is 14 days, can be overridden by caller
+    def cacheRetentionDays = config.get('cacheRetentionDays', '14')
     def awsRetryMode = config.get('awsRetryMode', env.AWS_RETRY_MODE ?: 'standard')
     def awsRetries = config.get('awsRetries', env.AWS_RETRIES ?: '5')
     def cacheDir = config.get('cacheDir', '.ccache')
