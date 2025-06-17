@@ -3,6 +3,7 @@ name: Weekly Docker Image Build - perconalab/cloud-qa
 on:
   schedule:
     - cron: '0 3 * * 1'  # Every Monday at 03:00 UTC
+  workflow_dispatch:
 
 jobs:
   build-and-push:
