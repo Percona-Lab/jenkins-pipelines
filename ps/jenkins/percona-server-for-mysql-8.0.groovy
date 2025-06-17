@@ -99,7 +99,7 @@ void cleanUpWS() {
 }
 def installDependencies(def nodeName) {
     def aptNodes = ['min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64', 'min-noble-x64']
-    def yumNodes = ['min-ol-8-x64' , 'min-ol-9-x64', 'min-centos-7-x64']
+    def yumNodes = ['min-ol-8-x64' , 'min-ol-9-x64']
     try{
         if (aptNodes.contains(nodeName)) {
             if(nodeName == "min-bullseye-x64" || nodeName == "min-bookworm-x64"){            
@@ -148,12 +148,17 @@ def runPlaybook(def nodeName) {
             env.PS_RELEASE = sh(returnStdout: true, script: "echo ${BRANCH} | sed 's/release-//g'").trim()
             echo "PS_RELEASE : ${env.PS_RELEASE}"
             env.PS_VERSION_SHORT_KEY=  sh(script: """echo ${PS_RELEASE} | awk -F'.' '{print \$1 \".\" \$2}'""", returnStdout: true).trim()
-            echo "Version is for : ${env.PS_VERSION_SHORT_KEY}"
+            echo "Version is : ${env.PS_VERSION_SHORT_KEY}"
             env.PS_VERSION_SHORT = "PS${env.PS_VERSION_SHORT_KEY.replace('.', '')}"
             echo "Value is : ${env.PS_VERSION_SHORT}"
             echo "Using PS_VERSION_SHORT in another function: ${env.PS_VERSION_SHORT}"
-            def playbook = "ps_80.yml"
-            def client_to_test
+            def playbook
+            if (env.PS_VERSION_SHORT == 'PS80') {
+                playbook = "ps_80.yml"
+            } else {
+                playbook = "ps_84.yml"
+            }
+            def client_to_test = PS_VERSION_SHORT
             def playbook_path = "package-testing/playbooks/${playbook}"
             sh '''
                 set -xe
@@ -185,7 +190,6 @@ def minitestNodes =   [  "min-bullseye-x64",
                          "min-focal-x64",
                          "min-jammy-x64",
                          "min-noble-x64",
-                         "min-centos-7-x64",
                          "min-ol-9-x64"]
 
 def package_tests_ps80(def nodes) {
@@ -207,7 +211,7 @@ def docker_test() {
     def stepsForParallel = [:] 
         stepsForParallel['Run for ARM64'] = {
             node('docker-32gb-aarch64') {
-                stage("Docker image version check for ARM64") {
+                stage("Docker tests for ARM64") {
                     script{
                         sh '''
                             echo "running test for ARM"
@@ -227,16 +231,22 @@ def docker_test() {
                             export PS_VERSION="${PS_RELEASE}-arm64"
                             echo "printing variables: \$DOCKER_ACC , \$PS_VERSION , \$PS_REVISION "
                             ./run.sh
+                        '''
+                    }
+                }
+                stage('Docker image version check for ARM64'){
+                    script{
+                        sh '''
+                            export PS_VERSION="${PS_RELEASE}-arm64"
                             docker run -dit -e MYSQL_ROOT_PASSWORD=asdasd --name mysqlcontainer ${DOCKER_ACC}/percona-server:${PS_VERSION}
                             fetched_docker_version=$(docker exec mysqlcontainer bash -c "mysql --version" | awk '{print $3}')
                             echo "fetching docker version: \$fetched_docker_version"
                             if [[ "$PS_RELEASE" == "$fetched_docker_version" ]]; then 
-                                echo "The versions are equal for ARM"
+                                echo "Run succesfully for arm"
                             else 
-                                echo "The versions are not equal for ARM"
+                                echo "Failed for arm"
                             fi
                         '''
-                        echo "Run succesfully for arm" 
                     }
                 }
                 stage('Run trivy analyzer ARM64') {
@@ -286,18 +296,24 @@ def docker_test() {
                                 export PS_VERSION="${PS_RELEASE}-amd64"
                                 echo "printing variables: \$DOCKER_ACC , \$PS_VERSION ,\$PS_REVISION "
                                 ./run.sh
-                                docker run -dit -e MYSQL_ROOT_PASSWORD=asdasd --name mysqlcontainer ${DOCKER_ACC}/percona-server:${PS_VERSION}
-                                fetched_docker_version=$(docker exec mysqlcontainer bash -c "mysql --version" | awk '{print $3}')
-                                echo "fetching docker version: \$fetched_docker_version"
-                                if [[ "$PS_RELEASE" == "$fetched_docker_version" ]]; then 
-                                    echo "The versions are equal for AMD"
-                                else 
-                                    echo "The versions are not equal for AMD"
-                                fi
                             ''' 
-                            echo "Run succesfully for amd" 
                         }
                     }
+                stage ("Docker image version check for amd64") {
+                    script{
+                        sh '''
+                            export PS_VERSION="${PS_RELEASE}-amd64"
+                            docker run -dit -e MYSQL_ROOT_PASSWORD=asdasd --name mysqlcontainer ${DOCKER_ACC}/percona-server:${PS_VERSION}
+                            fetched_docker_version=$(docker exec mysqlcontainer bash -c "mysql --version" | awk '{print $3}')
+                            echo "fetching docker version: \$fetched_docker_version"
+                            if [[ "$PS_RELEASE" == "$fetched_docker_version" ]]; then 
+                                echo "Run succesfully for amd"
+                            else 
+                                echo "Failed for amd"
+                            fi 
+                        '''
+                    }
+                }
                 stage ('Run trivy analyzer for AMD') {
                     script {
                         sh """
@@ -319,7 +335,7 @@ def docker_test() {
 
 @Field def mini_test_error = "False"
 def AWS_STASH_PATH
-def product_to_test = 'ps_80'
+def product_to_test = ''
 def install_repo = 'testing'
 def action_to_test = 'install'
 def check_warnings = 'yes'
@@ -380,18 +396,16 @@ parameters {
                     echo "PS_VERSION_SHORT_KEY: ${env.PS_VERSION_SHORT_KEY}"
                     env.PS_VERSION_SHORT = "PS${env.PS_VERSION_SHORT_KEY.replace('.', '')}"
                     echo "PS_VERSION_SHORT: ${env.PS_VERSION_SHORT}"
-                    echo "Product to test is: ${product_to_test}"
+                    if (env.PS_VERSION_SHORT == 'PS84') {
+                        product_to_test = 'ps_84'
+                    } 
+                    else {
+                        product_to_test = 'ps_80'
                     }
-                }
-            }
-        stage('Run Playbook') {
-            steps {
-                script {
-                    echo "Product to test in playbook: ${product_to_test}"
+                    echo "Product to test is: ${product_to_test}"
                 }
             }
         }
-
         stage('Create PS source tarball') {
             agent {
                label 'min-focal-x64'
