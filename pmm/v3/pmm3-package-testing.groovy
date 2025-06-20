@@ -174,40 +174,12 @@ pipeline {
                         }
                     }
                 }
-                stage('focal-arm64') {
-                    agent {
-                        label 'min-focal-arm64'
-                    }
-                    steps{
-                        setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
                 stage('jammy-arm64') {
                     agent {
                         label 'min-jammy-arm64'
                     }
                     steps{
                         setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
-                stage('bullseye-arm64') {
-                    agent {
-                        label 'min-bullseye-arm64'
-                    }
-                    steps{
-                        setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
                     }
                     post {
