@@ -117,7 +117,7 @@ def generateStage(LABEL, PLAYBOOK) {
     }
 }
 
-def latestVersion = pmmVersion()
+def latestVersion = pmmVersion('v3')[0]
 
 pipeline {
     agent {
