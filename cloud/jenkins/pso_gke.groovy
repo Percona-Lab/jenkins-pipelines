@@ -221,6 +221,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --enable-ip-alias \
                     --monitoring=NONE \
                     --logging=NONE \
+                    --no-enable-managed-prometheus \
                     --workload-pool=cloud-dev-112233.svc.id.goog \
                     --quiet &&\
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
