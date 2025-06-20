@@ -72,7 +72,7 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
     '''
 }
 
-def latestVersion = pmmVersion()
+def latestVersion = pmmVersion('v3')[0]
 
 pipeline {
     agent {
