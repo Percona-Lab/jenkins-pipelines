@@ -33,6 +33,12 @@
             name: 'git_repo',
             trim: false
         )
+        string(
+            defaultValue: 'master',
+            description: 'Branch name',
+            name: 'git_branch',
+            trim: false
+        )
         choice(
             choices: [
                 'yes',
@@ -90,7 +96,7 @@
                             }
                         }
                     }
-
+                    /*
                     stage("kms") {
                         steps {
                             script {
@@ -98,13 +104,9 @@
                             }
                         }
                     }
-                
+                    */
                 }
-                
-
             }
-
-
         }
     }
 
@@ -117,7 +119,8 @@ void runpsptjob(String action_to_test) {
             string(name: "check_warnings", value: check_warnings),
             string(name: "install_mysql_shell", value: params.install_mysql_shell),
             string(name: "product_to_test", value: params.product_to_test),
-            string(name: "git_repo", value: params.git_repo)
+            string(name: "git_repo", value: params.git_repo),
+            string(name: "git_branch", value: params.git_branch)
         ],
         propagate: true,
         wait: true

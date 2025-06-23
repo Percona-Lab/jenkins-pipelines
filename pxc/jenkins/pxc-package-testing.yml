@@ -8,9 +8,9 @@
     properties:
         - build-discarder:
             artifact-days-to-keep: -1
-            artifact-num-to-keep: 20
+            artifact-num-to-keep: 100
             days-to-keep: -1
-            num-to-keep: 20
+            num-to-keep: 100
     pipeline-scm:
         scm:
             - git:
@@ -49,6 +49,8 @@
                 - 'rhel-9'
                 - 'rhel-8-arm'
                 - 'rhel-9-arm'
+                - 'amazon-linux-2023'
+                - 'amazon-linux-2023-arm'
             description: "Distribution to run test"
         - choice:
             name: test_repo
@@ -60,15 +62,16 @@
         - choice:
             name: test_type
             choices:
-                - "install_and_upgrade"
                 - "install"
-                - "min_upgrade"
-                - "maj_upgrade"
+                - "min_upgrade_pxc57_eol_main_to_eol_testing"
+                - "min_upgrade_pxc_80"
+                - "min_upgrade_pxc_84"
+                - "min_upgrade_pxc_innovation"
             description: "Set test type for testing"     
         - choice:
             name: pxc57_repo
             choices:
+                - "EOL"
                 - "original"
                 - "pxc57"
-                - "EOL"
             description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."
