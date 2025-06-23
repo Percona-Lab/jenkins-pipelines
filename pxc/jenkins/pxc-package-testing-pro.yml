@@ -1,5 +1,5 @@
 - job:
-    name: pxc-package-testing-pro
+    name: pxc-package-testing-pro-test
     project-type: pipeline
     description: |
         Work in progress, please ignore
@@ -8,15 +8,15 @@
     properties:
         - build-discarder:
             artifact-days-to-keep: -1
-            artifact-num-to-keep: 20
+            artifact-num-to-keep: 100
             days-to-keep: -1
-            num-to-keep: 20
+            num-to-keep: 100
     pipeline-scm:
         scm:
             - git:
                 url: https://github.com/Percona-Lab/jenkins-pipelines.git
                 branches:
-                    - 'master'
+                    - 'yum-to-dnf-mod-1'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: pxc/jenkins/pxc-package-testing-pro.groovy
@@ -58,7 +58,6 @@
         - choice:
             name: test_type
             choices:
-                - "install_and_upgrade"
                 - "install"
                 - "min_upgrade_pro_pro"
                 - "min_upgrade_nonpro_pro"

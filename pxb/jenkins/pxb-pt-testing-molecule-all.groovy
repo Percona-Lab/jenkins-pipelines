@@ -1,5 +1,5 @@
 
-    library changelog: false, identifier: "lib@master", retriever: modernSCM([
+    library changelog: false, identifier: "lib@yum-to-dnf-mod-1", retriever: modernSCM([
         $class: 'GitSCMSource',
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
     ])
@@ -124,7 +124,7 @@
 
 void runpxbptjob(String scenario_to_test) {
     build(
-        job: 'pxb-package-testing-molecule',
+        job: 'pxb-package-testing-molecule-dnf',
         parameters: [
             string(name: "scenario_to_test", value: scenario_to_test),
             string(name: "server_to_test", value: params.server_to_test),

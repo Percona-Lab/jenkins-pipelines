@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@yum-to-dnf-mod-1', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -19,7 +19,7 @@ void installDependencies() {
 
     sh '''
         rm -rf package-testing
-        git clone https://github.com/Percona-QA/package-testing
+        git clone -b yum-to-dnf-mod-1 https://github.com/Percona-QA/package-testing
     '''
 }
 
@@ -190,7 +190,7 @@ pipeline {
         }
         stage("Set up") {
             steps {
-	        script {
+            script {
                    currentBuild.displayName = "#${BUILD_NUMBER}-${UPSTREAM_VERSION}-${PS_VERSION}-${TEST_DIST}"
                    currentBuild.description = "${PS_REVISION}-${INSTALL_REPO}"
                 }

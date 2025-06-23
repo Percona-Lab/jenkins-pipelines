@@ -1,6 +1,6 @@
 
 
-    library changelog: false, identifier: "lib@master", retriever: modernSCM([
+    library changelog: false, identifier: "lib@yum-to-dnf-mod-1", retriever: modernSCM([
         $class: 'GitSCMSource',
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
     ])
@@ -78,7 +78,7 @@
             stage('Checkout') {
                 steps {
                     deleteDir()
-                    git poll: false, branch: "master", url: "https://github.com/Percona-QA/package-testing.git"
+                    git poll: false, branch: "yum-to-dnf-mod-1", url: "https://github.com/Percona-QA/package-testing.git"
                 }
             }
 
