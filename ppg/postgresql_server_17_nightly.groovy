@@ -41,7 +41,7 @@ pipeline {
             description: 'URL for ppg-server repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'TDE_REL_17_STABLE',
+            defaultValue: 'release-17.5.2',
             description: 'Tag/Branch for postgresql',
             name: 'PG_BRANCH')
         string(
