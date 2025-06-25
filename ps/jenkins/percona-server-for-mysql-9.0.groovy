@@ -8,27 +8,29 @@ import groovy.transform.Field
 
 void installCli(String PLATFORM) {
     sh """
-        set -o xtrace
-        if [ -d aws ]; then
-            rm -rf aws
-        fi
-        if [ ${PLATFORM} = "deb" ]; then
-            sudo apt-get update
-            sudo apt-get -y install wget curl unzip
-        elif [ ${PLATFORM} = "rpm" ]; then
-            export RHVER=\$(rpm --eval %rhel)
-            if [ \${RHVER} = "7" ]; then
-                sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
-                sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
-                if [ -e "/etc/yum.repos.d/CentOS-SCLo-scl.repo" ]; then
-                    cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
-                fi
+        if [ \${CLOUD} = "AWS" ]; then
+            set -o xtrace
+            if [ -d aws ]; then
+                rm -rf aws
             fi
-            sudo yum -y install wget curl unzip
-        fi
-        curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
-        unzip awscliv2.zip
-        sudo ./aws/install || true
+            if [ ${PLATFORM} = "deb" ]; then
+                sudo apt-get update
+                sudo apt-get -y install wget curl unzip
+            elif [ ${PLATFORM} = "rpm" ]; then
+                export RHVER=\$(rpm --eval %rhel)
+                if [ \${RHVER} = "7" ]; then
+                    sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
+                    sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
+                    if [ -e "/etc/yum.repos.d/CentOS-SCLo-scl.repo" ]; then
+                        cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
+                    fi
+                fi
+                sudo yum -y install wget curl unzip
+            fi
+            curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+            unzip awscliv2.zip
+            sudo ./aws/install || true
+       fi
     """
 }
 
@@ -191,7 +193,7 @@ parameters {
          description: 'Cloud infra for build',
          name: 'CLOUD' )
         string(defaultValue: 'https://github.com/percona/percona-server.git', description: 'github repository for build', name: 'GIT_REPO')
-        string(defaultValue: 'release-9.0.1-1', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
+        string(defaultValue: 'release-9.3.0-1', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
         choice(
@@ -225,7 +227,7 @@ parameters {
 
         stage('Create PS source tarball') {
             agent {
-               label 'min-focal-x64'
+               label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
             }
             steps {
                 slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
@@ -254,18 +256,18 @@ parameters {
             parallel {
                 stage('Build PS generic source rpm') {
                     agent {
-                        label 'min-centos-7-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--build_src_rpm=1 --enable_fipsmode=1")
+                                buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("none", "--build_src_rpm=1")
+                                buildStage("centos:7", "--build_src_rpm=1")
                             }
                         }
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
@@ -274,18 +276,18 @@ parameters {
                 }
                 stage('Build PS generic source deb') {
                     agent {
-                        label 'min-buster-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--build_source_deb=1 --enable_fipsmode=1")
+                                buildStage("debian:buster", "--build_source_deb=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("none", "--build_source_deb=1")
+                                buildStage("debian:buster", "--build_source_deb=1")
                             }
                         }
 
@@ -299,7 +301,7 @@ parameters {
             parallel {
                 stage('Oracle Linux 8') {
                     agent {
-                        label 'min-ol-8-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         script {
@@ -309,8 +311,8 @@ parameters {
                                 cleanUpWS()
                                 installCli("rpm")
                                 unstash 'properties'
-                                popArtifactFolder("srpm/", AWS_STASH_PATH)
-                                buildStage("none", "--build_rpm=1")
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                                buildStage("oraclelinux:8", "--build_rpm=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
                                     pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -331,7 +333,7 @@ parameters {
                                 cleanUpWS()
                                 installCli("rpm")
                                 unstash 'properties'
-                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                                 buildStage("centos:8", "--build_rpm=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
                                     pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -342,18 +344,18 @@ parameters {
                 }
                 stage('Oracle Linux 9') {
                     agent {
-                        label 'min-ol-9-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--build_rpm=1 --with_zenfs=1 --enable_fipsmode=1")
+                                buildStage("oraclelinux:9", "--build_rpm=1 --with_zenfs=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("none", "--build_rpm=1 --with_zenfs=1")
+                                buildStage("oraclelinux:9", "--build_rpm=1 --with_zenfs=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
                                 pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -369,7 +371,7 @@ parameters {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
@@ -382,9 +384,10 @@ parameters {
                         }
                     }
                 }
+/*
                 stage('Ubuntu Focal(20.04)') {
                     agent {
-                        label 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         script {
@@ -394,8 +397,8 @@ parameters {
                                 cleanUpWS()
                                 installCli("deb")
                                 unstash 'properties'
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                                buildStage("none", "--build_deb=1 --with_zenfs=1")
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                                buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
                                     pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                                 }
@@ -403,81 +406,21 @@ parameters {
                         }
                     }
                 }
+*/
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
-                        label 'min-jammy-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
+                                buildStage("ubuntu:jammy", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("none", "--build_deb=1 --with_zenfs=1")
-                            }
-                        }
-                        if (env.EXPERIMENTALMODE == 'NO') {
-                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        }
-                    }
-                }
-                stage('Ubuntu Noble(24.04)') {
-                    agent {
-                        label 'min-noble-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("none", "--build_deb=1 --with_zenfs=1")
-                            }
-                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                        }
-                    }
-                }
-                stage('Debian Bullseye(11)') {
-                    agent {
-                        label 'min-bullseye-x64'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                installCli("deb")
-                                unstash 'properties'
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                                buildStage("none", "--build_deb=1 --with_zenfs=1")
-                                if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('Debian Bookworm(12)') {
-                    agent {
-                        label 'min-bookworm-x64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("deb")
-                        unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("none", "--build_deb=1 --with_zenfs=1")
+                                buildStage("ubuntu:jammy", "--build_deb=1 --with_zenfs=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
                                 pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -485,6 +428,70 @@ parameters {
                         }
                     }
                 }
+                stage('Ubuntu Noble(24.04)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("ubuntu:noble", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("ubuntu:noble", "--build_deb=1 --with_zenfs=1")
+                            }
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
+                    }
+                }
+/*
+                stage('Debian Bullseye(11)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("deb")
+                                unstash 'properties'
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                                buildStage("debian:bullseye", "--build_deb=1 --with_zenfs=1")
+                                if (env.EXPERIMENTALMODE == 'NO') {
+                                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                }
+                            }
+                        }
+                    }
+                }
+*/
+                stage('Debian Bookworm(12)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("deb")
+                        unstash 'properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("debian:bookworm", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:bookworm", "--build_deb=1 --with_zenfs=1")
+                            }
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+/*
                 stage('Ubuntu Focal(20.04) ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -497,7 +504,7 @@ parameters {
                                 cleanUpWS()
                                 installCli("rpm")
                                 unstash 'properties'
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
                                     pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -506,6 +513,7 @@ parameters {
                         }
                     }
                 }
+*/
                 stage('Ubuntu Jammy(22.04) ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -514,16 +522,17 @@ parameters {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:jammy", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("ubuntu:jammy", "--build_deb=1 --with_zenfs=1")
                             }
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            }
                         }
-
-                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Noble(24.04) ARM') {
@@ -534,19 +543,18 @@ parameters {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:noble", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("ubuntu:noble", "--build_deb=1 --with_zenfs=1")
                             }
-                            if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            }
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         }
                     }
                 }
+/*
                 stage('Debian Bullseye(11) ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -559,7 +567,7 @@ parameters {
                                 cleanUpWS()
                                 installCli("rpm")
                                 unstash 'properties'
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_deb=1 --with_zenfs=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
@@ -569,6 +577,7 @@ parameters {
                         }
                     }
                 }
+*/
                 stage('Debian Bookworm(12) ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -577,7 +586,7 @@ parameters {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("debian:bookworm", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
@@ -593,7 +602,7 @@ parameters {
                 }
                 stage('Oracle Linux 8 binary tarball') {
                     agent {
-                        label 'min-ol-8-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         script {
@@ -603,8 +612,8 @@ parameters {
                                 cleanUpWS()
                                 installCli("rpm")
                                 unstash 'properties'
-                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                                buildStage("none", "--build_tarball=1")
+                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                                buildStage("oraclelinux:8", "--build_tarball=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
                                    pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                                 }
@@ -614,7 +623,7 @@ parameters {
                 }
                 stage('Oracle Linux 8 debug tarball') {
                     agent {
-                        label 'min-ol-8-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         script {
@@ -624,8 +633,8 @@ parameters {
                                 cleanUpWS()
                                 installCli("rpm")
                                 unstash 'properties'
-                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                                buildStage("none", "--debug=1 --build_tarball=1")
+                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                                buildStage("oraclelinux:8", "--debug=1 --build_tarball=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
                                    pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                                 }
@@ -635,18 +644,18 @@ parameters {
                 }
                 stage('Oracle Linux 9 tarball') {
                     agent {
-                        label 'min-ol-9-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--build_tarball=1 --enable_fipsmode=1")
+                                buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("none", "--build_tarball=1")
+                                buildStage("oraclelinux:9", "--build_tarball=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
                                 pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
@@ -656,18 +665,18 @@ parameters {
                 }
                 stage('Oracle Linux 9 ZenFS tarball') {
                     agent {
-                        label 'min-ol-9-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 echo "The step is skipped"
                             } else {
-                                buildStage("none", "--build_tarball=1 --with_zenfs=1")
+                                buildStage("oraclelinux:9", "--build_tarball=1 --with_zenfs=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
                                     pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                                 }
@@ -677,18 +686,18 @@ parameters {
                 }
                 stage('Oracle Linux 9 debug tarball') {
                     agent {
-                        label 'min-ol-9-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         installCli("rpm")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--debug=1 --build_tarball=1 --enable_fipsmode=1")
+                                buildStage("oraclelinux:9", "--debug=1 --build_tarball=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("none", "--debug=1 --build_tarball=1")
+                                buildStage("oraclelinux:9", "--debug=1 --build_tarball=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
                                 pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
@@ -696,9 +705,10 @@ parameters {
                         }
                     }
                 }
+/*
                 stage('Ubuntu Focal(20.04) tarball') {
                     agent {
-                        label 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         script {
@@ -708,8 +718,8 @@ parameters {
                                 cleanUpWS()
                                 installCli("deb")
                                 unstash 'properties'
-                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                                buildStage("none", "--build_tarball=1")
+                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                                buildStage("ubuntu:focal", "--build_tarball=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
                                     pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                                 }
@@ -719,7 +729,7 @@ parameters {
                 }
                 stage('Ubuntu Focal(20.04) debug tarball') {
                     agent {
-                        label 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         script {
@@ -729,8 +739,8 @@ parameters {
                                 cleanUpWS()
                                 installCli("deb")
                                 unstash 'properties'
-                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                                buildStage("none", "--debug=1 --build_tarball=1")
+                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                                buildStage("ubuntu:focal", "--debug=1 --build_tarball=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
                                     pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                                 }
@@ -738,20 +748,21 @@ parameters {
                         }
                     }
                 }
+*/
                 stage('Ubuntu Jammy(22.04) tarball') {
                     agent {
-                        label 'min-jammy-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--build_tarball=1 --enable_fipsmode=1")
+                                buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("none", "--build_tarball=1")
+                                buildStage("ubuntu:jammy", "--build_tarball=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
                                 pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
@@ -761,18 +772,18 @@ parameters {
                 }
                 stage('Ubuntu Jammy(22.04) ZenFS tarball') {
                     agent {
-                        label 'min-jammy-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 echo "The step is skipped"
                             } else {
-                                buildStage("none", "--build_tarball=1 --with_zenfs=1")
+                                buildStage("ubuntu:jammy", "--build_tarball=1 --with_zenfs=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
                                    pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                                 }
@@ -782,18 +793,18 @@ parameters {
                 }
                 stage('Ubuntu Jammy(22.04) debug tarball') {
                     agent {
-                        label 'min-jammy-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
                         installCli("deb")
                         unstash 'properties'
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--debug=1 --build_tarball=1 --enable_fipsmode=1")
+                                buildStage("ubuntu:jammy", "--debug=1 --build_tarball=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("none", "--debug=1 --build_tarball=1")
+                                buildStage("ubuntu:jammy", "--debug=1 --build_tarball=1")
                             }
                             if (env.EXPERIMENTALMODE == 'NO') {
                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
@@ -805,7 +816,7 @@ parameters {
         }
         stage('Upload packages and tarballs from S3') {
             agent {
-                label 'min-jammy-x64'
+                label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
             }
             steps {
                 cleanUpWS()
@@ -822,7 +833,6 @@ parameters {
                 }
             }
         }
-
         stage('Sign packages') {
             steps {
                 script {
@@ -842,15 +852,15 @@ parameters {
                     // sync packages
                     if (env.FIPSMODE == 'YES') {
                         if ("${MYSQL_VERSION_MINOR}" == "7") {
-                            sync2PrivateProdAutoBuild("ps-97-pro", COMPONENT)
+                            sync2PrivateProdAutoBuild(params.CLOUD, "ps-97-pro", COMPONENT)
                         } else {
-                            sync2PrivateProdAutoBuild("ps-9x-innovation-pro", COMPONENT)
+                            sync2PrivateProdAutoBuild(params.CLOUD, "ps-9x-innovation-pro", COMPONENT)
                         }
                     } else {
                         if ("${MYSQL_VERSION_MINOR}" == "7") {
-                            sync2ProdAutoBuild("ps-97-lts", COMPONENT)
+                            sync2ProdAutoBuild(params.CLOUD, "ps-97-lts", COMPONENT)
                         } else {
-                            sync2ProdAutoBuild("ps-9x-innovation", COMPONENT)
+                            sync2ProdAutoBuild(params.CLOUD, "ps-9x-innovation", COMPONENT)
                         }
                     }
                 }
