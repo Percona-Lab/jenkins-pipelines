@@ -15,7 +15,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'min-ol-8-x64'
     }
     parameters {
         string(
