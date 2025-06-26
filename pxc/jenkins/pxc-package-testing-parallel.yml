@@ -1,5 +1,5 @@
 - job:
-    name: pxc-package-testing-parallel
+    name: pxc-package-testing-parallel-test
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -14,7 +14,7 @@
             - git:
                 url: https://github.com/Percona-Lab/jenkins-pipelines.git
                 branches:
-                    - 'master'
+                    - 'yum-to-dnf-mod-1'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: pxc/jenkins/pxc-package-testing-parallel.groovy

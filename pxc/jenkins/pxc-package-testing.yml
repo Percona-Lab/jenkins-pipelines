@@ -1,5 +1,5 @@
 - job:
-    name: pxc-package-testing
+    name: pxc-package-testing-test
     project-type: pipeline
     description: |
         Work in progress, please ignore
@@ -16,7 +16,7 @@
             - git:
                 url: https://github.com/Percona-Lab/jenkins-pipelines.git
                 branches:
-                    - 'master'
+                    - 'yum-to-dnf-mod-1'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: pxc/jenkins/pxc-package-testing.groovy

@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@yum-to-dnf-mod-1', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -518,7 +518,7 @@ def setup(){
                 installMoleculeBookworm()
                     sh '''
                         rm -rf package-testing                    
-                        git clone https://github.com/Percona-QA/package-testing --branch master
+                        git clone https://github.com/Percona-QA/package-testing --branch yum-to-dnf-mod-1
                     '''
 }
 
