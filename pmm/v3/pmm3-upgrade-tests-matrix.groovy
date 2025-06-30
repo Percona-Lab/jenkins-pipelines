@@ -6,7 +6,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 def pmmVersions = pmmVersion('v3')
 def latestVersion = pmmVersions[0]
 
-void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
+void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
     upgradeJob = build job: 'pmm3-upgrade-tests', parameters: [
         string(name: 'PMM_UI_GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
         string(name: 'DOCKER_TAG', value: DOCKER_TAG),
@@ -19,7 +19,7 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLI
     ]
 }
 
-def generateVariants(String PMM_UI_GIT_BRANCH, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions) {
+def generateVariants(String PMM_UI_GIT_BRANCH, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions) {
     def results = new HashMap<>();
     def latestVersion = PMM_SERVER_LATEST;
 
@@ -59,10 +59,6 @@ pipeline {
             defaultValue: 'v3',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
-        choice(
-            choices: ["experimental", "testing", "release"],
-            description: 'PMM client repository',
-            name: 'CLIENT_REPOSITORY')
         string(
             defaultValue: latestVersion,
             description: 'latest PMM Server Version',
@@ -86,7 +82,7 @@ pipeline {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
-                    parallel generateVariants(PMM_UI_GIT_BRANCH, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions)
+                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions)
                 }
             }
         }
