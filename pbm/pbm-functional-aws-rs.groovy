@@ -30,6 +30,7 @@ pipeline {
         string(name: 'TESTING_BRANCH',description: 'Branch for testing repository',defaultValue: 'main')
         string(name: 'SSH_USER',description: 'User for debugging',defaultValue: 'none')
         string(name: 'SSH_PUBKEY',description: 'User ssh public key for debugging',defaultValue: 'none')
+        string(name: 'CHUNK_SIZE',description: 'Chunk Size for GCS',defaultValue: 16777216)
         password(name: 'PMM_HOST', description: 'PMM host with credentials, format https://user:password@x.x.x.x',defaultValue: 'none')
     }
     options {
