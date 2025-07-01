@@ -79,7 +79,7 @@ pipeline {
                         sh """
                             cp $PBM_GCS_S3_YML /tmp/pbm-agent-storage-gcp.conf
                             cp $PBM_GCS_HMAC_S3_YML /tmp/pbm-agent-storage-gcp-hmac.conf
-                            cp $PBM_AZURE_YML /tmp/pbm-agent-storage-azure.conf     
+                            cp $PBM_AZURE_YML /tmp/pbm-agent-storage-azure.conf
                         """
                         moleculeExecuteActionWithScenario(moleculeDir, "converge", env.SCENARIO)
                     }
@@ -101,17 +101,17 @@ pipeline {
             }
         }
     }
-    post {
-        always {
-            script {
-                sh """
-                    rm -f /tmp/pbm-agent-storage-gcp.conf
-                    rm -f /tmp/pbm-agent-storage-azure.conf
-                    rm -f /tmp/pbm-agent-storage-gcp-hmac.conf
-                """
-                moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.SCENARIO)
-            }
-            junit testResults: "**/report.xml", keepLongStdio: true
-        }
-    }
+//    post {
+//        always {
+//            script {
+//                sh """
+//                    rm -f /tmp/pbm-agent-storage-gcp.conf
+//                    rm -f /tmp/pbm-agent-storage-azure.conf
+//                    rm -f /tmp/pbm-agent-storage-gcp-hmac.conf
+//                """
+//                moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.SCENARIO)
+//            }
+//            junit testResults: "**/report.xml", keepLongStdio: true
+//        }
+//    }
 }
