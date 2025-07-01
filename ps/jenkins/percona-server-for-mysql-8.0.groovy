@@ -98,7 +98,7 @@ void cleanUpWS() {
     """
 }
 def installDependencies(def nodeName) {
-    def aptNodes = ['min-bullseye-x64', 'min-bookworm-x64', 'min-focal-x64', 'min-jammy-x64', 'min-noble-x64']
+    def aptNodes = ['min-bullseye-x64', 'min-bookworm-x64', 'min-jammy-x64', 'min-noble-x64']
     def yumNodes = ['min-ol-8-x64' , 'min-ol-9-x64']
     try{
         if (aptNodes.contains(nodeName)) {
@@ -107,7 +107,7 @@ def installDependencies(def nodeName) {
                     sudo apt-get update
                     sudo apt-get install -y ansible git wget
                 '''
-            }else if(nodeName == "min-focal-x64" || nodeName == "min-jammy-x64" || nodeName == "min-noble-x64"){
+            }else if(nodeName == "min-jammy-x64" || nodeName == "min-noble-x64"){
                 sh '''
                     sudo apt-get update
                     sudo apt-get install -y software-properties-common
@@ -119,7 +119,7 @@ def installDependencies(def nodeName) {
             }
         } else if (yumNodes.contains(nodeName)) {
 
-            if(nodeName == "min-centos-7-x64" || nodeName == "min-ol-9-x64"){            
+            if(nodeName == "min-ol-9-x64"){            
                 sh '''
                     sudo yum install -y epel-release
                     sudo yum -y update
@@ -187,7 +187,6 @@ def runPlaybook(def nodeName) {
 def minitestNodes =   [  "min-bullseye-x64",
                          "min-bookworm-x64",
                          "min-ol-8-x64",
-                         "min-focal-x64",
                          "min-jammy-x64",
                          "min-noble-x64",
                          "min-ol-9-x64"]
