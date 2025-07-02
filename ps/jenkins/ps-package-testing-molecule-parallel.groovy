@@ -1,5 +1,5 @@
 
-    library changelog: false, identifier: "lib@master", retriever: modernSCM([
+    library changelog: false, identifier: "lib@yum-to-dnf-mod-1", retriever: modernSCM([
         $class: 'GitSCMSource',
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
     ])
@@ -110,7 +110,7 @@
 
 void runpsptjob(String action_to_test) {
     build(
-        job: 'ps-package-testing-molecule',
+        job: 'ps-package-testing-molecule-test',
         parameters: [
             string(name: "action_to_test", value: action_to_test),
             string(name: "install_repo", value: params.install_repo),
