@@ -111,8 +111,8 @@
       - project: pxc-5.7-pipeline
         current-parameters: true
         predefined-parameters: |
-          DOCKER_OS=${DOCKER_OS}
-          CMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
+          DOCKER_OS=${{DOCKER_OS}}
+          CMAKE_BUILD_TYPE=${{CMAKE_BUILD_TYPE}}
         block: true
         block-thresholds:
           build-step-failure-threshold: FAILURE
@@ -123,10 +123,10 @@
     - copyartifact:
         project: pxc-5.7-pipeline
         which-build: specific-build
-        build-number: "${TRIGGERED_BUILD_NUMBERS_pxc_5_7_pipeline}"
+        build-number: "${{TRIGGERED_BUILD_NUMBERS_pxc_5_7_pipeline}}"
         do-not-fingerprint: true
     - shell: |
-        echo "${TRIGGERED_BUILD_NUMBERS_pxc_5_7_pipeline}" > PIPELINE_BUILD_NUMBER
+        echo "${{TRIGGERED_BUILD_NUMBERS_pxc_5_7_pipeline}}" > PIPELINE_BUILD_NUMBER
     publishers:
     - junit:
         results: "**/*.xml"

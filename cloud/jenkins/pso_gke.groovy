@@ -20,9 +20,9 @@ void prepareAgent() {
         sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
 
-        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+        curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
-        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
+        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.45.4/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
 
         curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
@@ -31,8 +31,8 @@ void prepareAgent() {
 
         kubectl krew install assert
 
-        # v0.17.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/336ef83542fd2f783bfa2c075b24599e834dcc77/plugins/kuttl.yaml
+        # v0.22.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
         echo \$(kubectl kuttl --version) is installed
 
         sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
@@ -206,7 +206,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
                     --release-channel $GKE_RELEASE_CHANNEL \
-                    --zone ${GKE_REGION} \
+                    --zone $GKE_REGION \
                     --cluster-version $PLATFORM_VER \
                     --preemptible \
                     --disk-size 30 \
@@ -218,7 +218,12 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --subnetwork=jenkins-$CLUSTER_SUFFIX \
                     --cluster-ipv4-cidr=/21 \
                     --labels delete-cluster-after-hours=6 \
-                    --enable-ip-alias &&\
+                    --enable-ip-alias \
+                    --monitoring=NONE \
+                    --logging=NONE \
+                    --no-enable-managed-prometheus \
+                    --workload-pool=cloud-dev-112233.svc.id.goog \
+                    --quiet &&\
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
                 exitCode=\$?
                 if [[ \$exitCode == 0 ]]; then break; fi

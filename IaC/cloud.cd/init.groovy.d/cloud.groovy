@@ -79,6 +79,7 @@ initMap['docker'] = '''
     sudo amazon-linux-extras install epel -y
     sudo amazon-linux-extras install java-openjdk11 -y
     sudo yum -y install git docker p7zip
+    sudo yum -y install npm --disableplugin=priorities
     sudo yum -y remove awscli
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then

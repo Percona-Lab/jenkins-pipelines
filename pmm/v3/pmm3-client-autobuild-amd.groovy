@@ -17,8 +17,8 @@ pipeline {
             name: 'GIT_BRANCH'
         )
         choice(
-            choices: ['experimental', 'testing', 'laboratory'],
-            description: 'Publish packages to repositories: testing for RC, experimental for 3-dev-latest, laboratory for FBs',
+            choices: ['experimental', 'testing'],
+            description: 'Publish packages to repositories: testing for RC, experimental for 3-dev-latest',
             name: 'DESTINATION'
         )
     }
@@ -157,18 +157,13 @@ pipeline {
                 }
                 stage('Build client source deb') {
                     steps {
-                        sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:focal"
+                        sh "${PATH_TO_SCRIPTS}/build-client-sdeb ubuntu:jammy"
                         stash includes: 'results/source_deb/*', name: 'debs'
                         uploadDEB()
                     }
                 }
                 stage('Build client binary debs') {
                     parallel {
-                        stage('Build client binary deb Bullseye') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
-                            }
-                        }
                         stage('Build client binary deb Bookworm') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bookworm"
@@ -177,11 +172,6 @@ pipeline {
                         stage('Build client binary deb Jammy') {
                             steps {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
-                            }
-                        }
-                        stage('Build client binary deb Focal') {
-                            steps {
-                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:focal"
                             }
                         }
                         stage('Build client binary deb Noble') {
@@ -215,7 +205,6 @@ pipeline {
                   env.UPLOAD_PATH = sh(returnStdout: true, script: "cat uploadPath").trim()
                 }
                 // Upload packages to the repo defined in `DESTINATION`
-                // sync2ProdPMMClient(DESTINATION, 'yes')
                 sync2ProdPMMClientRepo(DESTINATION, env.UPLOAD_PATH, 'pmm3-client')
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     script {

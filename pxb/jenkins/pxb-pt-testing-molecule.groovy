@@ -15,6 +15,7 @@
         server_to_test  = "${params.server_to_test}"
         scenario_to_test = "${params.scenario_to_test}"
         REPO_TYPE = "${params.REPO_TYPE}"
+        TESTING_BRANCH = "${params.TESTING_BRANCH}"
     }
     parameters {
         choice(
@@ -32,6 +33,11 @@
             description: 'repo name',
             name: 'git_repo',
             trim: false
+        )
+        string(
+        defaultValue: 'master',
+        description: 'Branch for package-testing repository',
+        name: 'TESTING_BRANCH'
         )
         choice(
             choices: [
@@ -79,7 +85,7 @@
             stage('Checkout') {
                 steps {
                     deleteDir()
-                    git poll: false, branch: "master", url: "https://github.com/Percona-QA/package-testing.git"
+                    git poll: false, branch: "${params.TESTING_BRANCH}", url: "${params.git_repo}"
                 }
             }
 

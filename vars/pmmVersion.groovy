@@ -65,6 +65,7 @@ def call(String type='dev-latest') {
   // Grab 5 latest versions
   List<String> ovfVersions = versionsList[-5..-1]
   List<String> dbaasVersions = versionsList[-5..-1]
+  List<String> v3 = ['3.3.0','3.2.0', '3.1.0', '3.0.0']
 
   switch(type) {
     case 'dev-latest':
@@ -88,5 +89,7 @@ def call(String type='dev-latest') {
       return ovfVersions
     case 'dbaas':
       return dbaasVersions
+    case 'v3':
+      return v3
   }
 }
