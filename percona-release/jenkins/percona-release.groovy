@@ -177,7 +177,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "RPM")
                         sh '''
                             pwd
@@ -198,8 +198,8 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:bionic", "DEB")
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("ubuntu:jammy", "DEB")
                         sh '''
                             pwd
                             ls -la test/deb
@@ -217,7 +217,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "RPM")
                         sh '''
                             pwd
@@ -235,7 +235,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:bionic", "DEB")
                         sh '''
                             pwd
@@ -253,15 +253,15 @@ pipeline {
 
         stage('Sign packages') {
             steps {
-                signRPM()
-                signDEB()
+                signRPM(params.CLOUD)
+                signDEB(params.CLOUD)
             }
         }
 
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild('prel', COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, 'prel', COMPONENT)
             }
         }
 
@@ -270,7 +270,7 @@ pipeline {
         success {
             // slackNotify("", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${SHELL_BRANCH}, path to packages: experimental/${AWS_STASH_PATH}"
+                currentBuild.description = "Built on ${BUILD_BRANCH}, path to packages: experimental/${AWS_STASH_PATH}"
             }
             deleteDir()
         }
