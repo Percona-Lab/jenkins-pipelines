@@ -76,7 +76,6 @@ pipeline {
             name: 'QA_INTEGRATION_GIT_BRANCH')
     }
     options {
-        disableConcurrentBuilds()
         timeout(time: 90, unit: 'MINUTES')
     }
     triggers {
