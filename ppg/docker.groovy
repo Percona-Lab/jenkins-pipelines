@@ -14,10 +14,10 @@ pipeline {
             description: 'For what platform (OS) need to test',
             choices: [
                 'debian-12',
-                'ol-9',
+                'rocky-9',
                 'ubuntu-jammy',
                 'debian-12-arm64',
-                'ol-9-arm64',
+                'rocky-9-arm64',
                 'ubuntu-jammy-arm64'
             ]
         )

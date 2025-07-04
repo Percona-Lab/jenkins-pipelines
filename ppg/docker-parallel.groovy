@@ -80,7 +80,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTestPPG(['ol-9', 'debian-12', 'ubuntu-jammy', 'ol-9-arm64', 'debian-12-arm64', 'ubuntu-jammy-arm64'], env.MOLECULE_DIR)
+                    moleculeParallelTestPPG(['rocky-9', 'debian-12', 'ubuntu-jammy', 'rocky-9-arm64', 'debian-12-arm64', 'ubuntu-jammy-arm64'], env.MOLECULE_DIR)
                 }
             }
          }
@@ -89,7 +89,7 @@ pipeline {
         always {
           script {
               if (env.DESTROY_ENV == "yes") {
-                    moleculeParallelPostDestroyPPG(['ol-9', 'debian-12', 'ubuntu-jammy', 'ol-9-arm64', 'debian-12-arm64', 'ubuntu-jammy-arm64'], env.MOLECULE_DIR)
+                    moleculeParallelPostDestroyPPG(['rocky-9', 'debian-12', 'ubuntu-jammy', 'rocky-9-arm64', 'debian-12-arm64', 'ubuntu-jammy-arm64'], env.MOLECULE_DIR)
               }
               sendSlackNotification(env.REPOSITORY, env.SERVER_VERSION, env.DOCKER_TAG)
          }
