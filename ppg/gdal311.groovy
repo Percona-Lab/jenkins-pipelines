@@ -67,31 +67,32 @@ pipeline {
                 stash includes: 'test/**', name: 'srpmContents'
             }
         }
-        matrix {
-            axes {
+        stage('Build RPMs in Parallel') {
+            matrix {
+                axes {
                 axis { name 'ARCH'; values 'x86_64', 'aarch64' }
                 axis { name 'OLVER'; values '8', '9' }
-            }
-            agent {
-                label "${params.CLOUD == 'Hetzner' ? 'docker-' : 'docker-32gb-'}${ARCH}"
-            }
-            stages {
-                stage('Build RPM') {
-                    steps {
-                        cleanUpWS()
-                        unstash 'uploadPath'
-                        unstash 'srpmContents'
-                        script {
-                            buildStage("oraclelinux:${OLVER}", "--build_rpm=1")
+                }
+                agent {
+                    label "${params.CLOUD == 'Hetzner' ? 'docker-' : 'docker-32gb-'}${ARCH}"
+                }
+                stages {
+                    stage('Build RPM') {
+                        steps {
+                            cleanUpWS()
+                            unstash 'uploadPath'
+                            unstash 'srpmContents'
+                            script {
+                                buildStage("oraclelinux:${OLVER}", "--build_rpm=1")
+                            }
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                         }
-                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
+                failFast false
             }
-            failFast false
         }
-
         stage('Sign packages') {
             agent { label 'docker-x64' }
             steps {
