@@ -69,7 +69,6 @@ pipeline {
         }
         stage('Build RPMs in Parallel') {
             matrix {
-                failFast false
                 axes {
                 axis { name 'ARCH'; values 'x86_64', 'aarch64' }
                 axis { name 'OLVER'; values '8', '9' }
