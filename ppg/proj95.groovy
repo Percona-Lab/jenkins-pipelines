@@ -71,7 +71,7 @@ pipeline {
             parallel {
                 stage('Build Oracle Linux 8 x86_64') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
@@ -101,7 +101,7 @@ pipeline {
                 }
                 stage('Build Oracle Linux 9 x86_64') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
