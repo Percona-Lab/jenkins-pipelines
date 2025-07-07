@@ -27,7 +27,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
             sh """
             mkdir -p "${WORKSPACE}/${product_to_test}/${params.node_to_test}/${param_test_type}/"
             """
-
+            echo "action is ${action}!!!!!!!!!!!"
             if(param_test_type == "install"){   
                 def install_repo="${test_repo}"
                 def check_version="${version_check}"
@@ -89,8 +89,8 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
             }else if(param_test_type == "min_upgrade"){
                     
                 def install_repo="main"
-                def check_version="${version_check}"
                 def upgrade_repo="testing"
+                def check_version="${version_check}"
                 def pxc57repo = "${params.pxc57_repo}"
                 def MIN_UPGRADE_TEST = env.MIN_UPGRADE_TEST
                 echo "MIN UPGRADE TYPE: ${MIN_UPGRADE_TEST}"
@@ -113,8 +113,6 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     ).trim()
                     sh """
                         echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                        echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-
                         echo 'PXC1_IP: "${UP_PXC1_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         echo 'PXC2_IP: "${UP_PXC2_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         echo 'PXC3_IP: "${UP_PXC3_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
@@ -124,8 +122,9 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                         sh """
                             echo 'check_version: "no"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         """
-                    } else {
-                        sh """
+                    } else if(action == "side-effect"){
+                        sh """ # This will check version during side effect
+                            echo 'install_repo: "${upgrade_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                             echo 'check_version: "yes"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         """
                     }
@@ -175,17 +174,6 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     
                 }else{
                     echo "Not setting up VARS as in create or destroy stage"
-                    sh """
-                    echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                    echo 'upgrade_repo: "${upgrade_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                    """
-                    if ("${product_to_test}" != "pxc57"){
-                        
-                    sh """
-                        echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                    """
-                    }
-
                 }
             }else if(param_test_type == "maj_upgrade"){
                 def install_repo="testing"
