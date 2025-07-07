@@ -71,7 +71,7 @@ pipeline {
             matrix {
                 axes {
                 axis { name 'ARCH'; values 'x86_64', 'aarch64' }
-                axis { name 'OLVER'; values '8', '9' }
+                axis { name 'OLVER'; values '9' }
                 }
                 agent {
                     label "${params.CLOUD == 'Hetzner' ? 'docker-' : 'docker-32gb-'}${ARCH}"
