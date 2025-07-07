@@ -1,5 +1,5 @@
 - job:
-    name: pxb-package-testing-molecule-test
+    name: pxb-package-testing-molecule-dnf
     project-type: pipeline
     description: |
         Do not edit this job through the web!
