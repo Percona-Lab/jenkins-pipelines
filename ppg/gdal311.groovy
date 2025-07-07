@@ -68,26 +68,36 @@ pipeline {
             }
         }
         stage('Build RPMs in Parallel') {
-            matrix {
-                axes {
-                axis { name 'ARCH'; values 'x86_64', 'aarch64' }
-                axis { name 'OLVER'; values '9' }
-                }
-                agent {
-                    label "${params.CLOUD == 'Hetzner' ? 'docker-' : 'docker-32gb-'}${ARCH}"
-                }
-                stages {
-                    stage('Build RPM') {
-                        steps {
-                            cleanUpWS()
-                            unstash 'uploadPath'
-                            unstash 'srpmContents'
-                            script {
-                                buildStage("oraclelinux:${OLVER}", "--build_rpm=1")
-                            }
-                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+            parallel {
+                stage('Build Oracle Linux 9 x86_64') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'uploadPath'
+                        unstash 'srpmContents'
+                        script {
+                            buildStage("oraclelinux:9", "--build_rpm=1")
                         }
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
+
+                stage('Build Oracle Linux 9 aarch64') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'uploadPath'
+                        unstash 'srpmContents'
+                        script {
+                            buildStage("oraclelinux:9", "--build_rpm=1")
+                        }
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
             }
