@@ -133,14 +133,14 @@ pipeline {
             }
         }
         stage('Sign packages') {
-            agent { label 'docker-x64' }
+            agent { label 'docker' }
             steps {
                 signRPM(params.CLOUD)
             }
         }
 
         stage('Push to public repository') {
-            agent { label 'docker-x64' }
+            agent { label 'docker' }
             steps {
                 sync2ProdAutoBuild(params.CLOUD, PPG_REPO, COMPONENT)
             }
