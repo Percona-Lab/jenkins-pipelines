@@ -242,11 +242,6 @@ EOF
                 sh '''
                     /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
                     export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
-                    TMP=$(mktemp)
-                    oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > $TMP
-                    oc registry login --registry='docker.io' --auth-basic="$DOCKER_READ_USER:$DOCKER_READ_PASS" --to=$TMP
-                    oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=$TMP
-                    rm -rf $TMP
                 '''
             }
         }
