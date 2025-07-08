@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@yum-to-dnf-mod-1', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -31,84 +31,71 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
             if(param_test_type == "install"){   
                 def check_version="${version_check}"
 
-                if(action != "create" && action != "destroy"){
-                    def IN_PXC1_IP = sh(
-                        script: """cat ${INSTALL_BOOTSTRAP_INSTANCE_PRIVATE_IP} | jq -r .[0] | jq [.private_ip] | jq -r .[]""",
-                        returnStdout: true
-                    ).trim()
+                def IN_PXC1_IP = sh(
+                    script: """cat ${INSTALL_BOOTSTRAP_INSTANCE_PRIVATE_IP} | jq -r .[0] | jq [.private_ip] | jq -r .[]""",
+                    returnStdout: true
+                ).trim()
 
-                    def IN_PXC2_IP = sh(
-                        script: """cat ${INSTALL_COMMON_INSTANCE_PRIVATE_IP} | jq -r .[0] | jq [.private_ip] | jq -r .[]""",
-                        returnStdout: true
-                    ).trim()
+                def IN_PXC2_IP = sh(
+                    script: """cat ${INSTALL_COMMON_INSTANCE_PRIVATE_IP} | jq -r .[0] | jq [.private_ip] | jq -r .[]""",
+                    returnStdout: true
+                ).trim()
 
-                    def IN_PXC3_IP = sh(
-                        script: """cat ${INSTALL_COMMON_INSTANCE_PRIVATE_IP} | jq -r .[1] | jq [.private_ip] | jq -r .[]""",
-                        returnStdout: true
-                    ).trim()
+                def IN_PXC3_IP = sh(
+                    script: """cat ${INSTALL_COMMON_INSTANCE_PRIVATE_IP} | jq -r .[1] | jq [.private_ip] | jq -r .[]""",
+                    returnStdout: true
+                ).trim()
 
-                    sh """
-                        echo 'install_repo: "${test_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
-                        echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
-                        echo 'pro: "${pro}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
-                        echo 'PXC1_IP: "${IN_PXC1_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
-                        echo 'PXC2_IP: "${IN_PXC2_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
-                        echo 'PXC3_IP: "${IN_PXC3_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"                    
-                    """
-                }else{
-                    echo "Not setting up VARS as in create or destroy stage"
-                    sh """
-                        echo 'install_repo: "${test_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
-                        echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
-                    """
-                }
+                sh """
+                    echo 'install_repo: "${test_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                    echo 'pro: "${pro}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                    echo 'PXC1_IP: "${IN_PXC1_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                    echo 'PXC2_IP: "${IN_PXC2_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                    echo 'PXC3_IP: "${IN_PXC3_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"                    
+                """
+                
             }else if(param_test_type == "min_upgrade"){
                     
                 def check_version="${version_check}"
                 def install_repo="main"
                 def upgrade_repo="${test_repo}"
 
-                if(action != "create" && action != "destroy"){
-                    def UP_PXC1_IP = sh(
-                        script: """cat ${UPGRADE_BOOTSTRAP_INSTANCE_PRIVATE_IP} | jq -r .[0] | jq [.private_ip] | jq -r .[]""",
-                        returnStdout: true
-                    ).trim()
+                def UP_PXC1_IP = sh(
+                    script: """cat ${UPGRADE_BOOTSTRAP_INSTANCE_PRIVATE_IP} | jq -r .[0] | jq [.private_ip] | jq -r .[]""",
+                    returnStdout: true
+                ).trim()
 
-                    def UP_PXC2_IP = sh(
-                        script: """cat ${UPGRADE_COMMON_INSTANCE_PRIVATE_IP} | jq -r .[0] | jq [.private_ip] | jq -r .[]""",
-                        returnStdout: true
-                    ).trim()
+                def UP_PXC2_IP = sh(
+                    script: """cat ${UPGRADE_COMMON_INSTANCE_PRIVATE_IP} | jq -r .[0] | jq [.private_ip] | jq -r .[]""",
+                    returnStdout: true
+                ).trim()
 
-                    def UP_PXC3_IP = sh(
-                        script: """cat ${UPGRADE_COMMON_INSTANCE_PRIVATE_IP} | jq -r .[1] | jq [.private_ip] | jq -r .[]""",
-                        returnStdout: true
-                    ).trim()
+                def UP_PXC3_IP = sh(
+                    script: """cat ${UPGRADE_COMMON_INSTANCE_PRIVATE_IP} | jq -r .[1] | jq [.private_ip] | jq -r .[]""",
+                    returnStdout: true
+                ).trim()
+
+
+
+                sh """
+                    echo 'pro: "${pro}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                    echo 'PXC1_IP: "${UP_PXC1_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                    echo 'PXC2_IP: "${UP_PXC2_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                    echo 'PXC3_IP: "${UP_PXC3_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                """
+
+                if(action == "converge"){
                     sh """
                         echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                        echo 'upgrade_repo: "${test_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                        echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                        echo 'pro: "${pro}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                        echo 'PXC1_IP: "${UP_PXC1_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                        echo 'PXC2_IP: "${UP_PXC2_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                        echo 'PXC3_IP: "${UP_PXC3_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                        echo 'check_version: "no"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                     """
-
-                    if(action == "converge"){
-                        sh """
-                            echo 'check_version: "no"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                        """
-                    } else {
-                        sh """
-                            echo 'check_version: "yes"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                        """
-                    }
-                }else{
-                    echo "Not setting up VARS as in create or destroy stage"
+                } else if(action == "side-effect") {
                     sh """
-                    echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                    echo 'upgrade_repo: "${upgrade_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                        echo 'install_repo: "${upgrade_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                        echo 'check_version: "yes"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                     """
                 }
+                echo "Not setting up VARS as in create or destroy stage"
             }
 
 
@@ -117,7 +104,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
             if(action == "create" || action == "destroy"){
                 sh"""
                     . virtenv/bin/activate
-                    export MOLECULE_DEBUG=1
+                    #export MOLECULE_DEBUG=1
                     #export DESTROY_ENV=no
                     
                     mkdir -p ${WORKSPACE}/install
@@ -323,7 +310,7 @@ def setup(){
                     sh '''
 
                         rm -rf package-testing
-                        git clone https://github.com/Percona-QA/package-testing --branch master
+                        git clone https://github.com/Percona-QA/package-testing --branch yum-to-dnf-mod-1
                     '''
 }
 
