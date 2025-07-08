@@ -26,6 +26,7 @@ List all_nodes = [
 product_to_test = params.product_to_test
 
 List nodes_to_test = []
+def job_to_run = ""
 
 nodes_to_test = all_nodes
 
@@ -44,6 +45,7 @@ void runNodeBuild(String node_to_test) {
     if (pro_repo == "yes") {
         echo "Testing PRO packages"
         job = "pxc-package-testing-pro-test"
+        job_to_run = "${job}"
 
         test_type = params.test_type_pro
         build(
@@ -62,6 +64,7 @@ void runNodeBuild(String node_to_test) {
     } else {
         echo "Testing Community packages"
         job = "pxc-package-testing-test"
+        job_to_run = "${job}"
 
         test_type = params.test_type
         build(
@@ -78,6 +81,7 @@ void runNodeBuild(String node_to_test) {
         )
 
     }
+
 
 
 
@@ -164,6 +168,7 @@ pipeline {
 
         stage("Run parallel") {
             parallel {
+
                 stage("Debian-10") {
                     when {
                         expression {
@@ -418,5 +423,45 @@ pipeline {
 
             }
         }
+
     }
-}
+
+    post {
+        always {
+            script {
+                currentBuild.description = "action: ${params.action_to_test} node: ${params.node_to_test}"
+                    echo "All tests completed"
+
+                        def awsCredentials = [
+                                sshUserPrivateKey(
+                                    credentialsId: 'MOLECULE_AWS_PRIVATE_KEY',
+                                    keyFileVariable: 'MOLECULE_AWS_PRIVATE_KEY',
+                                    passphraseVariable: '',
+                                    usernameVariable: ''
+                                ),
+                                aws(
+                                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                    credentialsId: '7e252458-7ef8-4d0e-a4d5-5773edcbfa5e',
+                                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                                )
+                            ]
+
+                        withCredentials(awsCredentials) {
+
+                        def jobName = "${job_to_run}"
+                        echo "Listing EC2 instances with JobName tag: ${jobName}"
+                        sh """
+                        aws ec2 describe-instances --filters "Name=tag:JobName,Values=${jobName}" --query "Reservations[].Instances[].InstanceId" --output text
+                        """
+                        echo "Deleting EC2 instances with JobName tag: ${jobName}"
+                        sh """
+                        aws ec2 describe-instances --filters "Name=tag:JobName,Values=${jobName}" --query "Reservations[].Instances[].InstanceId" --output text | xargs -r aws ec2 terminate-instances --instance-ids
+                        """
+                    }
+                }
+
+            }
+        }
+    }
+
+
