@@ -49,3 +49,18 @@
                 - "min_upgrade"
                 - "maj_upgrade"
             description: "Set test type for testing"
+        - choice:
+            name: test_type_pro
+            choices:
+                - "install"
+                - "install_and_upgrade"
+                - "min_upgrade_pro_pro"
+                - "min_upgrade_nonpro_pro"
+                - "min_upgrade_pro_nonpro"
+            description: "Set test type for testing PRO packages"
+        - choice:
+            name: pro_repo
+            choices:
+                - "no"
+                - "yes"
+            description: "Set if PRO packages should be tested or not"

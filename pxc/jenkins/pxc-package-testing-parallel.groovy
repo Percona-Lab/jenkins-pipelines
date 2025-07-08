@@ -40,18 +40,50 @@ void runNodeBuild(String node_to_test) {
         echo "${test_type}"
     }
 
-    build(
-        job: 'pxc-package-testing-test',
-        parameters: [
-            string(name: "product_to_test", value: params.product_to_test),
-            string(name: "node_to_test", value: node_to_test),
-            string(name: "test_repo", value: params.test_repo),
-            string(name: "test_type", value: "${test_type}"),
-            string(name: "pxc57_repo", value: params.pxc57_repo)
-        ],
-        propagate: true,
-        wait: true
-    )
+
+    if (pro_repo == "yes") {
+        echo "Testing PRO packages"
+        job = "pxc-package-testing-pro-test"
+
+        test_type = params.test_type_pro
+        build(
+            job: "${job}",
+            parameters: [
+                string(name: "product_to_test", value: params.product_to_test),
+                string(name: "node_to_test", value: node_to_test),
+                string(name: "test_repo", value: params.test_repo),
+                string(name: "test_type", value: "${test_type}")
+            ],
+            propagate: true,
+            wait: true
+        )
+
+
+    } else {
+        echo "Testing Community packages"
+        job = "pxc-package-testing-test"
+
+        test_type = params.test_type
+        build(
+            job: "${job}",
+            parameters: [
+                string(name: "product_to_test", value: params.product_to_test),
+                string(name: "node_to_test", value: node_to_test),
+                string(name: "test_repo", value: params.test_repo),
+                string(name: "test_type", value: "${test_type}"),
+                string(name: "pxc57_repo", value: params.pxc57_repo)
+            ],
+            propagate: true,
+            wait: true
+        )
+
+    }
+
+
+
+
+
+
 }
 
 pipeline {
@@ -96,6 +128,27 @@ pipeline {
                 'maj_upgrade'
             ],
             description: 'Set test type for testing'
+        )
+
+        choice(
+            name: 'test_type_pro',
+            choices: [
+                'install',
+                'install_and_upgrade',
+                'min_upgrade_pro_pro',
+                'min_upgrade_nonpro_pro',
+                'min_upgrade_pro_nonpro',
+            ],
+            description: 'Set test type for testing PRO packages'
+        )
+
+        choice(
+            name: 'pro_repo',
+            choices: [
+                'yes',
+                'no'
+            ],
+            description: 'Set if PRO packages should be tested or not'
         )
     }
 

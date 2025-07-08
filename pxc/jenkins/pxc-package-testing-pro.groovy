@@ -86,7 +86,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
 
                 if(action == "converge"){
                     sh """
-                        echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
+                        echo 'install_repo: "${install_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         echo 'check_version: "no"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                     """
                 } else if(action == "side-effect") {
