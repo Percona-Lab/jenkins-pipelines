@@ -514,6 +514,10 @@ def setup(){
 pipeline {
     agent none
 
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '100'))
+    }
+
     environment {
         pro = "no"
     }

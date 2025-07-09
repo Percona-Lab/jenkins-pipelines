@@ -103,7 +103,9 @@ pipeline {
     agent {
         label 'docker'
     }
-
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '100'))
+    }
     parameters {
         choice(
             name: 'product_to_test',
@@ -239,12 +241,12 @@ pipeline {
 
                         echo "Listing EC2 instances with JobName tag: ${jobName}"
                         sh """
-                        aws ec2 describe-instances --filters "Name=tag:JobName,Values=${jobName}" --query "Reservations[].Instances[].InstanceId" --output text
+                        aws ec2 describe-instances --region us-west-1 --filters "Name=tag:JobName,Values=${jobName}" --query "Reservations[].Instances[].InstanceId" --output text
                         """
 
                         sh """
                         echo "=== EC2 Instances to be cleaned up ==="
-                        aws ec2 describe-instances \\
+                        aws ec2 describe-instances --region us-west-1 \\
                         --filters "Name=tag:job-name,Values=${jobName}" "Name=instance-state-name,Values=running" \\
                         --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" \\
                         --output table || echo "No instances found with job-name tag: ${jobName}"
@@ -254,7 +256,7 @@ pipeline {
 
                         def instanceIds = sh(
                             script: """
-                            aws ec2 describe-instances \\
+                            aws ec2 describe-instances --region us-west-1 \\
                             --filters "Name=tag:job-name,Values=${jobName}" "Name=instance-state-name,Values=running" \\
                             --query "Reservations[].Instances[].InstanceId" \\
                             --output text

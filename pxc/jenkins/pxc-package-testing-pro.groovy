@@ -318,6 +318,10 @@ def setup(){
 pipeline {
     agent none
 
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '100'))
+    }
+
     parameters {
         choice(
             name: 'product_to_test',
