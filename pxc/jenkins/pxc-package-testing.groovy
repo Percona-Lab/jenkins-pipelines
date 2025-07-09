@@ -548,7 +548,9 @@ pipeline {
                 'rhel-8',
                 'rhel-9',
                 'rhel-8-arm',
-                'rhel-9-arm'
+                'rhel-9-arm',
+                'amazon-linux-2023',
+                'amazon-linux-2023-arm'
             ],
             description: 'Distribution to run test'
         )

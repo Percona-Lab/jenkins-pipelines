@@ -12,7 +12,9 @@ List pro_nodes = [
                 'debian-12-arm',
                 'ol-9',
                 'rhel-9',
-                'rhel-9-arm'
+                'rhel-9-arm',
+                'amazon-linux-2023',
+                'amazon-linux-2023-arm'
 ]   
 
 List non_pro_nodes = [
@@ -28,7 +30,9 @@ List non_pro_nodes = [
                 'ol-8',
                 'ol-9',
                 'rhel-8',
-                'rhel-9'
+                'rhel-9',
+                'amazon-linux-2023',
+                'amazon-linux-2023-arm'
 ]   
 
 List all_possible_nodes = (pro_nodes + non_pro_nodes).unique()
@@ -52,7 +56,7 @@ void runNodeBuild(String node_to_test) {
         job = "pxc-package-testing-pro-test"
         env.JOB_TO_RUN = "${job}"
         test_type = params.test_type_pro
-/*
+
         build(
             job: "${job}",
             parameters: [
@@ -64,14 +68,13 @@ void runNodeBuild(String node_to_test) {
             propagate: true,
             wait: true
         )
-*/
 
     } else {
-        echo "Testing Community packages"
+        echo "Testing Non Pro packages"
         job = "pxc-package-testing-test"
         env.JOB_TO_RUN = "${job}"
         test_type = params.test_type
-/*
+
         build(
             job: "${job}",
             parameters: [
@@ -84,8 +87,6 @@ void runNodeBuild(String node_to_test) {
             propagate: true,
             wait: true
         )
-*/
-
 
     }
 
@@ -168,8 +169,11 @@ pipeline {
         stage("Prepare") {
             steps {
                 script {
-                    currentBuild.displayName = "#${BUILD_NUMBER}-${product_to_test}-${params.test_repo}-all"
-                    currentBuild.description = "action: ${params.action_to_test} node: ${params.node_to_test}"
+                    if (params.pro_repo == "yes") {
+                        currentBuild.displayName = "#${BUILD_NUMBER}-${product_to_test}-${params.test_repo}-pro=${params.pro_repo}-${params.test_type}"
+                    }else {
+                        currentBuild.displayName = "#${BUILD_NUMBER}-${product_to_test}-${params.test_repo}-pro=${params.pro_repo}-${params.test_type_pro}"
+                    }
                 }
             }
         }
@@ -178,26 +182,32 @@ pipeline {
             steps {
                 script {
                     def selectedNodes = (params.pro_repo == "yes") ? pro_nodes : non_pro_nodes
-                    def jobType = (params.pro_repo == "yes") ? "PRO" : "Community"
+                    def jobType = (params.pro_repo == "yes") ? "PRO" : "Non Pro"
+                    
+                    echo "Testing ${selectedNodes.size()}/${all_possible_nodes.size()} nodes for ${jobType} job"
                     
                     def parallelStages = [:]
                     
                     all_possible_nodes.each { node ->
                         parallelStages[node] = {
-                            if (selectedNodes.contains(node)) {
-                                echo "Running ${jobType} tests for: ${node}"
-                                runNodeBuild(node)
-                            } else {
-                                echo "SKIPPED: ${node} - not in ${jobType} job"
+                
+                            stage("${node}") {
+                                if (selectedNodes.contains(node)) {
+                                    echo "Running ${jobType} tests for: ${node}"
+                                    runNodeBuild(node)
+                                } else {
+                                    echo "SKIPPED: ${node} - not in ${jobType} job"
+                                    echo "This OS is not part of the ${jobType} testing suite"
+                                }
                             }
                         }
                     }
                     
-                    echo "Testing ${selectedNodes.size()}/${all_possible_nodes.size()} nodes for ${jobType} job"
                     parallel parallelStages
                 }
             }
         }
+
     }
 
     post {
@@ -252,10 +262,32 @@ pipeline {
                             returnStdout: true
                         ).trim()
 
+                        if (instanceIds != null && !instanceIds.trim().isEmpty()) {
+                            echo "Found instances to terminate: ${instanceIds.trim()}"
 
-                        echo "Instances to be deleted: ${instanceIds}"
-                    
-                        echo "EC2 instances cleanup completed."
+
+                            sh """
+                            echo "${instanceIds.trim()}" | xargs -r aws ec2 terminate-instances --instance-ids
+                            """
+                        
+                            sleep(30)
+                            
+                            echo "Terminated instances: ${instanceIds.trim()}"
+                            
+                            echo "==========================================="
+
+
+                            echo "Verification: Status of terminated instances:"
+
+                            sh """
+                            sleep 5 && aws ec2 describe-instances --instance-ids ${instanceIds} --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" --output table
+                            """
+                        
+                        
+                        } else {
+                            echo "No instances found to terminate"
+                        }
+                        
 
                     }
                 }
