@@ -26,7 +26,6 @@ List all_nodes = [
 product_to_test = params.product_to_test
 
 List nodes_to_test = []
-def job_to_run = ""
 
 nodes_to_test = all_nodes
 
@@ -45,9 +44,9 @@ void runNodeBuild(String node_to_test) {
     if (pro_repo == "yes") {
         echo "Testing PRO packages"
         job = "pxc-package-testing-pro-test"
-        job_to_run = "${job}"
-
+        env.JOB_TO_RUN = "${job}"
         test_type = params.test_type_pro
+
         build(
             job: "${job}",
             parameters: [
@@ -64,9 +63,9 @@ void runNodeBuild(String node_to_test) {
     } else {
         echo "Testing Community packages"
         job = "pxc-package-testing-test"
-        job_to_run = "${job}"
-
+        env.JOB_TO_RUN = "${job}"
         test_type = params.test_type
+
         build(
             job: "${job}",
             parameters: [
@@ -80,10 +79,13 @@ void runNodeBuild(String node_to_test) {
             wait: true
         )
 
+
+
     }
 
 
 
+    echo "inside runNodeBuild job_to_run is ${job_to_run}"
 
 
 
@@ -448,15 +450,32 @@ pipeline {
 
                         withCredentials(awsCredentials) {
 
-                        def jobName = "${job_to_run}"
+                        def jobName = env.JOB_TO_RUN
+                        jobName.trim()
+
+                        echo "Fetched JOB_TO_RUN from environment: '${jobName}'"
+
                         echo "Listing EC2 instances with JobName tag: ${jobName}"
                         sh """
                         aws ec2 describe-instances --filters "Name=tag:JobName,Values=${jobName}" --query "Reservations[].Instances[].InstanceId" --output text
                         """
-                        echo "Deleting EC2 instances with JobName tag: ${jobName}"
+
                         sh """
-                        aws ec2 describe-instances --filters "Name=tag:JobName,Values=${jobName}" --query "Reservations[].Instances[].InstanceId" --output text | xargs -r aws ec2 terminate-instances --instance-ids
+                        echo "=== EC2 Instances to be cleaned up ==="
+                        aws ec2 describe-instances \\
+                        --filters "Name=tag:job-name,Values=${jobName}" "Name=instance-state-name,Values=running" \\
+                        --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" \\
+                        --output table || echo "No instances found with job-name tag: ${jobName}"
                         """
+                        
+                        echo "Deleting EC2 instances with JobName tag: ${jobName}"
+
+                        sh """
+                        aws ec2 describe-instances --filters "Name=tag:job-name,Values=${jobName}" "Name=instance-state-name,Values=running" --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" --output text | xargs -r aws ec2 terminate-instances --instance-ids
+                        """
+
+                        echo "EC2 instances cleanup completed."
+
                     }
                 }
 
