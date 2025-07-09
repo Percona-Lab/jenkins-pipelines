@@ -52,7 +52,7 @@ void runNodeBuild(String node_to_test) {
         job = "pxc-package-testing-pro-test"
         env.JOB_TO_RUN = "${job}"
         test_type = params.test_type_pro
-
+/*
         build(
             job: "${job}",
             parameters: [
@@ -64,14 +64,14 @@ void runNodeBuild(String node_to_test) {
             propagate: true,
             wait: true
         )
-
+*/
 
     } else {
         echo "Testing Community packages"
         job = "pxc-package-testing-test"
         env.JOB_TO_RUN = "${job}"
         test_type = params.test_type
-
+/*
         build(
             job: "${job}",
             parameters: [
@@ -84,7 +84,7 @@ void runNodeBuild(String node_to_test) {
             propagate: true,
             wait: true
         )
-
+*/
 
 
     }
@@ -242,10 +242,19 @@ pipeline {
                         
                         echo "Deleting EC2 instances with JobName tag: ${jobName}"
 
-                        sh """
-                        aws ec2 describe-instances --filters "Name=tag:job-name,Values=${jobName}" "Name=instance-state-name,Values=running" --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" --output text | xargs -r aws ec2 terminate-instances --instance-ids
-                        """
+                        def instanceIds = sh(
+                            script: """
+                            aws ec2 describe-instances \\
+                            --filters "Name=tag:job-name,Values=${jobName}" "Name=instance-state-name,Values=running" \\
+                            --query "Reservations[].Instances[].InstanceId" \\
+                            --output text
+                            """,
+                            returnStdout: true
+                        ).trim()
 
+
+                        echo "Instances to be deleted: ${instanceIds}"
+                    
                         echo "EC2 instances cleanup completed."
 
                     }
