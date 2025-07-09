@@ -3,7 +3,19 @@ library changelog: false, identifier: 'lib@yum-to-dnf-mod-1', retriever: modernS
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-List all_nodes = [
+List pro_nodes = [
+                'ubuntu-noble',
+                'ubuntu-jammy',
+                'ubuntu-noble-arm',
+                'ubuntu-jammy-arm',
+                'debian-12',
+                'debian-12-arm',
+                'ol-9',
+                'rhel-9',
+                'rhel-9-arm'
+]   
+
+List non_pro_nodes = [
                 'ubuntu-noble',
                 'ubuntu-jammy',
                 'ubuntu-noble-arm',
@@ -13,21 +25,15 @@ List all_nodes = [
                 'debian-11',
                 'debian-12-arm',
                 'debian-11-arm',
-                'debian-10',
-                'centos-7',
                 'ol-8',
                 'ol-9',
                 'rhel-8',
-                'rhel-9',
-                'rhel-8-arm',
-                'rhel-9-arm'
-]
+                'rhel-9'
+]   
+
+List all_possible_nodes = (pro_nodes + non_pro_nodes).unique()
 
 product_to_test = params.product_to_test
-
-List nodes_to_test = []
-
-nodes_to_test = all_nodes
 
 void runNodeBuild(String node_to_test) {
 
@@ -169,263 +175,29 @@ pipeline {
         }
 
         stage("Run parallel") {
-            parallel {
-
-                stage("Debian-10") {
-                    when {
-                        expression {
-                            allOf{
-                                nodes_to_test.contains("debian-10")
-
+            steps {
+                script {
+                    def selectedNodes = (params.pro_repo == "yes") ? pro_nodes : non_pro_nodes
+                    def jobType = (params.pro_repo == "yes") ? "PRO" : "Community"
+                    
+                    def parallelStages = [:]
+                    
+                    all_possible_nodes.each { node ->
+                        parallelStages[node] = {
+                            if (selectedNodes.contains(node)) {
+                                echo "Running ${jobType} tests for: ${node}"
+                                runNodeBuild(node)
+                            } else {
+                                echo "SKIPPED: ${node} - not in ${jobType} job"
                             }
                         }
                     }
-
-                    steps {
-                        runNodeBuild("debian-10")
-                    }
+                    
+                    echo "Testing ${selectedNodes.size()}/${all_possible_nodes.size()} nodes for ${jobType} job"
+                    parallel parallelStages
                 }
-
-                stage("Debian-11") {
-                    when {
-                        expression {
-                            allOf{
-                                nodes_to_test.contains("debian-11")
-
-                            }
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("debian-11")
-                    }
-                }
-
-                stage("Debian-12") {
-                    when {
-                        expression {
-                            allOf{
-                                nodes_to_test.contains("debian-12")
-
-                            }
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("debian-12")
-                    }
-                }
-
-                stage("Debian-11-arm") {
-                    when {
-                        expression {
-                            allOf{
-                                nodes_to_test.contains("debian-11-arm")
-
-                            }
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("debian-11-arm")
-                    }
-                }
-
-                stage("Debian-12-arm") {
-                    when {
-                        expression {
-                            allOf{
-                                nodes_to_test.contains("debian-12-arm")
-
-                            }
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("debian-12-arm")
-                    }
-                }
-
-                stage("Centos 7") {
-                    when {
-                        expression {
-                            allOf{                            
-                                nodes_to_test.contains("centos-7")
-
-                            }
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("centos-7")
-                    }
-                }
-
-                stage("ol-8") {
-                    when {
-                        expression {
-                            allOf{
-                                nodes_to_test.contains("ol-8")
-
-                            }
-                        }
-                    }
-                    steps {
-                        runNodeBuild("ol-8")
-                    }
-                }
-
-                stage("ol-9") {
-                    when {
-                        expression {
-                            allOf{
-                                nodes_to_test.contains("ol-9")
-                            
-                            }
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("ol-9")
-                    }
-                }
-
-                stage("rhel-8") {
-                    when {
-                        expression {
-                            allOf{
-                                nodes_to_test.contains("rhel-8")
-
-                            }
-                        }
-                    }
-                    steps {
-                        runNodeBuild("rhel-8")
-                    }
-                }
-
-                stage("rhel-9") {
-                    when {
-                        expression {
-                            allOf{
-                                nodes_to_test.contains("rhel-9")
-                            
-                            }
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("rhel-9")
-                    }
-                }
-
-                stage("rhel-8-arm") {
-                    when {
-                        expression {
-                            allOf{
-                                nodes_to_test.contains("rhel-8-arm")
-
-                            }
-                        }
-                    }
-                    steps {
-                        runNodeBuild("rhel-8-arm")
-                    }
-                }
-
-                stage("rhel-9-arm") {
-                    when {
-                        expression {
-                            allOf{
-                                nodes_to_test.contains("rhel-9-arm")
-                            
-                            }
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("rhel-9-arm")
-                    }
-                }
-
-                stage("ubuntu-noble") {
-                    when {
-                        expression {
-                            allOf{                            
-                                nodes_to_test.contains("ubuntu-noble")
-
-                            }
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("ubuntu-noble")
-                    }
-                }
-
-                stage("ubuntu-jammy") {
-                    when {
-                        expression {
-                            allOf{                            
-                                nodes_to_test.contains("ubuntu-jammy")
-
-                            }
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("ubuntu-jammy")
-                    }
-                }
-
-                stage("ubuntu-noble-arm") {
-                    when {
-                        expression {
-                            allOf{                            
-                                nodes_to_test.contains("ubuntu-noble-arm")
-
-                            }
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("ubuntu-noble-arm")
-                    }
-                }
-
-                stage("ubuntu-jammy-arm") {
-                    when {
-                        expression {
-                            allOf{                            
-                                nodes_to_test.contains("ubuntu-jammy-arm")
-
-                            }
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("ubuntu-jammy-arm")
-                    }
-                }
-                
-                stage("ubuntu-focal") {
-                    when {
-                        expression {
-                            allOf{
-                                nodes_to_test.contains("ubuntu-focal")
-
-                            }
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("ubuntu-focal")
-                    }
-                }
-
             }
         }
-
     }
 
     post {
