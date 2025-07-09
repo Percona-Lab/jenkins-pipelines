@@ -78,7 +78,7 @@ pipeline {
             description: 'PROXYSQL repo name',
             name: 'PROXYSQL_DEST_REPO')
         choice(
-            choices: 'laboratory\ntesting\nexperimental',
+            choices: 'testing\nexperimental\nlaboratory',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }
