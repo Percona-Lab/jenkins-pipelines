@@ -146,6 +146,7 @@ pipeline {
                             ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
                                 sudo dnf install -y wget git
                                 sudo mkdir -p /srv/pmm-qa || :
+                                set -x
                                 pushd /srv/pmm-qa
                                     sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                                     sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
@@ -153,6 +154,7 @@ pipeline {
                                     sudo chmod 755 get_download_link.sh
                                 popd
                                 sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
+                                set +x
                             '
                         """
                     }
