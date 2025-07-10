@@ -723,9 +723,92 @@ pipeline {
         }
     }
 
-
     post {
 
+        always {
+            script {
+                currentBuild.description = "action: ${params.action_to_test} node: ${params.node_to_test}"
+                    echo "All tests completed"
+
+                        def awsCredentials = [
+                                sshUserPrivateKey(
+                                    credentialsId: 'MOLECULE_AWS_PRIVATE_KEY',
+                                    keyFileVariable: 'MOLECULE_AWS_PRIVATE_KEY',
+                                    passphraseVariable: '',
+                                    usernameVariable: ''
+                                ),
+                                aws(
+                                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                    credentialsId: '7e252458-7ef8-4d0e-a4d5-5773edcbfa5e',
+                                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                                )
+                            ]
+
+                        withCredentials(awsCredentials) {
+
+                        def jobName = env.JOB_TO_RUN
+                        jobName.trim()
+
+                        echo "Fetched JOB_TO_RUN from environment: '${jobName}'"
+
+                        echo "Listing EC2 instances with JobName tag: ${jobName}"
+                        sh """
+                        aws ec2 describe-instances --region us-west-1 --filters "Name=tag:JobName,Values=${jobName}" --query "Reservations[].Instances[].InstanceId" --output text
+                        """
+
+                        sh """
+                        echo "=== EC2 Instances to be cleaned up ==="
+                        aws ec2 describe-instances --region us-west-1 \\
+                        --filters "Name=tag:job-name,Values=${jobName}" "Name=instance-state-name,Values=running" \\
+                        --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" \\
+                        --output table || echo "No instances found with job-name tag: ${jobName}"
+                        """
+                        
+                        echo "Deleting EC2 instances with JobName tag: ${jobName}"
+
+                        def instanceIds = sh(
+                            script: """
+                            aws ec2 describe-instances --region us-west-1 \\
+                            --filters "Name=tag:job-name,Values=${jobName}" "Name=instance-state-name,Values=running" \\
+                            --query "Reservations[].Instances[].InstanceId" \\
+                            --output text
+                            """,
+                            returnStdout: true
+                        ).trim()
+
+                        if (instanceIds != null && !instanceIds.trim().isEmpty()) {
+                            echo "Found instances to terminate: ${instanceIds.trim()}"
+
+
+                            sh """
+                            echo "${instanceIds.trim()}" | xargs -r aws ec2 terminate-instances --instance-ids
+                            """
+                        
+                            sleep(30)
+                            
+                            echo "Terminated instances: ${instanceIds.trim()}"
+                            
+                            echo "==========================================="
+
+
+                            echo "Verification: Status of terminated instances:"
+
+                            sh """
+                            sleep 5 && aws ec2 describe-instances --instance-ids ${instanceIds} --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" --output table
+                            """
+                        
+                        
+                        } else {
+                            echo "No instances found to terminate"
+                        }
+                        
+
+                    }
+                }
+
+            }
+        }
+        
         aborted {
                 slackSend channel: '#dev-server-qa', color: '#B2BEB5', message: "[${env.JOB_NAME}]: Aborted during the Package testing (Build Failed) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , test_repo: ${params.test_repo}, test_type: ${params.test_type}"
         }
