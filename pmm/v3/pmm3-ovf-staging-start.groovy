@@ -48,7 +48,7 @@ pipeline {
     environment {
         VM_MEMORY = "10240"
         OVF_PUBLIC_KEY=credentials('OVF_STAGING_PUB_KEY_QA')
-        DEFAULT_SSH_KEYS = getSSHKeysPMM()
+        DEFAULT_SSH_KEYS = getSSHKeys()
     }
     stages {
         stage('Run staging server') {
