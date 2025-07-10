@@ -8,6 +8,11 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
+
 Jenkins.instance.getItemByFullName(env.JOB_NAME).description = '''
 With this job you can run an OVA image with PMM server on a Digital Ocean droplet. We use DO instead of AWS here because AWS doesn't support nested virtualization.
 '''
@@ -43,7 +48,7 @@ pipeline {
     environment {
         VM_MEMORY = "10240"
         OVF_PUBLIC_KEY=credentials('OVF_STAGING_PUB_KEY_QA')
-        DEFAULT_SSH_KEYS = getSHHKeysPMM()
+        DEFAULT_SSH_KEYS = getSSHKeysPMM()
     }
     stages {
         stage('Run staging server') {
