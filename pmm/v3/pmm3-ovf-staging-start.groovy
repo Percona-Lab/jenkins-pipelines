@@ -48,7 +48,6 @@ pipeline {
     environment {
         VM_MEMORY = "10240"
         OVF_PUBLIC_KEY=credentials('OVF_STAGING_PUB_KEY_QA')
-        DEFAULT_SSH_KEYS = getSSHKeys()
     }
     stages {
         stage('Run staging server') {
@@ -56,6 +55,7 @@ pipeline {
                 deleteDir()
                 script {
                     env.VM_NAME = "pmm-ovf-staging-${BUILD_ID}"
+                    env.DEFAULT_SSH_KEYS = getSSHKeys()
                 }
                 withCredentials([
                         sshUserPrivateKey(credentialsId: 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER'),
@@ -84,7 +84,7 @@ pipeline {
                             sleep 5
                         done
 
-                        echo "$DEFAULT_SSH_KEYS" | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@${PUBLIC_IP} 'cat - >> /root/.ssh/authorized_keys'
+                        echo "${env.DEFAULT_SSH_KEYS}" | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@${PUBLIC_IP} 'cat - >> /root/.ssh/authorized_keys'
                         if [ -n "$SSH_KEY" ]; then
                             echo "$SSH_KEY" | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@${PUBLIC_IP} 'cat - >> /root/.ssh/authorized_keys'
                         fi
@@ -127,7 +127,6 @@ pipeline {
                         VBoxManage modifyvm pmm-server --vrde on
                         VBoxManage modifyvm pmm-server --vrdeport 5000
                         VBoxManage startvm --type headless pmm-server
-                        cat /tmp/pmm-server-console.log
                         timeout 200 bash -c "until curl -ksf https://${IP}/graph/login > /dev/null; do sleep 5; done" || true
                     '''
                     sh '''
@@ -167,7 +166,9 @@ pipeline {
                     withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
                             ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
-                                echo "${DEFAULT_SSH_KEYS}" >> /home/admin/.ssh/authorized_keys
+                                if [ -n "${env.DEFAULT_SSH_KEYS}" ]; then
+                                    echo "${env.DEFAULT_SSH_KEYS}" >> /home/admin/.ssh/authorized_keys
+                                fi
                                 if [ -n "$SSH_KEY" ]; then
                                     echo "$SSH_KEY" | sudo tee -a /home/admin/.ssh/authorized_keys
                                 fi

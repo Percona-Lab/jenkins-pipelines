@@ -5,12 +5,15 @@ String call() {
     final List additional_keys = ['talhabinrizwan', 'nailya', 'puneet0191', 'BupycHuk', ] 
     additional_keys.each { item ->
         try {
-            response = httpRequest "https://github.com/${item}.keys"
-            sshKeys += response.content + '\n'
+            def response = sh(script: "curl -sSf https://github.com/${item}.keys", returnStdout: true).trim()
+            if (response) {
+                sshKeys += response + '\n'
+            }
         } catch (Exception e) {
             echo "Failed to fetch SSH keys for ${item}: ${e.getMessage()}"
             // Continue to next item
         }
     }
-    return sshKeys
+    // Ensure we always return a string, even if empty
+    return sshKeys ?: ''
 }
