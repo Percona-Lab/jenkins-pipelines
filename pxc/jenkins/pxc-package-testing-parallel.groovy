@@ -172,9 +172,9 @@ pipeline {
             steps {
                 script {
                     if (params.pro_repo == "yes") {
-                        currentBuild.displayName = "#${BUILD_NUMBER}-${product_to_test}-${params.test_repo}-pro=${params.pro_repo}-${params.test_type}"
-                    }else {
                         currentBuild.displayName = "#${BUILD_NUMBER}-${product_to_test}-${params.test_repo}-pro=${params.pro_repo}-${params.test_type_pro}"
+                    }else {
+                        currentBuild.displayName = "#${BUILD_NUMBER}-${product_to_test}-${params.test_repo}-pro=${params.pro_repo}-${params.test_type}"
                     }
                 }
             }
@@ -212,6 +212,6 @@ pipeline {
 
     }
 
-
+}
 
 

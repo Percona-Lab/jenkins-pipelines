@@ -531,7 +531,9 @@ def setup(){
 
 
 pipeline {
-    agent none
+    agent {
+        label 'micro-amazon'
+    }
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '100'))
@@ -539,6 +541,7 @@ pipeline {
 
     environment {
         pro = "no"
+        JOB_TO_RUN = "pxc-package-testing-test"
     }
 
     parameters {
@@ -1121,25 +1124,23 @@ pipeline {
 
                             echo "Fetched JOB_TO_RUN from environment: '${jobName}'"
 
-                            echo "Listing EC2 instances with JobName tag: ${jobName}"
+                            echo "Listing EC2 instances with job-name tag: ${jobName}"
                             sh """
-                            aws ec2 describe-instances --region us-west-1 --filters "Name=tag:JobName,Values=${jobName}" "Name=build-number,Values=${BUILD_NUMBER}" Name=instance-state-name,Values=running" --query "Reservations[].Instances[].InstanceId" --output text
+                            aws ec2 describe-instances --region us-west-1 --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}"  --query "Reservations[].Instances[].InstanceId" --output text
                             """
 
                             sh """
                             echo "=== EC2 Instances to be cleaned up ==="
                             aws ec2 describe-instances --region us-west-1 \\
-                            --filters "Name=tag:job-name,Values=${jobName}" "Name=build-number,Values=${BUILD_NUMBER}" "Name=instance-state-name,Values=running" \\
+                            --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}" \\
                             --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" \\
                             --output table || echo "No instances found with job-name tag: ${jobName}"
                             """
-                        
-                            echo "Deleting EC2 instances with JobName tag: ${jobName}"
 
                             def instanceIds = sh(
                                 script: """
                                 aws ec2 describe-instances --region us-west-1 \\
-                                --filters "Name=tag:job-name,Values=${jobName}" "Name=build-number,Values=${BUILD_NUMBER}" "Name=instance-state-name,Values=running" \\
+                                --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}" "Name=instance-state-name,Values=running" \\
                                 --query "Reservations[].Instances[].InstanceId" \\
                                 --output text
                                 """,
@@ -1149,7 +1150,6 @@ pipeline {
                             if (instanceIds != null && !instanceIds.trim().isEmpty()) {
                                 echo "Found instances to terminate: ${instanceIds.trim()}"
 
-                                /*
                                 sh """
                                 echo "${instanceIds.trim()}" | xargs -r aws ec2 terminate-instances --instance-ids
                                 """
@@ -1157,10 +1157,8 @@ pipeline {
                                 sleep(30)
                                 
                                 echo "Terminated instances: ${instanceIds.trim()}"
-                                */
                                 
                                 echo "==========================================="
-
 
                                 echo "Verification: Status of terminated instances:"
 
