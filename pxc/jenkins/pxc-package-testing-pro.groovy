@@ -48,12 +48,12 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
 
                 sh """
                     echo 'install_repo: "${test_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
+                    echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
                     echo 'pro: "${pro}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
                     echo 'PXC1_IP: "${IN_PXC1_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
                     echo 'PXC2_IP: "${IN_PXC2_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"
                     echo 'PXC3_IP: "${IN_PXC3_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/install/envfile"                    
                 """
-                
             }else if(param_test_type == "min_upgrade"){
                     
                 def check_version="${version_check}"
@@ -106,6 +106,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     . virtenv/bin/activate
                     #export MOLECULE_DEBUG=1
                     #export DESTROY_ENV=no
+                    export INSTALLTYPE="pro"
                     
                     mkdir -p ${WORKSPACE}/install
                     mkdir -p ${WORKSPACE}/min_upgrade
@@ -128,7 +129,8 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     . virtenv/bin/activate
                     export MOLECULE_DEBUG=1
                     #export DESTROY_ENV=no
-
+                    export INSTALLTYPE="pro"
+                
                     cd package-testing/molecule/pxc
 
                     echo "param_test_type is ${param_test_type}"
@@ -306,12 +308,33 @@ def setup(){
                     }                
                 }   
                 echo "${JENWORKSPACE}"
-                installMoleculeBookworm()
-                    sh '''
 
-                        rm -rf package-testing
-                        git clone https://github.com/Percona-QA/package-testing --branch yum-to-dnf-mod-1
-                    '''
+
+                script {
+                    try {
+                        echo "Installing Molecule Bookworm..."
+                        installMoleculeBookworm()
+                        echo "Installation completed successfully"
+                    } catch (Exception e) {
+                        echo "First attempt failed: ${e.getMessage()}"
+                        echo "Retrying installation..."
+                        try {
+                            installMoleculeBookworm()
+                            echo "Installation completed successfully on retry"
+                        } catch (Exception retryException) {
+                            echo "Retry failed: ${retryException.getMessage()}"
+                            error("Failed to install Molecule Bookworm after 2 attempts")
+                        }
+                    }
+                }
+
+
+                
+                sh '''
+
+                    rm -rf package-testing
+                    git clone https://github.com/Percona-QA/package-testing --branch yum-to-dnf-mod-1
+                '''
 }
 
 

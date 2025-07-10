@@ -148,7 +148,7 @@ pipeline {
         choice(
             name: 'test_type_pro',
             choices: [
-                'install_pro',
+                'install',
                 'install_and_upgrade',
                 'min_upgrade_pro_pro',
                 'min_upgrade_nonpro_pro',
