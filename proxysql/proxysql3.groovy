@@ -42,7 +42,7 @@ pipeline {
             description: 'URL for proxysql packaging repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'v2.1',
+            defaultValue: 'v3.0',
             description: 'Tag/Branch for proxysql packaging repository',
             name: 'GIT_BRANCH')
         string(
