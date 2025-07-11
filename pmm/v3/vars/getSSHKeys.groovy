@@ -6,13 +6,13 @@ String call() {
     additional_keys.each { item ->
         // First get the status code
         def exitCode = sh(script: "curl -sSf https://github.com/${item}.keys -o /tmp/ssh_keys_${item}", returnStatus: true)
-        echo "Debug: curl exit code for ${item}: ${exitCode}"
-        
         if (exitCode == 0) {
             // Success - read the keys
             def response = sh(script: "cat /tmp/ssh_keys_${item} 2>/dev/null && rm -f /tmp/ssh_keys_${item}", returnStdout: true).trim()
             if (response) {
                 sshKeys += response + '\n'
+            } else {
+                echo "No SSH keys found for ${item}"
             }
         } else {
             // Failed - clean up and log
