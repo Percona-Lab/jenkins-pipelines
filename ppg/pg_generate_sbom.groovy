@@ -4,16 +4,23 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 ]) _
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
-    sh """
+    withCredentials([
+                    string(credentialsId: 'SNYK_TOKEN', variable: 'SNYK_TOKEN'),
+                    string(credentialsId: 'SNYK_ORG_TOKEN', variable: 'SNYK_ORG_TOKEN')
+                ]){
+      sh """
         set -o xtrace
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/pg_sbom/pg_generate_sbom.sh -O pg_generate_sbom.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
-        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
+        docker run -u root -v \${build_dir}:\${build_dir} -e SNYK_TOKEN=${SNYK_TOKEN} -e SNYK_ORG_TOKEN=${SNYK_ORG_TOKEN} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
             bash -x ./pg_generate_sbom.sh --pg_version=${PG_VERSION} --repo_type=${REPO_TYPE} ${STAGE_PARAM}"
+            curl -fsSL https://raw.githubusercontent.com/EvgeniyPatlan/sbom_verifier/main/install_sbom_verifier.sh | bash
+            bash sbom_verifier.sh pg_sbom/*.json
+
     """
 }
 
