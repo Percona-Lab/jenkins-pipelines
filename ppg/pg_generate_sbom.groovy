@@ -22,6 +22,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             bash sbom_verifier.sh pg_sbom/*.json
 
     """
+    }
 }
 
 void uploadPGSBOMToTestingDownloadServer(String productName, String packageVersion, String SBOMType) {
