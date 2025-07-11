@@ -58,14 +58,6 @@ pipeline {
                     env.PMM_VERSION = sh(returnStdout: true, script: "cat .modules/VERSION").trim()
                     env.FB_COMMIT = sh(returnStdout: true, script: "git rev-parse HEAD").trim()
                 }
-                // stash includes: 'apiBranch', name: 'apiBranch'
-                // stash includes: 'apiURL', name: 'apiURL'
-                // stash includes: 'pmmQABranch', name: 'pmmQABranch'
-                // stash includes: 'apiCommitSha', name: 'apiCommitSha'
-                // stash includes: 'pmmQACommitSha', name: 'pmmQACommitSha'
-                // stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
-                // stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
-                // stash includes: 'fbCommitSha', name: 'fbCommitSha'
             }
         }
         stage('Build PMM') {
