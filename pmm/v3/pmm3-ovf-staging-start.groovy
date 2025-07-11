@@ -8,7 +8,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-library changelog: false, identifier: 'v3lib@PMM-7-fix-sshkey-fetching', retriever: modernSCM(
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
   scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
   libraryPath: 'pmm/v3/'
 )
