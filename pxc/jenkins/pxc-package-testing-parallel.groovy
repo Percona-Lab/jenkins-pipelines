@@ -50,27 +50,10 @@ void runNodeBuild(String node_to_test) {
         echo "${test_type}"
     }
 
+    if (params.product_to_test == "pxc-innovation-lts" || params.product_to_test == "pxc57") {
 
-    if (pro_repo == "yes") {
-        echo "Testing PRO packages"
-        job = "pxc-package-testing-pro-test"
-        env.JOB_TO_RUN = "${job}"
-        test_type = params.test_type_pro
-
-        build(
-            job: "${job}",
-            parameters: [
-                string(name: "product_to_test", value: params.product_to_test),
-                string(name: "node_to_test", value: node_to_test),
-                string(name: "test_repo", value: params.test_repo),
-                string(name: "test_type", value: "${test_type}")
-            ],
-            propagate: true,
-            wait: true
-        )
-
-    } else {
-        echo "Testing Non Pro packages"
+        echo "Testing PXC-5.7 or PXC-innovation-lts PRO packages not supported yet !"
+        echo "Normal testing"
         job = "pxc-package-testing-test"
         env.JOB_TO_RUN = "${job}"
         test_type = params.test_type
@@ -89,14 +72,54 @@ void runNodeBuild(String node_to_test) {
         )
 
     }
+    else if (params.product_to_test == "pxc84" || params.product_to_test == "pxc80") {
+
+        echo "Testing PXC-8.4 or PXC-8.0 PRO packages"
+
+        if (pro_repo == "yes") {
+            echo "Testing PRO packages"
+            job = "pxc-package-testing-pro-test"
+            env.JOB_TO_RUN = "${job}"
+            test_type = params.test_type_pro
+
+            build(
+                job: "${job}",
+                parameters: [
+                    string(name: "product_to_test", value: params.product_to_test),
+                    string(name: "node_to_test", value: node_to_test),
+                    string(name: "test_repo", value: params.test_repo),
+                    string(name: "test_type", value: "${test_type}")
+                ],
+                propagate: true,
+                wait: true
+            )
+
+        } else {
+            echo "Testing Non Pro packages"
+            job = "pxc-package-testing-test"
+            env.JOB_TO_RUN = "${job}"
+            test_type = params.test_type
+
+            build(
+                job: "${job}",
+                parameters: [
+                    string(name: "product_to_test", value: params.product_to_test),
+                    string(name: "node_to_test", value: node_to_test),
+                    string(name: "test_repo", value: params.test_repo),
+                    string(name: "test_type", value: "${test_type}"),
+                    string(name: "pxc57_repo", value: params.pxc57_repo)
+                ],
+                propagate: true,
+                wait: true
+            )
+
+        }
 
 
-
+    } else {
+        error("Unsupported product_to_test for PRO testing: ${params.product_to_test}")
+    }
     echo "inside runNodeBuild job_to_run is ${job_to_run}"
-
-
-
-
 }
 
 pipeline {
@@ -142,7 +165,7 @@ pipeline {
                 'min_upgrade',
                 'maj_upgrade'
             ],
-            description: 'Set test type for testing'
+            description: 'Set test type for testing only when pro_repo is no (supports pxc-80, pxc-84, pxc-57 and pxc-innovation-lts) packages'
         )
 
         choice(
@@ -154,7 +177,7 @@ pipeline {
                 'min_upgrade_nonpro_pro',
                 'min_upgrade_pro_nonpro',
             ],
-            description: 'Set test type for testing PRO packages'
+            description: 'Set test type used for testing PRO packages (supports pxc-84 and pxc-80) packages when pro_repo is set to yes'
         )
 
         choice(
@@ -163,7 +186,7 @@ pipeline {
                 'yes',
                 'no'
             ],
-            description: 'Set if PRO packages should be tested or not'
+            description: 'Set if PRO packages should be tested or not (PXC 80 and PXC 84)'
         )
     }
 

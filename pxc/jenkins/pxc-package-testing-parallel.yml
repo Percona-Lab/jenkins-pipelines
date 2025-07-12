@@ -49,7 +49,7 @@
                 - "install_and_upgrade"
                 - "min_upgrade"
                 - "maj_upgrade"
-            description: "Set test type for testing"
+            description: "Set test type for testing only when pro_repo is no (supports pxc-80, pxc-84, pxc-57 and pxc-innovation-lts) packages"
         - choice:
             name: test_type_pro
             choices:
@@ -58,10 +58,10 @@
                 - "min_upgrade_pro_pro"
                 - "min_upgrade_nonpro_pro"
                 - "min_upgrade_pro_nonpro"
-            description: "Set test type for testing PRO packages"
+            description: "Set test type used for testing PRO packages (supports pxc-84 and pxc-80) packages when pro_repo is set to yes" 
         - choice:
             name: pro_repo
             choices:
                 - "no"
                 - "yes"
-            description: "Set if PRO packages should be tested or not"
+            description: "Set if PRO packages should be tested or not (PXC 80 and PXC 84)"
