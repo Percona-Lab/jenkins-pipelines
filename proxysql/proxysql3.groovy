@@ -327,6 +327,7 @@ pipeline {
                         cd percona-docker/proxysql
                         sed -i "s/ENV PROXYSQL_VERSION.*/ENV PROXYSQL_VERSION ${VERSION}-${RPM_RELEASE}/g" Dockerfile
                         sed -i "s/enable proxysql testing/enable proxysql ${COMPONENT}/g" Dockerfile
+                        sed -i "s/proxysql2/proxysql3/g" Dockerfile
                         sudo docker build --no-cache --platform "linux/amd64" -t perconalab/proxysql3:${VERSION}-${RPM_RELEASE} .
 
                         sudo docker images
