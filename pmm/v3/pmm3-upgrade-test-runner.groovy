@@ -35,13 +35,32 @@ void runAMIStagingStart(String AMI_ID) {
   amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
         string(name: 'AMI_ID', value: AMI_ID)
     ]
-    env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
-    env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
-    env.ADMIN_PASSWORD = amiStagingJob.buildVariables.INSTANCE_ID
-    env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
-    env.VM_NAME = amiStagingJob.buildVariables.INSTANCE_ID
-    env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${AMI_INSTANCE_IP}"
-    env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}/"
+  env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
+  env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
+  env.ADMIN_PASSWORD = amiStagingJob.buildVariables.INSTANCE_ID
+  env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
+  env.VM_NAME = amiStagingJob.buildVariables.INSTANCE_ID
+  env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${AMI_INSTANCE_IP}"
+  env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}/"
+  withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+    sh '''
+        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
+            cat <<EOF >> /home/admin/.config/systemd/user/pmm-server.env
+            PMM_WATCHTOWER_HOST=http://watchtower:8080
+            PMM_WATCHTOWER_TOKEN=123
+            PMM_IMAGE=docker.io/perconalab/pmm-server:202506261956
+            PMM_DISTRIBUTION_METHOD=ami
+            PMM_DEBUG=1
+            PMM_ENABLE_TELEMETRY=0
+            PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX
+            PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com
+            PMM_DEV_UPDATE_DOCKER_IMAGE=perconalab/pmm-server:3.2.0-rc
+            EOF
+
+            cat /home/admin/.config/systemd/user/pmm-server.env
+        "
+    '''
+  }
 }
 
 def latestVersion = pmmVersion()
