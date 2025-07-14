@@ -519,6 +519,11 @@ pipeline {
 
             '''
             script {
+                if (env.SERVER_TYPE == "ami") {
+                    amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
+                        string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
+                    ]
+                }
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
                 archiveArtifacts artifacts: 'pmm-update-perform.log'
                 archiveArtifacts artifacts: 'pmm-agent.log'
