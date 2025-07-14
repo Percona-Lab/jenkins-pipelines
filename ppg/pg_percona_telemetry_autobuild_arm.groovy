@@ -108,7 +108,7 @@ pipeline {
                 echo '====> Source will be downloaded from github'
                 //slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for PG${PG_RELEASE}, repo branch: ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                buildStage("ubuntu:focal", "--get_sources=1")
+                buildStage("ubuntu:jammy", "--get_sources=1")
                 sh ''' 
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/pg-percona-telemetry.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -151,7 +151,7 @@ pipeline {
                         echo "====> Build percona_pg_telemetry generic source deb"
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_source_deb=1")
+                        buildStage("ubuntu:jammy", "--build_source_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
@@ -201,7 +201,7 @@ pipeline {
                         echo "====> Build percona_pg_telemetry deb on Ubuntu 20.04 PG${PG_RELEASE}"
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_deb=1")
+                        buildStage("ubuntu:jammy", "--build_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
