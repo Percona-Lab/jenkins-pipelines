@@ -375,6 +375,9 @@ pipeline {
             sh '''
                 sudo rm -rf ./*
             '''
+            script {
+                currentBuild.description = "Built on ${PROXYSQL_BRANCH} + ${PAT_TAG} - [${BUILD_URL}]"
+            }
             deleteDir()
         }
     }
