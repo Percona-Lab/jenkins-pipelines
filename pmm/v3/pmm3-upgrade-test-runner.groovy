@@ -343,10 +343,14 @@ pipeline {
                     pip install --upgrade pip
                     pip install -r requirements.txt
 
+                    if [ "\${SETUP_TYPE}" = "ami" ]; then
+                        ARGS="--pmm-server-ip=\${SERVER_IP}"
+                    fi
+
                     python pmm-framework.py --verbose \
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
-                        [ "\${SETUP_TYPE}" = "ami" ] && --pmm-server-ip=\${SERVER_IP} \ || \
+                        ${ARGS}
                         \${PMM_CLIENTS}
                     popd
                 '''
