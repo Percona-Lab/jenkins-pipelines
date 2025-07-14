@@ -283,13 +283,14 @@ pipeline {
                         }
                     }
                 }
-                stage('Start Dcoker server Instance') {
+                stage('Start AMI server Instance') {
                     when {
                         expression { env.SERVER_TYPE == "ami" }
                     }
                     steps {
                         runAMIStagingStart(DOCKER_TAG)
                     }
+                }
             }
         }
         stage('Setup Databases  and PMM Client for PMM-Server') {
