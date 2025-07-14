@@ -31,6 +31,19 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     }
 }
 
+void runAMIStagingStart(String AMI_ID) {
+  amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
+        string(name: 'AMI_ID', value: AMI_ID)
+    ]
+    env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
+    env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
+    env.ADMIN_PASSWORD = amiStagingJob.buildVariables.INSTANCE_ID
+    env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
+    env.VM_NAME = amiStagingJob.buildVariables.INSTANCE_ID
+    env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${AMI_INSTANCE_IP}"
+    env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}/"
+}
+
 def latestVersion = pmmVersion()
 def versionsList = pmmVersion('list')
 def getMinorVersion(VERSION) {
@@ -79,9 +92,13 @@ pipeline {
             defaultValue: 'v3',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
+        choice(
+            choices: ['docker', 'ovf', 'ami'],
+            description: "PMM Server installation type.",
+            name: 'SERVER_TYPE')
         string(
             defaultValue: 'percona/pmm-server:3.0.0',
-            description: 'PMM Server Version to test for Upgrade',
+            description: 'PMM Server Version to test for Upgrade (Docker Tag, AMI ID or OVF version)',
             name: 'DOCKER_TAG')
         string(
             defaultValue: '',
@@ -195,73 +212,86 @@ pipeline {
                 }
             }
         }
-        stage('Start Server Instance') {
-            steps {
-                sh '''
-                    sudo mkdir -p /srv/qa-integration || true
-                    pushd /srv/qa-integration
-                        sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                    popd
-                    sudo chown ec2-user -R /srv/qa-integration
+        stage('Start PMM Server') {
+            parallel {
+                stage('Start Dcoker server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "docker" }
+                    }
+                    steps {
+                        sh '''
+                            sudo mkdir -p /srv/qa-integration || true
+                            pushd /srv/qa-integration
+                                sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+                            popd
+                            sudo chown ec2-user -R /srv/qa-integration
 
-                    docker network create pmm-qa
-                    docker volume create pmm-volume
+                            docker network create pmm-qa
+                            docker volume create pmm-volume
 
-                    docker run --detach --restart always \
-                        --network="pmm-qa" \
-                        -e WATCHTOWER_DEBUG=1 \
-                        -e WATCHTOWER_HTTP_API_TOKEN=testUpgradeToken \
-                        -e WATCHTOWER_HTTP_API_UPDATE=1 \
-                        --volume /var/run/docker.sock:/var/run/docker.sock \
-                        --name watchtower \
-                        perconalab/watchtower:latest
+                            docker run --detach --restart always \
+                                --network="pmm-qa" \
+                                -e WATCHTOWER_DEBUG=1 \
+                                -e WATCHTOWER_HTTP_API_TOKEN=testUpgradeToken \
+                                -e WATCHTOWER_HTTP_API_UPDATE=1 \
+                                --volume /var/run/docker.sock:/var/run/docker.sock \
+                                --name watchtower \
+                                perconalab/watchtower:latest
 
-                    sleep 10
-                    export DOCKER_TAG_UPGRADE=\${DOCKER_TAG_UPGRADE}
+                            sleep 10
+                            export DOCKER_TAG_UPGRADE=\${DOCKER_TAG_UPGRADE}
 
-                    if [[ -z \$DOCKER_TAG_UPGRADE ]]; then
-                        docker run --detach --restart always \
-                            --network="pmm-qa" \
-                            -e PMM_DEBUG=1 \
-                            -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
-                            -e PMM_WATCHTOWER_TOKEN=testUpgradeToken \
-                            -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
-                            -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
-                            -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com \
-                            -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
-                            -e PMM_ENABLE_UPDATES=1 \
-                            --publish 80:8080 --publish 443:8443 \
-                            --volume pmm-volume:/srv \
-                            --name pmm-server \
-                            ${DOCKER_TAG}
-                    else
-                        docker run --detach --restart always \
-                            --network="pmm-qa" \
-                            -e PMM_DEBUG=1 \
-                            -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
-                            -e PMM_WATCHTOWER_TOKEN=testUpgradeToken \
-                            -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
-                            -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
-                            -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com \
-                            -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
-                            -e PMM_ENABLE_UPDATES=1 \
-                            -e PMM_DEV_UPDATE_DOCKER_IMAGE=\${DOCKER_TAG_UPGRADE} \
-                            --publish 80:8080 --publish 443:8443 \
-                            --volume pmm-volume:/srv \
-                            --name pmm-server \
-                            \${DOCKER_TAG}
-                    fi
-                '''
-                waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
-                waitForContainer('pmm-server', 'The HTTP API is enabled at :8080.')
-                script {
-                    env.SERVER_IP = "127.0.0.1"
-                    env.PMM_UI_URL = "http://${env.SERVER_IP}/"
-                    env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
+                            if [[ -z \$DOCKER_TAG_UPGRADE ]]; then
+                                docker run --detach --restart always \
+                                    --network="pmm-qa" \
+                                    -e PMM_DEBUG=1 \
+                                    -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
+                                    -e PMM_WATCHTOWER_TOKEN=testUpgradeToken \
+                                    -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
+                                    -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
+                                    -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com \
+                                    -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
+                                    -e PMM_ENABLE_UPDATES=1 \
+                                    --publish 80:8080 --publish 443:8443 \
+                                    --volume pmm-volume:/srv \
+                                    --name pmm-server \
+                                    ${DOCKER_TAG}
+                            else
+                                docker run --detach --restart always \
+                                    --network="pmm-qa" \
+                                    -e PMM_DEBUG=1 \
+                                    -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
+                                    -e PMM_WATCHTOWER_TOKEN=testUpgradeToken \
+                                    -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
+                                    -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
+                                    -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com \
+                                    -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
+                                    -e PMM_ENABLE_UPDATES=1 \
+                                    -e PMM_DEV_UPDATE_DOCKER_IMAGE=\${DOCKER_TAG_UPGRADE} \
+                                    --publish 80:8080 --publish 443:8443 \
+                                    --volume pmm-volume:/srv \
+                                    --name pmm-server \
+                                    \${DOCKER_TAG}
+                            fi
+                        '''
+                        waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
+                        waitForContainer('pmm-server', 'The HTTP API is enabled at :8080.')
+                        script {
+                            env.SERVER_IP = "127.0.0.1"
+                            env.PMM_UI_URL = "http://${env.SERVER_IP}/"
+                            env.PMM_URL = "http://admin:admin@${env.SERVER_IP}"
+                        }
+                    }
                 }
+                stage('Start Dcoker server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "ami" }
+                    }
+                    steps {
+                        runAMIStagingStart(DOCKER_TAG)
+                    }
             }
         }
-
         stage('Setup Databases  and PMM Client for PMM-Server') {
             parallel {
                 stage('Setup PMM Client') {
