@@ -185,6 +185,11 @@ pipeline {
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                     popd
+                    sudo mkdir -p /srv/qa-integration || true
+                    pushd /srv/qa-integration
+                        sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+                    popd
+                    sudo chown ec2-user -R /srv/qa-integration
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
@@ -236,12 +241,6 @@ pipeline {
                     }
                     steps {
                         sh '''
-                            sudo mkdir -p /srv/qa-integration || true
-                            pushd /srv/qa-integration
-                                sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                            popd
-                            sudo chown ec2-user -R /srv/qa-integration
-
                             docker network create pmm-qa
                             docker volume create pmm-volume
 
