@@ -36,6 +36,7 @@ void runAMIStagingStart(String AMI_ID) {
         string(name: 'AMI_ID', value: AMI_ID)
     ]
   env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
+  env.SERVER_IP = amiStagingJob.buildVariables.PUBLIC_IP
   env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
   env.ADMIN_PASSWORD = amiStagingJob.buildVariables.INSTANCE_ID
   env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
