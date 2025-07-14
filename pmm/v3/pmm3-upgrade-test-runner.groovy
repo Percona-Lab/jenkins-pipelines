@@ -346,6 +346,7 @@ pipeline {
                     python pmm-framework.py --verbose \
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
+                        [ "\${SETUP_TYPE}" = "ami" ] && --pmm-server-ip=\${SERVER_IP} \ || \
                         \${PMM_CLIENTS}
                     popd
                 '''
