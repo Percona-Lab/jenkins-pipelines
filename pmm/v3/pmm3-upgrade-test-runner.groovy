@@ -350,7 +350,7 @@ pipeline {
                     python pmm-framework.py --verbose \
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
-                        ${ARGS}
+                        ${ARGS} \
                         \${PMM_CLIENTS}
                     popd
                 '''
