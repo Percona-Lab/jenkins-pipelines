@@ -343,7 +343,7 @@ pipeline {
                     pip install --upgrade pip
                     pip install -r requirements.txt
 
-                    if [ "\${SETUP_TYPE}" = "ami" ]; then
+                    if [ "\${SERVER_TYPE}" = "ami" ]; then
                         ARGS="--pmm-server-ip=\${SERVER_IP}"
                     fi
 
