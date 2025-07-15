@@ -358,10 +358,7 @@ pipeline {
         }
         stage('Sanity check') {
             steps {
-                sh '''
-                    curl -k \${PMM_URL}/ping
-                    timeout 100 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false
-                '''
+                sh 'timeout 100 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
         stage('Setup Custom queries') {
@@ -410,7 +407,7 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
+                        export PMM_VERSION=\$(curl --location -k --user admin:\${ADMIN_PASSWORD} '\${PMM_UI_URL}' | jq -r '.version' | awk -F "-" \'{print \$1}\')
                         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
                         python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
                     '''
