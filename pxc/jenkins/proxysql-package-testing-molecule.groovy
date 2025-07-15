@@ -50,8 +50,13 @@
                 'ps80',
                 'ps84' 
             ],
-            description: 'Client To Test',
+            description: 'Choose the client to install with proxysql',
             name: 'client_to_test'
+        )
+        choice(
+            choices: ['testing', 'main', 'experimental'],
+            description: 'Choose the repo to install client packages from',
+            name: 'repo_for_client_to_test'
         )
     }
     options {
