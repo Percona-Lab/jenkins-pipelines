@@ -33,7 +33,16 @@ List non_pro_nodes = [
                 'rhel-9',
                 'amazon-linux-2023',
                 'amazon-linux-2023-arm'
-]   
+]
+
+List pxc57_nodes = [
+                'ubuntu-jammy',
+                'ubuntu-focal',
+                'debian-12',
+                'debian-11',
+                'ol-8',
+                'ol-9'
+]
 
 List all_possible_nodes = (pro_nodes + non_pro_nodes).unique()
 
@@ -206,9 +215,21 @@ pipeline {
         stage("Run parallel") {
             steps {
                 script {
-                    def selectedNodes = (params.pro_repo == "yes") ? pro_nodes : non_pro_nodes
-                    def jobType = (params.pro_repo == "yes") ? "PRO" : "Non Pro"
+
+                    def selectedNodes
+                    def jobType
+                    def allPossibleNodes
                     
+                    if (params.product_to_test == "pxc57") {
+                        selectedNodes = pxc57_nodes
+                        jobType = "PXC 5.7"
+                        allPossibleNodes = pxc57_nodes
+                    } else {
+                        selectedNodes = (params.pro_repo == "yes") ? pro_nodes : non_pro_nodes
+                        jobType = (params.pro_repo == "yes") ? "PRO" : "Non Pro"
+                        allPossibleNodes = all_possible_nodes
+                    }
+
                     echo "Testing ${selectedNodes.size()}/${all_possible_nodes.size()} nodes for ${jobType} job"
                     
                     def parallelStages = [:]
@@ -232,7 +253,6 @@ pipeline {
                 }
             }
         }
-
     }
 
 }
