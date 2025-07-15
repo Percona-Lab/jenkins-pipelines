@@ -376,7 +376,7 @@ pipeline {
                 sudo rm -rf ./*
             '''
             script {
-                currentBuild.description = "Built on ${PROXYSQL_BRANCH} + ${PAT_TAG} - [${BUILD_URL}]"
+                currentBuild.description = "Built on ${PROXYSQL_BRANCH} + ${PAT_TAG} - [${AWS_STASH_PATH}]"
             }
             deleteDir()
         }
