@@ -359,8 +359,8 @@ pipeline {
         stage('Sanity check') {
             steps {
                 sh '''
-                    curl \${PMM_URL}/ping
-                    timeout 100 bash -c \'while [[ "$(curl -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false
+                    curl -k \${PMM_URL}/ping
+                    timeout 100 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false
                 '''
             }
         }
