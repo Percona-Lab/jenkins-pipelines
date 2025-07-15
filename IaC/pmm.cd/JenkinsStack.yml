@@ -225,7 +225,7 @@ Resources:
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
-          CidrIp: 51.158.106.12/32
+          CidrIp: 194.62.99.58/32
       Tags:
         - Key: iit-billing-tag
           Value: !Ref JShortName
