@@ -408,7 +408,7 @@ pipeline {
             steps {
                 script {
                     sh '''
-                        export PMM_VERSION=\$(curl --location -k --user admin:\${ADMIN_PASSWORD} \'\${PMM_UI_URL}\' | jq -r '.version' | awk -F "-" \'{print \$1}\')
+                        export PMM_VERSION=\$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL} | jq -r '.version' | awk -F "-" \'{print \$1}\')
                         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
                         python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
                     '''
