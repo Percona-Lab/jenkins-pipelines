@@ -96,7 +96,7 @@
 
                                 def envMap = loadEnvFile('.env.ENV_VARS')
                                 withEnv(envMap) {
-                                    moleculeParallelTestPROXYSQL(proxysqlPackageTesting(), "molecule/proxysql/")
+                                    moleculeParallelTestPS(proxysqlPackageTesting(), "molecule/proxysql/")
                                 }
 
                             }
