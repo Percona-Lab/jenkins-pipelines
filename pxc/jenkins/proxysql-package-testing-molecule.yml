@@ -1,0 +1,18 @@
+- job:
+    name: proxysql-package-testing-molecule
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    properties:
+        - build-discarder:
+            num-to-keep: 15
+    concurrent: true
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/kaushikpuneet07/jenkins-pipelines.git
+                branches:
+                    - 'proxysql3'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: ps/jenkins/proxysql-package-testing-molecule.groovy
