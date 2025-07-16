@@ -33,6 +33,7 @@ if [ -f /usr/bin/yum ]; then
     fi
 elif [ -f /usr/bin/apt ]; then
   DEBIAN_VERSION=$(lsb_release -sc)
+  sudo apt-get -y update
   if [ ${DEBIAN_VERSION} = "stretch" ]; then
     sudo sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list
     sudo sed -i 's|security.debian.org|archive.debian.org|g' /etc/apt/sources.list
@@ -56,8 +57,8 @@ fi
 
 # We need to use golang version >= 1.21. Downloading golang from tarball to ensure each platform uses the same version.
 sudo rm -rf /usr/bin/go
-sudo wget https://go.dev/dl/go1.22.7.linux-amd64.tar.gz
-sudo tar -C /usr/local/ -xzf go1.22.7.linux-amd64.tar.gz
+sudo wget https://go.dev/dl/go1.23.11.linux-amd64.tar.gz
+sudo tar -C /usr/local/ -xzf go1.23.11.linux-amd64.tar.gz
 sudo ln -s /usr/local/go/bin/go /usr/bin/go
 
 go version
