@@ -41,7 +41,7 @@ pipeline {
             description: 'PXC version to test proxysql-admin suite',
             name: 'PXC_VERSION')
        choice(
-            choices: 'centos:7\ncentos:8\nubuntu:noble\nubuntu:jammy\nubuntu:focal\ndebian:buster\ndebian:bullseye\ndebian:bookworm',
+            choices: 'oraclelinux:9\nubuntu:noble\nubuntu:jammy\ndebian:bookworm',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
