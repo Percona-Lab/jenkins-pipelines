@@ -434,7 +434,7 @@ pipeline {
                              withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                                 sh '''
                                     ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} '
-                                        curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}v1/server/version
+                                        curl --location -k --user admin:\${ADMIN_PASSWORD} ${PMM_UI_URL}v1/server/version
                                         export PMM_VERSION=\$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}v1/server/version | jq -r '.version' | awk -F "-" \'{print \$1}\')
                                         echo "Parsed PMM_VERSION: $PMM_VERSION"
                                         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
