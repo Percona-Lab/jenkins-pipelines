@@ -55,7 +55,12 @@ void runAMIStagingStart(String AMI_ID) {
         PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX
         PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com
         PMM_DEV_UPDATE_DOCKER_IMAGE=perconalab/pmm-server:3.2.0-rc
-        EOF'"
+        EOF'
+
+        pushd /srv/pmm-qa
+            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+        popd
+        "
     '''
   }
 }
@@ -404,15 +409,39 @@ pipeline {
                 sleep 60
             }
         }
-        stage('Check Packages before Upgrade') {
-            steps {
-                script {
-                    sh '''
-                        curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}/v1/server/version
-                        export PMM_VERSION=\$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}/v1/server/version | jq -r '.version' | awk -F "-" \'{print \$1}\')
-                        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
-                    '''
+        stage('Check PMM Server Packages before Upgrade') {
+            parallel {
+                stage('Check docker packages') {
+                    when {
+                        expression { env.SERVER_TYPE == "docker" }
+                    }
+                    steps {
+                        script {
+                            sh '''
+                                export PMM_VERSION=\$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}/v1/server/version | jq -r '.version' | awk -F "-" \'{print \$1}\')
+                                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
+                                python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
+                            '''
+                        }
+                    }
+                }
+                stage('Check ami packages') {
+                    when {
+                        expression { env.SERVER_TYPE == "ami" }
+                    }
+                    steps {
+                        script {
+                             withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                                sh '''
+                                    ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} "bash -c '
+                                        export PMM_VERSION=\$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}/v1/server/version | jq -r '.version' | awk -F "-" \'{print \$1}\')
+                                        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
+                                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre'
+                                    "
+                                '''
+                             }
+                        }
+                    }
                 }
             }
         }
