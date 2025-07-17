@@ -58,15 +58,15 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
 
             pushd /srv/qa-integration/pmm_qa
                 echo \\"Setting docker based PMM clients\\"
-                sudo apt install -y python3.12 python3.12-venv
-                mkdir -m 777 -p /tmp/backup_data
-                python3 -m venv virtenv
-                . virtenv/bin/activate
-                pip install --upgrade pip
-                pip install -r requirements.txt
-                pip install setuptools
+                sudo dnf install -y python3.12 python3.12-venv
+                sudo mkdir -m 777 -p /tmp/backup_data
+                sudo python3 -m venv virtenv
+                sudo . virtenv/bin/activate
+                sudo pip install --upgrade pip
+                sudo pip install -r requirements.txt
+                sudo pip install setuptools
 
-                python3 pmm-framework.py --v \
+                sudo python3 pmm-framework.py --v \
                     --verbose \
                     --verbosity-level=5 \
                     --client-version=3-dev-latest \
