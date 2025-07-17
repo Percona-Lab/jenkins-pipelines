@@ -54,6 +54,23 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
             echo \\"PMM_DEV_UPDATE_DOCKER_IMAGE=\${DOCKER_TAG_UPGRADE}\\" >> /home/admin/.config/systemd/user/pmm-server.env
 
             systemctl --user restart pmm-server
+            git clone --single-branch --branch v3 https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
+
+            echo "Setting docker based PMM clients"
+            sudo apt install -y python3.12 python3.12-venv
+            mkdir -m 777 -p /tmp/backup_data
+            python3 -m venv virtenv
+            . virtenv/bin/activate
+            pip install --upgrade pip
+            pip install -r requirements.txt
+            pip install setuptools
+
+            python3 pmm-framework.py --v \
+                --verbose \
+                --verbosity-level=5 \
+                --client-version=3-dev-latest \
+                --pmm-server-password=Heslo123 \
+                --database bucket,BUCKET_NAMES="bcp"
         "'
     '''
   }
