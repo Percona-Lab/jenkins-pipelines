@@ -89,6 +89,19 @@
             stage('RUN TESTS') {
                         steps {
                             script {
+                                // Read OS platform info
+                                def os_id = sh(script: "source /etc/os-release && echo \$ID", returnStdout: true).trim()
+                                def os_version = sh(script: "source /etc/os-release && echo \$VERSION_ID", returnStdout: true).trim()
+                                def platform = "${os_id}-${os_version}".replaceAll("\"", "")
+
+                                echo "Detected platform: ${platform}"
+
+                                // Block proxysql3 on unsupported platforms
+                                if (product_to_test == "proxysql3" && !["oracle-9", "debian-12", "ubuntu-22.04", "ubuntu-24.04"].contains(platform)) {
+                                error("proxysql3 is not supported on ${platform}")
+                                }
+
+                                // Write environment for molecule
                                 if (action_to_test == 'install') {
                                     sh """
                                         echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
