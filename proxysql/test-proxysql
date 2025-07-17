@@ -165,9 +165,9 @@ if [ -f /usr/bin/apt ]; then
   install_package wget gnupg2 lsb-release curl
 fi
 
-# Installing proxysql 2.0.latest package
+# Installing proxysql 3.0.latest package
 enable_repo proxysql testing
-install_package proxysql2
+install_package proxysql3
 
 if [[ "${PXC_VERSION}" == "PXC84" ]]; then
   # Downloading PXC-8.4 tarball package
@@ -192,9 +192,8 @@ elif [[ "${PXC_VERSION}" == "PXC57" ]]; then
   # Installing PXC-5.7 client
   enable_repo pxc-57 release
   install_package percona-xtradb-cluster-client-5.7
-
   # Installing PXB-2.4 (only required in case of PXC-5.7)
-  enable_repo pxb-24 release
+  enable_repo pxb-24 testing
   install_package percona-xtrabackup-24
 fi
 
