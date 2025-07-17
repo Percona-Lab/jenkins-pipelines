@@ -62,7 +62,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 sudo python3 -m ensurepip --upgrade
                 sudo mkdir -m 777 -p /tmp/backup_data
                 sudo python3 -m venv virtenv
-                sudo . virtenv/bin/activate
+                . virtenv/bin/activate
                 sudo pip install --upgrade pip
                 sudo pip install -r requirements.txt
                 sudo pip install setuptools
