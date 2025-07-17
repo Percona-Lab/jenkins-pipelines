@@ -56,7 +56,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
             systemctl --user restart pmm-server
             sudo git clone --single-branch --branch v3 https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
 
-            echo "Setting docker based PMM clients"
+            echo \\"Setting docker based PMM clients\\"
             sudo apt install -y python3.12 python3.12-venv
             mkdir -m 777 -p /tmp/backup_data
             python3 -m venv virtenv
@@ -70,7 +70,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 --verbosity-level=5 \
                 --client-version=3-dev-latest \
                 --pmm-server-password=Heslo123 \
-                --database bucket,BUCKET_NAMES="bcp"
+                --database bucket,BUCKET_NAMES=\\"bcp\\"
         "'
     '''
   }
