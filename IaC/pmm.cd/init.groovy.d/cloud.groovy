@@ -23,13 +23,13 @@ netMap['us-east-2c'] = 'subnet-00b3df129e7d8c658'
 
 // TODO We use rhel label here, in reality it's a RHEL-compatible derivative.
 imageMap = [:]
-imageMap['us-east-2a.min-rhel-8-x64']     = 'ami-0426a691fd088149c'               // rocky linux 8
-imageMap['us-east-2a.min-ol-8-x64']       = 'ami-0eeed66f8f65afdba'               // oraclelinux 8.9
+imageMap['us-east-2a.min-rhel-8-x64']     = 'ami-0eeed66f8f65afdba'               // oraclelinux 8.9
+imageMap['us-east-2a.min-ol-8-x64']       = imageMap['us-east-2a.min-rhel-8-x64'] // oraclelinux 8.9
 imageMap['us-east-2a.min-rhel-9-x64']     = 'ami-0b5a1d936f517ad3e'               // oraclelinux 9.3
 imageMap['us-east-2a.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64'] // oraclelinux 9.3
-imageMap['us-east-2a.min-jammy-x64']      = 'ami-003932de22c285676'               // ubuntu 22
-imageMap['us-east-2a.min-noble-x64']      = 'ami-0cb1abde5aafd0260'               // ubuntu 24
-imageMap['us-east-2a.min-bookworm-x64']   = 'ami-0b40807e5dc1afecf'               // debian 12
+imageMap['us-east-2a.min-jammy-x64']      = 'ami-085438ce84ab3ac76'               // ubuntu 22
+imageMap['us-east-2a.min-noble-x64']      = 'ami-0d1b5a8c13042c939'               // ubuntu 24
+imageMap['us-east-2a.min-bookworm-x64']   = 'ami-065eb7eeb82248b49'               // debian 12
 
 imageMap['us-east-2b.min-rhel-8-x64']     = imageMap['us-east-2a.min-rhel-8-x64']
 imageMap['us-east-2b.min-ol-8-x64']       = imageMap['us-east-2a.min-ol-8-x64']   // oraclelinux 8
@@ -50,9 +50,9 @@ imageMap['us-east-2c.min-bookworm-x64']   = imageMap['us-east-2a.min-bookworm-x6
 // ARM64 based AMIs
 imageMap['us-east-2a.min-ol-8-arm64']       = 'ami-0f77cbbab56907b6c'               // oraclelinux 8.9 arm64
 imageMap['us-east-2a.min-ol-9-arm64']       = 'ami-0ffbdb6ee492c2cd5'               // oraclelinux 9.3 arm64
-imageMap['us-east-2a.min-jammy-arm64']      = 'ami-03772d93fb1879bbe'               // ubuntu 22.04 arm64
-imageMap['us-east-2a.min-noble-arm64']      = 'ami-0e9af7032a7f96163'               // ubuntu 24.04 arm64
-imageMap['us-east-2a.min-bookworm-arm64']   = 'ami-093aaca871a94bd3a'               // debian 12 arm64
+imageMap['us-east-2a.min-jammy-arm64']      = 'ami-0f732d76e7fad24ca'               // ubuntu 22.04 arm64
+imageMap['us-east-2a.min-noble-arm64']      = 'ami-019eeff96c2865995'               // ubuntu 24.04 arm64
+imageMap['us-east-2a.min-bookworm-arm64']   = 'ami-0de4c77901001cfe7'               // debian 12 arm64
 
 imageMap['us-east-2b.min-ol-8-arm64']       = imageMap['us-east-2a.min-ol-8-arm64']
 imageMap['us-east-2b.min-ol-9-arm64']       = imageMap['us-east-2a.min-ol-9-arm64']
@@ -71,11 +71,11 @@ priceMap['t2.large']   = '0.045'
 priceMap['t3.xlarge']  = '0.065'
 priceMap['t3.large']   = '0.035'
 priceMap['m4.large']   = '0.060'
-priceMap['m6a.large']  = '0.060'
-priceMap['m7g.large']  = '0.035' // arm64 instancey type
+priceMap['m7a.large']  = '0.044' // amd64 instance type - vCPU=2, memory=8GiB, saving=73%, interruption='<5%', price=0.03
+priceMap['m7g.large']  = '0.042' // arm64 instance type - vCPU=2, memory=8GiB, saving=63%, interruption='<5%', price=0.03
 
 userMap = [:]
-userMap['min-rhel-8-x64']      = 'rocky'
+userMap['min-rhel-8-x64']      = 'ec2-user'
 userMap['min-ol-8-x64']        = 'ec2-user'
 userMap['min-rhel-9-x64']      = 'ec2-user'
 userMap['min-ol-9-x64']        = 'ec2-user'
@@ -227,10 +227,11 @@ capMap['t2.large']   = '20'
 capMap['t3.xlarge']  = '20'
 capMap['t3.large']   = '20'
 capMap['m4.large']   = '10'
-capMap['m6a.large']  = '15'
+capMap['m7a.large']  = '15' // amd64 instance type
+capMap['m7g.large']  = '15' // arm64 instance type
 
 typeMap = [:]
-typeMap['min-rhel-8-x64']     = 'm6a.large'
+typeMap['min-rhel-8-x64']     = 'm7a.large'
 typeMap['min-ol-8-x64']       = typeMap['min-rhel-8-x64']
 typeMap['min-rhel-9-x64']     = typeMap['min-rhel-8-x64']
 typeMap['min-ol-9-x64']       = typeMap['min-rhel-8-x64']
