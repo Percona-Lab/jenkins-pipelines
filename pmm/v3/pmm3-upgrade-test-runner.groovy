@@ -46,16 +46,14 @@ void runAMIStagingStart(String AMI_ID) {
   withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
     sh '''
         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} "bash -c 'cat <<EOF >> /home/admin/.config/systemd/user/pmm-server.env
-        PMM_WATCHTOWER_HOST=http://watchtower:8080
-        PMM_WATCHTOWER_TOKEN=123
-        PMM_IMAGE=docker.io/perconalab/pmm-server:202506261956
-        PMM_DISTRIBUTION_METHOD=ami
         PMM_DEBUG=1
         PMM_ENABLE_TELEMETRY=0
         PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX
         PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com
-        PMM_DEV_UPDATE_DOCKER_IMAGE=perconalab/pmm-server:3.2.0-rc
+        PMM_DEV_UPDATE_DOCKER_IMAGE=\${DOCKER_TAG_UPGRADE}
         EOF'
+
+        systemctl --user restart pmm-server
 
         pushd /srv/pmm-qa
             sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
