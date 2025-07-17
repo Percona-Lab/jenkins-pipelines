@@ -33,9 +33,8 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
 
 void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
   amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
-        string(name: 'AMI_ID', value: AMI_ID)
-        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH)
-        PMM_QA_GIT_BRANCH
+        string(name: 'AMI_ID', value: AMI_ID),
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
     ]
   env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
   env.SERVER_IP = amiStagingJob.buildVariables.PUBLIC_IP
