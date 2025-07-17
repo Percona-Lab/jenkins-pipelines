@@ -137,7 +137,7 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
 
 pipeline {
     agent {
-        label 'min-focal-x64'
+        label 'min-noble-x64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
