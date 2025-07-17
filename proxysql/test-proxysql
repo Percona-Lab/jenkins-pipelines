@@ -126,7 +126,7 @@ check_percona_release() {
 # Function to install percona-release on Debian-based systems
 install_debian() {
     echo "Installing percona-release for Debian-based system..."
-    sudo apt install -y
+    sudo apt-get update -y
     sudo curl -O https://repo.percona.com/apt/percona-release_latest.generic_all.deb
     sudo apt install -y gnupg2 lsb-release ./percona-release_latest.generic_all.deb
 }
