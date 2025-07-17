@@ -54,6 +54,8 @@ void runAMIStagingStart(String AMI_ID) {
 
             systemctl --user restart pmm-server
 
+            ls /srv/pmm-qa
+
             pushd /srv/pmm-qa
                 sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
             popd
