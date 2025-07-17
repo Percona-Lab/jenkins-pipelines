@@ -24,6 +24,7 @@ if [ -f /usr/bin/yum ]; then
         sudo cmake --version
     fi
     sudo yum -y install wget
+    sudo yum -y install libuuid-devel
     if [[ $RHEL -eq 7 ]]; then
       sudo yum -y install automake bzip2 cmake3 make gcc-c++ gcc git openssl openssl-devel gnutls gnutls-devel libtool patch libuuid libuuid-devel perl-IPC-Cmd
       if [ -f /usr/bin/cmake3 ]; then
