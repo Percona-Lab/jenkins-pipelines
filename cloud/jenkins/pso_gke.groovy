@@ -206,7 +206,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
                     --release-channel $GKE_RELEASE_CHANNEL \
-                    --zone ${GKE_REGION} \
+                    --zone $GKE_REGION \
                     --cluster-version $PLATFORM_VER \
                     --preemptible \
                     --disk-size 30 \
@@ -218,7 +218,12 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --subnetwork=jenkins-$CLUSTER_SUFFIX \
                     --cluster-ipv4-cidr=/21 \
                     --labels delete-cluster-after-hours=6 \
-                    --enable-ip-alias &&\
+                    --enable-ip-alias \
+                    --monitoring=NONE \
+                    --logging=NONE \
+                    --no-enable-managed-prometheus \
+                    --workload-pool=cloud-dev-112233.svc.id.goog \
+                    --quiet &&\
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
                 exitCode=\$?
                 if [[ \$exitCode == 0 ]]; then break; fi

@@ -20,7 +20,7 @@ void prepareSources() {
         git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git source
     """
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
     CLUSTER_NAME = ("jenkins-" + JOB_NAME.replaceAll('_', '-') + "-" + GIT_SHORT_COMMIT).toLowerCase().trim()
 }
 
@@ -28,10 +28,10 @@ void prepareAgent() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
 
     sh """
-        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
+        sudo curl -sLo /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
         kubectl version --client --output=yaml
 
-        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+        curl -fsSL https://get.helm.sh/helm-v3.18.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
@@ -61,6 +61,8 @@ void initParams() {
         IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${PILLAR_VERSION}")
         IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
+        IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: getParam("IMAGE_PMM3_CLIENT")
+        IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: getParam("IMAGE_PMM3_SERVER")
 
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
             PLATFORM_VER = getParam("PLATFORM_VER", "DOKS_${PLATFORM_VER}")
@@ -241,6 +243,8 @@ void runTest(Integer TEST_ID) {
                         export IMAGE_BACKREST=$IMAGE_BACKREST
                         export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                         export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+                        export IMAGE_PMM3_CLIENT=$IMAGE_PMM3_CLIENT
+                        export IMAGE_PMM3_SERVER=$IMAGE_PMM3_SERVER
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
 
@@ -301,6 +305,8 @@ void makeReport() {
         IMAGE_BACKREST=${IMAGE_BACKREST ?: 'e2e_defaults'}
         IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
         IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
+        IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT ?: 'e2e_defaults'}
+        IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER ?: 'e2e_defaults'}
         PLATFORM_VER=$PLATFORM_VER
     """.trim().replaceAll('  ', '')
 
@@ -341,6 +347,8 @@ pipeline {
         string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-pgbackrest')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
+        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
+        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'DO_REGION', defaultValue: 'nyc1', description: 'Digital Ocean region to use for cluster')
     }
     agent {
