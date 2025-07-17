@@ -90,8 +90,8 @@
                         steps {
                             script {
                                 // Read OS platform info
-                                def os_id = sh(script: "source /etc/os-release && echo \$ID", returnStdout: true).trim()
-                                def os_version = sh(script: "source /etc/os-release && echo \$VERSION_ID", returnStdout: true).trim()
+                                def os_id = sh(script: ". /etc/os-release && echo \$ID", returnStdout: true).trim()
+                                def os_version = sh(script: ". /etc/os-release && echo \$VERSION_ID", returnStdout: true).trim()
                                 def platform = "${os_id}-${os_version}".replaceAll("\"", "")
 
                                 echo "Detected platform: ${platform}"
