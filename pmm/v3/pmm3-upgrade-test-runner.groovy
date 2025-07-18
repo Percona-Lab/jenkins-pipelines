@@ -63,13 +63,12 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 sudo mkdir -m 777 -p /tmp/backup_data
                 echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.bashrc
                 source ~/.bashrc
-                which pip3
-                sudo pip3 --version
+                sudo /usr/local/bin/pip3 --version
                 sudo python3 -m venv virtenv
                 . virtenv/bin/activate
-                pip3 install --upgrade pip
-                pip3 install -r requirements.txt
-                pip3 install setuptools
+                sudo /usr/local/bin/pip3 install --upgrade pip
+                sudo /usr/local/bin/pip3 install -r requirements.txt
+                sudo /usr/local/bin/pip3 install setuptools
 
                 sudo python3 pmm-framework.py --v \
                     --verbose \
