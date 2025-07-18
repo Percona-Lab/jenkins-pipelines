@@ -72,7 +72,6 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                     --verbose \
                     --verbosity-level=5 \
                     --client-version=3-dev-latest \
-                    --pmm-server-password=Heslo123 \
                     --database bucket,BUCKET_NAMES=\\"bcp\\"
             popd
         "'
