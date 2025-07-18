@@ -19,20 +19,20 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLI
     ]
 }
 
-def generateVariants(String PMM_UI_GIT_BRANCH, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions) {
+def generateVariants(String PMM_UI_GIT_BRANCH, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions) {
     def results = new HashMap<>();
-    def latestVersion = pmmVersions[0]
+    def latestVersion = PMM_SERVER_LATEST;
 
     for (pmmVersion in pmmVersions) {
         if(pmmVersion == latestVersion) {
             results.put(
                 "Run matrix upgrade tests from version: \"$pmmVersion\"",
-                generateStage(PMM_UI_GIT_BRANCH, "perconalab/pmm-server:${pmmVersion}-rc", '', 'pmm3-rc', CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH)
+                generateStage(PMM_UI_GIT_BRANCH, "perconalab/pmm-server:${pmmVersion}-rc", 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH)
             )
         } else {
             results.put(
                 "Run matrix upgrade tests from version: \"$pmmVersion\"",
-                generateStage(PMM_UI_GIT_BRANCH, 'percona/pmm-server:' + pmmVersion, "perconalab/pmm-server:${latestVersion}-rc", pmmVersion, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH)
+                generateStage(PMM_UI_GIT_BRANCH, 'percona/pmm-server:' + pmmVersion, "perconalab/pmm-server:${latestVersion}-rc", pmmVersion, 'release', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH)
             )
         }
     }
@@ -59,10 +59,6 @@ pipeline {
             defaultValue: 'v3',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
-        choice(
-            choices: ["experimental", "testing", "release"],
-            description: 'PMM client repository',
-            name: 'CLIENT_REPOSITORY')
         string(
             defaultValue: latestVersion,
             description: 'latest PMM Server Version',
@@ -80,13 +76,13 @@ pipeline {
         disableConcurrentBuilds()
     }
     triggers {
-        cron('0 3 * * *')
+        cron('0 1 * * *')
     }
     stages {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
-                    parallel generateVariants(PMM_UI_GIT_BRANCH, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions)
+                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions)
                 }
             }
         }
