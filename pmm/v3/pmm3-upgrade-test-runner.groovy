@@ -61,7 +61,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 sudo dnf install -y python3.12
                 sudo mkdir -m 777 -p /tmp/backup_data
                 sudo python3 -m ensurepip --upgrade
-                echo "Versions of pip?"
+                echo \\"Versions of pip?\\"
                 /usr/local/bin/pip3 --version
                 pip --version
                 pip3 --version
