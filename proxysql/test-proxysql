@@ -74,7 +74,7 @@ function get_glibc_version {
     "oraclelinux:8" | "ol:8")
       echo "2.28"
       ;;
-    "oraclelinux:9" | "ol:9")
+    "oraclelinux:9" | "ol:9" | "ol:9.6")
       echo "2.34"
       ;;
     "ubuntu:focal")
@@ -126,6 +126,7 @@ check_percona_release() {
 # Function to install percona-release on Debian-based systems
 install_debian() {
     echo "Installing percona-release for Debian-based system..."
+    sudo apt-get update -y
     sudo curl -O https://repo.percona.com/apt/percona-release_latest.generic_all.deb
     sudo apt install -y gnupg2 lsb-release ./percona-release_latest.generic_all.deb
 }
@@ -164,9 +165,9 @@ if [ -f /usr/bin/apt ]; then
   install_package wget gnupg2 lsb-release curl
 fi
 
-# Installing proxysql 2.0.latest package
+# Installing proxysql 3.0.latest package
 enable_repo proxysql testing
-install_package proxysql2
+install_package proxysql3
 
 if [[ "${PXC_VERSION}" == "PXC84" ]]; then
   # Downloading PXC-8.4 tarball package
@@ -191,9 +192,8 @@ elif [[ "${PXC_VERSION}" == "PXC57" ]]; then
   # Installing PXC-5.7 client
   enable_repo pxc-57 release
   install_package percona-xtradb-cluster-client-5.7
-
   # Installing PXB-2.4 (only required in case of PXC-5.7)
-  enable_repo pxb-24 release
+  enable_repo pxb-24 testing
   install_package percona-xtrabackup-24
 fi
 

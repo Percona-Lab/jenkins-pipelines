@@ -24,6 +24,7 @@ if [ -f /usr/bin/yum ]; then
         sudo cmake --version
     fi
     sudo yum -y install wget
+    sudo yum -y install libuuid-devel
     if [[ $RHEL -eq 7 ]]; then
       sudo yum -y install automake bzip2 cmake3 make gcc-c++ gcc git openssl openssl-devel gnutls gnutls-devel libtool patch libuuid libuuid-devel perl-IPC-Cmd
       if [ -f /usr/bin/cmake3 ]; then
@@ -33,6 +34,7 @@ if [ -f /usr/bin/yum ]; then
     fi
 elif [ -f /usr/bin/apt ]; then
   DEBIAN_VERSION=$(lsb_release -sc)
+  sudo apt-get -y update
   if [ ${DEBIAN_VERSION} = "stretch" ]; then
     sudo sed -i s/deb.debian.org/archive.debian.org/g /etc/apt/sources.list
     sudo sed -i 's|security.debian.org|archive.debian.org|g' /etc/apt/sources.list
@@ -44,6 +46,7 @@ elif [ -f /usr/bin/apt ]; then
   fi
   if [ ${DEBIAN_VERSION} = "bionic" -o ${DEBIAN_VERSION} = "buster" -o ${DEBIAN_VERSION} = "stretch" ]; then
     sudo wget https://github.com/Kitware/CMake/releases/download/v3.19.8/cmake-3.19.8.tar.gz
+    sudo wget --no-check-certificate https://cmake.org/files/v3.22/cmake-3.22.1.tar.gz
     sudo tar -zxvf cmake-3.19.8.tar.gz
     cd cmake-3.19.8/
     sudo ./bootstrap
@@ -56,8 +59,8 @@ fi
 
 # We need to use golang version >= 1.21. Downloading golang from tarball to ensure each platform uses the same version.
 sudo rm -rf /usr/bin/go
-sudo wget https://go.dev/dl/go1.22.7.linux-amd64.tar.gz
-sudo tar -C /usr/local/ -xzf go1.22.7.linux-amd64.tar.gz
+sudo wget https://go.dev/dl/go1.23.11.linux-amd64.tar.gz
+sudo tar -C /usr/local/ -xzf go1.23.11.linux-amd64.tar.gz
 sudo ln -s /usr/local/go/bin/go /usr/bin/go
 
 go version
