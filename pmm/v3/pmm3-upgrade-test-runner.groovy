@@ -68,11 +68,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 pip3 install -r requirements.txt
                 pip3 install setuptools
 
-                python pmm-framework.py --v \
-                    --verbose \
-                    --verbosity-level=5 \
-                    --client-version=3-dev-latest \
-                    --database bucket,BUCKET_NAMES=\\"bcp\\"
+                python pmm-framework.py --verbosity-level=1 --database bucket,BUCKET_NAMES=\\"bcp\\"
             popd
         "'
     '''
