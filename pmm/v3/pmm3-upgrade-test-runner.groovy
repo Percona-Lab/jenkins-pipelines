@@ -61,7 +61,10 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 sudo dnf install -y python3.12 python3.12-pip
                 sudo python3 -m ensurepip --upgrade
                 sudo mkdir -m 777 -p /tmp/backup_data
-                ls /usr/local/bin/
+                echo 'export PATH="/usr/local/bin:$PATH"' >> ~/.bashrc
+                source ~/.bashrc
+                which pip3
+                sudo pip3 --version
                 sudo python3 -m venv virtenv
                 . virtenv/bin/activate
                 sudo pip3 install --upgrade pip
