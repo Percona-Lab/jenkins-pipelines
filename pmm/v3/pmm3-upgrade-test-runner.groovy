@@ -61,16 +61,12 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 sudo dnf install -y python3.12
                 sudo mkdir -m 777 -p /tmp/backup_data
                 sudo python3 -m ensurepip --upgrade
-                echo \\"Versions of pip?\\"
-                /usr/local/bin/pip3 --version
-                pip --version
-                pip3 --version
                 sudo chown -R $(whoami) /srv/qa-integration/
                 python3.12 -m venv virtenv
                 source virtenv/bin/activate
-                /usr/local/bin/pip3 install --upgrade pip
-                /usr/local/bin/pip3 install -r requirements.txt
-                /usr/local/bin/pip3 install setuptools
+                pip3 install --upgrade pip
+                pip3 install -r requirements.txt
+                pip3 install setuptools
 
                 python3 pmm-framework.py --v \
                     --verbose \
