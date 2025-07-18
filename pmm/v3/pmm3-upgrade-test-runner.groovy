@@ -67,9 +67,9 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 sudo pip3 --version
                 sudo python3 -m venv virtenv
                 . virtenv/bin/activate
-                sudo pip3 install --upgrade pip
-                sudo pip3 install -r requirements.txt
-                sudo pip3 install setuptools
+                pip3 install --upgrade pip
+                pip3 install -r requirements.txt
+                pip3 install setuptools
 
                 sudo python3 pmm-framework.py --v \
                     --verbose \
