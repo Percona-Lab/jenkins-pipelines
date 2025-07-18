@@ -1,6 +1,6 @@
 library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/adivinho/jenkins-pipelines.git'
+    remote: 'https://github.com/percona-lab/jenkins-pipelines.git'
 ])
 
 pipeline_timeout = 10
