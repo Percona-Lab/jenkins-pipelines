@@ -69,6 +69,8 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 pip3 install setuptools
 
                 python pmm-framework.py --verbosity-level=1 --database bucket,BUCKET_NAMES=\\"bcp\\"
+                docker network connect pmm-qa pmm-server
+                docker network connect pmm-qa watchtower
                 docker ps -a
             popd
         "'
