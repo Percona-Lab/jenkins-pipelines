@@ -71,7 +71,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 /usr/local/bin/pip3 install -r requirements.txt
                 /usr/local/bin/pip3 install setuptools
 
-                sudo python3 pmm-framework.py --v \
+                python3 pmm-framework.py --v \
                     --verbose \
                     --verbosity-level=5 \
                     --client-version=3-dev-latest \
