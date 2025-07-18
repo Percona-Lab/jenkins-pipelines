@@ -23,6 +23,7 @@ netMap['eu-west-1c'] = 'subnet-0eb939327a262a348'
 imageMap = [:]
 imageMap['eu-west-1a.docker'] = 'ami-0e8b5d4aece7e1ce8'
 imageMap['eu-west-1a.docker-32gb'] = 'ami-0e8b5d4aece7e1ce8'
+imageMap['eu-west-1a.docker-64gb'] = 'ami-0e8b5d4aece7e1ce8'
 imageMap['eu-west-1a.docker2'] = 'ami-0e8b5d4aece7e1ce8'
 imageMap['eu-west-1a.micro-amazon'] = 'ami-0e8b5d4aece7e1ce8'
 imageMap['eu-west-1a.min-amazon-2-x64'] = 'ami-0e8b5d4aece7e1ce8'
@@ -45,6 +46,7 @@ imageMap['eu-west-1a.min-bionic-x64-zenfs']  = 'ami-02d7fe93ba8353d4e'
 
 imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
+imageMap['eu-west-1b.docker-64gb'] = imageMap['eu-west-1a.docker-64gb']
 imageMap['eu-west-1b.docker2'] = imageMap['eu-west-1a.docker2']
 imageMap['eu-west-1b.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
 imageMap['eu-west-1b.min-amazon-2-x64'] = imageMap['eu-west-1a.min-amazon-2-x64']
@@ -68,6 +70,7 @@ imageMap['eu-west-1b.min-bionic-x64-zenfs']  = imageMap['eu-west-1a.min-bionic-x
 
 imageMap['eu-west-1c.docker'] = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1c.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
+imageMap['eu-west-1c.docker-64gb'] = imageMap['eu-west-1a.docker-64gb']
 imageMap['eu-west-1c.docker2'] = imageMap['eu-west-1a.docker2']
 imageMap['eu-west-1c.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
 imageMap['eu-west-1c.min-amazon-2-x64'] = imageMap['eu-west-1a.min-amazon-2-x64']
@@ -90,21 +93,26 @@ imageMap['eu-west-1c.min-focal-x64-zenfs'] = imageMap['eu-west-1a.min-focal-x64-
 imageMap['eu-west-1c.min-bionic-x64-zenfs']  = imageMap['eu-west-1a.min-bionic-x64-zenfs']
 
 imageMap['eu-west-1a.docker-32gb-aarch64']  = 'ami-0b3f5005d71118f36'
+imageMap['eu-west-1a.docker-64gb-aarch64']  = 'ami-0b3f5005d71118f36'
 imageMap['eu-west-1b.docker-32gb-aarch64']  = imageMap['eu-west-1a.docker-32gb-aarch64']
 imageMap['eu-west-1c.docker-32gb-aarch64']  = imageMap['eu-west-1a.docker-32gb-aarch64']
+imageMap['eu-west-1b.docker-64gb-aarch64']  = imageMap['eu-west-1a.docker-64gb-aarch64']
+imageMap['eu-west-1c.docker-64gb-aarch64']  = imageMap['eu-west-1a.docker-64gb-aarch64']
 
 priceMap = [:]
 priceMap['t2.small'] = '0.02'    // type=t2.small, vCPU=1, memory=2GiB, saving=68%, interruption='<5%', price=0.008000
 priceMap['c5.xlarge'] = '0.15'   // type=c5.xlarge, vCPU=4, memory=8GiB, saving=58%, interruption='<5%', price=0.086400
-priceMap['m5.4xlarge'] = '0.62' // type=m5.4xlarge, vCPU=16, memory=64GiB, saving=65%, interruption='<5%', price=0.441500
+priceMap['g4ad.4xlarge'] = '0.53' // type=g4ad.4xlarge, vCPU=16, memory=64GiB, saving=65%, interruption='<5%', price=0.0.46910
 priceMap['r6a.4xlarge'] = '0.42' // type=r6a.4xlarge, vCPU=16, memory=128GiB, saving=66%, interruption='<5%', price=0.361600
 priceMap['i4i.2xlarge'] = '0.32' // type=i4i.2xlarge, vCPU=8, memory=64GiB, saving=68%, interruption='<5%', price=0.248900
 
 priceMap['m6g.2xlarge'] = '0.24' // aarch64 type=m6g.2xlarge, vCPU=8, memory=32GiB, saving=60%, interruption='<5%', price=0.161800
+priceMap['m7g.4xlarge'] = '0.39' // aarch64 type=m7g.4xlarge, vCPU=16, memory=64GiB, saving=58%, interruption='<5%', price=0.348600
 
 userMap = [:]
 userMap['docker']            = 'ec2-user'
 userMap['docker-32gb']       = userMap['docker']
+userMap['docker-64gb']       = userMap['docker']
 userMap['docker2']           = userMap['docker']
 userMap['micro-amazon']      = userMap['docker']
 userMap['min-amazon-2-x64']  = userMap['docker']
@@ -125,6 +133,7 @@ userMap['min-focal-x64-zenfs']    = 'ubuntu'
 userMap['min-bionic-x64-zenfs']   = 'ubuntu'
 
 userMap['docker-32gb-aarch64'] = userMap['docker']
+userMap['docker-64gb-aarch64'] = userMap['docker']
 
 initMap = [:]
 initMap['docker'] = '''
@@ -192,6 +201,7 @@ initMap['docker'] = '''
     echo "* * * * * root /usr/sbin/route add default gw 10.199.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['docker-32gb'] = initMap['docker']
+initMap['docker-64gb'] = initMap['docker']
 initMap['docker2'] = initMap['docker']
 initMap['micro-amazon'] = '''
     set -o xtrace
@@ -312,19 +322,22 @@ initMap['min-focal-x64-zenfs'] = initMap['min-bionic-x64']
 initMap['min-bionic-x64-zenfs'] = initMap['min-bionic-x64']
 
 initMap['docker-32gb-aarch64'] = initMap['docker']
+initMap['docker-64gb-aarch64'] = initMap['docker']
 
 capMap = [:]
 capMap['c5.xlarge']    = '60'
-capMap['m5.4xlarge'] = '40'
+capMap['g4ad.4xlarge'] = '40'
 capMap['r6a.4xlarge']   = '40'
 capMap['i4i.2xlarge']  = '40'
 
 capMap['m6g.2xlarge'] = '20'
+capMap['m7g.4xlarge'] = '20'
 
 typeMap = [:]
 typeMap['micro-amazon']      = 't2.small'
 typeMap['docker']            = 'c5.xlarge'
-typeMap['docker-32gb']       = 'm5.4xlarge'
+typeMap['docker-32gb']       = 'g4ad.4xlarge'
+typeMap['docker-64gb']       = 'g4ad.4xlarge'
 typeMap['docker2']           = 'r6a.4xlarge'
 typeMap['min-centos-7-x64']  = typeMap['docker-32gb']
 typeMap['min-centos-8-x64']  = typeMap['min-centos-7-x64']
@@ -344,10 +357,12 @@ typeMap['min-focal-x64-zenfs'] = typeMap['min-centos-7-x64']
 typeMap['min-bionic-x64-zenfs'] = typeMap['min-centos-7-x64']
 
 typeMap['docker-32gb-aarch64'] = 'm6g.2xlarge'
+typeMap['docker-64gb-aarch64'] = 'm7g.4xlarge'
 
 execMap = [:]
 execMap['docker']            = '1'
 execMap['docker-32gb']       = execMap['docker']
+execMap['docker-64gb']       = execMap['docker']
 execMap['docker2']           = execMap['docker']
 execMap['micro-amazon']      = '30'
 execMap['min-amazon-2-x64']  = '1'
@@ -368,11 +383,13 @@ execMap['min-focal-x64-zenfs'] = '1'
 execMap['min-bionic-x64-zenfs'] = '1'
 
 execMap['docker-32gb-aarch64'] = execMap['docker']
+execMap['docker-64gb-aarch64'] = execMap['docker']
 
 devMap = [:]
-devMap['docker']                = '/dev/xvda=:8:true:gp2,/dev/xvdd=:220:true:gp2'
+devMap['docker']                = '/dev/xvda=:8:true:gp2,/dev/xvdd=:320:true:gp2'
 devMap['docker2']               = '/dev/xvda=:8:true:gp2,/dev/xvdd=:220:true:gp2'
 devMap['docker-32gb']           = devMap['docker']
+devMap['docker-64gb']           = devMap['docker']
 devMap['micro-amazon']          = devMap['docker']
 devMap['min-amazon-2-x64']  = '/dev/xvda=:30:true:gp2,/dev/xvdd=:220:true:gp2'
 devMap['min-bionic-x64']        = '/dev/sda1=:30:true:gp2,/dev/sdd=:220:true:gp2'
@@ -392,10 +409,12 @@ devMap['min-focal-x64-zenfs']   = '/dev/sda1=:30:true:gp2,/dev/sdd=:220:true:gp2
 devMap['min-bionic-x64-zenfs']  = '/dev/sda1=:30:true:gp2,/dev/sdd=:220:true:gp2'
 
 devMap['docker-32gb-aarch64'] = devMap['docker']
+devMap['docker-64gb-aarch64'] = devMap['docker']
 
 labelMap = [:]
 labelMap['docker']            = ''
 labelMap['docker-32gb']       = ''
+labelMap['docker-64gb']       = ''
 labelMap['docker2']           = ''
 labelMap['micro-amazon']      = 'master'
 labelMap['min-amazon-2-x64']  = ''
@@ -416,10 +435,12 @@ labelMap['min-focal-x64-zenfs']    = ''
 labelMap['min-bionic-x64-zenfs']   = ''
 
 labelMap['docker-32gb-aarch64'] = ''
+labelMap['docker-64gb-aarch64'] = ''
 
 jvmoptsMap = [:]
 jvmoptsMap['docker']            = '-Xmx512m -Xms512m'
 jvmoptsMap['docker-32gb']       = jvmoptsMap['docker']
+jvmoptsMap['docker-64gb']       = jvmoptsMap['docker']
 jvmoptsMap['docker2']           = jvmoptsMap['docker']
 jvmoptsMap['micro-amazon']      = jvmoptsMap['docker']
 jvmoptsMap['min-amazon-2-x64']  = jvmoptsMap['docker']
@@ -440,6 +461,7 @@ jvmoptsMap['min-focal-x64-zenfs']    = jvmoptsMap['docker']
 jvmoptsMap['min-bionic-x64-zenfs']   = jvmoptsMap['docker']
 
 jvmoptsMap['docker-32gb-aarch64'] = jvmoptsMap['docker']
+jvmoptsMap['docker-64gb-aarch64'] = jvmoptsMap['docker']
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -511,6 +533,7 @@ String region = 'eu-west-1'
         [
             getTemplate('docker',                "${region}${it}"),
             getTemplate('docker-32gb',           "${region}${it}"),
+            getTemplate('docker-64gb',           "${region}${it}"),
             getTemplate('micro-amazon',          "${region}${it}"),
             getTemplate('min-amazon-2-x64',      "${region}${it}"),
             getTemplate('min-jammy-x64',         "${region}${it}"),
@@ -528,6 +551,7 @@ String region = 'eu-west-1'
             getTemplate('min-focal-x64-zenfs',   "${region}${it}"),
             getTemplate('min-bionic-x64-zenfs',  "${region}${it}"),
             getTemplate('docker-32gb-aarch64',   "${region}${it}"),
+            getTemplate('docker-64gb-aarch64',   "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''
@@ -546,4 +570,3 @@ String region = 'eu-west-1'
 jenkins.save()
 
 logger.info("Cloud init finished")
-
