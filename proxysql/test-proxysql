@@ -166,7 +166,7 @@ fi
 
 # Installing proxysql 2.0.latest package
 enable_repo proxysql testing
-install_package proxysql2
+#install_package proxysql2
 
 if [[ "${PXC_VERSION}" == "PXC84" ]]; then
   # Fetch PXC versions
@@ -230,7 +230,7 @@ for X in $(seq 0 $COPY_TIMEOUT); do
   sleep 1
 done
 
-for file in proxysql-admin proxysql-admin-common proxysql-login-file proxysql-common percona-scheduler-admin; do
+for file in proxysql-admin proxysql-admin-common proxysql-login-file proxysql-common percona-scheduler-admin proxysql; do
   sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/usr/bin/$file ${WORKDIR_ABS}/WORKDIR/$file
 done;
 sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/etc/proxysql-admin.cnf ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/etc/proxysql-admin.cnf
