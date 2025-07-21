@@ -553,7 +553,7 @@ pipeline {
                 }
             }
         }
-        stage('Check PMM Server Packages before Upgrade') {
+        stage('Check PMM Server Packages after Upgrade') {
             parallel {
                 stage('Check docker packages') {
                     when {
