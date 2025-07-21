@@ -5,6 +5,31 @@
         remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
     ])
 
+    List proxysql3_nodes = [
+                'ubuntu-noble',
+                'ubuntu-jammy',
+                'ubuntu-noble-arm',
+                'ubuntu-jammy-arm',
+                'debian-12',
+                'debian-12-arm',
+                'rhel-9',
+                'rhel-9-arm',
+    ]
+
+    List proxysql2_nodes = [
+                'ubuntu-noble',
+                'ubuntu-jammy',
+                'ubuntu-focal',
+                'debian-12',
+                'debian-11',
+                'ol-8',
+                'ol-9',
+                'rhel-8',
+                'rhel-9',
+    ]     
+
+    List all_possible_nodes = (proxysql2_nodes + proxysql3_nodes).unique()
+
     pipeline {
     agent {
         label 'min-bookworm-x64'
@@ -89,19 +114,7 @@
             stage('RUN TESTS') {
                         steps {
                             script {
-                                // Read OS platform info
-                                def os_id = sh(script: ". /etc/os-release && echo \$ID", returnStdout: true).trim()
-                                def os_version = sh(script: ". /etc/os-release && echo \$VERSION_ID", returnStdout: true).trim()
-                                def platform = "${os_id}-${os_version}".replaceAll("\"", "")
 
-                                echo "Detected platform: ${platform}"
-
-                                // Block proxysql3 on unsupported platforms
-                                if (product_to_test == "proxysql3" && !["oracle-9", "debian-12", "ubuntu-22.04", "ubuntu-24.04"].contains(platform)) {
-                                error("proxysql3 is not supported on ${platform}")
-                                }
-
-                                // Write environment for molecule
                                 if (action_to_test == 'install') {
                                     sh """
                                         echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
