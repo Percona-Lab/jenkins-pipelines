@@ -55,7 +55,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
             cat /home/admin/.config/systemd/user/pmm-server.env
 
             systemctl --user restart pmm-server
-            sudo git clone --single-branch --branch v3 https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
+            sudo git clone --single-branch --branch $QA_INTEGRATION_GIT_BRANCH https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
 
             pushd /srv/qa-integration/pmm_qa
                 echo \\"Setting docker based PMM clients\\"
