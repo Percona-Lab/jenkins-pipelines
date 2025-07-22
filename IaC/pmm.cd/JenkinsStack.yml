@@ -686,8 +686,6 @@ Resources:
 
                 printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                     | tee -a /etc/hosts
-                # sed -i 's|-Djava.awt.headless=true|-Djava.awt.headless=true -Xms3072m -Xmx3072m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600|' /usr/lib/systemd/system/jenkins.service
-                # sed -i 's/\/var\/lib\/jenkins/\/mnt\/pmm.cd.percona.com/g' /usr/lib/systemd/system/jenkins.service
                 mkdir -p /etc/systemd/system/jenkins.service.d
                 cat <<-EOF | tee /etc/systemd/system/jenkins.service.d/override.conf
                      [Service]
