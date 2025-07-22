@@ -70,9 +70,9 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 pip3 install setuptools
 
                 if [ \\"$UPGRADE_FLAG\\" = \\"EXTERNAL SERVICES\\" ]; then
-                    export AMI_UPGRADE_FLAG=\\"--database external\\"
+                    export AMI_UPGRADE_FLAG=\\\"--database external\\\"
                 else
-                    export AMI_UPGRADE_FLAG=\\"--database bucket,BUCKET_NAMES=\\"bcp\\"\\"
+                    export AMI_UPGRADE_FLAG=\\\"--database bucket,BUCKET_NAMES=\\\"bcp\\\"\\\"
                 fi
 
                 echo \\"AMI Upgrade flag is: \$AMI_UPGRADE_FLAG\\"
