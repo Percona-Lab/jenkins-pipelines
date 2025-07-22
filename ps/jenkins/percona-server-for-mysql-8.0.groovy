@@ -492,7 +492,7 @@ parameters {
                 }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'min-focal-x64'
                     }
                     steps {
                         script {
@@ -512,7 +512,7 @@ parameters {
                 }
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'min-focal-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -532,7 +532,7 @@ parameters {
                 }
                 stage('Ubuntu Noble(24.04)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'min-focal-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -552,7 +552,7 @@ parameters {
                 }
                 stage('Debian Bullseye(11)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'min-focal-x64'
                     }
                     steps {
                         script {
@@ -572,7 +572,7 @@ parameters {
                 }
                 stage('Debian Bookworm(12)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'min-focal-x64'
                     }
                     steps {
                         cleanUpWS()
@@ -831,7 +831,7 @@ parameters {
                 }
                 stage('Ubuntu Focal(20.04) tarball') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'min-focal-x64'
                     }
                     steps {
                         script {
@@ -859,7 +859,7 @@ parameters {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                installCli("deb")
+                                installCli("rpm")
                                 unstash 'properties'
                                 popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--debug=1 --build_tarball=1")
@@ -875,7 +875,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
@@ -895,7 +895,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
@@ -914,7 +914,7 @@ parameters {
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
@@ -936,7 +936,7 @@ parameters {
             }
             steps {
                 cleanUpWS()
-                installCli("deb")
+                installCli("rpm")
                 unstash 'properties'
 
                 uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
