@@ -47,8 +47,8 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
   withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
     sh """
         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} '
-            echo "PMM_DEBUG=1\\" >> /home/admin/.config/systemd/user/pmm-server.env
-            echo "PMM_ENABLE_TELEMETRY=0\\" >> /home/admin/.config/systemd/user/pmm-server.env
+            echo "PMM_DEBUG=1" >> /home/admin/.config/systemd/user/pmm-server.env
+            echo "PMM_ENABLE_TELEMETRY=0" >> /home/admin/.config/systemd/user/pmm-server.env
             echo "PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX" >> /home/admin/.config/systemd/user/pmm-server.env
             echo "PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com" >> /home/admin/.config/systemd/user/pmm-server.env
             echo "PMM_DEV_UPDATE_DOCKER_IMAGE=${DOCKER_TAG_UPGRADE}" >> /home/admin/.config/systemd/user/pmm-server.env
@@ -58,7 +58,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
             sudo git clone --single-branch --branch v3 https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
 
             pushd /srv/qa-integration/pmm_qa
-                echo " Upgrade flag is ${UPGRADE_FLAG} "
+                echo ${UPGRADE_FLAG}
                 echo "Setting docker based PMM clients"
                 sudo dnf install -y python3.12
                 sudo mkdir -m 777 -p /tmp/backup_data
