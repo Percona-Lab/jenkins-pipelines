@@ -45,13 +45,13 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
   env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${AMI_INSTANCE_IP}"
   env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}/"
   withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-    def script = sh '''
+    sh """
         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} 'bash -c "
             echo \\"PMM_DEBUG=1\\" >> /home/admin/.config/systemd/user/pmm-server.env
             echo \\"PMM_ENABLE_TELEMETRY=0\\" >> /home/admin/.config/systemd/user/pmm-server.env
             echo \\"PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX\\" >> /home/admin/.config/systemd/user/pmm-server.env
             echo \\"PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com\\" >> /home/admin/.config/systemd/user/pmm-server.env
-            echo \\"PMM_DEV_UPDATE_DOCKER_IMAGE=_DOCKER_TAG_UPGRADE_\\" >> /home/admin/.config/systemd/user/pmm-server.env
+            echo \\"PMM_DEV_UPDATE_DOCKER_IMAGE=${DOCKER_TAG_UPGRADE}\\" >> /home/admin/.config/systemd/user/pmm-server.env
             cat /home/admin/.config/systemd/user/pmm-server.env
 
             systemctl --user restart pmm-server
@@ -74,8 +74,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 docker network connect pmm-qa pmm-server
                 docker network connect pmm-qa watchtower
         "'
-    '''
-    script = script.replace('_DOCKER_TAG_UPGRADE_', DOCKER_TAG_UPGRADE)
+    """
   }
 }
 
