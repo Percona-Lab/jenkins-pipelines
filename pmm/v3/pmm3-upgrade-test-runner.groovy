@@ -57,6 +57,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
             sudo git clone --single-branch --branch v3 https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
 
             pushd /srv/qa-integration/pmm_qa
+                echo \\" Upgrade flag is \${UPGRADE_FLAG}\\"
                 echo \\"Setting docker based PMM clients\\"
                 sudo dnf install -y python3.12
                 sudo mkdir -m 777 -p /tmp/backup_data
@@ -67,6 +68,8 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 pip3 install --upgrade pip
                 pip3 install -r requirements.txt
                 pip3 install setuptools
+
+
 
                 python pmm-framework.py --verbosity-level=1 --database bucket,BUCKET_NAMES=\\"bcp\\"
                 docker network connect pmm-qa pmm-server
