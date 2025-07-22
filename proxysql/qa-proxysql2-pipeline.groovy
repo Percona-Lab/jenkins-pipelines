@@ -68,7 +68,7 @@ pipeline {
                     script {
                         currentBuild.displayName = "#${BUILD_NUMBER}-${params.BRANCH}-${params.DOCKER_OS}-${params.CMAKE_BUILD_TYPE}-${params.PXC_VERSION}"
                     }
-                    git branch: 'PSQLADM-573-ProxySQL-admin-scripts-testing-job-qa-proxysql2-pipeline', url: 'https://github.com/adivinho/jenkins-pipelines'
+                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Checkout ProxySQL sources'
                     sh '''
                         # sudo is needed for better node recovery after compilation failure
@@ -105,7 +105,7 @@ pipeline {
         stage('Test ProxySQL') {
                 agent { label 'docker' }
                 steps {
-                    git branch: 'PSQLADM-573-ProxySQL-admin-scripts-testing-job-qa-proxysql2-pipeline', url: 'https://github.com/adivinho/jenkins-pipelines'
+                    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     echo 'Test ProxySQL'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
