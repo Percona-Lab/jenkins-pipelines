@@ -69,7 +69,13 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 pip3 install -r requirements.txt
                 pip3 install setuptools
 
-                python pmm-framework.py --verbosity-level=1 --database bucket,BUCKET_NAMES=\\"bcp\\"
+                if [ "$UPGRADE_FLAG" = "EXTERNAL SERVICES" ]; then
+                    export AMI_UPGRADE_FLAG = \\"--database external\\"
+                else
+                    export AMI_UPGRADE_FLAG = \\"--database bucket,BUCKET_NAMES=\\"bcp\\"\\"
+                fi
+
+                python pmm-framework.py --verbosity-level=1 \$AMI_UPGRADE_FLAG
                 docker network connect pmm-qa pmm-server
                 docker network connect pmm-qa watchtower
         "'
