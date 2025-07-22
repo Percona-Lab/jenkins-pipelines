@@ -327,7 +327,7 @@ parameters {
                 }
                 stage('Build PS generic source deb') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'min-focal-x64'
                     }
                     steps {
                         cleanUpWS()
