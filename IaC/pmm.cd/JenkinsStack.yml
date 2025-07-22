@@ -618,7 +618,6 @@ Resources:
                 yum-config-manager --add-repo "https://openresty.org/package/amazon/2023/x86_64/"
                 rpm --import https://openresty.org/package/pubkey.gpg
                 wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-                # rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
                 rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
                 yum -y install java-17-amazon-corretto
                 yum -y update --security
