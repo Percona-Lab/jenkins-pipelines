@@ -166,7 +166,7 @@ fi
 
 # Installing proxysql 2.0.latest package
 enable_repo proxysql testing
-#install_package proxysql2
+install_package proxysql2
 
 if [[ "${PXC_VERSION}" == "PXC84" ]]; then
   # Fetch PXC versions
