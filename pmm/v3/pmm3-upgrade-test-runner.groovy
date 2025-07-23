@@ -339,12 +339,20 @@ pipeline {
             parallel {
                 stage('Setup PMM Client') {
                     steps {
-                        setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
+                         sh '''
+                            cd /srv/qa-integration/pmm_qa
+                            chmod +x pmm3-client-setup.sh
+                            ./pmm3-client-setup.sh --pmm_server_ip \${SERVER_IP} --client_version \${CLIENT_VERSION.trim()} --admin_password \${ADMIN_PASSWORD}
+                         '''
                     }
                 }
                 stage('Install dependencies') {
                     steps {
                         sh '''
+                            curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
+                            bash nodesource_setup.sh
+                            apt install nodejs
+                            apt-get install -y gettext
                             npm ci
                             npx playwright install
                             envsubst < env.list > env.generated.list
