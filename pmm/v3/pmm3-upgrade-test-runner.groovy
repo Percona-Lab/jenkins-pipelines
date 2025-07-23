@@ -62,15 +62,15 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
 
             pushd /srv/qa-integration/pmm_qa
                 echo \\"Setting docker based PMM clients\\"
-                sudo dnf install -y python3.12  > /dev/null
-                sudo mkdir -m 777 -p /tmp/backup_data  > /dev/null
-                sudo python3 -m ensurepip --upgrade  > /dev/null
-                sudo chown -R \$(whoami) /srv/qa-integration/  > /dev/null
-                python3.12 -m venv virtenv  > /dev/null
-                source virtenv/bin/activate  > /dev/null
-                pip3 install --upgrade pip  > /dev/null
-                pip3 install -r requirements.txt  > /dev/null
-                pip3 install setuptools  > /dev/null
+                sudo dnf install -y python3.12
+                sudo mkdir -m 777 -p /tmp/backup_data
+                sudo python3 -m ensurepip --upgrade
+                sudo chown -R \$(whoami) /srv/qa-integration/
+                python3.12 -m venv virtenv
+                source virtenv/bin/activate
+                pip3 install --upgrade pip
+                pip3 install -r requirements.txt
+                pip3 install setuptools
 
                 if [ \\"$UPGRADE_FLAG\\" = \\"EXTERNAL SERVICES\\" ]; then
                     export AMI_UPGRADE_FLAG=\\"--database external\\"
