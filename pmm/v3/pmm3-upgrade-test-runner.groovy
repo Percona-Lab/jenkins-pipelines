@@ -371,6 +371,7 @@ pipeline {
                     . virtenv/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
+                    ansible-galaxy collection install community.general
 
                     if [ "\${SERVER_TYPE}" = "ami" ]; then
                         ARGS="--pmm-server-ip=\${SERVER_IP}"
