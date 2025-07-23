@@ -216,7 +216,7 @@ pipeline {
                     sudo mkdir -p /srv/qa-integration || true
                     cd  /srv/qa-integration
                         sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                    sudo chown ec2-user -R /srv/qa-integration
+                    sudo chmod -R 755 /srv/qa-integration
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
