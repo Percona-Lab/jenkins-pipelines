@@ -266,6 +266,7 @@ void runTest(Integer TEST_ID) {
                         export IMAGE_UPGRADE=$IMAGE_UPGRADE
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
                         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
+                        export SKIP_TEST_WARNINGS=$SKIP_TEST_WARNINGS
 
                         kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
                     """
@@ -406,6 +407,7 @@ pipeline {
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'EKS_REGION', defaultValue: 'eu-west-3', description: 'EKS region to use for cluster')
         string(name: 'IMAGE_UPGRADE', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-upgrade')
+        string(name: 'SKIP_TEST_WARNINGS', choices: 'false\ntrue', description: 'Skip test warnings that requires release documentation')
     }
     agent {
         label 'docker'
