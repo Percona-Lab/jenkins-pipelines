@@ -351,7 +351,7 @@ pipeline {
                         sh '''
                             curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
                             sudo bash nodesource_setup.sh
-                            sudo apt install nodejs
+                            sudo apt install -y nodejs
                             sudo apt-get install -y gettext
                             npm ci
                             sudo npx playwright install
