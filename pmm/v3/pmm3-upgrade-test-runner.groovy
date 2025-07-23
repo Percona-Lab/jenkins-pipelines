@@ -60,7 +60,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
             systemctl --user restart pmm-server
             sudo git clone --single-branch --branch $QA_INTEGRATION_GIT_BRANCH https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
 
-            pushd /srv/qa-integration/pmm_qa
+            cd /srv/qa-integration/pmm_qa
                 echo \\"Setting docker based PMM clients\\"
                 sudo dnf install -y python3.12
                 sudo mkdir -m 777 -p /tmp/backup_data
@@ -211,13 +211,11 @@ pipeline {
 
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
-                    pushd /srv/pmm-qa
+                    cd  /srv/pmm-qa
                         sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                    popd
                     sudo mkdir -p /srv/qa-integration || true
-                    pushd /srv/qa-integration
+                    cd  /srv/qa-integration
                         sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                    popd
                     sudo chown ec2-user -R /srv/qa-integration
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
@@ -364,7 +362,7 @@ pipeline {
                     set -o errexit
                     set -o xtrace
 
-                    pushd /srv/qa-integration/pmm_qa
+                    cd /srv/qa-integration/pmm_qa
                     echo "Setting docker based PMM clients"
                     sudo apt install -y python3.12 python3.12-venv
                     mkdir -m 777 -p /tmp/backup_data
