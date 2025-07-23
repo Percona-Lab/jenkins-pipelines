@@ -339,11 +339,11 @@ pipeline {
             parallel {
                 stage('Setup PMM Client') {
                     steps {
-                         sh '''
+                         sh """
                             cd /srv/qa-integration/pmm_qa
                             sudo chmod +x pmm3-client-setup.sh
-                            ./pmm3-client-setup.sh --pmm_server_ip \${SERVER_IP} --client_version \${CLIENT_VERSION.trim()} --admin_password \${ADMIN_PASSWORD}
-                         '''
+                            ./pmm3-client-setup.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
+                         """
                     }
                 }
                 stage('Install dependencies') {
