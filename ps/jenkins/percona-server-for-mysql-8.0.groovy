@@ -327,11 +327,11 @@ parameters {
                 }
                 stage('Build PS generic source deb') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
@@ -492,7 +492,7 @@ parameters {
                 }
                 stage('Ubuntu Focal(20.04)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         script {
@@ -500,7 +500,7 @@ parameters {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                installCli("deb")
+                                installCli("rpm")
                                 unstash 'properties'
                                 popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
@@ -512,11 +512,11 @@ parameters {
                 }
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
@@ -532,11 +532,11 @@ parameters {
                 }
                 stage('Ubuntu Noble(24.04)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
@@ -552,7 +552,7 @@ parameters {
                 }
                 stage('Debian Bullseye(11)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         script {
@@ -560,7 +560,7 @@ parameters {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                installCli("deb")
+                                installCli("rpm")
                                 unstash 'properties'
                                 popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_deb=1 --with_zenfs=1")
@@ -572,11 +572,11 @@ parameters {
                 }
                 stage('Debian Bookworm(12)') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        installCli("deb")
+                        installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
@@ -831,7 +831,7 @@ parameters {
                 }
                 stage('Ubuntu Focal(20.04) tarball') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'min-focal-x64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         script {
@@ -839,7 +839,7 @@ parameters {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                installCli("deb")
+                                installCli("rpm")
                                 unstash 'properties'
                                 popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                                 buildStage("ubuntu:focal", "--build_tarball=1")
