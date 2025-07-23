@@ -350,11 +350,11 @@ pipeline {
                     steps {
                         sh '''
                             curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
-                            bash nodesource_setup.sh
-                            apt install nodejs
-                            apt-get install -y gettext
+                            sudo bash nodesource_setup.sh
+                            sudo apt install nodejs
+                            sudo apt-get install -y gettext
                             npm ci
-                            npx playwright install
+                            sudo npx playwright install
                             envsubst < env.list > env.generated.list
                             sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                             export PWD=$(pwd)
