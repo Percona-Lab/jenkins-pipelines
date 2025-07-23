@@ -96,7 +96,7 @@ def getMinorVersion(VERSION) {
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'min-noble-x64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -366,12 +366,13 @@ pipeline {
 
                     pushd /srv/qa-integration/pmm_qa
                     echo "Setting docker based PMM clients"
+                    sudo apt install -y python3.12 python3.12-venv
                     mkdir -m 777 -p /tmp/backup_data
                     python3 -m venv virtenv
                     . virtenv/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
-                    ansible-galaxy collection install community.general
+                    pip install setuptools
 
                     if [ "\${SERVER_TYPE}" = "ami" ]; then
                         ARGS="--pmm-server-ip=\${SERVER_IP}"
