@@ -117,6 +117,32 @@ pipeline {
                         uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
+                stage('Oracle Linux 10') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+			buildStage("oraclelinux:10", "--get_src_rpm=1")
+			pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+			popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        sh '''
+                            REPO_UPLOAD_PATH=$(grep "UPLOAD" test/llvm.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                            AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
+                            echo ${REPO_UPLOAD_PATH} > uploadPath
+                            echo ${AWS_STASH_PATH} > awsUploadPath
+                            cat test/llvm.properties
+                            cat uploadPath
+                           '''
+                        script {
+                            AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
+                        }
+                        stash includes: 'uploadPath', name: 'uploadPath'
+                        buildStage("oraclelinux:10", "--build_rpm=1")
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
             }
         }
 
