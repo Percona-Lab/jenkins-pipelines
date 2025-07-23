@@ -336,9 +336,9 @@ parameters {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("debian:buster", "--build_source_deb=1 --enable_fipsmode=1")
+                                buildStage("ubuntu:focal", "--build_source_deb=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("debian:buster", "--build_source_deb=1")
+                                buildStage("ubuntu:focal", "--build_source_deb=1")
                             }
                         }
 
