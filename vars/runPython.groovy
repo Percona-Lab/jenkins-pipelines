@@ -1,5 +1,5 @@
-def call(String name, String arguments='') {
+def call(String name, String arguments='', String python='python3') {
     final pythonContent = libraryResource("pmm/${name}.py")
     writeFile(file: "${name}.py", text: pythonContent)
-    sh("/home/ec2-user/venv/bin/python ${name}.py ${arguments}")
+    sh("${python} ${name}.py ${arguments}")
 }
