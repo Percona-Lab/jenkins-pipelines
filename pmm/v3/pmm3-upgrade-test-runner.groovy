@@ -335,33 +335,29 @@ pipeline {
                 }
             }
         }
-        stage('Setup Databases  and PMM Client for PMM-Server') {
-            parallel {
-                stage('Setup PMM Client') {
-                    steps {
-                         sh """
-                            cd /srv/qa-integration/pmm_qa
-                            sudo chmod +x pmm3-client-setup.sh
-                            sudo  ./pmm3-client-setup.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
-                         """
-                    }
-                }
-                stage('Install dependencies') {
-                    steps {
-                        sh '''
-                            curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
-                            sudo bash nodesource_setup.sh
-                            sudo apt install -y nodejs
-                            sudo apt-get install -y gettext
-                            npm ci
-                            sudo npx playwright install
-                            envsubst < env.list > env.generated.list
-                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                            export PWD=$(pwd)
-                            export CHROMIUM_PATH=/usr/bin/chromium
-                        '''
-                    }
-                }
+        stage('Setup PMM Client') {
+            steps {
+                 sh """
+                    cd /srv/qa-integration/pmm_qa
+                    sudo chmod +x pmm3-client-setup.sh
+                    sudo  ./pmm3-client-setup.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
+                 """
+            }
+        }
+        stage('Install dependencies') {
+            steps {
+                sh '''
+                    curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
+                    sudo bash nodesource_setup.sh
+                    sudo apt install -y nodejs
+                    sudo apt-get install -y gettext
+                    npm ci
+                    sudo npx playwright install
+                    envsubst < env.list > env.generated.list
+                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                    export PWD=$(pwd)
+                    export CHROMIUM_PATH=/usr/bin/chromium
+                '''
             }
         }
         stage('Setup Databases for PMM-Server') {
