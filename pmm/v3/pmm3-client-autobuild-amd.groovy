@@ -89,6 +89,52 @@ pipeline {
                         uploadTarball('binary')
                     }
                 }
+                stage('Build dynamic client binary for OL8') {
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''
+                                export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3-ol8
+                                export BUILD_TYPE=dynamic
+                                export OS_VARIANT=ol8
+
+                                ${PATH_TO_SCRIPTS}/build-client-binary
+                                ls -la "results/tarball" || :
+
+                                aws s3 cp --only-show-errors --acl public-read results/tarball/pmm-client-*-dynamic-ol8.tar.gz \
+                                    s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest-${BUILD_ID}.tar.gz
+
+                                aws s3 cp --only-show-errors --acl public-read --copy-props none \
+                                    s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest-${BUILD_ID}.tar.gz \
+                                    s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest.tar.gz
+                            '''
+                        }
+                        stash includes: 'results/tarball/pmm-client-*-dynamic-ol8.tar.gz', name: 'binary.ol8.tarball'
+                        uploadTarball('binary.ol8')
+                    }
+                }
+                stage('Build dynamic client binary for OL9') {
+                    steps {
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''
+                                export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3
+                                export BUILD_TYPE=dynamic
+                                export OS_VARIANT=ol9
+
+                                ${PATH_TO_SCRIPTS}/build-client-binary
+                                ls -la "results/tarball" || :
+
+                                aws s3 cp --only-show-errors --acl public-read results/tarball/pmm-client-*-dynamic-ol9.tar.gz \
+                                    s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest-${BUILD_ID}.tar.gz
+
+                                aws s3 cp --only-show-errors --acl public-read --copy-props none \
+                                    s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest-${BUILD_ID}.tar.gz \
+                                    s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-${BUILD_TYPE}-${OS_VARIANT}-latest.tar.gz
+                            '''
+                        }
+                        stash includes: 'results/tarball/pmm-client-*-dynamic-ol9.tar.gz', name: 'binary.ol9.tarball'
+                        uploadTarball('binary.ol9')
+                    }
+                }
                 stage('Build client docker') {
                     steps {
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -221,14 +267,47 @@ pipeline {
     post {
         success {
             script {
-                slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
+                env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz"
+                env.DYNAMIC_OL8_TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-latest-${BUILD_ID}.tar.gz"
+                env.DYNAMIC_OL9_TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest-${BUILD_ID}.tar.gz"
+
+                currentBuild.description =
+                        "Clent Build\n" +
+                        "Client Tarball: ${env.TARBALL_URL}\n" +
+                        "OL8 Dynamic Client Tarball: ${env.DYNAMIC_OL8_TARBALL_URL}\n" +
+                        "OL9 Dynamic Client Tarball: ${env.DYNAMIC_OL9_TARBALL_URL}"
+
+                // slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
+                slackSend botUser: true,
+                          channel: '#pmm-notifications',
+                          color: '#00FF00',
+                          message: "[${JOB_NAME}]: build finished\n" +
+                            "Pushed to: ${DESTINATION} repo\n" +
+                            "Build URL: ${BUILD_URL}\n" +
+                            "Client Tarball: ${env.TARBALL_URL}\n" +
+                            "OL8 Dynamic Tarball: ${env.DYNAMIC_OL8_TARBALL_URL}\n" +
+                            "OL9 Dynamic Tarball: ${env.DYNAMIC_OL9_TARBALL_URL}"
+
                 if (params.DESTINATION == "testing") {
                     env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz"
-                    currentBuild.description = "RC Build, tarball: " + env.TARBALL_URL
+                    env.DYNAMIC_OL8_TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-latest-${BUILD_ID}.tar.gz"
+                    env.DYNAMIC_OL9_TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest-${BUILD_ID}.tar.gz"
+
+                    // currentBuild.description = "RC Build, tarball: " + env.TARBALL_URL
+                    currentBuild.description =
+                        "RC Build\n" +
+                        "Client Tarball: ${env.TARBALL_URL}\n" +
+                        "OL8 Dynamic Client Tarball: ${env.DYNAMIC_OL8_TARBALL_URL}\n" +
+                        "OL9 Dynamic Client Tarball: ${env.DYNAMIC_OL9_TARBALL_URL}"
+
                     slackSend botUser: true,
                               channel: '#pmm-qa',
                               color: '#00FF00',
-                              message: "[${JOB_NAME}]: ${BUILD_URL} RC Client build finished\nClient Tarball: ${env.TARBALL_URL}"
+                            //   message: "[${JOB_NAME}]: ${BUILD_URL} RC Client build finished\nClient Tarball: ${env.TARBALL_URL}"
+                            message: "[${JOB_NAME}]: ${BUILD_URL} RC Client build finished\n" +
+                                "Client Tarball: ${env.TARBALL_URL}\n" +
+                                "OL8 Dynamic Client Tarball: ${env.DYNAMIC_OL8_TARBALL_URL}\n" +
+                                "OL9 Dynamic Client Tarball: ${env.DYNAMIC_OL9_TARBALL_URL}"
                 }
             }
         }
