@@ -113,7 +113,7 @@ pipeline {
             parallel {
                 stage('Build PROXYSQL generic source rpm') {
                     agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
