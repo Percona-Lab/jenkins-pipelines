@@ -168,6 +168,9 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 10') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -181,6 +184,9 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 10 ARM') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
