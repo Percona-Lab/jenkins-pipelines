@@ -366,30 +366,30 @@ pipeline {
                     set -o errexit
                     set -o xtrace
 
-                    sudo apt-get update
-                    sudo apt-get install ca-certificates curl
-                    sudo install -m 0755 -d /etc/apt/keyrings
-                    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
-                    sudo chmod a+r /etc/apt/keyrings/docker.asc
+                    sudo apt-get update 1>/dev/null
+                    sudo apt-get install ca-certificates curl 1>/dev/null
+                    sudo install -m 0755 -d /etc/apt/keyrings 1>/dev/null
+                    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc 1>/dev/null
+                    sudo chmod a+r /etc/apt/keyrings/docker.asc 1>/dev/null
                     echo \
                         "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
                         $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
                         sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-                    sudo apt-get update
-                    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-                    sudo usermod -aG docker $(whoami)
-                    newgrp docker
+                    sudo apt-get update 1>/dev/null
+                    sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 1>/dev/null
+                    sudo usermod -aG docker $(whoami) 1>/dev/null
+                    newgrp docker 1>/dev/null
 
-                    sudo chown -R $(whoami):$(whoami) /srv/qa-integration
-                    cd /srv/qa-integration/pmm_qa
-                    echo "Setting docker based PMM clients"
-                    sudo apt install -y python3.12 python3.12-venv
-                    mkdir -m 777 -p /tmp/backup_data
-                    python3 -m venv virtenv
-                    . virtenv/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                    pip install setuptools
+                    sudo chown -R $(whoami):$(whoami) /srv/qa-integration 1>/dev/null
+                    cd /srv/qa-integration/pmm_qa1 >/dev/null
+                    echo "Setting docker based PMM clients" 1>/dev/null
+                    sudo apt install -y python3.12 python3.12-venv 1>/dev/null
+                    mkdir -m 777 -p /tmp/backup_data 1>/dev/null
+                    python3 -m venv virtenv 1>/dev/null
+                    . virtenv/bin/activate 1>/dev/null
+                    pip install --upgrade pip 1>/dev/null
+                    pip install -r requirements.txt 1>/dev/null
+                    pip install setuptools 1>/dev/null
 
                     if [ "\${SERVER_TYPE}" = "ami" ]; then
                         ARGS="--pmm-server-ip=\${SERVER_IP}"
