@@ -335,15 +335,6 @@ pipeline {
                 }
             }
         }
-        stage('Setup PMM Client') {
-            steps {
-                 sh """
-                    cd /srv/qa-integration/pmm_qa
-                    sudo chmod +x pmm3-client-setup.sh
-                    sudo  ./pmm3-client-setup.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
-                 """
-            }
-        }
         stage('Install dependencies') {
             steps {
                 sh '''
@@ -358,6 +349,15 @@ pipeline {
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                 '''
+            }
+        }
+        stage('Setup PMM Client') {
+            steps {
+                 sh """
+                    cd /srv/qa-integration/pmm_qa
+                    sudo chmod +x pmm3-client-setup.sh
+                    sudo  ./pmm3-client-setup.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
+                 """
             }
         }
         stage('Setup Databases for PMM-Server') {
