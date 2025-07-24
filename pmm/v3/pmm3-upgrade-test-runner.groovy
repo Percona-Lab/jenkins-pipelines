@@ -366,6 +366,7 @@ pipeline {
                     set -o errexit
                     set -o xtrace
 
+                    sudo chmod -R 755 /srv/qa-integration
                     cd /srv/qa-integration/pmm_qa
                     echo "Setting docker based PMM clients"
                     sudo apt install -y python3.12 python3.12-venv
