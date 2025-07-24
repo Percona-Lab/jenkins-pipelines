@@ -366,8 +366,8 @@ pipeline {
                     set -o errexit
                     set -o xtrace
 
-                    curl -fsSL https://download.docker.com/linux/${OS_ID}/gpg | apt-key add -
-                    sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/${OS_ID} ${OS_NAME} stable"
+                    curl -fsSL https://download.docker.com/linux/$(lsb_release -is | awk '{print tolower($0)}')/gpg | apt-key add -
+                    sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/$(lsb_release -is | awk '{print tolower($0)}') $(lsb_release -sc) stable"
                     sudo apt-get update
                     sudo apt-get install -y docker-ce docker-ce-cli containerd.io
 
