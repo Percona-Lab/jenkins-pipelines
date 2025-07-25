@@ -378,6 +378,7 @@ pipeline {
                     sudo apt-get update 1>/dev/null
                     sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 1>/dev/null
                     sudo usermod -aG docker `id -u -n`
+                    sudo chown `id -u -n`:`id -u -n` /var/run/docker.sock
                     newgrp docker 1>/dev/null
 
                     sudo chown -R $(whoami):$(whoami) /srv/qa-integration 1>/dev/null
