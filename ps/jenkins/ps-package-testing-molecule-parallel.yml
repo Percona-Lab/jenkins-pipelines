@@ -5,7 +5,7 @@
         Do not edit this job through the web!
     properties:
         - build-discarder:
-            num-to-keep: 15
+            num-to-keep: 100
     concurrent: true
     pipeline-scm:
         scm:

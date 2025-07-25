@@ -3,12 +3,13 @@
     project-type: pipeline
     description: |
         Do not edit this job through the web!
+    concurrent: true
     properties:
         - build-discarder:
             artifact-days-to-keep: -1
             artifact-num-to-keep: 10
             days-to-keep: -1
-            num-to-keep: 10
+            num-to-keep: 100
     pipeline-scm:
         scm:
             - git:
@@ -37,15 +38,30 @@
         - choice:
             name: pxc57_repo
             choices:
+                - "EOL"
                 - "original"
                 - "pxc57"
-                - "EOL"
             description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."
         - choice:
             name: 'test_type'
             choices:
                 - "install"
-                - "install_and_upgrade"
-                - "min_upgrade"
-                - "maj_upgrade"
-            description: "Set test type for testing"
+                - "min_upgrade_pxc57_eol_main_to_eol_testing"
+                - "min_upgrade_pxc_80"
+                - "min_upgrade_pxc_84"
+                - "min_upgrade_pxc_innovation"
+            description: 'Supports PXC57, PXC80, PXC84, PXC Innovation NON PRO Packages'
+        - choice:
+            name: test_type_pro
+            choices:
+                - "install"
+                - "min_upgrade_pro_pro"
+                - "min_upgrade_nonpro_pro"
+                - "min_upgrade_pro_nonpro"
+            description: 'Supports PXC80 and PXC84 PRO packages'
+        - choice:
+            name: pro_repo
+            choices:
+                - "no"
+                - "yes"
+            description: 'Set if PRO packages should be tested or not (PXC 80 and PXC 84)'
