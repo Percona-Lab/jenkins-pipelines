@@ -391,7 +391,7 @@ pipeline {
                     . virtenv/bin/activate 1>/dev/null
                     pip install --upgrade pip 1>/dev/null
                     pip install -r requirements.txt
-                    pip install setuptools 1
+                    pip install setuptools
 
                     if [ "\${SERVER_TYPE}" = "ami" ]; then
                         ARGS="--pmm-server-ip=\${SERVER_IP}"
