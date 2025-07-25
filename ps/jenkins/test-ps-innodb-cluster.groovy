@@ -18,8 +18,8 @@ void installDependencies() {
        """
 
     sh '''
-        sudo rm -rf /package-testing
-        sudo git clone -b "${BRANCH}" https://github.com/${git_repo}.git /package-testing
+        rm -rf /tmp/package-testing
+        git clone -b "${BRANCH}" https://github.com/${git_repo}.git /tmp/package-testing
     '''
 }
 
@@ -41,7 +41,7 @@ void runMoleculeAction(String action, String scenario) {
     withCredentials(awsCredentials) {
         sh """
             . virtenv/bin/activate
-            cd /package-testing/molecule/ps-innodb-cluster
+            cd /tmp/package-testing/molecule/ps-innodb-cluster
             cd server
             export INSTANCE_PRIVATE_IP=\${SERVER_INSTANCE_PRIVATE_IP}
             molecule ${action} -s ${scenario}
@@ -229,21 +229,21 @@ pipeline {
 
                     def UPSTREAM_VERSION = sh(
                         script: ''' 
-                            grep ${PRODUCT_TO_TEST}_VER /package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}'
+                            grep ${PRODUCT_TO_TEST}_VER /tmp/package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}'
                          ''',
                         returnStdout: true
                         ).trim()
 
                     def PS_VERSION = sh(
                         script: ''' 
-                            grep ${PRODUCT_TO_TEST}_VER /package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}'
+                            grep ${PRODUCT_TO_TEST}_VER /tmp/package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}'
                         ''',
                         returnStdout: true
                         ).trim()
 
                     def PS_REVISION = sh(
                         script: '''
-                             grep ${PRODUCT_TO_TEST}_REV /package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' 
+                             grep ${PRODUCT_TO_TEST}_REV /tmp/package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' 
                         ''',
                         returnStdout: true
                         ).trim()
