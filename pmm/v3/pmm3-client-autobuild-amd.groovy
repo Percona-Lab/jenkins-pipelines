@@ -30,6 +30,7 @@ pipeline {
     }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
+        PATH_TO_PMM = 'sources/pmm/src/github.com/percona/pmm'
     }
     stages {
         stage('Build PMM Client') {
