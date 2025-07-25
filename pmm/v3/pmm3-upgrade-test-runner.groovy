@@ -389,8 +389,8 @@ pipeline {
                     python3 -m venv virtenv 1>/dev/null
                     . virtenv/bin/activate 1>/dev/null
                     pip install --upgrade pip 1>/dev/null
-                    pip install -r requirements.txt 1>/dev/null
-                    pip install setuptools 1>/dev/null
+                    pip install -r requirements.txt
+                    pip install setuptools 1
 
                     if [ "\${SERVER_TYPE}" = "ami" ]; then
                         ARGS="--pmm-server-ip=\${SERVER_IP}"
