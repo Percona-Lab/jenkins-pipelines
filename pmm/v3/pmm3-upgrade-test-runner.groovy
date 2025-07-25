@@ -376,6 +376,7 @@ pipeline {
                         $(. /etc/os-release && echo "${UBUNTU_CODENAME:-$VERSION_CODENAME}") stable" | \
                         sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
                     sudo apt-get update 1>/dev/null
+                    sudo apt-get install -y ansible
                     sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin 1>/dev/null
                     sudo usermod -aG docker `id -u -n`
                     sudo chown `id -u -n`:`id -u -n` /var/run/docker.sock
