@@ -30,7 +30,6 @@ pipeline {
     }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
-        PATH_TO_PMM = 'sources/pmm/src/github.com/percona/pmm'
     }
     stages {
         stage('Build PMM Client') {
@@ -41,16 +40,10 @@ pipeline {
                 stage('Prepare') {
                     steps {
                         git poll: true, branch: GIT_BRANCH, url: 'http://github.com/Percona-Lab/pmm-submodules'
-                        script {
-                            // Extract the branch for 'pmm' and 'mongodb_exporter' from the ci.yml file using yq
-                            env.PMM_BRANCH = sh(script: "yq e '.deps[] | select(.name == \"pmm\") | .branch' ci.yml", returnStdout: true).trim()
-                            echo "PMM branch: ${PMM_BRANCH}"
-                        }
                         sh '''
                             git reset --hard
                             git clean -xdf
                             git submodule update --init --jobs 10
-                            git -C ${PATH_TO_PMM} checkout ${PMM_BRANCH}
                             git submodule status
 
                             git rev-parse --short HEAD > shortCommit
@@ -89,7 +82,7 @@ pipeline {
                                     s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz
                                 aws s3 cp --only-show-errors --acl public-read --copy-props none \
                                   s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz \
-                                  s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz                                    
+                                  s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz
                             '''
                         }
                         stash includes: 'results/tarball/*.tar.*', name: 'binary.tarball'
@@ -274,33 +267,12 @@ pipeline {
     post {
         success {
             script {
-                env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz"
-                env.DYNAMIC_OL8_TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-latest-${BUILD_ID}.tar.gz"
-                env.DYNAMIC_OL9_TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest-${BUILD_ID}.tar.gz"
-
-                currentBuild.description =
-                        "Clent Build\n" +
-                        "Client Tarball: ${env.TARBALL_URL}\n" +
-                        "OL8 Dynamic Client Tarball: ${env.DYNAMIC_OL8_TARBALL_URL}\n" +
-                        "OL9 Dynamic Client Tarball: ${env.DYNAMIC_OL9_TARBALL_URL}"
-
-                // slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
-                slackSend botUser: true,
-                          channel: '#pmm-notifications',
-                          color: '#00FF00',
-                          message: "[${JOB_NAME}]: build finished\n" +
-                            "Pushed to: ${DESTINATION} repo\n" +
-                            "Build URL: ${BUILD_URL}\n" +
-                            "Client Tarball: ${env.TARBALL_URL}\n" +
-                            "OL8 Dynamic Tarball: ${env.DYNAMIC_OL8_TARBALL_URL}\n" +
-                            "OL9 Dynamic Tarball: ${env.DYNAMIC_OL9_TARBALL_URL}"
-
+                slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
                 if (params.DESTINATION == "testing") {
                     env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz"
                     env.DYNAMIC_OL8_TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-latest-${BUILD_ID}.tar.gz"
                     env.DYNAMIC_OL9_TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest-${BUILD_ID}.tar.gz"
 
-                    // currentBuild.description = "RC Build, tarball: " + env.TARBALL_URL
                     currentBuild.description =
                         "RC Build\n" +
                         "Client Tarball: ${env.TARBALL_URL}\n" +
@@ -310,11 +282,10 @@ pipeline {
                     slackSend botUser: true,
                               channel: '#pmm-qa',
                               color: '#00FF00',
-                            //   message: "[${JOB_NAME}]: ${BUILD_URL} RC Client build finished\nClient Tarball: ${env.TARBALL_URL}"
-                            message: "[${JOB_NAME}]: ${BUILD_URL} RC Client build finished\n" +
-                                "Client Tarball: ${env.TARBALL_URL}\n" +
-                                "OL8 Dynamic Client Tarball: ${env.DYNAMIC_OL8_TARBALL_URL}\n" +
-                                "OL9 Dynamic Client Tarball: ${env.DYNAMIC_OL9_TARBALL_URL}"
+                              message: "[${JOB_NAME}]: ${BUILD_URL} RC Client build finished\n" +
+                                       "Client Tarball: ${env.TARBALL_URL}\n" +
+                                       "OL8 Dynamic Client Tarball: ${env.DYNAMIC_OL8_TARBALL_URL}\n" +
+                                       "OL9 Dynamic Client Tarball: ${env.DYNAMIC_OL9_TARBALL_URL}"
                 }
             }
         }
