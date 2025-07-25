@@ -72,15 +72,10 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 pip3 install -r requirements.txt
                 pip3 install setuptools
 
-                if [ \\"$UPGRADE_FLAG\\" = \\"EXTERNAL SERVICES\\" ]; then
-                    export AMI_UPGRADE_FLAG=\\"--database external\\"
-                else
-                    export AMI_UPGRADE_FLAG=\\"--database bucket,BUCKET_NAMES=\\"bcp\\"\\"
-                fi
-
+                export AMI_UPGRADE_FLAG=\\"--database bucket,BUCKET_NAMES=\\"bcp\\"\\"
                 echo \\"AMI Upgrade flag is: \\\$AMI_UPGRADE_FLAG\\"
 
-                python pmm-framework.py --verbosity-level=1 --pmm-server-password=$ADMIN_PASSWORD \\\$AMI_UPGRADE_FLAG
+                python pmm-framework.py --verbosity-level=1 \\\$AMI_UPGRADE_FLAG
                 docker network connect pmm-qa pmm-server
                 docker network connect pmm-qa watchtower
         "'
@@ -356,7 +351,7 @@ pipeline {
                  sh """
                     cd /srv/qa-integration/pmm_qa
                     sudo chmod +x pmm3-client-setup.sh
-                    sudo  ./pmm3-client-setup.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
+                    sudo ./pmm3-client-setup.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
                  """
             }
         }
