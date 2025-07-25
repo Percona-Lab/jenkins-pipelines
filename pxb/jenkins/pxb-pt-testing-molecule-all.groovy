@@ -4,7 +4,7 @@
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
     ])
 
-    pipeline {
+pipeline {
     agent {
         label 'min-ol-8-x64'
     }
@@ -56,7 +56,6 @@
                 'install',
                 'upgrade',
                 'upstream',
-                'kmip',
                 'kms'
             ],
             description: 'Scenario To Test',
@@ -67,60 +66,41 @@
     options {
         withCredentials(moleculepxbJenkinsCreds())
     }
-
-        stages {
-            stage('Set Build Name'){
-                steps {
-                    script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${product_to_test}-${server_to_test}-${scenario_to_test}"
+    stages {
+        stage('Set Build Name'){
+            steps {
+                script {
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${product_to_test}-${server_to_test}-${scenario_to_test}"
+                }
+            }
+        }
+        stage("RUN"){
+            parallel {
+                stage("install") {
+                    steps {
+                        script {
+                            runpxbptjob("install")
+                        }
+                    }
+                }
+                stage("upgrade") {
+                    steps {
+                        script {
+                            runpxbptjob("upgrade")
+                        }
+                    }
+                }
+                stage("kms") {
+                    steps {
+                        script {
+                            runpxbptjob("kms")
+                        }
                     }
                 }
             }
-
-            
-            stage("RUN"){
-                parallel {
-
-                    stage("install") {
-                        steps {
-                            script {
-                                runpxbptjob("install")
-                            }
-                        }
-                    }
-
-                    stage("upgrade") {
-                        steps {
-                            script {
-                                runpxbptjob("upgrade")
-                            }
-                        }
-                    }
-
-                    stage("kmip") {
-                        steps {
-                            script {
-                                runpxbptjob("kmip")
-                            }
-                        }
-                    }
-
-                    stage("kms") {
-                        steps {
-                            script {
-                                runpxbptjob("kms")
-                            }
-                        }
-                    }
-                
-                }
-                
-
-            }
-
-
         }
     }
+}
 
 void runpxbptjob(String scenario_to_test) {
     build(

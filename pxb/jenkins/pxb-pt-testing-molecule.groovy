@@ -56,7 +56,6 @@
                 'install',
                 'upgrade',
                 'upstream',
-                'kmip',
                 'kms'
             ],
             description: 'Scenario To Test',
@@ -150,13 +149,13 @@
 
     post {
         always {
-            delete_build_instances()
+            deleteBuildInstances()
         }
     }
     }
 
 
-def delete_build_instances(){
+def deleteBuildInstances(){
     script {
         echo "All tests completed"
 
