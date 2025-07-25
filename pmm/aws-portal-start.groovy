@@ -161,7 +161,7 @@ pipeline {
                 script {
                     withEnv(['JENKINS_NODE_COOKIE=dontKillMe']) {
                         node(env.VM_NAME){
-                            git branch: GIT_BRANCH, credentialsId: 'GitHub SSH Key', url: 'git@github.com:percona-platform/infra.git'
+                            git branch: GIT_BRANCH, credentialsId: 'GitHub SSH Key', url: 'git@github.com:percona/infra.git'
                             sh """
                                 set -o errexit
                                 set -o xtrace
