@@ -56,7 +56,6 @@
                 'install',
                 'upgrade',
                 'upstream',
-                'kmip',
                 'kms'
             ],
             description: 'Scenario To Test',
