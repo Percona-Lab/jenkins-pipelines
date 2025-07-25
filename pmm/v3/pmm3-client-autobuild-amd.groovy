@@ -43,16 +43,13 @@ pipeline {
                         script {
                             // Extract the branch for 'pmm' and 'mongodb_exporter' from the ci.yml file using yq
                             env.PMM_BRANCH = sh(script: "yq e '.deps[] | select(.name == \"pmm\") | .branch' ci.yml", returnStdout: true).trim()
-                            env.MONGODB_EXPORTER_BRANCH = sh(script: "yq e '.deps[] | select(.name == \"mongodb_exporter\") | .branch' ci.yml", returnStdout: true).trim()
                             echo "PMM branch: ${PMM_BRANCH}"
-                            echo "MongoDB Exporter branch: ${MONGODB_EXPORTER_BRANCH}"
                         }
                         sh '''
                             git reset --hard
                             git clean -xdf
                             git submodule update --init --jobs 10
                             git -C ${PATH_TO_PMM} checkout ${PMM_BRANCH}
-                            git -C ${PATH_TO_MONGODB_EXPORTER} checkout ${MONGODB_EXPORTER_BRANCH}
                             git submodule status
 
                             git rev-parse --short HEAD > shortCommit
