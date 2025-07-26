@@ -338,6 +338,7 @@ pipeline {
                     sudo apt-get install -y gettext
                     npm ci
                     npx playwright install
+                    sudo npx playwright install-deps
                     envsubst < env.list > env.generated.list
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=$(pwd)
