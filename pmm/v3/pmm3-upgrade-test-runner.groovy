@@ -47,7 +47,6 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
   env.VM_IP = sh(script: "curl -s https://api.ipify.org", returnStdout: true).trim()
   echo "Public IP: ${env.VM_IP}"
   withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-//                systemctl --user restart pmm-server
     sh """
         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} 'bash -c "
             sudo docker network create --driver=bridge pmm-qa || true
@@ -58,7 +57,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
             echo \\"PMM_DEV_UPDATE_DOCKER_IMAGE=$DOCKER_TAG_UPGRADE\\" >> /home/admin/.config/systemd/user/pmm-server.env
             cat /home/admin/.config/systemd/user/pmm-server.env
 
-            docker restart pmm-server
+            systemctl --user restart pmm-server
             sudo git clone --single-branch --branch $QA_INTEGRATION_GIT_BRANCH https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
 
             cd /srv/qa-integration/pmm_qa
@@ -74,7 +73,6 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 pip3 install setuptools
 
                 export AMI_UPGRADE_FLAG=\\"--database bucket,BUCKET_NAMES=\\"bcp\\"\\"
-                echo \\"AMI Upgrade flag is: \\\$AMI_UPGRADE_FLAG\\"
 
                 python pmm-framework.py --verbosity-level=1 \\\$AMI_UPGRADE_FLAG
                 docker network connect pmm-qa pmm-server
@@ -348,6 +346,9 @@ pipeline {
             }
         }
         stage('Setup PMM Client') {
+            when {
+                expression { env.SERVER_TYPE != "ami" }
+            }
             steps {
                  sh """
                     cd /srv/qa-integration/pmm_qa
