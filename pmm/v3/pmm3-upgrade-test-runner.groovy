@@ -489,6 +489,9 @@ pipeline {
             }
         }
         stage('Check Client before Upgrade') {
+            when {
+                expression { env.SERVER_TYPE == "docker" }
+            }
             steps {
                 script {
                     checkClientBeforeUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION)
