@@ -399,6 +399,7 @@ pipeline {
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         ${ARGS} \
                         \${PMM_CLIENTS}
+                    docker ps -a
                 '''
             }
         }
