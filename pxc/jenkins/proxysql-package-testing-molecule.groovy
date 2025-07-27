@@ -113,7 +113,8 @@
                 }
             }
         }
-   }
+    }
+}
     
 def installMolecule() {
         sh """
