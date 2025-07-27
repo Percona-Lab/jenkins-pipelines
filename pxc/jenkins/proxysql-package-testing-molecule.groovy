@@ -67,7 +67,7 @@
             stage('Set Build Name'){
                 steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${product_to_test}-${action_to_test}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${product_to_test}-${action_to_test}-${client_to_test}"
                     }
                 }
             }
