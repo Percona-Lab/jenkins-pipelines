@@ -5,31 +5,6 @@
         remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
     ])
 
-    List proxysql3_nodes = [
-                'ubuntu-noble',
-                'ubuntu-jammy',
-                'ubuntu-noble-arm',
-                'ubuntu-jammy-arm',
-                'debian-12',
-                'debian-12-arm',
-                'rhel-9',
-                'rhel-9-arm',
-    ]
-
-    List proxysql2_nodes = [
-                'ubuntu-noble',
-                'ubuntu-jammy',
-                'ubuntu-focal',
-                'debian-12',
-                'debian-11',
-                'ol-8',
-                'ol-9',
-                'rhel-8',
-                'rhel-9',
-    ]     
-
-    List all_possible_nodes = (proxysql2_nodes + proxysql3_nodes).unique()
-
     pipeline {
     agent {
         label 'min-bookworm-x64'
@@ -111,30 +86,34 @@
                     }
                 }
             }
+
             stage('RUN TESTS') {
-                        steps {
-                            script {
-
-                                if (action_to_test == 'install') {
-                                    sh """
-                                        echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
-                                    """
-                                } else {
-                                    sh """
-                                        echo PLAYBOOK_VAR="${product_to_test}_${action_to_test}" > .env.ENV_VARS
-                                    """
-                                }
-
-                                def envMap = loadEnvFile('.env.ENV_VARS')
-                                withEnv(envMap) {
-                                    moleculeParallelTestPS(psPackageTesting(), "molecule/proxysql/")
-                                }
-
-                            }
+                steps {
+                    withCredentials([usernamePassword(
+                        credentialsId: 'PS_PRIVATE_REPO_ACCESS',
+                        passwordVariable: 'PASSWORD',
+                        usernameVariable: 'USERNAME'
+                )]) {
+                    script {
+                        if (action_to_test == 'install') {
+                            sh """
+                                echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
+                            """
+                        } else {
+                            sh """
+                                echo PLAYBOOK_VAR="${product_to_test}_${action_to_test}" > .env.ENV_VARS
+                            """
                         }
+
+                        def envMap = loadEnvFile('.env.ENV_VARS')
+                        withEnv(envMap) {
+                            moleculeParallelTestPS(psPackageTesting(), "molecule/proxysql/")
+                        }
+                    }
+                }
             }
         }
-    }
+
 
 def installMolecule() {
         sh """
