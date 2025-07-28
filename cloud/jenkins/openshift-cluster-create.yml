@@ -1,0 +1,141 @@
+- job:
+      name: openshift-cluster-create
+      project-type: pipeline
+      description: |
+          Create OpenShift clusters on AWS with configurable parameters.
+
+          This job creates production-ready OpenShift clusters with:
+          - Multiple OpenShift versions (4.16-4.19)
+          - Standard x86_64 instance types (m5, m6i, c5)
+          - AWS Spot instance support for cost optimization
+          - Automatic cluster state backup to S3
+          - Billing tags for cost tracking
+          - Optional PMM deployment
+
+          Note: Uses AMD64 (x86_64) architecture for PMM compatibility.
+          The cluster state is saved to S3 for later destruction.
+
+      parameters:
+          - string:
+                name: CLUSTER_NAME
+                default: test-cluster
+                description: "Name for the OpenShift cluster (lowercase, alphanumeric, hyphens only)"
+                trim: true
+          - choice:
+                name: OPENSHIFT_VERSION
+                choices:
+                    - "4.19.6"
+                    - "4.18.21"
+                    - "4.17.36"
+                    - "4.16.45"
+                    - "latest"
+                description: "OpenShift version to install"
+          - choice:
+                name: AWS_REGION
+                choices:
+                    - "us-east-2"
+                    - "us-east-1"
+                    - "us-west-2"
+                    - "eu-central-1"
+                    - "eu-west-1"
+                    - "eu-west-2"
+                    - "eu-west-3"
+                    - "ap-southeast-1"
+                    - "ap-southeast-2"
+                description: "AWS region for the cluster"
+          - choice:
+                name: MASTER_INSTANCE_TYPE
+                choices:
+                    - "m5.xlarge"
+                    - "m5.2xlarge"
+                    - "m6i.xlarge"
+                    - "m6i.2xlarge"
+                    - "c5.2xlarge"
+                description: "EC2 instance type for master nodes (x86_64)"
+          - choice:
+                name: WORKER_INSTANCE_TYPE
+                choices:
+                    - "m5.large"
+                    - "m5.xlarge"
+                    - "m5.2xlarge"
+                    - "m6i.large"
+                    - "m6i.xlarge"
+                description: "EC2 instance type for worker nodes (x86_64)"
+          - choice:
+                name: WORKER_COUNT
+                choices:
+                    - "3"
+                    - "2"
+                    - "4"
+                    - "5"
+                    - "6"
+                description: "Number of worker nodes (2-10)"
+          - string:
+                name: BASE_DOMAIN
+                default: "cd.percona.com"
+                description: "Base domain for the cluster"
+                trim: true
+          - bool:
+                name: DEBUG_MODE
+                default: false
+                description: "Enable debug logging for openshift-install"
+          - string:
+                name: DELETE_AFTER_HOURS
+                default: "8"
+                description: "Hours after which the cluster should be deleted (1-168)"
+                trim: true
+          - string:
+                name: PRODUCT_TAG
+                default: "pg-operator"
+                description: "Product tag for billing purposes"
+                trim: true
+          - string:
+                name: TEAM_NAME
+                default: "cloud"
+                description: "Team name tag for resource tracking"
+                trim: true
+          - bool:
+                name: USE_SPOT_INSTANCES
+                default: false
+                description: "Use AWS Spot Instances for worker nodes (saves ~70% on costs)"
+          - string:
+                name: SPOT_MAX_PRICE
+                default: ""
+                description: "Maximum spot price per hour (empty = on-demand price as max)"
+                trim: true
+          - bool:
+                name: TEST_MODE
+                default: false
+                description: "Test mode - generates config but skips actual cluster creation"
+          - bool:
+                name: DEPLOY_PMM
+                default: true
+                description: "Deploy Percona Monitoring and Management (PMM) after cluster creation"
+          - choice:
+                name: PMM_VERSION
+                choices:
+                    - "3.3.0"
+                    - "3.2.0"
+                    - "3.1.0"
+                description: "PMM version to deploy"
+          - password:
+                name: PMM_ADMIN_PASSWORD
+                default: "admin"
+                description: "Password for PMM admin user"
+
+      pipeline-scm:
+          scm:
+              - git:
+                    url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                    branches:
+                        - "master"
+                    wipe-workspace: false
+          lightweight-checkout: true
+          script-path: cloud/jenkins/openshift_cluster_create.groovy
+
+      concurrent: true
+
+      properties:
+          - build-discarder:
+                days-to-keep: 30
+                num-to-keep: 100

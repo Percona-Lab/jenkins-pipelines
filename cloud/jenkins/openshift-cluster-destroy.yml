@@ -1,0 +1,76 @@
+- job:
+    name: openshift-cluster-destroy
+    project-type: pipeline
+    description: |
+        Destroy OpenShift clusters on AWS.
+        
+        This job:
+        - Downloads cluster state from S3
+        - Destroys all cluster resources
+        - Cleans up S3 backup (optional)
+        - Verifies resource cleanup
+        
+        WARNING: This operation is irreversible!
+    
+    parameters:
+      - string:
+          name: CLUSTER_NAME
+          default: ''
+          description: 'Name of the OpenShift cluster to destroy (required)'
+          trim: true
+      - choice:
+          name: AWS_REGION
+          choices:
+            - 'us-east-2'
+            - 'us-east-1'
+            - 'us-west-2'
+            - 'eu-central-1'
+            - 'eu-west-1'
+            - 'eu-west-2'
+            - 'eu-west-3'
+            - 'ap-southeast-1'
+            - 'ap-southeast-2'
+          description: 'AWS region where the cluster is deployed'
+      - bool:
+          name: KEEP_BACKUP
+          default: false
+          description: 'Keep cluster state backup in S3 after destruction'
+      - bool:
+          name: FORCE_DESTROY
+          default: false
+          description: 'Force destruction even if cluster state is not found in S3'
+      - bool:
+          name: DRY_RUN
+          default: false
+          description: 'Perform a dry run without actually destroying resources'
+      - choice:
+          name: DESTROY_REASON
+          choices:
+            - 'scheduled'
+            - 'manual'
+            - 'cost-optimization'
+            - 'testing-complete'
+            - 'error-cleanup'
+            - 'other'
+          description: 'Reason for cluster destruction'
+      - bool:
+          name: CLEANUP_REMAINING
+          default: true
+          description: 'Attempt to clean up any remaining resources after destruction'
+    
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'master'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: cloud/jenkins/openshift_cluster_destroy.groovy
+    
+    concurrent: true
+    
+    properties:
+      - build-discarder:
+          days-to-keep: 30
+          num-to-keep: 100
