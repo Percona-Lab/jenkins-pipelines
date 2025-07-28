@@ -137,7 +137,7 @@ pipeline {
         string(
             defaultValue: 'percona/pmm-server:3.0.0',
             description: 'PMM Server Version to test for Upgrade (Docker Tag, AMI ID or OVF version)',
-            name: 'DOCKER_TAG')
+            name: 'AMI_TAG')
         string(
             defaultValue: '',
             description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
