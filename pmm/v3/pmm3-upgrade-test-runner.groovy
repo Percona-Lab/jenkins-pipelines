@@ -409,7 +409,7 @@ pipeline {
                         '''
                     }
                 }
-                stage('Setup Databases for  Docker PMM-Server') {
+                stage('Setup Databases for AMI PMM-Server') {
                     when {
                         expression { env.SERVER_TYPE == "ami" }
                     }
