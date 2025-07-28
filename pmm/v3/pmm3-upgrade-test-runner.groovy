@@ -280,7 +280,7 @@ pipeline {
                 sh """
                     cd /srv/qa-integration/pmm_qa
                     sudo chmod +x pmm3-client-setup.sh
-                    ./pmm3-client-setup.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
+                    sudo ./pmm3-client-setup.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
                 """
             }
         }
@@ -376,7 +376,7 @@ pipeline {
                     sh '''
                         export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
                         sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
+                        sudo python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
                     '''
                 }
             }
