@@ -83,12 +83,9 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
   }
 }
 
-def latestVersion = pmmVersion()
 def versionsList = pmmVersion('v3-ami')
-println versionsList;
-def getMinorVersion(VERSION) {
-    return VERSION.split("\\.")[1].toInteger()
-}
+def amiVersions = myMap.values()
+println amiVersions;
 
 pipeline {
     agent {
