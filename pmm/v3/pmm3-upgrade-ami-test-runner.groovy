@@ -318,6 +318,7 @@ pipeline {
                             set -o errexit
                             set -o xtrace
 
+                            cat /etc/containers/registries.conf
                             sudo sed -i "/^\\[engine\\]/,/^\\[/{s/^short-name-mode *= *.*/short-name-mode = \\"permissive\\"/}" /etc/containers/registries.conf || \\
                             sudo awk '
                                 BEGIN { in_engine=0 }
