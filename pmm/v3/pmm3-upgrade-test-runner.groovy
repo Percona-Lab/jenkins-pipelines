@@ -308,6 +308,7 @@ pipeline {
 
                     cd /srv/qa-integration/pmm_qa
                     echo "Setting docker based PMM clients"
+                    sudo apt install -y python3.12 python3.12-venv
                     mkdir -m 777 -p /tmp/backup_data
                     python3 -m venv virtenv
                     . virtenv/bin/activate
