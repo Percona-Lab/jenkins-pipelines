@@ -293,15 +293,16 @@ pipeline {
             }
         }
         stage('Setup PMM Client') {
-            when {
-                expression { env.SERVER_TYPE != "ami" }
-            }
             steps {
-                 sh """
-                    cd /srv/qa-integration/pmm_qa
-                    sudo chmod +x pmm3-client-setup.sh
-                    sudo ./pmm3-client-setup-centos.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
-                 """
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} 'bash -c "
+                            cd /srv/qa-integration/pmm_qa
+                            sudo chmod +x pmm3-client-setup.sh
+                            sudo ./pmm3-client-setup-centos.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
+                        "'
+                    """
+                }
             }
         }
         stage('Setup Databases for PMM-Server') {
