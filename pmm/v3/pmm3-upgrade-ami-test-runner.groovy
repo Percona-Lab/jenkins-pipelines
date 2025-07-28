@@ -254,19 +254,23 @@ pipeline {
         }
         stage('Install dependencies') {
             steps {
-                sh '''
-                    curl -sL https://rpm.nodesource.com/setup_22.x -o nodesource_setup.sh
-                    sudo bash nodesource_setup.sh
-                    sudo dnf install -y nodejs
-                    sudo dnf install -y gettext
-                    npm ci
-                    npx playwright install
-                    sudo npx playwright install-deps
-                    envsubst < env.list > env.generated.list
-                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    export PWD=$(pwd)
-                    export CHROMIUM_PATH=/usr/bin/chromium
-                '''
+                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                    sh '''
+                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} 'bash -c "
+                            curl -sL https://rpm.nodesource.com/setup_22.x -o nodesource_setup.sh
+                            sudo bash nodesource_setup.sh
+                            sudo dnf install -y nodejs
+                            sudo dnf install -y gettext
+                            npm ci
+                            npx playwright install
+                            sudo npx playwright install-deps
+                            envsubst < env.list > env.generated.list
+                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                            export PWD=$(pwd)
+                            export CHROMIUM_PATH=/usr/bin/chromium
+                        "'
+                    '''
+                }
             }
         }
         stage('Setup PMM Client') {
