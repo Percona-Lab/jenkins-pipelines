@@ -330,7 +330,7 @@ pipeline {
 
                             python pmm-framework.py --verbose \
                                 --client-version=${CLIENT_VERSION} \
-                                --pmm-server-password=${ADMIN_PASSWORD} \
+                                --pmm-server-password=pmm3admin! \
                                 --pmm-server-ip=${SERVER_IP} \
                                 ${PMM_CLIENTS}
                                 docker ps -a
