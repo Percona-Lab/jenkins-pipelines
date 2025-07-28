@@ -255,10 +255,10 @@ pipeline {
         stage('Install dependencies') {
             steps {
                 sh '''
-                    curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
+                    curl -sL https://rpm.nodesource.com/setup_22.x -o nodesource_setup.sh
                     sudo bash nodesource_setup.sh
-                    sudo apt install -y nodejs
-                    sudo apt-get install -y gettext
+                    sudo dnf install -y nodejs
+                    sudo dnf install -y gettext
                     npm ci
                     npx playwright install
                     sudo npx playwright install-deps
