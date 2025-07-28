@@ -262,7 +262,27 @@ pipeline {
                             ls
                             npm ci
                             npx playwright install
-                            sudo npx playwright install-deps
+                            sudo sudo dnf install -y \
+                                nss \
+                                nspr \
+                                atk \
+                                atk-bridge \
+                                cups-libs \
+                                libdrm \
+                                at-spi2-atk \
+                                libX11 \
+                                libXcomposite \
+                                libXdamage \
+                                libXext \
+                                libXfixes \
+                                libXrandr \
+                                mesa-libgbm \
+                                libxcb \
+                                libxkbcommon \
+                                pango \
+                                cairo \
+                                alsa-lib
+
                             envsubst < env.list > env.generated.list
                             sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                             export PWD=$(pwd)
