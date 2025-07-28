@@ -132,7 +132,7 @@ pipeline {
                     ]
 
                     // Create the cluster
-                    def clusterInfo = createOpenShiftCluster(clusterConfig)
+                    def clusterInfo = openshiftCluster.create(clusterConfig)
 
                     // Store cluster info for post actions
                     env.CLUSTER_API_URL = clusterInfo.apiUrl

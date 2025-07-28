@@ -1,64 +1,35 @@
 - job:
     name: openshift-cluster-list
-    project-type: pipeline
     description: |
-        List OpenShift clusters managed by Jenkins.
-        
-        This job:
-        - Lists all clusters stored in S3
-        - Shows cluster metadata (creation date, version, etc.)
-        - Displays cluster status
-        - Can filter by region or age
+      List all OpenShift clusters deployed via Jenkins.
+      Shows cluster name, version, region, creator, and deployment time.
+    disabled: false
+    concurrent: true
+    node: agent-amd64-ol9
     
     parameters:
-      - choice:
-          name: AWS_REGION
-          choices:
-            - 'all'
-            - 'us-east-2'
-            - 'us-east-1'
-            - 'us-west-2'
-            - 'eu-central-1'
-            - 'eu-west-1'
-            - 'eu-west-2'
-            - 'eu-west-3'
-            - 'ap-southeast-1'
-            - 'ap-southeast-2'
-          description: 'AWS region to list clusters from (all = check all regions)'
-      - bool:
-          name: SHOW_DETAILS
-          default: true
-          description: 'Show detailed cluster information'
       - string:
-          name: OLDER_THAN_HOURS
-          default: ''
-          description: 'Only show clusters older than X hours (empty = show all)'
-          trim: true
-      - bool:
-          name: CHECK_LIVE_STATUS
-          default: false
-          description: 'Check if clusters are actually running (slower)'
+          name: AWS_REGION
+          default: 'us-east-2'
+          description: 'AWS region to check for clusters (default: us-east-2)'
       - choice:
           name: OUTPUT_FORMAT
+          description: 'Output format for the cluster list'
           choices:
-            - 'table'
-            - 'json'
-            - 'csv'
-          description: 'Output format for cluster list'
+            - table
+            - json
+    
+    scm:
+      - git:
+          url: https://github.com/Percona-Lab/jenkins-pipelines.git
+          branches:
+            - master
     
     pipeline-scm:
       scm:
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
-            wipe-workspace: false
-      lightweight-checkout: true
+              - master
       script-path: cloud/jenkins/openshift_cluster_list.groovy
-    
-    concurrent: true
-    
-    properties:
-      - build-discarder:
-          days-to-keep: 7
-          num-to-keep: 50
+      lightweight-checkout: true

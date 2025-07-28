@@ -126,7 +126,7 @@ pipeline {
                     ]
 
                     // Destroy the cluster
-                    def result = destroyOpenShiftCluster(destroyConfig)
+                    def result = openshiftCluster.destroy(destroyConfig)
 
                     // Store result
                     env.DESTROY_RESULT = groovy.json.JsonOutput.toJson(result)
