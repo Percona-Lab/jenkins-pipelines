@@ -434,7 +434,6 @@ pipeline {
                                         --client-version=${CLIENT_VERSION} \
                                         --pmm-server-password=${ADMIN_PASSWORD} \
                                         --pmm-server-ip=${SERVER_IP} \
-                                        ${ARGS} \
                                         ${PMM_CLIENTS}
                                     docker ps -a
                                 "
