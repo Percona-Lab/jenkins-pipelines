@@ -46,6 +46,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
   env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}/"
   env.VM_IP = sh(script: "curl -s https://api.ipify.org", returnStdout: true).trim()
   echo "Public IP: ${env.VM_IP}"
+  echo versionsList;
   withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
     sh """
         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} 'bash -c "
