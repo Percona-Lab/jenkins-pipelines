@@ -279,7 +279,11 @@ pipeline {
             parallel {
                 stage('Setup PMM Client') {
                     steps {
-                        setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
+                        sh """
+                            cd /srv/qa-integration/pmm_qa
+                            sudo chmod +x pmm3-client-setup.sh
+                            sudo ./pmm3-client-setup.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
+                        """
                     }
                 }
                 stage('Install dependencies') {
