@@ -82,7 +82,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
 }
 
 def versionsList = pmmVersion('v3-ami')
-def amiVersions = myMap.values()
+def amiVersions = versionsList.values()
 println amiVersions;
 
 pipeline {
