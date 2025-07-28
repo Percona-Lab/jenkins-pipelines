@@ -39,7 +39,7 @@ def upgradeDockerTag = 'perconalab/pmm-server:' + upgradeVersion
 
 pipeline {
     agent {
-        label 'docker'
+        label 'min-noble-x64'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
