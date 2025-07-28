@@ -30,6 +30,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     } else {
         sh '''
             sudo su
+            whoami
             $(which pmm-admin)
             ls -l
             sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
