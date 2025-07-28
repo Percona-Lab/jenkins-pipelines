@@ -314,6 +314,7 @@ pipeline {
                     . virtenv/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
+                    pip install setuptools
 
                     python pmm-framework.py --verbose \
                         --client-version=\${CLIENT_VERSION} \
