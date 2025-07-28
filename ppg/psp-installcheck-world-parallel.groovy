@@ -49,9 +49,10 @@ pipeline {
             name: 'TESTSUITE',
             description: 'Testsuite to run',
             choices: [
-                'server-check-world-without-tde',
-                'server-installcheck-world-with-tde',
-                'tde-installcheck-only'
+                'check-server',
+                'check-tde',
+                'check-all',
+                'installcheck-world'
             ]
         )
         string(
