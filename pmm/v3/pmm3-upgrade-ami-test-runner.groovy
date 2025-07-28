@@ -590,23 +590,7 @@ pipeline {
     post {
         always {
             sh '''
-                # fetch all the logs from PMM server
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-
-                if [ "\${SERVER_TYPE}" != "ami" ]; then
-                    # get logs from systemd pmm-agent.service
-                    if [[ ${CLIENT_VERSION} != http* ]]; then
-                        journalctl -u pmm-agent.service >  ./pmm-agent.log
-                    fi
-
-                    # get logs from managed and update-perform
-                    echo --- pmm-managed logs from pmm-server --- >> pmm-managed-full.log
-                    docker exec pmm-server cat /srv/logs/pmm-managed.log >> pmm-managed-full.log || true
-                    docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
-                    echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
-                    docker cp pmm-server:/srv/logs srv-logs
-                    tar -zcvf srv-logs.tar.gz srv-logs
-                fi
             '''
             script {
                 amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
