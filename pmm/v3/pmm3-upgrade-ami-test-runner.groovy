@@ -319,15 +319,8 @@ pipeline {
                             set -o xtrace
 
                             cat /etc/containers/registries.conf
-                            sudo sed -i \\"/^\\[engine\\]/,/^\\[/{s/^short-name-mode *= *.*/short-name-mode = \\"permissive\\"/}\\" /etc/containers/registries.conf || \\
-                            sudo awk \\'
-                                BEGIN { in_engine=0 }
-                                /^\\[engine\\]/ { in_engine=1; print; next }
-                                /^\\[/ { if (in_engine) { print \\"short-name-mode = \\"permissive\\"\\"; in_engine=0 } }
-                                { print }
-                                END { if (in_engine) print \\"short-name-mode = \\"permissive\\"\\" }
-                            \\' /etc/containers/registries.conf | sudo tee /etc/containers/registries.conf > /dev/null
-
+                            sudo sed -i \\"/^\\[engine\\]/,/^\\[/{s/^short-name-mode *= *.*/short-name-mode = \\"permissive\\"/}\\" /etc/containers/registries.conf
+                            cat /etc/containers/registries.conf
 
                             sudo chown -R \$(whoami):\$(whoami) /srv/qa-integration 1>/dev/null
                             cd /srv/qa-integration/pmm_qa
