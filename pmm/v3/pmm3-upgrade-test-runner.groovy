@@ -39,7 +39,7 @@ def getMinorVersion(VERSION) {
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'docker-32gb'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')

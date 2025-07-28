@@ -260,7 +260,7 @@ pipeline {
                             curl -sL https://rpm.nodesource.com/setup_22.x -o nodesource_setup.sh
                             sudo bash nodesource_setup.sh
                             sudo dnf install -y nodejs
-                             cd  /srv/qa-integration
+                            ls
                             npm ci
                             npx playwright install
                             sudo npx playwright install-deps
