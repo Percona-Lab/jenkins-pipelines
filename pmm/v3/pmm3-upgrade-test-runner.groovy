@@ -417,27 +417,6 @@ pipeline {
                         withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                             sh """
                                 ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} 'bash -c "
-                                    set -o errexit
-                                    set -o xtrace
-
-                                    sudo chown -R $(whoami):$(whoami) /srv/qa-integration 1>/dev/null
-                                    cd /srv/qa-integration/pmm_qa
-                                    echo "Setting docker based PMM clients" 1>/dev/null
-                                    sudo dnf install -y python3.12 python3.12-venv 1>/dev/null
-                                    mkdir -m 777 -p /tmp/backup_data 1>/dev/null
-                                    python3 -m venv virtenv 1>/dev/null
-                                    . virtenv/bin/activate 1>/dev/null
-                                    pip install --upgrade pip 1>/dev/null
-                                    pip install -r requirements.txt
-                                    pip install setuptools
-
-                                    python pmm-framework.py --verbose \
-                                        --client-version=${CLIENT_VERSION} \
-                                        --pmm-server-password=${ADMIN_PASSWORD} \
-                                        --pmm-server-ip=${SERVER_IP} \
-                                        ${ARGS} \
-                                        ${PMM_CLIENTS}
-                                    docker ps -a
                                 "
                             """
                         }
