@@ -267,8 +267,6 @@ pipeline {
                             \${DOCKER_TAG}
                     fi
                 '''
-                waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
-                waitForContainer('pmm-server', 'The HTTP API is enabled at :8080.')
                 script {
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "http://${env.SERVER_IP}/"
