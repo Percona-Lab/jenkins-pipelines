@@ -436,7 +436,7 @@ pipeline {
                                         --pmm-server-ip=${SERVER_IP} \
                                         ${PMM_CLIENTS}
                                     docker ps -a
-                                "
+                                "'
                             """
                         }
                     }
