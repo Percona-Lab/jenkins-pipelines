@@ -307,8 +307,8 @@ pipeline {
                         "'
                     """
                 }
+                env.ADMIN_PASSWORD = 'pmm3admin!'
             }
-            env.ADMIN_PASSWORD = 'pmm3admin!'
         }
         stage('Setup Databases for PMM-Server') {
             steps {
