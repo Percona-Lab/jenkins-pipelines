@@ -13,11 +13,13 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     env.PMM_VERSION = PMM_VERSION;
     if (PMM_VERSION == '3-dev-latest') {
         sh '''
-            sudo su
-            ls -l $(which pmm-admin)
-            GET_PMM_CLIENT_VERSION=$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
-            sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
-            python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py ${GET_PMM_CLIENT_VERSION}
+            sudo bash -c "
+                sudo su
+                ls -l $(which pmm-admin)
+                GET_PMM_CLIENT_VERSION=$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
+                python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py ${GET_PMM_CLIENT_VERSION}
+            "
         '''
     } else if (PMM_VERSION == 'pmm3-rc') {
         sh '''
@@ -31,12 +33,14 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
         '''
     } else {
         sh '''
-            sudo su
-            whoami
-            $(which pmm-admin)
-            ls -l
-            sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
-            python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py ${PMM_VERSION}
+            sudo bash -c "
+                sudo su
+                whoami
+                $(which pmm-admin)
+                ls -l
+                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
+                python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py ${PMM_VERSION}
+            "
         '''
     }
 }
