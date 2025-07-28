@@ -261,6 +261,7 @@ pipeline {
                 }
             }
         }
+
         stage('Setup Databases  and PMM Client for PMM-Server') {
             parallel {
                 stage('Setup PMM Client') {
@@ -351,7 +352,7 @@ pipeline {
                 sleep 60
             }
         }
-                stage('Check Packages before Upgrade') {
+        stage('Check Packages before Upgrade') {
             steps {
                 script {
                     sh '''
