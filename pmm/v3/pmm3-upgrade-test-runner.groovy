@@ -261,7 +261,7 @@ pipeline {
                 }
             }
         }
-                stage('Setup Databases  and PMM Client for PMM-Server') {
+        stage('Setup Databases  and PMM Client for PMM-Server') {
             parallel {
                 stage('Setup PMM Client') {
                     steps {
@@ -351,49 +351,18 @@ pipeline {
                 sleep 60
             }
         }
-        stage('Check PMM Server Packages before Upgrade') {
-            parallel {
-                stage('Check docker packages') {
-                    when {
-                        expression { env.SERVER_TYPE == "docker" }
-                    }
-                    steps {
-                        script {
-                            sh '''
-                                export PMM_VERSION=\$(curl --location -k --user admin:\${ADMIN_PASSWORD} http://localhost/v1/server/version | jq -r '.version' | awk -F "-" \'{print \$1}\')
-                                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                                python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
-                            '''
-                        }
-                    }
-                }
-                stage('Check ami packages') {
-                    when {
-                        expression { env.SERVER_TYPE == "ami" }
-                    }
-                    steps {
-                        script {
-                             withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                                sh '''
-                                    ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} "bash -c '
-                                        export PMM_VERSION=$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}v1/server/version | jq -r \'.version\')
-                                        echo \\${PMM_VERSION}
-                                        echo "PMM Version is: \\${PMM_VERSION}"
-                                        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \\$PMM_VERSION -p pre
-                                        '
-                                    "
-                                '''
-                             }
-                        }
-                    }
+                stage('Check Packages before Upgrade') {
+            steps {
+                script {
+                    sh '''
+                        export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
+                        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
+                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
+                    '''
                 }
             }
         }
         stage('Check Client before Upgrade') {
-            when {
-                expression { env.SERVER_TYPE == "docker" }
-            }
             steps {
                 script {
                     checkClientBeforeUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION)
