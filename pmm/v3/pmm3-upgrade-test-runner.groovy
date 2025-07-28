@@ -33,7 +33,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
 
 
 def versionsList = pmmVersion('v3')
-def latestVersion = versionsList[versionsList.size - 1]
+def latestVersion = versionsList[versionsList.size() - 1]
 def latestDockerTag = 'perconalab/pmm-server:' + latestVersion
 
 pipeline {
