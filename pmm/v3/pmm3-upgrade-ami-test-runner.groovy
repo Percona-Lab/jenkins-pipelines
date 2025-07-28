@@ -130,12 +130,8 @@ pipeline {
             defaultValue: 'v3',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
-        choice(
-            choices: ['docker', 'ovf', 'ami'],
-            description: "PMM Server installation type.",
-            name: 'SERVER_TYPE')
         string(
-            defaultValue: 'percona/pmm-server:3.0.0',
+            defaultValue: 'ami-0569db88919e78ee2',
             description: 'PMM Server Version to test for Upgrade (Docker Tag, AMI ID or OVF version)',
             name: 'AMI_TAG')
         string(
