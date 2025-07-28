@@ -13,10 +13,5 @@ def call(String version = 'default', String newVersion = null, String gatedBuild
     def versionValues = (switchValues.find { key, value -> version ==~ key }?.value ?: switchValues['default']).collect()
     def newVersionValues = switchValues.find { key, value -> newVersion ==~ key }?.value ?: versionValues
 
-    if (isGatedBuild) {
-        versionValues.addAll(['ubuntu-focal', 'ubuntu-focal-arm'])
-        newVersionValues.addAll(['ubuntu-focal', 'ubuntu-focal-arm'])
-    }
-
     return versionValues.intersect(newVersionValues)
 }
