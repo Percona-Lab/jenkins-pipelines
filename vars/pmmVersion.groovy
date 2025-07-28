@@ -65,14 +65,7 @@ def call(String type='dev-latest') {
   // Grab 5 latest versions
   List<String> ovfVersions = versionsList[-5..-1]
   List<String> dbaasVersions = versionsList[-5..-1]
-
-  HashMap<String, String> v3Versions = [
-    '3.0.0': 'ami-030945ace2b07eb7b',
-    '3.1.0': 'ami-0a447a463e5b2d547',
-    '3.2.0': 'ami-0534d0b754cab462d',
-    '3.3.0': 'ami-0569db88919e78ee2',
-  ]
-  List<String> v3 = v3Versions.keySet() as List<String>;
+  List<String> v3 = ['3.3.0','3.2.0', '3.1.0', '3.0.0']
 
   switch(type) {
     case 'dev-latest':
@@ -98,7 +91,5 @@ def call(String type='dev-latest') {
       return dbaasVersions
     case 'v3':
       return v3
-    case 'v3-ami':
-      return v3Versions
   }
 }
