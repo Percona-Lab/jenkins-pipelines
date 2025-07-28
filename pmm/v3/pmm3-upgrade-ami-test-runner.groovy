@@ -298,7 +298,7 @@ pipeline {
                     sh """
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} 'bash -c "
                             cd /srv/qa-integration/pmm_qa
-                            sudo chmod +x pmm3-client-setup.sh
+                            sudo chmod +x pmm3-client-setup-centos.sh
                             ls
                             sudo ./pmm3-client-setup-centos.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
                         "'
