@@ -454,42 +454,14 @@ pipeline {
                 }
             }
         }
-        stage('Check PMM Server Packages after Upgrade') {
-            parallel {
-                stage('Check docker packages') {
-                    when {
-                        expression { env.SERVER_TYPE == "docker" }
-                    }
-                    steps {
-                        script {
-                            sh '''
-                                export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
-                                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                                python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p post
-                            '''
-                        }
-                    }
-                }
-                stage('Check ami packages') {
-                    when {
-                        expression { env.SERVER_TYPE == "ami" }
-                    }
-                    steps {
-                        script {
-                             withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                                sh '''
-                                    ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} "bash -c '
-                                        export PMM_VERSION=$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}v1/server/version | jq -r \'.version\')
-                                        echo \\${PMM_VERSION}
-                                        echo "PMM Version is: \\${PMM_VERSION}"
-                                        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \\$PMM_VERSION -p post
-                                        '
-                                    "
-                                '''
-                             }
-                        }
-                    }
+        stage('Check Packages after Upgrade') {
+            steps {
+                script {
+                    sh '''
+                        export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
+                        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
+                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p post
+                    '''
                 }
             }
         }
@@ -500,33 +472,26 @@ pipeline {
                 # fetch all the logs from PMM server
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
 
-                if [ "\${SERVER_TYPE}" != "ami" ]; then
-                    # get logs from systemd pmm-agent.service
-                    if [[ ${CLIENT_VERSION} != http* ]]; then
-                        journalctl -u pmm-agent.service >  ./pmm-agent.log
-                    fi
-
-                    # get logs from managed and update-perform
-                    echo --- pmm-managed logs from pmm-server --- >> pmm-managed-full.log
-                    docker exec pmm-server cat /srv/logs/pmm-managed.log >> pmm-managed-full.log || true
-                    docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
-                    echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
-                    docker cp pmm-server:/srv/logs srv-logs
-                    tar -zcvf srv-logs.tar.gz srv-logs
+                # get logs from systemd pmm-agent.service
+                if [[ ${CLIENT_VERSION} != http* ]]; then
+                    journalctl -u pmm-agent.service >  ./pmm-agent.log
                 fi
+
+                # get logs from managed and update-perform
+                echo --- pmm-managed logs from pmm-server --- >> pmm-managed-full.log
+                docker exec pmm-server cat /srv/logs/pmm-managed.log >> pmm-managed-full.log || true
+                docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
+                echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
+                docker cp pmm-server:/srv/logs srv-logs
+                tar -zcvf srv-logs.tar.gz srv-logs
+
             '''
             script {
-                if (env.SERVER_TYPE == "ami") {
-                    amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
-                        string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
-                    ]
-                } else {
-                    archiveArtifacts artifacts: 'pmm-managed-full.log'
-                    archiveArtifacts artifacts: 'pmm-update-perform.log'
-                    archiveArtifacts artifacts: 'pmm-agent.log'
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'srv-logs.tar.gz'
-                }
+                archiveArtifacts artifacts: 'pmm-managed-full.log'
+                archiveArtifacts artifacts: 'pmm-update-perform.log'
+                archiveArtifacts artifacts: 'pmm-agent.log'
+                archiveArtifacts artifacts: 'logs.zip'
+                archiveArtifacts artifacts: 'srv-logs.tar.gz'
 
                 def PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
                 try {
