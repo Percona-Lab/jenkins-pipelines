@@ -84,7 +84,10 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
 
 def versionsList = pmmVersion('v3-ami')
 def amiVersions = versionsList.values()
-println amiVersions;
+def versions = versionsList.keys()
+def upgradeAmiVersion = amiVersions[amiVersions.size() - 1]
+def latestVersion = versions[versions.size() - 1]
+def upgradeVersion = versions[versions.size() - 2]
 
 pipeline {
     agent {
@@ -129,7 +132,7 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
-            defaultValue: 'ami-0569db88919e78ee2',
+            defaultValue: upgradeAmiVersion,
             description: 'PMM Server Version to test for Upgrade (Docker Tag, AMI ID or OVF version)',
             name: 'AMI_TAG')
         string(
