@@ -253,7 +253,9 @@ pipeline {
             }
         }
         stage('Start AMI server Instance') {
-            runAMIStagingStart(DOCKER_TAG, PMM_QA_GIT_BRANCH)
+            steps {
+                runAMIStagingStart(DOCKER_TAG, PMM_QA_GIT_BRANCH)
+            }
         }
         stage('Install dependencies') {
             steps {
