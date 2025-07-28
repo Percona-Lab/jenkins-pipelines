@@ -686,17 +686,17 @@ pipeline {
                 fi
             '''
             script {
-//                 if (env.SERVER_TYPE == "ami") {
-//                     amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
-//                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
-//                     ]
-//                 } else {
+                if (env.SERVER_TYPE == "ami") {
+                    amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
+                        string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
+                    ]
+                } else {
                     archiveArtifacts artifacts: 'pmm-managed-full.log'
                     archiveArtifacts artifacts: 'pmm-update-perform.log'
                     archiveArtifacts artifacts: 'pmm-agent.log'
                     archiveArtifacts artifacts: 'logs.zip'
                     archiveArtifacts artifacts: 'srv-logs.tar.gz'
-//                 }
+                }
 
                 def PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
                 try {
