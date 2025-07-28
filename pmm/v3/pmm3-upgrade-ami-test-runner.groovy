@@ -175,10 +175,6 @@ pipeline {
             defaultValue: '8.0',
             description: "Which version of Percona Server for MongoDB",
             name: 'PSMDB_VERSION')
-        string(
-            defaultValue: 'admin',
-            description: "Password for PMM Server ",
-            name: 'ADMIN_PASSWORD')
     }
     options {
         skipDefaultCheckout()
