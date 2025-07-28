@@ -257,13 +257,10 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} 'bash -c "
-                            cd  /srv/qa-integration
-                            sudo git clone --single-branch --branch \\${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                            sudo chmod -R 755 /srv/qa-integration
-
                             curl -sL https://rpm.nodesource.com/setup_22.x -o nodesource_setup.sh
                             sudo bash nodesource_setup.sh
                             sudo dnf install -y nodejs
+                             cd  /srv/qa-integration
                             npm ci
                             npx playwright install
                             sudo npx playwright install-deps
