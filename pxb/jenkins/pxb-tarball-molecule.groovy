@@ -16,7 +16,7 @@ def noSkip() {
   return []
 }
 
-def delete_build_instances(){
+def deleteBuildInstances(){
     script {
         echo "All tests completed"
 
@@ -196,7 +196,7 @@ pipeline {
         moleculeParallelPostDestroy(pxbTarball(), env.MOLECULE_DIR)
 
       }
-      delete_build_instances()
+      deleteBuildInstances()
     }
   }
 }

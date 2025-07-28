@@ -109,28 +109,28 @@ pipeline {
                     sh """
                         echo "BRANCH is: \${BRANCH}"
                         echo "git_repo is: \${git_repo}"
-                        sudo rm -rf /package-testing
-                        sudo mkdir /package-testing
-                        sudo wget -O /package-testing/VERSIONS https://raw.githubusercontent.com/\${git_repo}/refs/heads/\${BRANCH}/VERSIONS
+                        rm -rf /tmp/package-testing
+                        mkdir /tmp/package-testing
+                        wget -O /tmp/package-testing/VERSIONS https://raw.githubusercontent.com/\${git_repo}/refs/heads/\${BRANCH}/VERSIONS
                     """
 
                     def UPSTREAM_VERSION = sh(
                         script: ''' 
-                            grep ${PRODUCT_TO_TEST}_VER /package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}'
+                            grep ${PRODUCT_TO_TEST}_VER /tmp/package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}'
                          ''',
                         returnStdout: true
                         ).trim()
 
                     def PS_VERSION = sh(
                         script: ''' 
-                            grep ${PRODUCT_TO_TEST}_VER /package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}'
+                            grep ${PRODUCT_TO_TEST}_VER /tmp/package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}'
                         ''',
                         returnStdout: true
                         ).trim()
 
                     def PS_REVISION = sh(
                         script: '''
-                             grep ${PRODUCT_TO_TEST}_REV /package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' 
+                             grep ${PRODUCT_TO_TEST}_REV /tmp/package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' 
                         ''',
                         returnStdout: true
                         ).trim()
