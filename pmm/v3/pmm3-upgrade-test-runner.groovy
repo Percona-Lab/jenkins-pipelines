@@ -31,11 +31,10 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     }
 }
 
-def latestVersion = pmmVersion()
-def versionsList = pmmVersion('list')
-def getMinorVersion(VERSION) {
-    return VERSION.split("\\.")[1].toInteger()
-}
+
+def versionsList = pmmVersion('v3')
+def latestVersion = versionsList[1]
+def latestDockerTag = 'perconalab/pmm-server:' + latestVersion
 
 pipeline {
     agent {
@@ -88,11 +87,11 @@ pipeline {
             description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
             name: 'DOCKER_TAG_UPGRADE')
         string(
-            defaultValue: '3.0.0',
+            defaultValue: latestVersion,
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '3.1.0',
+            defaultValue: '3.3.1',
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         choice(
@@ -149,9 +148,8 @@ pipeline {
 
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
-                    pushd /srv/pmm-qa
+                    cd /srv/pmm-qa
                         sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                    popd
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
@@ -199,9 +197,8 @@ pipeline {
             steps {
                 sh '''
                     sudo mkdir -p /srv/qa-integration || true
-                    pushd /srv/qa-integration
+                    cd /srv/qa-integration
                         sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                    popd
                     sudo chown ec2-user -R /srv/qa-integration
 
                     docker network create pmm-qa
@@ -289,7 +286,7 @@ pipeline {
                     set -o errexit
                     set -o xtrace
 
-                    pushd /srv/qa-integration/pmm_qa
+                    cd /srv/qa-integration/pmm_qa
                     echo "Setting docker based PMM clients"
                     mkdir -m 777 -p /tmp/backup_data
                     python3 -m venv virtenv
@@ -301,7 +298,6 @@ pipeline {
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         \${PMM_CLIENTS}
-                    popd
                 '''
             }
         }
