@@ -302,11 +302,13 @@ pipeline {
                             sudo dnf install -y microdnf wget perl
                             cd /srv/qa-integration/pmm_qa
                             sudo chmod +x pmm3-client-setup-centos.sh
-                            sudo ./pmm3-client-setup-centos.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
+                            docker exec pmm-server change-admin-password pmm3admin!
+                            sudo ./pmm3-client-setup-centos.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password pmm3admin!
                         "'
                     """
                 }
             }
+            env.ADMIN_PASSWORD = 'pmm3admin!'
         }
         stage('Setup Databases for PMM-Server') {
             steps {
