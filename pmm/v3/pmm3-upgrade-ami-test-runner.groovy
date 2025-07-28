@@ -83,7 +83,8 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
 }
 
 def latestVersion = pmmVersion()
-def versionsList = pmmVersion('list')
+def versionsList = pmmVersion('v3-ami')
+println versionsList;
 def getMinorVersion(VERSION) {
     return VERSION.split("\\.")[1].toInteger()
 }
