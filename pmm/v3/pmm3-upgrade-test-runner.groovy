@@ -422,7 +422,7 @@ pipeline {
 
                                     sudo chown -R \$(whoami):\$(whoami) /srv/qa-integration 1>/dev/null
                                     cd /srv/qa-integration/pmm_qa
-                                    sudo dnf install -y python3.12 python3.12-venv 1>/dev/null
+                                    sudo dnf install -y python3.12 1>/dev/null
                                     mkdir -m 777 -p /tmp/backup_data 1>/dev/null
                                     python3 -m venv virtenv 1>/dev/null
                                     . virtenv/bin/activate 1>/dev/null
