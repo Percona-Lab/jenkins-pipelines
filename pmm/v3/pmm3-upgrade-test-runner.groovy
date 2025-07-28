@@ -316,7 +316,7 @@ pipeline {
                     pip install -r requirements.txt
                     pip install setuptools
 
-                    python pmm-framework.py --verbose \
+                    python3 pmm-framework.py --verbose \
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         \${PMM_CLIENTS}
