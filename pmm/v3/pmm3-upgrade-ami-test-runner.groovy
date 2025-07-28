@@ -58,6 +58,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
 
             systemctl --user restart pmm-server
             sudo git clone --single-branch --branch $QA_INTEGRATION_GIT_BRANCH https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
+            sudo git clone --single-branch --branch $PMM_UI_GIT_BRANCH https://github.com/percona/pmm-ui-tests.git /srv/pmm-ui-tests
 
             cd /srv/qa-integration/pmm_qa
                 echo \\"Setting docker based PMM clients\\"
@@ -65,6 +66,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
                 sudo mkdir -m 777 -p /tmp/backup_data
                 sudo python3 -m ensurepip --upgrade
                 sudo chown -R \$(whoami) /srv/qa-integration/
+                sudo chown -R \$(whoami) /srv/pmm-ui-tests/
                 python3.12 -m venv virtenv
                 source virtenv/bin/activate
                 pip3 install --upgrade pip
@@ -256,7 +258,8 @@ pipeline {
                             curl -sL https://rpm.nodesource.com/setup_22.x -o nodesource_setup.sh
                             sudo bash nodesource_setup.sh
                             sudo dnf install -y nodejs
-                            find . -type d -name "pmm-ui-tests"
+                            cd /srv/pmm-ui-tests
+                            ls
                             npm ci
                             npx playwright install
                             sudo npx playwright install-deps
