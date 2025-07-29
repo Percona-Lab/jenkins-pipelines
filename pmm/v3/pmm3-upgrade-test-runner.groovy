@@ -331,7 +331,7 @@ pipeline {
                             docker cp pmm-custom-queries/postgresql/. $pgsqlContainerName:/usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
                             echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
                             sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
-                            docker exec $psContainerName pkill -f mysqld_exporter
+                            docker exec -u root $psContainerName pkill -f mysqld_exporter
                             docker exec $pgsqlContainerName pkill -f postgres_exporter
                             docker exec $pgsqlContainerName pmm-admin list
                             docker exec $psContainerName pmm-admin list
