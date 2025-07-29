@@ -1,0 +1,739 @@
+- job:
+    name: openshift-cluster-create
+    project-type: pipeline
+    description: |
+      Create OpenShift clusters on AWS with configurable parameters.
+      
+      This job creates production-ready OpenShift clusters with:
+      - Multiple OpenShift versions (4.16-4.19) 
+      - Standard x86_64 instance types (m5, m6i, c5)
+      - AWS Spot instance support for cost optimization
+      - Automatic cluster state backup to S3
+      - Billing tags for cost tracking
+      
+      Note: Uses AMD64 (x86_64) architecture for PMM compatibility.
+      The cluster state is saved to S3 for later destruction.
+
+    parameters:
+      - string:
+          name: CLUSTER_NAME
+          default: test-cluster
+          description: 'Name for the OpenShift cluster (lowercase, alphanumeric, hyphens only)'
+          trim: true
+      - choice:
+          name: OPENSHIFT_VERSION
+          choices:
+            - '4.19.6'
+            - '4.18.21'
+            - '4.17.36'
+            - '4.16.45'
+          description: 'OpenShift version to install - EUS = Extended Update Support'
+      - choice:
+          name: AWS_REGION
+          choices:
+            - 'us-east-2'
+            - 'us-east-1'
+            - 'us-west-2'
+            - 'eu-central-1'
+          description: 'AWS region for the cluster'
+      - choice:
+          name: MASTER_INSTANCE_TYPE
+          choices:
+            - 'm5.xlarge'
+            - 'm5.2xlarge'
+            - 'm6i.xlarge'
+          description: 'EC2 instance type for master nodes (x86_64)'
+      - choice:
+          name: WORKER_INSTANCE_TYPE
+          choices:
+            - 'm5.large'
+            - 'm5.xlarge'
+            - 'm5.2xlarge'
+          description: 'EC2 instance type for worker nodes (x86_64)'
+      - choice:
+          name: WORKER_COUNT
+          choices:
+            - '3'
+            - '2'
+            - '4'
+            - '5'
+          description: 'Number of worker nodes (2-10)'
+      - string:
+          name: BASE_DOMAIN
+          default: 'cd.percona.com'
+          description: 'Base domain for the cluster'
+          trim: true
+      - bool:
+          name: DEBUG_MODE
+          default: false
+          description: 'Enable debug logging for openshift-install'
+      - string:
+          name: DELETE_AFTER_HOURS
+          default: '8'
+          description: 'Hours after which the cluster should be deleted'
+          trim: true
+      - string:
+          name: PRODUCT_TAG
+          default: 'pg-operator'
+          description: 'Product tag for billing purposes'
+          trim: true
+      - bool:
+          name: USE_SPOT_INSTANCES
+          default: false
+          description: 'Use AWS Spot Instances for worker nodes (saves ~70% on costs)'
+      - string:
+          name: SPOT_MAX_PRICE
+          default: ''
+          description: 'Maximum spot price per hour (empty = on-demand price as max)'
+          trim: true
+      - bool:
+          name: TEST_MODE
+          default: true
+          description: 'Test mode - generates config but skips actual cluster creation and S3 uploads'
+      - bool:
+          name: DEPLOY_PMM
+          default: true
+          description: 'Deploy Percona Monitoring and Management (PMM) after cluster creation'
+      - choice:
+          name: PMM_VERSION
+          choices:
+            - '3.3.0'
+            - '3.2.0'
+            - '3.1.0'
+            - '3.0.0'
+          description: 'PMM Server version to deploy'
+      - string:
+          name: PMM_ADMIN_PASSWORD
+          default: 'admin'
+          description: 'Password for PMM admin user'
+          trim: true
+
+    dsl: |
+          // Jenkins Pipeline for creating OpenShift clusters on AWS
+          // Based on Percona's patterns from jenkins-pipelines
+
+          pipeline {
+              agent any
+
+              environment {
+                  WORKSPACE_DIR = "${WORKSPACE}"
+                  CLUSTER_DIR = "${WORKSPACE}/clusters/${params.CLUSTER_NAME}"
+                  AWS_ACCOUNT_ID = "119175775298"  // From CloudFormation
+                  S3_BUCKET = "openshift-clusters-119175775298-us-east-2"  // Existing bucket
+                  AWS_DEFAULT_REGION = "${params.AWS_REGION}"
+              }
+
+              stages {
+                  stage('1. Validate Parameters') {
+                      steps {
+                          script {
+                              echo "[INFO] Validating cluster parameters..."
+                              
+                              // Validate cluster name
+                              if (!params.CLUSTER_NAME.matches('^[a-z0-9-]+$')) {
+                                  error "[ERROR] Invalid cluster name '${params.CLUSTER_NAME}'. Use only lowercase letters, numbers, and hyphens."
+                              }
+                              if (params.CLUSTER_NAME.length() > 40) {
+                                  error "[ERROR] Cluster name '${params.CLUSTER_NAME}' too long (${params.CLUSTER_NAME.length()} chars). Maximum 40 characters allowed."
+                              }
+
+                              // Validate worker count
+                              def workerCount = params.WORKER_COUNT as Integer
+                              if (workerCount < 2 || workerCount > 10) {
+                                  error "[ERROR] Worker count ${workerCount} is invalid. Must be between 2 and 10."
+                              }
+                              
+                              echo "[SUCCESS] All parameters validated successfully"
+                          }
+                      }
+                  }
+
+                  stage('2. Install OpenShift Tools') {
+                      steps {
+                          script {
+                              // Verify we're running on x86_64 architecture
+                              def currentArch = sh(
+                                  script: "uname -m",
+                                  returnStdout: true
+                              ).trim()
+                              
+                              if (currentArch != 'x86_64') {
+                                  error "[ERROR] This job requires x86_64 architecture but is running on ${currentArch}. Please ensure the job runs on an AMD64 agent."
+                              }
+                              
+                              echo "[INFO] Architecture check passed: ${currentArch}"
+                              sh """
+                                  echo "[INFO] Installing OpenShift CLI tools..."
+                                  
+                                  # Create local bin directory if it doesn't exist
+                                  mkdir -p ~/bin
+                                  export PATH="\$HOME/bin:\$PATH"
+                                  
+                                  # Check if tools are already installed and up to date
+                                  OPENSHIFT_VERSION="${params.OPENSHIFT_VERSION}"
+                                  NEED_INSTALL=false
+                                  
+                                  if ! command -v openshift-install &> /dev/null; then
+                                      echo "[INFO] OpenShift installer not found, will install"
+                                      NEED_INSTALL=true
+                                  elif ! openshift-install version 2>/dev/null | grep -q "\${OPENSHIFT_VERSION}"; then
+                                      echo "[INFO] OpenShift installer version mismatch, will reinstall"
+                                      NEED_INSTALL=true
+                                  fi
+                                  
+                                  if ! command -v oc &> /dev/null; then
+                                      echo "[INFO] OpenShift CLI client not found, will install"
+                                      NEED_INSTALL=true
+                                  fi
+                                  
+                                  if [ "\$NEED_INSTALL" = "true" ]; then
+                                      echo "[INFO] Installing OpenShift \${OPENSHIFT_VERSION} tools..."
+                                      
+                                      # Architecture is x86_64 only
+                                      OPENSHIFT_ARCH="x86_64"
+                                      echo "[INFO] Using OpenShift x86_64 binaries"
+                                      
+                                      # Download and install openshift-install
+                                      echo "[INFO] Downloading OpenShift installer..."
+                                      curl -sL "https://mirror.openshift.com/pub/openshift-v4/\${OPENSHIFT_ARCH}/clients/ocp/\${OPENSHIFT_VERSION}/openshift-install-linux.tar.gz" | tar -xz -C ~/bin/
+                                      
+                                      # Download and install oc client  
+                                      echo "[INFO] Downloading OpenShift CLI client..."
+                                      curl -sL "https://mirror.openshift.com/pub/openshift-v4/\${OPENSHIFT_ARCH}/clients/ocp/\${OPENSHIFT_VERSION}/openshift-client-linux.tar.gz" | tar -xz -C ~/bin/
+                                      
+                                      # Make tools executable
+                                      chmod +x ~/bin/openshift-install ~/bin/oc
+                                      
+                                      echo "[SUCCESS] OpenShift tools installed successfully"
+                                  else
+                                      echo "[INFO] OpenShift tools already installed and up to date"
+                                  fi
+                                  
+                                  # Verify installation
+                                  echo "[INFO] Verifying tool installation..."
+                                  ~/bin/openshift-install version
+                                  ~/bin/oc version --client
+                              """
+                          }
+                      }
+                  }
+
+                  stage('3. Check Prerequisites') {
+                      steps {
+                          script {
+                              // Check if cluster already exists
+                              withCredentials([
+                                  [$class: 'AmazonWebServicesCredentialsBinding',
+                                   credentialsId: 'jenkins-openshift-aws']
+                              ]) {
+                                  def clusterExists = sh(
+                                      script: """
+                                          aws s3 ls s3://${S3_BUCKET}/${params.CLUSTER_NAME}/ || true
+                                      """,
+                                      returnStdout: true
+                                  ).trim()
+
+                                  if (clusterExists) {
+                                      error "[ERROR] Cluster '${params.CLUSTER_NAME}' already exists in S3. Please destroy it first using 'openshift-cluster-destroy' job or choose a different name."
+                                  }
+                              }
+
+                              // Verify tools are available (now from ~/bin)
+                              sh """
+                                  export PATH="\$HOME/bin:\$PATH"
+                                  echo "[INFO] Checking required tools..."
+                                  which openshift-install || (echo "[ERROR] OpenShift installer not found in PATH" && exit 1)
+                                  which oc || (echo "[ERROR] OpenShift CLI client not found in PATH" && exit 1)
+                                  which aws || (echo "[ERROR] AWS CLI not found. Please ensure Jenkins agent has AWS CLI installed." && exit 1)
+
+                                  echo "[INFO] Displaying tool versions..."
+                                  openshift-install version
+                                  oc version --client
+                                  aws --version
+                                  echo "[SUCCESS] All required tools are available and functional"
+                              """
+                          }
+                      }
+                  }
+
+                  stage('4. Prepare Install Config') {
+                      steps {
+                          script {
+                              // Download templates from GitHub Gists
+                              sh """
+                                  echo "[INFO] Downloading configuration templates..."
+                                  mkdir -p ${WORKSPACE}/templates ${WORKSPACE}/scripts
+                                  
+                                  # Download install-config template
+                                  echo "[INFO] Downloading OpenShift install configuration template..."
+                                  curl -sL https://gist.githubusercontent.com/nogueiraanderson/7bae6cee9d03c745d27cf1daf44f8d52/raw/install-config-template.yaml \
+                                       -o ${WORKSPACE}/templates/install-config-template.yaml
+                                  
+                                  # Download metadata creation script
+                                  echo "[INFO] Downloading cluster metadata creation script..."
+                                  curl -sL https://gist.githubusercontent.com/nogueiraanderson/2f3b17add68eb5c80a5c8eae8436b967/raw/create-metadata.sh \
+                                       -o ${WORKSPACE}/scripts/create-metadata.sh
+                                  chmod +x ${WORKSPACE}/scripts/create-metadata.sh
+                                  
+                                  echo "[SUCCESS] Configuration templates downloaded successfully"
+                              """
+                              
+                              // Create cluster directory and clean up any old files
+                              sh """
+                                  echo "[INFO] Preparing cluster workspace directory..."
+                                  mkdir -p ${CLUSTER_DIR}
+                                  # Clean up any leftover files from previous runs
+                                  rm -rf ${CLUSTER_DIR}/*
+                                  echo "[SUCCESS] Cluster workspace prepared at ${CLUSTER_DIR}"
+                              """
+
+                              if (params.TEST_MODE) {
+                                  echo "[INFO] TEST MODE: Generating install-config.yaml with dummy credentials"
+                                  
+                                  // Generate test SSH key
+                                  sh """
+                                      if [ ! -f ~/.ssh/openshift-test-key ]; then
+                                          ssh-keygen -t rsa -b 4096 -f ~/.ssh/openshift-test-key -N "" -C "openshift-test"
+                                      fi
+                                  """
+                                  
+                                  def sshPublicKey = sh(
+                                      script: "cat ~/.ssh/openshift-test-key.pub",
+                                      returnStdout: true
+                                  ).trim()
+                                  
+                                  // Read template and replace placeholders
+                                  def template = readFile('templates/install-config-template.yaml')
+                                  def timestamp = sh(script: "date +%s", returnStdout: true).trim()
+                                  
+                                  def installConfig = template
+                                      .replace('BASEDOMAIN', params.BASE_DOMAIN)
+                                      .replace('CLUSTERNAME', params.CLUSTER_NAME)
+                                      .replace('WORKERTYPE', params.WORKER_INSTANCE_TYPE)
+                                      .replace('WORKERCOUNT', params.WORKER_COUNT)
+                                      .replace('MASTERTYPE', params.MASTER_INSTANCE_TYPE)
+                                      .replace('AWSREGION', params.AWS_REGION)
+                                      .replace('DELETEAFTER', params.DELETE_AFTER_HOURS)
+                                      .replace('TEAMNAME', 'test')
+                                      .replace('PRODUCTTAG', params.PRODUCT_TAG)
+                                      .replace('BUILDUSER', env.BUILD_USER_ID ?: 'jenkins')
+                                      .replace('TIMESTAMP', timestamp)
+                                      .replace('PULLSECRET', '{"auths":{"fake":{"auth":"dGVzdDp0ZXN0"}}}')
+                                      .replace('SSHPUBLICKEY', sshPublicKey)
+                                      .replace('SPOTCONFIG', '')  // No spot config in test mode
+                                  
+                                  writeFile file: "${CLUSTER_DIR}/install-config.yaml", text: installConfig
+                                  sh "cp ${CLUSTER_DIR}/install-config.yaml ${CLUSTER_DIR}/install-config.yaml.backup"
+                                  
+                                  echo "[SUCCESS] Test install-config.yaml generated at ${CLUSTER_DIR}/install-config.yaml"
+                              } else {
+                                  // Real mode with actual credentials
+                                  withCredentials([
+                                      string(credentialsId: 'openshift-pull-secret', variable: 'PULL_SECRET'),
+                                      sshUserPrivateKey(
+                                          credentialsId: 'openshift-ssh-key',
+                                          keyFileVariable: 'SSH_KEY_FILE'
+                                      )
+                                  ]) {
+                                      // Read SSH public key with proper output handling
+                                      echo "[INFO] Extracting SSH public key from private key..."
+                                      def sshPublicKey = sh(
+                                          script: "ssh-keygen -y -f ${SSH_KEY_FILE}",
+                                          returnStdout: true
+                                      ).trim()
+                                      echo "[SUCCESS] SSH key extracted successfully"
+
+                                      // Handle spot instances for worker nodes
+                                      def spotConfig = ''
+                                      if (params.USE_SPOT_INSTANCES) {
+                                          if (params.SPOT_MAX_PRICE) {
+                                              spotConfig = "      spotMaxPrice: \"${params.SPOT_MAX_PRICE}\""
+                                          } else {
+                                              spotConfig = '      spotMaxPrice: ""'
+                                          }
+                                      }
+                                      
+                                      // Read template and replace placeholders
+                                      def template = readFile('templates/install-config-template.yaml')
+                                      def timestamp = sh(script: "date +%s", returnStdout: true).trim()
+                                      
+                                      def installConfig = template
+                                          .replace('BASEDOMAIN', params.BASE_DOMAIN)
+                                          .replace('CLUSTERNAME', params.CLUSTER_NAME)
+                                          .replace('WORKERTYPE', params.WORKER_INSTANCE_TYPE)
+                                          .replace('WORKERCOUNT', params.WORKER_COUNT)
+                                          .replace('MASTERTYPE', params.MASTER_INSTANCE_TYPE)
+                                          .replace('AWSREGION', params.AWS_REGION)
+                                          .replace('DELETEAFTER', params.DELETE_AFTER_HOURS)
+                                          .replace('TEAMNAME', 'Percona')
+                                          .replace('PRODUCTTAG', params.PRODUCT_TAG)
+                                          .replace('BUILDUSER', env.BUILD_USER_ID ?: 'jenkins')
+                                          .replace('TIMESTAMP', timestamp)
+                                          .replace('PULLSECRET', PULL_SECRET)
+                                          .replace('SSHPUBLICKEY', sshPublicKey)
+                                          .replace('SPOTCONFIG', spotConfig)
+                                      
+                                      writeFile file: "${CLUSTER_DIR}/install-config.yaml", text: installConfig
+                                      sh "cp ${CLUSTER_DIR}/install-config.yaml ${CLUSTER_DIR}/install-config.yaml.backup"
+                                      
+                                      // Debug: Show the generated config
+                                      sh """
+                                          echo "[INFO] Generated install-config.yaml (first 50 lines):"
+                                          head -50 ${CLUSTER_DIR}/install-config.yaml | cat -n
+                                          echo "[INFO] Validating YAML syntax..."
+                                          if which python3 >/dev/null 2>&1; then
+                                              python3 -c "import yaml; yaml.safe_load(open('${CLUSTER_DIR}/install-config.yaml'))" && echo "[SUCCESS] YAML syntax is valid" || echo "[ERROR] YAML syntax is invalid"
+                                          else
+                                              echo "[WARNING] Python3 not available for YAML validation"
+                                          fi
+                                      """
+                                  }
+                              }
+                          }
+                      }
+                  }
+
+                  stage('5. Create Cluster') {
+                      steps {
+                          script {
+                              def logLevel = params.DEBUG_MODE ? 'debug' : 'info'
+
+                              if (params.TEST_MODE) {
+                                  echo ""
+                                  echo "========================================"
+                                  echo "        TEST MODE ACTIVE"
+                                  echo "========================================"
+                                  echo "Skipping actual cluster creation"
+                                  echo "Would run: openshift-install create cluster"
+                                  echo "========================================"
+                                  echo ""
+                                  
+                                  // Create dummy files for testing
+                                  sh """
+                                      echo "[INFO] Creating test cluster files..."
+                                      mkdir -p ${CLUSTER_DIR}/auth
+                                      echo "dummy-kubeconfig" > ${CLUSTER_DIR}/auth/kubeconfig
+                                      echo "dummy-password" > ${CLUSTER_DIR}/auth/kubeadmin-password
+                                      echo "https://console-openshift-console.apps.${params.CLUSTER_NAME}.${params.BASE_DOMAIN}" > ${CLUSTER_DIR}/auth/weburl
+                                      echo "[SUCCESS] Test cluster files created successfully"
+                                  """
+                              } else {
+                                  withCredentials([
+                                      [$class: 'AmazonWebServicesCredentialsBinding',
+                                       credentialsId: 'jenkins-openshift-aws']
+                                  ]) {
+                                      try {
+                                          sh """
+                                              export PATH="\$HOME/bin:\$PATH"
+                                              echo "[INFO] Starting OpenShift ${params.OPENSHIFT_VERSION} cluster creation..."
+                                              echo "[INFO] This process typically takes 30-45 minutes..."
+                                              cd ${CLUSTER_DIR}
+
+                                              # Run installer
+                                              openshift-install create cluster --log-level=${logLevel}
+
+                                              echo "[SUCCESS] OpenShift cluster creation completed successfully!"
+                                          """
+                                      } catch (Exception e) {
+                                          echo "[ERROR] Cluster creation failed: ${e.message}"
+                                          echo "[ERROR] Check the logs above for details. Common issues:"
+                                          echo "[ERROR] - AWS quota limits exceeded"
+                                          echo "[ERROR] - Invalid AWS credentials"
+                                          echo "[ERROR] - Network connectivity issues"
+                                          throw e
+                                      }
+                                  }
+                              }
+                          }
+                      }
+                  }
+
+                  stage('6. Deploy PMM Monitoring') {
+                      when {
+                          expression {
+                              return params.DEPLOY_PMM && !params.TEST_MODE
+                          }
+                      }
+                      steps {
+                          script {
+                              echo "[INFO] Deploying PMM ${params.PMM_VERSION} to the cluster..."
+                              
+                              // Download PMM installation script from GitHub Gist
+                              sh """
+                                  echo "[INFO] Downloading PMM installation script..."
+                                  mkdir -p ${WORKSPACE}/scripts
+                                  
+                                  # Download PMM installation script
+                                  curl -sL https://gist.githubusercontent.com/nogueiraanderson/7e3fb99b832e656612ff74be022d4d40/raw/install-pmm-gist.sh \
+                                       -o ${WORKSPACE}/scripts/install-pmm.sh
+                                  chmod +x ${WORKSPACE}/scripts/install-pmm.sh
+                                  
+                                  echo "[SUCCESS] PMM installation script downloaded"
+                              """
+                              
+                              // Install Helm if not available
+                              sh """
+                                  # Ensure bin directory exists
+                                  mkdir -p \$HOME/bin
+                                  export PATH="\$HOME/bin:\$PATH"
+                                  
+                                  if ! command -v helm &> /dev/null; then
+                                      echo "[INFO] Installing Helm..."
+                                      
+                                      # Determine architecture
+                                      ARCH=\$(uname -m)
+                                      case \$ARCH in
+                                          x86_64) ARCH='amd64' ;;
+                                          aarch64) ARCH='arm64' ;;
+                                      esac
+                                      
+                                      # Download Helm binary directly
+                                      HELM_VERSION="v3.18.4"
+                                      echo "[INFO] Downloading Helm \${HELM_VERSION} for linux-\${ARCH}..."
+                                      curl -sL "https://get.helm.sh/helm-\${HELM_VERSION}-linux-\${ARCH}.tar.gz" | tar xz -C ~/bin --strip-components=1 linux-\${ARCH}/helm
+                                      chmod +x ~/bin/helm
+                                      
+                                      # Verify installation
+                                      if ~/bin/helm version --short; then
+                                          echo "[SUCCESS] Helm installed successfully"
+                                      else
+                                          echo "[ERROR] Helm installation failed"
+                                          exit 1
+                                      fi
+                                  else
+                                      echo "[INFO] Helm is already installed"
+                                      helm version --short
+                                  fi
+                              """
+                              
+                              // Deploy PMM using the downloaded script
+                              withCredentials([
+                                  [$class: 'AmazonWebServicesCredentialsBinding',
+                                   credentialsId: 'jenkins-openshift-aws']
+                              ]) {
+                                  sh """
+                                      export PATH="\$HOME/bin:\$PATH"
+                                      export KUBECONFIG="${CLUSTER_DIR}/auth/kubeconfig"
+                                      
+                                      echo "[INFO] Configuring kubectl/oc access..."
+                                      oc whoami || (echo "[ERROR] Unable to connect to cluster" && exit 1)
+                                      
+                                      echo "[INFO] Running PMM installation..."
+                                      ${WORKSPACE}/scripts/install-pmm.sh \
+                                          "pmm-monitoring" \
+                                          "${params.PMM_VERSION}" \
+                                          "1.4.6" \
+                                          "${params.PMM_ADMIN_PASSWORD}"
+                                      
+                                      echo "[SUCCESS] PMM deployment completed"
+                                  """
+                              }
+                              
+                              // Archive PMM access information
+                              archiveArtifacts artifacts: "pmm-info/access.txt", allowEmptyArchive: true
+                          }
+                      }
+                  }
+
+                  stage('7. Save Cluster State') {
+                      steps {
+                          script {
+                              if (params.TEST_MODE) {
+                                  echo ""
+                                  echo "[WARNING] TEST MODE: Skipping S3 upload"
+                                  echo ""
+                                  sh """
+                                      echo "[INFO] Creating local cluster state archive..."
+                                      cd ${WORKSPACE}/clusters
+                                      
+                                      # Create tarball locally
+                                      tar -czf ${params.CLUSTER_NAME}-state.tar.gz ${params.CLUSTER_NAME}/
+                                      echo "[SUCCESS] Cluster state archive created"
+                                      
+                                      # Create test metadata using script
+                                      echo "[INFO] Generating cluster metadata..."
+                                      ${WORKSPACE}/scripts/create-metadata.sh \
+                                          "${params.CLUSTER_NAME}" \
+                                          "${params.OPENSHIFT_VERSION}" \
+                                          "${params.AWS_REGION}" \
+                                          "${params.MASTER_INSTANCE_TYPE}" \
+                                          "${params.WORKER_INSTANCE_TYPE}" \
+                                          "${params.WORKER_COUNT}" \
+                                          "${env.BUILD_USER_ID ?: 'jenkins'}" \
+                                          "${env.BUILD_NUMBER}" \
+                                          "true"
+                                      
+                                      echo "[INFO] TEST MODE: Would upload to s3://${S3_BUCKET}/${params.CLUSTER_NAME}/"
+                                      echo "[INFO] Local files saved at:"
+                                      echo "[INFO]   - ${WORKSPACE}/clusters/${params.CLUSTER_NAME}-state.tar.gz"
+                                      echo "[INFO]   - ${WORKSPACE}/clusters/cluster-metadata.json"
+                                  """
+                              } else {
+                                  withCredentials([
+                                      [$class: 'AmazonWebServicesCredentialsBinding',
+                                       credentialsId: 'jenkins-openshift-aws']
+                                  ]) {
+                                      sh """
+                                          echo "[INFO] Saving cluster state to S3..."
+                                          cd ${WORKSPACE}/clusters
+
+                                          # Create tarball of cluster directory
+                                          echo "[INFO] Creating cluster state archive..."
+                                          tar -czf ${params.CLUSTER_NAME}-state.tar.gz ${params.CLUSTER_NAME}/
+
+                                          # Upload to S3
+                                          echo "[INFO] Uploading cluster state to S3..."
+                                          aws s3 cp ${params.CLUSTER_NAME}-state.tar.gz \
+                                              s3://${S3_BUCKET}/${params.CLUSTER_NAME}/cluster-state.tar.gz
+
+                                          # Create metadata using script
+                                          echo "[INFO] Generating and uploading cluster metadata..."
+                                          ${WORKSPACE}/scripts/create-metadata.sh \
+                                              "${params.CLUSTER_NAME}" \
+                                              "${params.OPENSHIFT_VERSION}" \
+                                              "${params.AWS_REGION}" \
+                                              "${params.MASTER_INSTANCE_TYPE}" \
+                                              "${params.WORKER_INSTANCE_TYPE}" \
+                                              "${params.WORKER_COUNT}" \
+                                              "${env.BUILD_USER_ID ?: 'jenkins'}" \
+                                              "${env.BUILD_NUMBER}" \
+                                              "false"
+
+                                          aws s3 cp cluster-metadata.json \
+                                              s3://${S3_BUCKET}/${params.CLUSTER_NAME}/metadata.json
+
+                                          # Clean up local files
+                                          echo "[INFO] Cleaning up temporary files..."
+                                          rm -f ${params.CLUSTER_NAME}-state.tar.gz cluster-metadata.json
+                                          echo "[SUCCESS] Cluster state saved to S3 at s3://${S3_BUCKET}/${params.CLUSTER_NAME}/"
+                                      """
+                                  }
+                              }
+                          }
+                      }
+                  }
+
+                  stage('8. Display Access Info') {
+                      steps {
+                          script {
+                              sh """
+                                  echo ""
+                                  echo "========================================"
+                                  echo "    OpenShift Cluster Information"
+                                  echo "========================================"
+                                  echo ""
+                                  echo "[INFO] Cluster Details:"
+                                  echo "[INFO] - Name: ${params.CLUSTER_NAME}"
+                                  echo "[INFO] - Version: OpenShift ${params.OPENSHIFT_VERSION}"
+                                  echo "[INFO] - Region: ${params.AWS_REGION}"
+                                  echo "[INFO] - Masters: 3 x ${params.MASTER_INSTANCE_TYPE}"
+                                  echo "[INFO] - Workers: ${params.WORKER_COUNT} x ${params.WORKER_INSTANCE_TYPE}"
+                              """
+                              
+                              if (params.USE_SPOT_INSTANCES) {
+                                  sh """
+                                      echo "[INFO]"
+                                      echo "[INFO] Cost Optimization:"
+                                      echo "[INFO] - Using AWS Spot Instances for workers"
+                                  """
+                                  if (params.SPOT_MAX_PRICE) {
+                                      echo "[INFO]   - Max Price: \\\$${params.SPOT_MAX_PRICE}/hour"
+                                  }
+                              }
+                              
+                              sh """
+                                  echo ""
+                                  echo "[INFO] Access Credentials:"
+                                  echo "[INFO] Web Console:"
+                                  echo -n "[INFO] - URL: "
+                                  cat ${CLUSTER_DIR}/auth/weburl 2>/dev/null || echo "[WARNING] URL not found"
+                                  echo "[INFO] - Username: kubeadmin"
+                                  echo -n "[INFO] - Password: "
+                                  cat ${CLUSTER_DIR}/auth/kubeadmin-password 2>/dev/null || echo "[WARNING] Password not found"
+                                  echo ""
+                                  echo "[INFO] CLI Access:"
+                                  echo "[INFO] - export KUBECONFIG=${CLUSTER_DIR}/auth/kubeconfig"
+                                  echo "[INFO] - oc get nodes"
+                                  echo ""
+                                  echo "[SUCCESS] Cluster information displayed successfully"
+                                  echo ""
+                              """
+                              
+                              // Display PMM access info if deployed
+                              if (params.DEPLOY_PMM && !params.TEST_MODE) {
+                                  sh """
+                                      echo "========================================"
+                                      echo "    PMM Access Information"
+                                      echo "========================================"
+                                      if [ -f "${WORKSPACE}/pmm-info/access.txt" ]; then
+                                          cat "${WORKSPACE}/pmm-info/access.txt"
+                                      else
+                                          echo "[WARNING] PMM access information not found"
+                                      fi
+                                      echo "========================================"
+                                  """
+                              }
+                              
+                              sh """
+                                  echo "========================================"
+                              """
+
+                              if (params.TEST_MODE) {
+                                  echo ""
+                                  echo "========================================"
+                                  echo "  WARNING: TEST MODE - No actual cluster created"
+                                  echo "========================================"
+                                  echo ""
+                              }
+
+                              // Archive important files
+                              archiveArtifacts artifacts: """
+                                  clusters/${params.CLUSTER_NAME}/auth/kubeconfig,
+                                  clusters/${params.CLUSTER_NAME}/auth/kubeadmin-password,
+                                  clusters/${params.CLUSTER_NAME}/.openshift_install.log,
+                                  clusters/${params.CLUSTER_NAME}/install-config.yaml.backup
+                              """, allowEmptyArchive: true
+                          }
+                      }
+                  }
+              }
+
+              post {
+                  success {
+                      script {
+                          echo "[SUCCESS] OpenShift cluster '${params.CLUSTER_NAME}' created successfully!"
+                          if (!params.TEST_MODE) {
+                              echo "[SUCCESS] Cluster is ready for use. Save the credentials above for access."
+                          }
+                      }
+                  }
+
+                  failure {
+                      echo "[ERROR] Failed to create OpenShift cluster '${params.CLUSTER_NAME}'"
+                      echo "[ERROR] Review the logs above for detailed error information."
+                  }
+
+                  cleanup {
+                      // Clean workspace but preserve logs
+                      sh """
+                          find ${WORKSPACE} -name "*.tar.gz" -delete || true
+                          find ${WORKSPACE} -name "*.tmp" -delete || true
+                      """
+                  }
+              }
+          }
+
+    properties:
+      - build-discarder:
+          days-to-keep: 30
+          num-to-keep: 20
+
+    triggers:
+      - timed: ''  # Manual execution only
+
+    wrappers:
+      - timeout:
+          timeout: 120
+          fail: true
+      - timestamps
+      - ansicolor

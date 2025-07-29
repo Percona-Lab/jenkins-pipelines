@@ -1,0 +1,415 @@
+- job:
+    name: openshift-cluster-destroy
+    project-type: pipeline
+    description: |
+      Destroy OpenShift clusters on AWS safely and completely.
+      
+      This job:
+      - Downloads cluster state from S3
+      - Lists all resources to be destroyed
+      - Performs clean cluster destruction
+      - Verifies complete cleanup
+      - Optionally keeps S3 backups
+      
+      Supports dry-run mode for safe testing.
+
+    parameters:
+      - string:
+          name: CLUSTER_NAME
+          default: ''
+          description: 'Name of the OpenShift cluster to destroy'
+          trim: true
+      - bool:
+          name: FORCE_DESTROY
+          default: false
+          description: 'Force destroy even if there are errors'
+      - bool:
+          name: KEEP_S3_BACKUP
+          default: false
+          description: 'Keep the cluster state backup in S3 after destruction'
+      - bool:
+          name: DRY_RUN
+          default: false
+          description: 'Show what would be destroyed without actually destroying'
+
+    dsl: |
+          // Jenkins Pipeline for destroying OpenShift clusters on AWS
+          // Based on Percona's patterns from jenkins-pipelines
+
+          pipeline {
+              agent {
+                  label 'built-in'
+              }
+
+              environment {
+                  WORKSPACE_DIR = "${WORKSPACE}"
+                  CLUSTER_DIR = "${WORKSPACE}/clusters/${params.CLUSTER_NAME}"
+                  AWS_ACCOUNT_ID = "119175775298"  // From CloudFormation
+                  S3_BUCKET = "openshift-clusters-119175775298-us-east-2"  // Existing bucket
+              }
+
+              stages {
+                  stage('1. Validate Parameters') {
+                      steps {
+                          script {
+                              echo "[INFO] Validating destroy parameters..."
+                              
+                              if (!params.CLUSTER_NAME) {
+                                  error "[ERROR] Cluster name is required. Please provide the name of the cluster to destroy."
+                              }
+
+                              if (!params.CLUSTER_NAME.matches('^[a-z0-9-]+$')) {
+                                  error "[ERROR] Invalid cluster name format '\${params.CLUSTER_NAME}'. Use only lowercase letters, numbers, and hyphens."
+                              }
+                              
+                              echo "[SUCCESS] Parameters validated successfully"
+                          }
+                      }
+                  }
+
+                  stage('2. Install OpenShift Tools') {
+                      steps {
+                          script {
+                              // Verify we're running on x86_64 architecture
+                              def currentArch = sh(
+                                  script: "uname -m",
+                                  returnStdout: true
+                              ).trim()
+                              
+                              if (currentArch != 'x86_64') {
+                                  error "[ERROR] This job requires x86_64 architecture but is running on ${currentArch}. Please ensure the job runs on an AMD64 agent."
+                              }
+                              
+                              echo "[INFO] Architecture check passed: ${currentArch}"
+                              sh """
+                                  echo "[INFO] Installing OpenShift CLI tools..."
+                                  
+                                  # Create local bin directory if it doesn't exist
+                                  mkdir -p ~/bin
+                                  export PATH="\$HOME/bin:\$PATH"
+                                  
+                                  # Check if tools are already installed and up to date
+                                  # Use OpenShift 4.19.6 as default version
+                                  OPENSHIFT_VERSION="4.19.6"
+                                  NEED_INSTALL=false
+                                  
+                                  if ! command -v openshift-install &> /dev/null; then
+                                      echo "[INFO] OpenShift installer not found, will install"
+                                      NEED_INSTALL=true
+                                  elif ! openshift-install version 2>/dev/null | grep -q "\${OPENSHIFT_VERSION}"; then
+                                      echo "[INFO] OpenShift installer version mismatch, will reinstall"
+                                      NEED_INSTALL=true
+                                  fi
+                                  
+                                  if ! command -v oc &> /dev/null; then
+                                      echo "[INFO] OpenShift CLI client not found, will install"
+                                      NEED_INSTALL=true
+                                  fi
+                                  
+                                  if [ "\$NEED_INSTALL" = "true" ]; then
+                                      echo "[INFO] Installing OpenShift \${OPENSHIFT_VERSION} tools..."
+                                      
+                                      # Architecture is x86_64 only
+                                      OPENSHIFT_ARCH="x86_64"
+                                      echo "[INFO] Using OpenShift x86_64 binaries"
+                                      
+                                      # Download and install openshift-install
+                                      echo "[INFO] Downloading OpenShift installer..."
+                                      curl -sL "https://mirror.openshift.com/pub/openshift-v4/\${OPENSHIFT_ARCH}/clients/ocp/\${OPENSHIFT_VERSION}/openshift-install-linux.tar.gz" | tar -xz -C ~/bin/
+                                      
+                                      # Download and install oc client  
+                                      echo "[INFO] Downloading OpenShift CLI client..."
+                                      curl -sL "https://mirror.openshift.com/pub/openshift-v4/\${OPENSHIFT_ARCH}/clients/ocp/\${OPENSHIFT_VERSION}/openshift-client-linux.tar.gz" | tar -xz -C ~/bin/
+                                      
+                                      # Make tools executable
+                                      chmod +x ~/bin/openshift-install ~/bin/oc
+                                      
+                                      echo "[SUCCESS] OpenShift tools installed successfully"
+                                  else
+                                      echo "[INFO] OpenShift tools already installed and up to date"
+                                  fi
+                                  
+                                  # Verify installation
+                                  echo "[INFO] Verifying tool installation..."
+                                  ~/bin/openshift-install version
+                                  ~/bin/oc version --client
+                              """
+                              
+                              echo "[SUCCESS] OpenShift tools prepared successfully"
+                          }
+                      }
+                  }
+
+                  stage('3. Check Prerequisites') {
+                      steps {
+                          script {
+                              // Verify tools are available (now from ~/bin)
+                              sh """
+                                  export PATH="\$HOME/bin:\$PATH"
+                                  echo "[INFO] Checking required tools..."
+                                  which openshift-install || (echo "[ERROR] OpenShift installer not found in PATH" && exit 1)
+                                  which oc || (echo "[ERROR] OpenShift CLI client not found in PATH" && exit 1)
+                                  which aws || (echo "[ERROR] AWS CLI not found. Please ensure Jenkins agent has AWS CLI installed." && exit 1)
+
+                                  echo "[INFO] Displaying tool versions..."
+                                  openshift-install version
+                                  oc version --client
+                                  aws --version
+                                  echo "[SUCCESS] All required tools are available and functional"
+                              """
+                          }
+                      }
+                  }
+
+                  stage('4. Check Cluster Exists') {
+                      steps {
+                          script {
+                              // Check for local workspace artifacts first (for failed creation attempts)
+                              // Check both current workspace and openshift-cluster-create workspace
+                              def localClusterExists = sh(
+                                  script: """
+                                      # Check current workspace
+                                      (test -d "${WORKSPACE}/clusters/${params.CLUSTER_NAME}" && \
+                                       (test -f "${WORKSPACE}/clusters/${params.CLUSTER_NAME}/.openshift_install_state.json" || \
+                                        test -f "${WORKSPACE}/clusters/${params.CLUSTER_NAME}/metadata.json" || \
+                                        test -d "${WORKSPACE}/clusters/${params.CLUSTER_NAME}/auth" || \
+                                        test -d "${WORKSPACE}/clusters/${params.CLUSTER_NAME}/tls")) || \
+                                      # Check create job workspace
+                                      (test -d "/var/lib/jenkins/workspace/openshift-cluster-create/clusters/${params.CLUSTER_NAME}" && \
+                                       (test -f "/var/lib/jenkins/workspace/openshift-cluster-create/clusters/${params.CLUSTER_NAME}/.openshift_install_state.json" || \
+                                        test -f "/var/lib/jenkins/workspace/openshift-cluster-create/clusters/${params.CLUSTER_NAME}/metadata.json" || \
+                                        test -d "/var/lib/jenkins/workspace/openshift-cluster-create/clusters/${params.CLUSTER_NAME}/auth" || \
+                                        test -d "/var/lib/jenkins/workspace/openshift-cluster-create/clusters/${params.CLUSTER_NAME}/tls"))
+                                  """,
+                                  returnStatus: true
+                              ) == 0
+
+                              def s3ClusterExists = false
+                              withCredentials([
+                                  [$class: 'AmazonWebServicesCredentialsBinding',
+                                   credentialsId: 'jenkins-openshift-aws']
+                              ]) {
+                                  s3ClusterExists = sh(
+                                      script: """
+                                          aws s3 ls s3://${S3_BUCKET}/${params.CLUSTER_NAME}/cluster-state.tar.gz 2>/dev/null
+                                      """,
+                                      returnStatus: true
+                                  ) == 0
+                              }
+
+                              if (localClusterExists) {
+                                  echo "[INFO] Found local cluster artifacts for '${params.CLUSTER_NAME}' - will clean up workspace"
+                                  env.HAS_LOCAL_ARTIFACTS = "true"
+                              }
+
+                              if (s3ClusterExists) {
+                                  echo "[INFO] Found cluster state in S3 for '${params.CLUSTER_NAME}'"
+                                  env.HAS_S3_ARTIFACTS = "true"
+                              }
+
+                              if (!localClusterExists && !s3ClusterExists) {
+                                  if (params.DRY_RUN) {
+                                      echo "[WARNING] DRY RUN: Cluster '${params.CLUSTER_NAME}' not found locally or in S3"
+                                  } else {
+                                      error "[ERROR] Cluster '\${params.CLUSTER_NAME}' not found. It may have already been destroyed or never existed. Check 'openshift-cluster-create' job history."
+                                  }
+                              }
+
+                              // Get cluster metadata
+                              if (env.HAS_S3_ARTIFACTS == "true") {
+                                  withCredentials([
+                                      [$class: 'AmazonWebServicesCredentialsBinding',
+                                       credentialsId: 'jenkins-openshift-aws']
+                                  ]) {
+                                      sh """
+                                          echo "[INFO] Retrieving cluster metadata..."
+                                          aws s3 cp s3://${S3_BUCKET}/${params.CLUSTER_NAME}/metadata.json - | jq '.' || echo "[WARNING] No metadata found in S3"
+                                      """
+                                  }
+                              }
+                          }
+                      }
+                  }
+
+                  stage('5. List Resources') {
+                      steps {
+                          script {
+                              if (params.DRY_RUN) {
+                                  echo ""
+                                  echo "========================================"
+                                  echo "        DRY RUN MODE ACTIVE"
+                                  echo "========================================"
+                                  echo "Would destroy cluster: ${params.CLUSTER_NAME}"
+                                  echo "========================================"
+                                  echo ""
+                              } else {
+                                  sh """
+                                      echo "[INFO] Resources to be destroyed:"
+                                      echo "[INFO] - Cluster: ${params.CLUSTER_NAME}"
+                                      echo "[INFO] - S3 Location: s3://${S3_BUCKET}/${params.CLUSTER_NAME}/"
+                                      echo "[INFO] - Action: Full cluster destruction"
+                                  """
+                                  if (params.KEEP_S3_BACKUP) {
+                                      echo "[INFO]"
+                                      echo "[WARNING] S3 backup will be preserved after destruction"
+                                  }
+                              }
+                          }
+                      }
+                  }
+
+                  stage('6. Destroy Cluster') {
+                      when {
+                          expression { !params.DRY_RUN }
+                      }
+                      steps {
+                          script {
+                              try {
+                                  timeout(time: 30, unit: 'MINUTES') {
+                                      if (env.HAS_LOCAL_ARTIFACTS == "true") {
+                                          withCredentials([
+                                              [$class: 'AmazonWebServicesCredentialsBinding',
+                                               credentialsId: 'jenkins-openshift-aws']
+                                          ]) {
+                                              sh """
+                                                  export PATH="\$HOME/bin:\$PATH"
+                                                  echo "[INFO] Cleaning up local workspace artifacts..."
+                                                  
+                                                  # Check both possible locations
+                                                  CLUSTER_DIR_CURRENT="${WORKSPACE}/clusters/${params.CLUSTER_NAME}"
+                                                  CLUSTER_DIR_CREATE="/var/lib/jenkins/workspace/openshift-cluster-create/clusters/${params.CLUSTER_NAME}"
+                                                  
+                                                  for CLUSTER_DIR in "\${CLUSTER_DIR_CURRENT}" "\${CLUSTER_DIR_CREATE}"; do
+                                                      if [ -d "\${CLUSTER_DIR}" ]; then
+                                                          echo "[INFO] Found cluster directory: \${CLUSTER_DIR}"
+                                                          
+                                                          # Try to run openshift-install destroy if possible
+                                                          if [ -f "\${CLUSTER_DIR}/install-config.yaml" ] || [ -f "\${CLUSTER_DIR}/.openshift_install_state.json" ]; then
+                                                              echo "[INFO] Attempting openshift-install destroy..."
+                                                              
+                                                              # Run destroy directly on the agent
+                                                              cd "\${CLUSTER_DIR}"
+                                                              openshift-install destroy cluster --log-level=info || echo "[WARNING] openshift-install destroy failed, continuing with manual cleanup"
+                                                          fi
+                                                          
+                                                          echo "[INFO] Removing local cluster directory: \${CLUSTER_DIR}"
+                                                          rm -rf "\${CLUSTER_DIR}"
+                                                          echo "[SUCCESS] Local artifacts cleaned up from \${CLUSTER_DIR}"
+                                                      else
+                                                          echo "[INFO] No cluster directory found at: \${CLUSTER_DIR}"
+                                                      fi
+                                                  done
+                                              """
+                                          }
+                                      }
+                                      
+                                      if (env.HAS_S3_ARTIFACTS == "true") {
+                                          withCredentials([
+                                              [$class: 'AmazonWebServicesCredentialsBinding',
+                                               credentialsId: 'jenkins-openshift-aws']
+                                          ]) {
+                                              sh """
+                                                  export PATH="\$HOME/bin:\$PATH"
+                                                  echo "[INFO] Processing S3 cluster state..."
+                                                  
+                                                  # Download and extract cluster state
+                                                  mkdir -p "${WORKSPACE}/clusters/${params.CLUSTER_NAME}"
+                                                  cd "${WORKSPACE}/clusters/${params.CLUSTER_NAME}"
+                                                  
+                                                  aws s3 cp s3://${S3_BUCKET}/${params.CLUSTER_NAME}/cluster-state.tar.gz . || {
+                                                      echo "[ERROR] Failed to download cluster state from S3"
+                                                      echo "[ERROR] Ensure AWS credentials are valid and cluster exists in S3"
+                                                      exit 1
+                                                  }
+                                                  
+                                                  tar -xzf cluster-state.tar.gz
+                                                  
+                                                  echo "[INFO] Running openshift-install destroy cluster..."
+                                                  echo "[INFO] This process may take 10-15 minutes..."
+                                                  
+                                                  # Navigate to the extracted cluster directory
+                                                  cd "${WORKSPACE}/clusters/${params.CLUSTER_NAME}/${params.CLUSTER_NAME}"
+                                                  
+                                                  # Run destroy directly on the agent
+                                                  openshift-install destroy cluster --log-level=info
+                                                  
+                                                  if [ "${params.KEEP_S3_BACKUP}" != "true" ]; then
+                                                      echo "[INFO] Removing S3 backup files..."
+                                                      aws s3 rm s3://${S3_BUCKET}/${params.CLUSTER_NAME}/ --recursive
+                                                      echo "[SUCCESS] S3 backup files removed"
+                                                  else
+                                                      echo "[INFO] Keeping S3 backup files as requested"
+                                                      echo "[INFO] Files remain at: s3://${S3_BUCKET}/${params.CLUSTER_NAME}/"
+                                                  fi
+                                              """
+                                          }
+                                      }
+                                      
+                                      echo "[SUCCESS] Cluster destruction completed successfully!"
+                                  }
+                              } catch (Exception e) {
+                                  if (params.FORCE_DESTROY) {
+                                      echo "[WARNING] Cluster destruction had errors but FORCE_DESTROY is enabled"
+                                      echo "[WARNING] Error was: ${e.message}"
+                                      echo "[WARNING] Some resources may not have been fully cleaned up"
+                                      currentBuild.result = 'UNSTABLE'
+                                  } else {
+                                      throw e
+                                  }
+                              }
+                          }
+                      }
+                  }
+              }
+
+              post {
+                  success {
+                      script {
+                          if (params.DRY_RUN) {
+                              echo "[INFO] DRY RUN completed successfully"
+                              echo "[INFO] Cluster '${params.CLUSTER_NAME}' was NOT destroyed (dry run mode)"
+                          } else {
+                              echo "[SUCCESS] OpenShift cluster '${params.CLUSTER_NAME}' destroyed successfully!"
+                              if (params.KEEP_S3_BACKUP) {
+                                  echo "[INFO] S3 backup preserved at: s3://${env.S3_BUCKET}/${params.CLUSTER_NAME}/"
+                              }
+                          }
+                      }
+                  }
+
+                  failure {
+                      echo "[ERROR] Failed to destroy OpenShift cluster '${params.CLUSTER_NAME}'"
+                      echo "[ERROR] Review the logs above for detailed error information."
+                      echo "[ERROR] You may need to manually clean up AWS resources using the AWS console."
+                  }
+
+                  cleanup {
+                      script {
+                          // Clean up workspace
+                          sh """
+                              echo "[INFO] Cleaning up workspace..."
+                              if [ "${params.DRY_RUN}" != "true" ]; then
+                                  rm -rf ${WORKSPACE}/clusters/${params.CLUSTER_NAME}
+                              fi
+                              rm -f ${WORKSPACE}/clusters/*.tar.gz
+                              echo "[SUCCESS] Workspace cleanup completed"
+                          """
+                      }
+                  }
+              }
+          }
+
+    properties:
+      - build-discarder:
+          days-to-keep: 30
+          num-to-keep: 20
+
+    triggers:
+      - timed: ''  # Manual execution only
+
+    wrappers:
+      - timeout:
+          timeout: 60
+          fail: true
+      - timestamps
+      - ansicolor

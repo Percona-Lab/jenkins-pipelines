@@ -1,0 +1,147 @@
+- job:
+    name: openshift-cluster-list
+    project-type: pipeline
+    description: |
+      List all OpenShift clusters stored in S3.
+      
+      This job displays:
+      - Cluster names
+      - OpenShift version
+      - AWS region
+      - Creation time and age
+      - Instance types and counts
+
+    dsl: |
+          pipeline {
+              agent any
+              
+              environment {
+                  S3_BUCKET = "openshift-clusters-119175775298-us-east-2"
+                  AWS_DEFAULT_REGION = "us-east-2"
+              }
+              
+              stages {
+                  stage('List Clusters') {
+                      steps {
+                          script {
+                              withCredentials([
+                                  [$class: 'AmazonWebServicesCredentialsBinding',
+                                   credentialsId: 'jenkins-openshift-aws']
+                              ]) {
+                                  sh """
+                                      echo ""
+                                      echo "+===============================================================================+"
+                                      echo "|                          OPENSHIFT CLUSTERS OVERVIEW                         |"
+                                      echo "+===============================================================================+"
+                                      echo ""
+                                      
+                                      # Get list of clusters
+                                      CLUSTERS=\$(aws s3 ls s3://${S3_BUCKET}/ --recursive | grep 'metadata.json' | awk '{print \$4}' | sed 's|/metadata.json||g' | sort)
+                                      
+                                      if [ -z "\$CLUSTERS" ]; then
+                                          echo "[INFO] No OpenShift clusters found in S3"
+                                          exit 0
+                                      fi
+                                      
+                                      # Count clusters
+                                      CLUSTER_COUNT=\$(echo "\$CLUSTERS" | wc -l)
+                                      echo "[INFO] Found \$CLUSTER_COUNT cluster(s):"
+                                      echo ""
+                                      
+                                      # Display each cluster
+                                      for CLUSTER in \$CLUSTERS; do
+                                          echo ""
+                                          echo "+-------------------------------------------------------------------------------+"
+                                          printf "| %-77s |\n" "CLUSTER: \$CLUSTER"
+                                          echo "+-------------------------------------------------------------------------------+"
+                                          
+                                          # Get metadata
+                                          METADATA=\$(aws s3 cp s3://${S3_BUCKET}/\$CLUSTER/metadata.json - 2>/dev/null || echo '{}')
+                                          
+                                          if [ "\$METADATA" != '{}' ]; then
+                                              # Parse and format JSON data nicely
+                                              echo "\$METADATA" | python3 -c "
+import json,sys
+from datetime import datetime, timezone
+try:
+    d = json.load(sys.stdin)
+    # Calculate age
+    created = d.get('created_date', '')
+    age = 'Unknown'
+    if created:
+        try:
+            created_dt = datetime.fromisoformat(created.replace('Z', '+00:00'))
+            now = datetime.now(timezone.utc)
+            diff = now - created_dt
+            days = diff.days
+            hours = diff.seconds // 3600
+            if days > 0:
+                age = f'{days}d {hours}h'
+            else:
+                age = f'{hours}h {(diff.seconds % 3600) // 60}m'
+        except:
+            age = 'Unknown'
+    
+    # Format the output in a nice table
+    version = d.get('openshift_version', 'Unknown')
+    region = d.get('aws_region', 'Unknown') 
+    created_by = d.get('created_by', 'Unknown')
+    build = d.get('jenkins_build', 'Unknown')
+    master_type = d.get('master_type', 'Unknown')
+    worker_type = d.get('worker_type', 'Unknown')
+    worker_count = d.get('worker_count', '?')
+    test_mode = d.get('test_mode', False)
+    
+    print(f'| Version:        {version:<61} |')
+    print(f'| Region:         {region:<61} |') 
+    print(f'| Created:        {created[:19] if created else \"Unknown\":<19} ({age} ago){\"\":<31} |')
+    print(f'| Created by:     {created_by:<61} |')
+    print(f'| Build:          #{build:<60} |')
+    print(f'| Masters:        3 x {master_type:<56} |')
+    print(f'| Workers:        {worker_count} x {worker_type:<56} |')
+    if test_mode:
+        print(f'| Mode:           TEST MODE - Not a real cluster{\"\":<39} |')
+    else:
+        print(f'| Status:         PRODUCTION{\"\":<53} |')
+except Exception as e:
+    print(f'| ERROR: Failed to parse metadata ({str(e)[:50]}){\"\":<26} |')
+" 2>/dev/null || echo "| ERROR: Failed to parse metadata                                           |"
+                                          else
+                                              echo "| WARNING: No metadata found for this cluster                              |"
+                                          fi
+                                          echo "+-------------------------------------------------------------------------------+"
+                                      done
+                                      echo ""
+                                      echo "+===============================================================================+"
+                                      printf "| SUMMARY: Found %-3s cluster(s) total                                        |\n" "\$CLUSTER_COUNT"
+                                      echo "|                                                                               |"
+                                      echo "| TIP: To delete a cluster, use the 'openshift-cluster-destroy' job            |"
+                                      echo "| TIP: To create a new cluster, use the 'openshift-cluster-create' job         |"
+                                      echo "+===============================================================================+"
+                                  """
+                              }
+                          }
+                      }
+                  }
+              }
+              
+              post {
+                  always {
+                      echo "======================================"
+                      echo "Cluster listing complete"
+                      echo "======================================"
+                  }
+              }
+          }
+
+    properties:
+      - build-discarder:
+          days-to-keep: 7
+          num-to-keep: 50
+
+    wrappers:
+      - timeout:
+          timeout: 5
+          fail: true
+      - timestamps
+      - ansicolor

@@ -235,13 +235,13 @@ def list(Map config = [:]) {
                 ])
 
                 if (metadata) {
-                    def uptime = calculateUptime(metadata.created_at)
+                    def uptime = calculateUptime(metadata.created_date)
                     clusters << [
                         name: clusterName,
                         version: metadata.openshift_version ?: 'Unknown',
                         region: metadata.aws_region ?: params.region,
                         created_by: metadata.created_by ?: 'Unknown',
-                        created_at: metadata.created_at ?: 'Unknown',
+                        created_at: metadata.created_date ?: 'Unknown',
                         uptime: uptime,
                         pmm_deployed: metadata.pmm_deployed ? 'Yes' : 'No',
                         pmm_version: metadata.pmm_version ?: 'N/A'
@@ -292,11 +292,6 @@ def generateInstallConfig(Map params) {
             name: 'worker',
             platform: [
                 aws: [
-                    rootVolume: [
-                        iops: 2000,
-                        size: 100,
-                        type: 'io1'
-                    ],
                     type: params.workerType
                 ]
             ],
@@ -308,11 +303,6 @@ def generateInstallConfig(Map params) {
             name: 'master',
             platform: [
                 aws: [
-                    rootVolume: [
-                        iops: 4000,
-                        size: 100,
-                        type: 'io1'
-                    ],
                     type: params.masterType
                 ]
             ],
@@ -336,12 +326,12 @@ def generateInstallConfig(Map params) {
             aws: [
                 region: params.awsRegion,
                 userTags: [
-                    'delete-after-hours': params.deleteAfterHours,
+                    'iit-billing-tag': 'openshift',
+                    'delete-cluster-after-hours': params.deleteAfterHours,
                     'team': params.teamName,
                     'product': params.productTag,
-                    'jenkins-build': env.BUILD_TAG ?: 'manual',
-                    'created-by': params.buildUser ?: env.BUILD_USER_ID ?: 'jenkins',
-                    'created-at': new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'")
+                    'owner': params.buildUser ?: env.BUILD_USER_ID ?: 'jenkins',
+                    'creationTime': new Date().getTime().toString()
                 ]
             ]
         ],
@@ -349,11 +339,12 @@ def generateInstallConfig(Map params) {
         sshKey: params.sshPublicKey
     ]
 
+    // Add spot instance configuration if enabled
     if (params.useSpotInstances) {
-        config.compute[0].platform.aws.amiID = null
-        config.compute[0].platform.aws.spotMarketOptions = [
-            maxPrice: params.spotMaxPrice ?: ''
-        ]
+        config.compute[0].platform.aws.spotMarketOptions = [:]
+        if (params.spotMaxPrice) {
+            config.compute[0].platform.aws.spotMarketOptions.maxPrice = params.spotMaxPrice
+        }
     }
 
     return new JsonBuilder(config).toPrettyString()
@@ -364,21 +355,13 @@ def createMetadata(Map params, String clusterDir) {
         cluster_name: params.clusterName,
         openshift_version: params.openshiftVersion,
         aws_region: params.awsRegion,
+        created_date: new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'"),
+        created_by: params.buildUser ?: env.BUILD_USER_ID ?: 'jenkins',
+        jenkins_build: env.BUILD_NUMBER ?: '1',
         master_type: params.masterType,
         worker_type: params.workerType,
         worker_count: params.workerCount,
-        created_by: params.buildUser ?: env.BUILD_USER_ID ?: 'jenkins',
-        created_at: new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'"),
-        build_number: env.BUILD_NUMBER ?: '1',
-        job_name: env.JOB_NAME ?: 'openshift-cluster-create',
-        test_mode: params.testMode,
-        base_domain: params.baseDomain,
-        delete_after_hours: params.deleteAfterHours,
-        team_name: params.teamName,
-        product_tag: params.productTag,
-        use_spot_instances: params.useSpotInstances,
-        spot_max_price: params.spotMaxPrice,
-        pmm_deployed: false
+        test_mode: params.testMode
     ]
 
     def json = new JsonBuilder(metadata).toPrettyString()

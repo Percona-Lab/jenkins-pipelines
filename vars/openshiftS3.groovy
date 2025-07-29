@@ -182,8 +182,8 @@ def getClusterAge(String bucket, String clusterName, String region) {
             region: region
         ])
 
-        if (metadata?.created_at) {
-            def created = Date.parse("yyyy-MM-dd'T'HH:mm:ss'Z'", metadata.created_at)
+        if (metadata?.created_date) {
+            def created = Date.parse("yyyy-MM-dd'T'HH:mm:ss'Z'", metadata.created_date)
             def now = new Date()
             def ageInHours = (now.time - created.time) / (1000 * 60 * 60)
             return ageInHours
