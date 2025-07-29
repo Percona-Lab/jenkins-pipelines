@@ -112,7 +112,7 @@ pipeline {
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
         string(
-            defaultValue: '8.4',
+            defaultValue: '8.0',
             description: "Percona Server for MySQL version",
             name: 'PS_VERSION')
         string(
