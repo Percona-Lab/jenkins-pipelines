@@ -278,6 +278,7 @@ pipeline {
                             sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                             export PWD=$(pwd)
                             export CHROMIUM_PATH=/usr/bin/chromium
+                            ansible-galaxy collection install ansible.utils
                         '''
                     }
                 }
@@ -296,6 +297,8 @@ pipeline {
                     . virtenv/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
+                    pip install netaddr
+                    pip install setuptools
 
                     python pmm-framework.py --verbose \
                         --client-version=\${CLIENT_VERSION} \
