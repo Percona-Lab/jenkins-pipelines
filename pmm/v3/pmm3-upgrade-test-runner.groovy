@@ -42,6 +42,9 @@ pipeline {
         label 'agent-amd64-ol9'
     }
     environment {
+        REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
+        REMOTE_AWS_MYSQL_PASSWORD=credentials('pmm-dev-remote-password')
+        REMOTE_AWS_MYSQL57_HOST=credentials('pmm-dev-mysql57-remote-host')
         PMM_QA_MYSQL_RDS_8_4_HOST=credentials('PMM_QA_MYSQL_RDS_8_4_HOST')
         PMM_QA_MYSQL_RDS_8_4_USER=credentials('PMM_QA_MYSQL_RDS_8_4_USER')
         PMM_QA_MYSQL_RDS_8_4_PASSWORD=credentials('PMM_QA_MYSQL_RDS_8_4_PASSWORD')
