@@ -1,0 +1,28 @@
+- job:
+    name: ppg-controller-trigger
+    project-type: pipeline
+    description: |
+      🔧 Orchestrates all PPG component jobs.
+      ⚠️ Do not edit this job via the Jenkins UI!
+    parameters:
+      - string:
+          name: CLOUD
+          default: Hetzner
+          description: "Cloud infra: Hetzner or AWS"
+      - string:
+          name: CONFIG_REPO
+          default: "https://github.com/percona/postgres-packaging.git"
+          description: "Git repo containing job_configs/all-jobs-full.yaml"
+      - string:
+          name: CONFIG_BRANCH
+          default: "main"
+          description: "Branch to pull the configuration from"
+    pipeline-scm:
+      scm:
+        - git:
+            url: "$CONFIG_REPO"
+            branches:
+              - "$CONFIG_BRANCH"
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ppg/ppg-controller-trigger.groovy
