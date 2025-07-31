@@ -7,7 +7,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget https://raw.githubusercontent.com/EvgeniyPatlan/valkey-packaging/main/scripts/valkey_builder.sh -O builder.sh
+        wget https://raw.githubusercontent.com/EvgeniyPatlan/valkey-packaging/8.0.4/scripts/valkey_builder.sh -O builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
@@ -111,7 +111,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_src_deb=1")
+                        buildStage("ubuntu:jammy", "--build_src_deb=1")
                         pushArtifactFolder("source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
                     }
@@ -170,32 +170,6 @@ pipeline {
 
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Ubuntu Focal(20.04)') {
-                    agent {
-                        label 'docker-32gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Ubuntu Focal(20.04) ARM') {
-                    agent {
-                        label 'docker-32gb-aarch64'
-                    }
-                    steps {
-                        cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_deb=1")
-
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy(22.04)') {
