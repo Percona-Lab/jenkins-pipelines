@@ -21,6 +21,8 @@ pipeline {
                         if (new Random().nextBoolean()) {
                             error "Simulated random failure."
                         }
+
+                        error "This is a forced failure to demonstrate retry logic." // Simulate a failure for testing
                     }
                     
                     echo "Build stage succeeded."
