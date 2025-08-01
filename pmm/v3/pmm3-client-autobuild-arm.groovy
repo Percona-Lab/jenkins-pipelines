@@ -171,6 +171,11 @@ pipeline {
                         sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bookworm"
                     }
                 }
+                stage('Build client binary deb Bullseye') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bullseye"
+                    }
+                }
                 stage('Build client binary deb Jammy') {
                     steps {
                         sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:jammy"
