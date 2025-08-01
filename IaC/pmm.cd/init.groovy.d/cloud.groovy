@@ -184,8 +184,12 @@ initMap['debMap'] = '''
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
+    DEB_VERSION=$(lsb_release -sc)
+
     # Remove bullseye-backports entries from sources.list
-    sudo sed -i '/bullseye-backports/d' /etc/apt/sources.list
+    if [[ ${DEB_VERSION} == "bullseye" ]]; then
+        sudo sed -i '/bullseye-backports/d' /etc/apt/sources.list
+    fi
 
     until sudo apt-get update; do
         sleep 1
@@ -197,8 +201,6 @@ initMap['debMap'] = '''
         echo try again
     done
 
-
-    DEB_VERSION=$(lsb_release -sc)
     if [[ ${DEB_VERSION} == "bookworm" ]]; then
         JDK_PACKAGE="openjdk-17-jre-headless"
     else
