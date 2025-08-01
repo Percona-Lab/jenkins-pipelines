@@ -8,24 +8,29 @@ pipeline {
     }
     
     stages {
-        stage('Build with Retry') {
-            steps {
-                script {
-                    def retryCountInt = params.RETRY_COUNT.toInteger()
-                    echo "Job_2 will retry up to ${retryCountInt} times on failure."
-                    
-                    retry(retryCountInt) {
-
-                        echo "Running the build/test steps..."
-                        
-                        if (new Random().nextBoolean()) {
-                            error "Simulated random failure."
+        stage('Run Tests') {
+            parallel {
+                stage('cluster1') {
+                    steps {
+                        script {
+                            def retryCountInt = params.RETRY_COUNT.toInteger()
+                            retry(retryCountInt) {
+                                echo "Running the build/test steps... cluster1"
+                                error "This is a first forced failure to demonstrate cluster1 retry logic." // Simulate a failure for testing
+                            }
                         }
-
-                        error "This is a forced failure to demonstrate retry logic." // Simulate a failure for testing
                     }
-                    
-                    echo "Build stage succeeded."
+                }
+
+                stage('cluster2') {
+                    steps {
+                        script {
+                            def retryCountInt = params.RETRY_COUNT.toInteger()
+                            retry(retryCountInt) {
+                                echo "Running the build/test steps... cluster2"
+                            }
+                        }
+                    }
                 }
             }
         }
