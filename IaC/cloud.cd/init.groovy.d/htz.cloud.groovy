@@ -7,104 +7,96 @@ import java.util.logging.Logger
 def cloudName = "cloud-htz"
 
 imageMap = [:]                          // ID          TYPE     NAME                 DESCRIPTION          ARCHITECTURE   IMAGE SIZE   DISK SIZE   CREATED                         DEPRECATED
-imageMap['deb12-x64']     = '114690387' // 114690387   system   debian-12            Debian 12            x86            -            5 GB        Tue Jun 13 09:00:02 EEST 2023   -
-imageMap['deb12-aarch64'] = '114690389' // 114690389   system   debian-12            Debian 12            arm            -            5 GB        Tue Jun 13 09:00:03 EEST 2023   -
-imageMap['launcher-x64']  = imageMap['deb12-x64']
+imageMap['fedora42-x64']     = '232895138' // 232895138   system   fedora-42            Fedora 42            x86            -            5 GB        Thu Apr 24 10:00:32 EEST 2025   -
+imageMap['fedora42-aarch64'] = '232895264' // 232895264   system   fedora-42            Fedora 42            arm            -            5 GB        Thu Apr 24 10:01:01 EEST 2025   -
+imageMap['launcher-x64']  = imageMap['fedora42-x64']
 
 execMap = [:]
-execMap['deb']                = 1
-execMap['deb12-x64-nbg1']     = execMap['deb']
-execMap['deb12-x64-hel1']     = execMap['deb']
-execMap['deb12-x64-fsn1']     = execMap['deb']
-execMap['deb12-aarch64-nbg1'] = execMap['deb']
-execMap['deb12-aarch64-hel1'] = execMap['deb']
-execMap['deb12-aarch64-fsn1'] = execMap['deb']
-execMap['deb12-x64-nbg1-min']     = execMap['deb']
-execMap['deb12-x64-hel1-min']     = execMap['deb']
-execMap['deb12-x64-fsn1-min']     = execMap['deb']
-execMap['deb12-aarch64-nbg1-min'] = execMap['deb']
-execMap['deb12-aarch64-hel1-min'] = execMap['deb']
-execMap['deb12-aarch64-fsn1-min'] = execMap['deb']
+execMap['fedora']                = 1
+execMap['fedora42-x64-nbg1']     = execMap['fedora']
+execMap['fedora42-x64-hel1']     = execMap['fedora']
+execMap['fedora42-x64-fsn1']     = execMap['fedora']
+execMap['fedora42-aarch64-nbg1'] = execMap['fedora']
+execMap['fedora42-aarch64-hel1'] = execMap['fedora']
+execMap['fedora42-aarch64-fsn1'] = execMap['fedora']
+execMap['fedora42-x64-nbg1-min']     = execMap['fedora']
+execMap['fedora42-x64-hel1-min']     = execMap['fedora']
+execMap['fedora42-x64-fsn1-min']     = execMap['fedora']
+execMap['fedora42-aarch64-nbg1-min'] = execMap['fedora']
+execMap['fedora42-aarch64-hel1-min'] = execMap['fedora']
+execMap['fedora42-aarch64-fsn1-min'] = execMap['fedora']
 execMap['launcher-x64-nbg1']  = 30
 execMap['launcher-x64-hel1']  = 30
 execMap['launcher-x64-fsn1']  = 30
 
 bootDeadlineMap =[:]
 bootDeadlineMap['default']            = 3
-bootDeadlineMap['deb12-x64-nbg1']     = bootDeadlineMap['default']
-bootDeadlineMap['deb12-x64-hel1']     = bootDeadlineMap['default']
-bootDeadlineMap['deb12-x64-fsn1']     = bootDeadlineMap['default']
-bootDeadlineMap['deb12-aarch64-nbg1'] = bootDeadlineMap['default']
-bootDeadlineMap['deb12-aarch64-hel1'] = bootDeadlineMap['default']
-bootDeadlineMap['deb12-aarch64-fsn1'] = bootDeadlineMap['default']
-bootDeadlineMap['deb12-x64-nbg1-min']     = bootDeadlineMap['default']
-bootDeadlineMap['deb12-x64-hel1-min']     = bootDeadlineMap['default']
-bootDeadlineMap['deb12-x64-fsn1-min']     = bootDeadlineMap['default']
-bootDeadlineMap['deb12-aarch64-nbg1-min'] = bootDeadlineMap['default']
-bootDeadlineMap['deb12-aarch64-hel1-min'] = bootDeadlineMap['default']
-bootDeadlineMap['deb12-aarch64-fsn1-min'] = bootDeadlineMap['default']
+bootDeadlineMap['fedora42-x64-nbg1']     = bootDeadlineMap['default']
+bootDeadlineMap['fedora42-x64-hel1']     = bootDeadlineMap['default']
+bootDeadlineMap['fedora42-x64-fsn1']     = bootDeadlineMap['default']
+bootDeadlineMap['fedora42-aarch64-nbg1'] = bootDeadlineMap['default']
+bootDeadlineMap['fedora42-aarch64-hel1'] = bootDeadlineMap['default']
+bootDeadlineMap['fedora42-aarch64-fsn1'] = bootDeadlineMap['default']
+bootDeadlineMap['fedora42-x64-nbg1-min']     = bootDeadlineMap['default']
+bootDeadlineMap['fedora42-x64-hel1-min']     = bootDeadlineMap['default']
+bootDeadlineMap['fedora42-x64-fsn1-min']     = bootDeadlineMap['default']
+bootDeadlineMap['fedora42-aarch64-nbg1-min'] = bootDeadlineMap['default']
+bootDeadlineMap['fedora42-aarch64-hel1-min'] = bootDeadlineMap['default']
+bootDeadlineMap['fedora42-aarch64-fsn1-min'] = bootDeadlineMap['default']
 bootDeadlineMap['launcher-x64-nbg1']  = bootDeadlineMap['default']
 bootDeadlineMap['launcher-x64-hel1']  = bootDeadlineMap['default']
 bootDeadlineMap['launcher-x64-fsn1']  = bootDeadlineMap['default']
 
 jvmOptsMap = [:]
-jvmOptsMap['deb12']         = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
-jvmOptsMap['deb12-x64-nbg1']     = jvmOptsMap['deb12']
-jvmOptsMap['deb12-x64-hel1']     = jvmOptsMap['deb12']
-jvmOptsMap['deb12-x64-fsn1']     = jvmOptsMap['deb12']
-jvmOptsMap['deb12-aarch64-nbg1'] = jvmOptsMap['deb12']
-jvmOptsMap['deb12-aarch64-hel1'] = jvmOptsMap['deb12']
-jvmOptsMap['deb12-aarch64-fsn1'] = jvmOptsMap['deb12']
-jvmOptsMap['deb12-x64-nbg1-min']     = jvmOptsMap['deb12']
-jvmOptsMap['deb12-x64-hel1-min']     = jvmOptsMap['deb12']
-jvmOptsMap['deb12-x64-fsn1-min']     = jvmOptsMap['deb12']
-jvmOptsMap['deb12-aarch64-nbg1-min'] = jvmOptsMap['deb12']
-jvmOptsMap['deb12-aarch64-hel1-min'] = jvmOptsMap['deb12']
-jvmOptsMap['deb12-aarch64-fsn1-min'] = jvmOptsMap['deb12']
-jvmOptsMap['launcher-x64-nbg1']  = jvmOptsMap['deb12']
-jvmOptsMap['launcher-x64-hel1']  = jvmOptsMap['deb12']
-jvmOptsMap['launcher-x64-fsn1']  = jvmOptsMap['deb12']
+jvmOptsMap['fedora42']         = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
+jvmOptsMap['fedora42-x64-nbg1']     = jvmOptsMap['fedora42']
+jvmOptsMap['fedora42-x64-hel1']     = jvmOptsMap['fedora42']
+jvmOptsMap['fedora42-x64-fsn1']     = jvmOptsMap['fedora42']
+jvmOptsMap['fedora42-aarch64-nbg1'] = jvmOptsMap['fedora42']
+jvmOptsMap['fedora42-aarch64-hel1'] = jvmOptsMap['fedora42']
+jvmOptsMap['fedora42-aarch64-fsn1'] = jvmOptsMap['fedora42']
+jvmOptsMap['fedora42-x64-nbg1-min']     = jvmOptsMap['fedora42']
+jvmOptsMap['fedora42-x64-hel1-min']     = jvmOptsMap['fedora42']
+jvmOptsMap['fedora42-x64-fsn1-min']     = jvmOptsMap['fedora42']
+jvmOptsMap['fedora42-aarch64-nbg1-min'] = jvmOptsMap['fedora42']
+jvmOptsMap['fedora42-aarch64-hel1-min'] = jvmOptsMap['fedora42']
+jvmOptsMap['fedora42-aarch64-fsn1-min'] = jvmOptsMap['fedora42']
+jvmOptsMap['launcher-x64-nbg1']  = jvmOptsMap['fedora42']
+jvmOptsMap['launcher-x64-hel1']  = jvmOptsMap['fedora42']
+jvmOptsMap['launcher-x64-fsn1']  = jvmOptsMap['fedora42']
 
 labelMap = [:]
-labelMap['deb12-x64-min']     = 'docker-x64-min docker-deb12-x64-min deb12-x64-min'
-labelMap['deb12-aarch64-min'] = 'docker-aarch64-min docker-deb12-aarch64-min deb12-aarch64-min'
-labelMap['deb12-x64']         = 'docker-x64 docker-deb12-x64 deb12-x64'
-labelMap['deb12-aarch64']     = 'docker-aarch64 docker-deb12-aarch64 deb12-aarch64'
+labelMap['fedora42-x64-min']     = 'docker-x64-min docker-fedora42-x64-min fedora42-x64-min'
+labelMap['fedora42-aarch64-min'] = 'docker-aarch64-min docker-fedora42-aarch64-min fedora42-aarch64-min'
+labelMap['fedora42-x64']         = 'docker-x64 docker-fedora42-x64 fedora42-x64'
+labelMap['fedora42-aarch64']     = 'docker-aarch64 docker-fedora42-aarch64 fedora42-aarch64'
 labelMap['launcher-x64']      = 'launcher-x64'
 
 networkMap = [:]
 networkMap['percona-vpc-eu'] = '10442325' // percona-vpc-eu
 
 initMap = [:]
-initMap['deb-docker'] = '''#!/bin/bash -x
+initMap['fedora-docker'] = '''#!/bin/bash -x
     set -o xtrace
     sudo fallocate -l 32G /swapfile
     sudo chmod 600 /swapfile
     sudo mkswap /swapfile
     sudo swapon /swapfile
-
-    export DEBIAN_FRONTEND=noninteractive
-    until sudo apt-get update; do
+    until sudo dnf update -y; do
         sleep 1
-        echo try again
+        echo "try again"
     done
-    until sudo apt-get -y install openjdk-17-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip git; do
+    until sudo dnf install -y java-21-openjdk-headless ca-certificates curl gnupg unzip git dnf-plugins-core; do
         sleep 1
-        echo try again
+        echo "try again"
     done
-    curl -fsSL https://download.docker.com/linux/debian/gpg | sudo gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-    until sudo apt-get update; do
+    until sudo dnf install -y docker npm; do
         sleep 1
-        echo try again
-    done
-    until sudo apt-get -y install docker-ce docker-ce-cli containerd.io; do
-        sleep 1
-        echo try again
+        echo "try again"
     done
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
-        until curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m)-2.22.35.zip" -o "/tmp/awscliv2.zip"; do
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "/tmp/awscliv2.zip"; do
             sleep 1
             echo try again
         done
@@ -120,46 +112,48 @@ initMap['deb-docker'] = '''#!/bin/bash -x
     sudo sysctl -w fs.aio-max-nr=1048576 || true
     sudo sysctl -w fs.file-max=6815744 || true
     echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
-    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /lib/systemd/system/docker.service
+    sudo sed -i.bak -e 's/nofile=1024:4096/nofile=900000:900000/; s/DAEMON_MAXFILES=.*/DAEMON_MAXFILES=990000/' /etc/sysconfig/docker
+    echo 'DOCKER_STORAGE_OPTIONS="--data-root=/mnt/docker"' | sudo tee -a /etc/sysconfig/docker-storage
+    sudo sed -i.bak -e 's|^ExecStart=.*|ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000|' /usr/lib/systemd/system/docker.service
     sudo systemctl daemon-reload
     sudo install -o root -g root -d /mnt/docker
     sudo usermod -aG docker $(id -u -n)
     sudo mkdir -p /etc/docker
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
-    sudo systemctl restart docker
-    echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+    sudo systemctl status docker || sudo systemctl start docker
+    echo "* * * * * root /usr/sbin/route add default gw 10.30.232.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
-initMap['deb12-x64-nbg1']     = initMap['deb-docker']
-initMap['deb12-x64-hel1']     = initMap['deb-docker']
-initMap['deb12-x64-fsn1']     = initMap['deb-docker']
-initMap['deb12-aarch64-nbg1'] = initMap['deb-docker']
-initMap['deb12-aarch64-hel1'] = initMap['deb-docker']
-initMap['deb12-aarch64-fsn1'] = initMap['deb-docker']
-initMap['deb12-x64-nbg1-min']     = initMap['deb-docker']
-initMap['deb12-x64-hel1-min']     = initMap['deb-docker']
-initMap['deb12-x64-fsn1-min']     = initMap['deb-docker']
-initMap['deb12-aarch64-nbg1-min'] = initMap['deb-docker']
-initMap['deb12-aarch64-hel1-min'] = initMap['deb-docker']
-initMap['deb12-aarch64-fsn1-min'] = initMap['deb-docker']
-initMap['launcher-x64-nbg1']  = initMap['deb-docker']
-initMap['launcher-x64-hel1']  = initMap['deb-docker']
-initMap['launcher-x64-fsn1']  = initMap['deb-docker']
+initMap['fedora42-x64-nbg1']     = initMap['fedora-docker']
+initMap['fedora42-x64-hel1']     = initMap['fedora-docker']
+initMap['fedora42-x64-fsn1']     = initMap['fedora-docker']
+initMap['fedora42-aarch64-nbg1'] = initMap['fedora-docker']
+initMap['fedora42-aarch64-hel1'] = initMap['fedora-docker']
+initMap['fedora42-aarch64-fsn1'] = initMap['fedora-docker']
+initMap['fedora42-x64-nbg1-min']     = initMap['fedora-docker']
+initMap['fedora42-x64-hel1-min']     = initMap['fedora-docker']
+initMap['fedora42-x64-fsn1-min']     = initMap['fedora-docker']
+initMap['fedora42-aarch64-nbg1-min'] = initMap['fedora-docker']
+initMap['fedora42-aarch64-hel1-min'] = initMap['fedora-docker']
+initMap['fedora42-aarch64-fsn1-min'] = initMap['fedora-docker']
+initMap['launcher-x64-nbg1']  = initMap['fedora-docker']
+initMap['launcher-x64-hel1']  = initMap['fedora-docker']
+initMap['launcher-x64-fsn1']  = initMap['fedora-docker']
 
 def templates = [
        /* new HetznerServerTemplate("ubuntu20-cx21", "java", "name=ubuntu20-docker", "fsn1", "cx21"), */
         //                        tmplName                  tmplLabels                     tmplImage                  region server type
-        new HetznerServerTemplate("deb12-x64-nbg1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "nbg1", "cpx41"),
-        new HetznerServerTemplate("deb12-aarch64-nbg1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "nbg1", "cax31"),
-        new HetznerServerTemplate("deb12-x64-hel1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "hel1", "cpx41"),
-        new HetznerServerTemplate("deb12-aarch64-hel1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "hel1", "cax31"),
-        new HetznerServerTemplate("deb12-x64-fsn1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "fsn1", "cpx41"),
-        new HetznerServerTemplate("deb12-aarch64-fsn1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "fsn1", "cax31"),
-        new HetznerServerTemplate("deb12-x64-nbg1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "nbg1", "cpx51"),
-        new HetznerServerTemplate("deb12-aarch64-nbg1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "nbg1", "cax41"),
-        new HetznerServerTemplate("deb12-x64-hel1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "hel1", "cpx51"),
-        new HetznerServerTemplate("deb12-aarch64-hel1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "hel1", "cax41"),
-        new HetznerServerTemplate("deb12-x64-fsn1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "fsn1", "cpx51"),
-        new HetznerServerTemplate("deb12-aarch64-fsn1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "fsn1", "cax41"),
+        new HetznerServerTemplate("fedora42-x64-nbg1-min",     labelMap['fedora42-x64-min'],     imageMap['fedora42-x64'],     "nbg1", "cpx41"),
+        new HetznerServerTemplate("fedora42-aarch64-nbg1-min", labelMap['fedora42-aarch64-min'], imageMap['fedora42-aarch64'], "nbg1", "cax31"),
+        new HetznerServerTemplate("fedora42-x64-hel1-min",     labelMap['fedora42-x64-min'],     imageMap['fedora42-x64'],     "hel1", "cpx41"),
+        new HetznerServerTemplate("fedora42-aarch64-hel1-min", labelMap['fedora42-aarch64-min'], imageMap['fedora42-aarch64'], "hel1", "cax31"),
+        new HetznerServerTemplate("fedora42-x64-fsn1-min",     labelMap['fedora42-x64-min'],     imageMap['fedora42-x64'],     "fsn1", "cpx41"),
+        new HetznerServerTemplate("fedora42-aarch64-fsn1-min", labelMap['fedora42-aarch64-min'], imageMap['fedora42-aarch64'], "fsn1", "cax31"),
+        new HetznerServerTemplate("fedora42-x64-nbg1",         labelMap['fedora42-x64'],         imageMap['fedora42-x64'],     "nbg1", "cpx51"),
+        new HetznerServerTemplate("fedora42-aarch64-nbg1",     labelMap['fedora42-aarch64'],     imageMap['fedora42-aarch64'], "nbg1", "cax41"),
+        new HetznerServerTemplate("fedora42-x64-hel1",         labelMap['fedora42-x64'],         imageMap['fedora42-x64'],     "hel1", "cpx51"),
+        new HetznerServerTemplate("fedora42-aarch64-hel1",     labelMap['fedora42-aarch64'],     imageMap['fedora42-aarch64'], "hel1", "cax41"),
+        new HetznerServerTemplate("fedora42-x64-fsn1",         labelMap['fedora42-x64'],         imageMap['fedora42-x64'],     "fsn1", "cpx51"),
+        new HetznerServerTemplate("fedora42-aarch64-fsn1",     labelMap['fedora42-aarch64'],     imageMap['fedora42-aarch64'], "fsn1", "cax41"),
         new HetznerServerTemplate("launcher-x64-nbg1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "nbg1", "cpx21"),
         new HetznerServerTemplate("launcher-x64-hel1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "hel1", "cpx21"),
         new HetznerServerTemplate("launcher-x64-fsn1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "fsn1", "cpx21")
