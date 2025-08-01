@@ -1,0 +1,129 @@
+- job:
+      name: openshift-cluster-create
+      project-type: pipeline
+      description: |
+          Create OpenShift clusters on AWS with configurable parameters.
+
+          This job creates production-ready OpenShift clusters with:
+          - Multiple OpenShift versions (4.16-4.19)
+          - Standard x86_64 instance types (m5, m6i, c5)
+          - Automatic cluster state backup to S3
+          - Billing tags for cost tracking
+          - Optional PMM deployment
+
+          Note: Uses AMD64 (x86_64) architecture for PMM compatibility.
+          The cluster state is saved to S3 for later destruction.
+
+      parameters:
+          # === Basic Cluster Configuration ===
+          - string:
+                name: CLUSTER_NAME
+                default: test-cluster
+                description: "Name for the OpenShift cluster (lowercase, alphanumeric, hyphens only, max 20 chars)"
+                trim: true
+          - choice:
+                name: OPENSHIFT_VERSION
+                choices:
+                    - "4.19.6"
+                    - "4.18.21"
+                    - "4.17.36"
+                    - "4.16.45"
+                    - "latest"
+                description: "OpenShift version to install"
+          - choice:
+                name: AWS_REGION
+                choices:
+                    - "us-east-2"
+                description: "AWS region for the cluster (currently limited to us-east-2)"
+
+          # === Compute Resources ===
+          - choice:
+                name: WORKER_COUNT
+                choices:
+                    - "3"
+                    - "2"
+                    - "4"
+                    - "5"
+                    - "6"
+                description: "Number of worker nodes"
+          - choice:
+                name: WORKER_INSTANCE_TYPE
+                choices:
+                    - "m5.large"
+                    - "m5.xlarge"
+                    - "m5.2xlarge"
+                    - "m6i.large"
+                    - "m6i.xlarge"
+                description: "EC2 instance type for worker nodes (x86_64)"
+          - choice:
+                name: MASTER_INSTANCE_TYPE
+                choices:
+                    - "m5.xlarge"
+                    - "m5.2xlarge"
+                    - "m6i.xlarge"
+                    - "m6i.2xlarge"
+                    - "c5.2xlarge"
+                description: "EC2 instance type for feature/openshift-shared-libraries nodes (x86_64)"
+
+          # === PMM Configuration ===
+          - bool:
+                name: DEPLOY_PMM
+                default: true
+                description: "Deploy Percona Monitoring and Management (PMM) after cluster creation"
+          - choice:
+                name: PMM_VERSION
+                choices:
+                    - "3.3.0"
+                    - "3.2.0"
+                    - "3.1.0"
+                description: "PMM version to deploy (if enabled)"
+          - string:
+                name: PMM_ADMIN_PASSWORD
+                default: "<GENERATED>"
+                description: "Admin password for PMM web interface (if deployed, use '<GENERATED>' or leave empty for auto-generated password)"
+                trim: true
+
+          # === Resource Tags & Lifecycle ===
+          - string:
+                name: DELETE_AFTER_HOURS
+                default: "8"
+                description: "Auto-delete cluster after this many hours (1-168, for cost control)"
+                trim: true
+          - string:
+                name: TEAM_NAME
+                default: "cloud"
+                description: "Team name for resource tracking and billing"
+                trim: true
+          - string:
+                name: PRODUCT_TAG
+                default: "pg-operator"
+                description: "Product/project tag for billing allocation"
+                trim: true
+
+          # === Advanced Options ===
+          - string:
+                name: BASE_DOMAIN
+                default: "cd.percona.com"
+                description: "Base domain for cluster URLs (rarely changed)"
+                trim: true
+          - bool:
+                name: DEBUG_MODE
+                default: false
+                description: "Enable debug logging for troubleshooting cluster creation issues"
+
+      pipeline-scm:
+          scm:
+              - git:
+                    url: https://github.com/nogueiraanderson/jenkins-pipelines.git
+                    branches:
+                        - "feature/openshift-shared-libraries"
+                    wipe-workspace: false
+          lightweight-checkout: true
+          script-path: cloud/jenkins/openshift_cluster_create.groovy
+
+      concurrent: true
+
+      properties:
+          - build-discarder:
+                days-to-keep: 30
+                num-to-keep: 100
