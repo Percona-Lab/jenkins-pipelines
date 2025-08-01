@@ -1,0 +1,14 @@
+- job:
+    name: job_1
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'retry-logic-test'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pdpxc/retrylogic/job_1.groovy
