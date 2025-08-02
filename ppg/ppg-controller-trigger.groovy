@@ -33,7 +33,6 @@ pipeline {
                     sudo apt-get update -qq
                     sudo apt-get install -y jq
 
-                    # Install yq from official binary (v4.x)
                     YQ_BIN=/usr/local/bin/yq
                     curl -sLo $YQ_BIN https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
                     chmod +x $YQ_BIN
