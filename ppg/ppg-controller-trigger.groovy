@@ -64,12 +64,20 @@ pipeline {
                         }
 
                         def paramsJSON = sh(script: "yq eval -o=json '.\"${jobKey}\".parameters // {}' ${env.CONFIG_FILE}", returnStdout: true).trim()
-                        def paramMap = readJSON text: paramsJSON
-
-                        def buildParams = paramMap.collect { k, v ->
-                            v instanceof Boolean ?
-                                booleanParam(name: k, value: v) :
-                                string(name: k, value: v.toString())
+                        
+                        // Parse parameters using jq instead of readJSON
+                        def paramKeys = sh(script: "echo '${paramsJSON}' | jq -r 'keys[]' 2>/dev/null || echo ''", returnStdout: true).trim().split('\n').findAll { it }
+                        def buildParams = []
+                        
+                        paramKeys.each { key ->
+                            def value = sh(script: "echo '${paramsJSON}' | jq -r '.\"${key}\"'", returnStdout: true).trim()
+                            def valueType = sh(script: "echo '${paramsJSON}' | jq -r 'type_of(.\"${key}\")'", returnStdout: true).trim()
+                            
+                            if (valueType == "boolean") {
+                                buildParams.add(booleanParam(name: key, value: value == "true"))
+                            } else {
+                                buildParams.add(string(name: key, value: value))
+                            }
                         }
 
                         echo "[▶] Running critical job: ${jobKey}"
@@ -91,12 +99,20 @@ pipeline {
                         if (trigger != "true") return
 
                         def paramsJSON = sh(script: "yq eval -o=json '.\"${jobKey}\".parameters // {}' ${env.CONFIG_FILE}", returnStdout: true).trim()
-                        def paramMap = readJSON text: paramsJSON
-
-                        def buildParams = paramMap.collect { k, v ->
-                            v instanceof Boolean ?
-                                booleanParam(name: k, value: v) :
-                                string(name: k, value: v.toString())
+                        
+                        // Parse parameters using jq instead of readJSON
+                        def paramKeys = sh(script: "echo '${paramsJSON}' | jq -r 'keys[]' 2>/dev/null || echo ''", returnStdout: true).trim().split('\n').findAll { it }
+                        def buildParams = []
+                        
+                        paramKeys.each { key ->
+                            def value = sh(script: "echo '${paramsJSON}' | jq -r '.\"${key}\"'", returnStdout: true).trim()
+                            def valueType = sh(script: "echo '${paramsJSON}' | jq -r 'type_of(.\"${key}\")'", returnStdout: true).trim()
+                            
+                            if (valueType == "boolean") {
+                                buildParams.add(booleanParam(name: key, value: value == "true"))
+                            } else {
+                                buildParams.add(string(name: key, value: value))
+                            }
                         }
 
                         parallelJobs[jobKey] = {
