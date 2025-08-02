@@ -31,7 +31,7 @@ pipeline {
                                         if (!fileExists(CONFIG_FILE)) {
                         error "❌ Config file not found: ${CONFIG_FILE}"
                     }
-                    jobsConfig = readYaml file: CONFIG_FILE
+                    jobsConfig = loadYaml(CONFIG_FILE)
                     echo "[✓] Loaded config for ${jobsConfig.size()} jobs"
                 }
             }
