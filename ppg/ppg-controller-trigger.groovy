@@ -10,8 +10,6 @@ void cleanUpWS() {
 def AWS_STASH_PATH
 def jobsConfig = [:]
 
-import org.yaml.snakeyaml.Yaml
-
 pipeline {
     agent {
         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -39,10 +37,7 @@ pipeline {
                     if (!fileExists(CONFIG_FILE)) {
                         error "❌ Config file not found: ${CONFIG_FILE}"
                     }
-
-                    def yaml = new Yaml()
-                    def input = readFile(file: CONFIG_FILE)
-                    jobsConfig = yaml.load(input)
+                    jobsConfig = readYaml file: CONFIG_FILE
                     echo "[✓] Loaded config for ${jobsConfig.size()} jobs"
                 }
             }
