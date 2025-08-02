@@ -7,61 +7,43 @@ void cleanUpWS() {
     sh "sudo rm -rf ./* || true"
 }
 
+def AWS_STASH_PATH
+
 pipeline {
     agent {
         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
 
     parameters {
-        string(name: 'CLOUD', defaultValue: 'Hetzner', description: 'Target cloud: Hetzner or AWS')
-        string(name: 'CONFIG_REPO', defaultValue: 'https://github.com/percona/postgres-packaging.git', description: 'Git repo with YAML config')
-        string(name: 'CONFIG_BRANCH', defaultValue: 'main', description: 'Branch to pull YAML config from')
-        string(name: 'CONFIG_FILE', defaultValue: 'job_configs/all-jobs-full.yaml', description: 'Relative path to job config YAML file')
+        string(name: 'CLOUD', defaultValue: 'Hetzner', description: 'Cloud infra: Hetzner or AWS')
+        string(name: 'CONFIG_REPO', defaultValue: 'https://github.com/percona/postgres-packaging.git', description: 'Git repo with job_configs/all-jobs-full.yaml')
+        string(name: 'CONFIG_BRANCH', defaultValue: 'main', description: 'Branch to pull job config from')
     }
 
     environment {
-        CONFIG_DIR = 'job-config'
-        JSON_OUT = 'job_config.json'
+        CONFIG_FILE = 'postgres-packaging/job_configs/all-jobs-full.yaml'
     }
 
     stages {
-        stage('Install Tools') {
+        stage('Install yq & jq') {
             steps {
                 sh '''
-                    if ! command -v jq >/dev/null; then
-                        echo "[INFO] Installing jq..."
-                        sudo apt-get update && sudo apt-get install -y jq
-                    fi
-                    if ! command -v yq >/dev/null; then
-                        echo "[INFO] Installing yq..."
-                        sudo wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.47.1/yq_linux_amd64
-                        sudo chmod +x /usr/local/bin/yq
-                    fi
-                    jq --version
-                    yq --version
+                    command -v yq >/dev/null 2>&1 || sudo apt-get update && sudo apt-get install -y yq
+                    command -v jq >/dev/null 2>&1 || sudo apt-get install -y jq
                 '''
             }
         }
 
-        stage('Checkout Config') {
+        stage('Checkout Job Config Repo') {
             steps {
                 script {
                     echo "[INFO] Cloning CONFIG_REPO: ${params.CONFIG_REPO} (${params.CONFIG_BRANCH})"
-                }
-                dir("${CONFIG_DIR}") {
-                    git branch: params.CONFIG_BRANCH, url: params.CONFIG_REPO
-                }
-                script {
-                    def yamlPath = "${CONFIG_DIR}/${params.CONFIG_FILE}"
-                    if (!fileExists(yamlPath)) {
-                        error "❌ Config file not found: ${yamlPath}"
+                    dir('postgres-packaging') {
+                        git branch: params.CONFIG_BRANCH, url: params.CONFIG_REPO
                     }
-                    echo "[✓] YAML config found: ${yamlPath}"
-
-                    sh """
-                        echo '[INFO] Converting YAML to JSON...'
-                        yq eval -o=json '${yamlPath}' > ${JSON_OUT}
-                    """
+                    if (!fileExists(env.CONFIG_FILE)) {
+                        error "❌ Config file not found: ${env.CONFIG_FILE}"
+                    }
                 }
             }
         }
@@ -76,23 +58,34 @@ pipeline {
                     ]
 
                     criticalJobs.each { jobKey ->
-                        def trigger = sh(script: "jq -r '.\"${jobKey}\".trigger // false' ${JSON_OUT}", returnStdout: true).trim()
-                        if (trigger != "true") {
-                            echo "[SKIP] ${jobKey} not marked for triggering"
+                        def jobExists = sh(script: "yq eval '.\"${jobKey}\"' ${env.CONFIG_FILE}", returnStatus: true) == 0
+                        if (!jobExists) {
+                            echo "[SKIP] ${jobKey} not found in config."
                             return
                         }
 
-                        def paramJson = sh(script: "jq -c '.\"${jobKey}\".parameters' ${JSON_OUT}", returnStdout: true).trim()
-                        def parsed = readJSON text: paramJson
+                        def trigger = sh(script: "yq eval '.\"${jobKey}\".trigger' ${env.CONFIG_FILE}", returnStdout: true).trim()
+                        if (trigger != "true") {
+                            echo "[SKIP] ${jobKey} not marked for triggering."
+                            return
+                        }
+
+                        def jobName = sh(script: "yq eval '.\"${jobKey}\".job_name' ${env.CONFIG_FILE}", returnStdout: true).trim()
+                        def paramMap = sh(script: "yq eval '.\"${jobKey}\".parameters' ${env.CONFIG_FILE} | jq -c", returnStdout: true).trim()
+                        def parsed = readJSON text: paramMap
 
                         def paramList = parsed.collect { k, v ->
                             v instanceof Boolean ? booleanParam(name: k, value: v) : string(name: k, value: v.toString())
                         }
 
-                        build job: parsed.job_name,
-                              parameters: paramList,
-                              wait: true,
-                              propagate: true
+                        if (!parsed.containsKey('GIT_BRANCH')) {
+                            paramList << string(name: 'GIT_BRANCH', value: params.CONFIG_BRANCH)
+                        }
+
+                        echo "[▶] Triggering critical job: ${jobKey}"
+                        retry(2) {
+                            build job: jobName, parameters: paramList, wait: true, propagate: true
+                        }
                     }
                 }
             }
@@ -107,37 +100,39 @@ pipeline {
                         'hetzner-pg_percona_telemetry-autobuild-RELEASE'
                     ]
 
-                    def keys = sh(script: "jq -r 'keys[]' ${JSON_OUT}", returnStdout: true).trim().split('\n')
+                    def allJobKeys = sh(script: "yq eval 'keys' ${env.CONFIG_FILE} | sed 's/- //g'", returnStdout: true).trim().split("\n")
                     def parallelJobs = [:]
 
-                    keys.each { jobKey ->
+                    allJobKeys.each { jobKey ->
                         if (critical.contains(jobKey)) return
 
-                        def trigger = sh(script: "jq -r '.\"${jobKey}\".trigger // false' ${JSON_OUT}", returnStdout: true).trim()
-                        if (trigger != "true") {
-                            echo "[SKIP] ${jobKey} not marked for triggering"
-                            return
+                        def trigger = sh(script: "yq eval '.\"${jobKey}\".trigger' ${env.CONFIG_FILE}", returnStdout: true).trim()
+                        if (trigger != "true") return
+
+                        def jobName = sh(script: "yq eval '.\"${jobKey}\".job_name' ${env.CONFIG_FILE}", returnStdout: true).trim()
+                        def paramMap = sh(script: "yq eval '.\"${jobKey}\".parameters' ${env.CONFIG_FILE} | jq -c", returnStdout: true).trim()
+                        def parsed = readJSON text: paramMap
+
+                        def paramList = parsed.collect { k, v ->
+                            v instanceof Boolean ? booleanParam(name: k, value: v) : string(name: k, value: v.toString())
+                        }
+
+                        if (!parsed.containsKey('GIT_BRANCH')) {
+                            paramList << string(name: 'GIT_BRANCH', value: params.CONFIG_BRANCH)
                         }
 
                         parallelJobs[jobKey] = {
-                            def paramJson = sh(script: "jq -c '.\"${jobKey}\".parameters' ${JSON_OUT}", returnStdout: true).trim()
-                            def parsed = readJSON text: paramJson
-
-                            def paramList = parsed.collect { k, v ->
-                                v instanceof Boolean ? booleanParam(name: k, value: v) : string(name: k, value: v.toString())
+                            echo "[▶] Running parallel job: ${jobKey}"
+                            retry(2) {
+                                build job: jobName, parameters: paramList, wait: true, propagate: true
                             }
-
-                            build job: parsed.job_name,
-                                  parameters: paramList,
-                                  wait: parsed.wait ?: false,
-                                  propagate: true
                         }
                     }
 
                     if (parallelJobs) {
                         parallel parallelJobs
                     } else {
-                        echo "[✓] No remaining jobs to run"
+                        echo "[✓] No parallel jobs to run."
                     }
                 }
             }
@@ -146,26 +141,16 @@ pipeline {
 
     post {
         success {
-            slackNotify(
-                "#releases-ci",
-                "#00FF00",
-                "[${env.JOB_NAME}]: ✅ Build finished successfully for branch ${env.GIT_BRANCH} → ${env.BUILD_URL}"
-            )
+            slackNotify("#releases-ci", "#00FF00", "[${env.JOB_NAME}]: ✅ Build successful for branch `${params.CONFIG_BRANCH}` → ${env.BUILD_URL}")
             script {
-                currentBuild.description = "Built on ${env.GIT_BRANCH}"
+                currentBuild.description = "Built on ${params.CONFIG_BRANCH}"
             }
             cleanUpWS()
         }
-
         failure {
-            slackNotify(
-                "#releases-ci",
-                "#FF0000",
-                "[${env.JOB_NAME}]: ❌ Build failed for branch ${env.GIT_BRANCH} → ${env.BUILD_URL}"
-            )
+            slackNotify("#releases-ci", "#FF0000", "[${env.JOB_NAME}]: ❌ Build failed for branch `${params.CONFIG_BRANCH}` → ${env.BUILD_URL}")
             cleanUpWS()
         }
-
         always {
             cleanUpWS()
         }
