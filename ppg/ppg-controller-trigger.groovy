@@ -71,10 +71,11 @@ pipeline {
                         
                         paramKeys.each { key ->
                             def value = sh(script: "echo '${paramsJSON}' | jq -r '.\"${key}\"'", returnStdout: true).trim()
-                            def valueType = sh(script: "echo '${paramsJSON}' | jq -r 'type_of(.\"${key}\")'", returnStdout: true).trim()
+                            // Check if value is boolean by testing if it's exactly "true" or "false"
+                            def rawValue = sh(script: "echo '${paramsJSON}' | jq '.\"${key}\"'", returnStdout: true).trim()
                             
-                            if (valueType == "boolean") {
-                                buildParams.add(booleanParam(name: key, value: value == "true"))
+                            if (rawValue == "true" || rawValue == "false") {
+                                buildParams.add(booleanParam(name: key, value: rawValue == "true"))
                             } else {
                                 buildParams.add(string(name: key, value: value))
                             }
