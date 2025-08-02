@@ -33,7 +33,8 @@ pipeline {
                     sudo apt-get update -qq
                     sudo apt-get install -y jq
 
-                    curl -sLo /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+                    wget https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+                    mv yq_linux_amd64 /usr/local/bin/yq 
                     chmod +x /usr/local/bin/yq
 
                     echo "[✓] jq version: $(jq --version)"
