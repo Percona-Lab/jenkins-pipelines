@@ -28,13 +28,7 @@ pipeline {
                         git branch: params.CONFIG_BRANCH, url: params.CONFIG_REPO
                     }
                     env.CONFIG_FILE = 'postgres-packaging/job_configs/all-jobs-full.yaml'
-                }
-            }
-        }
-        stage('Load Job Config') {
-            steps {
-                script {
-                    if (!fileExists(CONFIG_FILE)) {
+                                        if (!fileExists(CONFIG_FILE)) {
                         error "❌ Config file not found: ${CONFIG_FILE}"
                     }
                     jobsConfig = readYaml file: CONFIG_FILE
@@ -42,7 +36,6 @@ pipeline {
                 }
             }
         }
-
         stage('Run Critical Jobs (in order)') {
             steps {
                 script {
