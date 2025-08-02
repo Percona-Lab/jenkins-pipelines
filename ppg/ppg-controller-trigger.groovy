@@ -22,6 +22,17 @@ pipeline {
     }
 
     stages {
+        stage('Checkout Job Config Repo') {
+            steps {
+                script {
+                    echo "[INFO] Cloning CONFIG_REPO: ${params.CONFIG_REPO} (${params.CONFIG_BRANCH})"
+                    dir('postgres-packaging') {
+                        git branch: params.CONFIG_BRANCH, url: params.CONFIG_REPO
+                    }
+                    env.CONFIG_FILE = 'postgres-packaging/job_configs/all-jobs-full.yaml'
+                }
+            }
+        }
         stage('Load Job Config') {
             steps {
                 script {
