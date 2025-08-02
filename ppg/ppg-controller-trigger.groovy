@@ -39,13 +39,6 @@ pipeline {
                     }
 
                     echo "[✓] Repo checked out and config file exists."
-                }
-            }
-        }
-
-        stage('Run Critical Jobs (in order)') {
-            steps {
-                script {
                     def criticalJobs = [
                         'hetzner-postgresql-common-RELEASE',
                         'hetzner-postgresql-server-autobuild-RELEASE',
@@ -74,18 +67,6 @@ pipeline {
                               wait: true,
                               propagate: true
                     }
-                }
-            }
-        }
-
-        stage('Run Remaining Jobs (in parallel)') {
-            steps {
-                script {
-                    def critical = [
-                        'hetzner-postgresql-common-RELEASE',
-                        'hetzner-postgresql-server-autobuild-RELEASE',
-                        'hetzner-pg_percona_telemetry-autobuild-RELEASE'
-                    ]
 
                     def jobKeys = sh(script: "yq eval 'keys' ${env.CONFIG_FILE}", returnStdout: true)
                         .split('\n')
