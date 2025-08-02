@@ -22,7 +22,7 @@ pipeline {
     }
 
     environment {
-        CONFIG_FILE = 'postgres-packaging/job_configs/all-jobs-full.yaml'
+        CONFIG_FILE = 'job_configs/all-jobs-full.yaml'
     }
 
     stages {
