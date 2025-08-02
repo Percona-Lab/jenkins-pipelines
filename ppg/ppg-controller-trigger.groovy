@@ -30,15 +30,15 @@ pipeline {
             steps {
                 script {
                     echo "[INFO] Installing jq and yq"
-                    sudo apt-get update -qq
-                    sudo apt-get install -y jq
+                    sh "sudo apt-get update -qq"
+                    sh "sudo apt-get install -y jq"
 
-                    wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
-                    sudo mv yq_linux_amd64 /usr/local/bin/yq
-                    sudo chmod +x /usr/local/bin/yq
+                    sh "wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
+                    sh "sudo mv yq_linux_amd64 /usr/local/bin/yq"
+                    sh "sudo chmod +x /usr/local/bin/yq"
 
-                    echo "[✓] jq version: $(jq --version)"
-                    echo "[✓] yq version: $(yq --version)"
+                    sh "echo '[✓] jq version: \$(jq --version)'"
+                    sh "echo '[✓] yq version: \$(yq --version)'"
 
                     echo "[INFO] Cloning CONFIG_REPO: ${params.CONFIG_REPO} (${params.CONFIG_BRANCH})"
                     dir('postgres-packaging') {
@@ -82,7 +82,7 @@ pipeline {
                     def jobKeys = sh(script: "yq eval 'keys' ${env.CONFIG_FILE}", returnStdout: true)
                         .split('\n')
                         .collect { it.trim().replaceAll(/^[- ]/, '') }
-                        .findAll { it && !critical.contains(it) }
+                        .findAll { it && !criticalJobs.contains(it) }
 
                     def parallelJobs = [:]
 
