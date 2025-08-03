@@ -75,11 +75,17 @@ pipeline {
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/ppg-server-ha.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
+                   echo "INFO: UPLOAD PATH: ${REPO_UPLOAD_PATH}"
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
                    cat test/ppg-server-ha.properties
                    cat uploadPath
                 '''
+                script {
+                    def path = sh(script: 'cat uploadPath', returnStdout: true).trim()
+                    currentBuild.description = "UPLOAD_PATH: ${path}"
+                }
+                archiveArtifacts artifacts: 'uploadPath', fingerprint: true
                 script {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
