@@ -83,6 +83,7 @@
          name: DOCKER_OS
          values:
           - centos:8
+          - oraclelinux:9
           - ubuntu:jammy
           - ubuntu:focal
           - ubuntu:noble

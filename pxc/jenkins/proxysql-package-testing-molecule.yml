@@ -1,11 +1,11 @@
 - job:
-    name: ps-package-testing-molecule
+    name: proxysql-package-testing-molecule
     project-type: pipeline
     description: |
         Do not edit this job through the web!
     properties:
         - build-discarder:
-            num-to-keep: 100
+            num-to-keep: 15
     concurrent: true
     pipeline-scm:
         scm:
@@ -15,4 +15,4 @@
                     - 'master'
                 wipe-workspace: true
         lightweight-checkout: true
-        script-path: ps/jenkins/ps-package-testing-molecule.groovy
+        script-path: ps/jenkins/proxysql-package-testing-molecule.groovy

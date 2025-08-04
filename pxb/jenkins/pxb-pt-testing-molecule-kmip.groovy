@@ -139,6 +139,7 @@
                                     //sh "zip -r ${env.BUILD_NUMBER}-ARTIFACTS.zip ARTIFACTS"
                                     archiveArtifacts artifacts: '*.zip', allowEmptyArchive: true
                                 }
+                                deleteBuildInstances()
                             }
                         }
             }
@@ -158,4 +159,78 @@ def loadEnvFile(envFilePath) {
         }
     }
     return envMap
+}
+
+def deleteBuildInstances(){
+    script {
+        echo "All tests completed"
+
+        def awsCredentials = [
+                sshUserPrivateKey(
+                    credentialsId: 'MOLECULE_AWS_PRIVATE_KEY',
+                    keyFileVariable: 'MOLECULE_AWS_PRIVATE_KEY',
+                    passphraseVariable: '',
+                    usernameVariable: ''
+                ),
+                aws(
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                )
+        ]
+
+        withCredentials(awsCredentials) {
+            def jobName = env.JOB_NAME
+            def BUILD_NUMBER = env.BUILD_NUMBER
+            jobName.trim()
+
+            echo "Fetched JOB_TO_RUN from environment: '${jobName}'"
+
+            echo "Listing EC2 instances with job-name tag: ${jobName}"
+            sh """
+            aws ec2 describe-instances --region us-west-2 --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}"  --query "Reservations[].Instances[].InstanceId" --output text
+            """
+
+            sh """
+            echo "=== EC2 Instances to be cleaned up ==="
+            aws ec2 describe-instances --region us-west-2 \\
+            --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}" \\
+            --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" \\
+            --output table || echo "No instances found with job-name tag: ${jobName}"
+            """
+
+            def instanceIds = sh(
+                script: """
+                aws ec2 describe-instances --region us-west-2 \\
+                --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}" "Name=instance-state-name,Values=running" \\
+                --query "Reservations[].Instances[].InstanceId" \\
+                --output text
+                """,
+                returnStdout: true
+            ).trim()
+
+            if (instanceIds != null && !instanceIds.trim().isEmpty()) {
+                echo "Found instances to terminate: ${instanceIds.trim()}"
+
+                sh """
+                echo "${instanceIds.trim()}" | xargs -r aws ec2 terminate-instances --instance-ids
+                """
+            
+                sleep(30)
+                
+                echo "Terminated instances: ${instanceIds.trim()}"
+                
+                echo "==========================================="
+
+                echo "Verification: Status of terminated instances:"
+
+                sh """
+                sleep 5 && aws ec2 describe-instances --instance-ids ${instanceIds} --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" --output table
+                """
+            
+            } else {
+                echo "No instances found to terminate"
+            }
+        }
+    }
 }

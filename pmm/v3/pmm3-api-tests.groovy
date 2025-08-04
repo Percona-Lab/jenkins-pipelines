@@ -25,21 +25,21 @@ pipeline {
         )
         string(
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
-            description: 'PMM Server docker container version (image-name:version-tag)',
+            description: 'PMM Server docker image version (image-name:version-tag)',
             name: 'DOCKER_VERSION'
         )
         string(
-            defaultValue: 'percona:5.7',
+            defaultValue: 'percona:8.0',
             description: 'Percona Server Docker Container Image',
             name: 'MYSQL_IMAGE'
         )
         string(
-            defaultValue: 'postgres:12',
+            defaultValue: 'postgres:14',
             description: 'Postgresql Docker Container Image',
             name: 'POSTGRES_IMAGE'
         )
         string(
-            defaultValue: 'percona/percona-server-mongodb:4.4',
+            defaultValue: 'percona/percona-server-mongodb:5.0',
             description: 'Percona Server MongoDb Docker Container Image',
             name: 'MONGO_IMAGE'
         )
@@ -74,7 +74,6 @@ pipeline {
                 sh 'git checkout ' + env.GIT_COMMIT_HASH
             }
         }
-
         stage('API Tests Setup') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -102,8 +101,7 @@ pipeline {
                     cd -
                 '''
                 script {
-                    env.VM_IP = "127.0.0.1"
-                    env.PMM_URL = "https://admin:admin@${env.VM_IP}"
+                    env.PMM_URL = "https://admin:admin@127.0.0.1"
                 }
             }
         }
@@ -121,10 +119,10 @@ pipeline {
             steps {
                 sh '''
                     docker run -e PMM_SERVER_URL=${PMM_URL} \
-                               -e PMM_RUN_UPDATE_TEST=0 \
                                -e PMM_SERVER_INSECURE_TLS=1 \
-                               -e PMM_RUN_STT_TESTS=0 \
-                               --name ${BUILD_TAG} \
+                               -e PMM_RUN_UPDATE_TEST=0 \
+                               -e PMM_RUN_ADVISOR_TESTS=0 \
+                               --name pmm3-api-tests \
                                --network host \
                                local/pmm-api-tests
                 '''
@@ -134,22 +132,25 @@ pipeline {
     post {
         always {
             sh '''
-                docker cp ${BUILD_TAG}:/go/src/github.com/percona/pmm/api-tests/pmm-api-tests-junit-report.xml ./${BUILD_TAG}.xml || true
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                if docker cp pmm3-api-tests:/go/src/github.com/percona/pmm/api-tests/pmm-api-tests-junit-report.xml ./pmm3-api-tests.xml; then
+                  curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                fi
             '''
             script {
-                if (fileExists("${BUILD_TAG}.xml")) {
-                    junit testResults: "${BUILD_TAG}.xml", skipPublishingChecks: true
+                if (fileExists("pmm3-api-tests.xml")) {
+                    junit testResults: "pmm3-api-tests.xml", skipPublishingChecks: true
                 }
                 if (fileExists("logs.zip")) {
                     archiveArtifacts artifacts: 'logs.zip'
                 }
-                if (currentBuild.result != 'SUCCESS') {
-                    slackSend botUser: true,
-                              channel: '#pmm-notifications',
-                              color: '#FF0000',
-                              message: "[${JOB_NAME}]: build ${currentBuild.result}, URL: ${BUILD_URL}, owner: @${OWNER}"
-                }
+            }
+        }
+        failure {
+            script {
+                slackSend botUser: true,
+                          channel: '#pmm-notifications',
+                          color: '#FF0000',
+                          message: "[${JOB_NAME}]: build failed, URL: ${BUILD_URL}, owner: @${OWNER}"
             }
         }
         success {
