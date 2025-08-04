@@ -63,7 +63,7 @@ void prepareNode() {
     }
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -177,6 +177,8 @@ void runTest(Integer TEST_ID) {
                 export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
                 export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                 export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+                export IMAGE_PMM3_CLIENT=$IMAGE_PMM3_CLIENT
+                export IMAGE_PMM3_SERVER=$IMAGE_PMM3_SERVER
 
                 sudo rm -rf /tmp/hostpath-provisioner/*
                 e2e-tests/$testName/run
@@ -234,6 +236,8 @@ IMAGE_BACKUP=${IMAGE_BACKUP ?: 'e2e_defaults'}
 IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR ?: 'e2e_defaults'}
 IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
 IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
+IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT ?: 'e2e_defaults'}
+IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER ?: 'e2e_defaults'}
 PLATFORM_VER=$PLATFORM_VER"""
 
     writeFile file: "TestsReport.xml", text: testsReport
@@ -314,6 +318,14 @@ pipeline {
             defaultValue: '',
             description: 'PMM server image: perconalab/pmm-server:dev-latest',
             name: 'IMAGE_PMM_SERVER')
+        string(
+            defaultValue: '',
+            description: 'ex: perconalab/pmm-client:3-dev-latest',
+            name: 'IMAGE_PMM3_CLIENT')
+        string(
+            defaultValue: '',
+            description: 'ex: perconalab/pmm-server:3-dev-latest',
+            name: 'IMAGE_PMM3_SERVER')
         choice(
             choices: 'NO\nYES',
             description: 'Run tests with debug',
