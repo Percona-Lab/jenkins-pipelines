@@ -34,6 +34,10 @@ void installCli(String PLATFORM) {
     """
 }
 
+def shouldRunFips() {
+    return (params.FIPSMODE ?: "") != 'NO'
+}
+
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
       sh """
@@ -492,7 +496,7 @@ parameters {
                 }
                 stage('Amazon Linux 2023') {
                     when {
-                        expression { (env.FIPSMODE ?: "") != "NO" }
+                        expression { shouldRunFips() }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -511,7 +515,7 @@ parameters {
                 }
                 stage('Amazon Linux 2023 ARM') {
                     when {
-                        expression { (env.FIPSMODE ?: "") != "NO" }
+                        expression { shouldRunFips() }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
