@@ -39,28 +39,8 @@ pipeline {
                     }
                 }
 
-                stage('Test on Ubuntu Focal (x64)') {
-                    agent { label 'min-focal-x64' }  // Run on the node with label 'min-focal-x64'
-                    steps {
-                        script {
-                            sh '''
-                            # Update package list and install necessary dependencies
-                            sudo apt-get update
-                            sudo apt-get install -y sudo wget gnupg2 lsb-release curl systemd
-
-                            # Download and run your script
-                            wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
-                            chmod +x test-telemetry-agent.sh
-                            sudo ./test-telemetry-agent.sh \${TARGET_VERSION}
-
-                            # Verify service behavior
-                            pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
-                            '''
-                        }
-                    }
-                }
                 stage('Test on Ubuntu Noble (x64)') {
-                    agent { label 'min-noble-x64' }  // Run on the node with label 'min-focal-x64'
+                    agent { label 'min-noble-x64' }  // Run on the node with label 'min-noble-x64'
                     steps {
                         script {
                             sh '''
