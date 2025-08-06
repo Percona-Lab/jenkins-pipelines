@@ -78,6 +78,7 @@ networkMap['percona-vpc-eu'] = '10442325' // percona-vpc-eu
 initMap = [:]
 initMap['fedora-docker'] = '''#!/bin/bash -x
     set -o xtrace
+    ( sudo systemctl stop sshd; sleep 300; sudo systemctl start sshd ) &
     sudo fallocate -l 32G /swapfile
     sudo chmod 600 /swapfile
     sudo mkswap /swapfile
@@ -86,7 +87,7 @@ initMap['fedora-docker'] = '''#!/bin/bash -x
         sleep 1
         echo "try again"
     done
-    until sudo dnf install -y java-21-openjdk-headless ca-certificates curl gnupg unzip git dnf-plugins-core; do
+    until sudo dnf install -y java-21-openjdk-headless ca-certificates curl gnupg unzip git dnf-plugins-core cronie bc; do
         sleep 1
         echo "try again"
     done
@@ -122,6 +123,7 @@ initMap['fedora-docker'] = '''#!/bin/bash -x
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl status docker || sudo systemctl start docker
     echo "* * * * * root /usr/sbin/route add default gw 10.30.232.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+    sudo systemctl start sshd
 '''
 initMap['fedora42-x64-nbg1']     = initMap['fedora-docker']
 initMap['fedora42-x64-hel1']     = initMap['fedora-docker']
