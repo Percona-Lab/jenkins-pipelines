@@ -253,7 +253,7 @@ parameters {
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
-            choices: 'testing\nlaboratory\nexperimental',
+            choices: 'laboratory\ntesting\nexperimental\nrelease',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
         choice(
@@ -444,26 +444,6 @@ parameters {
                                 buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
-                            }
-                        }
-
-                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                    }
-                }
-                stage('Oracle Linux 10') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-                    }
-                    steps {
-                        cleanUpWS()
-                        installCli("rpm")
-                        unstash 'properties'
-                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                buildStage("oraclelinux:10", "--build_rpm=1 --with_zenfs=1 --enable_fipsmode=1")
-                            } else {
-                                buildStage("oraclelinux:10", "--build_rpm=1 --with_zenfs=1")
                             }
                         }
 
