@@ -496,7 +496,7 @@ parameters {
                 }
                 stage('Amazon Linux 2023') {
                     when {
-                        expression { shouldRunFips() }
+                        expression { false }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -515,7 +515,7 @@ parameters {
                 }
                 stage('Amazon Linux 2023 ARM') {
                     when {
-                        expression { shouldRunFips() }
+                        expression { false }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
