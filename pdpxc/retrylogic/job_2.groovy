@@ -2,7 +2,7 @@ pipeline {
     agent {
         label 'docker'
     }
-    option{
+    options{
         retry(2)
     }
 
