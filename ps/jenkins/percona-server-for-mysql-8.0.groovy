@@ -492,7 +492,7 @@ parameters {
                 }
                 stage('Amazon Linux 2023') {
                     when {
-                        expression { env.FIPSMODE != 'NO' }
+                        expression { (env.FIPSMODE ?: "") != "NO" }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -511,7 +511,7 @@ parameters {
                 }
                 stage('Amazon Linux 2023 ARM') {
                     when {
-                        expression { env.FIPSMODE != 'NO' }
+                        expression { (env.FIPSMODE ?: "") != "NO" }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
