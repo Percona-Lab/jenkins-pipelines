@@ -34,10 +34,6 @@ void installCli(String PLATFORM) {
     """
 }
 
-def shouldRunFips() {
-    return (params.FIPSMODE ?: "") != 'NO'
-}
-
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
       sh """
@@ -257,7 +253,7 @@ parameters {
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
-            choices: 'laboratory\ntesting\nexperimental\nrelease',
+            choices: 'testing\nlaboratory\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
         choice(
@@ -495,40 +491,42 @@ parameters {
                     }
                 }
                 stage('Amazon Linux 2023') {
-                    when {
-                        expression { false }
-                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         script {
-                            cleanUpWS()
-                            installCli("rpm")
-                            unstash 'properties'
-                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                            buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            if (env.FIPSMODE == 'NO') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
-                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
                 stage('Amazon Linux 2023 ARM') {
-                    when {
-                        expression { false }
-                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         script {
-                            cleanUpWS()
-                            installCli("rpm")
-                            unstash 'properties'
-                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                            buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            if (env.FIPSMODE == 'NO') {
+                                echo "The step is skipped"
+                            } else {
+                                cleanUpWS()
+                                installCli("rpm")
+                                unstash 'properties'
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
-                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
