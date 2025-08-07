@@ -94,13 +94,28 @@ def attemptClusterCleanup(String reason) {
  */
 def archiveClusterLogs() {
     if (env.FINAL_CLUSTER_NAME) {
+        echo "Archiving cluster installation artifacts..."
         def clusterPath = "openshift-clusters/${env.FINAL_CLUSTER_NAME}"
+        
+        echo "  • Archiving log files"
         archiveArtifacts artifacts: "${clusterPath}/**/*.log", allowEmptyArchive: true
+        
+        echo "  • Archiving log bundles"
         archiveArtifacts artifacts: "${clusterPath}/**/log-bundle-*.tar.gz", allowEmptyArchive: true
+        
+        echo "  • Archiving Terraform state"
         archiveArtifacts artifacts: "${clusterPath}/terraform.tfstate", allowEmptyArchive: true
+        
+        echo "  • Archiving cluster metadata"
         archiveArtifacts artifacts: "${clusterPath}/metadata.json", allowEmptyArchive: true
+        
+        echo "  • Archiving OpenShift install log"
         archiveArtifacts artifacts: "${clusterPath}/.openshift_install.log", allowEmptyArchive: true
+        
+        echo "  • Archiving install configuration backup"
         archiveArtifacts artifacts: "${clusterPath}/install-config.yaml.backup", allowEmptyArchive: true
+        
+        echo "  • Archiving authentication files"
         archiveArtifacts artifacts: "${clusterPath}/auth/**", allowEmptyArchive: true
     }
 }
@@ -378,8 +393,12 @@ Starting cluster creation process...
                         }
 
                         // Archive credentials with correct path
+                        echo ""
+                        echo "Archiving cluster credentials..."
                         def clusterPath = "openshift-clusters/${env.FINAL_CLUSTER_NAME}"
                         if (fileExists("${clusterPath}/auth")) {
+                            echo "  ✓ Found auth directory at ${clusterPath}/auth"
+                            echo "  ✓ Archiving kubeconfig and kubeadmin-password"
                             archiveArtifacts artifacts: "${clusterPath}/auth/**",
                                            fingerprint: true,
                                            allowEmptyArchive: false
@@ -394,7 +413,39 @@ Starting cluster creation process...
         stage('Post-Creation Tasks') {
             steps {
                 script {
-                    // Display detailed deployment summary comparing configuration vs actual
+                    // Display deployment status
+                    echo "====================================================================="
+                    echo "OpenShift Cluster Deployment Complete"
+                    echo "====================================================================="
+                    echo ""
+                    echo "DEPLOYMENT STATUS: SUCCESS"
+                    echo ""
+                    
+                    // Display cluster details
+                    echo "CLUSTER DETAILS"
+                    echo "---------------"
+                    echo "Cluster Name:         ${env.FINAL_CLUSTER_NAME}"
+                    echo "OpenShift Version:    ${params.OPENSHIFT_VERSION}"
+                    echo "AWS Region:           ${params.AWS_REGION}"
+                    echo "Base Domain:          ${params.BASE_DOMAIN}"
+                    echo ""
+                    
+                    // Display access information
+                    echo "ACCESS INFORMATION"
+                    echo "------------------"
+                    echo "API URL:              ${env.CLUSTER_API_URL}"
+                    echo "Console URL:          ${env.CLUSTER_CONSOLE_URL ?: 'Pending...'}"
+                    echo "Kubeconfig:           Available in Jenkins artifacts"
+                    echo ""
+                    
+                    // Display compute resources
+                    echo "COMPUTE RESOURCES DEPLOYED"
+                    echo "--------------------------"
+                    echo "Master Nodes:         3 x ${params.MASTER_INSTANCE_TYPE}"
+                    echo "Worker Nodes:         ${params.WORKER_COUNT} x ${params.WORKER_INSTANCE_TYPE}"
+                    echo ""
+                    
+                    // Build complete summary for archival purposes
                     def postCreationSummary = """
                     OpenShift Cluster Deployment Complete
 ====================================================================
@@ -423,6 +474,18 @@ Worker Nodes:         ${params.WORKER_COUNT} x ${params.WORKER_INSTANCE_TYPE}"""
                         def passwordInfo = env.PMM_PASSWORD_GENERATED == 'true' ?
                             "${env.PMM_PASSWORD} (auto-generated)" :
                             "*** (user-specified)"
+                        
+                        // Display PMM deployment details
+                        echo "PMM DEPLOYMENT STATUS: DEPLOYED"
+                        echo "-------------------------------"
+                        echo "Repository Used:      ${params.PMM_IMAGE_REPOSITORY}"
+                        echo "Image Tag:            ${params.PMM_IMAGE_TAG}"
+                        echo "Helm Chart:           ${params.PMM_HELM_CHART_VERSION}"
+                        echo "Namespace:            pmm-monitoring"
+                        echo "Access URL:           ${env.PMM_URL}"
+                        echo "Username:             admin"
+                        echo "Password:             ${passwordInfo}"
+                        echo ""
 
                         postCreationSummary += """
 
@@ -436,17 +499,45 @@ Access URL:           ${env.PMM_URL}
 Username:             admin
 Password:             ${passwordInfo}"""
                     } else if (params.DEPLOY_PMM) {
+                        echo "PMM DEPLOYMENT STATUS: NOT DEPLOYED"
+                        echo "-----------------------------------"
+                        echo "Reason:               Deployment may have failed or is pending"
+                        echo ""
+                        
                         postCreationSummary += """
 
 PMM DEPLOYMENT STATUS: NOT DEPLOYED
 -----------------------------------
 Reason:               Deployment may have failed or is pending"""
                     } else {
+                        echo "PMM DEPLOYMENT:       Skipped (not requested)"
+                        echo ""
+                        
                         postCreationSummary += """
 
 PMM DEPLOYMENT:       Skipped (not requested)"""
                     }
 
+                    // Display backup and lifecycle information
+                    echo "BACKUP & LIFECYCLE"
+                    echo "------------------"
+                    echo "S3 State Backup:      Saved to S3"
+                    echo "Backup Location:      s3://${env.S3_BUCKET}/${env.FINAL_CLUSTER_NAME}/"
+                    echo "Auto-delete after:    ${params.DELETE_AFTER_HOURS} hours"
+                    echo "Team:                 ${params.TEAM_NAME}"
+                    echo "Product Tag:          ${params.PRODUCT_TAG}"
+                    echo ""
+                    
+                    echo "--------------------------------------------------------------------"
+                    echo "NEXT STEPS:"
+                    echo "1. Access the console: ${env.CLUSTER_CONSOLE_URL ?: 'URL pending...'}"
+                    echo "2. Download kubeconfig from Jenkins artifacts"
+                    echo "3. Use 'oc login' with the API URL above"
+                    
+                    if (env.PMM_URL) {
+                        echo "4. Access PMM at: ${env.PMM_URL}"
+                    }
+                    
                     postCreationSummary += """
 
 BACKUP & LIFECYCLE
@@ -467,8 +558,9 @@ NEXT STEPS:
                         postCreationSummary += """
 4. Access PMM at: ${env.PMM_URL}"""
                     }
-
-                    echo postCreationSummary
+                    
+                    echo ""
+                    echo "===================================================================="
 
                     // Update build description with final status
                     def pmmFinalStatus = env.PMM_URL ? "PMM:${params.PMM_IMAGE_TAG}✓" : (params.DEPLOY_PMM ? "PMM:Failed" : "No-PMM")
@@ -497,8 +589,10 @@ NEXT STEPS:
         success {
             script {
                 echo "Cluster ${env.FINAL_CLUSTER_NAME} created successfully"
-
-                // Always archive kubeconfig on success as a fallback
+                echo ""
+                
+                // Archive critical authentication files
+                echo "Archiving cluster authentication files..."
                 if (env.WORK_DIR && env.FINAL_CLUSTER_NAME) {
                     def criticalFiles = [
                         "${env.WORK_DIR}/${env.FINAL_CLUSTER_NAME}/auth/kubeconfig",
@@ -507,6 +601,8 @@ NEXT STEPS:
                     criticalFiles.each { file ->
                         if (fileExists(file)) {
                             def relativePath = file.replaceFirst("${env.WORKSPACE}/", '')
+                            def fileName = file.split('/').last()
+                            echo "  ✓ Archiving ${fileName}"
                             archiveArtifacts artifacts: relativePath,
                                            fingerprint: true,
                                            allowEmptyArchive: false
