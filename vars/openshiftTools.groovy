@@ -525,12 +525,12 @@ def getClusterStatus(Map cluster) {
  */
 def formatClustersSummary(List clusters, String title = "OPENSHIFT CLUSTERS") {
     def summary = new StringBuilder()
-    
+
     // Header
     summary.append("=" * 80).append("\n")
     summary.append("${title} FOUND: ${clusters.size()}").append("\n")
     summary.append("=" * 80).append("\n\n")
-    
+
     if (clusters.isEmpty()) {
         summary.append("No OpenShift clusters found in this region\n")
     } else {
@@ -548,7 +548,7 @@ def formatClustersSummary(List clusters, String title = "OPENSHIFT CLUSTERS") {
             summary.append("  Status:         ${getClusterStatus(cluster)}\n")
             summary.append("-" * 80).append("\n")
         }
-        
+
         // Legend
         summary.append("\nLEGEND:\n")
         summary.append("  Data Source:\n")
@@ -562,7 +562,7 @@ def formatClustersSummary(List clusters, String title = "OPENSHIFT CLUSTERS") {
         summary.append("\n")
         summary.append("  Resource Types = Number of different AWS resource types for the cluster\n")
     }
-    
+
     return summary.toString()
 }
 

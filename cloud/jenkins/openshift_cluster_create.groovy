@@ -239,7 +239,7 @@ Starting cluster creation process...
                 ]) {
                     script {
                         echo "Checking for existing clusters in ${params.AWS_REGION}..."
-                        
+
                         def clusters = openshiftCluster.list([
                             region: params.AWS_REGION,
                             accessKey: AWS_ACCESS_KEY_ID,
@@ -249,24 +249,24 @@ Starting cluster creation process...
                         if (!clusters.isEmpty()) {
                             // Use the shared formatting function for consistent output
                             def clusterSummary = openshiftTools.formatClustersSummary(
-                                clusters, 
+                                clusters,
                                 "EXISTING OPENSHIFT CLUSTERS IN ${params.AWS_REGION}"
                             )
                             echo clusterSummary
-                            
+
                             // Check for potential naming conflicts
                             def existingCluster = clusters.find { it.name == env.FINAL_CLUSTER_NAME }
                             if (existingCluster) {
                                 error """
                                 NAMING CONFLICT DETECTED!
-                                
+
                                 A cluster named '${env.FINAL_CLUSTER_NAME}' already exists in ${params.AWS_REGION}.
-                                
+
                                 Existing cluster details:
                                 - Created by: ${existingCluster.created_by}
                                 - Created at: ${existingCluster.created_at}
                                 - Status: ${openshiftTools.getClusterStatus(existingCluster)}
-                                
+
                                 Please choose a different cluster name or delete the existing cluster first.
                                 """
                             }
@@ -476,7 +476,7 @@ NEXT STEPS:
                     // Update build description with final status
                     def pmmFinalStatus = env.PMM_URL ? "PMM:${params.PMM_IMAGE_TAG}✓" : (params.DEPLOY_PMM ? "PMM:Failed" : "No-PMM")
                     currentBuild.description = "${env.FINAL_CLUSTER_NAME} | OCP:${params.OPENSHIFT_VERSION} | ${params.AWS_REGION} | ${pmmFinalStatus}"
-                    
+
                     // Keep display name consistent
                     currentBuild.displayName = "#${BUILD_NUMBER} - ${env.FINAL_CLUSTER_NAME}"
                 }
@@ -531,7 +531,7 @@ NEXT STEPS:
                 // Update build description to show failure
                 def failedStage = env.STAGE_NAME ?: 'Unknown'
                 currentBuild.description = "${env.FINAL_CLUSTER_NAME ?: 'Unknown'} | FAILED at: ${failedStage} | ${params.AWS_REGION}"
-                
+
                 // Display failure summary
                 def failureSummary = """
                     OpenShift Cluster Creation Failed
@@ -585,7 +585,7 @@ Logs:                 Available in Jenkins artifacts
             script {
                 // Update build description to show aborted
                 currentBuild.description = "${env.FINAL_CLUSTER_NAME ?: 'Unknown'} | ABORTED | ${params.AWS_REGION}"
-                
+
                 echo 'Job was manually terminated - attempting to clean up cluster resources'
 
                 if (env.FINAL_CLUSTER_NAME) {

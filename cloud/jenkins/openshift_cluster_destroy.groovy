@@ -37,7 +37,7 @@ pipeline {
                     sh "mkdir -p ${WORK_DIR}"
 
                     echo "Preparing to destroy cluster: ${params.CLUSTER_NAME}"
-                    
+
                     // Set initial build description
                     currentBuild.displayName = "#${BUILD_NUMBER} - ${params.CLUSTER_NAME}"
                     currentBuild.description = "${params.CLUSTER_NAME} | ${params.AWS_REGION} | DESTROYING..."
@@ -125,10 +125,10 @@ pipeline {
                         // Store result as JSON
                         if (result) {
                             env.DESTROY_RESULT = JsonOutput.toJson(result)
-                            
+
                             // Update description with resource count if available
                             def resourceCount = result.resourcesDeleted ?: 'Unknown'
-                            def ocpVersion = env.CLUSTER_METADATA ? 
+                            def ocpVersion = env.CLUSTER_METADATA ?
                                 new JsonSlurper().parseText(env.CLUSTER_METADATA).openshift_version : 'Unknown'
                             currentBuild.description = "${params.CLUSTER_NAME} | OCP:${ocpVersion} | ${params.AWS_REGION} | Deleting ${resourceCount} resources..."
                         }
@@ -160,7 +160,7 @@ pipeline {
                     ========================================
                     """
 
-                    def ocpVersion = env.CLUSTER_METADATA ? 
+                    def ocpVersion = env.CLUSTER_METADATA ?
                         new JsonSlurper().parseText(env.CLUSTER_METADATA).openshift_version : 'Unknown'
                     currentBuild.description = "${params.CLUSTER_NAME} | OCP:${ocpVersion} | ${params.AWS_REGION} | DRY-RUN"
                 }
@@ -173,13 +173,13 @@ pipeline {
             script {
                 if (!params.DRY_RUN) {
                     echo "Cluster ${params.CLUSTER_NAME} destroyed successfully"
-                    
+
                     // Get final resource count and OCP version for description
-                    def resourceCount = env.DESTROY_RESULT ? 
+                    def resourceCount = env.DESTROY_RESULT ?
                         new JsonSlurper().parseText(env.DESTROY_RESULT).resourcesDeleted : 'Unknown'
-                    def ocpVersion = env.CLUSTER_METADATA ? 
+                    def ocpVersion = env.CLUSTER_METADATA ?
                         new JsonSlurper().parseText(env.CLUSTER_METADATA).openshift_version : 'Unknown'
-                    
+
                     currentBuild.description = "${params.CLUSTER_NAME} | OCP:${ocpVersion} | ${params.AWS_REGION} | DESTROYED✓"
 
                     // Send notification if configured
@@ -195,12 +195,12 @@ pipeline {
         failure {
             script {
                 echo "Failed to destroy cluster ${params.CLUSTER_NAME}"
-                
+
                 // Get OCP version and failed stage for description
-                def ocpVersion = env.CLUSTER_METADATA ? 
+                def ocpVersion = env.CLUSTER_METADATA ?
                     new JsonSlurper().parseText(env.CLUSTER_METADATA).openshift_version : 'Unknown'
                 def failedStage = env.STAGE_NAME ?: 'Unknown'
-                
+
                 currentBuild.description = "${params.CLUSTER_NAME} | OCP:${ocpVersion} | ${params.AWS_REGION} | FAILED at: ${failedStage}"
 
                 // Send notification if configured
@@ -215,13 +215,13 @@ pipeline {
         aborted {
             script {
                 echo "Cluster destruction was aborted: ${params.CLUSTER_NAME}"
-                
+
                 // Get OCP version for description
-                def ocpVersion = env.CLUSTER_METADATA ? 
+                def ocpVersion = env.CLUSTER_METADATA ?
                     new JsonSlurper().parseText(env.CLUSTER_METADATA).openshift_version : 'Unknown'
-                
+
                 currentBuild.description = "${params.CLUSTER_NAME} | OCP:${ocpVersion} | ${params.AWS_REGION} | ABORTED"
-                
+
                 // Send notification if configured
                 if (env.SLACK_WEBHOOK) {
                     slackSend(

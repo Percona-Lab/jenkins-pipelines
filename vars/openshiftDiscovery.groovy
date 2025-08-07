@@ -8,45 +8,9 @@
  * Consolidates and deduplicates information to provide a unified view of
  * OpenShift clusters across the infrastructure.
  *
- * @since 1.0.0
+ * @since 2.0.0 - Migrated from AWS SDK to AWS CLI for better Jenkins compatibility
  */
-import com.amazonaws.services.resourcegroupstaggingapi.*
-import com.amazonaws.services.resourcegroupstaggingapi.model.*
-import com.amazonaws.auth.AWSStaticCredentialsProvider
-import com.amazonaws.auth.BasicAWSCredentials
-import com.amazonaws.auth.DefaultAWSCredentialsProviderChain
-
-/**
- * Build AWS Resource Groups Tagging API client with proper credentials.
- *
- * @NonCPS Required to prevent Jenkins serialization of AWS SDK objects
- *
- * @param region AWS region (required)
- * @param accessKey AWS access key (optional, default: env.AWS_ACCESS_KEY_ID)
- * @param secretKey AWS secret key (optional, default: env.AWS_SECRET_ACCESS_KEY)
- * @return AWSResourceGroupsTaggingAPI client instance
- *
- * @since 1.0.0
- */
-@NonCPS
-def buildTaggingClient(String region, String accessKey = null, String secretKey = null) {
-    def awsAccessKey = accessKey ?: System.getenv('AWS_ACCESS_KEY_ID')
-    def awsSecretKey = secretKey ?: System.getenv('AWS_SECRET_ACCESS_KEY')
-
-    if (awsAccessKey && awsSecretKey) {
-        def awsCreds = new BasicAWSCredentials(awsAccessKey, awsSecretKey)
-        return AWSResourceGroupsTaggingAPIClientBuilder.standard()
-            .withRegion(region)
-            .withCredentials(new AWSStaticCredentialsProvider(awsCreds))
-            .build()
-    } else {
-        // Use default credential chain (instance profile, env vars, etc.)
-        return AWSResourceGroupsTaggingAPIClientBuilder.standard()
-            .withRegion(region)
-            .withCredentials(new DefaultAWSCredentialsProviderChain())
-            .build()
-    }
-}
+import groovy.json.JsonSlurper
 
 /**
  * Discovers all OpenShift clusters by combining S3 metadata and AWS resources.
@@ -73,7 +37,7 @@ def buildTaggingClient(String region, String accessKey = null, String secretKey 
  *   - resources: Live resource counts by type
  *   - s3State: Information about S3 backup state
  *
- * @since 1.0.0
+ * @since 2.0.0
  *
  * @example
  * def clusters = openshiftDiscovery.discoverClusters()
@@ -185,9 +149,7 @@ def discoverClusters(Map params = [:]) {
 }
 
 /**
- * Performs AWS resource discovery using Resource Groups Tagging API.
- *
- * @NonCPS Required to prevent Jenkins serialization of AWS SDK objects
+ * Performs AWS resource discovery using Resource Groups Tagging API via AWS CLI.
  *
  * Discovers OpenShift clusters by finding resources tagged with
  * kubernetes.io/cluster/* tags. Counts resources by type and extracts
@@ -198,31 +160,55 @@ def discoverClusters(Map params = [:]) {
  * @param secretKey AWS secret key (optional)
  * @return Map with clusters list and error (if any)
  *
- * @since 1.0.0
+ * @since 2.0.0 - Migrated to AWS CLI
  */
-@NonCPS
 private performAWSResourceDiscovery(String region, String accessKey = null, String secretKey = null) {
-    def taggingClient = buildTaggingClient(region, accessKey, secretKey)
-
     try {
         def clusters = [:]
 
-        // First, get all VPCs to identify cluster names
-        def vpcRequest = new GetResourcesRequest()
-            .withResourceTypeFilters('ec2:vpc')
-
-        def vpcResult = taggingClient.getResources(vpcRequest)
-        def clusterNames = new HashSet<String>()
-
-        // Extract cluster names from VPC tags
-        vpcResult.getResourceTagMappingList().each { mapping ->
-            mapping.getTags().each { tag ->
-                if (tag.getKey().startsWith('kubernetes.io/cluster/')) {
-                    def clusterName = tag.getKey().substring('kubernetes.io/cluster/'.length())
-                    clusterNames.add(clusterName)
-                }
-            }
+        // Set up AWS credentials if provided
+        def awsEnv = [:]
+        if (accessKey && secretKey) {
+            awsEnv['AWS_ACCESS_KEY_ID'] = accessKey
+            awsEnv['AWS_SECRET_ACCESS_KEY'] = secretKey
         }
+
+        // First, get all VPCs to identify cluster names
+        def vpcOutput = sh(
+            script: """
+                aws resourcegroupstaggingapi get-resources \
+                    --resource-type-filters 'ec2:vpc' \
+                    --region ${region} \
+                    --query 'ResourceTagMappingList[].Tags[?starts_with(Key, `kubernetes.io/cluster/`)].Key' \
+                    --output text 2>/dev/null || echo ''
+            """,
+            returnStdout: true,
+            env: awsEnv
+        ).trim()
+
+        if (!vpcOutput) {
+            return [clusters: [], error: null]
+        }
+
+        // Extract unique cluster names (handle both newline and tab separators)
+        def clusterNames = vpcOutput.split('[\\n\\t]').collect { tagKey ->
+            tagKey.trim().replace('kubernetes.io/cluster/', '')
+        }.findAll { it }.unique()
+
+        // Define resource types to count
+        def resourceTypes = [
+            'ec2:instance': 'EC2 Instances',
+            'ec2:volume': 'EBS Volumes',
+            'ec2:security-group': 'Security Groups',
+            'ec2:network-interface': 'Network Interfaces',
+            'elasticloadbalancing:loadbalancer': 'Load Balancers',
+            'ec2:elastic-ip': 'Elastic IPs',
+            'ec2:nat-gateway': 'NAT Gateways',
+            'ec2:internet-gateway': 'Internet Gateways',
+            'ec2:subnet': 'Subnets',
+            'ec2:vpc': 'VPCs',
+            'ec2:route-table': 'Route Tables'
+        ]
 
         // For each cluster, get detailed resource information
         clusterNames.each { clusterName ->
@@ -234,59 +220,67 @@ private performAWSResourceDiscovery(String region, String accessKey = null, Stri
                 resources: [:]
             ]
 
-            // Define resource types to count
-            def resourceTypes = [
-                'ec2:instance': 'EC2 Instances',
-                'ec2:volume': 'EBS Volumes',
-                'ec2:security-group': 'Security Groups',
-                'ec2:network-interface': 'Network Interfaces',
-                'elasticloadbalancing:loadbalancer': 'Load Balancers',
-                'ec2:elastic-ip': 'Elastic IPs',
-                'ec2:nat-gateway': 'NAT Gateways',
-                'ec2:internet-gateway': 'Internet Gateways',
-                'ec2:subnet': 'Subnets',
-                'ec2:vpc': 'VPCs',
-                'ec2:route-table': 'Route Tables'
-            ]
+            // Get metadata from first EC2 instance
+            def metadataJson = sh(
+                script: """
+                    aws resourcegroupstaggingapi get-resources \
+                        --resource-type-filters 'ec2:instance' \
+                        --tag-filters 'Key=kubernetes.io/cluster/${clusterName}' \
+                        --region ${region} \
+                        --query 'ResourceTagMappingList[0].Tags' \
+                        --output json 2>/dev/null || echo '[]'
+                """,
+                returnStdout: true,
+                env: awsEnv
+            ).trim()
+
+            if (metadataJson && metadataJson != '[]' && metadataJson != 'null') {
+                def tags = new JsonSlurper().parseText(metadataJson)
+                tags.each { tag ->
+                    def key = tag.Key
+                    def value = tag.Value
+
+                    // Capture useful metadata tags
+                    switch(key) {
+                        case 'owner':
+                            cluster.metadata.owner = value
+                            break
+                        case 'team':
+                            cluster.metadata.team = value
+                            break
+                        case 'product':
+                            cluster.metadata.product = value
+                            break
+                        case 'creation-time':
+                            cluster.metadata.creationTime = value
+                            break
+                        case 'iit-billing-tag':
+                            cluster.metadata.billingTag = value
+                            break
+                        case 'build-url':
+                            cluster.metadata.buildUrl = value
+                            break
+                    }
+                }
+            }
 
             // Count resources for this cluster
             resourceTypes.each { resourceType, displayName ->
-                def resourceRequest = new GetResourcesRequest()
-                    .withResourceTypeFilters(resourceType)
-                    .withTagFilters(
-                        new TagFilter()
-                            .withKey("kubernetes.io/cluster/${clusterName}")
-                    )
+                def count = sh(
+                    script: """
+                        aws resourcegroupstaggingapi get-resources \
+                            --resource-type-filters '${resourceType}' \
+                            --tag-filters 'Key=kubernetes.io/cluster/${clusterName}' \
+                            --region ${region} \
+                            --query 'ResourceTagMappingList | length(@)' \
+                            --output text 2>/dev/null || echo '0'
+                    """,
+                    returnStdout: true,
+                    env: awsEnv
+                ).trim()
 
-                def resourceResult = taggingClient.getResources(resourceRequest)
-                def count = resourceResult.getResourceTagMappingList().size()
-
-                if (count > 0) {
-                    cluster.resources[displayName] = count
-
-                    // Extract metadata from first resource if not already set
-                    if (cluster.metadata.isEmpty() && !resourceResult.getResourceTagMappingList().isEmpty()) {
-                        def firstResource = resourceResult.getResourceTagMappingList().get(0)
-                        firstResource.getTags().each { tag ->
-                            def key = tag.getKey()
-                            def value = tag.getValue()
-
-                            // Capture useful metadata tags
-                            if (key == 'owner') {
-                                cluster.metadata.owner = value
-                            } else if (key == 'team') {
-                                cluster.metadata.team = value
-                            } else if (key == 'product') {
-                                cluster.metadata.product = value
-                            } else if (key == 'creation-time') {
-                                cluster.metadata.creationTime = value
-                            } else if (key == 'iit-billing-tag') {
-                                cluster.metadata.billingTag = value
-                            } else if (key == 'build-url') {
-                                cluster.metadata.buildUrl = value
-                            }
-                        }
-                    }
+                if (count != '0' && count.isInteger()) {
+                    cluster.resources[displayName] = count.toInteger()
                 }
             }
 
@@ -299,8 +293,6 @@ private performAWSResourceDiscovery(String region, String accessKey = null, Stri
         return [clusters: clusters.values() as List, error: null]
     } catch (Exception e) {
         return [clusters: [], error: e.message]
-    } finally {
-        taggingClient.shutdown()
     }
 }
 
