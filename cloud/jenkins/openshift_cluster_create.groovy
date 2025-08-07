@@ -468,9 +468,6 @@ NEXT STEPS:
 4. Access PMM at: ${env.PMM_URL}"""
                     }
 
-                    postCreationSummary += """
-                    """
-
                     echo postCreationSummary
 
                     // Update build description with final status
