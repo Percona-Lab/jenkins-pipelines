@@ -5,18 +5,26 @@ void build(String IMAGE_POSTFIX){
             docker build --no-cache --squash --progress plain \
                 -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
                 -f ./orchestrator/Dockerfile ./orchestrator
-        elif [ "${IMAGE_POSTFIX}" == "backup" ]; then
+        elif [ "${IMAGE_POSTFIX}" == "backup8.0" ]; then
             docker build --no-cache --squash --progress plain \
                 -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
                 -f ./percona-xtrabackup-8.0/Dockerfile ./percona-xtrabackup-8.0
-        elif [ "${IMAGE_POSTFIX}" == "router" ]; then
+        elif [ "${IMAGE_POSTFIX}" == "router8.0" ]; then
             docker build --no-cache --squash --progress plain \
                 -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
                 -f ./mysql-router/Dockerfile ./mysql-router
-        elif [ "${IMAGE_POSTFIX}" == "psmysql" ]; then
+        elif [ "${IMAGE_POSTFIX}" == "psmysql8.0" ]; then
             docker build --no-cache --squash --progress plain \
                 -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
                 -f ./percona-server-8.0/Dockerfile ./percona-server-8.0
+        elif [ "${IMAGE_POSTFIX}" == "backup8.4" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./percona-xtrabackup-8.x/Dockerfile ./percona-xtrabackup-8.x
+        elif [ "${IMAGE_POSTFIX}" == "psmysql8.4" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./percona-server-8.4/Dockerfile ./percona-server-8.4
         elif [ "${IMAGE_POSTFIX}" == "toolkit" ]; then
             docker build --no-cache --squash --progress plain \
                 -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
@@ -70,7 +78,7 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker'
+         label 'docker-32gb'
     }
     environment {
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
@@ -118,13 +126,16 @@ pipeline {
                     build('orchestrator')
                 }
                 retry(3) {
-                    build('backup')
+                    build('backup8.0')
                 }
                 retry(3) {
-                    build('router')
+                    build('backup8.4')
                 }
                 retry(3) {
-                    build('psmysql')
+                    build('router8.0')
+                }
+                retry(3) {
+                    build('psmysql8.0')
                 }
                 retry(3) {
                     build('toolkit')
@@ -137,9 +148,11 @@ pipeline {
         stage('Push Images to Docker registry') {
             steps {
                 pushImageToDocker('orchestrator')
-                pushImageToDocker('backup')
-                pushImageToDocker('router')
-                pushImageToDocker('psmysql')
+                pushImageToDocker('backup8.0')
+                pushImageToDocker('backup8.4')
+                pushImageToDocker('router8.0')
+                pushImageToDocker('psmysql8.0')
+                pushImageToDocker('psmysql8.4')
                 pushImageToDocker('toolkit')
                 pushImageToDocker('haproxy')
             }
@@ -149,9 +162,11 @@ pipeline {
                 stage('Check Docker images') {
                     steps {
                         checkImageForDocker('orchestrator')
-                        checkImageForDocker('backup')
-                        checkImageForDocker('router')
-                        checkImageForDocker('psmysql')
+                        checkImageForDocker('backup8.0')
+                        checkImageForDocker('backup8.4')
+                        checkImageForDocker('router8.0')
+                        checkImageForDocker('psmysql8.0')
+                        checkImageForDocker('psmysql8.4')
                         checkImageForDocker('toolkit')
                         checkImageForDocker('haproxy')
                     }
