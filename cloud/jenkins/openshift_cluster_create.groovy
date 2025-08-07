@@ -444,31 +444,6 @@ Starting cluster creation process...
                     echo "Master Nodes:         3 x ${params.MASTER_INSTANCE_TYPE}"
                     echo "Worker Nodes:         ${params.WORKER_COUNT} x ${params.WORKER_INSTANCE_TYPE}"
                     echo ""
-                    
-                    // Build complete summary for archival purposes
-                    def postCreationSummary = """
-                    OpenShift Cluster Deployment Complete
-====================================================================
-
-DEPLOYMENT STATUS: SUCCESS
-
-CLUSTER DETAILS
----------------
-Cluster Name:         ${env.FINAL_CLUSTER_NAME}
-OpenShift Version:    ${params.OPENSHIFT_VERSION}
-AWS Region:           ${params.AWS_REGION}
-Base Domain:          ${params.BASE_DOMAIN}
-
-ACCESS INFORMATION
-------------------
-API URL:              ${env.CLUSTER_API_URL}
-Console URL:          ${env.CLUSTER_CONSOLE_URL ?: 'Pending...'}
-Kubeconfig:           Available in Jenkins artifacts
-
-COMPUTE RESOURCES DEPLOYED
---------------------------
-Master Nodes:         3 x ${params.MASTER_INSTANCE_TYPE}
-Worker Nodes:         ${params.WORKER_COUNT} x ${params.WORKER_INSTANCE_TYPE}"""
 
                     if (params.DEPLOY_PMM && env.PMM_URL) {
                         def passwordInfo = env.PMM_PASSWORD_GENERATED == 'true' ?
@@ -486,36 +461,14 @@ Worker Nodes:         ${params.WORKER_COUNT} x ${params.WORKER_INSTANCE_TYPE}"""
                         echo "Username:             admin"
                         echo "Password:             ${passwordInfo}"
                         echo ""
-
-                        postCreationSummary += """
-
-PMM DEPLOYMENT STATUS: DEPLOYED
--------------------------------
-Repository Used:      ${params.PMM_IMAGE_REPOSITORY}
-Image Tag:            ${params.PMM_IMAGE_TAG}
-Helm Chart:           ${params.PMM_HELM_CHART_VERSION}
-Namespace:            pmm-monitoring
-Access URL:           ${env.PMM_URL}
-Username:             admin
-Password:             ${passwordInfo}"""
                     } else if (params.DEPLOY_PMM) {
                         echo "PMM DEPLOYMENT STATUS: NOT DEPLOYED"
                         echo "-----------------------------------"
                         echo "Reason:               Deployment may have failed or is pending"
                         echo ""
-                        
-                        postCreationSummary += """
-
-PMM DEPLOYMENT STATUS: NOT DEPLOYED
------------------------------------
-Reason:               Deployment may have failed or is pending"""
                     } else {
                         echo "PMM DEPLOYMENT:       Skipped (not requested)"
                         echo ""
-                        
-                        postCreationSummary += """
-
-PMM DEPLOYMENT:       Skipped (not requested)"""
                     }
 
                     // Display backup and lifecycle information
@@ -536,27 +489,6 @@ PMM DEPLOYMENT:       Skipped (not requested)"""
                     
                     if (env.PMM_URL) {
                         echo "4. Access PMM at: ${env.PMM_URL}"
-                    }
-                    
-                    postCreationSummary += """
-
-BACKUP & LIFECYCLE
-------------------
-S3 State Backup:      Saved to S3
-Backup Location:      s3://${env.S3_BUCKET}/${env.FINAL_CLUSTER_NAME}/
-Auto-delete after:    ${params.DELETE_AFTER_HOURS} hours
-Team:                 ${params.TEAM_NAME}
-Product Tag:          ${params.PRODUCT_TAG}
-
---------------------------------------------------------------------
-NEXT STEPS:
-1. Access the console: ${env.CLUSTER_CONSOLE_URL ?: 'URL pending...'}
-2. Download kubeconfig from Jenkins artifacts
-3. Use 'oc login' with the API URL above"""
-
-                    if (env.PMM_URL) {
-                        postCreationSummary += """
-4. Access PMM at: ${env.PMM_URL}"""
                     }
                     
                     echo ""
