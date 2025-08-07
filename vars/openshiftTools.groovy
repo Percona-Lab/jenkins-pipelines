@@ -278,9 +278,9 @@ def getChannelVersion(String channel) {
 
     // Get configuration from environment variables or use defaults
     // Versions from 4.16 onwards (can be overridden via environment variable)
-    def majorMinorVersions = env.OPENSHIFT_MAJOR_MINOR_VERSIONS?.split(',')?.collect { it.trim() } ?: 
+    def majorMinorVersions = env.OPENSHIFT_MAJOR_MINOR_VERSIONS?.split(',')?.collect { it.trim() } ?:
         ['4.19', '4.18', '4.17', '4.16']
-    
+
     // Configurable fallback version
     def fallbackVersion = env.OPENSHIFT_FALLBACK_VERSION ?: '4.16.45'
 

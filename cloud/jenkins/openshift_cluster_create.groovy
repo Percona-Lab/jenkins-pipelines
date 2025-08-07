@@ -96,25 +96,25 @@ def archiveClusterLogs() {
     if (env.FINAL_CLUSTER_NAME) {
         echo "Archiving cluster installation artifacts..."
         def clusterPath = "openshift-clusters/${env.FINAL_CLUSTER_NAME}"
-        
+
         echo "  • Archiving log files"
         archiveArtifacts artifacts: "${clusterPath}/**/*.log", allowEmptyArchive: true
-        
+
         echo "  • Archiving log bundles"
         archiveArtifacts artifacts: "${clusterPath}/**/log-bundle-*.tar.gz", allowEmptyArchive: true
-        
+
         echo "  • Archiving Terraform state"
         archiveArtifacts artifacts: "${clusterPath}/terraform.tfstate", allowEmptyArchive: true
-        
+
         echo "  • Archiving cluster metadata"
         archiveArtifacts artifacts: "${clusterPath}/metadata.json", allowEmptyArchive: true
-        
+
         echo "  • Archiving OpenShift install log"
         archiveArtifacts artifacts: "${clusterPath}/.openshift_install.log", allowEmptyArchive: true
-        
+
         echo "  • Archiving install configuration backup"
         archiveArtifacts artifacts: "${clusterPath}/install-config.yaml.backup", allowEmptyArchive: true
-        
+
         echo "  • Archiving authentication files"
         archiveArtifacts artifacts: "${clusterPath}/auth/**", allowEmptyArchive: true
     }
@@ -420,7 +420,7 @@ Starting cluster creation process...
                     echo ""
                     echo "DEPLOYMENT STATUS: SUCCESS"
                     echo ""
-                    
+
                     // Display cluster details
                     echo "CLUSTER DETAILS"
                     echo "---------------"
@@ -429,7 +429,7 @@ Starting cluster creation process...
                     echo "AWS Region:           ${params.AWS_REGION}"
                     echo "Base Domain:          ${params.BASE_DOMAIN}"
                     echo ""
-                    
+
                     // Display access information
                     echo "ACCESS INFORMATION"
                     echo "------------------"
@@ -437,7 +437,7 @@ Starting cluster creation process...
                     echo "Console URL:          ${env.CLUSTER_CONSOLE_URL ?: 'Pending...'}"
                     echo "Kubeconfig:           Available in Jenkins artifacts"
                     echo ""
-                    
+
                     // Display compute resources
                     echo "COMPUTE RESOURCES DEPLOYED"
                     echo "--------------------------"
@@ -449,7 +449,7 @@ Starting cluster creation process...
                         def passwordInfo = env.PMM_PASSWORD_GENERATED == 'true' ?
                             "${env.PMM_PASSWORD} (auto-generated)" :
                             "*** (user-specified)"
-                        
+
                         // Display PMM deployment details
                         echo "PMM DEPLOYMENT STATUS: DEPLOYED"
                         echo "-------------------------------"
@@ -480,17 +480,17 @@ Starting cluster creation process...
                     echo "Team:                 ${params.TEAM_NAME}"
                     echo "Product Tag:          ${params.PRODUCT_TAG}"
                     echo ""
-                    
+
                     echo "--------------------------------------------------------------------"
                     echo "NEXT STEPS:"
                     echo "1. Access the console: ${env.CLUSTER_CONSOLE_URL ?: 'URL pending...'}"
                     echo "2. Download kubeconfig from Jenkins artifacts"
                     echo "3. Use 'oc login' with the API URL above"
-                    
+
                     if (env.PMM_URL) {
                         echo "4. Access PMM at: ${env.PMM_URL}"
                     }
-                    
+
                     echo ""
                     echo "===================================================================="
 
@@ -522,7 +522,7 @@ Starting cluster creation process...
             script {
                 echo "Cluster ${env.FINAL_CLUSTER_NAME} created successfully"
                 echo ""
-                
+
                 // Archive critical authentication files
                 echo "Archiving cluster authentication files..."
                 if (env.WORK_DIR && env.FINAL_CLUSTER_NAME) {
