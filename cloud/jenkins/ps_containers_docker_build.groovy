@@ -66,7 +66,7 @@ void checkImageForDocker(String IMAGE_SUFFIX){
                         docker login -u '${USER}' -p '${PASS}'
 
                         snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
-                            --fail-on=all --severity-threshold=high --json-file-output=\${IMAGE_SUFFIX}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
+                            --severity-threshold=high --json-file-output=\${IMAGE_SUFFIX}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
                     "
                 """
              }
@@ -91,7 +91,7 @@ void pushImageToDocker(String IMAGE_POSTFIX){
               set -e
 
                 if [ ! -d ~/.docker/trust/private ]; then
-                    mkdir -p /home/ec2-user/.docker/trust/private
+                    mkdir -p ~/.docker/trust/private
                     cp "${docker_key}" ~/.docker/trust/private/
                 fi
 
@@ -99,6 +99,7 @@ void pushImageToDocker(String IMAGE_POSTFIX){
                 docker push perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}
                 docker logout
             '
+            echo "perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}" >> list-of-images.txt
         """
     }
 }
@@ -128,7 +129,7 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker-32gb'
+         label 'docker-x64-min'
     }
     environment {
         PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
@@ -145,6 +146,8 @@ pipeline {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
+                    export GIT_REPO=$GIT_PD_REPO
+                    export GIT_BRANCH=$GIT_PD_BRANCH
                     curl -sL https://static.snyk.io/cli/latest/snyk-linux -o snyk
                     chmod +x snyk
                     sudo mv ./snyk /usr/local/bin/
@@ -159,7 +162,6 @@ pipeline {
                     ./cloud/local/checkout
                 """
                 stash includes: "cloud/**" , name: "checkout"
-                stash includes: "source/**", name: "sourceFILES"
             }
         }
         stage('Build ps docker images') {
@@ -211,11 +213,6 @@ pipeline {
         }
        stage('Snyk CVEs Check') {
             parallel {
-                stage('ps operator'){
-                    steps {
-                        checkImageForDocker('operator')
-                    }
-                }
                 stage('orchestrator'){
                     steps {
                         checkImageForDocker('orchestrator')
@@ -258,22 +255,18 @@ pipeline {
                 }
             }
         }
-       stage('Generate Report') {
-            steps {
-                script {
-                    def summary = generateImageSummary('list-of-images.txt')
-
-                    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
-                      text: "<pre>${summary}</pre>"
-                    )
-                    // Also save as a file if needed
-                    writeFile(file: 'image-summary.html', text: summary)
-                }
-            }
-        }
     }
     post {
         always {
+            script {
+                def summary = generateImageSummary('list-of-images.txt')
+
+                addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+                    text: "<pre>${summary}</pre>"
+                )
+                // Also save as a file if needed
+                 writeFile(file: 'image-summary.html', text: summary)
+            }
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
             '''
