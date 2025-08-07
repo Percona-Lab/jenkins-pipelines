@@ -299,15 +299,18 @@ def destroy(Map config) {
 
     try {
         // Get metadata and cluster state from S3
-        def metadata = openshiftS3.getMetadata([
+        def metadataResult = openshiftS3.getMetadata([
             bucket: params.s3Bucket,
             clusterName: params.clusterName,
             region: params.awsRegion
         ])
 
-        if (!metadata) {
+        if (!metadataResult) {
             error "No metadata found for cluster ${params.clusterName}."
         }
+
+        // Convert LazyMap to regular Map for serialization
+        def metadata = metadataResult.collectEntries { k, v -> [k, v] }
 
         def clusterDir = "${params.workDir}/${params.clusterName}"
         sh "mkdir -p ${clusterDir}"
@@ -819,24 +822,3 @@ def getClusterInfo(String clusterDir) {
     return info
 }
 
-/**
- * Backward compatibility method - delegates to create().
- *
- * Allows calling the library directly without method name for backward
- * compatibility with existing pipelines.
- *
- * @deprecated Use create() instead
- * @param config Map containing cluster configuration
- * @return Map containing cluster information
- * @since 1.0.0
- *
- * @example
- * // Old style (deprecated)
- * openshiftCluster([clusterName: 'test'])
- *
- * // New style (preferred)
- * openshiftCluster.create([clusterName: 'test'])
- */
-def call(Map config) {
-    return create(config)
-}

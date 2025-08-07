@@ -276,13 +276,18 @@ def getChannelVersion(String channel) {
         return null
     }
 
+    // Get configuration from environment variables or use defaults
+    // Versions from 4.16 onwards (can be overridden via environment variable)
+    def majorMinorVersions = env.OPENSHIFT_MAJOR_MINOR_VERSIONS?.split(',')?.collect { it.trim() } ?: 
+        ['4.19', '4.18', '4.17', '4.16']
+    
+    // Configurable fallback version
+    def fallbackVersion = env.OPENSHIFT_FALLBACK_VERSION ?: '4.16.45'
+
     try {
         // Map 'latest' to newest stable channel since OpenShift doesn't have a 'latest' channel
         // Iterates through versions from newest to oldest
         if (channel == 'latest') {
-            // TODO: Update this list periodically as new OpenShift versions are released
-            def majorMinorVersions = ['4.19', '4.18', '4.17', '4.16', '4.15', '4.14']
-
             for (def version : majorMinorVersions) {
                 def output = sh(
                     script: """
@@ -297,15 +302,14 @@ def getChannelVersion(String channel) {
                 }
             }
         } else {
-            // For other channels, try to find the newest version across recent minor releases
-            def majorMinorVersions = ['4.19', '4.18', '4.17', '4.16']
+            // For other channels, collect last 5 patch versions from each minor release
             def allVersions = []
 
             for (def version : majorMinorVersions) {
                 def output = sh(
                     script: """
                         curl -sH 'Accept: application/json' https://api.openshift.com/api/upgrades_info/v1/graph?channel=${channelName}-${version} | \
-                        jq -r '.nodes | map(.version) | .[]' 2>/dev/null || echo ''
+                        jq -r '.nodes | map(.version) | sort | .[-5:][]' 2>/dev/null || echo ''
                     """,
                     returnStdout: true
                 ).trim()
@@ -329,9 +333,8 @@ def getChannelVersion(String channel) {
         log('ERROR', "Failed to get channel version: ${e.message}")
     }
 
-    // Fallback to a known good version when API is unavailable
-    // WARNING: Update this periodically to maintain compatibility
-    return env.OPENSHIFT_FALLBACK_VERSION ?: '4.16.45'
+    // Return configurable fallback version when API is unavailable
+    return fallbackVersion
 }
 
 /**
@@ -566,24 +569,3 @@ def formatClustersSummary(List clusters, String title = "OPENSHIFT CLUSTERS") {
     return summary.toString()
 }
 
-/**
- * Backward compatibility method - delegates to install().
- *
- * Allows calling the library directly without method name for backward
- * compatibility with existing pipelines.
- *
- * @deprecated Use install() instead
- * @param config Map containing installation configuration
- * @return String resolved OpenShift version
- * @since 1.0.0
- *
- * @example
- * // Old style (deprecated)
- * openshiftTools([openshiftVersion: '4.16.20'])
- *
- * // New style (preferred)
- * openshiftTools.install([openshiftVersion: '4.16.20'])
- */
-def call(Map config) {
-    return install(config)
-}

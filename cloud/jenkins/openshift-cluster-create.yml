@@ -24,12 +24,49 @@
           - choice:
                 name: OPENSHIFT_VERSION
                 choices:
-                    - "4.19.6"
-                    - "4.18.21"
-                    - "4.17.36"
-                    - "4.16.45"
+                    # Dynamic list - Last 5 patches from each minor version (4.16-4.19)
+                    # Updated: 2025-08-07 via show-last-5-patches.sh
                     - "latest"
-                description: "OpenShift version to install"
+                    # --- OpenShift 4.19 (Latest 5 stable patches) ---
+                    - "4.19.6"
+                    - "4.19.5"
+                    - "4.19.4"
+                    - "4.19.3"
+                    - "4.19.2"
+                    # --- OpenShift 4.18 (Latest 5 stable patches) ---
+                    - "4.18.9"
+                    - "4.18.8"
+                    - "4.18.7"
+                    - "4.18.6"
+                    - "4.18.5"
+                    # --- OpenShift 4.17 (Latest 5 stable patches) ---
+                    - "4.17.9"
+                    - "4.17.8"
+                    - "4.17.7"
+                    - "4.17.6"
+                    - "4.17.5"
+                    # --- OpenShift 4.16 (Latest 5 stable patches) ---
+                    - "4.16.9"
+                    - "4.16.8"
+                    - "4.16.7"
+                    - "4.16.6"
+                    - "4.16.5"
+                    # --- Release Channels (Always Latest) ---
+                    - "stable-4.19"
+                    - "stable-4.18"
+                    - "stable-4.17"
+                    - "stable-4.16"
+                    # --- Fast Channels (Newer releases) ---
+                    - "fast-4.19"
+                    - "fast-4.18"
+                    - "fast-4.17"
+                    - "fast-4.16"
+                    # --- Candidate Channels (Pre-release) ---
+                    - "candidate-4.19"
+                    - "candidate-4.18"
+                    - "candidate-4.17"
+                    - "candidate-4.16"
+                description: "OpenShift version to install (specific version or channel)"
           - choice:
                 name: AWS_REGION
                 choices:

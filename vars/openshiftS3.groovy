@@ -235,7 +235,9 @@ def getMetadata(Map params) {
             returnStdout: true
         ).trim()
 
-        return new JsonSlurper().parseText(jsonContent)
+        // Convert LazyMap to regular Map for serialization
+        def lazyMap = new JsonSlurper().parseText(jsonContent)
+        return lazyMap.collectEntries { k, v -> [k, v] }
     } catch (Exception e) {
         openshiftTools.log('WARN', "Failed to retrieve metadata: ${e.message}", params)
         return null
