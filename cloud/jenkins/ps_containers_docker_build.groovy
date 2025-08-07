@@ -44,8 +44,8 @@ void checkImageForDocker(String IMAGE_SUFFIX){
                 sh """
                     IMAGE_SUFFIX=${IMAGE_SUFFIX}
                     IMAGE_NAME='percona-server-mysql-operator'
-                    MONGODB_VER=\$(echo ${IMAGE_SUFFIX} | tr -d '\\-debug' | tr -d 'psmysql')
-                    PATH_TO_DOCKERFILE="source/percona-server-\${MONGODB_VER}"
+                    MYSQL_VER=\$(echo ${IMAGE_SUFFIX} | tr -d 'psmysql')
+                    PATH_TO_DOCKERFILE="source/percona-server-\${MYSQL_VER}"
                     IMAGE_TAG="\${GIT_PD_BRANCH}-\${IMAGE_SUFFIX}"
                     if [ ${IMAGE_SUFFIX} = backup8.0 ]; then
                         PATH_TO_DOCKERFILE="source/percona-xtrabackup-8.0"
