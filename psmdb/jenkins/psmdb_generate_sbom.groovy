@@ -22,7 +22,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             uname -a
             bash -x ./psmdb_generate_sbom.sh --builddir=\${build_dir} --psmdb_version=${PSMDB_VERSION} --repo_type=${REPO_TYPE} --git_repo=${GIT_REPO} --git_branch=${GIT_BRANCH} ${STAGE_PARAM}"
             curl -fsSL https://raw.githubusercontent.com/EvgeniyPatlan/sbom_verifier/main/install_sbom_verifier.sh | bash
-            bash sbom_verifier.sh psmdb_sbom/*.json
+            bash sbom_verifier.sh --snyk-only psmdb_sbom/*.json
     """
     }
 }
@@ -46,6 +46,7 @@ void cleanUpWS() {
 }
 
 def TIMESTAMP
+def AWS_STASH_PATH
 
 pipeline {
     agent {
@@ -119,8 +120,6 @@ pipeline {
                                 echo "Ran stash includes"
                                 buildStage("oraclelinux:8", "")
                                 pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
-                                uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
                         }
                     }
                 }
@@ -140,8 +139,6 @@ pipeline {
                                 stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
                                 buildStage("oraclelinux:8", "")
                                 pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
-                                uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
                         }
                     }
                 }
@@ -161,8 +158,6 @@ pipeline {
                                 stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
                                 buildStage("oraclelinux:9", "")
                                 pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
-                                uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
                         }
                     }
                 }
@@ -182,8 +177,6 @@ pipeline {
                                 stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
                                 buildStage("oraclelinux:9", "")
                                 pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
-                                uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
                         }
                     }
                 }
@@ -203,8 +196,6 @@ pipeline {
                                 stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
                                 buildStage("amazonlinux:2023", "")
                                 pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
-                                uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
                         }
                     }
                 }
@@ -224,8 +215,6 @@ pipeline {
                                 stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
                                 buildStage("amazonlinux:2023", "")
                                 pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
-                                uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
                         }
                     }
                 }
@@ -245,8 +234,6 @@ pipeline {
                                 stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
                                 buildStage("oraclelinux:10", "")
                                 pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
-                                uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
                         }
                     }
                 }
@@ -266,8 +253,6 @@ pipeline {
                                 stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
                                 buildStage("oraclelinux:10", "")
                                 pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
-                                uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
                         }
                     }
                 } */
@@ -287,8 +272,6 @@ pipeline {
                                 stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
                                 buildStage("ubuntu:jammy", "")
                                 pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
-                                uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
                         }
                     }
                 }
@@ -308,8 +291,6 @@ pipeline {
                                 stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
                                 buildStage("ubuntu:jammy", "")
                                 pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
-                                uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
                         }
                     }
                 }
@@ -329,8 +310,6 @@ pipeline {
                                 stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
                                 buildStage("ubuntu:noble", "")
                                 pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
-                                uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
                         }
                     }
                 }
@@ -350,8 +329,6 @@ pipeline {
                                 stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
                                 buildStage("ubuntu:noble", "")
                                 pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
-                                uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
                         }
                     }
                 }
@@ -371,8 +348,6 @@ pipeline {
                                 stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
                                 buildStage("debian:bullseye", "")
                                 pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
-                                uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
                         }
                     }
                 }
@@ -392,14 +367,26 @@ pipeline {
                                 stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
                                 buildStage("debian:bookworm", "")
                                 pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
-                                uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
                         }
                     }
                 }
             }  //parallel
         } // stage
-
+                stage('Upload SBOMS from AWS') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        uploadSBOMfromAWS(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH, "json", "${PSMDB_VERSION}")
+                    }
+                }
+                stage('Push SBOMS to TESTING downloads area') {
+                    steps {
+                        cleanUpWS()
+                        uploadPSMDBSBOMToTestingDownloadServer("psmdb_sbom", "${PSMDB_VERSION}", "json")
+                    }
+                }
     }
     post {
         success {
