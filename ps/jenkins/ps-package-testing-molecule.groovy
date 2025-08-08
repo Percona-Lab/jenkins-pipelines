@@ -84,8 +84,7 @@
             stage('Checkout') {
                 steps {
                     deleteDir()
-                    git poll: false, branch: "${git_branch}", url: "https://github.com/Percona-QA/package-testing.git"
-                }
+                    git poll: false, branch: "${params.git_branch}", url: "${params.git_repo}"      }
             }
 
             stage('Prepare') {
