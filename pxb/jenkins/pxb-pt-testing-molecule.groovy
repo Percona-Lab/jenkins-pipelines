@@ -55,7 +55,6 @@
             choices: [
                 'install',
                 'upgrade',
-                'upstream',
                 'kms'
             ],
             description: 'Scenario To Test',
