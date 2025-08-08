@@ -1,0 +1,56 @@
+- job:
+    name: openshift-cluster-destroy
+    project-type: pipeline
+    description: |
+        Destroy OpenShift clusters on AWS.
+
+        This job:
+        - Downloads cluster state from S3
+        - Destroys all cluster resources
+        - Cleans up S3 backup (optional)
+        - Verifies resource cleanup
+
+        WARNING: This operation is irreversible!
+
+    parameters:
+      - string:
+          name: CLUSTER_NAME
+          default: ''
+          description: 'Name of the OpenShift cluster to destroy (required)'
+          trim: true
+      - choice:
+          name: AWS_REGION
+          choices:
+            - 'us-east-2'
+          description: 'AWS region where the cluster is deployed'
+      - bool:
+          name: DRY_RUN
+          default: false
+          description: 'Perform a dry run without actually destroying resources'
+      - choice:
+          name: DESTROY_REASON
+          choices:
+            - 'manual'
+            - 'scheduled'
+            - 'cost-optimization'
+            - 'testing-complete'
+            - 'error-cleanup'
+            - 'other'
+          description: 'Reason for cluster destruction'
+
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/nogueiraanderson/jenkins-pipelines.git
+            branches:
+            - 'feature/openshift-shared-libraries'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: cloud/jenkins/openshift_cluster_destroy.groovy
+
+    concurrent: true
+
+    properties:
+      - build-discarder:
+          days-to-keep: 30
+          num-to-keep: 100
