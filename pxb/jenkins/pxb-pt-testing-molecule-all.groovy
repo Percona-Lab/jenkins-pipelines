@@ -79,21 +79,37 @@ pipeline {
                 stage("install") {
                     steps {
                         script {
-                            runpxbptjob("install")
+                            runpxbptjob("install", server_to_test)
                         }
                     }
                 }
                 stage("upgrade") {
                     steps {
                         script {
-                            runpxbptjob("upgrade")
+                            runpxbptjob("upgrade", server_to_test)
+                        }
+                    }
+                }
+                stage("upstream") {
+                    steps {
+                        script {
+                            if (product_to_test == "pxb_innovation_lts") {
+                                server = "ms_innovation_lts"
+                            } else if (product_to_test == "pxb_80") {
+                                server = "ms-80"
+                            } else if (product_to_test == "pxb_84") {
+                                server = "ms-84"
+                            } else {
+                                echo "Not added support for this product version"
+                            }
+                            runpxbptjob("upstream", server)
                         }
                     }
                 }
                 stage("kms") {
                     steps {
                         script {
-                            runpxbptjob("kms")
+                            runpxbptjob("kms", server_to_test)
                         }
                     }
                 }
@@ -102,12 +118,12 @@ pipeline {
     }
 }
 
-void runpxbptjob(String scenario_to_test) {
+void runpxbptjob(String scenario_to_test, String server) {
     build(
         job: 'pxb-package-testing-molecule',
         parameters: [
             string(name: "scenario_to_test", value: scenario_to_test),
-            string(name: "server_to_test", value: params.server_to_test),
+            string(name: "server_to_test", value: server),
             string(name: "git_repo", value: git_repo),
             string(name: "install_repo", value: params.install_repo),
             string(name: "product_to_test", value: params.product_to_test),
