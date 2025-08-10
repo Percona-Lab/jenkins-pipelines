@@ -201,6 +201,16 @@ pipeline {
                 '''
             }
         }
+        stage('Make changes for nginx for upgrade for <= 32') {
+            when {
+                expression { getMinorVersion(DOCKER_VERSION) <= 32 }
+            }
+            steps {
+                sh '''
+                    docker exec pmm-server sed -i 's/- nginx/- "nginx*"/' /usr/share/pmm-update/ansible/playbook/tasks/update.yml
+                '''
+            }
+        }
         stage('Change admin password for <= 2.26') {
             when {
                 expression { getMinorVersion(DOCKER_VERSION) <= 26 }
