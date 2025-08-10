@@ -241,10 +241,6 @@ parameters {
         string(defaultValue: '0', description: 'TokuBackup repository', name: 'TOKUBACKUP_REPO')
         string(defaultValue: 'Percona-Server-8.0.27-18', description: 'Tag/Branch for TokuBackup repository', name: 'TOKUBACKUP_BRANCH')
         choice(
-            choices: 'NO\nYES',
-            description: 'Prepare packages and tarballs for Centos 7',
-            name: 'ENABLE_EL7')
-        choice(
             choices: 'ON\nOFF',
             description: 'Compile with ZenFS support?, only affects Ubuntu Hirsute',
             name: 'ENABLE_ZENFS')
@@ -350,28 +346,6 @@ parameters {
         } // stage
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             parallel {
-/*
-                stage('Centos 7') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                installCli("rpm")
-                                unstash 'properties'
-                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                                buildStage("centos:7", "--build_rpm=1")
-
-                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                            }
-                        }
-                    }
-                }
-*/
                 stage('Oracle Linux 8') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -472,7 +446,6 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
-/*
                 stage('Oracle Linux 10 ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -493,7 +466,6 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
-*/
                 stage('Amazon Linux 2023') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
