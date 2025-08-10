@@ -1045,6 +1045,20 @@ parameters {
             }
             steps {
                 script {
+                    build job: 'hetzner-ps8.0-docker-build',
+                          parameters: [
+                              string(name: 'CLOUD', value: 'Hetzner'),
+                              string(name: 'ORGANIZATION', value: 'perconalab'),
+                              string(name: 'BRANCH', value: ${BRANCH}),
+                              string(name: 'RPM_RELEASE', value: '1'),
+                              string(name: 'DEB_RELEASE', value: '1'),
+                              string(name: 'FIPSMODE', value: 'NO'),
+                              booleanParam(name: 'RUN_FAST', value: true)
+                          ],
+                          wait: false
+                }
+/*
+                script {
                     if (env.FIPSMODE == 'YES') {
                         echo "The step is skipped"
                     } else {
@@ -1170,6 +1184,7 @@ parameters {
                        }
                     }
                 }
+*/
             }
         }
     }
