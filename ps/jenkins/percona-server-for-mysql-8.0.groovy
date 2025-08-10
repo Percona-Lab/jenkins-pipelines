@@ -706,46 +706,6 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 7 binary tarball') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                installCli("rpm")
-                                unstash 'properties'
-                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                                buildStage("centos:7", "--build_tarball=1")
-
-                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
-                            }
-                        }
-                    }
-                }
-                stage('Centos 7 debug tarball') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES' || env.ENABLE_EL7 == 'NO') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                installCli("rpm")
-                                unstash 'properties'
-                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                                buildStage("centos:7", "--debug=1 --build_tarball=1")
-
-                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
-                            }
-                        }
-                    }
-                }
                 stage('Oracle Linux 8 binary tarball') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
