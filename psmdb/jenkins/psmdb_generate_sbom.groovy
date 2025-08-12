@@ -339,16 +339,18 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PSMDB_SBOM/${PSMDB_VERSION}/${TIMESTAMP}"
-                                sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PSMDB_VERSION}
-                                        cat uploadPath-${PSMDB_VERSION}
-                                """
-                                stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
-                                buildStage("debian:bullseye", "")
-                                pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
-                        }
+                                if (params.PSMDB_VERSION?.startsWith("7.0")) {
+                                    unstash 'timestamp'
+                                    AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PSMDB_SBOM/${PSMDB_VERSION}/${TIMESTAMP}"
+                                    sh """
+                                            echo ${AWS_STASH_PATH} > uploadPath-${PSMDB_VERSION}
+                                            cat uploadPath-${PSMDB_VERSION}
+                                    """
+                                    stash includes: "uploadPath-${PSMDB_VERSION}", name: "uploadPath-${PSMDB_VERSION}"
+                                    buildStage("debian:bullseye", "")
+                                    pushArtifactFolder(params.CLOUD, "psmdb_sbom/", AWS_STASH_PATH)
+                                }
+                            }
                     }
                 }
                 stage('Generate PSMDB SBOM Bookworm AMD') {
