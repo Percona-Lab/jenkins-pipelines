@@ -424,6 +424,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
+/*
                 stage('Oracle Linux 10') {
                     when {
                         expression { false }
@@ -470,6 +471,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
+*/
                 stage('Amazon Linux 2023') {
                     when {
                         expression { env.FIPSMODE == 'YES' }
