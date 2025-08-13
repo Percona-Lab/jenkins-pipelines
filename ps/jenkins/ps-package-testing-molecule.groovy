@@ -44,7 +44,7 @@
             choices: [
                 'install',
                 'upgrade',
-                'maj_upgrade_to',
+                'major_upgrade_to',
                 'kmip',
                 'kms'
             ],
