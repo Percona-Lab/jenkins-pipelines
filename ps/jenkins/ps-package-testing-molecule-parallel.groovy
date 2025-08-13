@@ -96,6 +96,15 @@
                             }
                         }
                     }
+
+                    stage("maj_upgrade_to") {
+                        steps {
+                            script {
+                                runpsptjob("maj_upgrade_to")
+                            }
+                        }
+                    }
+                    
                     /*
                     stage("kms") {
                         steps {
