@@ -269,7 +269,13 @@ void doTestWorkerJob(Integer WORKER_ID, String SUITES, String STANDALONE_TESTS =
             doTests(WORKER_ID.toString(), SUITES, STANDALONE_TESTS, STANDALONE_TESTS_TESTCASE_TIMEOUT, STANDALONE_TESTS_PARALLEL, UNIT_TESTS, CIFS_TESTS, MTR_ARGS_EXTRA)
             analyzeMtrLog("pxc/sources/pxc/results/mtr-test-w_${WORKER_ID}.log")
         }
-        step([$class: 'JUnitResultArchiver', testResults: 'pxc/sources/pxc/results/*.xml', healthScaleFactor: 1.0])
+        // If we do Valgrind, JUnit result files can become very large
+        // and will cause Java OOM in the next step. For Valgrind we don't need
+        // these results to be published, because we have custom scripts to parse
+        // build log file.
+        if (!params.ANALYZER_OPTS.contains('-DWITH_VALGRIND=ON')) {
+            step([$class: 'JUnitResultArchiver', testResults: 'pxc/sources/pxc/results/*.xml', healthScaleFactor: 1.0])
+        }
         archiveArtifacts 'pxc/sources/pxc/results/*.xml,pxc/sources/pxc/results/pxc80-test-mtr_logs-*.tar.gz,pxc/sources/pxc/results/mtr-test*.log'
     }
 }
