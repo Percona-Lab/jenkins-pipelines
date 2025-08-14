@@ -459,7 +459,6 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
         copyArtifactPermission('pxc-operator-latest-scheduler');
-        retry(2)
     }
     stages {
         stage('Prepare Node') {
@@ -472,57 +471,63 @@ pipeline {
                 dockerBuildPush()
             }
         }
-        stage('Init Tests') {
-            steps {
-                initTests()
+        stage('Tests Parallel include Init') {
+        options { retry(2) }   // reruns the whole parent stage on failure
+            stages {
+                stage('Init Tests') {
+                    steps {
+                        initTests()
+                    }
+                }
+                stage('Run Tests') {
+                    parallel {
+                        stage('cluster1') {
+                            steps {
+                                clusterRunner('cluster1')
+                            }
+                        }
+                        stage('cluster2') {
+                            steps {
+                                clusterRunner('cluster2')
+                            }
+                        }
+                        stage('cluster3') {
+                            steps {
+                                clusterRunner('cluster3')
+                            }
+                        }
+                        /*
+                        stage('cluster4') {
+                            steps {
+                                clusterRunner('cluster4')
+                            }
+                        }
+                        stage('cluster5') {
+                            steps {
+                                clusterRunner('cluster5')
+                            }
+                        }
+                        stage('cluster6') {
+                            steps {
+                                clusterRunner('cluster6')
+                            }
+                        }
+                        stage('cluster7') {
+                            steps {
+                                clusterRunner('cluster7')
+                            }
+                        }
+                        stage('cluster8') {
+                            steps {
+                                clusterRunner('cluster8')
+                            }
+                        }
+                        */
+                    }
+                }
             }
         }
-        stage('Run Tests') {
-            parallel {
-                stage('cluster1') {
-                    steps {
-                        clusterRunner('cluster1')
-                    }
-                }
-                stage('cluster2') {
-                    steps {
-                        clusterRunner('cluster2')
-                    }
-                }
-                stage('cluster3') {
-                    steps {
-                        clusterRunner('cluster3')
-                    }
-                }
-                /*
-                stage('cluster4') {
-                    steps {
-                        clusterRunner('cluster4')
-                    }
-                }
-                stage('cluster5') {
-                    steps {
-                        clusterRunner('cluster5')
-                    }
-                }
-                stage('cluster6') {
-                    steps {
-                        clusterRunner('cluster6')
-                    }
-                }
-                stage('cluster7') {
-                    steps {
-                        clusterRunner('cluster7')
-                    }
-                }
-                stage('cluster8') {
-                    steps {
-                        clusterRunner('cluster8')
-                    }
-                }
-                */
-            }
-        }
+
     }
     post {
         always {
