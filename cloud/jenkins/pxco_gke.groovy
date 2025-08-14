@@ -360,6 +360,33 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     }
 }
 
+void rerunJob(){
+    def currentRerunCount = (env.RERUN_COUNT?.toInteger() ?: 0)
+    if (currentRerunCount > 0) {
+
+        def remainingReruns = currentRerunCount - 1
+        
+        echo "Triggering rerun. Remaining attempts: ${remainingReruns}"
+        
+        def newParams = []
+        
+        params.each { key, value ->
+            if (key != 'RERUN_COUNT') {
+                newParams.add(string(name: key, value: value.toString()))
+            }
+        }
+
+        newParams.add(string(name: 'RERUN_COUNT', value: remainingReruns.toString()))
+        
+        build job: env.JOB_NAME, 
+            parameters: newParams,
+            wait: false
+            
+    } else {
+        echo "No more rerun attempts remaining (RERUN_COUNT = ${currentRerunCount})"
+    }
+}
+
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
@@ -450,6 +477,9 @@ pipeline {
             choices: 'NO\nYES',
             description: 'Run tests with debug',
             name: 'DEBUG_TESTS')
+        string(name: 'RERUN_COUNT',
+            defaultValue: '2',
+            description: 'Number of reruns allowed on failure')
     }
     agent {
         label 'docker'
@@ -520,6 +550,7 @@ pipeline {
                 }
             }
         }
+
     }
     post {
         always {
@@ -531,6 +562,7 @@ pipeline {
             script {
                 if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
                     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                    rerunJob()
                 }
 
                 clusters.each { shutdownCluster(it) }
