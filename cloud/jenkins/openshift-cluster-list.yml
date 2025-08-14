@@ -1,0 +1,34 @@
+- job:
+    name: openshift-cluster-list
+    project-type: pipeline
+    description: |
+      List all OpenShift clusters deployed via Jenkins.
+      Shows cluster name, version, region, creator, and deployment time.
+
+    parameters:
+      - string:
+          name: AWS_REGION
+          default: 'us-east-2'
+          description: 'AWS region to check for clusters (default: us-east-2)'
+      - choice:
+          name: OUTPUT_FORMAT
+          description: 'Output format for the cluster list'
+          choices:
+            - table
+            - json
+
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/nogueiraanderson/jenkins-pipelines.git
+            branches:
+              - feature/openshift-shared-libraries
+      script-path: cloud/jenkins/openshift_cluster_list.groovy
+      lightweight-checkout: true
+
+    concurrent: true
+
+    properties:
+      - build-discarder:
+          days-to-keep: 7
+          num-to-keep: 50

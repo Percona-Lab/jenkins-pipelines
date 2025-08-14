@@ -365,6 +365,9 @@ initMap['docker-32gb-bullseye'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
+
+    sudo sed -i '/bullseye-backports/ s/cdn-aws.deb.debian.org/archive.debian.org/' /etc/apt/sources.list
+
     until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
@@ -590,6 +593,7 @@ initMap['min-buster-x64'] = '''
     fi
 
     sudo sed -i '/buster-backports/ s/cdn-aws.deb.debian.org/archive.debian.org/' /etc/apt/sources.list
+    sudo sed -i '/bullseye-backports/ s/cdn-aws.deb.debian.org/archive.debian.org/' /etc/apt/sources.list
 
     until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
