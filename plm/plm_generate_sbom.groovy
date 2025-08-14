@@ -22,7 +22,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             uname -a
             bash -x ./plm_generate_sbom.sh --builddir=\${build_dir} --plm_version=${PLM_VERSION} --repo_type=${REPO_TYPE} --git_repo=${GIT_REPO} --git_branch=${GIT_BRANCH} ${STAGE_PARAM}"
             curl -fsSL https://raw.githubusercontent.com/EvgeniyPatlan/sbom_verifier/main/install_sbom_verifier.sh | bash
-            bash sbom_verifier.sh --snyk-only plm_sbom/*.json
+            bash sbom_verifier.sh plm_sbom/*.json
     """
     }
 }
