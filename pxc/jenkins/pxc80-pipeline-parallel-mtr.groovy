@@ -531,7 +531,7 @@ pipeline {
         skipDefaultCheckout()
         skipStagesAfterUnstable()
         timeout(time: 6, unit: 'DAYS')
-        buildDiscarder(logRotator(numToKeepStr: '40', artifactNumToKeepStr: '40'))
+        buildDiscarder(logRotator(numToKeepStr: '20', artifactNumToKeepStr: '20'))
         copyArtifactPermission(JOB_TO_REBUILD);
     }
     stages {
