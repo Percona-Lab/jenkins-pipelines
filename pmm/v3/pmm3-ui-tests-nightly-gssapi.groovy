@@ -57,8 +57,7 @@ void runAMIStagingStart(String AMI_ID) {
     env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}/"
 }
 
-void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION,
-PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION , QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
+void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PSMDB_VERSION, MODB_VERSION , QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -69,7 +68,6 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
         string(name: 'ENABLE_PULL_MODE', value: ENABLE_PULL_MODE),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
-        string(name: 'PXC_VERSION', value: PXC_VERSION),
         string(name: 'PS_VERSION', value: PS_VERSION),
         string(name: 'MS_VERSION', value: MS_VERSION),
         string(name: 'PGSQL_VERSION', value: PGSQL_VERSION),
@@ -267,12 +265,12 @@ pipeline {
             parallel {
                 stage('Mongo pss client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mongo-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mongo-node', ENABLE_PULL_MODE, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('psmdb sharded client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=sharding', 'yes', env.VM_IP, 'sharded-psmdb', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=sharding', 'yes', env.VM_IP, 'sharded-psmdb', ENABLE_PULL_MODE, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
             }
