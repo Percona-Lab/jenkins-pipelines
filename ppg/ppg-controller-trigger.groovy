@@ -41,26 +41,26 @@ pipeline {
 
                     echo "[INFO] Cloning CONFIG_REPO: ${params.CONFIG_REPO} (${params.CONFIG_BRANCH})"
                     dir('postgres-packaging') {
-                        // absolutely no interactive auth or helpers
                         withEnv(['GIT_ASKPASS=', 'GIT_TERMINAL_PROMPT=0', 'GIT_CONFIG_PARAMETERS=credential.helper= ']) {
                             sh '''
-                            set -euo pipefail
+                            set -eu
                             rm -rf .git
                             git init .
-                            git remote add origin '"${CONFIG_REPO}.git"'
+                            git remote add origin "${CONFIG_REPO}.git"
 
-                            # hard-disable any global helper at repo scope
+                            # hard-disable any helper in this repo
                             git config --local credential.helper ''
 
                             # shallow fetch branch tip WITHOUT tags
-                            git -c protocol.version=2 fetch --no-tags --depth=1 origin '"${CONFIG_BRANCH}"'
+                            git -c protocol.version=2 fetch --no-tags --depth=1 origin "${CONFIG_BRANCH}"
                             git checkout -f FETCH_HEAD
 
-                            # optional: name the checked out branch locally
-                            git branch -M '"${CONFIG_BRANCH}"' || true
+                            # optional: name local branch for clarity
+                            git branch -M "${CONFIG_BRANCH}" || true
                             '''
                         }
                     }
+
 
                     if (!fileExists(env.CONFIG_FILE)) {
                         error "❌ Config file not found: ${env.CONFIG_FILE}"
