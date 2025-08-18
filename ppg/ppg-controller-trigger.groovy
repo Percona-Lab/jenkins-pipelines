@@ -1,7 +1,7 @@
 library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git',
-    credentialsId: '' // force anonymous for shared library
+    credentialsId: '' // force anonymous for the shared library
 ]) _
 
 void cleanUpWS() {
@@ -17,9 +17,9 @@ pipeline {
     }
 
     parameters {
-        string(name: 'CONFIG_REPO', defaultValue: 'https://github.com/Percona-Lab/postgres-packaging', description: 'Job config repo')
-        string(name: 'CONFIG_BRANCH', defaultValue: 'main', description: 'Job config branch')
-        string(name: 'CLOUD', defaultValue: 'Hetzner', description: 'Cloud target')
+        string(name: 'CONFIG_REPO',   defaultValue: 'https://github.com/Percona-Lab/postgres-packaging', description: 'Job config repo')
+        string(name: 'CONFIG_BRANCH', defaultValue: 'main',                                               description: 'Job config branch')
+        string(name: 'CLOUD',         defaultValue: 'Hetzner',                                            description: 'Cloud target')
     }
 
     environment {
@@ -41,20 +41,26 @@ pipeline {
 
                     echo "[INFO] Cloning CONFIG_REPO: ${params.CONFIG_REPO} (${params.CONFIG_BRANCH})"
                     dir('postgres-packaging') {
-                        // Ensure no credentials are injected and no prompts occur
-                        withEnv(['GIT_ASKPASS=', 'GIT_TERMINAL_PROMPT=0']) {
-                            // If agents have a global credential helper, neutralize it for safety
+                        // Make absolutely sure no creds get injected and no tags are fetched
+                        withEnv([
+                            'GIT_ASKPASS=',
+                            'GIT_TERMINAL_PROMPT=0',
+                            'GIT_CONFIG_PARAMETERS=credential.helper= '  // empty helper for all git invocations
+                        ]) {
+                            // If agents have a global helper, this is an extra guard
                             sh 'git config --global --unset-all credential.helper || true'
 
                             checkout([$class: 'GitSCM',
                                 userRemoteConfigs: [[
                                     url: "${params.CONFIG_REPO}.git",
-                                    credentialsId: '' // force anonymous for public repo
+                                    credentialsId: '' // force anonymous
                                 ]],
                                 branches: [[name: params.CONFIG_BRANCH]],
                                 extensions: [
-                                    [$class: 'CloneOption', shallow: true, depth: 1, noTags: true],
-                                    [$class: 'CleanBeforeCheckout']
+                                    [$class: 'CleanBeforeCheckout'],
+                                    [$class: 'DoNotFetchTags'],                        // avoid tag fetch on any fetch() calls
+                                    [$class: 'CloneOption', shallow: true, depth: 1,   // shallow clone, no tags
+                                        noTags: true, reference: '', timeout: 10]
                                 ]
                             ])
                         }
@@ -83,8 +89,8 @@ pipeline {
                         def buildParams = []
 
                         paramKeys.each { key ->
-                            def value = sh(script: "echo '${paramsJSON}' | jq -r '.\"${key}\"'", returnStdout: true).trim()
-                            def rawValue = sh(script: "echo '${paramsJSON}' | jq '.\"${key}\"'", returnStdout: true).trim()
+                            def value    = sh(script: "echo '${paramsJSON}' | jq -r '.\"${key}\"'", returnStdout: true).trim()
+                            def rawValue = sh(script: "echo '${paramsJSON}' | jq     '.\"${key}\"'", returnStdout: true).trim()
                             if (rawValue == "true" || rawValue == "false") {
                                 buildParams.add(booleanParam(name: key, value: rawValue == "true"))
                             } else {
@@ -115,7 +121,7 @@ pipeline {
                         def buildParams = []
 
                         paramKeys.each { key ->
-                            def value = sh(script: "echo '${paramsJSON}' | jq -r '.\"${key}\"'", returnStdout: true).trim()
+                            def value     = sh(script: "echo '${paramsJSON}' | jq -r '.\"${key}\"'", returnStdout: true).trim()
                             def valueType = sh(script: "echo '${paramsJSON}' | jq -r 'type_of(.\"${key}\")'", returnStdout: true).trim()
                             if (valueType == "boolean") {
                                 buildParams.add(booleanParam(name: key, value: value == "true"))
