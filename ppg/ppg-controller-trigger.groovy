@@ -1,7 +1,7 @@
 library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git',
-    credentialsId: '' // force anonymous for the shared library
+    credentialsId: '' // force anonymous for shared library
 ]) _
 
 void cleanUpWS() {
@@ -17,9 +17,10 @@ pipeline {
     }
 
     parameters {
-        string(name: 'CONFIG_REPO',   defaultValue: 'https://github.com/Percona-Lab/postgres-packaging', description: 'Job config repo')
-        string(name: 'CONFIG_BRANCH', defaultValue: 'main',                                               description: 'Job config branch')
-        string(name: 'CLOUD',         defaultValue: 'Hetzner',                                            description: 'Cloud target')
+        // default to the public repo to avoid auth prompts
+        string(name: 'CONFIG_REPO',   defaultValue: 'https://github.com/percona/postgres-packaging', description: 'Job config repo (public)')
+        string(name: 'CONFIG_BRANCH', defaultValue: 'main',                                           description: 'Job config branch')
+        string(name: 'CLOUD',         defaultValue: 'Hetzner',                                        description: 'Cloud target')
     }
 
     environment {
@@ -41,27 +42,35 @@ pipeline {
 
                     echo "[INFO] Cloning CONFIG_REPO: ${params.CONFIG_REPO} (${params.CONFIG_BRANCH})"
                     dir('postgres-packaging') {
-                    // No interactive auth
-                        withEnv(['GIT_ASKPASS=', 'GIT_TERMINAL_PROMPT=0', 'GIT_CONFIG_GLOBAL=/dev/null']) {
-                            sh '''
-                            set -eu
-                            rm -rf .git
-                            git init .
-
-                            # repo-scoped: never use any credential helper
-                            git config --local --unset-all credential.helper || true
-                            git config --local credential.helper ""
-
-                            git remote add origin "${CONFIG_REPO}.git"
-
-                            # shallow fetch of the branch tip WITHOUT tags and WITHOUT creds
-                            git -c credential.helper= -c http.extraheader= fetch --no-tags --depth=1 origin "${CONFIG_BRANCH}"
-                            git checkout -f FETCH_HEAD
-                            git branch -M "${CONFIG_BRANCH}" || true
-                            '''
+                        // Anonymous clone, no prompts, no tags, shallow
+                        withEnv(['GIT_ASKPASS=', 'GIT_TERMINAL_PROMPT=0']) {
+                            try {
+                                sh '''
+                                  set -eu
+                                  rm -rf ./*
+                                  git -c credential.helper= -c http.extraheader= clone \
+                                      --depth=1 --no-tags --single-branch \
+                                      --branch "${CONFIG_BRANCH}" \
+                                      "${CONFIG_REPO}.git" .
+                                '''
+                            } catch (e) {
+                                // Fallback if someone passed a private Percona-Lab URL
+                                if ("${params.CONFIG_REPO}".matches("(?i).*/Percona-Lab/postgres-packaging$")) {
+                                    echo "[WARN] ${params.CONFIG_REPO} may require auth. Retrying with public repo: https://github.com/percona/postgres-packaging"
+                                    sh '''
+                                      set -eu
+                                      rm -rf ./*
+                                      git -c credential.helper= -c http.extraheader= clone \
+                                          --depth=1 --no-tags --single-branch \
+                                          --branch "${CONFIG_BRANCH}" \
+                                          "https://github.com/percona/postgres-packaging.git" .
+                                    '''
+                                } else {
+                                    throw e
+                                }
+                            }
                         }
                     }
-
 
                     if (!fileExists(env.CONFIG_FILE)) {
                         error "❌ Config file not found: ${env.CONFIG_FILE}"
