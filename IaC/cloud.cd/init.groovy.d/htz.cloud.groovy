@@ -30,7 +30,7 @@ execMap['launcher-x64-hel1']  = 30
 execMap['launcher-x64-fsn1']  = 30
 
 bootDeadlineMap =[:]
-bootDeadlineMap['default']            = 3
+bootDeadlineMap['default']            = 7
 bootDeadlineMap['fedora42-x64-nbg1']     = bootDeadlineMap['default']
 bootDeadlineMap['fedora42-x64-hel1']     = bootDeadlineMap['default']
 bootDeadlineMap['fedora42-x64-fsn1']     = bootDeadlineMap['default']
@@ -73,7 +73,7 @@ labelMap['fedora42-aarch64']     = 'docker-aarch64 docker-fedora42-aarch64 fedor
 labelMap['launcher-x64']      = 'launcher-x64'
 
 networkMap = [:]
-networkMap['percona-vpc-eu'] = '10442325' // percona-vpc-eu
+networkMap['cloud.cd.percona.com'] = '11334955' // cloud.cd.percona.com
 
 initMap = [:]
 initMap['fedora-docker'] = '''#!/bin/bash -x
@@ -87,11 +87,12 @@ initMap['fedora-docker'] = '''#!/bin/bash -x
         sleep 1
         echo "try again"
     done
-    until sudo dnf install -y java-21-openjdk-headless ca-certificates curl gnupg unzip git dnf-plugins-core cronie bc; do
+    until sudo dnf install -y java-21-openjdk-headless ca-certificates curl gnupg unzip git dnf-plugins-core cronie bc npm make; do
         sleep 1
         echo "try again"
     done
-    until sudo dnf install -y docker npm; do
+    sudo dnf config-manager addrepo --from-repofile=https://download.docker.com/linux/fedora/docker-ce.repo
+    until sudo dnf install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin; do
         sleep 1
         echo "try again"
     done
@@ -122,7 +123,7 @@ initMap['fedora-docker'] = '''#!/bin/bash -x
     sudo mkdir -p /etc/docker
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl status docker || sudo systemctl start docker
-    echo "* * * * * root /usr/sbin/route add default gw 10.30.232.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+    echo "* * * * * root /usr/sbin/route add default gw 10.30.236.1 eth0" | sudo tee /etc/cron.d/fix-default-route
     sudo systemctl start sshd
 '''
 initMap['fedora42-x64-nbg1']     = initMap['fedora-docker']
@@ -170,7 +171,7 @@ templates.each { it ->
                        it.bootDeadline = bootDeadlineMap[tmplName]
                        it.remoteFs = "/mnt/jenkins/"
                        it.jvmOpts = jvmOptsMap[tmplName]
-                       it.network = networkMap['percona-vpc-eu']
+                       it.network = networkMap['cloud.cd.percona.com']
                        it.userData = initMap[tmplName]
                }
 
