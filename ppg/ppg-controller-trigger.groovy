@@ -41,21 +41,22 @@ pipeline {
 
                     echo "[INFO] Cloning CONFIG_REPO: ${params.CONFIG_REPO} (${params.CONFIG_BRANCH})"
                     dir('postgres-packaging') {
-                        withEnv(['GIT_ASKPASS=', 'GIT_TERMINAL_PROMPT=0', 'GIT_CONFIG_PARAMETERS=credential.helper= ']) {
+                    // No interactive auth
+                        withEnv(['GIT_ASKPASS=', 'GIT_TERMINAL_PROMPT=0', 'GIT_CONFIG_GLOBAL=/dev/null']) {
                             sh '''
                             set -eu
                             rm -rf .git
                             git init .
+
+                            # repo-scoped: never use any credential helper
+                            git config --local --unset-all credential.helper || true
+                            git config --local credential.helper ""
+
                             git remote add origin "${CONFIG_REPO}.git"
 
-                            # hard-disable any helper in this repo
-                            git config --local credential.helper ''
-
-                            # shallow fetch branch tip WITHOUT tags
-                            git -c protocol.version=2 fetch --no-tags --depth=1 origin "${CONFIG_BRANCH}"
+                            # shallow fetch of the branch tip WITHOUT tags and WITHOUT creds
+                            git -c credential.helper= -c http.extraheader= fetch --no-tags --depth=1 origin "${CONFIG_BRANCH}"
                             git checkout -f FETCH_HEAD
-
-                            # optional: name local branch for clarity
                             git branch -M "${CONFIG_BRANCH}" || true
                             '''
                         }
