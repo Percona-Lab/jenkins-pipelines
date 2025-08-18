@@ -171,7 +171,7 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: '3-dev-latest',
+            defaultValue: 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest.tar.gz',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         choice(
