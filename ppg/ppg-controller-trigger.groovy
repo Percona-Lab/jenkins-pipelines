@@ -41,28 +41,24 @@ pipeline {
 
                     echo "[INFO] Cloning CONFIG_REPO: ${params.CONFIG_REPO} (${params.CONFIG_BRANCH})"
                     dir('postgres-packaging') {
-                        // Make absolutely sure no creds get injected and no tags are fetched
-                        withEnv([
-                            'GIT_ASKPASS=',
-                            'GIT_TERMINAL_PROMPT=0',
-                            'GIT_CONFIG_PARAMETERS=credential.helper= '  // empty helper for all git invocations
-                        ]) {
-                            // If agents have a global helper, this is an extra guard
-                            sh 'git config --global --unset-all credential.helper || true'
+                        // absolutely no interactive auth or helpers
+                        withEnv(['GIT_ASKPASS=', 'GIT_TERMINAL_PROMPT=0', 'GIT_CONFIG_PARAMETERS=credential.helper= ']) {
+                            sh '''
+                            set -euo pipefail
+                            rm -rf .git
+                            git init .
+                            git remote add origin '"${CONFIG_REPO}.git"'
 
-                            checkout([$class: 'GitSCM',
-                                userRemoteConfigs: [[
-                                    url: "${params.CONFIG_REPO}.git",
-                                    credentialsId: '' // force anonymous
-                                ]],
-                                branches: [[name: params.CONFIG_BRANCH]],
-                                extensions: [
-                                    [$class: 'CleanBeforeCheckout'],
-                                    [$class: 'DoNotFetchTags'],                        // avoid tag fetch on any fetch() calls
-                                    [$class: 'CloneOption', shallow: true, depth: 1,   // shallow clone, no tags
-                                        noTags: true, reference: '', timeout: 10]
-                                ]
-                            ])
+                            # hard-disable any global helper at repo scope
+                            git config --local credential.helper ''
+
+                            # shallow fetch branch tip WITHOUT tags
+                            git -c protocol.version=2 fetch --no-tags --depth=1 origin '"${CONFIG_BRANCH}"'
+                            git checkout -f FETCH_HEAD
+
+                            # optional: name the checked out branch locally
+                            git branch -M '"${CONFIG_BRANCH}"' || true
+                            '''
                         }
                     }
 
