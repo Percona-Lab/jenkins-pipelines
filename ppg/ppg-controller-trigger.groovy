@@ -17,10 +17,9 @@ pipeline {
     }
 
     parameters {
-        // default to the public repo to avoid auth prompts
-        string(name: 'CONFIG_REPO',   defaultValue: 'https://github.com/percona/postgres-packaging', description: 'Job config repo (public)')
-        string(name: 'CONFIG_BRANCH', defaultValue: 'main',                                           description: 'Job config branch')
-        string(name: 'CLOUD',         defaultValue: 'Hetzner',                                        description: 'Cloud target')
+        string(name: 'CONFIG_REPO',   defaultValue: 'https://github.com/Percona-Lab/postgres-packaging', description: 'Job config repo')
+        string(name: 'CONFIG_BRANCH', defaultValue: 'main',                                               description: 'Job config branch')
+        string(name: 'CLOUD',         defaultValue: 'Hetzner',                                            description: 'Cloud target')
     }
 
     environment {
@@ -42,25 +41,24 @@ pipeline {
 
                     echo "[INFO] Cloning CONFIG_REPO: ${params.CONFIG_REPO} (${params.CONFIG_BRANCH})"
                     dir('postgres-packaging') {
-                        // Anonymous clone, no prompts, no tags, shallow
                         withEnv(['GIT_ASKPASS=', 'GIT_TERMINAL_PROMPT=0']) {
                             try {
                                 sh '''
                                   set -eu
                                   rm -rf ./*
-                                  git -c credential.helper= -c http.extraheader= clone \
+                                  git -c credential.helper= clone \
                                       --depth=1 --no-tags --single-branch \
                                       --branch "${CONFIG_BRANCH}" \
                                       "${CONFIG_REPO}.git" .
                                 '''
                             } catch (e) {
-                                // Fallback if someone passed a private Percona-Lab URL
-                                if ("${params.CONFIG_REPO}".matches("(?i).*/Percona-Lab/postgres-packaging$")) {
-                                    echo "[WARN] ${params.CONFIG_REPO} may require auth. Retrying with public repo: https://github.com/percona/postgres-packaging"
+                                // If user passed Percona-Lab repo and it requires auth, fallback to public mirror
+                                if ("${params.CONFIG_REPO}".toLowerCase().endsWith('/percona-lab/postgres-packaging')) {
+                                    echo "[WARN] ${params.CONFIG_REPO} might require auth. Retrying with public repo: https://github.com/percona/postgres-packaging"
                                     sh '''
                                       set -eu
                                       rm -rf ./*
-                                      git -c credential.helper= -c http.extraheader= clone \
+                                      git -c credential.helper= clone \
                                           --depth=1 --no-tags --single-branch \
                                           --branch "${CONFIG_BRANCH}" \
                                           "https://github.com/percona/postgres-packaging.git" .
@@ -167,7 +165,6 @@ pipeline {
         }
         failure {
             slackNotify(
-                "#releases-ci",
                 "#FF0000",
                 "[${env.JOB_NAME}]: ❌ Build failed for branch ${params.CONFIG_BRANCH} → ${env.BUILD_URL}"
             )
