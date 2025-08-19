@@ -984,7 +984,7 @@ parameters {
                           parameters: [
                               string(name: 'CLOUD', value: 'Hetzner'),
                               string(name: 'ORGANIZATION', value: 'perconalab'),
-                              string(name: 'BRANCH', value: ${BRANCH}),
+                              string(name: 'BRANCH', value: "${BRANCH}"),
                               string(name: 'RPM_RELEASE', value: '1'),
                               string(name: 'DEB_RELEASE', value: '1'),
                               string(name: 'FIPSMODE', value: 'NO'),
