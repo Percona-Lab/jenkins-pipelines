@@ -179,7 +179,7 @@ pipeline {
         stage('Run VM') {
             steps {
                 // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, AMI_ID
-                launchSpot('t3a.large')
+                runSpotInstance('t3a.large')
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
@@ -200,7 +200,7 @@ pipeline {
                         set -o errexit
                         set -o xtrace
 
-                        echo "${env.DEFAULT_SSH_KEYS}" >> /home/ec2-user/.ssh/authorized_keys
+                        echo "${DEFAULT_SSH_KEYS}" >> /home/ec2-user/.ssh/authorized_keys
                         if [ -n "${SSH_KEY}" ]; then
                             echo "${SSH_KEY}" >> /home/ec2-user/.ssh/authorized_keys
                         fi
@@ -342,7 +342,6 @@ pipeline {
             withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                 sh '''
                     set -o xtrace
-                    # REQUEST_ID=$(cat REQUEST_ID)
                     if [ -n "${REQUEST_ID}" ]; then
                         aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids ${REQUEST_ID}
                         aws ec2 --region us-east-2 terminate-instances --instance-ids ${AMI_ID}
