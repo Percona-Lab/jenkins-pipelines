@@ -274,7 +274,7 @@ pipeline {
         choice(name: 'TEST_SUITE', choices: ['run-minikube.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'PILLAR_VERSION', choices: 'none\n80', description: 'Implies release run.')
+        choice(name: 'PILLAR_VERSION', choices: 'none\n84\n80', description: 'Implies release run.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mysql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'Minikube kubernetes version. If set to rel, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
