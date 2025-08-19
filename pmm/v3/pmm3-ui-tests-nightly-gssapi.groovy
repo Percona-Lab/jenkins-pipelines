@@ -258,12 +258,7 @@ pipeline {
             parallel {
                 stage('Mongo pss client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mongo-node', ENABLE_PULL_MODE, PSMDB_VERSION, MODB_VERSION, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
-                    }
-                }
-                stage('psmdb sharded client') {
-                    steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=sharding', 'yes', env.VM_IP, 'sharded-psmdb', ENABLE_PULL_MODE, PSMDB_VERSION, MODB_VERSION, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=pss,GSSAPI=true', 'yes', env.VM_IP, 'mongo-node', ENABLE_PULL_MODE, PSMDB_VERSION, MODB_VERSION, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
             }
@@ -304,11 +299,6 @@ pipeline {
                 stage('Check Agent Status on ps single and mongo pss') {
                     steps {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_MYSQL, env.PMM_QA_GIT_BRANCH)
-                    }
-                }
-                stage('Check Agent Status on psmdb sharded node') {
-                    steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PSMDB_SHARDED, env.PMM_QA_GIT_BRANCH)
                     }
                 }
             }
