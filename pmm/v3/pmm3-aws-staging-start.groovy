@@ -344,7 +344,7 @@ pipeline {
             withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                 sh '''
                     set -o xtrace
-                    // REQUEST_ID=$(cat REQUEST_ID)
+                    # REQUEST_ID=$(cat REQUEST_ID)
                     if [ -n "${env.REQUEST_ID}" ]; then
                         aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids ${env.REQUEST_ID}
                         aws ec2 --region us-east-2 terminate-instances --instance-ids ${env.AMI_ID}
