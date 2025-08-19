@@ -8,7 +8,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+library changelog: false, identifier: 'v3lib@PMM-7-refactor-launch-spot-instance-fn', retriever: modernSCM(
   scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
   libraryPath: 'pmm/v3/'
 )
@@ -55,13 +55,13 @@ pipeline {
         )
         choice(
             choices: '1\n0\n1\n2\n3\n4\n5\n6\n7\n8\n9\n10\n11\n12\n13\n14\n15\n16\n17\n18\n19\n20\n21\n22\n23\n24\n25\n26\n27\n28\n29\n30',
-            description: 'Stop the instance after, days ("0" value disables autostop and recreates instance in case of AWS failure)',
+            description: 'Stop the instance in X days ("0" value disables the automated instance removal)',
             name: 'DAYS'
         )
         text(
             defaultValue: '-e PMM_DEBUG=1 -e PMM_ENABLE_TELEMETRY=0 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com',
             description: '''
-            Passing environment variables to PMM Server Docker container is supported for PMM v2 and up.
+            Pass environment variables to PMM Server Docker container.
             Example: -e PMM_DEV_TELEMETRY_DISABLE_START_DELAY=1 -e PMM_DEBUG=1
             ''',
             name: 'DOCKER_ENV_VARIABLE'
@@ -117,8 +117,8 @@ pipeline {
             ''',
             name: 'CLIENTS'
         )
-        choice(
-            choices: ['true', 'false'],
+        booleanParam(
+            defaultValue: true,
             description: 'Enable Slack notification (option for high level pipelines)',
             name: 'NOTIFY'
         )
@@ -141,9 +141,6 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
         skipDefaultCheckout()
-    }
-    environment {
-        DEFAULT_SSH_KEYS = getSHHKeysPMM()
     }
     stages {
         stage('Prepare') {
@@ -168,7 +165,8 @@ pipeline {
                         VM_NAME:         ${VM_NAME}
                     """
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
-                    if (params.NOTIFY == "true") {
+                    env.DEFAULT_SSH_KEYS = getSSHKeys()
+                    if (params.NOTIFY) {
                         slackSend botUser: true, channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started, owner: @${OWNER}, URL: ${BUILD_URL}"
                         if (env.OWNER_SLACK) {
                             slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#0000FF', message: "[${JOB_NAME}]: build started, owner: @${OWNER}, URL: ${BUILD_URL}"
@@ -180,8 +178,8 @@ pipeline {
 
         stage('Run VM') {
             steps {
-                // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, ID (AMI_ID)
-                launchSpotInstance('t3.large', 'FAIR', 30)
+                // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, AMI_ID
+                v3lib.launchSpotInstance('t3a.large')
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
@@ -202,7 +200,7 @@ pipeline {
                         set -o errexit
                         set -o xtrace
 
-                        echo "${DEFAULT_SSH_KEYS}" >> /home/ec2-user/.ssh/authorized_keys
+                        echo "${env.DEFAULT_SSH_KEYS}" >> /home/ec2-user/.ssh/authorized_keys
                         if [ -n "${SSH_KEY}" ]; then
                             echo "${SSH_KEY}" >> /home/ec2-user/.ssh/authorized_keys
                         fi
@@ -210,8 +208,7 @@ pipeline {
                         sudo dnf -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo dnf repolist
-                        sudo dnf install ansible -y
-                        sudo dnf install sysbench mysql -y
+                        sudo dnf install ansible sysbench mysql -y
                     '''
                 }
             }
@@ -244,9 +241,7 @@ pipeline {
                                         ${WATCHTOWER_VERSION}
 
                                     docker run -d \
-                                        -p 80:8080 \
                                         -p 443:8443 \
-                                        -p 9000:9000 \
                                         -p 4647:4647 \
                                         --volume pmm-data:/srv \
                                         --name pmm-server \
@@ -274,8 +269,8 @@ pipeline {
         stage('Run Clients') {
             steps {
                 node(env.VM_NAME){
-                setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), DOCKER_VERSION, ENABLE_PULL_MODE, 'no', CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD, 'no')
-                script {
+                    setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), DOCKER_VERSION, ENABLE_PULL_MODE, 'no', CLIENT_INSTANCE, 'aws-staging', ADMIN_PASSWORD, 'no')
+                    script {
                         env.PMM_REPO = params.CLIENT_VERSION == "pmm3-rc" ? "testing" : "experimental"
                     }
 
@@ -335,7 +330,7 @@ pipeline {
         }
         success {
             script {
-                if (params.NOTIFY == "true") {
+                if (params.NOTIFY) {
                     slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER}, URL: https://${env.IP}"
                     if (env.OWNER_SLACK) {
                         slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#00FF00', message: "[${JOB_NAME}]: build finished, owner: @${OWNER}, URL: https://${env.IP}"
@@ -344,18 +339,18 @@ pipeline {
             }
         }
         failure {
-            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                 sh '''
                     set -o xtrace
-                    REQUEST_ID=$(cat REQUEST_ID)
-                    if [ -n "$REQUEST_ID" ]; then
-                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids $REQUEST_ID
-                        aws ec2 --region us-east-2 terminate-instances --instance-ids $(cat ID)
+                    // REQUEST_ID=$(cat REQUEST_ID)
+                    if [ -n "${env.REQUEST_ID}" ]; then
+                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids ${env.REQUEST_ID}
+                        aws ec2 --region us-east-2 terminate-instances --instance-ids ${env.AMI_ID}
                     fi
                 '''
             }
             script {
-                if (params.NOTIFY == "true") {
+                if (params.NOTIFY) {
                     slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER}\nURL: ${BUILD_URL}"
                     if (env.OWNER_SLACK) {
                         slackSend botUser: true, channel: "@${OWNER_SLACK}", color: '#FF0000', message: "[${JOB_NAME}]: build failed, owner: @${OWNER}\nURL: ${BUILD_URL}"
