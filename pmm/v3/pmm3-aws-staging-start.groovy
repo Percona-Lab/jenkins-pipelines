@@ -178,10 +178,8 @@ pipeline {
 
         stage('Run VM') {
             steps {
-                script {
-                    // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, AMI_ID
-                    v3lib.launchSpotInstance('t3a.large')
-                }
+                // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, AMI_ID
+                launchSpot('t3a.large')
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
@@ -345,9 +343,9 @@ pipeline {
                 sh '''
                     set -o xtrace
                     # REQUEST_ID=$(cat REQUEST_ID)
-                    if [ -n "${env.REQUEST_ID}" ]; then
-                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids ${env.REQUEST_ID}
-                        aws ec2 --region us-east-2 terminate-instances --instance-ids ${env.AMI_ID}
+                    if [ -n "${REQUEST_ID}" ]; then
+                        aws ec2 --region us-east-2 cancel-spot-instance-requests --spot-instance-request-ids ${REQUEST_ID}
+                        aws ec2 --region us-east-2 terminate-instances --instance-ids ${AMI_ID}
                     fi
                 '''
             }

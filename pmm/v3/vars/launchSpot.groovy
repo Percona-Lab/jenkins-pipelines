@@ -1,8 +1,10 @@
 def call(String INSTANCE_TYPE) {
-    withCredentials([aws(credentialsId: 'pmm-staging-slave']) {
+  withEnv(["INSTANCE_TYPE=${INSTANCE_TYPE}"]) {
+    withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
         sh '''
-            # declare INSTANCE_TYPE=${INSTANCE_TYPE}
+            set -o xtrace
             declare IMAGE_ID SUBNET SG1 SG2 SG3 SPOT_PRICE
+
             IMAGE_ID=$(
                 aws ec2 describe-images \
                     --owners self \
@@ -38,13 +40,13 @@ def call(String INSTANCE_TYPE) {
                 echo $SPOT_PRICE > SPOT_PRICE
 
                 cat > config.json <<EOF
-                {
+                  {
                     "DryRun": false,
                     "InstanceCount": 1,
                     "InstanceInterruptionBehavior": "terminate",
                     "LaunchSpecification": {
                         "EbsOptimized": false,
-                        "ImageId": "${IMAGE_ID}",
+                        "ImageId": "$IMAGE_ID",
                         "InstanceType": "${INSTANCE_TYPE}",
                         "KeyName": "jenkins",
                         "Monitoring": {
@@ -58,13 +60,14 @@ def call(String INSTANCE_TYPE) {
                             "sg-9f3cdef4",
                             "sg-0cbb55499c1e70fb7"
                         ],
-                        "SubnetId": "${SUBNET}",
+                        "SubnetId": "$SUBNET"
                     },
-                    "SpotPrice": "${SPOT_PRICE}",
+                    "SpotPrice": "$SPOT_PRICE",
                     "Type": "persistent"
-                }
+                  }
 EOF
 
+                cat config.json
                 REQUEST_ID=$(
                     aws ec2 request-spot-instances \
                         --output text \
@@ -78,7 +81,7 @@ EOF
                 until [ -s IP ] || [ $ATTEMPTS -eq 0 ]; do
                     sleep 5
                     aws ec2 describe-instances \
-                        --filters "Name=spot-instance-request-id,Values=${REQUEST_ID}" \
+                        --filters "Name=spot-instance-request-id,Values=$REQUEST_ID" \
                         --query 'Reservations[].Instances[].PublicIpAddress' \
                         --output text \
                         --region us-east-2 \
@@ -95,7 +98,7 @@ EOF
 
             AMI_ID=$(
                 aws ec2 describe-instances \
-                    --filters "Name=spot-instance-request-id,Values=${REQUEST_ID}" \
+                    --filters "Name=spot-instance-request-id,Values=$REQUEST_ID" \
                     --query 'Reservations[].Instances[].InstanceId' \
                     --output text \
                     --region us-east-2 \
@@ -126,4 +129,5 @@ EOF
         env.IP = sh(returnStdout: true, script: "cat IP").trim()
         env.AMI_ID = sh(returnStdout: true, script: "cat AMI_ID").trim()
     }
+  }
 }
