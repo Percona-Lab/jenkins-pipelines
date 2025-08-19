@@ -178,8 +178,10 @@ pipeline {
 
         stage('Run VM') {
             steps {
-                // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, AMI_ID
-                v3lib.launchSpotInstance('t3a.large')
+                script {
+                    // This sets envvars: SPOT_PRICE, REQUEST_ID, IP, AMI_ID
+                    v3lib.launchSpotInstance('t3a.large')
+                }
 
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
