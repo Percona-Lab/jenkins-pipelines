@@ -511,22 +511,21 @@ parameters {
                     }
                 }
                 stage('Ubuntu Focal(20.04)') {
+                    when {
+                        expression { env.FIPSMODE == 'NO' }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                installCli("rpm")
-                                unstash 'properties'
-                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                                buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
+                            cleanUpWS()
+                            installCli("rpm")
+                            unstash 'properties'
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
 
-                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            }
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -571,22 +570,21 @@ parameters {
                     }
                 }
                 stage('Debian Bullseye(11)') {
+                    when {
+                        expression { env.FIPSMODE == 'NO' }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                installCli("rpm")
-                                unstash 'properties'
-                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                                buildStage("debian:bullseye", "--build_deb=1 --with_zenfs=1")
+                            cleanUpWS()
+                            installCli("rpm")
+                            unstash 'properties'
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("debian:bullseye", "--build_deb=1 --with_zenfs=1")
 
-                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            }
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -611,22 +609,21 @@ parameters {
                     }
                 }
                 stage('Ubuntu Focal(20.04) ARM') {
+                    when {
+                        expression { env.FIPSMODE == 'NO' }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                installCli("rpm")
-                                unstash 'properties'
-                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                                buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
+                            cleanUpWS()
+                            installCli("rpm")
+                            unstash 'properties'
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("ubuntu:focal", "--build_deb=1 --with_zenfs=1")
 
-                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            }
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -671,22 +668,21 @@ parameters {
                     }
                 }
                 stage('Debian Bullseye(11) ARM') {
+                    when {
+                        expression { env.FIPSMODE == 'NO' }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                installCli("rpm")
-                                unstash 'properties'
-                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                                buildStage("debian:bullseye", "--build_deb=1 --with_zenfs=1")
+                            cleanUpWS()
+                            installCli("rpm")
+                            unstash 'properties'
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            buildStage("debian:bullseye", "--build_deb=1 --with_zenfs=1")
 
-                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            }
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -865,6 +861,9 @@ parameters {
                     }
                 }
                 stage('Ubuntu Jammy(22.04) ZenFS tarball') {
+                    when {
+                        expression { env.FIPSMODE == 'NO' }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -873,14 +872,9 @@ parameters {
                         installCli("rpm")
                         unstash 'properties'
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                buildStage("ubuntu:jammy", "--build_tarball=1 --with_zenfs=1")
-                                pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
-                            }
-                        }
+                        buildStage("ubuntu:jammy", "--build_tarball=1 --with_zenfs=1")
+
+                        pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy(22.04) debug tarball') {
