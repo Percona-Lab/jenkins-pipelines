@@ -36,7 +36,6 @@ def call(String INSTANCE_TYPE) {
             while true; do
                 # increase price by 15% each time
                 SPOT_PRICE=$(bc <<< "scale=8; $SPOT_PRICE * (1 + (.15 * $PRICE_MULTIPLIER))" | sed 's/^\\./0./')
-                echo "SET PRICE: $SPOT_PRICE"
                 echo $SPOT_PRICE > SPOT_PRICE
 
                 cat > config.json <<EOF
@@ -67,7 +66,6 @@ def call(String INSTANCE_TYPE) {
                   }
 EOF
 
-                cat config.json
                 REQUEST_ID=$(
                     aws ec2 request-spot-instances \
                         --output text \
