@@ -37,8 +37,8 @@ pipeline {
             name: 'PROBUILD')
         booleanParam(name: 'SKIP_RPM_PUSH', defaultValue: false, description: 'Skip push to RPM repository')
         booleanParam(name: 'SKIP_DEB_PUSH', defaultValue: false, description: 'Skip push to DEB repository')
-        booleanParam(name: 'SKIP_REPO_SYNC', defaultValue: false, description: 'Skip sync repos to production')
         booleanParam(name: 'SKIP_PACKAGES_SYNC', defaultValue: false, description: 'Skip sync packages to production download')
+        booleanParam(name: 'SKIP_REPO_SYNC', defaultValue: false, description: 'Skip sync repos to production')
     }
     options {
         skipDefaultCheckout()
@@ -209,6 +209,9 @@ ENDSSH
             }
         }
         stage('Sync packages to production download') {
+            when {
+                expression { env.PATH_TO_BUILD?.trim() }
+            }
             steps {
                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                    sh """
