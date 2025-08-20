@@ -59,6 +59,26 @@ pipeline {
                     }
                 }
 
+                stage('Test on Debian Trixie (x64)') {
+                    agent { label 'min-trixie-x64' }  // Run on the node with label 'min-trixie-x64'
+                    steps {
+                        script {
+                            sh '''
+                            # Update package list and install necessary dependencies
+                            sudo apt-get update
+                            sudo apt-get install -y sudo wget gnupg2 lsb-release curl systemd
+
+                            wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
+                            chmod +x test-telemetry-agent.sh
+                            sudo ./test-telemetry-agent.sh \${TARGET_VERSION}
+
+                            # Verify service behavior
+                            pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
+                            '''
+                        }
+                    }
+                }
+
                 stage('Test on Debian Bookworm (x64)') {
                     agent { label 'min-bookworm-x64' }  // Run on the node with label 'min-bookworm-x64'
                     steps {
