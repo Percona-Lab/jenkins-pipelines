@@ -25,7 +25,7 @@ def call(String INSTANCE_TYPE) {
             )
             SPOT_PRICE=$(
                 aws ec2 describe-spot-price-history \
-                    --instance-types ${INSTANCE_TYPE} \
+                    --instance-types $INSTANCE_TYPE \
                     --region us-east-2 \
                     --output text \
                     --product-description "Linux/UNIX (Amazon VPC)" \
@@ -46,7 +46,7 @@ def call(String INSTANCE_TYPE) {
                     "LaunchSpecification": {
                         "EbsOptimized": false,
                         "ImageId": "$IMAGE_ID",
-                        "InstanceType": "${INSTANCE_TYPE}",
+                        "InstanceType": "$INSTANCE_TYPE",
                         "KeyName": "jenkins",
                         "Monitoring": {
                             "Enabled": false
