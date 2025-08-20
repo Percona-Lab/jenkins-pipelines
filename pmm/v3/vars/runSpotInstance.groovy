@@ -107,7 +107,7 @@ EOF
                 aws ec2 describe-instances \
                     --region us-east-2 \
                     --output text \
-                    --instance-ids $(cat AMI_ID) \
+                    --instance-ids $AMI_ID \
                     --query 'Reservations[].Instances[].BlockDeviceMappings[].Ebs.VolumeId'
             )
 
