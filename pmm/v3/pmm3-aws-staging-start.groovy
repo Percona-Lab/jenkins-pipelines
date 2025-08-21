@@ -3,7 +3,7 @@ import hudson.slaves.*
 import jenkins.model.Jenkins
 import hudson.plugins.sshslaves.SSHLauncher
 
-library changelog: false, identifier: 'v3lib@PMM-7-refactor-launch-spot-instance-fn', retriever: modernSCM(
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
   scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
   libraryPath: 'pmm/v3/'
 )
