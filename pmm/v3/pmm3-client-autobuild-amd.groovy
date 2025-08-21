@@ -275,22 +275,22 @@ pipeline {
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished, pushed to ${DESTINATION} repo - ${BUILD_URL}"
                 if (params.DESTINATION == "testing") {
                     env.TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-latest-${BUILD_ID}.tar.gz"
-                    env.DYNAMIC_OL8_TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-latest-${BUILD_ID}.tar.gz"
-                    env.DYNAMIC_OL9_TARBALL_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest-${BUILD_ID}.tar.gz"
+                    env.TARBALL_AMD64_DYNAMIC_OL8_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-latest-${BUILD_ID}.tar.gz"
+                    env.TARBALL_AMD64_DYNAMIC_OL9_URL = "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest-${BUILD_ID}.tar.gz"
 
                     currentBuild.description =
                         "RC Build\n" +
                         "Client Tarball: ${env.TARBALL_URL}\n" +
-                        "OL8 Dynamic Client Tarball: ${env.DYNAMIC_OL8_TARBALL_URL}\n" +
-                        "OL9 Dynamic Client Tarball: ${env.DYNAMIC_OL9_TARBALL_URL}"
+                        "OL8 Dynamic Client Tarball: ${env.TARBALL_AMD64_DYNAMIC_OL8_URL}\n" +
+                        "OL9 Dynamic Client Tarball: ${env.TARBALL_AMD64_DYNAMIC_OL9_URL}"
 
                     slackSend botUser: true,
                               channel: '#pmm-qa',
                               color: '#00FF00',
                               message: "[${JOB_NAME}]: ${BUILD_URL} RC Client build finished\n" +
                                        "Client Tarball: ${env.TARBALL_URL}\n" +
-                                       "OL8 Dynamic Client Tarball: ${env.DYNAMIC_OL8_TARBALL_URL}\n" +
-                                       "OL9 Dynamic Client Tarball: ${env.DYNAMIC_OL9_TARBALL_URL}"
+                                       "OL8 Dynamic Client Tarball: ${env.TARBALL_AMD64_DYNAMIC_OL8_URL}\n" +
+                                       "OL9 Dynamic Client Tarball: ${env.TARBALL_AMD64_DYNAMIC_OL9_URL}"
                 }
             }
         }
