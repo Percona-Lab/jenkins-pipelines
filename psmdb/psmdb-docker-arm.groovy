@@ -17,6 +17,7 @@ pipeline {
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
         choice(name: 'LATEST', choices: ['no','yes'], description: 'Tag image as latest')
         choice(name: 'TESTS', choices: ['yes','no'], description: 'Run tests after building')
+        booleanParam(name: 'IGNORE_TRIVY', defaultValue: false, description: 'Push images despite failed trivy check, use with caution')
     }
     options {
         disableConcurrentBuilds()
@@ -53,12 +54,12 @@ pipeline {
                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-ARM64.tar.gz -C /usr/local/bin/
                     wget https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
                     curl https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/docker/trivyignore -o ".trivyignore"
-                    if [ ${params.PSMDB_REPO} = "release" ]; then
-                        /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-server-mongodb
-                    else
+                    if [ "${params.IGNORE_TRIVY}" = "true" ] || [ "${params.PSMDB_REPO}" != "release" ]; then
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
                                          --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-server-mongodb
+                    else
+                        /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
+                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-server-mongodb
                     fi
                """
                } catch (Exception e) {
