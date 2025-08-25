@@ -25,29 +25,6 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION) {
         fingerprintArtifacts: true,
         target: 'cluster-artifacts'
     )
-    
-    // Validate cluster access
-    def kubeconfig = "${WORKSPACE}/cluster-artifacts/kubeconfig"
-    if (!fileExists(kubeconfig)) {
-        error "Failed to copy kubeconfig file from cluster creation job"
-    }
-    
-    withEnv(["KUBECONFIG=${kubeconfig}"]) {
-        sh """
-            # Wait for up to 1 minute for the cluster to be accessible
-            for i in \$(seq 1 6); do
-                if oc get nodes &>/dev/null; then
-                    echo "Successfully connected to OpenShift cluster"
-                    oc get nodes -o wide
-                    exit 0
-                fi
-                echo "Waiting for cluster to be accessible... (attempt \$i/6)"
-                sleep 10
-            done
-            echo "Failed to connect to OpenShift cluster after 1 minute"
-            exit 1
-        """
-    }
 }
 
 
@@ -108,9 +85,71 @@ pipeline {
                 '''
             }
         }
+        stage('Copy Artifacts') {
+            steps {
+                script {
+                    copyArtifacts filter: 'kubeconfig', projectName: 'openshift-cluster-create', selector: [$class: 'LastSuccessfulBuildSelector']
+                    // Validate cluster access
+                    def kubeconfig = "${WORKSPACE}/cluster-artifacts/kubeconfig"
+                    sh 'cp kubeconfig ${kubeconfig}'
+
+                    if (!fileExists(kubeconfig)) {
+                        error "Failed to copy kubeconfig file from cluster creation job"
+                    }
+                    
+                    withEnv(["KUBECONFIG=${kubeconfig}"]) {
+                        sh """
+                            # Wait for up to 1 minute for the cluster to be accessible
+                            for i in \$(seq 1 6); do
+                                if oc get nodes &>/dev/null; then
+                                    echo "Successfully connected to OpenShift cluster"
+                                    oc get nodes -o wide
+                                    exit 0
+                                fi
+                                echo "Waiting for cluster to be accessible... (attempt \$i/6)"
+                                sleep 10
+                            done
+                            echo "Failed to connect to OpenShift cluster after 1 minute"
+                            exit 1
+                        """
+                    }
+                }
+            }
+        }
         stage('Create OpenShift Cluster') {
             steps {
                 runOpenshiftClusterCreate(OPENSHIFT_VERSION)
+            }
+        }
+        stage('Copy Artifacts') {
+            steps {
+                script {
+                    copyArtifacts filter: 'kubeconfig', projectName: 'openshift-cluster-create', selector: [$class: 'LastSuccessfulBuildSelector']
+                    // Validate cluster access
+                    def kubeconfig = "${WORKSPACE}/cluster-artifacts/kubeconfig"
+                    sh 'cp kubeconfig ${kubeconfig}'
+
+                    if (!fileExists(kubeconfig)) {
+                        error "Failed to copy kubeconfig file from cluster creation job"
+                    }
+                    
+                    withEnv(["KUBECONFIG=${kubeconfig}"]) {
+                        sh """
+                            # Wait for up to 1 minute for the cluster to be accessible
+                            for i in \$(seq 1 6); do
+                                if oc get nodes &>/dev/null; then
+                                    echo "Successfully connected to OpenShift cluster"
+                                    oc get nodes -o wide
+                                    exit 0
+                                fi
+                                echo "Waiting for cluster to be accessible... (attempt \$i/6)"
+                                sleep 10
+                            done
+                            echo "Failed to connect to OpenShift cluster after 1 minute"
+                            exit 1
+                        """
+                    }
+                }
             }
         }
         stage('Run Helm Tests') {
