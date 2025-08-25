@@ -87,7 +87,7 @@ def listAvailableClusters() {
     } catch (Exception e) {
         echo "[ERROR] Exception in listAvailableClusters: ${e.message}"
         echo "[ERROR] Exception class: ${e.class.name}"
-        e.printStackTrace()
+        // printStackTrace() is not allowed in Jenkins sandbox
     }
     
     echo "======================================"
@@ -233,6 +233,36 @@ pipeline {
                 }
                 deleteDir()
                 git poll: false, branch: params.PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
+
+                // Install AWS CLI if not present
+                sh """
+                    if ! command -v aws &> /dev/null; then
+                        echo "[DEBUG] AWS CLI not found, installing..."
+                        
+                        # For Ubuntu/Debian systems
+                        if [ -f /etc/debian_version ]; then
+                            echo "[DEBUG] Detected Debian/Ubuntu system"
+                            sudo apt-get update || true
+                            sudo apt-get install -y unzip curl || true
+                        # For RHEL/Amazon Linux systems
+                        elif [ -f /etc/redhat-release ]; then
+                            echo "[DEBUG] Detected RHEL/Amazon Linux system"
+                            sudo yum install -y unzip curl || true
+                        fi
+                        
+                        # Download and install AWS CLI v2
+                        curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"
+                        unzip -q -o /tmp/awscliv2.zip -d /tmp/
+                        sudo /tmp/aws/install || sudo /tmp/aws/install --update
+                        rm -rf /tmp/awscliv2.zip /tmp/aws
+                        
+                        echo "[DEBUG] AWS CLI installation complete"
+                        aws --version
+                    else
+                        echo "[DEBUG] AWS CLI already installed:"
+                        aws --version
+                    fi
+                """
 
                 sh """
                     # Install test dependencies
