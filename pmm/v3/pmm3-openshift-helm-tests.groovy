@@ -133,7 +133,6 @@ pipeline {
             script {
                 destroyOpenshift(env.FINAL_CLUSTER_NAME)
             }
-            deleteDir()
         }
     }
 }
