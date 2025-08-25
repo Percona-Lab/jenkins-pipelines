@@ -264,7 +264,26 @@ pipeline {
                     fi
                 """
 
+                // Install OpenShift CLI tools and Helm using the shared library
+                script {
+                    echo "Installing OpenShift CLI tools..."
+                    openshiftTools.install([
+                        openshiftVersion: 'stable-4.16'  // Using stable 4.16 channel
+                    ])
+                    
+                    echo "Installing Helm..."
+                    openshiftTools.installHelm()
+                }
+
                 sh """
+                    # Add OpenShift tools to PATH
+                    export PATH="\$HOME/.local/bin:\$PATH"
+                    
+                    # Verify OpenShift CLI installation
+                    echo "Verifying OpenShift CLI installation..."
+                    which oc || echo "oc not in PATH, checking home directory..."
+                    \$HOME/.local/bin/oc version --client || echo "Failed to run oc version"
+                    
                     # Install test dependencies
                     sudo mkdir -p /srv/pmm-qa || :
                     sudo git clone --single-branch --branch ${params.PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git /srv/pmm-qa
@@ -280,12 +299,10 @@ pipeline {
                     cd /srv/pmm-qa/k8s
                     sudo ./setup_bats_libs.sh
                     
-                    # Install/Update Helm if needed
-                    if ! command -v helm &> /dev/null; then
-                        echo "Installing Helm..."
-                        curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-                    fi
-                    helm version
+                    # Verify Helm installation
+                    echo "Verifying Helm installation..."
+                    which helm || echo "helm not in PATH, checking home directory..."
+                    \$HOME/.local/bin/helm version --short || echo "Failed to run helm version"
                 """
             }
         }
@@ -328,6 +345,7 @@ pipeline {
                     
                     // Validate cluster connectivity
                     sh """
+                        export PATH="\$HOME/.local/bin:\$PATH"
                         export KUBECONFIG=${kubeconfigPath}
                         echo "Testing cluster connectivity..."
                         oc version
@@ -341,7 +359,7 @@ pipeline {
         stage('Deploy PMM Helm Chart') {
             steps {
                 script {
-                    withEnv(["KUBECONFIG=${kubeconfigPath}"]) {
+                    withEnv(["KUBECONFIG=${kubeconfigPath}", "PATH=${env.HOME}/.local/bin:${env.PATH}"]) {
                         sh """
                             echo "Deploying PMM using Helm..."
                             echo "  Chart: ${params.HELM_CHART}"
@@ -382,6 +400,7 @@ pipeline {
                 script {
                     withEnv([
                         "KUBECONFIG=${kubeconfigPath}",
+                        "PATH=${env.HOME}/.local/bin:${env.PATH}",
                         "BATS_LIB_PATH=/srv/pmm-qa/k8s/lib",
                         "IMAGE_REPO=${params.IMAGE_REPO}",
                         "IMAGE_TAG=${params.IMAGE_TAG}",
@@ -426,7 +445,7 @@ pipeline {
             }
             steps {
                 script {
-                    withEnv(["KUBECONFIG=${kubeconfigPath}"]) {
+                    withEnv(["KUBECONFIG=${kubeconfigPath}", "PATH=${env.HOME}/.local/bin:${env.PATH}"]) {
                         sh """
                             echo "Testing Helm upgrade..."
                             
@@ -454,7 +473,7 @@ pipeline {
         stage('Cleanup') {
             steps {
                 script {
-                    withEnv(["KUBECONFIG=${kubeconfigPath}"]) {
+                    withEnv(["KUBECONFIG=${kubeconfigPath}", "PATH=${env.HOME}/.local/bin:${env.PATH}"]) {
                         sh """
                             echo "Cleaning up PMM deployment..."
                             
@@ -488,7 +507,7 @@ pipeline {
         failure {
             script {
                 if (kubeconfigPath) {
-                    withEnv(["KUBECONFIG=${kubeconfigPath}"]) {
+                    withEnv(["KUBECONFIG=${kubeconfigPath}", "PATH=${env.HOME}/.local/bin:${env.PATH}"]) {
                         sh """
                             echo "Collecting debug information..."
                             oc get events -n ${params.NAMESPACE} --sort-by='.lastTimestamp' || true
