@@ -11,16 +11,23 @@ def kubeconfigPath = null
 def listAvailableClusters() {
     def clusters = []
     try {
-        def result = sh(
-            script: """
-                aws s3 ls s3://openshift-clusters-119175775298-us-east-2/ --region us-east-2 2>/dev/null | 
-                grep PRE | awk '{print \$2}' | sed 's/\\///' | sort
-            """,
-            returnStdout: true
-        ).trim()
-        
-        if (result) {
-            clusters = result.split('\n').toList()
+        withCredentials([
+            [$class: 'AmazonWebServicesCredentialsBinding',
+             credentialsId: 'jenkins-openshift-aws',
+             accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
+        ]) {
+            def result = sh(
+                script: """
+                    aws s3 ls s3://openshift-clusters-119175775298-us-east-2/ --region us-east-2 2>/dev/null | 
+                    grep PRE | awk '{print \$2}' | sed 's/\\///' | sort
+                """,
+                returnStdout: true
+            ).trim()
+            
+            if (result) {
+                clusters = result.split('\n').toList()
+            }
         }
     } catch (Exception e) {
         echo "Failed to list clusters from S3: ${e.message}"
@@ -34,25 +41,32 @@ def listAvailableClusters() {
 def downloadKubeconfigFromS3(String clusterName) {
     echo "Downloading kubeconfig for cluster: ${clusterName}"
     
-    sh """
-        # Download auth backup from S3
-        aws s3 cp s3://openshift-clusters-119175775298-us-east-2/${clusterName}/auth-backup.tar.gz \
-            ${WORKSPACE}/auth-backup.tar.gz \
-            --region us-east-2
-        
-        # Extract kubeconfig
-        mkdir -p ${WORKSPACE}/cluster-auth
-        tar -xzf ${WORKSPACE}/auth-backup.tar.gz -C ${WORKSPACE}/cluster-auth
-        rm -f ${WORKSPACE}/auth-backup.tar.gz
-        
-        # Verify kubeconfig exists
-        if [ ! -f "${WORKSPACE}/cluster-auth/auth/kubeconfig" ]; then
-            echo "ERROR: kubeconfig not found in downloaded archive"
-            exit 1
-        fi
-        
-        echo "Successfully downloaded kubeconfig from S3"
-    """
+    withCredentials([
+        [$class: 'AmazonWebServicesCredentialsBinding',
+         credentialsId: 'jenkins-openshift-aws',
+         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
+    ]) {
+        sh """
+            # Download auth backup from S3
+            aws s3 cp s3://openshift-clusters-119175775298-us-east-2/${clusterName}/auth-backup.tar.gz \
+                ${WORKSPACE}/auth-backup.tar.gz \
+                --region us-east-2
+            
+            # Extract kubeconfig
+            mkdir -p ${WORKSPACE}/cluster-auth
+            tar -xzf ${WORKSPACE}/auth-backup.tar.gz -C ${WORKSPACE}/cluster-auth
+            rm -f ${WORKSPACE}/auth-backup.tar.gz
+            
+            # Verify kubeconfig exists
+            if [ ! -f "${WORKSPACE}/cluster-auth/auth/kubeconfig" ]; then
+                echo "ERROR: kubeconfig not found in downloaded archive"
+                exit 1
+            fi
+            
+            echo "Successfully downloaded kubeconfig from S3"
+        """
+    }
     
     return "${WORKSPACE}/cluster-auth/auth/kubeconfig"
 }
@@ -113,12 +127,12 @@ pipeline {
                     currentBuild.description = "Cluster: ${params.CLUSTER_NAME ?: 'TBD'}. Image: ${params.IMAGE_REPO}:${params.IMAGE_TAG}"
                 }
                 deleteDir()
-                git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
+                git poll: false, branch: params.PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
 
-                sh '''
+                sh """
                     # Install test dependencies
                     sudo mkdir -p /srv/pmm-qa || :
-                    sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git /srv/pmm-qa
+                    sudo git clone --single-branch --branch ${params.PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git /srv/pmm-qa
                     sudo chmod -R 755 /srv/pmm-qa
 
                     # Install BATS testing framework
@@ -137,7 +151,7 @@ pipeline {
                         curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
                     fi
                     helm version
-                '''
+                """
             }
         }
         
