@@ -10,6 +10,10 @@ def kubeconfigPath = null
  */
 def listAvailableClusters() {
     def clusters = []
+    echo "======================================"
+    echo "Starting S3 cluster discovery..."
+    echo "======================================"
+    
     try {
         withCredentials([
             [$class: 'AmazonWebServicesCredentialsBinding',
@@ -17,21 +21,80 @@ def listAvailableClusters() {
              accessKeyVariable: 'AWS_ACCESS_KEY_ID',
              secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
         ]) {
-            def result = sh(
+            echo "[DEBUG] AWS credentials loaded from 'jenkins-openshift-aws'"
+            
+            // Verify AWS credentials are working
+            echo "[DEBUG] Testing AWS credentials with STS get-caller-identity..."
+            def identityCheck = sh(
+                script: "aws sts get-caller-identity --region us-east-2 2>&1",
+                returnStdout: true,
+                returnStatus: false
+            ).trim()
+            echo "[DEBUG] AWS Identity: ${identityCheck}"
+            
+            // Check S3 bucket access
+            echo "[DEBUG] Checking access to S3 bucket: openshift-clusters-119175775298-us-east-2"
+            def bucketCheck = sh(
                 script: """
-                    aws s3 ls s3://openshift-clusters-119175775298-us-east-2/ --region us-east-2 2>/dev/null | 
-                    grep PRE | awk '{print \$2}' | sed 's/\\///' | sort
+                    aws s3api head-bucket --bucket openshift-clusters-119175775298-us-east-2 --region us-east-2 2>&1 || {
+                        exitcode=\$?
+                        echo "[ERROR] Cannot access bucket (exit code: \$exitcode)"
+                        aws s3api get-bucket-location --bucket openshift-clusters-119175775298-us-east-2 --region us-east-2 2>&1 || true
+                    }
+                """,
+                returnStdout: true
+            ).trim()
+            if (bucketCheck) {
+                echo "[DEBUG] Bucket check result: ${bucketCheck}"
+            }
+            
+            // List S3 contents
+            echo "[DEBUG] Attempting to list S3 bucket contents..."
+            def s3Output = sh(
+                script: """
+                    aws s3 ls s3://openshift-clusters-119175775298-us-east-2/ --region us-east-2 2>&1 || {
+                        exitcode=\$?
+                        echo "[ERROR] Failed to list S3 bucket (exit code: \$exitcode)"
+                        false
+                    }
                 """,
                 returnStdout: true
             ).trim()
             
-            if (result) {
-                clusters = result.split('\n').toList()
+            echo "[DEBUG] Raw S3 output:"
+            echo "${s3Output}"
+            echo "[DEBUG] End of raw output"
+            
+            // Process the output to extract cluster names
+            if (s3Output) {
+                echo "[DEBUG] Processing S3 output to extract cluster names..."
+                def lines = s3Output.split('\n')
+                lines.each { line ->
+                    if (line.contains('PRE ')) {
+                        def clusterName = line.split('PRE ')[1].replaceAll('/', '').trim()
+                        if (clusterName) {
+                            echo "[DEBUG] Found cluster: ${clusterName}"
+                            clusters.add(clusterName)
+                        }
+                    }
+                }
+            } else {
+                echo "[WARNING] No output received from S3 ls command"
             }
+            
+            echo "[DEBUG] Total clusters found: ${clusters.size()}"
         }
     } catch (Exception e) {
-        echo "Failed to list clusters from S3: ${e.message}"
+        echo "[ERROR] Exception in listAvailableClusters: ${e.message}"
+        echo "[ERROR] Exception class: ${e.class.name}"
+        e.printStackTrace()
     }
+    
+    echo "======================================"
+    echo "S3 cluster discovery complete"
+    echo "Found ${clusters.size()} cluster(s)"
+    echo "======================================"
+    
     return clusters
 }
 
@@ -39,7 +102,9 @@ def listAvailableClusters() {
  * Downloads kubeconfig from S3 for existing cluster
  */
 def downloadKubeconfigFromS3(String clusterName) {
+    echo "======================================"
     echo "Downloading kubeconfig for cluster: ${clusterName}"
+    echo "======================================"
     
     withCredentials([
         [$class: 'AmazonWebServicesCredentialsBinding',
@@ -47,26 +112,66 @@ def downloadKubeconfigFromS3(String clusterName) {
          accessKeyVariable: 'AWS_ACCESS_KEY_ID',
          secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']
     ]) {
+        echo "[DEBUG] AWS credentials loaded"
+        
         sh """
+            echo "[DEBUG] S3 path: s3://openshift-clusters-119175775298-us-east-2/${clusterName}/auth-backup.tar.gz"
+            echo "[DEBUG] Local path: ${WORKSPACE}/auth-backup.tar.gz"
+            
+            # Check if the file exists in S3
+            echo "[DEBUG] Checking if auth-backup.tar.gz exists in S3..."
+            aws s3 ls s3://openshift-clusters-119175775298-us-east-2/${clusterName}/auth-backup.tar.gz --region us-east-2 || {
+                echo "[ERROR] auth-backup.tar.gz not found in S3 for cluster ${clusterName}"
+                echo "[DEBUG] Listing available files for this cluster:"
+                aws s3 ls s3://openshift-clusters-119175775298-us-east-2/${clusterName}/ --region us-east-2 || true
+                exit 1
+            }
+            
             # Download auth backup from S3
+            echo "[DEBUG] Downloading auth-backup.tar.gz from S3..."
             aws s3 cp s3://openshift-clusters-119175775298-us-east-2/${clusterName}/auth-backup.tar.gz \
                 ${WORKSPACE}/auth-backup.tar.gz \
-                --region us-east-2
+                --region us-east-2 || {
+                echo "[ERROR] Failed to download auth-backup.tar.gz"
+                exit 1
+            }
+            
+            # Verify download
+            echo "[DEBUG] Verifying downloaded file..."
+            ls -lh ${WORKSPACE}/auth-backup.tar.gz
             
             # Extract kubeconfig
+            echo "[DEBUG] Extracting auth-backup.tar.gz..."
             mkdir -p ${WORKSPACE}/cluster-auth
-            tar -xzf ${WORKSPACE}/auth-backup.tar.gz -C ${WORKSPACE}/cluster-auth
+            tar -xzf ${WORKSPACE}/auth-backup.tar.gz -C ${WORKSPACE}/cluster-auth || {
+                echo "[ERROR] Failed to extract auth-backup.tar.gz"
+                exit 1
+            }
+            
+            # List extracted contents
+            echo "[DEBUG] Extracted contents:"
+            ls -la ${WORKSPACE}/cluster-auth/ || true
+            ls -la ${WORKSPACE}/cluster-auth/auth/ || true
+            
+            # Clean up archive
             rm -f ${WORKSPACE}/auth-backup.tar.gz
             
             # Verify kubeconfig exists
             if [ ! -f "${WORKSPACE}/cluster-auth/auth/kubeconfig" ]; then
-                echo "ERROR: kubeconfig not found in downloaded archive"
+                echo "[ERROR] kubeconfig not found in downloaded archive"
+                echo "[DEBUG] Looking for kubeconfig in other locations:"
+                find ${WORKSPACE}/cluster-auth -name "kubeconfig" -type f 2>/dev/null || true
                 exit 1
             fi
             
-            echo "Successfully downloaded kubeconfig from S3"
+            echo "[SUCCESS] Successfully downloaded and extracted kubeconfig from S3"
+            echo "[DEBUG] Kubeconfig path: ${WORKSPACE}/cluster-auth/auth/kubeconfig"
         """
     }
+    
+    echo "======================================"
+    echo "Kubeconfig download complete"
+    echo "======================================"
     
     return "${WORKSPACE}/cluster-auth/auth/kubeconfig"
 }
