@@ -121,7 +121,7 @@ pipeline {
                 runOpenshiftClusterCreate(OPENSHIFT_VERSION)
             }
         }
-        stage('Copy Artifacts') {
+        stage('Copy Artifacts1') {
             steps {
                 script {
                     copyArtifacts filter: 'kubeconfig', projectName: 'openshift-cluster-create', selector: [$class: 'LastSuccessfulBuildSelector']
