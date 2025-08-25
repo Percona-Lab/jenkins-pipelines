@@ -109,8 +109,10 @@ pipeline {
             }
         }
         stage('Create OpenShift Cluster') {
-            script {
-                runOpenshiftClusterCreate(OPENSHIFT_VERSION)
+            steps {
+                script {
+                    runOpenshiftClusterCreate(OPENSHIFT_VERSION)
+                }
             }
         }
         stage('Run Helm Tests') {
