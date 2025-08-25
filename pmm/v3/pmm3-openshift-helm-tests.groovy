@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runOpenshiftClusterCreate(String OPENSHIFT_VERSION, PMM_HELM_CHART_VERSION) {
+def runOpenshiftClusterCreate(String OPENSHIFT_VERSION) {
     clusterCreateJob = build job: 'openshift-cluster-create', parameters: [
         string(name: 'CLUSTER_NAME', value: 'helm-test'),
         string(name: 'OPENSHIFT_VERSION', value: OPENSHIFT_VERSION),
@@ -51,7 +51,7 @@ void runOpenshiftClusterCreate(String OPENSHIFT_VERSION, PMM_HELM_CHART_VERSION)
 }
 
 
-void destroyOpenshift(CLUSTER_NAME) {
+def destroyOpenshift(CLUSTER_NAME) {
     build job: 'openshift-cluster-destroy', parameters: [
         string(name: 'CLUSTER_NAME', value: CLUSTER_NAME),
         string(name: 'DESTROY_REASON', value: 'testing-complete'),
