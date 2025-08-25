@@ -88,7 +88,7 @@ pipeline {
         stage('Copy Artifacts') {
             steps {
                 script {
-                    copyArtifacts filter: 'kubeconfig', projectName: 'openshift-cluster-create', selector: [$class: 'LastSuccessfulBuildSelector']
+                    copyArtifacts filter: 'kubeconfig', projectName: 'openshift-cluster-create'
                     // Validate cluster access
                     def kubeconfig = "${WORKSPACE}/cluster-artifacts/kubeconfig"
                     sh 'cp kubeconfig ${kubeconfig}'
@@ -124,7 +124,7 @@ pipeline {
         stage('Copy Artifacts1') {
             steps {
                 script {
-                    copyArtifacts filter: 'kubeconfig', projectName: 'openshift-cluster-create', selector: [$class: 'LastSuccessfulBuildSelector']
+                    copyArtifacts filter: 'kubeconfig', projectName: 'openshift-cluster-create'
                     // Validate cluster access
                     def kubeconfig = "${WORKSPACE}/cluster-artifacts/kubeconfig"
                     sh 'cp kubeconfig ${kubeconfig}'
