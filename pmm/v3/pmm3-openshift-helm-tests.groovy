@@ -109,7 +109,7 @@ pipeline {
             }
         }
         stage('Create OpenShift Cluster') {
-            steps {
+            script {
                 runOpenshiftClusterCreate(OPENSHIFT_VERSION)
             }
         }
