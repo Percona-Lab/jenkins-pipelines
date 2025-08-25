@@ -98,9 +98,9 @@ pipeline {
                     sudo git clone --single-branch --branch \${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git /srv/pmm-qa
                     sudo chmod -R 755 /srv/pmm-qa
 
-                    sudo mkdir -p /opt/bats
+                    sudo mkdir -p /opt/bats || :
+                    sudo git clone https://github.com/bats-core/bats-core.git /opt/bats
                     sudo chmod -R 755 /opt/bats
-                    git clone https://github.com/bats-core/bats-core.git /opt/bats
                     sudo /opt/bats/install.sh /usr/local
 
                     cd /srv/pmm-qa/k8s
