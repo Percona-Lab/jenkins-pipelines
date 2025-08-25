@@ -128,7 +128,7 @@ pipeline {
     post {
         always {
             // stop staging
-            steps {
+            script {
                 destroyOpenshift(env.FINAL_CLUSTER_NAME)
             }
             deleteDir()
