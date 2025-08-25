@@ -104,7 +104,7 @@ pipeline {
                     sudo /opt/bats/install.sh /usr/local
 
                     cd /srv/pmm-qa/k8s
-                    ./setup_bats_libs.sh
+                    sudo ./setup_bats_libs.sh
                 '''
             }
         }
