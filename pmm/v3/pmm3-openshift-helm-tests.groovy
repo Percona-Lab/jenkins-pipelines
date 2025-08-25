@@ -16,15 +16,6 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION) {
     env.VM_NAME = clusterCreateJob.buildVariables.VM_NAME
     env.WORK_DIR = clusterCreateJob.buildVariables.WORK_DIR
     env.FINAL_CLUSTER_NAME = clusterCreateJob.buildVariables.FINAL_CLUSTER_NAME
-    
-    // Copy artifacts from the cluster creation job
-    copyArtifacts(
-        projectName: 'openshift-cluster-create',
-        selector: specific("${clusterCreateJob.number}"),
-        filter: "${env.WORK_DIR}/${env.FINAL_CLUSTER_NAME}/auth/kubeconfig",
-        fingerprintArtifacts: true,
-        target: 'cluster-artifacts'
-    )
 }
 
 
