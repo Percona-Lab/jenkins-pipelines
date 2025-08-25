@@ -30,33 +30,6 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
-    ovfStagingJob = build job: 'pmm3-ovf-staging-start', parameters: [
-        string(name: 'OVA_VERSION', value: SERVER_VERSION),
-        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-    ]
-    env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
-    env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
-    env.VM_IP = ovfStagingJob.buildVariables.IP
-    env.VM_NAME = ovfStagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "https://admin:admin@${OVF_INSTANCE_IP}"
-    env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}/"
-    env.ADMIN_PASSWORD = "admin"
-}
-
-void runAMIStagingStart(String AMI_ID) {
-    amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
-        string(name: 'AMI_ID', value: AMI_ID)
-    ]
-    env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
-    env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
-    env.ADMIN_PASSWORD = amiStagingJob.buildVariables.INSTANCE_ID
-    env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
-    env.VM_NAME = amiStagingJob.buildVariables.INSTANCE_ID
-    env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${AMI_INSTANCE_IP}"
-    env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}/"
-}
-
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PSMDB_VERSION, MODB_VERSION , QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
@@ -219,32 +192,12 @@ pipeline {
                 '''
             }
         }
-        stage('Start Server') {
-            parallel {
-                stage('Setup Docker Server Instance') {
-                    when {
-                        expression { env.SERVER_TYPE == "docker" }
-                    }
-                    steps {
-                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
-                    }
-                }
-                stage('Setup OVF Server Instance') {
-                    when {
-                        expression { env.SERVER_TYPE == "ovf" }
-                    }
-                    steps {
-                        runOVFStagingStart(DOCKER_VERSION, PMM_QA_GIT_BRANCH)
-                    }
-                }
-                stage('Setup AMI Server Instance') {
-                    when {
-                        expression { env.SERVER_TYPE == "ami" }
-                    }
-                    steps {
-                        runAMIStagingStart(DOCKER_VERSION)
-                    }
-                }
+        stage('Setup Docker Server Instance') {
+            when {
+                expression { env.SERVER_TYPE == "docker" }
+            }
+            steps {
+                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
             }
         }
         stage('Sanity check') {
