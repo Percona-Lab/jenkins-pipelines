@@ -107,17 +107,33 @@ def discoverClusters(Map params = [:]) {
     // Step 3: Consolidate data
     def consolidatedClusters = []
 
-    // Process all unique cluster names
-    def allClusterNames = (s3Clusters.keySet() + awsClusters.keySet()) as Set
+    // Track which S3 clusters have been matched to AWS clusters
+    def matchedS3Clusters = [] as Set
+    def matchedAWSClusters = [] as Set
 
-    allClusterNames.each { clusterName ->
-        def s3Cluster = s3Clusters[clusterName]
-        def awsCluster = awsClusters[clusterName]
+    // First pass: Try to match AWS clusters with S3 clusters
+    // AWS cluster names often have random suffixes (e.g., test-cluster-7-qc8lc)
+    // while S3 stores them with base names (e.g., test-cluster-7)
+    awsClusters.each { awsClusterName, awsCluster ->
+        def matchedS3Name = null
 
-        if (s3Cluster && awsCluster) {
-            // Merge data from both sources
+        // Check if this AWS cluster name starts with any S3 cluster name
+        s3Clusters.each { s3ClusterName, s3Cluster ->
+            // Match if AWS cluster name starts with S3 cluster name followed by a hyphen
+            // This handles the pattern: base-name-randomsuffix
+            if (awsClusterName == s3ClusterName ||
+                awsClusterName.startsWith("${s3ClusterName}-")) {
+                matchedS3Name = s3ClusterName
+                return true // Break out of the inner loop
+            }
+        }
+
+        if (matchedS3Name) {
+            // Found matching S3 backup
+            def s3Cluster = s3Clusters[matchedS3Name]
             def merged = [
-                name: clusterName,
+                name: awsClusterName,  // Use the AWS cluster name (with suffix) as the primary name
+                baseName: matchedS3Name, // Store the base name for reference
                 source: 'combined',
                 status: s3Cluster.status ?: awsCluster.status,
                 metadata: [:],
@@ -130,13 +146,23 @@ def discoverClusters(Map params = [:]) {
             merged.metadata.putAll(s3Cluster.metadata ?: [:])
 
             consolidatedClusters << merged
-        } else if (s3Cluster) {
-            // S3 only - cluster might be deleted but state preserved
-            consolidatedClusters << s3Cluster
-        } else if (awsCluster) {
-            // AWS only - active cluster without S3 backup
+            matchedS3Clusters << matchedS3Name
+            matchedAWSClusters << awsClusterName
+        }
+    }
+
+    // Second pass: Add unmatched AWS clusters (no S3 backup)
+    awsClusters.each { awsClusterName, awsCluster ->
+        if (!matchedAWSClusters.contains(awsClusterName)) {
             awsCluster.s3State = [hasBackup: false]
             consolidatedClusters << awsCluster
+        }
+    }
+
+    // Third pass: Add unmatched S3 clusters (deleted or no AWS resources)
+    s3Clusters.each { s3ClusterName, s3Cluster ->
+        if (!matchedS3Clusters.contains(s3ClusterName)) {
+            consolidatedClusters << s3Cluster
         }
     }
 
