@@ -91,7 +91,7 @@ pipeline {
                 }
                 // clean up workspace and fetch pmm-qa repository
                 deleteDir()
-                git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
+                git poll: false, branch: PMM_QA_GIT_BRANCH, url: 'https://github.com/percona/pmm-qa.git'
 
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
