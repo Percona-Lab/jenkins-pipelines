@@ -264,11 +264,21 @@ pipeline {
                     fi
                 """
 
+                // Install jq for version resolution (required by openshiftTools)
+                sh """
+                    if ! command -v jq &> /dev/null; then
+                        echo "Installing jq for OpenShift version resolution..."
+                        sudo apt-get install -y jq || true
+                    fi
+                """
+                
                 // Install OpenShift CLI tools and Helm using the shared library
                 script {
                     echo "Installing OpenShift CLI tools..."
+                    // Use a specific version to avoid channel resolution issues
+                    // Alternatively, use 'stable-4.16' if jq is installed
                     openshiftTools.install([
-                        openshiftVersion: 'stable-4.16'  // Using stable 4.16 channel
+                        openshiftVersion: '4.16.46'  // Using latest available version
                     ])
                     
                     echo "Installing Helm..."
