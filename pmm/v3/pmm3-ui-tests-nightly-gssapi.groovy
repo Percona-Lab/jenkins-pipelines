@@ -30,79 +30,24 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     }
 }
 
-void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
-    ovfStagingJob = build job: 'pmm3-ovf-staging-start', parameters: [
-        string(name: 'OVA_VERSION', value: SERVER_VERSION),
-        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-    ]
-    env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
-    env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
-    env.VM_IP = ovfStagingJob.buildVariables.IP
-    env.VM_NAME = ovfStagingJob.buildVariables.VM_NAME
-    env.PMM_URL = "https://admin:admin@${OVF_INSTANCE_IP}"
-    env.PMM_UI_URL = "https://${OVF_INSTANCE_IP}/"
-    env.ADMIN_PASSWORD = "admin"
-}
-
-void runAMIStagingStart(String AMI_ID) {
-    amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
-        string(name: 'AMI_ID', value: AMI_ID)
-    ]
-    env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
-    env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
-    env.ADMIN_PASSWORD = amiStagingJob.buildVariables.INSTANCE_ID
-    env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
-    env.VM_NAME = amiStagingJob.buildVariables.INSTANCE_ID
-    env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${AMI_INSTANCE_IP}"
-    env.PMM_UI_URL = "https://${AMI_INSTANCE_IP}/"
-}
-
-void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION,
-PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION , QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
+void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PSMDB_VERSION, MODB_VERSION , QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'QUERY_SOURCE', value: 'slowlog'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'ENABLE_PULL_MODE', value: ENABLE_PULL_MODE),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
-        string(name: 'PXC_VERSION', value: PXC_VERSION),
-        string(name: 'PS_VERSION', value: PS_VERSION),
-        string(name: 'MS_VERSION', value: MS_VERSION),
-        string(name: 'PGSQL_VERSION', value: PGSQL_VERSION),
-        string(name: 'PDPGSQL_VERSION', value: PDPGSQL_VERSION),
-        string(name: 'MD_VERSION', value: MD_VERSION),
         string(name: 'PSMDB_VERSION', value: PSMDB_VERSION),
         string(name: 'MODB_VERSION', value: MODB_VERSION),
-        string(name: 'QUERY_SOURCE', value: QUERY_SOURCE),
         string(name: 'PMM_QA_GIT_BRANCH', value: QA_INTEGRATION_GIT_BRANCH),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
     ]
-    if ( NODE_TYPE == 'mysql-node' ) {
+    if ( NODE_TYPE == 'mongo-node' ) {
         env.VM_CLIENT_IP_MYSQL = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_MYSQL = stagingJob.buildVariables.VM_NAME
-    }
-    else if ( NODE_TYPE == 'ps-gr-node' ) {
-        env.VM_CLIENT_IP_PS_GR = stagingJob.buildVariables.IP
-        env.VM_CLIENT_NAME_PS_GR = stagingJob.buildVariables.VM_NAME
-    }
-    else if ( NODE_TYPE == 'pxc-node' ) {
-        env.VM_CLIENT_IP_PXC = stagingJob.buildVariables.IP
-        env.VM_CLIENT_NAME_PXC = stagingJob.buildVariables.VM_NAME
-    }
-    else if ( NODE_TYPE == 'extra-pxc-node' ) {
-        env.VM_CLIENT_IP_EXTRA_PXC = stagingJob.buildVariables.IP
-        env.VM_CLIENT_NAME_EXTRA_PXC = stagingJob.buildVariables.VM_NAME
-    }
-    else if ( NODE_TYPE == 'postgres-node' ) {
-        env.VM_CLIENT_IP_PGSQL = stagingJob.buildVariables.IP
-        env.VM_CLIENT_NAME_PGSQL = stagingJob.buildVariables.VM_NAME
-    } else if ( NODE_TYPE == 'external-node' ) {
-        env.VM_CLIENT_IP_EXTERNAL = stagingJob.buildVariables.IP
-        env.VM_CLIENT_NAME_EXTERNAL = stagingJob.buildVariables.VM_NAME
     } else if ( NODE_TYPE == 'sharded-psmdb' ) {
         env.VM_CLIENT_IP_PSMDB_SHARDED = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_PSMDB_SHARDED = stagingJob.buildVariables.VM_NAME
@@ -199,7 +144,7 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: '3-dev-latest',
+            defaultValue: 'https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-latest.tar.gz',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         choice(
@@ -219,30 +164,6 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ['8.0', '8.4', '5.7'],
-            description: 'Percona XtraDB Cluster version',
-            name: 'PXC_VERSION')
-        choice(
-            choices: ['8.4', '8.0', '5.7', '5.7.30', '5.6'],
-            description: "Percona Server for MySQL version",
-            name: 'PS_VERSION')
-        choice(
-            choices: ['8.4', '8.0', '5.7', '5.6'],
-            description: 'MySQL Community Server version',
-            name: 'MS_VERSION')
-        choice(
-            choices: ['17', '16', '15', '14', '13'],
-            description: "Which version of PostgreSQL",
-            name: 'PGSQL_VERSION')
-        choice(
-            choices: ['17', '16', '15','14', '13'],
-            description: 'Percona Distribution for PostgreSQL',
-            name: 'PDPGSQL_VERSION')
-        choice(
-            choices: ['10.6', '10.5', '10.4', '10.3', '10.2'],
-            description: "MariaDB Server version",
-            name: 'MD_VERSION')
-        choice(
             choices: ['8.0', '7.0', '6.0', '5.0', '4.4'],
             description: "Percona Server for MongoDB version",
             name: 'PSMDB_VERSION')
@@ -250,10 +171,6 @@ pipeline {
             choices: ['8.0', '7.0', '6.0', '5.0', '4.4'],
             description: "Official MongoDB version",
             name: 'MODB_VERSION')
-        choice(
-            choices: ['slowlog', 'perfschema'],
-            description: "Query Source for Monitoring",
-            name: 'QUERY_SOURCE')
     }
     options {
         skipDefaultCheckout()
@@ -275,32 +192,12 @@ pipeline {
                 '''
             }
         }
-        stage('Start Server') {
-            parallel {
-                stage('Setup Docker Server Instance') {
-                    when {
-                        expression { env.SERVER_TYPE == "docker" }
-                    }
-                    steps {
-                        runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
-                    }
-                }
-                stage('Setup OVF Server Instance') {
-                    when {
-                        expression { env.SERVER_TYPE == "ovf" }
-                    }
-                    steps {
-                        runOVFStagingStart(DOCKER_VERSION, PMM_QA_GIT_BRANCH)
-                    }
-                }
-                stage('Setup AMI Server Instance') {
-                    when {
-                        expression { env.SERVER_TYPE == "ami" }
-                    }
-                    steps {
-                        runAMIStagingStart(DOCKER_VERSION)
-                    }
-                }
+        stage('Setup Docker Server Instance') {
+            when {
+                expression { env.SERVER_TYPE == "docker" }
+            }
+            steps {
+                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
             }
         }
         stage('Sanity check') {
@@ -312,39 +209,9 @@ pipeline {
         }
         stage('Setup PMM Clients') {
             parallel {
-                stage('external and haproxy client') {
+                stage('Mongo pss client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database external --database haproxy', 'yes', env.VM_IP, 'external-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
-                    }
-                }
-                stage('ps-group-replication and mysql client') {
-                    steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=gr --database mysql', 'yes', env.VM_IP, 'ps-gr-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
-                    }
-                }
-                stage('ps-replication and pxc client') {
-                    steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,SETUP_TYPE=replication --database pxc', 'yes', env.VM_IP, 'pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
-                    }
-                }
-                stage('ps single and mongo pss client') {
-                    steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps --database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
-                    }
-                }
-                stage('pdpgsql, pgsql and pdpgsql patroni client') {
-                    steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pdpgsql --database pgsql --database pdpgsql,SETUP_TYPE=patroni', 'yes', env.VM_IP, 'postgres-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
-                    }
-                }
-                stage('psmdb sharded client') {
-                    steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=sharding', 'yes', env.VM_IP, 'sharded-psmdb', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
-                    }
-                }
-                stage('extra pxc client') {
-                    steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pxc', 'yes', env.VM_IP, 'extra-pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database psmdb,SETUP_TYPE=pss,GSSAPI=true', 'yes', env.VM_IP, 'mongo-node', ENABLE_PULL_MODE, PSMDB_VERSION, MODB_VERSION, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
             }
@@ -364,7 +231,7 @@ pipeline {
         stage('Setup Node') {
             steps {
                 sh """
-                    curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
+                    curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
                     sudo bash nodesource_setup.sh
                     sudo apt install nodejs
                     sudo apt-get install -y gettext
@@ -382,39 +249,9 @@ pipeline {
         }
         stage('Check agent status') {
             parallel {
-                stage('Check Agent Status on external node') {
-                    steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_EXTERNAL, env.PMM_QA_GIT_BRANCH)
-                    }
-                }
                 stage('Check Agent Status on ps single and mongo pss') {
                     steps {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_MYSQL, env.PMM_QA_GIT_BRANCH)
-                    }
-                }
-                stage('Check Agent Status on ps & replication node') {
-                    steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PS_GR, env.PMM_QA_GIT_BRANCH)
-                    }
-                }
-                stage('Check Agent Status on ms/md/pxc node') {
-                    steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PXC, env.PMM_QA_GIT_BRANCH)
-                    }
-                }
-                stage('Check Agent Status on postgresql node') {
-                    steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PGSQL, env.PMM_QA_GIT_BRANCH)
-                    }
-                }
-                stage('Check Agent Status on psmdb sharded node') {
-                    steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_PSMDB_SHARDED, env.PMM_QA_GIT_BRANCH)
-                    }
-                }
-                stage('Check Agent Status on extra pxc node') {
-                    steps {
-                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_EXTRA_PXC, env.PMM_QA_GIT_BRANCH)
                     }
                 }
             }
@@ -427,7 +264,7 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@gssapi-nightly'
                     """
                 }
             }
