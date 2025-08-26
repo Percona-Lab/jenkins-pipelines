@@ -584,7 +584,7 @@ void runlogsbackup(String product_to_test, String param_test_type) {
     
 }
 
-def delete_build_instances(){
+def deleteBuildInstances(){
             script {
                         echo "All tests completed"
                         def awsCredentials = [
@@ -1067,7 +1067,7 @@ pipeline {
 
     post {
         always {
-            delete_build_instances()
+            deleteBuildInstances()
         }
     }
 }

@@ -317,7 +317,6 @@ def setup(){
 
                 
                 sh '''
-
                     rm -rf package-testing
                     git clone https://github.com/${git_repo} --branch ${BRANCH}
                 '''
