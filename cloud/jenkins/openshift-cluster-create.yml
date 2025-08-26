@@ -145,6 +145,37 @@
                 description: "Product/project tag for billing allocation"
                 trim: true
 
+          # === SSL Certificate Configuration ===
+          - bool:
+                name: ENABLE_SSL
+                default: false
+                description: "Enable automatic SSL certificate configuration for cluster services"
+          - choice:
+                name: SSL_METHOD
+                choices:
+                    - "acm"
+                    - "letsencrypt"
+                description: "SSL certificate provider (AWS ACM or Let's Encrypt via cert-manager)"
+          - string:
+                name: SSL_EMAIL
+                default: "admin@percona.com"
+                description: "Email address for Let's Encrypt registration (required for letsencrypt method)"
+                trim: true
+          - bool:
+                name: USE_STAGING_CERT
+                default: false
+                description: "Use Let's Encrypt staging certificates for testing (avoids rate limits)"
+          - string:
+                name: CONSOLE_CUSTOM_DOMAIN
+                default: ""
+                description: "Custom domain for OpenShift console (optional, auto-generates if empty)"
+                trim: true
+          - string:
+                name: PMM_CUSTOM_DOMAIN
+                default: ""
+                description: "Custom domain for PMM interface (optional, auto-generates if empty)"
+                trim: true
+
           # === Advanced Options ===
           - string:
                 name: BASE_DOMAIN
