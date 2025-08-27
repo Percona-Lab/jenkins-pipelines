@@ -3,9 +3,9 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-def clusterName = "helm-test-${env.BUILD_NUMBER}"
-
 def runOpenshiftClusterCreate(String OPENSHIFT_VERSION) {
+    def clusterName = "helm-test-${env.BUILD_NUMBER}"
+
     clusterCreateJob = build job: 'openshift-cluster-create', parameters: [
         string(name: 'CLUSTER_NAME', value: clusterName),
         string(name: 'OPENSHIFT_VERSION', value: OPENSHIFT_VERSION),
@@ -92,10 +92,10 @@ pipeline {
             steps {
                 script {
 
-                    copyArtifacts filter: "openshift-clusters/${clusterName}/auth/kubeconfig", projectName: 'openshift-cluster-create', target: 'cluster-artifacts'
-                    sh 'ls -la cluster-artifacts/openshift-clusters/helm-test/auth'
+                    copyArtifacts filter: "openshift-clusters/${env.FINAL_CLUSTER_NAME}/auth/kubeconfig", projectName: 'openshift-cluster-create', target: 'cluster-artifacts'
+                    sh "ls -la cluster-artifacts/openshift-clusters/${env.FINAL_CLUSTER_NAME}/auth"
                     // Validate cluster access
-                    def kubeconfig = "${WORKSPACE}/cluster-artifacts/openshift-clusters/${clusterName}/auth/kubeconfig"
+                    def kubeconfig = "${WORKSPACE}/cluster-artifacts/openshift-clusters/${env.FINAL_CLUSTER_NAME}/auth/kubeconfig"
                     env.KUBECONFIG = kubeconfig
 
                     if (!fileExists(kubeconfig)) {
