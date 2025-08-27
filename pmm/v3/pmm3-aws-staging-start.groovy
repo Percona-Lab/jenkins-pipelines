@@ -227,22 +227,23 @@ pipeline {
                                     docker volume create pmm-data
 
                                     docker run --detach --restart always \
-                                        --network="pmm-qa" \
+                                        --network pmm-qa \
+                                        --name watchtower \
+                                        --volume /var/run/docker.sock:/var/run/docker.sock \
+                                        --restart always \
                                         -e WATCHTOWER_DEBUG=1 \
                                         -e WATCHTOWER_HTTP_API_TOKEN=testToken \
                                         -e WATCHTOWER_HTTP_API_UPDATE=1 \
-                                        --volume /var/run/docker.sock:/var/run/docker.sock \
-                                        --name watchtower \
                                         ${WATCHTOWER_VERSION}
 
                                     docker run -d \
                                         -p 443:8443 \
                                         -p 4647:4647 \
-                                        --volume pmm-data:/srv \
                                         --name pmm-server \
                                         --hostname pmm-server \
-                                        --network pmm-qa \
                                         --restart always \
+                                        --network pmm-qa \
+                                        --volume pmm-data:/srv \
                                         -e PMM_WATCHTOWER_HOST=http://watchtower:8080 \
                                         -e PMM_WATCHTOWER_TOKEN=testToken \
                                         ${DOCKER_ENV_VARIABLE} \
