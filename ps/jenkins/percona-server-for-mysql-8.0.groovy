@@ -55,8 +55,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
               sed -i 's|percona-server-server/usr|percona-server-server-pro/usr|g' ps_builder.sh
               sed -i 's|dbg-package=percona-server-dbg|dbg-package=percona-server-pro-dbg|g' ps_builder.sh
           else
-              #wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
-              wget \$(echo "https://github.com/adivinho/percona-server.git" | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo "https://github.com/adivinho/percona-server.git" | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
+              wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
           fi
           grep "percona-server-server" ps_builder.sh
           export build_dir=\$(pwd -P)
@@ -187,7 +186,6 @@ def runPlaybook(def nodeName) {
 
 def minitestNodes = [  "min-bullseye-x64",
                        "min-bookworm-x64",
-                       "min-centos-7-x64",
                        "min-ol-8-x64",
                        "min-focal-x64",
                        "min-amazon-2-x64",
@@ -230,7 +228,7 @@ parameters {
          description: 'Cloud infra for build',
          name: 'CLOUD' )
         string(defaultValue: 'https://github.com/percona/percona-server.git', description: 'github repository for build', name: 'GIT_REPO')
-        string(defaultValue: 'release-8.0.28-19', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
+        string(defaultValue: 'release-8.0.43-34', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
         choice(
