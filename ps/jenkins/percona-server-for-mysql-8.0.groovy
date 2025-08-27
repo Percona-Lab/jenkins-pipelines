@@ -423,11 +423,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
-/*
                 stage('Oracle Linux 10') {
-                    when {
-                        expression { false }
-                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -448,9 +444,6 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 10 ARM') {
-                    when {
-                        expression { false }
-                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -470,7 +463,6 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
-*/
                 stage('Amazon Linux 2023') {
                     when {
                         expression { env.FIPSMODE == 'YES' }
