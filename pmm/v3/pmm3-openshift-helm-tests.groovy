@@ -77,7 +77,7 @@ pipeline {
                     sudo ./setup_bats_libs.sh
 
                     # Install kubectl
-                    bash -x ./install_k8s_tools.sh --kubectl --sudo
+                    bash -x ./install_k8s_tools.sh --kubectl --helm --sudo
                     sleep 5
                     kubectl version --client
                 '''
