@@ -127,6 +127,7 @@ pipeline {
             }
             steps {
                 sh """
+                    cd /srv/pmm-qa/k8s
                     export BATS_LIB_PATH="/srv/pmm-qa/k8s/lib"
                     export IMAGE_REPO=${IMAGE_REPO}
                     export IMAGE_TAG=${IMAGE_TAG}
