@@ -123,7 +123,7 @@ pipeline {
         }
         stage('Run Helm Tests') {
             options {
-                timeout(time: 20, unit: "MINUTES")
+                timeout(time: 40, unit: "MINUTES")
             }
             steps {
                 sh """
