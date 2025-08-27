@@ -1,6 +1,7 @@
 library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git',
+    credentialsId: '' // force anonymous for shared library
 ]) _
 
 void cleanUpWS() {
@@ -16,9 +17,9 @@ pipeline {
     }
 
     parameters {
-        string(name: 'CONFIG_REPO', defaultValue: 'https://github.com/Percona-Lab/postgres-packaging', description: 'Job config repo')
-        string(name: 'CONFIG_BRANCH', defaultValue: 'main', description: 'Job config branch')
-        string(name: 'CLOUD', defaultValue: 'Hetzner', description: 'Cloud target')
+        string(name: 'CONFIG_REPO',   defaultValue: 'https://github.com/Percona-Lab/postgres-packaging', description: 'Job config repo')
+        string(name: 'CONFIG_BRANCH', defaultValue: 'main',                                               description: 'Job config branch')
+        string(name: 'CLOUD',         defaultValue: 'Hetzner',                                            description: 'Cloud target')
     }
 
     environment {
@@ -32,17 +33,41 @@ pipeline {
                     echo "[INFO] Installing jq and yq"
                     sh "sudo apt-get update -qq"
                     sh "sudo apt-get install -y jq"
-
                     sh "wget -q https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64"
                     sh "sudo mv yq_linux_amd64 /usr/local/bin/yq"
                     sh "sudo chmod +x /usr/local/bin/yq"
-
                     sh "echo '[✓] jq version: \$(jq --version)'"
                     sh "echo '[✓] yq version: \$(yq --version)'"
 
                     echo "[INFO] Cloning CONFIG_REPO: ${params.CONFIG_REPO} (${params.CONFIG_BRANCH})"
                     dir('postgres-packaging') {
-                        git branch: params.CONFIG_BRANCH, url: params.CONFIG_REPO
+                        withEnv(['GIT_ASKPASS=', 'GIT_TERMINAL_PROMPT=0']) {
+                            try {
+                                sh '''
+                                  set -eu
+                                  rm -rf ./*
+                                  git -c credential.helper= clone \
+                                      --depth=1 --no-tags --single-branch \
+                                      --branch "${CONFIG_BRANCH}" \
+                                      "${CONFIG_REPO}.git" .
+                                '''
+                            } catch (e) {
+                                // If user passed Percona-Lab repo and it requires auth, fallback to public mirror
+                                if ("${params.CONFIG_REPO}".toLowerCase().endsWith('/percona-lab/postgres-packaging')) {
+                                    echo "[WARN] ${params.CONFIG_REPO} might require auth. Retrying with public repo: https://github.com/percona/postgres-packaging"
+                                    sh '''
+                                      set -eu
+                                      rm -rf ./*
+                                      git -c credential.helper= clone \
+                                          --depth=1 --no-tags --single-branch \
+                                          --branch "${CONFIG_BRANCH}" \
+                                          "https://github.com/percona/postgres-packaging.git" .
+                                    '''
+                                } else {
+                                    throw e
+                                }
+                            }
+                        }
                     }
 
                     if (!fileExists(env.CONFIG_FILE)) {
@@ -64,16 +89,12 @@ pipeline {
                         }
 
                         def paramsJSON = sh(script: "yq eval -o=json '.\"${jobKey}\".parameters // {}' ${env.CONFIG_FILE}", returnStdout: true).trim()
-                        
-                        // Parse parameters using jq instead of readJSON
                         def paramKeys = sh(script: "echo '${paramsJSON}' | jq -r 'keys[]' 2>/dev/null || echo ''", returnStdout: true).trim().split('\n').findAll { it }
                         def buildParams = []
-                        
+
                         paramKeys.each { key ->
-                            def value = sh(script: "echo '${paramsJSON}' | jq -r '.\"${key}\"'", returnStdout: true).trim()
-                            // Check if value is boolean by testing if it's exactly "true" or "false"
-                            def rawValue = sh(script: "echo '${paramsJSON}' | jq '.\"${key}\"'", returnStdout: true).trim()
-                            
+                            def value    = sh(script: "echo '${paramsJSON}' | jq -r '.\"${key}\"'", returnStdout: true).trim()
+                            def rawValue = sh(script: "echo '${paramsJSON}' | jq     '.\"${key}\"'", returnStdout: true).trim()
                             if (rawValue == "true" || rawValue == "false") {
                                 buildParams.add(booleanParam(name: key, value: rawValue == "true"))
                             } else {
@@ -100,15 +121,12 @@ pipeline {
                         if (trigger != "true") return
 
                         def paramsJSON = sh(script: "yq eval -o=json '.\"${jobKey}\".parameters // {}' ${env.CONFIG_FILE}", returnStdout: true).trim()
-                        
-                        // Parse parameters using jq instead of readJSON
                         def paramKeys = sh(script: "echo '${paramsJSON}' | jq -r 'keys[]' 2>/dev/null || echo ''", returnStdout: true).trim().split('\n').findAll { it }
                         def buildParams = []
-                        
+
                         paramKeys.each { key ->
-                            def value = sh(script: "echo '${paramsJSON}' | jq -r '.\"${key}\"'", returnStdout: true).trim()
+                            def value     = sh(script: "echo '${paramsJSON}' | jq -r '.\"${key}\"'", returnStdout: true).trim()
                             def valueType = sh(script: "echo '${paramsJSON}' | jq -r 'type_of(.\"${key}\")'", returnStdout: true).trim()
-                            
                             if (valueType == "boolean") {
                                 buildParams.add(booleanParam(name: key, value: value == "true"))
                             } else {
@@ -142,21 +160,16 @@ pipeline {
                 "#00FF00",
                 "[${env.JOB_NAME}]: ✅ Build finished successfully for branch ${params.CONFIG_BRANCH} → ${env.BUILD_URL}"
             )
-            script {
-                currentBuild.description = "Built from ${params.CONFIG_BRANCH}"
-            }
+            script { currentBuild.description = "Built from ${params.CONFIG_BRANCH}" }
             cleanUpWS()
         }
-
         failure {
             slackNotify(
-                "#releases-ci",
                 "#FF0000",
                 "[${env.JOB_NAME}]: ❌ Build failed for branch ${params.CONFIG_BRANCH} → ${env.BUILD_URL}"
             )
             cleanUpWS()
         }
-
         always {
             cleanUpWS()
         }

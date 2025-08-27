@@ -46,6 +46,7 @@ void cleanUpWS() {
 }
 
 def TIMESTAMP
+def AWS_STASH_PATH
 
 pipeline {
     agent {
@@ -119,8 +120,6 @@ pipeline {
                                 echo "Ran stash includes"
                                 buildStage("oraclelinux:8", "")
                                 pushArtifactFolder(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
-                                uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
                         }
                     }
                 }
@@ -140,8 +139,6 @@ pipeline {
                                 stash includes: "uploadPath-${PBM_VERSION}", name: "uploadPath-${PBM_VERSION}"
                                 buildStage("oraclelinux:8", "")
                                 pushArtifactFolder(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
-                                uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
                         }
                     }
                 }
@@ -161,8 +158,6 @@ pipeline {
                                 stash includes: "uploadPath-${PBM_VERSION}", name: "uploadPath-${PBM_VERSION}"
                                 buildStage("oraclelinux:9", "")
                                 pushArtifactFolder(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
-                                uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
                         }
                     }
                 }
@@ -182,8 +177,6 @@ pipeline {
                                 stash includes: "uploadPath-${PBM_VERSION}", name: "uploadPath-${PBM_VERSION}"
                                 buildStage("oraclelinux:9", "")
                                 pushArtifactFolder(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
-                                uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
                         }
                     }
                 }
@@ -203,8 +196,6 @@ pipeline {
                                 stash includes: "uploadPath-${PBM_VERSION}", name: "uploadPath-${PBM_VERSION}"
                                 buildStage("amazonlinux:2023", "")
                                 pushArtifactFolder(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
-                                uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
                         }
                     }
                 }
@@ -224,8 +215,6 @@ pipeline {
                                 stash includes: "uploadPath-${PBM_VERSION}", name: "uploadPath-${PBM_VERSION}"
                                 buildStage("amazonlinux:2023", "")
                                 pushArtifactFolder(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
-                                uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
                         }
                     }
                 }
@@ -245,8 +234,6 @@ pipeline {
                                 stash includes: "uploadPath-${PBM_VERSION}", name: "uploadPath-${PBM_VERSION}"
                                 buildStage("oraclelinux:10", "")
                                 pushArtifactFolder(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
-                                uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
                         }
                     }
                 }
@@ -266,8 +253,6 @@ pipeline {
                                 stash includes: "uploadPath-${PBM_VERSION}", name: "uploadPath-${PBM_VERSION}"
                                 buildStage("oraclelinux:10", "")
                                 pushArtifactFolder(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
-                                uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
                         }
                     }
                 } */
@@ -287,8 +272,6 @@ pipeline {
                                 stash includes: "uploadPath-${PBM_VERSION}", name: "uploadPath-${PBM_VERSION}"
                                 buildStage("ubuntu:jammy", "")
                                 pushArtifactFolder(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
-                                uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
                         }
                     }
                 }
@@ -308,8 +291,6 @@ pipeline {
                                 stash includes: "uploadPath-${PBM_VERSION}", name: "uploadPath-${PBM_VERSION}"
                                 buildStage("ubuntu:jammy", "")
                                 pushArtifactFolder(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
-                                uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
                         }
                     }
                 }
@@ -329,8 +310,6 @@ pipeline {
                                 stash includes: "uploadPath-${PBM_VERSION}", name: "uploadPath-${PBM_VERSION}"
                                 buildStage("ubuntu:noble", "")
                                 pushArtifactFolder(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
-                                uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
                         }
                     }
                 }
@@ -350,8 +329,6 @@ pipeline {
                                 stash includes: "uploadPath-${PBM_VERSION}", name: "uploadPath-${PBM_VERSION}"
                                 buildStage("ubuntu:noble", "")
                                 pushArtifactFolder(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
-                                uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
                         }
                     }
                 }
@@ -371,8 +348,6 @@ pipeline {
                                 stash includes: "uploadPath-${PBM_VERSION}", name: "uploadPath-${PBM_VERSION}"
                                 buildStage("debian:bullseye", "")
                                 pushArtifactFolder(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
-                                uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
                         }
                     }
                 }
@@ -392,13 +367,26 @@ pipeline {
                                 stash includes: "uploadPath-${PBM_VERSION}", name: "uploadPath-${PBM_VERSION}"
                                 buildStage("debian:bookworm", "")
                                 pushArtifactFolder(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH)
-                                uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
-                                uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
                         }
                     }
                 }
             }  //parallel
         } // stage
+                stage('Upload SBOMS from AWS') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        uploadSBOMfromAWS(params.CLOUD, "pbm_sbom/", AWS_STASH_PATH, "json", "${PBM_VERSION}")
+                    }
+                }
+                stage('Push SBOMS to TESTING downloads area') {
+                    steps {
+                        cleanUpWS()
+                        uploadPBMSBOMToTestingDownloadServer("pbm_sbom", "${PBM_VERSION}", "json")
+                    }
+                }
 
     }
     post {

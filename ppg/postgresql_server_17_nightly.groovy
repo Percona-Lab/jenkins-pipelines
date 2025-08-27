@@ -41,7 +41,7 @@ pipeline {
             description: 'URL for ppg-server repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'release-17.5.2',
+            defaultValue: 'release-17.5.3',
             description: 'Tag/Branch for postgresql',
             name: 'PG_BRANCH')
         string(
@@ -49,11 +49,11 @@ pipeline {
             description: 'Tag/Branch for ppg-server repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '2',
+            defaultValue: '3',
             description: 'RPM release value',
             name: 'RPM_RELEASE')
         string(
-            defaultValue: '2',
+            defaultValue: '3',
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
@@ -171,6 +171,32 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_rpm=1")
+
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Oracle Linux 10 AMD') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:10", "--build_rpm=1")
+
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Oracle Linux 10 ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:10", "--build_rpm=1")
 
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)

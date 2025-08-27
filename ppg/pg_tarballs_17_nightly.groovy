@@ -124,7 +124,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=17
-                                def BRANCH_NAME = "release-17.5.2"
+                                def BRANCH_NAME = "release-17.5.3"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -150,7 +150,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=17
-                                def BRANCH_NAME = 'release-17.5.2'
+                                def BRANCH_NAME = 'release-17.5.3'
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -176,7 +176,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=17
-                                def BRANCH_NAME = "release-17.5.2"
+                                def BRANCH_NAME = "release-17.5.3"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -202,7 +202,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=17
-                                def BRANCH_NAME = 'release-17.5.2'
+                                def BRANCH_NAME = 'release-17.5.3'
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
