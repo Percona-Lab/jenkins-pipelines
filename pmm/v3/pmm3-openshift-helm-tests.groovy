@@ -76,6 +76,8 @@ pipeline {
                     cd /srv/pmm-qa/k8s
                     sudo ./setup_bats_libs.sh
 
+                    sudo chown -R "$(id -un)":"$(id -gn)" /srv/pmm-qa
+
                     # Install kubectl
                     bash -x ./install_k8s_tools.sh --kubectl --helm --sudo
                     sleep 5
