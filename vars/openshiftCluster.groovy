@@ -436,7 +436,7 @@ def list(Map config = [:]) {
         // Transform discovered clusters to match expected format
         def clusters = []
         discoveredClusters.each { cluster ->
-            clusters << [
+            def clusterInfo = [
                 name: cluster.name,
                 version: cluster.metadata?.openshift_version ?: 'Unknown',
                 region: cluster.metadata?.aws_region ?: params.region,
@@ -448,6 +448,11 @@ def list(Map config = [:]) {
                 has_backup: cluster.s3State?.hasBackup ? 'Yes' : 'No',
                 resource_count: cluster.resources?.size() ?: 0
             ]
+            // Include base name if present (for clusters with random suffixes)
+            if (cluster.baseName) {
+                clusterInfo.baseName = cluster.baseName
+            }
+            clusters << clusterInfo
         }
 
         // Log discovery summary
