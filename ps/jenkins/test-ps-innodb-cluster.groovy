@@ -179,7 +179,6 @@ pipeline {
                 'ubuntu-focal',  
                 'debian-12',
                 'debian-11',
-                'centos-7',
                 'oracle-8',
                 'oracle-9',
                 'rhel-8',
