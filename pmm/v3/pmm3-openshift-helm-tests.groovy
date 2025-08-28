@@ -38,6 +38,10 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
+            defaultValue: 'latest',
+            description: 'Helm chart branch to use. Leave "latest" to use latest released chart',
+            name: 'PMM_CHART_BRANCH')
+        string(
             defaultValue: 'perconalab/pmm-server',
             description: 'PMM Server image repository',
             name: 'IMAGE_REPO')
@@ -133,6 +137,7 @@ pipeline {
                     export BATS_LIB_PATH="/srv/pmm-qa/k8s/lib"
                     export IMAGE_REPO=${IMAGE_REPO}
                     export IMAGE_TAG=${IMAGE_TAG}
+                    export PMM_CHART_BRANCH=${PMM_CHART_BRANCH}
                     bats --tap helm-test.bats
                 """
             }
