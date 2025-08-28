@@ -10,9 +10,7 @@ pipeline {
     }
     environment {
         product_to_test = "${params.product_to_test}"
-        node_to_test = "${params.server_to_test}"
         install_repo = "${params.install_repo}"
-        server_to_test  = "${params.server_to_test}"
         scenario_to_test = "${params.scenario_to_test}"
         TESTING_BRANCH = "${params.TESTING_BRANCH}"
     }
@@ -40,26 +38,11 @@ pipeline {
         )
         choice(
             choices: [
-                'ps_innovation_lts',
-                'ms_innovation_lts',
-                'ps-80',
-                'ms-80',
-                'ps-84',
-                'ms-84'
+                'no',
+                'yes'
             ],
-            description: 'Server to test',
-            name: 'server_to_test'
-        )
-        choice(
-            choices: [
-                'all',
-                'install',
-                'upgrade',
-                'upstream',
-                'kms'
-            ],
-            description: 'Scenario To Test',
-            name: 'scenario_to_test'
+            description: 'test upstream packages',
+            name: 'upstream'
         )
 
     }
@@ -70,7 +53,7 @@ pipeline {
         stage('Set Build Name'){
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${product_to_test}-${server_to_test}-${scenario_to_test}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${product_to_test}-upstream:${upstream}"
                 }
             }
         }
@@ -79,6 +62,7 @@ pipeline {
                 stage("install") {
                     steps {
                         script {
+
                             runpxbptjob("install")
                         }
                     }
@@ -103,11 +87,34 @@ pipeline {
 }
 
 void runpxbptjob(String scenario_to_test) {
+
+    if (upstream == "yes") {
+        if (product_to_test == "pxb_innovation_lts") {
+            server = "ms_innovation_lts"
+        } else if (product_to_test == "pxb_80") {
+            server = "ms-80"
+        } else if (product_to_test == "pxb_84") {
+            server = "ms-84"
+        } else {
+            echo "Not added support for this product version"
+        }
+    } else if (upstream == "no") {
+        if (product_to_test == "pxb_innovation_lts") {
+            server = "ps_innovation_lts"
+        } else if (product_to_test == "pxb_80") {
+            server = "ps-80"
+        } else if (product_to_test == "pxb_84") {
+            server = "ps-84"
+        } else {
+            echo "Not added support for this product version"
+        }
+    }
+
     build(
         job: 'pxb-package-testing-molecule',
         parameters: [
             string(name: "scenario_to_test", value: scenario_to_test),
-            string(name: "server_to_test", value: params.server_to_test),
+            string(name: "server_to_test", value: server),
             string(name: "git_repo", value: git_repo),
             string(name: "install_repo", value: params.install_repo),
             string(name: "product_to_test", value: params.product_to_test),

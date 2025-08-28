@@ -87,7 +87,9 @@ pipeline {
     }
     stage ('Run playbook for test') {
       steps {
-          withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+          withCredentials([
+             usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME'),
+             usernamePassword(credentialsId: 'OIDC_ACCESS', passwordVariable: 'OIDC_CLIENT_SECRET', usernameVariable: 'OIDC_CLIENT_ID')]) {
           script{
               moleculeExecuteActionWithScenario(moleculeDir, "converge", env.PLATFORM)
             }

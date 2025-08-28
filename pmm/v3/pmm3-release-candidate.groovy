@@ -280,6 +280,9 @@ pipeline {
                             ]
                             env.TARBALL_AMD64_URL = pmmClient.buildVariables.TARBALL_AMD64_URL
                             env.TARBALL_ARM64_URL = pmmClient.buildVariables.TARBALL_ARM64_URL
+
+                            env.TARBALL_AMD64_DYNAMIC_OL8_URL = pmmClient.buildVariables.TARBALL_AMD64_DYNAMIC_OL8_URL
+                            env.TARBALL_AMD64_DYNAMIC_OL9_URL = pmmClient.buildVariables.TARBALL_AMD64_DYNAMIC_OL9_URL
                         }
                     }
                 }
@@ -382,6 +385,8 @@ OVA: https://percona-vm.s3.amazonaws.com/PMM3-Server-${VERSION}.ova
 AMI: ${env.AMI_ID}
 Tarball AMD64: ${env.TARBALL_AMD64_URL}
 Tarball ARM64: ${env.TARBALL_ARM64_URL}
+Tarball AMD64 (GSSAPI) OL8: ${env.TARBALL_AMD64_DYNAMIC_OL8_URL}
+Tarball AMD64 (GSSAPI) OL9: ${env.TARBALL_AMD64_DYNAMIC_OL9_URL}
 ${env.SCAN_REPORT_URL}
                       """
         }
