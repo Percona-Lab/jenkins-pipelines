@@ -40,7 +40,7 @@ void setup_rhel_10_package_tests()
     sh '''
         sudo dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm
         sudo dnf -y update
-        sudo dnf install -y ansible-core git wget dpkg
+        sudo dnf install -y ansible-core git wget
     '''
 }
 
