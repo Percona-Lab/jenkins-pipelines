@@ -4,7 +4,6 @@
     description: |
       List all OpenShift clusters deployed via Jenkins.
       Shows cluster name, version, region, creator, and deployment time.
-
     parameters:
       - string:
           name: AWS_REGION
@@ -16,7 +15,6 @@
           choices:
             - table
             - json
-
     pipeline-scm:
       scm:
         - git:
@@ -25,9 +23,7 @@
               - master
       script-path: cloud/jenkins/openshift_cluster_list.groovy
       lightweight-checkout: true
-
     concurrent: true
-
     properties:
       - build-discarder:
           days-to-keep: 7

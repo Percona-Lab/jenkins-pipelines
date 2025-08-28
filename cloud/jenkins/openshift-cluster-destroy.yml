@@ -2,16 +2,15 @@
     name: openshift-cluster-destroy
     project-type: pipeline
     description: |
-        Destroy OpenShift clusters on AWS.
+      Destroy OpenShift clusters on AWS.
 
-        This job:
-        - Downloads cluster state from S3
-        - Destroys all cluster resources
-        - Cleans up S3 backup (optional)
-        - Verifies resource cleanup
+      This job:
+      - Downloads cluster state from S3
+      - Destroys all cluster resources
+      - Cleans up S3 backup (optional)
+      - Verifies resource cleanup
 
-        WARNING: This operation is irreversible!
-
+      WARNING: This operation is irreversible!
     parameters:
       - string:
           name: CLUSTER_NAME
@@ -37,19 +36,16 @@
             - 'error-cleanup'
             - 'other'
           description: 'Reason for cluster destruction'
-
     pipeline-scm:
       scm:
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+              - 'master'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: cloud/jenkins/openshift_cluster_destroy.groovy
-
     concurrent: true
-
     properties:
       - build-discarder:
           days-to-keep: 30
