@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@fix-in', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
 void installDependencies() {
@@ -179,7 +179,6 @@ pipeline {
                 'ubuntu-focal',  
                 'debian-12',
                 'debian-11',
-                'centos-7',
                 'oracle-8',
                 'oracle-9',
                 'rhel-8',
@@ -299,14 +298,14 @@ pipeline {
         }
     }
 
-//    post {
-//        always {
-//            script {
-//                runMoleculeAction("destroy", params.TEST_DIST)
-//            }
-//
-//            deleteBuildInstances()
-//
-//        }
-//    }
+    post {
+        always {
+            script {
+                runMoleculeAction("destroy", params.TEST_DIST)
+            }
+
+            deleteBuildInstances()
+
+        }
+    }
 }
