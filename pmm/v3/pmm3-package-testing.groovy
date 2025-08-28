@@ -35,6 +35,14 @@ void setup_rhel_package_tests()
     '''
 }
 
+void setup_rhel_10_package_tests()
+{
+    sh '''
+        sudo dnf -y update
+        sudo dnf install -y ansible-core git wget dpkg
+    '''
+}
+
 void setup_debian_package_tests()
 {
     sh '''
@@ -179,6 +187,7 @@ pipeline {
                         label 'min-rhel-10-arm64'
                     }
                     steps{
+                        setup_rhel_10_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
                     }
                     post {
