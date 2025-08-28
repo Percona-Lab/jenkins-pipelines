@@ -299,14 +299,14 @@ pipeline {
         }
     }
 
-#    post {
-#        always {
-#            script {
-#                runMoleculeAction("destroy", params.TEST_DIST)
-#            }
-#
-#            deleteBuildInstances()
-#
-#        }
-#    }
+//    post {
+//        always {
+//            script {
+//                runMoleculeAction("destroy", params.TEST_DIST)
+//            }
+//
+//            deleteBuildInstances()
+//
+//        }
+//    }
 }
