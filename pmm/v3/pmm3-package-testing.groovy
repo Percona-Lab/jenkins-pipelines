@@ -179,7 +179,6 @@ pipeline {
                         label 'min-rhel-10-arm64'
                     }
                     steps{
-                        setup_rhel_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
                     }
                     post {
