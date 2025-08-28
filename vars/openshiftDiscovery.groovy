@@ -193,15 +193,14 @@ private performAWSResourceDiscovery(String region, String accessKey = null, Stri
         def clusters = [:]
 
         // Set up AWS credentials if provided
-        def awsEnv = [:]
+        def awsEnvVars = []
         if (accessKey && secretKey) {
-            awsEnv['AWS_ACCESS_KEY_ID'] = accessKey
-            awsEnv['AWS_SECRET_ACCESS_KEY'] = secretKey
+            awsEnvVars = ["AWS_ACCESS_KEY_ID=${accessKey}", "AWS_SECRET_ACCESS_KEY=${secretKey}"]
         }
 
         // First, get all VPCs to identify cluster names
         def vpcOutput = ''
-        withEnv(awsEnv.collect { k, v -> "${k}=${v}" }) {
+        withEnv(awsEnvVars) {
             vpcOutput = sh(
                 script: """
                     aws resourcegroupstaggingapi get-resources \
@@ -250,7 +249,7 @@ private performAWSResourceDiscovery(String region, String accessKey = null, Stri
 
             // Get metadata from first EC2 instance
             def metadataJson = ''
-            withEnv(awsEnv.collect { k, v -> "${k}=${v}" }) {
+            withEnv(awsEnvVars) {
                 metadataJson = sh(
                     script: """
                         aws resourcegroupstaggingapi get-resources \
@@ -297,7 +296,7 @@ private performAWSResourceDiscovery(String region, String accessKey = null, Stri
             // Count resources for this cluster
             resourceTypes.each { resourceType, displayName ->
                 def count = ''
-                withEnv(awsEnv.collect { k, v -> "${k}=${v}" }) {
+                withEnv(awsEnvVars) {
                     count = sh(
                         script: """
                             aws resourcegroupstaggingapi get-resources \
