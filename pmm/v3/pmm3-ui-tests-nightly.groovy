@@ -44,6 +44,33 @@ void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
     env.ADMIN_PASSWORD = "admin"
 }
 
+def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PASSWORD) {
+    def clusterName = "nightly-test-${env.BUILD_NUMBER}"
+    def pmmImageRepo = DOCKER_VERSION.split(":")[0]
+    def pmmImageTag = DOCKER_VERSION.split(":")[1]
+
+    clusterCreateJob = build job: 'openshift-cluster-create', parameters: [
+        string(name: 'CLUSTER_NAME', value: clusterName),
+        string(name: 'OPENSHIFT_VERSION', value: OPENSHIFT_VERSION),
+        booleanParam(name: 'DEPLOY_PMM', value: true),
+        string(name: 'TEAM_NAME', value: 'pmm'),
+        string(name: 'PRODUCT_TAG', value: 'pmm'),
+        string(name: 'PMM_ADMIN_PASSWORD', value: ADMIN_PASSWORD),
+        string(name: 'PMM_IMAGE_REPOSITORY', value: pmmImageRepo),
+        string(name: 'PMM_IMAGE_TAG', value: pmmImageTag),
+    ]
+
+    def pmmUiUrl = clusterCreateJob.buildVariables.PMM_URL
+    def pmmHostname = pmmUiUrl.split("//")[1]
+
+    env.VM_IP = pmmHostname
+    env.VM_NAME = clusterCreateJob.buildVariables.VM_NAME
+    env.WORK_DIR = clusterCreateJob.buildVariables.WORK_DIR
+    env.FINAL_CLUSTER_NAME = clusterCreateJob.buildVariables.FINAL_CLUSTER_NAME
+    env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${pmmHostname}"
+    env.PMM_UI_URL = pmmUiUrl
+}
+
 void runAMIStagingStart(String AMI_ID) {
     amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
         string(name: 'AMI_ID', value: AMI_ID)
@@ -191,7 +218,7 @@ pipeline {
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: ['docker', 'ovf', 'ami'],
+            choices: ['docker', 'ovf', 'ami', 'helm'],
             description: "PMM Server installation type.",
             name: 'SERVER_TYPE')
         string(
@@ -218,6 +245,10 @@ pipeline {
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
+        choice(
+            choices: ['latest', '4.19.6', '4.19.5', '4.19.4', '4.19.3', '4.19.2', '4.18.9', '4.18.8', '4.18.7', '4.18.6', '4.18.5', '4.17.9', '4.17.8', '4.17.7', '4.17.6', '4.17.5', '4.16.9', '4.16.8', '4.16.7', '4.16.6', '4.16.5'],
+            description: 'OpenShift version to install (specific version or channel)',
+            name: 'OPENSHIFT_VERSION')
         choice(
             choices: ['8.0', '8.4', '5.7'],
             description: 'Percona XtraDB Cluster version',
@@ -299,6 +330,14 @@ pipeline {
                     }
                     steps {
                         runAMIStagingStart(DOCKER_VERSION)
+                    }
+                }
+                stage('Setup Helm Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "helm" }
+                    }
+                    steps {
+                        runOpenshiftClusterCreate(OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PASSWORD)
                     }
                 }
             }
