@@ -78,6 +78,34 @@ log_debug() {
     fi
 }
 
+# Execute command with timeout
+# Usage: execute_with_timeout <timeout_seconds> <command>
+execute_with_timeout() {
+    local timeout_sec="$1"
+    shift
+    local cmd="$*"
+    
+    log_debug "Executing with ${timeout_sec}s timeout: $cmd"
+    
+    # Use timeout command if available
+    if command -v timeout &>/dev/null; then
+        if timeout "$timeout_sec" bash -c "$cmd" 2>&1; then
+            return 0
+        else
+            local exit_code=$?
+            if [[ $exit_code -eq 124 ]]; then
+                log_warning "Command timed out after ${timeout_sec}s, continuing..."
+                return 124
+            else
+                return $exit_code
+            fi
+        fi
+    else
+        # Fallback: run without timeout if timeout command not available
+        eval "$cmd"
+    fi
+}
+
 # Help function
 show_help() {
     cat <<EOF
@@ -640,9 +668,11 @@ destroy_aws_resources() {
 
     for eip in $eips; do
         if [[ "$DRY_RUN" == "false" ]]; then
-            aws ec2 release-address --allocation-id "$eip" \
-                --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>/dev/null || true
-            log_info "  Released Elastic IP: $eip"
+            if execute_with_timeout 30 "aws ec2 release-address --allocation-id '$eip' --region '$AWS_REGION' --profile '$AWS_PROFILE'"; then
+                log_info "  Released Elastic IP: $eip"
+            else
+                log_warning "  Failed to release Elastic IP: $eip (may already be released)"
+            fi
         else
             log_info "  [DRY RUN] Would release Elastic IP: $eip"
         fi
@@ -669,19 +699,19 @@ destroy_aws_resources() {
         # Delete rules first to avoid dependency issues
         for sg in $sgs; do
             if [[ "$DRY_RUN" == "false" ]]; then
-                # Remove all ingress rules
-                aws ec2 revoke-security-group-ingress --group-id "$sg" \
-                    --region "$AWS_REGION" --profile "$AWS_PROFILE" \
-                    --source-group "$sg" --protocol all 2>/dev/null || true
+                # Remove all ingress rules (quick timeout as this often fails due to dependencies)
+                execute_with_timeout 10 "aws ec2 revoke-security-group-ingress --group-id '$sg' --region '$AWS_REGION' --profile '$AWS_PROFILE' --source-group '$sg' --protocol all" || true
             fi
         done
 
-        # Now delete the security groups
+        # Now delete the security groups with timeout
         for sg in $sgs; do
             if [[ "$DRY_RUN" == "false" ]]; then
-                aws ec2 delete-security-group --group-id "$sg" \
-                    --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>/dev/null || true
-                log_info "  Deleted Security Group: $sg"
+                if execute_with_timeout 60 "aws ec2 delete-security-group --group-id '$sg' --region '$AWS_REGION' --profile '$AWS_PROFILE'"; then
+                    log_info "  Deleted Security Group: $sg"
+                else
+                    log_warning "  Failed to delete Security Group: $sg (may have dependencies or already deleted)"
+                fi
             else
                 log_info "  [DRY RUN] Would delete Security Group: $sg"
             fi
@@ -698,9 +728,11 @@ destroy_aws_resources() {
 
         for subnet in $subnets; do
             if [[ "$DRY_RUN" == "false" ]]; then
-                aws ec2 delete-subnet --subnet-id "$subnet" \
-                    --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>/dev/null || true
-                log_info "  Deleted Subnet: $subnet"
+                if execute_with_timeout 30 "aws ec2 delete-subnet --subnet-id '$subnet' --region '$AWS_REGION' --profile '$AWS_PROFILE'"; then
+                    log_info "  Deleted Subnet: $subnet"
+                else
+                    log_warning "  Failed to delete Subnet: $subnet (may have dependencies)"
+                fi
             else
                 log_info "  [DRY RUN] Would delete Subnet: $subnet"
             fi
@@ -718,11 +750,12 @@ destroy_aws_resources() {
 
         if [[ "$igw" != "None" && -n "$igw" ]]; then
             if [[ "$DRY_RUN" == "false" ]]; then
-                aws ec2 detach-internet-gateway --internet-gateway-id "$igw" --vpc-id "$vpc_id" \
-                    --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>/dev/null || true
-                aws ec2 delete-internet-gateway --internet-gateway-id "$igw" \
-                    --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>/dev/null || true
-                log_info "  Deleted Internet Gateway: $igw"
+                execute_with_timeout 30 "aws ec2 detach-internet-gateway --internet-gateway-id '$igw' --vpc-id '$vpc_id' --region '$AWS_REGION' --profile '$AWS_PROFILE'" || true
+                if execute_with_timeout 30 "aws ec2 delete-internet-gateway --internet-gateway-id '$igw' --region '$AWS_REGION' --profile '$AWS_PROFILE'"; then
+                    log_info "  Deleted Internet Gateway: $igw"
+                else
+                    log_warning "  Failed to delete Internet Gateway: $igw"
+                fi
             else
                 log_info "  [DRY RUN] Would delete Internet Gateway: $igw"
             fi
@@ -736,9 +769,11 @@ destroy_aws_resources() {
 
         for rt in $rts; do
             if [[ "$DRY_RUN" == "false" ]]; then
-                aws ec2 delete-route-table --route-table-id "$rt" \
-                    --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>/dev/null || true
-                log_info "  Deleted Route Table: $rt"
+                if execute_with_timeout 30 "aws ec2 delete-route-table --route-table-id '$rt' --region '$AWS_REGION' --profile '$AWS_PROFILE'"; then
+                    log_info "  Deleted Route Table: $rt"
+                else
+                    log_warning "  Failed to delete Route Table: $rt (may be main route table)"
+                fi
             else
                 log_info "  [DRY RUN] Would delete Route Table: $rt"
             fi
@@ -749,9 +784,11 @@ destroy_aws_resources() {
     log_info "Step 8/9: Deleting VPC..."
     if [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
         if [[ "$DRY_RUN" == "false" ]]; then
-            aws ec2 delete-vpc --vpc-id "$vpc_id" \
-                --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>/dev/null || true
-            log_info "  Deleted VPC: $vpc_id"
+            if execute_with_timeout 60 "aws ec2 delete-vpc --vpc-id '$vpc_id' --region '$AWS_REGION' --profile '$AWS_PROFILE'"; then
+                log_info "  Deleted VPC: $vpc_id"
+            else
+                log_warning "  Failed to delete VPC: $vpc_id (may still have dependencies)"
+            fi
         else
             log_info "  [DRY RUN] Would delete VPC: $vpc_id"
         fi
