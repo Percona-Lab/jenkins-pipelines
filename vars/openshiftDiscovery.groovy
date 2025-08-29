@@ -193,24 +193,25 @@ private performAWSResourceDiscovery(String region, String accessKey = null, Stri
         def clusters = [:]
 
         // Set up AWS credentials if provided
-        def awsEnv = [:]
+        def awsEnvVars = []
         if (accessKey && secretKey) {
-            awsEnv['AWS_ACCESS_KEY_ID'] = accessKey
-            awsEnv['AWS_SECRET_ACCESS_KEY'] = secretKey
+            awsEnvVars = ["AWS_ACCESS_KEY_ID=${accessKey}", "AWS_SECRET_ACCESS_KEY=${secretKey}"]
         }
 
         // First, get all VPCs to identify cluster names
-        def vpcOutput = sh(
-            script: """
-                aws resourcegroupstaggingapi get-resources \
-                    --resource-type-filters 'ec2:vpc' \
-                    --region ${region} \
-                    --query 'ResourceTagMappingList[].Tags[?starts_with(Key, `kubernetes.io/cluster/`)].Key' \
-                    --output text 2>/dev/null || echo ''
-            """,
-            returnStdout: true,
-            env: awsEnv
-        ).trim()
+        def vpcOutput = ''
+        withEnv(awsEnvVars) {
+            vpcOutput = sh(
+                script: """
+                    aws resourcegroupstaggingapi get-resources \
+                        --resource-type-filters 'ec2:vpc' \
+                        --region ${region} \
+                        --query 'ResourceTagMappingList[].Tags[?starts_with(Key, `kubernetes.io/cluster/`)].Key' \
+                        --output text 2>/dev/null || echo ''
+                """,
+                returnStdout: true
+            ).trim()
+        }
 
         if (!vpcOutput) {
             return [clusters: [], error: null]
@@ -247,18 +248,20 @@ private performAWSResourceDiscovery(String region, String accessKey = null, Stri
             ]
 
             // Get metadata from first EC2 instance
-            def metadataJson = sh(
-                script: """
-                    aws resourcegroupstaggingapi get-resources \
-                        --resource-type-filters 'ec2:instance' \
-                        --tag-filters 'Key=kubernetes.io/cluster/${clusterName}' \
-                        --region ${region} \
-                        --query 'ResourceTagMappingList[0].Tags' \
-                        --output json 2>/dev/null || echo '[]'
-                """,
-                returnStdout: true,
-                env: awsEnv
-            ).trim()
+            def metadataJson = ''
+            withEnv(awsEnvVars) {
+                metadataJson = sh(
+                    script: """
+                        aws resourcegroupstaggingapi get-resources \
+                            --resource-type-filters 'ec2:instance' \
+                            --tag-filters 'Key=kubernetes.io/cluster/${clusterName}' \
+                            --region ${region} \
+                            --query 'ResourceTagMappingList[0].Tags' \
+                            --output json 2>/dev/null || echo '[]'
+                    """,
+                    returnStdout: true
+                ).trim()
+            }
 
             if (metadataJson && metadataJson != '[]' && metadataJson != 'null') {
                 def tags = new JsonSlurper().parseText(metadataJson)
@@ -292,18 +295,20 @@ private performAWSResourceDiscovery(String region, String accessKey = null, Stri
 
             // Count resources for this cluster
             resourceTypes.each { resourceType, displayName ->
-                def count = sh(
-                    script: """
-                        aws resourcegroupstaggingapi get-resources \
-                            --resource-type-filters '${resourceType}' \
-                            --tag-filters 'Key=kubernetes.io/cluster/${clusterName}' \
-                            --region ${region} \
-                            --query 'ResourceTagMappingList | length(@)' \
-                            --output text 2>/dev/null || echo '0'
-                    """,
-                    returnStdout: true,
-                    env: awsEnv
-                ).trim()
+                def count = ''
+                withEnv(awsEnvVars) {
+                    count = sh(
+                        script: """
+                            aws resourcegroupstaggingapi get-resources \
+                                --resource-type-filters '${resourceType}' \
+                                --tag-filters 'Key=kubernetes.io/cluster/${clusterName}' \
+                                --region ${region} \
+                                --query 'ResourceTagMappingList | length(@)' \
+                                --output text 2>/dev/null || echo '0'
+                        """,
+                        returnStdout: true
+                    ).trim()
+                }
 
                 if (count != '0' && count.isInteger()) {
                     cluster.resources[displayName] = count.toInteger()
