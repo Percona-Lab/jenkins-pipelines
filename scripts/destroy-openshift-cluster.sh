@@ -41,7 +41,7 @@ CLUSTER_NAME=""
 INFRA_ID=""
 METADATA_FILE=""
 S3_BUCKET=""
-LOG_FILE="/tmp/openshift-destroy-$(date +%Y%m%d-%H%M%S).log"
+LOG_FILE="$(mktemp -t "openshift-destroy-$(date +%Y%m%d-%H%M%S).XXXXXX.log")"
 
 # Color codes for output
 RED='\033[0;31m'
@@ -80,7 +80,7 @@ log_debug() {
 
 # Help function
 show_help() {
-    cat << EOF
+    cat <<EOF
 OpenShift Cluster Destroyer Script
 
 This script safely removes OpenShift clusters and all associated AWS resources.
@@ -134,7 +134,7 @@ auto_detect_s3_bucket() {
         local account_id=$(aws sts get-caller-identity \
             --profile "$AWS_PROFILE" \
             --query 'Account' --output text 2>/dev/null)
-        
+
         if [[ -n "$account_id" ]]; then
             S3_BUCKET="openshift-clusters-${account_id}-${AWS_REGION}"
             log_debug "Auto-detected S3 bucket: $S3_BUCKET"
@@ -146,67 +146,67 @@ auto_detect_s3_bucket() {
 parse_args() {
     local list_mode=false
     local detailed=false
-    
+
     while [[ $# -gt 0 ]]; do
         case $1 in
-            --list)
-                list_mode=true
-                shift
-                ;;
-            --detailed)
-                detailed=true
-                shift
-                ;;
-            --cluster-name)
-                CLUSTER_NAME="$2"
-                shift 2
-                ;;
-            --infra-id)
-                INFRA_ID="$2"
-                shift 2
-                ;;
-            --metadata-file)
-                METADATA_FILE="$2"
-                shift 2
-                ;;
-            --region)
-                AWS_REGION="$2"
-                shift 2
-                ;;
-            --profile)
-                AWS_PROFILE="$2"
-                shift 2
-                ;;
-            --base-domain)
-                BASE_DOMAIN="$2"
-                shift 2
-                ;;
-            --s3-bucket)
-                S3_BUCKET="$2"
-                shift 2
-                ;;
-            --dry-run)
-                DRY_RUN=true
-                shift
-                ;;
-            --force)
-                FORCE=true
-                shift
-                ;;
-            --verbose)
-                VERBOSE=true
-                shift
-                ;;
-            --help|-h)
-                show_help
-                ;;
-            *)
-                log_error "Unknown option: $1"
-                show_help
-                ;;
+        --list)
+            list_mode=true
+            shift
+            ;;
+        --detailed)
+            detailed=true
+            shift
+            ;;
+        --cluster-name)
+            CLUSTER_NAME="$2"
+            shift 2
+            ;;
+        --infra-id)
+            INFRA_ID="$2"
+            shift 2
+            ;;
+        --metadata-file)
+            METADATA_FILE="$2"
+            shift 2
+            ;;
+        --region)
+            AWS_REGION="$2"
+            shift 2
+            ;;
+        --profile)
+            AWS_PROFILE="$2"
+            shift 2
+            ;;
+        --base-domain)
+            BASE_DOMAIN="$2"
+            shift 2
+            ;;
+        --s3-bucket)
+            S3_BUCKET="$2"
+            shift 2
+            ;;
+        --dry-run)
+            DRY_RUN=true
+            shift
+            ;;
+        --force)
+            FORCE=true
+            shift
+            ;;
+        --verbose)
+            VERBOSE=true
+            shift
+            ;;
+        --help | -h)
+            show_help
+            ;;
+        *)
+            log_error "Unknown option: $1"
+            show_help
+            ;;
         esac
     done
-    
+
     # If list mode, handle it separately
     if [[ "$list_mode" == "true" ]]; then
         # Auto-detect S3 bucket if not provided
@@ -283,7 +283,7 @@ detect_infra_id() {
     if aws s3 ls "s3://${S3_BUCKET}/${cluster_name}/metadata.json" \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" &>/dev/null; then
 
-        local temp_metadata="/tmp/${cluster_name}-metadata.json"
+        local temp_metadata="$(mktemp -t "${cluster_name}-metadata.XXXXXX.json")"
         aws s3 cp "s3://${S3_BUCKET}/${cluster_name}/metadata.json" "$temp_metadata" \
             --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>/dev/null
 
@@ -309,7 +309,7 @@ count_resources() {
     # EC2 Instances
     local instances=$(aws ec2 describe-instances \
         --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
-                  "Name=instance-state-name,Values=running,stopped,stopping,pending" \
+        "Name=instance-state-name,Values=running,stopped,stopping,pending" \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" \
         --query "Reservations[].Instances[].InstanceId" --output text 2>/dev/null | wc -w)
     ((resource_count += instances))
@@ -351,18 +351,18 @@ count_resources() {
         --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" \
         --query "Vpcs[].VpcId" --output text 2>/dev/null | wc -w)
-    
+
     if [[ $vpcs -gt 0 ]]; then
         local vpc_id=$(aws ec2 describe-vpcs \
             --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
             --region "$AWS_REGION" --profile "$AWS_PROFILE" \
             --query "Vpcs[0].VpcId" --output text 2>/dev/null)
-        
+
         if [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
             # Count VPC itself
             ((resource_count += 1))
             log_info "  VPCs: 1" >&2
-            
+
             # Count subnets
             local subnet_count=$(aws ec2 describe-subnets \
                 --filters "Name=vpc-id,Values=$vpc_id" \
@@ -370,7 +370,7 @@ count_resources() {
                 --query "Subnets | length(@)" --output text 2>/dev/null || echo 0)
             ((resource_count += subnet_count))
             [[ $subnet_count -gt 0 ]] && log_info "    Subnets: $subnet_count" >&2
-            
+
             # Count security groups (excluding default)
             local sg_count=$(aws ec2 describe-security-groups \
                 --filters "Name=vpc-id,Values=$vpc_id" \
@@ -378,7 +378,7 @@ count_resources() {
                 --query "SecurityGroups[?GroupName!='default'] | length(@)" --output text 2>/dev/null || echo 0)
             ((resource_count += sg_count))
             [[ $sg_count -gt 0 ]] && log_info "    Security Groups: $sg_count" >&2
-            
+
             # Count route tables (excluding main)
             local rt_count=$(aws ec2 describe-route-tables \
                 --filters "Name=vpc-id,Values=$vpc_id" \
@@ -386,7 +386,7 @@ count_resources() {
                 --query "RouteTables[?Associations[0].Main!=\`true\`] | length(@)" --output text 2>/dev/null || echo 0)
             ((resource_count += rt_count))
             [[ $rt_count -gt 0 ]] && log_info "    Route Tables: $rt_count" >&2
-            
+
             # Count Internet Gateways
             local igw_count=$(aws ec2 describe-internet-gateways \
                 --filters "Name=attachment.vpc-id,Values=$vpc_id" \
@@ -407,7 +407,7 @@ destroy_with_openshift_install() {
     log_info "Attempting destruction with openshift-install..."
 
     # Check if openshift-install is available
-    if ! command -v openshift-install &> /dev/null; then
+    if ! command -v openshift-install &>/dev/null; then
         log_warning "openshift-install not found in PATH"
         return 1
     fi
@@ -490,7 +490,8 @@ cleanup_route53_records() {
 
             if [[ "$DRY_RUN" == "false" ]]; then
                 # Create change batch for deletion
-                local change_batch=$(cat <<EOF
+                local change_batch=$(
+                    cat <<EOF
 {
     "Changes": [{
         "Action": "DELETE",
@@ -521,7 +522,8 @@ EOF
 
             if [[ "$DRY_RUN" == "false" ]]; then
                 # Create change batch for deletion
-                local change_batch=$(cat <<EOF
+                local change_batch=$(
+                    cat <<EOF
 {
     "Changes": [{
         "Action": "DELETE",
@@ -559,7 +561,7 @@ destroy_aws_resources() {
     log_info "Step 1/9: Terminating EC2 instances..."
     local instance_ids=$(aws ec2 describe-instances \
         --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
-                  "Name=instance-state-name,Values=running,stopped,stopping,pending" \
+        "Name=instance-state-name,Values=running,stopped,stopping,pending" \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" \
         --query "Reservations[].Instances[].InstanceId" --output text)
 
@@ -765,13 +767,13 @@ destroy_aws_resources() {
 # List all OpenShift clusters
 list_clusters() {
     local detailed="${1:-false}"
-    
+
     log_info "Searching for OpenShift clusters in region: $AWS_REGION"
     if [[ "$detailed" == "true" ]]; then
         log_warning "Detailed mode enabled - this will be slower as it counts all resources"
     fi
     echo ""
-    
+
     # Find clusters from EC2 instances
     log_info "Checking EC2 instances for cluster tags..."
     local ec2_clusters=$(aws ec2 describe-instances \
@@ -779,7 +781,7 @@ list_clusters() {
         --profile "$AWS_PROFILE" \
         --query 'Reservations[].Instances[].Tags[?Key==`kubernetes.io/cluster/*` && Value==`owned`].Key' \
         --output text 2>/dev/null | sed 's/kubernetes.io\/cluster\///g' | sort -u)
-    
+
     # Find clusters from VPCs
     log_info "Checking VPCs for cluster tags..."
     local vpc_clusters=$(aws ec2 describe-vpcs \
@@ -787,35 +789,35 @@ list_clusters() {
         --profile "$AWS_PROFILE" \
         --query 'Vpcs[].Tags[?starts_with(Key, `kubernetes.io/cluster/`) && Value==`owned`].Key' \
         --output text 2>/dev/null | sed 's/kubernetes.io\/cluster\///g' | sort -u)
-    
+
     # Find clusters from S3
     log_info "Checking S3 bucket for cluster states..."
     local s3_clusters=""
     if [[ -n "$S3_BUCKET" ]]; then
         s3_clusters=$(aws s3 ls "s3://${S3_BUCKET}/" \
             --region "$AWS_REGION" \
-            --profile "$AWS_PROFILE" 2>/dev/null | \
+            --profile "$AWS_PROFILE" 2>/dev/null |
             grep "PRE" | awk '{print $2}' | sed 's/\///')
     fi
-    
+
     # Combine all clusters
     local all_clusters=$(echo -e "$ec2_clusters\n$vpc_clusters\n$s3_clusters" | sort -u | grep -v '^$')
-    
+
     if [[ -z "$all_clusters" ]]; then
         log_warning "No OpenShift clusters found in region $AWS_REGION"
         return 1
     fi
-    
+
     echo ""
     log_info "${BOLD}Found OpenShift Clusters:${NC}"
     echo ""
-    
+
     # Display cluster information
     echo "$all_clusters" | while read -r cluster; do
         if [[ -n "$cluster" ]]; then
             # Extract base name and infra ID
             local base_name="${cluster%-*-*-*-*-*}"
-            
+
             # Resource counting - use detailed mode for full count or quick check for status
             local resource_info=""
             if [[ "$detailed" == "true" ]]; then
@@ -833,13 +835,13 @@ list_clusters() {
                     resource_info="Status: Partial/None"
                 fi
             fi
-            
+
             # Check if S3 state exists
             local s3_state="No"
             if [[ -n "$S3_BUCKET" ]] && aws s3 ls "s3://${S3_BUCKET}/${base_name}/" &>/dev/null; then
                 s3_state="Yes"
             fi
-            
+
             # Get creation time from VPC if available
             local created=""
             local vpc_info=$(aws ec2 describe-vpcs \
@@ -848,23 +850,23 @@ list_clusters() {
                 --profile "$AWS_PROFILE" \
                 --query "Vpcs[0].[VpcId,Tags[?Key=='Name'].Value|[0]]" \
                 --output text 2>/dev/null)
-            
+
             if [[ -n "$vpc_info" ]] && [[ "$vpc_info" != "None" ]]; then
                 local vpc_id=$(echo "$vpc_info" | awk '{print $1}')
                 # Try to get instance launch time
                 local launch_time=$(aws ec2 describe-instances \
                     --filters "Name=tag:kubernetes.io/cluster/$cluster,Values=owned" \
-                            "Name=instance-state-name,Values=running,stopped" \
+                    "Name=instance-state-name,Values=running,stopped" \
                     --region "$AWS_REGION" \
                     --profile "$AWS_PROFILE" \
                     --query "Reservations[0].Instances[0].LaunchTime" \
                     --output text 2>/dev/null)
-                
+
                 if [[ -n "$launch_time" ]] && [[ "$launch_time" != "None" ]]; then
                     created=" (Created: ${launch_time%T*})"
                 fi
             fi
-            
+
             echo -e "  ${BOLD}Cluster:${NC} $base_name"
             echo "    Infrastructure ID: $cluster"
             echo "    $resource_info"
@@ -872,12 +874,12 @@ list_clusters() {
             echo ""
         fi
     done
-    
+
     # Show summary
     local cluster_count=$(echo "$all_clusters" | grep -c .)
     echo ""
     log_info "Total clusters found: $cluster_count"
-    
+
     return 0
 }
 
@@ -906,92 +908,92 @@ cleanup_s3_state() {
 show_resource_details() {
     local infra_id="$1"
     local cluster_name="${CLUSTER_NAME:-${infra_id%-*}}"
-    
+
     echo ""
     log_info "${BOLD}$([ "$DRY_RUN" == "true" ] && echo "RESOURCES THAT WOULD BE DELETED:" || echo "RESOURCES TO BE DELETED:")${NC}"
     echo ""
-    
+
     # List EC2 Instances
     local instances=$(aws ec2 describe-instances \
         --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
-                  "Name=instance-state-name,Values=running,stopped,stopping,pending" \
+        "Name=instance-state-name,Values=running,stopped,stopping,pending" \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" \
         --query "Reservations[].Instances[].[InstanceId,InstanceType,Tags[?Key=='Name'].Value|[0]]" \
         --output text 2>/dev/null)
-    
+
     if [[ -n "$instances" ]]; then
         log_info "EC2 Instances:"
-        echo "$instances" | while read id type name; do
+        echo "$instances" | while read -r id type name; do
             echo "  - $id ($type) - $name"
         done
     fi
-    
+
     # List Load Balancers
     local nlbs=$(aws elbv2 describe-load-balancers \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" \
         --query "LoadBalancers[?contains(LoadBalancerName, '$infra_id')].[LoadBalancerName,Type]" \
         --output text 2>/dev/null)
-    
+
     if [[ -n "$nlbs" ]]; then
         log_info "Load Balancers:"
-        echo "$nlbs" | while read name type; do
+        echo "$nlbs" | while read -r name type; do
             echo "  - $name ($type)"
         done
     fi
-    
+
     # List NAT Gateways
     local nats=$(aws ec2 describe-nat-gateways \
         --filter "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" \
         --query "NatGateways[?State!='deleted'].[NatGatewayId,State]" \
         --output text 2>/dev/null)
-    
+
     if [[ -n "$nats" ]]; then
         log_info "NAT Gateways:"
-        echo "$nats" | while read id state; do
+        echo "$nats" | while read -r id state; do
             echo "  - $id ($state)"
         done
     fi
-    
+
     # List Elastic IPs
     local eips=$(aws ec2 describe-addresses \
         --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" \
         --query "Addresses[].[AllocationId,PublicIp]" \
         --output text 2>/dev/null)
-    
+
     if [[ -n "$eips" ]]; then
         log_info "Elastic IPs:"
-        echo "$eips" | while read id ip; do
+        echo "$eips" | while read -r id ip; do
             echo "  - $id ($ip)"
         done
     fi
-    
+
     # List VPC and related resources
     local vpc=$(aws ec2 describe-vpcs \
         --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" \
         --query "Vpcs[0].[VpcId,CidrBlock]" \
         --output text 2>/dev/null)
-    
+
     if [[ -n "$vpc" && "$vpc" != "None" ]]; then
         log_info "VPC:"
         echo -e "  - $(echo $vpc | awk '{print $1}') ($(echo $vpc | awk '{print $2}'))"
-        
+
         # Count subnets
         local subnet_count=$(aws ec2 describe-subnets \
             --filters "Name=vpc-id,Values=$(echo $vpc | awk '{print $1}')" \
             --region "$AWS_REGION" --profile "$AWS_PROFILE" \
             --query "Subnets | length(@)" --output text 2>/dev/null)
         echo "    - $subnet_count subnets"
-        
+
         # Count security groups
         local sg_count=$(aws ec2 describe-security-groups \
             --filters "Name=vpc-id,Values=$(echo $vpc | awk '{print $1}')" \
             --region "$AWS_REGION" --profile "$AWS_PROFILE" \
             --query "SecurityGroups | length(@)" --output text 2>/dev/null)
         echo "    - $sg_count security groups"
-        
+
         # Count route tables
         local rt_count=$(aws ec2 describe-route-tables \
             --filters "Name=vpc-id,Values=$(echo $vpc | awk '{print $1}')" \
@@ -999,11 +1001,11 @@ show_resource_details() {
             --query "RouteTables | length(@)" --output text 2>/dev/null)
         echo "    - $rt_count route tables"
     fi
-    
+
     # Check Route53 and S3 (simplified for now)
     show_route53_resources "$infra_id"
     show_s3_resources
-    
+
     # Don't return resource counts in the output stream
 }
 
@@ -1011,9 +1013,9 @@ show_resource_details() {
 show_route53_resources() {
     local infra_id="$1"
     local cluster_name="${CLUSTER_NAME:-${infra_id%-*}}"
-    
+
     log_debug "Checking Route53 resources..."
-    
+
     # Skip Route53 check if it's causing issues
     # TODO: Fix Route53 check timeout issue
     return 0
@@ -1030,17 +1032,16 @@ show_s3_resources() {
     fi
 }
 
-
 # Get user confirmation for destruction
 get_user_confirmation() {
     local total_resources="$1"
-    
+
     echo ""
     log_info "${BOLD}TOTAL: Approximately $total_resources AWS resources $([ "$DRY_RUN" == "true" ] && echo "would be" || echo "will be") deleted${NC}"
-    
+
     # Debug output for troubleshooting
     log_debug "About to check confirmation: DRY_RUN=$DRY_RUN, FORCE=$FORCE"
-    
+
     # Show confirmation only in normal mode (not dry-run)
     if [[ "$DRY_RUN" != "true" ]]; then
         log_debug "DRY_RUN is not true, checking FORCE..."
@@ -1069,31 +1070,30 @@ get_user_confirmation() {
 execute_destruction() {
     local infra_id="$1"
     local use_openshift_install=false
-    
+
     # Priority order for destruction methods:
     # 1. Try openshift-install with S3 state (if available)
     # 2. Fall back to manual AWS cleanup
-    
+
     # Try openshift-install if we have cluster name and S3 state
     if [[ -n "$CLUSTER_NAME" ]]; then
         log_info "Checking for S3 state to use openshift-install..."
-        
+
         # Check if S3 has cluster state
         if aws s3 ls "s3://${S3_BUCKET}/${CLUSTER_NAME}/metadata.json" \
             --region "$AWS_REGION" --profile "$AWS_PROFILE" &>/dev/null; then
-            
+
             log_info "Found cluster state in S3, downloading for openshift-install..."
-            
-            local temp_dir="/tmp/openshift-destroy-${CLUSTER_NAME}-$$"
-            mkdir -p "$temp_dir"
-            
+
+            local temp_dir="$(mktemp -d -t "openshift-destroy-${CLUSTER_NAME}.XXXXXX")"
+
             # Download all cluster state from S3
             if aws s3 sync "s3://${S3_BUCKET}/${CLUSTER_NAME}/" "$temp_dir/" \
                 --region "$AWS_REGION" --profile "$AWS_PROFILE" --quiet; then
-                
+
                 if [[ -f "$temp_dir/metadata.json" ]]; then
                     log_info "Successfully downloaded cluster state, using openshift-install..."
-                    
+
                     # Extract infrastructure ID from metadata if not already set
                     if [[ -z "$INFRA_ID" ]]; then
                         INFRA_ID=$(jq -r '.infraID // empty' "$temp_dir/metadata.json" 2>/dev/null)
@@ -1101,14 +1101,14 @@ execute_destruction() {
                             log_info "Extracted infrastructure ID: $INFRA_ID"
                         fi
                     fi
-                    
+
                     # Try openshift-install destroy
                     if destroy_with_openshift_install "$temp_dir"; then
                         use_openshift_install=true
                     else
                         log_warning "openshift-install destroy failed, falling back to manual cleanup"
                     fi
-                    
+
                     # Clean up temp directory
                     rm -rf "$temp_dir"
                 else
@@ -1121,21 +1121,21 @@ execute_destruction() {
             log_info "No S3 state found for cluster: $CLUSTER_NAME"
         fi
     fi
-    
+
     # Fall back to manual cleanup if openshift-install wasn't used or failed
     if [[ "$use_openshift_install" != "true" ]]; then
         log_info "Running comprehensive AWS resource cleanup..."
         destroy_aws_resources "$infra_id"
     fi
-    
+
     # Clean up S3 state
     cleanup_s3_state "${CLUSTER_NAME:-$infra_id}"
-    
+
     # Post-destruction verification
     echo ""
     log_info "Post-destruction verification..."
     local remaining_count=$(count_resources "$infra_id")
-    
+
     if [[ "$remaining_count" -gt 0 ]]; then
         log_warning "$remaining_count resources may still exist. Check AWS console."
     else
@@ -1199,17 +1199,16 @@ main() {
 
     # Show detailed resource list
     show_resource_details "$INFRA_ID"
-    
+
     # Get user confirmation if needed (using the already counted resources)
     get_user_confirmation "$resource_count"
-    
+
     # Execute destruction
     execute_destruction "$INFRA_ID"
-    
+
     log_info "Destruction completed at $(date)"
     log_info "Full log available at: $LOG_FILE"
 }
 
 # Run main function
 main "$@"
-
