@@ -1002,24 +1002,12 @@ show_resource_details() {
         echo "    - $rt_count route tables"
     fi
 
-    # Check Route53 and S3 (simplified for now)
-    show_route53_resources "$infra_id"
+    # Check S3 resources
     show_s3_resources
 
     # Don't return resource counts in the output stream
 }
 
-# Show Route53 resources
-show_route53_resources() {
-    local infra_id="$1"
-    local cluster_name="${CLUSTER_NAME:-${infra_id%-*}}"
-
-    log_debug "Checking Route53 resources..."
-
-    # Skip Route53 check if it's causing issues
-    # TODO: Fix Route53 check timeout issue
-    return 0
-}
 
 # Show S3 resources
 show_s3_resources() {
