@@ -5,6 +5,9 @@
 
 set -euo pipefail
 
+# Check for required tools
+command -v curl >/dev/null 2>&1 || { echo "Error: curl is required but not installed. Please install curl and try again."; exit 1; }
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -27,10 +30,36 @@ get_last_5_patches() {
     local channel=$1
     local version=$2
     
-    local output=$(curl -sH 'Accept: application/json' \
+    # Make API call with status code capture
+    local response=$(curl -sH 'Accept: application/json' \
         --max-time 10 \
-        "https://api.openshift.com/api/upgrades_info/v1/graph?channel=${channel}-${version}" 2>/dev/null | \
-        jq -r '.nodes | if . then map(.version) | sort | .[-5:][] else empty end' 2>/dev/null || echo '')
+        -w '\n%{http_code}' \
+        "https://api.openshift.com/api/upgrades_info/v1/graph?channel=${channel}-${version}" 2>/dev/null)
+    
+    # Extract HTTP status code (last line)
+    local http_code=$(echo "$response" | tail -1)
+    
+    # Extract JSON response (all but last line)
+    local json_response=$(echo "$response" | sed '$d')
+    
+    # Check HTTP status code
+    if [[ "$http_code" != "200" ]]; then
+        if [[ "$http_code" == "000" ]]; then
+            echo "Warning: Connection timeout or network error for ${channel}-${version}" >&2
+        else
+            echo "Warning: API returned HTTP $http_code for ${channel}-${version}" >&2
+        fi
+        echo ""
+        return
+    fi
+    
+    # Parse JSON response
+    # Extract versions from JSON - looking for patterns like "version":"4.16.5"
+    local output=$(echo "$json_response" | \
+        grep -o '"version":"[^"]*"' | \
+        sed 's/"version":"\([^"]*\)"/\1/' | \
+        sort -V | \
+        tail -5)
     
     echo "$output"
 }
@@ -40,10 +69,30 @@ get_all_patches() {
     local channel=$1
     local version=$2
     
-    local output=$(curl -sH 'Accept: application/json' \
+    # Make API call with status code capture
+    local response=$(curl -sH 'Accept: application/json' \
         --max-time 10 \
-        "https://api.openshift.com/api/upgrades_info/v1/graph?channel=${channel}-${version}" 2>/dev/null | \
-        jq -r '.nodes | if . then map(.version) | length else 0 end' 2>/dev/null || echo '0')
+        -w '\n%{http_code}' \
+        "https://api.openshift.com/api/upgrades_info/v1/graph?channel=${channel}-${version}" 2>/dev/null)
+    
+    # Extract HTTP status code (last line)
+    local http_code=$(echo "$response" | tail -1)
+    
+    # Extract JSON response (all but last line)
+    local json_response=$(echo "$response" | sed '$d')
+    
+    # Check HTTP status code
+    if [[ "$http_code" != "200" ]]; then
+        echo "0"  # Return 0 count on error
+        return
+    fi
+    
+    # Parse JSON response
+    # Count the number of version entries in the JSON
+    local output=$(echo "$json_response" | \
+        grep -o '"version":"[^"]*"' | \
+        wc -l | \
+        tr -d ' ')
     
     echo "$output"
 }
