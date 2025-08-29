@@ -46,7 +46,7 @@
             - 'feature/openshift-shared-libraries'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: cloud/jenkins/openshift_cluster_destroy.groovy
+      script-path: pmm/openshift/openshift_cluster_destroy.groovy
 
     concurrent: true
 

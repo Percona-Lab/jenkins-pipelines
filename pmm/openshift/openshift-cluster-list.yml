@@ -23,7 +23,7 @@
             url: https://github.com/nogueiraanderson/jenkins-pipelines.git
             branches:
               - feature/openshift-shared-libraries
-      script-path: cloud/jenkins/openshift_cluster_list.groovy
+      script-path: pmm/openshift/openshift_cluster_list.groovy
       lightweight-checkout: true
 
     concurrent: true
