@@ -1,7 +1,26 @@
 #!/bin/bash
 
-# Script to show the last 5 patch versions for each OpenShift minor version
-# This demonstrates what versions would be available with the new implementation
+# OpenShift Version Checker - Maintenance Tool
+# 
+# Purpose: Check available OpenShift versions to update Jenkins job configurations
+# Usage: Run quarterly (or as needed) to verify and update static version configurations
+# 
+# This tool helps maintain the OpenShift version configuration in Jenkins pipelines by:
+# - Querying the OpenShift API for available versions
+# - Showing the last 5 patch versions per minor release
+# - Generating the configuration exports for Jenkins
+#
+# Process:
+# 1. Run this script quarterly or before major deployments
+# 2. Review the output for any unexpected version gaps or issues
+# 3. Copy the export statements at the end to update Jenkins job configs
+# 4. Document the update in your change log
+#
+# Note: We use static configuration in Jenkins rather than dynamic API calls to:
+# - Avoid API failures during pipeline execution
+# - Prevent rate limiting issues
+# - Ensure human review of version changes
+# - Maintain predictable pipeline behavior
 
 set -euo pipefail
 
