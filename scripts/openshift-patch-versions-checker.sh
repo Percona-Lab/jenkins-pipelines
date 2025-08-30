@@ -44,8 +44,8 @@ echo ""
 VERSIONS=("4.19" "4.18" "4.17" "4.16")
 CHANNELS=("stable" "fast" "candidate")
 
-# Function to get last 5 patches for a version/channel
-get_last_5_patches() {
+# Function to fetch and cache API response
+fetch_api_response() {
     local channel=$1
     local version=$2
     
@@ -64,56 +64,37 @@ get_last_5_patches() {
     # Check HTTP status code
     if [[ "$http_code" != "200" ]]; then
         if [[ "$http_code" == "000" ]]; then
-            echo "Warning: Connection timeout or network error for ${channel}-${version}" >&2
+            echo "ERROR: Connection timeout or network error for ${channel}-${version}" >&2
         else
-            echo "Warning: API returned HTTP $http_code for ${channel}-${version}" >&2
+            echo "ERROR: API returned HTTP $http_code for ${channel}-${version}" >&2
         fi
-        echo ""
-        return
+        return 1
     fi
     
-    # Parse JSON response
+    echo "$json_response"
+}
+
+# Function to get last 5 patches from cached response
+get_last_5_patches() {
+    local json_response=$1
+    
     # Extract versions from JSON - looking for patterns like "version":"4.16.5"
-    local output=$(echo "$json_response" | \
+    echo "$json_response" | \
         grep -o '"version":"[^"]*"' | \
         sed 's/"version":"\([^"]*\)"/\1/' | \
         sort -V | \
-        tail -5)
-    
-    echo "$output"
+        tail -5
 }
 
-# Function to get ALL patches for comparison
-get_all_patches() {
-    local channel=$1
-    local version=$2
+# Function to get patch count from cached response
+get_patch_count() {
+    local json_response=$1
     
-    # Make API call with status code capture
-    local response=$(curl -sH 'Accept: application/json' \
-        --max-time 10 \
-        -w '\n%{http_code}' \
-        "https://api.openshift.com/api/upgrades_info/v1/graph?channel=${channel}-${version}" 2>/dev/null)
-    
-    # Extract HTTP status code (last line)
-    local http_code=$(echo "$response" | tail -1)
-    
-    # Extract JSON response (all but last line)
-    local json_response=$(echo "$response" | sed '$d')
-    
-    # Check HTTP status code
-    if [[ "$http_code" != "200" ]]; then
-        echo "0"  # Return 0 count on error
-        return
-    fi
-    
-    # Parse JSON response
     # Count the number of version entries in the JSON
-    local output=$(echo "$json_response" | \
+    echo "$json_response" | \
         grep -o '"version":"[^"]*"' | \
         wc -l | \
-        tr -d ' ')
-    
-    echo "$output"
+        tr -d ' '
 }
 
 # Check each channel
@@ -127,22 +108,29 @@ for channel in "${CHANNELS[@]}"; do
         echo -e "${YELLOW}OpenShift ${version} (${channel} channel)${NC}"
         echo -e "${YELLOW}─────────────────────────────${NC}"
         
-        # Get total count
-        total_count=$(get_all_patches "$channel" "$version")
+        # Fetch API response once and cache it
+        api_response=$(fetch_api_response "$channel" "$version")
         
-        # Get last 5 patches
-        patches=$(get_last_5_patches "$channel" "$version")
-        
-        if [[ -n "$patches" ]]; then
-            echo -e "${GREEN}Total available: ${total_count} versions${NC}"
-            echo -e "${GREEN}Last 5 patches:${NC}"
-            echo "$patches" | while IFS= read -r patch; do
-                echo "  • $patch"
-            done
+        if [[ $? -eq 0 ]] && [[ -n "$api_response" ]]; then
+            # Get total count from cached response
+            total_count=$(get_patch_count "$api_response")
             
-            # Show the latest (last one)
-            latest=$(echo "$patches" | tail -1)
-            echo -e "${BLUE}  └─> Latest: ${latest}${NC}"
+            # Get last 5 patches from cached response
+            patches=$(get_last_5_patches "$api_response")
+            
+            if [[ -n "$patches" ]]; then
+                echo -e "${GREEN}Total available: ${total_count} versions${NC}"
+                echo -e "${GREEN}Last 5 patches:${NC}"
+                echo "$patches" | while IFS= read -r patch; do
+                    echo "  • $patch"
+                done
+                
+                # Show the latest (last one)
+                latest=$(echo "$patches" | tail -1)
+                echo -e "${BLUE}  └─> Latest: ${latest}${NC}"
+            else
+                echo -e "${RED}  No versions parsed${NC}"
+            fi
         else
             echo -e "${RED}  No versions available${NC}"
         fi
@@ -162,10 +150,14 @@ for channel in "${CHANNELS[@]}"; do
     # Collect all latest versions from each minor version
     all_latest=()
     for version in "${VERSIONS[@]}"; do
-        patches=$(get_last_5_patches "$channel" "$version")
-        if [[ -n "$patches" ]]; then
-            latest=$(echo "$patches" | tail -1)
-            all_latest+=("$latest")
+        # Fetch API response once
+        api_response=$(fetch_api_response "$channel" "$version" 2>/dev/null)
+        if [[ $? -eq 0 ]] && [[ -n "$api_response" ]]; then
+            patches=$(get_last_5_patches "$api_response")
+            if [[ -n "$patches" ]]; then
+                latest=$(echo "$patches" | tail -1)
+                all_latest+=("$latest")
+            fi
         fi
     done
     
