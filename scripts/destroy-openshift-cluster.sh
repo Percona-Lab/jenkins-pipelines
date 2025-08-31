@@ -30,6 +30,39 @@
 set -euo pipefail
 unset PAGER
 
+# Check for required dependencies
+check_dependencies() {
+    local missing_deps=()
+    
+    # Check for required commands
+    for cmd in aws jq; do
+        if ! command -v "$cmd" &>/dev/null; then
+            missing_deps+=("$cmd")
+        fi
+    done
+    
+    # Check for optional but recommended commands
+    if ! command -v timeout &>/dev/null; then
+        echo "WARNING: 'timeout' command not found. Operations may hang indefinitely." >&2
+        echo "         Install coreutils (macOS: brew install coreutils, Linux: usually pre-installed)" >&2
+    fi
+    
+    if [[ ${#missing_deps[@]} -gt 0 ]]; then
+        echo "ERROR: Required dependencies are missing:" >&2
+        for dep in "${missing_deps[@]}"; do
+            echo "  - $dep" >&2
+        done
+        echo "" >&2
+        echo "Please install missing dependencies:" >&2
+        echo "  macOS: brew install awscli jq" >&2
+        echo "  Linux: apt-get install awscli jq  # or yum/dnf equivalent" >&2
+        exit 1
+    fi
+}
+
+# Check dependencies before proceeding
+check_dependencies
+
 # Default values
 AWS_REGION="${AWS_REGION:-us-east-2}"
 AWS_PROFILE="${AWS_PROFILE:-percona-dev-admin}"
@@ -41,7 +74,131 @@ CLUSTER_NAME=""
 INFRA_ID=""
 METADATA_FILE=""
 S3_BUCKET=""
-LOG_FILE="$(mktemp -t "openshift-destroy-$(date +%Y%m%d-%H%M%S).XXXXXX.log")"
+
+# CloudWatch configuration
+CLOUDWATCH_LOG_GROUP="/aws/openshift/cluster-destroyer"
+CLOUDWATCH_LOG_STREAM=""
+CLOUDWATCH_ENABLED=false
+CLOUDWATCH_SEQUENCE_TOKEN=""
+
+# Check if CloudWatch logging is available
+check_cloudwatch_access() {
+    # Check if AWS CLI is configured and we can access CloudWatch
+    if aws logs describe-log-groups --log-group-name-prefix "$CLOUDWATCH_LOG_GROUP" \
+        --region "$AWS_REGION" --profile "$AWS_PROFILE" &>/dev/null; then
+        return 0
+    fi
+    return 1
+}
+
+# Initialize CloudWatch logging
+setup_cloudwatch_logging() {
+    # Only setup if AWS is properly configured
+    if ! check_cloudwatch_access; then
+        return 1
+    fi
+    
+    # Create log group if it doesn't exist
+    # Create log group if it doesn't exist (ignore AlreadyExists error)
+    aws logs create-log-group --log-group-name "$CLOUDWATCH_LOG_GROUP" \
+        --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>&1 | grep -v "ResourceAlreadyExistsException" || true
+    
+    # Create unique log stream name
+    local timestamp=$(date +%Y%m%d-%H%M%S)
+    local user=$(aws sts get-caller-identity --profile "$AWS_PROFILE" --region "$AWS_REGION" \
+        --query 'UserId' --output text 2>/dev/null | cut -d: -f2)
+    CLOUDWATCH_LOG_STREAM="${user:-unknown}-${timestamp}-$$"
+    
+    # Create log stream
+    if aws logs create-log-stream \
+        --log-group-name "$CLOUDWATCH_LOG_GROUP" \
+        --log-stream-name "$CLOUDWATCH_LOG_STREAM" \
+        --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>/dev/null; then
+        CLOUDWATCH_ENABLED=true
+        echo "CloudWatch logging enabled: $CLOUDWATCH_LOG_GROUP/$CLOUDWATCH_LOG_STREAM" >&2
+        return 0
+    fi
+    
+    return 1
+}
+
+# Send log message to CloudWatch
+send_to_cloudwatch() {
+    local message="$1"
+    
+    [[ "$CLOUDWATCH_ENABLED" != "true" ]] && return 0
+    
+    # Prepare log event
+    local timestamp=$(date +%s000)  # Milliseconds since epoch
+    local log_event=$(jq -n \
+        --arg msg "$message" \
+        --arg ts "$timestamp" \
+        '[{message: $msg, timestamp: ($ts | tonumber)}]')
+    
+    # Send to CloudWatch (fire and forget to avoid slowing down the script)
+    {
+        if [[ -n "$CLOUDWATCH_SEQUENCE_TOKEN" ]]; then
+            result=$(aws logs put-log-events \
+                --log-group-name "$CLOUDWATCH_LOG_GROUP" \
+                --log-stream-name "$CLOUDWATCH_LOG_STREAM" \
+                --log-events "$log_event" \
+                --sequence-token "$CLOUDWATCH_SEQUENCE_TOKEN" \
+                --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>/dev/null)
+        else
+            result=$(aws logs put-log-events \
+                --log-group-name "$CLOUDWATCH_LOG_GROUP" \
+                --log-stream-name "$CLOUDWATCH_LOG_STREAM" \
+                --log-events "$log_event" \
+                --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>/dev/null)
+        fi
+        
+        # Update sequence token for next call
+        if [[ -n "$result" ]]; then
+            CLOUDWATCH_SEQUENCE_TOKEN=$(echo "$result" | jq -r '.nextSequenceToken // empty')
+        fi
+    } 2>/dev/null &
+}
+
+# Set up log directory and file
+setup_logging() {
+    local log_dir=""
+    
+    # Try different locations in order of preference
+    if [[ -n "${WORKSPACE:-}" ]] && [[ -d "${WORKSPACE}" ]]; then
+        # Jenkins/CI environment - logs go to workspace
+        log_dir="${WORKSPACE}/logs"
+    elif [[ -n "${CI_PROJECT_DIR:-}" ]] && [[ -d "${CI_PROJECT_DIR}" ]]; then
+        # GitLab CI environment
+        log_dir="${CI_PROJECT_DIR}/logs"
+    else
+        # Local execution - use current directory or home
+        if [[ -w "." ]]; then
+            log_dir="./logs"
+        else
+            log_dir="${HOME}/.openshift-destroy/logs"
+        fi
+    fi
+    
+    # Create log directory if it doesn't exist
+    mkdir -p "$log_dir" 2>/dev/null || {
+        # If we can't create the preferred directory, use temp
+        log_dir="$(mktemp -d -t "openshift-destroy-logs.XXXXXX")"
+    }
+    
+    LOG_FILE="${log_dir}/destroy-$(date +%Y%m%d-%H%M%S)-$$.log"
+    
+    # Ensure log file is created with restricted permissions
+    touch "$LOG_FILE"
+    chmod 600 "$LOG_FILE"
+    
+    echo "Logging to: $LOG_FILE" >&2
+    
+    # Try to set up CloudWatch logging
+    setup_cloudwatch_logging || true
+}
+
+# Initialize logging
+setup_logging
 
 # Color codes for output
 RED='\033[0;31m'
@@ -53,7 +210,10 @@ NC='\033[0m' # No Color
 
 # Logging functions
 log() {
-    echo -e "${1}" | tee -a "$LOG_FILE"
+    local message="${1}"
+    echo -e "${message}" | tee -a "$LOG_FILE"
+    # Also send to CloudWatch if enabled
+    send_to_cloudwatch "$(echo -e "${message}" | sed 's/\x1b\[[0-9;]*m//g')" # Strip color codes for CloudWatch
 }
 
 log_info() {
@@ -79,17 +239,16 @@ log_debug() {
 }
 
 # Execute command with timeout
-# Usage: execute_with_timeout <timeout_seconds> <command>
+# Usage: execute_with_timeout <timeout_seconds> <command> [args...]
 execute_with_timeout() {
     local timeout_sec="$1"
     shift
-    local cmd="$*"
     
-    log_debug "Executing with ${timeout_sec}s timeout: $cmd"
+    log_debug "Executing with ${timeout_sec}s timeout: $*"
     
     # Use timeout command if available
     if command -v timeout &>/dev/null; then
-        if timeout "$timeout_sec" bash -c "$cmd" 2>&1; then
+        if timeout "$timeout_sec" "$@" 2>&1; then
             return 0
         else
             local exit_code=$?
@@ -102,7 +261,8 @@ execute_with_timeout() {
         fi
     else
         # Fallback: run without timeout if timeout command not available
-        eval "$cmd"
+        log_warning "timeout command not available, running without timeout"
+        "$@"
     fi
 }
 
@@ -116,7 +276,11 @@ This script safely removes OpenShift clusters and all associated AWS resources.
 USAGE:
     $(basename "$0") [OPTIONS]
 
-REQUIRED (one of):
+COMMANDS:
+    --list                 List all OpenShift clusters in the region
+    --list --detailed      List clusters with detailed resource counts
+
+REQUIRED (one of these for destruction):
     --cluster-name NAME     Base cluster name (will auto-detect infra-id)
     --infra-id ID          Infrastructure ID (e.g., cluster-name-xxxxx)
     --metadata-file PATH   Path to metadata.json file
@@ -128,6 +292,7 @@ OPTIONS:
     --dry-run             Show what would be deleted without actually deleting
     --force               Skip confirmation prompts
     --verbose             Enable verbose output
+    --detailed            Show detailed resource counts (with --list)
     --s3-bucket BUCKET    S3 bucket for state files (auto-detected if not provided)
     --help                Show this help message
 
@@ -247,11 +412,52 @@ parse_args() {
 }
 
 # Validate inputs
+# Validate input to prevent injection attacks
+validate_input_string() {
+    local input="$1"
+    local input_name="$2"
+    
+    # Check for empty input
+    if [[ -z "$input" ]]; then
+        return 0
+    fi
+    
+    # Validate against safe pattern (alphanumeric, dash, underscore only)
+    if [[ ! "$input" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+        log_error "$input_name contains invalid characters. Only alphanumeric, dash, and underscore allowed."
+        log_error "Provided value: '$input'"
+        exit 1
+    fi
+    
+    # Check length (reasonable limits)
+    if [[ ${#input} -gt 63 ]]; then
+        log_error "$input_name is too long (max 63 characters)"
+        exit 1
+    fi
+}
+
 validate_inputs() {
     # Check if at least one identifier is provided
     if [[ -z "$CLUSTER_NAME" && -z "$INFRA_ID" && -z "$METADATA_FILE" ]]; then
         log_error "You must provide either --cluster-name, --infra-id, or --metadata-file"
         show_help
+    fi
+    
+    # Validate input strings to prevent injection
+    validate_input_string "$CLUSTER_NAME" "Cluster name"
+    validate_input_string "$INFRA_ID" "Infrastructure ID"
+    validate_input_string "$AWS_PROFILE" "AWS profile"
+    
+    # Validate AWS region format
+    if [[ ! "$AWS_REGION" =~ ^[a-z]{2}-[a-z]+-[0-9]+$ ]]; then
+        log_error "Invalid AWS region format: $AWS_REGION"
+        exit 1
+    fi
+    
+    # Validate base domain format
+    if [[ ! "$BASE_DOMAIN" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+[a-zA-Z0-9]$ ]]; then
+        log_error "Invalid base domain format: $BASE_DOMAIN"
+        exit 1
     fi
 
     # Check AWS credentials
@@ -266,6 +472,12 @@ validate_inputs() {
         local account_id=$(aws sts get-caller-identity --profile "$AWS_PROFILE" --query Account --output text)
         S3_BUCKET="openshift-clusters-${account_id}-${AWS_REGION}"
         log_debug "Auto-detected S3 bucket: $S3_BUCKET"
+    else
+        # Validate S3 bucket name if provided
+        if [[ ! "$S3_BUCKET" =~ ^[a-z0-9][a-z0-9.-]*[a-z0-9]$ ]] || [[ ${#S3_BUCKET} -gt 63 ]]; then
+            log_error "Invalid S3 bucket name: $S3_BUCKET"
+            exit 1
+        fi
     fi
 }
 
@@ -297,7 +509,7 @@ detect_infra_id() {
     local vpc_tags=$(aws ec2 describe-vpcs \
         --filters "Name=tag-key,Values=kubernetes.io/cluster/${cluster_name}*" \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" \
-        --query "Vpcs[].Tags[?starts_with(Key, 'kubernetes.io/cluster/')].Key" \
+        --query "Vpcs[].Tags[?contains(Key, 'kubernetes.io/cluster/')].Key" \
         --output text 2>/dev/null)
 
     if [[ -n "$vpc_tags" ]]; then
@@ -668,7 +880,7 @@ destroy_aws_resources() {
 
     for eip in $eips; do
         if [[ "$DRY_RUN" == "false" ]]; then
-            if execute_with_timeout 30 "aws ec2 release-address --allocation-id '$eip' --region '$AWS_REGION' --profile '$AWS_PROFILE'"; then
+            if execute_with_timeout 30 aws ec2 release-address --allocation-id "$eip" --region "$AWS_REGION" --profile "$AWS_PROFILE"; then
                 log_info "  Released Elastic IP: $eip"
             else
                 log_warning "  Failed to release Elastic IP: $eip (may already be released)"
@@ -700,14 +912,17 @@ destroy_aws_resources() {
         for sg in $sgs; do
             if [[ "$DRY_RUN" == "false" ]]; then
                 # Remove all ingress rules (quick timeout as this often fails due to dependencies)
-                execute_with_timeout 10 "aws ec2 revoke-security-group-ingress --group-id '$sg' --region '$AWS_REGION' --profile '$AWS_PROFILE' --source-group '$sg' --protocol all" || true
+                # Revoke ingress rules - this often fails due to dependencies, which is expected
+                if ! execute_with_timeout 10 aws ec2 revoke-security-group-ingress --group-id "$sg" --region "$AWS_REGION" --profile "$AWS_PROFILE" --source-group "$sg" --protocol all 2>&1 | grep -v "InvalidPermission.NotFound"; then
+                    log_debug "Could not revoke all rules for $sg (may have dependencies or custom rules)"
+                fi
             fi
         done
 
         # Now delete the security groups with timeout
         for sg in $sgs; do
             if [[ "$DRY_RUN" == "false" ]]; then
-                if execute_with_timeout 60 "aws ec2 delete-security-group --group-id '$sg' --region '$AWS_REGION' --profile '$AWS_PROFILE'"; then
+                if execute_with_timeout 60 aws ec2 delete-security-group --group-id "$sg" --region "$AWS_REGION" --profile "$AWS_PROFILE"; then
                     log_info "  Deleted Security Group: $sg"
                 else
                     log_warning "  Failed to delete Security Group: $sg (may have dependencies or already deleted)"
@@ -728,7 +943,7 @@ destroy_aws_resources() {
 
         for subnet in $subnets; do
             if [[ "$DRY_RUN" == "false" ]]; then
-                if execute_with_timeout 30 "aws ec2 delete-subnet --subnet-id '$subnet' --region '$AWS_REGION' --profile '$AWS_PROFILE'"; then
+                if execute_with_timeout 30 aws ec2 delete-subnet --subnet-id "$subnet" --region "$AWS_REGION" --profile "$AWS_PROFILE"; then
                     log_info "  Deleted Subnet: $subnet"
                 else
                     log_warning "  Failed to delete Subnet: $subnet (may have dependencies)"
@@ -750,8 +965,11 @@ destroy_aws_resources() {
 
         if [[ "$igw" != "None" && -n "$igw" ]]; then
             if [[ "$DRY_RUN" == "false" ]]; then
-                execute_with_timeout 30 "aws ec2 detach-internet-gateway --internet-gateway-id '$igw' --vpc-id '$vpc_id' --region '$AWS_REGION' --profile '$AWS_PROFILE'" || true
-                if execute_with_timeout 30 "aws ec2 delete-internet-gateway --internet-gateway-id '$igw' --region '$AWS_REGION' --profile '$AWS_PROFILE'"; then
+                # Detach IGW - may already be detached
+                if ! execute_with_timeout 30 aws ec2 detach-internet-gateway --internet-gateway-id "$igw" --vpc-id "$vpc_id" --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>&1 | grep -v "Gateway.NotAttached"; then
+                    log_debug "IGW may already be detached: $igw"
+                fi
+                if execute_with_timeout 30 aws ec2 delete-internet-gateway --internet-gateway-id "$igw" --region "$AWS_REGION" --profile "$AWS_PROFILE"; then
                     log_info "  Deleted Internet Gateway: $igw"
                 else
                     log_warning "  Failed to delete Internet Gateway: $igw"
@@ -769,7 +987,7 @@ destroy_aws_resources() {
 
         for rt in $rts; do
             if [[ "$DRY_RUN" == "false" ]]; then
-                if execute_with_timeout 30 "aws ec2 delete-route-table --route-table-id '$rt' --region '$AWS_REGION' --profile '$AWS_PROFILE'"; then
+                if execute_with_timeout 30 aws ec2 delete-route-table --route-table-id "$rt" --region "$AWS_REGION" --profile "$AWS_PROFILE"; then
                     log_info "  Deleted Route Table: $rt"
                 else
                     log_warning "  Failed to delete Route Table: $rt (may be main route table)"
@@ -784,7 +1002,7 @@ destroy_aws_resources() {
     log_info "Step 8/9: Deleting VPC..."
     if [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
         if [[ "$DRY_RUN" == "false" ]]; then
-            if execute_with_timeout 60 "aws ec2 delete-vpc --vpc-id '$vpc_id' --region '$AWS_REGION' --profile '$AWS_PROFILE'"; then
+            if execute_with_timeout 60 aws ec2 delete-vpc --vpc-id "$vpc_id" --region "$AWS_REGION" --profile "$AWS_PROFILE"; then
                 log_info "  Deleted VPC: $vpc_id"
             else
                 log_warning "  Failed to delete VPC: $vpc_id (may still have dependencies)"
@@ -816,7 +1034,7 @@ list_clusters() {
     local ec2_clusters=$(aws ec2 describe-instances \
         --region "$AWS_REGION" \
         --profile "$AWS_PROFILE" \
-        --query 'Reservations[].Instances[].Tags[?Key==`kubernetes.io/cluster/*` && Value==`owned`].Key' \
+        --query 'Reservations[].Instances[].Tags[?contains(Key, `kubernetes.io/cluster/`) && Value==`owned`].Key' \
         --output text 2>/dev/null | sed 's/kubernetes.io\/cluster\///g' | sort -u)
 
     # Find clusters from VPCs
@@ -824,7 +1042,7 @@ list_clusters() {
     local vpc_clusters=$(aws ec2 describe-vpcs \
         --region "$AWS_REGION" \
         --profile "$AWS_PROFILE" \
-        --query 'Vpcs[].Tags[?starts_with(Key, `kubernetes.io/cluster/`) && Value==`owned`].Key' \
+        --query 'Vpcs[].Tags[?contains(Key, `kubernetes.io/cluster/`) && Value==`owned`].Key' \
         --output text 2>/dev/null | sed 's/kubernetes.io\/cluster\///g' | sort -u)
 
     # Find clusters from S3
@@ -921,23 +1139,65 @@ list_clusters() {
 }
 
 # Clean up S3 state
+# Resolve S3 prefix for cluster - tries cluster name first, then infra-id
+resolve_s3_prefix() {
+    local cluster_name="$1"
+    local infra_id="$2"
+    
+    # Validate inputs to prevent accidental deletion
+    if [[ -z "$cluster_name" && -z "$infra_id" ]]; then
+        log_error "Cannot resolve S3 prefix: both cluster_name and infra_id are empty"
+        return 1
+    fi
+    
+    # Try cluster name first (preferred)
+    if [[ -n "$cluster_name" ]] && aws s3 ls "s3://${S3_BUCKET}/${cluster_name}/" \
+        --region "$AWS_REGION" --profile "$AWS_PROFILE" &>/dev/null; then
+        echo "$cluster_name"
+        return 0
+    fi
+    
+    # Try infra-id as fallback
+    if [[ -n "$infra_id" ]] && aws s3 ls "s3://${S3_BUCKET}/${infra_id}/" \
+        --region "$AWS_REGION" --profile "$AWS_PROFILE" &>/dev/null; then
+        log_warning "Using infra-id for S3 path (cluster name not found): $infra_id"
+        echo "$infra_id"
+        return 0
+    fi
+    
+    # Default to cluster name if nothing exists (for new deletions)
+    if [[ -n "$cluster_name" ]]; then
+        echo "$cluster_name"
+    else
+        echo "$infra_id"
+    fi
+}
+
 cleanup_s3_state() {
     local cluster_name="$1"
+    local infra_id="$2"
+    
+    # Resolve the correct S3 prefix
+    local s3_prefix=$(resolve_s3_prefix "$cluster_name" "$infra_id")
+    if [[ -z "$s3_prefix" ]]; then
+        log_error "Failed to resolve S3 prefix for cleanup"
+        return 1
+    fi
 
-    log_info "Cleaning up S3 state for cluster: $cluster_name"
+    log_info "Cleaning up S3 state for: $s3_prefix"
 
-    if aws s3 ls "s3://${S3_BUCKET}/${cluster_name}/" \
+    if aws s3 ls "s3://${S3_BUCKET}/${s3_prefix}/" \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" &>/dev/null; then
 
         if [[ "$DRY_RUN" == "false" ]]; then
-            aws s3 rm "s3://${S3_BUCKET}/${cluster_name}/" --recursive \
+            aws s3 rm "s3://${S3_BUCKET}/${s3_prefix}/" --recursive \
                 --region "$AWS_REGION" --profile "$AWS_PROFILE" >/dev/null
-            log_success "Deleted S3 state: s3://${S3_BUCKET}/${cluster_name}/"
+            log_success "Deleted S3 state: s3://${S3_BUCKET}/${s3_prefix}/"
         else
-            log_info "[DRY RUN] Would delete S3 state: s3://${S3_BUCKET}/${cluster_name}/"
+            log_info "[DRY RUN] Would delete S3 state: s3://${S3_BUCKET}/${s3_prefix}/"
         fi
     else
-        log_info "No S3 state found for cluster: $cluster_name"
+        log_info "No S3 state found for: $s3_prefix"
     fi
 }
 
@@ -1154,7 +1414,7 @@ execute_destruction() {
     fi
 
     # Clean up S3 state
-    cleanup_s3_state "${CLUSTER_NAME:-$infra_id}"
+    cleanup_s3_state "$CLUSTER_NAME" "$infra_id"
 
     # Post-destruction verification
     echo ""
