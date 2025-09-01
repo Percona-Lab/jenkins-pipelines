@@ -421,7 +421,7 @@ Starting cluster creation process...
                     echo ""
                     
                     // Primary access info (most important for QA)
-                    echo "Console URL:         ${env.CLUSTER_CONSOLE_URL ?: 'https://console-openshift-console.apps.' + env.FINAL_CLUSTER_NAME + '.cd.percona.com'}"
+                    echo "Console URL:         ${env.CLUSTER_CONSOLE_URL ?: 'https://console-openshift-console.apps.' + env.FINAL_CLUSTER_NAME + '.' + params.BASE_DOMAIN}"
                     if (params.DEPLOY_PMM && env.PMM_URL) {
                         echo "PMM URL:             ${env.PMM_URL}"
                         echo "PMM Public IP:       ${env.PMM_IP}"
@@ -486,17 +486,15 @@ Starting cluster creation process...
                     def pmmDetails = ""
                     if (env.PMM_URL && env.PMM_IP) {
                         pmmDetails = " | PMM IP: ${env.PMM_IP}"
-                        if (env.PMM_PASSWORD) {
-                            pmmDetails += " | admin/${env.PMM_PASSWORD}"
-                        }
+                        // Don't include password in description for security
                     }
                     
                     currentBuild.description = "${env.FINAL_CLUSTER_NAME} | " +
                         "OCP ${params.OPENSHIFT_VERSION} | " +
                         "${params.AWS_REGION} | " +
                         "Active | " +
-                        "Console: https://console-openshift-console.apps.${env.FINAL_CLUSTER_NAME}.cd.percona.com | " +
-                        "API: https://api.${env.FINAL_CLUSTER_NAME}.cd.percona.com:6443 | " +
+                        "Console: https://console-openshift-console.apps.${env.FINAL_CLUSTER_NAME}.${params.BASE_DOMAIN} | " +
+                        "API: https://api.${env.FINAL_CLUSTER_NAME}.${params.BASE_DOMAIN}:6443 | " +
                         "${pmmStatus}${pmmDetails} | " +
                         "Masters: 3×${params.MASTER_INSTANCE_TYPE} | " +
                         "Workers: ${params.WORKER_COUNT}×${params.WORKER_INSTANCE_TYPE} | " +
