@@ -758,7 +758,7 @@ destroy_with_openshift_install() {
     fi
 }
 
-# Clean up Route53 DNS records
+# Clean up Route53 DNS records (improved version with better error handling)
 cleanup_route53_records() {
     local infra_id="$1"
     local cluster_name="${CLUSTER_NAME:-${infra_id%-*}}"
@@ -767,108 +767,79 @@ cleanup_route53_records() {
     log_info "  Checking Route53 DNS records..."
     log_debug "Looking for: api.$cluster_name.$base_domain and *.apps.$cluster_name.$base_domain"
 
-    # Get hosted zone ID
-    local zone_id=$(aws route53 list-hosted-zones \
-        --query "HostedZones[?Name=='${base_domain}.'].Id" \
-        --output text --profile "$AWS_PROFILE" 2>/dev/null | head -1)
-
-    if [[ -z "$zone_id" ]]; then
+    # Get hosted zone ID with proper error handling
+    local zone_id
+    zone_id=$(aws route53 list-hosted-zones \
+        --query "HostedZones[?Name=='${base_domain}.'].Id | [0]" \
+        --output text --profile "$AWS_PROFILE" 2>/dev/null)
+    
+    if [[ -z "$zone_id" || "$zone_id" == "None" ]]; then
         log_debug "No hosted zone found for domain: $base_domain"
         return 0
     fi
-
-    # Look for DNS records related to the cluster
-    # Check both api. and *.apps. patterns
-    local api_record=$(aws route53 list-resource-record-sets \
+    
+    log_debug "Found hosted zone: $zone_id"
+    
+    # Define exact record names (Note: Route53 stores wildcard as \052)
+    local api_name="api.${cluster_name}.${base_domain}."
+    local apps_name="\\052.apps.${cluster_name}.${base_domain}."
+    
+    # Fetch all records and filter in jq to avoid JMESPath escaping issues
+    local all_records
+    if ! all_records=$(aws route53 list-resource-record-sets \
         --hosted-zone-id "$zone_id" \
-        --query "ResourceRecordSets[?Name=='api.${cluster_name}.${base_domain}.']" \
-        --profile "$AWS_PROFILE" 2>/dev/null)
-
-    local apps_record=$(aws route53 list-resource-record-sets \
-        --hosted-zone-id "$zone_id" \
-        --query "ResourceRecordSets[?Name=='\\052.apps.${cluster_name}.${base_domain}.']" \
-        --profile "$AWS_PROFILE" 2>/dev/null)
-
-    local found_records=false
-
+        --profile "$AWS_PROFILE" \
+        --output json 2>/dev/null); then
+        log_warning "Failed to query Route53 records"
+        return 1
+    fi
+    
+    # Filter for our specific records using jq
+    local records
+    records=$(echo "$all_records" | jq --arg api "$api_name" --arg apps "$apps_name" \
+        '[.ResourceRecordSets[] | select(.Name == $api or .Name == $apps)]')
+    
     # Check if we found any records
-    if [[ "$api_record" != "[]" && "$api_record" != "null" ]]; then
-        found_records=true
-    fi
-    if [[ "$apps_record" != "[]" && "$apps_record" != "null" ]]; then
-        found_records=true
-    fi
-
-    if [[ "$found_records" == "false" ]]; then
+    if [[ "$records" == "[]" || -z "$records" || "$records" == "null" ]]; then
         log_info "  No Route53 records found for cluster"
         return 0
     fi
-
-    log_info "  Found Route53 DNS records to clean up"
-
-    # Process API record if found
-    if [[ "$api_record" != "[]" && "$api_record" != "null" ]]; then
-        echo "$api_record" | jq -c '.[]' | while read -r record; do
-            local name=$(echo "$record" | jq -r '.Name')
-            local type=$(echo "$record" | jq -r '.Type')
-
-            if [[ "$DRY_RUN" == "false" ]]; then
-                # Create change batch for deletion
-                local change_batch=$(
-                    cat <<EOF
-{
-    "Changes": [{
-        "Action": "DELETE",
-        "ResourceRecordSet": $record
-    }]
-}
-EOF
-                )
-
-                # Apply the change
-                aws route53 change-resource-record-sets \
-                    --hosted-zone-id "$zone_id" \
-                    --change-batch "$change_batch" \
-                    --profile "$AWS_PROFILE" >/dev/null 2>&1 || true
-
+    
+    # Count records for user feedback
+    local count=$(echo "$records" | jq 'length')
+    log_info "  Found $count Route53 DNS record(s) to clean up"
+    
+    # Process each record with proper error handling
+    echo "$records" | jq -c '.[]' | while IFS= read -r record; do
+        [[ -z "$record" ]] && continue
+        
+        local name=$(echo "$record" | jq -r '.Name')
+        local type=$(echo "$record" | jq -r '.Type')
+        
+        if [[ "$DRY_RUN" == "false" ]]; then
+            # Create change batch using jq for proper JSON formatting
+            local change_batch
+            change_batch=$(jq -n \
+                --argjson record "$record" \
+                '{Changes: [{Action: "DELETE", ResourceRecordSet: $record}]}')
+            
+            # Apply the change with explicit error handling
+            if aws route53 change-resource-record-sets \
+                --hosted-zone-id "$zone_id" \
+                --change-batch "$change_batch" \
+                --profile "$AWS_PROFILE" \
+                --output json >/dev/null 2>&1; then
                 log_info "    Deleted DNS record: $name ($type)"
             else
-                log_info "    [DRY RUN] Would delete DNS record: $name ($type)"
+                # Don't mask the error, but continue with other records
+                log_warning "    Failed to delete DNS record: $name ($type) - may already be deleted"
             fi
-        done
-    fi
-
-    # Process apps wildcard record if found
-    if [[ "$apps_record" != "[]" && "$apps_record" != "null" ]]; then
-        echo "$apps_record" | jq -c '.[]' | while read -r record; do
-            local name=$(echo "$record" | jq -r '.Name')
-            local type=$(echo "$record" | jq -r '.Type')
-
-            if [[ "$DRY_RUN" == "false" ]]; then
-                # Create change batch for deletion
-                local change_batch=$(
-                    cat <<EOF
-{
-    "Changes": [{
-        "Action": "DELETE",
-        "ResourceRecordSet": $record
-    }]
-}
-EOF
-                )
-
-                # Apply the change
-                aws route53 change-resource-record-sets \
-                    --hosted-zone-id "$zone_id" \
-                    --change-batch "$change_batch" \
-                    --profile "$AWS_PROFILE" >/dev/null 2>&1 || true
-
-                log_info "    Deleted DNS record: $name ($type)"
-            else
-                log_info "    [DRY RUN] Would delete DNS record: $name ($type)"
-            fi
-        done
-    fi
+        else
+            log_info "    [DRY RUN] Would delete DNS record: $name ($type)"
+        fi
+    done
+    
+    return 0
 }
 
 # Single pass of AWS resource cleanup
