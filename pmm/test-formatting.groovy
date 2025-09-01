@@ -4,7 +4,7 @@ pipeline {
     }
     
     parameters {
-        choice(name: 'FORMAT_TEST', choices: ['BR_ONLY', 'FULL_HTML', 'PLAIN_TEXT', 'MIXED_FORMAT', 'COMPLEX_HTML'], description: 'Select format to test')
+        choice(name: 'FORMAT_TEST', choices: ['CLEAN_TEXT', 'BR_ONLY', 'FULL_HTML', 'PLAIN_TEXT', 'MIXED_FORMAT', 'COMPLEX_HTML', 'PIPE_SEPARATED'], description: 'Select format to test')
     }
     
     stages {
@@ -14,6 +14,22 @@ pipeline {
                     echo "Testing format: ${params.FORMAT_TEST}"
                     
                     switch(params.FORMAT_TEST) {
+                        case 'CLEAN_TEXT':
+                            // Clean format optimized for Blue Ocean readability
+                            currentBuild.description = """helm-test-75 | OCP 4.16.9 | us-east-2 | Active
+                            
+Console: https://console-openshift-console.apps.helm-test-75.cd.percona.com
+API: https://api.helm-test-75.cd.percona.com:6443
+Login: oc login https://api.helm-test-75.cd.percona.com:6443 -u kubeadmin
+Password: Check Jenkins artifacts
+
+PMM: https://pmm.helm-test-75.cd.percona.com
+IP: 10.0.1.234 | User: admin | Pass: PMM123456 | v2.44.0
+
+Masters: 3 × m5.xlarge | Workers: 3 × m5.large
+Auto-delete: 72h | Team: PMM | S3: s3://openshift-clusters/helm-test-75/"""
+                            break
+                            
                         case 'BR_ONLY':
                             // Test with only BR tags - most likely to work in Blue Ocean
                             currentBuild.description = """Cluster: helm-test-75<br>
@@ -152,6 +168,16 @@ IP: 10.0.1.234 | User: admin | Pass: PMM123456<br>
                             descriptionHtml.append("• S3 Backup: <code>s3://openshift-clusters-119175775298-us-east-2/helm-test-75/</code><br/>")
                             
                             currentBuild.description = descriptionHtml.toString()
+                            break
+                            
+                        case 'PIPE_SEPARATED':
+                            // Pipe-separated format for Blue Ocean
+                            currentBuild.description = "helm-test-75 | OCP 4.16.9 | us-east-2 | Active | " +
+                                "Console: https://console-openshift-console.apps.helm-test-75.cd.percona.com | " +
+                                "API: https://api.helm-test-75.cd.percona.com:6443 | " +
+                                "PMM: https://pmm.helm-test-75.cd.percona.com | " +
+                                "Masters: 3×m5.xlarge | Workers: 3×m5.large | " +
+                                "Auto-delete: 72h | Team: PMM"
                             break
                     }
                     
