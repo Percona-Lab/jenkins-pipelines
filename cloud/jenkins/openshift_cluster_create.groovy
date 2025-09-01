@@ -519,22 +519,23 @@ Starting cluster creation process...
                     if (env.PMM_URL) {
                         descriptionHtml.append("<b>PMM Monitoring:</b><br/>")
                         descriptionHtml.append("• URL: <a href='${env.PMM_URL}'>${env.PMM_URL}</a><br/>")
+                        descriptionHtml.append("• IP: <code>${env.PMM_IP}</code><br/>")
                         descriptionHtml.append("• User: <code>admin</code><br/>")
-                        descriptionHtml.append("• Password: <code>${env.PMM_ADMIN_PASSWORD ?: 'Check deployment logs'}</code><br/>")
+                        descriptionHtml.append("• Password: <code>${env.PMM_PASSWORD ?: 'Check deployment logs'}</code><br/>")
                         descriptionHtml.append("• Version: ${params.PMM_IMAGE_TAG}<br/>")
                         descriptionHtml.append("<br/>")
                     }
                     
                     // Cluster resources
                     descriptionHtml.append("<b>Resources:</b><br/>")
-                    descriptionHtml.append("• Masters: ${params.MASTER_NODES} × ${params.MASTER_INSTANCE_TYPE}<br/>")
-                    descriptionHtml.append("• Workers: ${params.WORKER_NODES} × ${params.WORKER_INSTANCE_TYPE}<br/>")
+                    descriptionHtml.append("• Masters: 3 × ${params.MASTER_INSTANCE_TYPE}<br/>")
+                    descriptionHtml.append("• Workers: ${params.WORKER_COUNT} × ${params.WORKER_INSTANCE_TYPE}<br/>")
                     descriptionHtml.append("<br/>")
                     
                     // Lifecycle details
                     descriptionHtml.append("<b>Lifecycle:</b><br/>")
-                    descriptionHtml.append("• Auto-delete: ${params.AUTO_DELETE_HOURS} hours<br/>")
-                    descriptionHtml.append("• Team: ${params.TEAM}<br/>")
+                    descriptionHtml.append("• Auto-delete: ${params.DELETE_AFTER_HOURS} hours<br/>")
+                    descriptionHtml.append("• Team: ${params.TEAM_NAME}<br/>")
                     descriptionHtml.append("• S3 Backup: <code>s3://${env.S3_BUCKET}/${env.FINAL_CLUSTER_NAME}/</code><br/>")
                     
                     currentBuild.description = descriptionHtml.toString()
