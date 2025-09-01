@@ -182,27 +182,34 @@ IP: 10.0.1.234 | User: admin | Pass: PMM123456<br>
                     echo "Blue Ocean URL: ${env.JENKINS_URL}/blue/organizations/jenkins/test-blue-ocean-formatting/"
                     echo "Classic UI: ${env.JENKINS_URL}/job/test-blue-ocean-formatting/"
                     echo ""
-                    echo "Cluster Name:        helm-test-75"
-                    echo "OpenShift Version:   4.16.9"
-                    echo "AWS Region:          us-east-2"
-                    echo "Status:              Active"
-                    echo ""
+                    // Primary access info (most important for QA)
                     echo "Console URL:         https://console-openshift-console.apps.helm-test-75.cd.percona.com"
-                    echo "API Endpoint:        https://api.helm-test-75.cd.percona.com:6443"
-                    echo "Login Command:       oc login https://api.helm-test-75.cd.percona.com:6443 -u kubeadmin"
-                    echo "Kubeadmin Password:  <check Jenkins artifacts>"
-                    echo ""
                     echo "PMM URL:             https://pmm.helm-test-75.cd.percona.com"
                     echo "PMM Public IP:       10.0.1.234"
+                    echo ""
+                    // Credentials
                     echo "PMM Username:        admin"
                     echo "PMM Password:        PMM123456"
-                    echo "PMM Version:         2.44.0"
+                    echo "Kubeadmin Password:  <check Jenkins artifacts>"
                     echo ""
+                    // Version info (critical for testing)
+                    echo "PMM Version:         2.44.0"
+                    echo "OpenShift Version:   4.16.9"
+                    echo ""
+                    // Technical access details
+                    echo "API Endpoint:        https://api.helm-test-75.cd.percona.com:6443"
+                    echo "Login Command:       oc login https://api.helm-test-75.cd.percona.com:6443 -u kubeadmin"
+                    echo ""
+                    // Cluster configuration
+                    echo "Cluster Name:        helm-test-75"
+                    echo "AWS Region:          us-east-2"
+                    echo "Status:              Active"
                     echo "Master Nodes:        3 × m5.xlarge"
                     echo "Worker Nodes:        3 × m5.large"
                     echo ""
-                    echo "Auto-Delete After:   72 hours"
+                    // Administrative info (least urgent)
                     echo "Team Owner:          PMM"
+                    echo "Auto-Delete After:   72 hours"
                     echo "S3 Backup Location:  s3://openshift-clusters-119175775298-us-east-2/helm-test-75/"
                 }
             }
