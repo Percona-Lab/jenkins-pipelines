@@ -19,7 +19,8 @@ pipeline {
                             currentBuild.description = "helm-test-75 | OCP 4.16.9 | us-east-2 | Active | " +
                                 "Console: https://console-openshift-console.apps.helm-test-75.cd.percona.com | " +
                                 "API: https://api.helm-test-75.cd.percona.com:6443 | " +
-                                "PMM: https://pmm.helm-test-75.cd.percona.com (10.0.1.234) | " +
+                                "PMM: https://pmm.helm-test-75.cd.percona.com | " +
+                                "PMM IP: 10.0.1.234 | " +
                                 "admin/PMM123456 | " +
                                 "Masters: 3×m5.xlarge | Workers: 3×m5.large | " +
                                 "Auto-delete: 72h | Team: PMM"
@@ -177,8 +178,38 @@ IP: 10.0.1.234 | User: admin | Pass: PMM123456<br>
                     }
                     
                     echo "Description set. Check Blue Ocean and Classic UI to compare rendering."
+                    echo ""
                     echo "Blue Ocean URL: ${env.JENKINS_URL}/blue/organizations/jenkins/test-blue-ocean-formatting/"
+                    echo ""
                     echo "Classic UI: ${env.JENKINS_URL}/job/test-blue-ocean-formatting/"
+                    echo ""
+                    echo "Cluster Information:"
+                    echo "  Name: helm-test-75"
+                    echo "  OpenShift: 4.16.9"
+                    echo "  Region: us-east-2"
+                    echo "  Status: Active"
+                    echo ""
+                    echo "Access URLs:"
+                    echo "  Console: https://console-openshift-console.apps.helm-test-75.cd.percona.com"
+                    echo "  API: https://api.helm-test-75.cd.percona.com:6443"
+                    echo ""
+                    echo "Login Command:"
+                    echo "  oc login https://api.helm-test-75.cd.percona.com:6443 -u kubeadmin -p <password>"
+                    echo ""
+                    echo "PMM Details:"
+                    echo "  URL: https://pmm.helm-test-75.cd.percona.com"
+                    echo "  Public IP: 10.0.1.234"
+                    echo "  Credentials: admin/PMM123456"
+                    echo "  Version: 2.44.0"
+                    echo ""
+                    echo "Resources:"
+                    echo "  Masters: 3 × m5.xlarge"
+                    echo "  Workers: 3 × m5.large"
+                    echo ""
+                    echo "Lifecycle:"
+                    echo "  Auto-delete: 72 hours"
+                    echo "  Team: PMM"
+                    echo "  S3 Backup: s3://openshift-clusters-119175775298-us-east-2/helm-test-75/"
                 }
             }
         }
