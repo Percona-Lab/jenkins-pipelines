@@ -541,8 +541,6 @@ def formatClustersSummary(List clusters, String title = "OPENSHIFT CLUSTERS") {
         clusters.each { cluster ->
             // Primary info (most important)
             summary.append("Cluster Name:        ${cluster.name}\n")
-            summary.append("Console URL:         https://console-openshift-console.apps.${cluster.name}.cd.percona.com\n")
-            summary.append("API Endpoint:        https://api.${cluster.name}.cd.percona.com:6443\n")
             
             // Version and status info
             summary.append("OpenShift Version:   ${cluster.version}\n")
