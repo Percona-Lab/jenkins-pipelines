@@ -388,6 +388,7 @@ Starting cluster creation process...
 
                         if (clusterInfo.pmm) {
                             env.PMM_URL = clusterInfo.pmm.url
+                            env.PMM_IP = clusterInfo.pmm.ip ?: 'N/A'
                             env.PMM_PASSWORD = clusterInfo.pmm.password
                             env.PMM_PASSWORD_GENERATED = clusterInfo.pmm.passwordGenerated.toString()
                         }
@@ -458,6 +459,7 @@ Starting cluster creation process...
                         echo "Helm Chart:           ${params.PMM_HELM_CHART_VERSION}"
                         echo "Namespace:            pmm-monitoring"
                         echo "Access URL:           ${env.PMM_URL}"
+                        echo "IP Address:           ${env.PMM_IP}"
                         echo "Username:             admin"
                         echo "Password:             ${passwordInfo}"
                         echo ""

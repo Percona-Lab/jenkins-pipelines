@@ -217,6 +217,7 @@ def create(Map config) {
             metadata.pmmDeployed = true
             metadata.pmmImageTag = params.pmmImageTag
             metadata.pmmUrl = pmmInfo.url
+            metadata.pmmIp = pmmInfo.ip
             metadata.pmmNamespace = pmmInfo.namespace
 
             // Update metadata in S3 with PMM information
@@ -706,6 +707,30 @@ def deployPMM(Map params) {
         returnStdout: true
     ).trim()
 
+    // Get the IP address from the monitoring-service LoadBalancer
+    def pmmIp = sh(
+        script: """
+            export PATH="\$HOME/.local/bin:\$PATH"
+            # Get the external IP from the monitoring-service LoadBalancer
+            oc get service monitoring-service -n ${params.pmmNamespace} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || \
+            oc get service monitoring-service -n ${params.pmmNamespace} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || \
+            echo ''
+        """,
+        returnStdout: true
+    ).trim()
+
+    // If no LoadBalancer IP, try to get the ClusterIP or external IP from the service
+    if (!pmmIp) {
+        pmmIp = sh(
+            script: """
+                export PATH="\$HOME/.local/bin:\$PATH"
+                # Try to get ClusterIP as fallback
+                oc get service monitoring-service -n ${params.pmmNamespace} -o jsonpath='{.spec.clusterIP}' 2>/dev/null || echo ''
+            """,
+            returnStdout: true
+        ).trim()
+    }
+
     // Get the actual password from the secret (either set or generated)
     def actualPassword = sh(
         script: """
@@ -717,6 +742,7 @@ def deployPMM(Map params) {
 
     return [
         url: "https://${pmmUrl}",
+        ip: pmmIp ?: 'N/A',  // Return 'N/A' if we couldn't determine the IP
         username: 'admin',
         password: actualPassword,
         namespace: params.pmmNamespace,
