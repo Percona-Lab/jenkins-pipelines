@@ -499,17 +499,29 @@ validate_inputs() {
 # Extract metadata from file
 extract_metadata() {
     local metadata_file="$1"
+    
+    # Save original values to restore if extraction fails
+    local orig_cluster_name="$CLUSTER_NAME"
+    local orig_aws_region="$AWS_REGION"
 
     if [[ -f "$metadata_file" ]]; then
         # Use jq with proper null handling - convert null to empty string
         INFRA_ID=$(jq -r '.infraID // empty' "$metadata_file" 2>/dev/null || echo "")
-        CLUSTER_NAME=$(jq -r '.clusterName // empty' "$metadata_file" 2>/dev/null || echo "")
-        AWS_REGION=$(jq -r '.aws.region // .platform.aws.region // empty' "$metadata_file" 2>/dev/null || echo "$AWS_REGION")
+        local extracted_cluster=$(jq -r '.clusterName // empty' "$metadata_file" 2>/dev/null || echo "")
+        local extracted_region=$(jq -r '.aws.region // .platform.aws.region // empty' "$metadata_file" 2>/dev/null || echo "")
+        
+        # Only update CLUSTER_NAME if we got a valid value
+        if [[ -n "$extracted_cluster" && "$extracted_cluster" != "null" ]]; then
+            CLUSTER_NAME="$extracted_cluster"
+        fi
+        
+        # Only update AWS_REGION if we got a valid value
+        if [[ -n "$extracted_region" && "$extracted_region" != "null" ]]; then
+            AWS_REGION="$extracted_region"
+        fi
         
         # Clean up any "null" strings that might have leaked through
         [[ "$INFRA_ID" == "null" ]] && INFRA_ID=""
-        [[ "$CLUSTER_NAME" == "null" ]] && CLUSTER_NAME=""
-        [[ "$AWS_REGION" == "null" ]] && AWS_REGION=""
 
         if [[ -n "$INFRA_ID" ]]; then
             log_info "Extracted from metadata: cluster=$CLUSTER_NAME, infra-id=$INFRA_ID, region=$AWS_REGION"
@@ -678,7 +690,16 @@ count_resources() {
     fi
     
     # Wait for all background jobs to complete
-    wait
+    # Use jobs -p to get list of background job PIDs and wait for each
+    local job_pids=$(jobs -p)
+    if [[ -n "$job_pids" ]]; then
+        for pid in $job_pids; do
+            wait "$pid" 2>/dev/null || true
+        done
+    else
+        # Fallback: just wait for all
+        wait 2>/dev/null || true
+    fi
     
     # Process log files for output (maintain original formatting)
     for logfile in "$temp_dir"/*.log; do
@@ -1349,8 +1370,41 @@ list_clusters() {
             grep "PRE" | awk '{print $2}' | sed 's/\///')
     fi
 
-    # Combine all clusters
-    local all_clusters=$(echo -e "$ec2_clusters\n$vpc_clusters\n$s3_clusters" | sort -u | grep -v '^$')
+    # Combine and deduplicate clusters
+    # First, create a mapping of base names to full infra IDs
+    declare -A cluster_map
+    declare -A s3_state_map
+    
+    # Process S3 clusters (these are base names)
+    for cluster in $s3_clusters; do
+        if [[ -n "$cluster" ]]; then
+            s3_state_map["$cluster"]="Yes"
+            cluster_map["$cluster"]="$cluster"
+        fi
+    done
+    
+    # Process AWS clusters (these have full infra IDs)
+    for cluster in $(echo -e "$ec2_clusters\n$vpc_clusters" | sort -u | grep -v '^$'); do
+        if [[ -n "$cluster" ]]; then
+            # Check if this looks like an infra ID (ends with -xxxxx pattern)
+            if [[ "$cluster" =~ ^(.+)-([a-z0-9]{5})$ ]]; then
+                local base_name="${BASH_REMATCH[1]}"
+                # If we already have this base name from S3, update with full infra ID
+                if [[ -n "${cluster_map[$base_name]:-}" ]]; then
+                    cluster_map["$base_name"]="$cluster"
+                else
+                    # New cluster not in S3
+                    cluster_map["$cluster"]="$cluster"
+                fi
+            else
+                # Doesn't match infra ID pattern, treat as is
+                cluster_map["$cluster"]="$cluster"
+            fi
+        fi
+    done
+    
+    # Get unique clusters
+    local all_clusters=$(for key in "${!cluster_map[@]}"; do echo "${cluster_map[$key]}"; done | sort -u)
 
     if [[ -z "$all_clusters" ]]; then
         log_warning "No OpenShift clusters found in region $AWS_REGION"
@@ -1364,8 +1418,11 @@ list_clusters() {
     # Display cluster information
     echo "$all_clusters" | while read -r cluster; do
         if [[ -n "$cluster" ]]; then
-            # Extract base name and infra ID
-            local base_name="${cluster%-*-*-*-*-*}"
+            # Extract base name for S3 checking
+            local base_name="$cluster"
+            if [[ "$cluster" =~ ^(.+)-([a-z0-9]{5})$ ]]; then
+                base_name="${BASH_REMATCH[1]}"
+            fi
 
             # Resource counting - use detailed mode for full count or quick check for status
             local resource_info=""
@@ -1385,9 +1442,11 @@ list_clusters() {
                 fi
             fi
 
-            # Check if S3 state exists
+            # Check if S3 state exists (using base name)
             local s3_state="No"
-            if [[ -n "$S3_BUCKET" ]] && aws s3 ls "s3://${S3_BUCKET}/${base_name}/" &>/dev/null; then
+            if [[ -n "${s3_state_map[$base_name]:-}" ]]; then
+                s3_state="Yes"
+            elif [[ -n "$S3_BUCKET" ]] && aws s3 ls "s3://${S3_BUCKET}/${base_name}/" &>/dev/null; then
                 s3_state="Yes"
             fi
 
@@ -1416,8 +1475,16 @@ list_clusters() {
                 fi
             fi
 
-            echo -e "  ${BOLD}Cluster:${NC} $base_name"
-            echo "    Infrastructure ID: $cluster"
+            # Display cluster and infra ID appropriately
+            if [[ "$cluster" == "$base_name" ]]; then
+                # No separate infra ID (orphaned or custom cluster)
+                echo -e "  ${BOLD}Cluster:${NC} $base_name"
+                echo "    Infrastructure ID: (none - orphaned cluster)"
+            else
+                # Proper OpenShift cluster with infra ID
+                echo -e "  ${BOLD}Cluster:${NC} $base_name"
+                echo "    Infrastructure ID: $cluster"
+            fi
             echo "    $resource_info"
             echo "    S3 State: $s3_state$created"
             echo ""
@@ -1742,9 +1809,19 @@ main() {
     # Auto-detect infrastructure ID if needed
     if [[ -z "$INFRA_ID" && -n "$CLUSTER_NAME" ]]; then
         if ! detect_infra_id "$CLUSTER_NAME"; then
-            log_error "Could not find infrastructure ID for cluster: $CLUSTER_NAME"
-            log_info "The cluster might not exist or might already be deleted"
-            exit 1
+            log_warning "Could not find valid infrastructure ID for cluster: $CLUSTER_NAME"
+            
+            # Check if S3 state exists even without valid metadata
+            if aws s3 ls "s3://${S3_BUCKET}/${CLUSTER_NAME}/" \
+                --region "$AWS_REGION" --profile "$AWS_PROFILE" &>/dev/null; then
+                log_info "Found S3 state for cluster, will attempt cleanup with cluster name as ID"
+                # Use cluster name as fallback infra ID for orphaned resources
+                INFRA_ID="$CLUSTER_NAME"
+            else
+                log_error "No infrastructure ID or S3 state found for cluster: $CLUSTER_NAME"
+                log_info "The cluster might not exist or might already be deleted"
+                exit 1
+            fi
         fi
     fi
 
