@@ -81,7 +81,7 @@ pipeline {
                     """
                 }
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
-                build job: 'ps9.0-RELEASE', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'COMPONENT', value: 'testing')]
+                build job: 'ps9.0-RELEASE', parameters: [string(name: 'BRANCH', value: BRANCH_NAME), string(name: 'COMPONENT', value: 'experimental')]
 
             }
         }
