@@ -74,6 +74,7 @@ CLUSTER_NAME=""
 INFRA_ID=""
 METADATA_FILE=""
 S3_BUCKET=""
+MAX_ATTEMPTS=5
 
 # CloudWatch configuration
 CLOUDWATCH_LOG_GROUP="/aws/openshift/cluster-destroyer"
@@ -294,6 +295,7 @@ OPTIONS:
     --verbose             Enable verbose output
     --detailed            Show detailed resource counts (with --list)
     --s3-bucket BUCKET    S3 bucket for state files (auto-detected if not provided)
+    --max-attempts NUM    Maximum deletion attempts for reconciliation (default: 5)
     --help                Show this help message
 
 EXAMPLES:
@@ -311,6 +313,9 @@ EXAMPLES:
 
     # Force deletion without prompts
     $(basename "$0") --infra-id helm-test-tqtlx --force
+    
+    # Run with more reconciliation attempts for stubborn resources
+    $(basename "$0") --cluster-name test-cluster --max-attempts 10
 
 NOTES:
     - The script will attempt to use openshift-install if metadata exists
@@ -390,6 +395,10 @@ parse_args() {
             VERBOSE=true
             shift
             ;;
+        --max-attempts)
+            MAX_ATTEMPTS="$2"
+            shift 2
+            ;;
         --help | -h)
             show_help
             ;;
@@ -457,6 +466,12 @@ validate_inputs() {
     # Validate base domain format
     if [[ ! "$BASE_DOMAIN" =~ ^[a-zA-Z0-9][a-zA-Z0-9.-]+[a-zA-Z0-9]$ ]]; then
         log_error "Invalid base domain format: $BASE_DOMAIN"
+        exit 1
+    fi
+    
+    # Validate max_attempts
+    if [[ ! "$MAX_ATTEMPTS" =~ ^[0-9]+$ ]] || [[ "$MAX_ATTEMPTS" -lt 1 ]] || [[ "$MAX_ATTEMPTS" -gt 20 ]]; then
+        log_error "Invalid max-attempts value: $MAX_ATTEMPTS (must be between 1 and 20)"
         exit 1
     fi
 
@@ -787,18 +802,20 @@ EOF
     fi
 }
 
-# Manual AWS resource cleanup
-destroy_aws_resources() {
+# Single pass of AWS resource cleanup
+destroy_aws_resources_single_pass() {
     local infra_id="$1"
+    local attempt="$2"
+    local max_attempts="$3"
+    
+    log_info "Resource deletion attempt $attempt/$max_attempts for: $infra_id"
 
-    log_info "Starting manual AWS resource cleanup for: $infra_id"
-
-    if [[ "$DRY_RUN" == "true" ]]; then
+    if [[ "$DRY_RUN" == "true" && "$attempt" -eq 1 ]]; then
         log_warning "DRY RUN MODE - No resources will be deleted"
     fi
 
     # 1. Terminate EC2 Instances
-    log_info "Step 1/9: Terminating EC2 instances..."
+    log_info "Step 1/11: Terminating EC2 instances..."
     local instance_ids=$(aws ec2 describe-instances \
         --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
         "Name=instance-state-name,Values=running,stopped,stopping,pending" \
@@ -819,43 +836,122 @@ destroy_aws_resources() {
         log_info "  No instances found"
     fi
 
-    # 2. Delete Load Balancers
-    log_info "Step 2/9: Deleting load balancers..."
+    # 2. Delete Load Balancers (CRITICAL - must be done early to release public IPs)
+    log_info "Step 2/11: Deleting load balancers..."
+    log_debug "Load balancers must be deleted before IGW detachment due to public IP mappings"
 
-    # Classic ELBs
-    local elbs=$(aws elb describe-load-balancers \
+    # Get VPC ID first for better ELB detection
+    local vpc_id=$(aws ec2 describe-vpcs \
+        --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
+        --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+        --query "Vpcs[0].VpcId" --output text)
+
+    # Classic ELBs - check both by name pattern AND by VPC association
+    local elbs=""
+    
+    # First, get ELBs by name pattern (with timeout to prevent hanging)
+    log_debug "Checking for Classic ELBs by name pattern: $infra_id"
+    if elbs=$(execute_with_timeout 30 aws elb describe-load-balancers \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" \
         --query "LoadBalancerDescriptions[?contains(LoadBalancerName, '$infra_id')].LoadBalancerName" \
-        --output text)
-
-    for elb in $elbs; do
-        if [[ "$DRY_RUN" == "false" ]]; then
-            aws elb delete-load-balancer --load-balancer-name "$elb" \
-                --region "$AWS_REGION" --profile "$AWS_PROFILE"
-            log_info "  Deleted Classic ELB: $elb"
+        --output text 2>/dev/null); then
+        log_debug "Found ELBs by name: ${elbs:-none}"
+    else
+        log_debug "Failed to query ELBs by name (timeout or error)"
+        elbs=""
+    fi
+    
+    # Also get ALL ELBs in the VPC (some may not have infra-id in name)
+    if [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
+        log_debug "Checking for Classic ELBs in VPC: $vpc_id"
+        local vpc_elbs=""
+        if vpc_elbs=$(execute_with_timeout 30 aws elb describe-load-balancers \
+            --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+            --query "LoadBalancerDescriptions[?VPCId=='$vpc_id'].LoadBalancerName" \
+            --output text 2>/dev/null); then
+            log_debug "Found ELBs in VPC: ${vpc_elbs:-none}"
         else
-            log_info "  [DRY RUN] Would delete Classic ELB: $elb"
+            log_debug "Failed to query ELBs in VPC (timeout or error)"
+            vpc_elbs=""
         fi
-    done
+        
+        # Combine both lists (unique) - handle empty strings properly
+        if [[ -n "$elbs" || -n "$vpc_elbs" ]]; then
+            elbs=$(echo -e "$elbs\n$vpc_elbs" | tr ' ' '\n' | sort -u | grep -v '^$' | tr '\n' ' ' || true)
+        fi
+    fi
 
-    # ALBs/NLBs
-    local nlbs=$(aws elbv2 describe-load-balancers \
+    # Process any ELBs found
+    if [[ -n "$elbs" ]]; then
+        for elb in $elbs; do
+            if [[ -n "$elb" ]]; then
+                if [[ "$DRY_RUN" == "false" ]]; then
+                    aws elb delete-load-balancer --load-balancer-name "$elb" \
+                        --region "$AWS_REGION" --profile "$AWS_PROFILE"
+                    log_info "  Deleted Classic ELB: $elb"
+                else
+                    log_info "  [DRY RUN] Would delete Classic ELB: $elb"
+                fi
+            fi
+        done
+    else
+        log_debug "  No Classic ELBs found"
+    fi
+
+    # ALBs/NLBs - check both by name pattern AND by VPC association
+    local nlbs=""
+    
+    # First, get by name pattern (with timeout)
+    log_debug "Checking for ALB/NLBs by name pattern: $infra_id"
+    if nlbs=$(execute_with_timeout 30 aws elbv2 describe-load-balancers \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" \
         --query "LoadBalancers[?contains(LoadBalancerName, '$infra_id')].LoadBalancerArn" \
-        --output text)
-
-    for nlb in $nlbs; do
-        if [[ "$DRY_RUN" == "false" ]]; then
-            aws elbv2 delete-load-balancer --load-balancer-arn "$nlb" \
-                --region "$AWS_REGION" --profile "$AWS_PROFILE"
-            log_info "  Deleted NLB/ALB: $(basename $nlb)"
+        --output text 2>/dev/null); then
+        log_debug "Found ALB/NLBs by name: ${nlbs:-none}"
+    else
+        log_debug "Failed to query ALB/NLBs by name (timeout or error)"
+        nlbs=""
+    fi
+    
+    # Also get ALL ALB/NLBs in the VPC
+    if [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
+        log_debug "Checking for ALB/NLBs in VPC: $vpc_id"
+        local vpc_nlbs=""
+        if vpc_nlbs=$(execute_with_timeout 30 aws elbv2 describe-load-balancers \
+            --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+            --query "LoadBalancers[?VpcId=='$vpc_id'].LoadBalancerArn" \
+            --output text 2>/dev/null); then
+            log_debug "Found ALB/NLBs in VPC: ${vpc_nlbs:-none}"
         else
-            log_info "  [DRY RUN] Would delete NLB/ALB: $(basename $nlb)"
+            log_debug "Failed to query ALB/NLBs in VPC (timeout or error)"
+            vpc_nlbs=""
         fi
-    done
+        
+        # Combine both lists (unique) - handle empty strings properly
+        if [[ -n "$nlbs" || -n "$vpc_nlbs" ]]; then
+            nlbs=$(echo -e "$nlbs\n$vpc_nlbs" | tr ' ' '\n' | sort -u | grep -v '^$' | tr '\n' ' ' || true)
+        fi
+    fi
+
+    # Process any ALB/NLBs found
+    if [[ -n "$nlbs" ]]; then
+        for nlb in $nlbs; do
+            if [[ -n "$nlb" ]]; then
+                if [[ "$DRY_RUN" == "false" ]]; then
+                    aws elbv2 delete-load-balancer --load-balancer-arn "$nlb" \
+                        --region "$AWS_REGION" --profile "$AWS_PROFILE"
+                    log_info "  Deleted NLB/ALB: $(basename $nlb)"
+                else
+                    log_info "  [DRY RUN] Would delete NLB/ALB: $(basename $nlb)"
+                fi
+            fi
+        done
+    else
+        log_debug "  No ALB/NLBs found"
+    fi
 
     # 3. Delete NAT Gateways
-    log_info "Step 3/9: Deleting NAT gateways..."
+    log_info "Step 3/11: Deleting NAT gateways..."
     local nat_gateways=$(aws ec2 describe-nat-gateways \
         --filter "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" \
@@ -872,7 +968,7 @@ destroy_aws_resources() {
     done
 
     # 4. Release Elastic IPs
-    log_info "Step 4/9: Releasing Elastic IPs..."
+    log_info "Step 4/11: Releasing Elastic IPs..."
     local eips=$(aws ec2 describe-addresses \
         --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" \
@@ -890,39 +986,99 @@ destroy_aws_resources() {
         fi
     done
 
-    # 5. Delete Security Groups (wait a bit for dependencies to clear)
+    # Get VPC ID early (we'll need it for multiple steps)
+    local vpc_id=$(aws ec2 describe-vpcs \
+        --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
+        --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+        --query "Vpcs[0].VpcId" --output text)
+    
+    # 5. Clean up orphaned network interfaces (from deleted ELBs, etc)
+    log_info "Step 5/11: Cleaning up orphaned network interfaces..."
+    if [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
+        local enis=$(aws ec2 describe-network-interfaces \
+            --filters "Name=vpc-id,Values=$vpc_id" \
+            --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+            --query "NetworkInterfaces[?Status=='available'].NetworkInterfaceId" \
+            --output text)
+        
+        for eni in $enis; do
+            if [[ -n "$eni" ]]; then
+                if [[ "$DRY_RUN" == "false" ]]; then
+                    if aws ec2 delete-network-interface --network-interface-id "$eni" \
+                        --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>/dev/null; then
+                        log_info "  Deleted orphaned network interface: $eni"
+                    else
+                        log_debug "  Could not delete network interface: $eni (may be in use)"
+                    fi
+                else
+                    log_info "  [DRY RUN] Would delete orphaned network interface: $eni"
+                fi
+            fi
+        done
+    fi
+    
+    # 6. Delete VPC Endpoints (can block subnet/route table deletion)
+    log_info "Step 6/11: Deleting VPC endpoints..."
+    if [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
+        local vpc_endpoints=$(aws ec2 describe-vpc-endpoints \
+            --filters "Name=vpc-id,Values=$vpc_id" \
+            --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+            --query "VpcEndpoints[].VpcEndpointId" --output text)
+        
+        for endpoint in $vpc_endpoints; do
+            if [[ "$DRY_RUN" == "false" ]]; then
+                if aws ec2 delete-vpc-endpoints --vpc-endpoint-ids "$endpoint" \
+                    --region "$AWS_REGION" --profile "$AWS_PROFILE" >/dev/null 2>&1; then
+                    log_info "  Deleted VPC Endpoint: $endpoint"
+                else
+                    log_warning "  Failed to delete VPC Endpoint: $endpoint"
+                fi
+            else
+                log_info "  [DRY RUN] Would delete VPC Endpoint: $endpoint"
+            fi
+        done
+    fi
+
+    # 7. Delete Security Groups (wait a bit for dependencies to clear)
     if [[ "$DRY_RUN" == "false" ]]; then
         log_info "  Waiting for network interfaces to detach..."
         sleep 30
     fi
 
-    log_info "Step 5/9: Deleting security groups..."
-    local vpc_id=$(aws ec2 describe-vpcs \
-        --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
-        --region "$AWS_REGION" --profile "$AWS_PROFILE" \
-        --query "Vpcs[0].VpcId" --output text)
-
+    log_info "Step 7/11: Deleting security groups..."
     if [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
         local sgs=$(aws ec2 describe-security-groups \
             --filters "Name=vpc-id,Values=$vpc_id" \
             --region "$AWS_REGION" --profile "$AWS_PROFILE" \
             --query "SecurityGroups[?GroupName!='default'].GroupId" --output text)
 
-        # Delete rules first to avoid dependency issues
+        # Remove all ingress rules first to break circular dependencies
+        log_debug "Removing security group ingress rules to break dependencies..."
         for sg in $sgs; do
             if [[ "$DRY_RUN" == "false" ]]; then
-                # Remove all ingress rules (quick timeout as this often fails due to dependencies)
-                # Revoke ingress rules - this often fails due to dependencies, which is expected
-                if ! execute_with_timeout 10 aws ec2 revoke-security-group-ingress --group-id "$sg" --region "$AWS_REGION" --profile "$AWS_PROFILE" --source-group "$sg" --protocol all 2>&1 | grep -v "InvalidPermission.NotFound"; then
-                    log_debug "Could not revoke all rules for $sg (may have dependencies or custom rules)"
+                # Get current ingress rules
+                local ingress_rules=$(aws ec2 describe-security-groups \
+                    --group-ids "$sg" \
+                    --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+                    --query 'SecurityGroups[0].IpPermissions' \
+                    --output json 2>/dev/null)
+                
+                if [[ "$ingress_rules" != "[]" && "$ingress_rules" != "null" ]]; then
+                    # Revoke all ingress rules at once
+                    if ! aws ec2 revoke-security-group-ingress \
+                        --group-id "$sg" \
+                        --ip-permissions "$ingress_rules" \
+                        --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>/dev/null; then
+                        log_debug "Some ingress rules for $sg could not be revoked (may be default or already removed)"
+                    fi
                 fi
             fi
         done
 
-        # Now delete the security groups with timeout
+        # Now delete the security groups
         for sg in $sgs; do
             if [[ "$DRY_RUN" == "false" ]]; then
-                if execute_with_timeout 60 aws ec2 delete-security-group --group-id "$sg" --region "$AWS_REGION" --profile "$AWS_PROFILE"; then
+                if execute_with_timeout 30 aws ec2 delete-security-group --group-id "$sg" --region "$AWS_REGION" --profile "$AWS_PROFILE"; then
                     log_info "  Deleted Security Group: $sg"
                 else
                     log_warning "  Failed to delete Security Group: $sg (may have dependencies or already deleted)"
@@ -933,8 +1089,8 @@ destroy_aws_resources() {
         done
     fi
 
-    # 6. Delete Subnets
-    log_info "Step 6/9: Deleting subnets..."
+    # 8. Delete Subnets
+    log_info "Step 8/11: Deleting subnets..."
     if [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
         local subnets=$(aws ec2 describe-subnets \
             --filters "Name=vpc-id,Values=$vpc_id" \
@@ -954,32 +1110,10 @@ destroy_aws_resources() {
         done
     fi
 
-    # 7. Delete Internet Gateway and Route Tables
-    log_info "Step 7/9: Deleting internet gateway and route tables..."
+    # 9. Delete Route Tables (before IGW to avoid dependency issues)
+    log_info "Step 9/11: Deleting route tables..."
     if [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
-        # Internet Gateway
-        local igw=$(aws ec2 describe-internet-gateways \
-            --filters "Name=attachment.vpc-id,Values=$vpc_id" \
-            --region "$AWS_REGION" --profile "$AWS_PROFILE" \
-            --query "InternetGateways[0].InternetGatewayId" --output text)
-
-        if [[ "$igw" != "None" && -n "$igw" ]]; then
-            if [[ "$DRY_RUN" == "false" ]]; then
-                # Detach IGW - may already be detached
-                if ! execute_with_timeout 30 aws ec2 detach-internet-gateway --internet-gateway-id "$igw" --vpc-id "$vpc_id" --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>&1 | grep -v "Gateway.NotAttached"; then
-                    log_debug "IGW may already be detached: $igw"
-                fi
-                if execute_with_timeout 30 aws ec2 delete-internet-gateway --internet-gateway-id "$igw" --region "$AWS_REGION" --profile "$AWS_PROFILE"; then
-                    log_info "  Deleted Internet Gateway: $igw"
-                else
-                    log_warning "  Failed to delete Internet Gateway: $igw"
-                fi
-            else
-                log_info "  [DRY RUN] Would delete Internet Gateway: $igw"
-            fi
-        fi
-
-        # Route Tables
+        # Non-main route tables
         local rts=$(aws ec2 describe-route-tables \
             --filters "Name=vpc-id,Values=$vpc_id" \
             --region "$AWS_REGION" --profile "$AWS_PROFILE" \
@@ -990,7 +1124,7 @@ destroy_aws_resources() {
                 if execute_with_timeout 30 aws ec2 delete-route-table --route-table-id "$rt" --region "$AWS_REGION" --profile "$AWS_PROFILE"; then
                     log_info "  Deleted Route Table: $rt"
                 else
-                    log_warning "  Failed to delete Route Table: $rt (may be main route table)"
+                    log_warning "  Failed to delete Route Table: $rt (may be main route table or have dependencies)"
                 fi
             else
                 log_info "  [DRY RUN] Would delete Route Table: $rt"
@@ -998,11 +1132,46 @@ destroy_aws_resources() {
         done
     fi
 
-    # 8. Delete VPC
-    log_info "Step 8/9: Deleting VPC..."
+    # 10. Delete Internet Gateway
+    log_info "Step 10/11: Deleting internet gateway..."
+    if [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
+        local igw=$(aws ec2 describe-internet-gateways \
+            --filters "Name=attachment.vpc-id,Values=$vpc_id" \
+            --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+            --query "InternetGateways[0].InternetGatewayId" --output text)
+
+        if [[ "$igw" != "None" && -n "$igw" ]]; then
+            if [[ "$DRY_RUN" == "false" ]]; then
+                # Detach IGW first
+                log_debug "Detaching Internet Gateway from VPC..."
+                if ! execute_with_timeout 30 aws ec2 detach-internet-gateway \
+                    --internet-gateway-id "$igw" \
+                    --vpc-id "$vpc_id" \
+                    --region "$AWS_REGION" \
+                    --profile "$AWS_PROFILE" 2>&1 | grep -v "Gateway.NotAttached"; then
+                    log_debug "IGW may already be detached or have dependency issues: $igw"
+                fi
+                
+                # Delete IGW
+                if execute_with_timeout 30 aws ec2 delete-internet-gateway \
+                    --internet-gateway-id "$igw" \
+                    --region "$AWS_REGION" \
+                    --profile "$AWS_PROFILE"; then
+                    log_info "  Deleted Internet Gateway: $igw"
+                else
+                    log_warning "  Failed to delete Internet Gateway: $igw"
+                fi
+            else
+                log_info "  [DRY RUN] Would detach and delete Internet Gateway: $igw"
+            fi
+        fi
+    fi
+
+    # 11. Delete VPC
+    log_info "Step 11/11: Deleting VPC..."
     if [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
         if [[ "$DRY_RUN" == "false" ]]; then
-            if execute_with_timeout 60 aws ec2 delete-vpc --vpc-id "$vpc_id" --region "$AWS_REGION" --profile "$AWS_PROFILE"; then
+            if execute_with_timeout 30 aws ec2 delete-vpc --vpc-id "$vpc_id" --region "$AWS_REGION" --profile "$AWS_PROFILE"; then
                 log_info "  Deleted VPC: $vpc_id"
             else
                 log_warning "  Failed to delete VPC: $vpc_id (may still have dependencies)"
@@ -1012,11 +1181,88 @@ destroy_aws_resources() {
         fi
     fi
 
-    # 9. Clean up Route53 DNS records
-    log_info "Step 9/9: Cleaning up Route53 DNS records..."
+    # Clean up Route53 DNS records (not numbered as part of main flow)
+    log_info "Additional cleanup: Route53 DNS records..."
     cleanup_route53_records "$infra_id"
+}
 
-    log_success "Manual resource cleanup completed"
+# Manual AWS resource cleanup with reconciliation loop
+destroy_aws_resources() {
+    local infra_id="$1"
+    local max_attempts="${MAX_ATTEMPTS:-5}"
+    local attempt=1
+    local initial_count=0
+    local current_count=0
+    local last_count=0
+    
+    log_info "Starting manual AWS resource cleanup with reconciliation (max attempts: $max_attempts)"
+    
+    # Get initial resource count
+    initial_count=$(count_resources "$infra_id")
+    last_count=$initial_count
+    
+    if [[ "$initial_count" -eq 0 ]]; then
+        log_info "No resources found to delete"
+        return 0
+    fi
+    
+    log_info "Initial resource count: $initial_count"
+    
+    # Reconciliation loop
+    while [[ $attempt -le $max_attempts ]]; do
+        log_info ""
+        log_info "${BOLD}=== Reconciliation Attempt $attempt/$max_attempts ===${NC}"
+        
+        # Run single deletion pass
+        destroy_aws_resources_single_pass "$infra_id" "$attempt" "$max_attempts"
+        
+        # Count remaining resources
+        current_count=$(count_resources "$infra_id")
+        
+        if [[ "$current_count" -eq 0 ]]; then
+            log_success "All resources successfully deleted after $attempt attempt(s)"
+            return 0
+        fi
+        
+        # Check if we made progress
+        local deleted=$((last_count - current_count))
+        if [[ "$deleted" -gt 0 ]]; then
+            log_info "Deleted $deleted resources in attempt $attempt (remaining: $current_count)"
+        else
+            log_warning "No progress made in attempt $attempt (remaining: $current_count)"
+            
+            # If no progress after attempt 3, wait longer between attempts
+            if [[ "$attempt" -ge 3 ]]; then
+                if [[ "$DRY_RUN" != "true" ]]; then
+                    log_info "Waiting 30 seconds before next attempt to allow AWS to process deletions..."
+                    sleep 30
+                fi
+            fi
+        fi
+        
+        last_count=$current_count
+        attempt=$((attempt + 1))
+        
+        # Short wait between attempts (unless we already waited above)
+        if [[ "$attempt" -le "$max_attempts" && "$attempt" -lt 3 ]]; then
+            if [[ "$DRY_RUN" != "true" ]]; then
+                log_info "Waiting 10 seconds before next attempt..."
+                sleep 10
+            fi
+        fi
+    done
+    
+    # Final resource count
+    log_warning "Reconciliation completed after $max_attempts attempts"
+    log_warning "Resources remaining: $current_count (started with: $initial_count)"
+    
+    if [[ "$current_count" -gt 0 ]]; then
+        log_error "Failed to delete all resources. Manual intervention may be required."
+        log_info "Try running with --max-attempts $(($max_attempts + 5)) for more attempts"
+        return 1
+    fi
+    
+    return 0
 }
 
 # List all OpenShift clusters
@@ -1463,11 +1709,12 @@ main() {
     # Show cluster summary
     echo ""
     log_info "${BOLD}Cluster Destruction Summary${NC}"
-    log_info "Cluster Name:     ${CLUSTER_NAME:-unknown}"
+    log_info "Cluster Name:      ${CLUSTER_NAME:-unknown}"
     log_info "Infrastructure ID: $INFRA_ID"
-    log_info "AWS Region:       $AWS_REGION"
-    log_info "AWS Profile:      $AWS_PROFILE"
-    log_info "Mode:             $([ "$DRY_RUN" == "true" ] && echo "DRY RUN" || echo "LIVE")"
+    log_info "AWS Region:        $AWS_REGION"
+    log_info "AWS Profile:       $AWS_PROFILE"
+    log_info "Mode:              $([ "$DRY_RUN" == "true" ] && echo "DRY RUN" || echo "LIVE")"
+    log_info "Max Attempts:      $MAX_ATTEMPTS"
     echo ""
 
     # Count total resources
