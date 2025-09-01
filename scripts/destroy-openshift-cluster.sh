@@ -1344,9 +1344,10 @@ list_clusters() {
     fi
     echo ""
 
-    # Find clusters from EC2 instances
+    # Find clusters from EC2 instances (excluding terminated instances)
     log_info "Checking EC2 instances for cluster tags..."
     local ec2_clusters=$(aws ec2 describe-instances \
+        --filters "Name=instance-state-name,Values=running,stopped,stopping,pending" \
         --region "$AWS_REGION" \
         --profile "$AWS_PROFILE" \
         --query 'Reservations[].Instances[].Tags[?contains(Key, `kubernetes.io/cluster/`) && Value==`owned`].Key' \
@@ -1818,9 +1819,35 @@ main() {
                 # Use cluster name as fallback infra ID for orphaned resources
                 INFRA_ID="$CLUSTER_NAME"
             else
-                log_error "No infrastructure ID or S3 state found for cluster: $CLUSTER_NAME"
-                log_info "The cluster might not exist or might already be deleted"
-                exit 1
+                # Check for any AWS resources with cluster name as prefix (e.g., cluster-name-xxxxx)
+                log_info "Searching for AWS resources with cluster name prefix..."
+                
+                # Check VPCs first
+                local found_infra_ids=$(aws ec2 describe-vpcs \
+                    --filters "Name=tag-key,Values=kubernetes.io/cluster/${CLUSTER_NAME}*" \
+                    --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+                    --query "Vpcs[].Tags[?starts_with(Key, 'kubernetes.io/cluster/${CLUSTER_NAME}')].Key" \
+                    --output text 2>/dev/null | sed "s|kubernetes.io/cluster/||g" | head -1)
+                
+                # If no VPCs, check instances (excluding terminated ones)
+                if [[ -z "$found_infra_ids" ]]; then
+                    found_infra_ids=$(aws ec2 describe-instances \
+                        --filters "Name=tag-key,Values=kubernetes.io/cluster/${CLUSTER_NAME}*" \
+                        "Name=instance-state-name,Values=running,stopped,stopping,pending" \
+                        --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+                        --query "Reservations[].Instances[].Tags[?starts_with(Key, 'kubernetes.io/cluster/${CLUSTER_NAME}')].Key" \
+                        --output text 2>/dev/null | sed "s|kubernetes.io/cluster/||g" | sort -u | head -1)
+                fi
+                
+                if [[ -n "$found_infra_ids" ]]; then
+                    INFRA_ID="$found_infra_ids"
+                    log_info "Found orphaned infrastructure with ID: $INFRA_ID"
+                    log_warning "This appears to be an orphaned cluster without S3 state"
+                else
+                    log_error "No infrastructure ID, S3 state, or AWS resources found for cluster: $CLUSTER_NAME"
+                    log_info "The cluster might not exist or might already be deleted"
+                    exit 1
+                fi
             fi
         fi
     fi
