@@ -707,29 +707,30 @@ def deployPMM(Map params) {
         returnStdout: true
     ).trim()
 
-    // Get the IP address from the monitoring-service LoadBalancer
+    // Get the public IP address from the OpenShift ingress controller
+    // The monitoring-service is a ClusterIP (internal only), so we need the ingress IP
     def pmmIp = sh(
         script: """
             export PATH="\$HOME/.local/bin:\$PATH"
-            # Get the external IP from the monitoring-service LoadBalancer
-            oc get service monitoring-service -n ${params.pmmNamespace} -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || \
-            oc get service monitoring-service -n ${params.pmmNamespace} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || \
-            echo ''
+            
+            # Get the external hostname from the ingress controller LoadBalancer
+            INGRESS_HOSTNAME=\$(oc get service -n openshift-ingress router-default \
+                -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+            
+            if [[ -n "\$INGRESS_HOSTNAME" ]]; then
+                # Resolve hostname to IP address
+                nslookup "\$INGRESS_HOSTNAME" 2>/dev/null | \
+                    grep -A 1 "^Name:" | grep "Address" | \
+                    head -1 | awk '{print \$2}'
+            else
+                # Fallback: try to get direct IP from ingress if no hostname
+                oc get service -n openshift-ingress router-default \
+                    -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || \
+                echo ''
+            fi
         """,
         returnStdout: true
     ).trim()
-
-    // If no LoadBalancer IP, try to get the ClusterIP or external IP from the service
-    if (!pmmIp) {
-        pmmIp = sh(
-            script: """
-                export PATH="\$HOME/.local/bin:\$PATH"
-                # Try to get ClusterIP as fallback
-                oc get service monitoring-service -n ${params.pmmNamespace} -o jsonpath='{.spec.clusterIP}' 2>/dev/null || echo ''
-            """,
-            returnStdout: true
-        ).trim()
-    }
 
     // Get the actual password from the secret (either set or generated)
     def actualPassword = sh(
