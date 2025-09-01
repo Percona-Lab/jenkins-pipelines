@@ -179,12 +179,12 @@ pipeline {
                         }
                     }
                 }
-                stage('rhel-10-arm64') {
+                stage('alma-10-arm64') {
                     agent {
-                        label 'min-rhel-10-arm64'
+                        label 'min-alma-10-arm64'
                     }
                     steps{
-                        setup_rhel_10_package_tests()
+                        setup_rhel_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
                     }
                     post {
