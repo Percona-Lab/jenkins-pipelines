@@ -1,0 +1,12 @@
+- job:
+    name: test-blue-ocean-formatting
+    description: 'Test job for Blue Ocean description formatting'
+    project-type: pipeline
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+              - master
+      script-path: pmm/test-formatting.groovy
+      lightweight-checkout: true
