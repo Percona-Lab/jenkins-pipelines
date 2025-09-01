@@ -15,16 +15,14 @@ pipeline {
                     
                     switch(params.FORMAT_TEST) {
                         case 'CLEAN_TEXT':
-                            // Clean format optimized for Blue Ocean readability with vertical separators
-                            currentBuild.description = "helm-test-75 | OCP 4.16.9 | us-east-2 | Active<br>" +
-                                "| Console: https://console-openshift-console.apps.helm-test-75.cd.percona.com<br>" +
-                                "| API: https://api.helm-test-75.cd.percona.com:6443<br>" +
-                                "| Login: oc login https://api.helm-test-75.cd.percona.com:6443 -u kubeadmin<br>" +
-                                "| Password: Check Jenkins artifacts<br>" +
-                                "| PMM: https://pmm.helm-test-75.cd.percona.com<br>" +
-                                "| PMM IP: 10.0.1.234 | User: admin | Pass: PMM123456 | v2.44.0<br>" +
-                                "| Masters: 3 × m5.xlarge | Workers: 3 × m5.large<br>" +
-                                "| Auto-delete: 72h | Team: PMM | S3: s3://openshift-clusters/helm-test-75/"
+                            // Clean single-line format optimized for Blue Ocean (no HTML)
+                            currentBuild.description = "helm-test-75 | OCP 4.16.9 | us-east-2 | Active | " +
+                                "Console: https://console-openshift-console.apps.helm-test-75.cd.percona.com | " +
+                                "API: https://api.helm-test-75.cd.percona.com:6443 | " +
+                                "PMM: https://pmm.helm-test-75.cd.percona.com (10.0.1.234) | " +
+                                "admin/PMM123456 | " +
+                                "Masters: 3×m5.xlarge | Workers: 3×m5.large | " +
+                                "Auto-delete: 72h | Team: PMM"
                             break
                             
                         case 'BR_ONLY':
