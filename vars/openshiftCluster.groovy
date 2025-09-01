@@ -712,11 +712,11 @@ def deployPMM(Map params) {
     def pmmIp = sh(
         script: """
             export PATH="\$HOME/.local/bin:\$PATH"
-            
+
             # Get the external hostname from the ingress controller LoadBalancer
             INGRESS_HOSTNAME=\$(oc get service -n openshift-ingress router-default \
                 -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
-            
+
             if [[ -n "\$INGRESS_HOSTNAME" ]]; then
                 # Resolve hostname to IP address
                 nslookup "\$INGRESS_HOSTNAME" 2>/dev/null | \
