@@ -553,105 +553,147 @@ detect_infra_id() {
     return 1
 }
 
-# Count AWS resources for a cluster
+# Count AWS resources for a cluster (optimized with parallel execution)
 count_resources() {
     local infra_id="$1"
     local resource_count=0
-
+    local temp_dir=$(mktemp -d -t "openshift-count.XXXXXX")
+    
     # Log to stderr so it doesn't interfere with return value
     log_info "Counting resources for infrastructure ID: $infra_id" >&2
-
+    log_debug "Using parallel execution for resource counting" >&2
+    
+    # First, get VPC ID as we need it for several queries
+    local vpc_id=$(aws ec2 describe-vpcs \
+        --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
+        --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+        --query "Vpcs[0].VpcId" --output text 2>/dev/null)
+    
+    # Launch all API calls in parallel as background jobs
+    
     # EC2 Instances
-    local instances=$(aws ec2 describe-instances \
-        --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
-        "Name=instance-state-name,Values=running,stopped,stopping,pending" \
-        --region "$AWS_REGION" --profile "$AWS_PROFILE" \
-        --query "Reservations[].Instances[].InstanceId" --output text 2>/dev/null | wc -w)
-    ((resource_count += instances))
-    [[ $instances -gt 0 ]] && log_info "  EC2 Instances: $instances" >&2
-
-    # Load Balancers
-    local elbs=$(aws elb describe-load-balancers \
-        --region "$AWS_REGION" --profile "$AWS_PROFILE" \
-        --query "LoadBalancerDescriptions[?contains(LoadBalancerName, '$infra_id')].LoadBalancerName" \
-        --output text 2>/dev/null | wc -w)
-    ((resource_count += elbs))
-    [[ $elbs -gt 0 ]] && log_info "  Classic Load Balancers: $elbs" >&2
-
-    local nlbs=$(aws elbv2 describe-load-balancers \
-        --region "$AWS_REGION" --profile "$AWS_PROFILE" \
-        --query "LoadBalancers[?contains(LoadBalancerName, '$infra_id')].LoadBalancerArn" \
-        --output text 2>/dev/null | wc -w)
-    ((resource_count += nlbs))
-    [[ $nlbs -gt 0 ]] && log_info "  Network/Application Load Balancers: $nlbs" >&2
-
+    (
+        count=$(aws ec2 describe-instances \
+            --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
+            "Name=instance-state-name,Values=running,stopped,stopping,pending" \
+            --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+            --query "Reservations[].Instances[].InstanceId" --output text 2>/dev/null | wc -w)
+        echo "$count" > "$temp_dir/instances"
+        [[ $count -gt 0 ]] && echo "EC2 Instances:$count" > "$temp_dir/instances.log"
+    ) &
+    
+    # Classic Load Balancers
+    (
+        count=$(aws elb describe-load-balancers \
+            --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+            --query "LoadBalancerDescriptions[?contains(LoadBalancerName, '$infra_id')].LoadBalancerName" \
+            --output text 2>/dev/null | wc -w)
+        echo "$count" > "$temp_dir/elbs"
+        [[ $count -gt 0 ]] && echo "Classic Load Balancers:$count" > "$temp_dir/elbs.log"
+    ) &
+    
+    # ALB/NLB Load Balancers
+    (
+        count=$(aws elbv2 describe-load-balancers \
+            --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+            --query "LoadBalancers[?contains(LoadBalancerName, '$infra_id')].LoadBalancerArn" \
+            --output text 2>/dev/null | wc -w)
+        echo "$count" > "$temp_dir/nlbs"
+        [[ $count -gt 0 ]] && echo "Network/Application Load Balancers:$count" > "$temp_dir/nlbs.log"
+    ) &
+    
     # NAT Gateways
-    local nats=$(aws ec2 describe-nat-gateways \
-        --filter "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
-        --region "$AWS_REGION" --profile "$AWS_PROFILE" \
-        --query "NatGateways[?State!='deleted'].NatGatewayId" --output text 2>/dev/null | wc -w)
-    ((resource_count += nats))
-    [[ $nats -gt 0 ]] && log_info "  NAT Gateways: $nats" >&2
-
+    (
+        count=$(aws ec2 describe-nat-gateways \
+            --filter "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
+            --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+            --query "NatGateways[?State!='deleted'].NatGatewayId" --output text 2>/dev/null | wc -w)
+        echo "$count" > "$temp_dir/nats"
+        [[ $count -gt 0 ]] && echo "NAT Gateways:$count" > "$temp_dir/nats.log"
+    ) &
+    
     # Elastic IPs
-    local eips=$(aws ec2 describe-addresses \
-        --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
-        --region "$AWS_REGION" --profile "$AWS_PROFILE" \
-        --query "Addresses[].AllocationId" --output text 2>/dev/null | wc -w)
-    ((resource_count += eips))
-    [[ $eips -gt 0 ]] && log_info "  Elastic IPs: $eips" >&2
-
-    # VPCs and their nested resources
-    local vpcs=$(aws ec2 describe-vpcs \
-        --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
-        --region "$AWS_REGION" --profile "$AWS_PROFILE" \
-        --query "Vpcs[].VpcId" --output text 2>/dev/null | wc -w)
-
-    if [[ $vpcs -gt 0 ]]; then
-        local vpc_id=$(aws ec2 describe-vpcs \
+    (
+        count=$(aws ec2 describe-addresses \
             --filters "Name=tag:kubernetes.io/cluster/$infra_id,Values=owned" \
             --region "$AWS_REGION" --profile "$AWS_PROFILE" \
-            --query "Vpcs[0].VpcId" --output text 2>/dev/null)
-
-        if [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
-            # Count VPC itself
-            ((resource_count += 1))
-            log_info "  VPCs: 1" >&2
-
-            # Count subnets
-            local subnet_count=$(aws ec2 describe-subnets \
+            --query "Addresses[].AllocationId" --output text 2>/dev/null | wc -w)
+        echo "$count" > "$temp_dir/eips"
+        [[ $count -gt 0 ]] && echo "Elastic IPs:$count" > "$temp_dir/eips.log"
+    ) &
+    
+    # VPC-related resources (if VPC exists)
+    if [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
+        # VPC itself
+        echo "1" > "$temp_dir/vpc"
+        echo "VPCs:1" > "$temp_dir/vpc.log"
+        
+        # Subnets
+        (
+            count=$(aws ec2 describe-subnets \
                 --filters "Name=vpc-id,Values=$vpc_id" \
                 --region "$AWS_REGION" --profile "$AWS_PROFILE" \
                 --query "Subnets | length(@)" --output text 2>/dev/null || echo 0)
-            ((resource_count += subnet_count))
-            [[ $subnet_count -gt 0 ]] && log_info "    Subnets: $subnet_count" >&2
-
-            # Count security groups (excluding default)
-            local sg_count=$(aws ec2 describe-security-groups \
+            echo "$count" > "$temp_dir/subnets"
+            [[ $count -gt 0 ]] && echo "  Subnets:$count" > "$temp_dir/subnets.log"
+        ) &
+        
+        # Security Groups (excluding default)
+        (
+            count=$(aws ec2 describe-security-groups \
                 --filters "Name=vpc-id,Values=$vpc_id" \
                 --region "$AWS_REGION" --profile "$AWS_PROFILE" \
                 --query "SecurityGroups[?GroupName!='default'] | length(@)" --output text 2>/dev/null || echo 0)
-            ((resource_count += sg_count))
-            [[ $sg_count -gt 0 ]] && log_info "    Security Groups: $sg_count" >&2
-
-            # Count route tables (excluding main)
-            local rt_count=$(aws ec2 describe-route-tables \
+            echo "$count" > "$temp_dir/sgs"
+            [[ $count -gt 0 ]] && echo "  Security Groups:$count" > "$temp_dir/sgs.log"
+        ) &
+        
+        # Route Tables (excluding main)
+        (
+            count=$(aws ec2 describe-route-tables \
                 --filters "Name=vpc-id,Values=$vpc_id" \
                 --region "$AWS_REGION" --profile "$AWS_PROFILE" \
                 --query "RouteTables[?Associations[0].Main!=\`true\`] | length(@)" --output text 2>/dev/null || echo 0)
-            ((resource_count += rt_count))
-            [[ $rt_count -gt 0 ]] && log_info "    Route Tables: $rt_count" >&2
-
-            # Count Internet Gateways
-            local igw_count=$(aws ec2 describe-internet-gateways \
+            echo "$count" > "$temp_dir/rts"
+            [[ $count -gt 0 ]] && echo "  Route Tables:$count" > "$temp_dir/rts.log"
+        ) &
+        
+        # Internet Gateways
+        (
+            count=$(aws ec2 describe-internet-gateways \
                 --filters "Name=attachment.vpc-id,Values=$vpc_id" \
                 --region "$AWS_REGION" --profile "$AWS_PROFILE" \
                 --query "InternetGateways | length(@)" --output text 2>/dev/null || echo 0)
-            ((resource_count += igw_count))
-            [[ $igw_count -gt 0 ]] && log_info "    Internet Gateways: $igw_count" >&2
-        fi
+            echo "$count" > "$temp_dir/igws"
+            [[ $count -gt 0 ]] && echo "  Internet Gateways:$count" > "$temp_dir/igws.log"
+        ) &
+    else
+        echo "0" > "$temp_dir/vpc"
     fi
-
+    
+    # Wait for all background jobs to complete
+    wait
+    
+    # Process log files for output (maintain original formatting)
+    for logfile in "$temp_dir"/*.log; do
+        if [[ -f "$logfile" ]]; then
+            while IFS=: read -r label count; do
+                log_info "  $label: $count" >&2
+            done < "$logfile"
+        fi
+    done
+    
+    # Sum up all counts
+    for countfile in "$temp_dir"/*; do
+        if [[ -f "$countfile" && ! "$countfile" =~ \.log$ ]]; then
+            count=$(cat "$countfile" 2>/dev/null || echo 0)
+            ((resource_count += count))
+        fi
+    done
+    
+    # Clean up temp directory
+    rm -rf "$temp_dir"
+    
     echo "$resource_count"
 }
 
