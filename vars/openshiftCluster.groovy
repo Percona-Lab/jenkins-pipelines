@@ -713,30 +713,18 @@ def deployPMM(Map params) {
         script: """
             export PATH="\$HOME/.local/bin:\$PATH"
 
-            # First try to get direct IP (some providers like GCP, bare metal provide this)
-            INGRESS_IP=\$(oc get service -n openshift-ingress router-default \
-                -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null)
-
-            if [[ -n "\$INGRESS_IP" ]]; then
-                # Direct IP available - just use it
-                echo "\$INGRESS_IP"
+            # AWS provides hostname in LoadBalancer status, not direct IP
+            INGRESS_HOSTNAME=\$(oc get service -n openshift-ingress router-default \
+                -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+            
+            if [[ -n "\$INGRESS_HOSTNAME" ]]; then
+                # Resolve AWS ELB hostname to IP address
+                nslookup "\$INGRESS_HOSTNAME" 2>/dev/null | \
+                    grep -A 1 "^Name:" | grep "Address" | \
+                    head -1 | awk '{print \$2}'
             else
-                # No direct IP, try hostname (AWS and most cloud providers)
-                INGRESS_HOSTNAME=\$(oc get service -n openshift-ingress router-default \
-                    -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
-                
-                if [[ -n "\$INGRESS_HOSTNAME" ]]; then
-                    # Resolve hostname to IP address
-                    nslookup "\$INGRESS_HOSTNAME" 2>/dev/null | \
-                        grep -A 1 "^Name:" | grep "Address" | \
-                        head -1 | awk '{print \$2}'
-                else
-                    # No LoadBalancer info - might be on-prem/bare metal
-                    # Try to get external IP from a worker node
-                    oc get nodes -l node-role.kubernetes.io/worker \
-                        -o jsonpath='{.items[0].status.addresses[?(@.type=="ExternalIP")].address}' 2>/dev/null || \
-                    echo ''
-                fi
+                # No hostname found - ingress might not be ready yet
+                echo ''
             fi
         """,
         returnStdout: true
