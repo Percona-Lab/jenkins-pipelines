@@ -719,9 +719,9 @@ def deployPMM(Map params) {
             
             if [[ -n "\$INGRESS_HOSTNAME" ]]; then
                 # Resolve AWS ELB hostname to IP address
-                nslookup "\$INGRESS_HOSTNAME" 2>/dev/null | \
-                    grep -A 1 "^Name:" | grep "Address" | \
-                    head -1 | awk '{print \$2}'
+                # Use getent (available by default on Oracle Linux) with nslookup fallback
+                getent hosts "\$INGRESS_HOSTNAME" 2>/dev/null | awk '{print \$1; exit}' || \
+                    nslookup "\$INGRESS_HOSTNAME" 2>/dev/null | grep -A 1 "^Name:" | grep "Address" | head -1 | awk '{print \$2}'
             else
                 # No hostname found - ingress might not be ready yet
                 echo ''
