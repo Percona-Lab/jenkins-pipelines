@@ -76,7 +76,7 @@ METADATA_FILE=""
 S3_BUCKET=""
 MAX_ATTEMPTS=5
 LOG_FILE=""  # Custom log file path (optional)
-LOGGING_ENABLED=true  # Enable/disable logging
+LOGGING_ENABLED=false  # Logging disabled by default
 COLOR_ENABLED=true  # Enable/disable colored output
 
 # CloudWatch configuration
@@ -367,8 +367,8 @@ OPTIONS:
     --detailed            Show detailed resource counts (with --list)
     --s3-bucket BUCKET    S3 bucket for state files (auto-detected if not provided)
     --max-attempts NUM    Maximum deletion attempts for reconciliation (default: 5)
-    --log-file PATH       Custom log file path (default: auto-determined)
-    --no-log              Disable logging to file (output only to console)
+    --log                 Enable logging to file (auto-determines location)
+    --log-file PATH       Enable logging with custom path (implies --log)
     --no-color            Disable colored output
     --help                Show this help message
 
@@ -391,11 +391,11 @@ EXAMPLES:
     # Run with more reconciliation attempts for stubborn resources
     $(basename "$0") --cluster-name test-cluster --max-attempts 10
 
-    # Use custom log file
-    $(basename "$0") --cluster-name test-cluster --log-file /var/log/my-destroy.log
+    # Enable logging to default location
+    $(basename "$0") --cluster-name test-cluster --log
 
-    # Disable logging (console output only)
-    $(basename "$0") --cluster-name test-cluster --no-log
+    # Enable logging with custom path
+    $(basename "$0") --cluster-name test-cluster --log-file /var/log/my-destroy.log
 
     # Disable colored output (useful for CI/CD or log parsing)
     $(basename "$0") --cluster-name test-cluster --no-color
@@ -403,7 +403,11 @@ EXAMPLES:
 NOTES:
     - The script will attempt to use openshift-install if metadata exists
     - Falls back to manual AWS resource deletion for orphaned clusters
-    - All operations are logged to: $LOG_FILE
+    - Default log locations (when --log is used):
+      * /var/log/openshift-destroy/ (if writable)
+      * ./logs/ (if current dir is writable)
+      * ~/.openshift-destroy/logs/ (fallback)
+    - Log filename format: destroy-YYYYMMDD-HHMMSS-PID.log
 
 EOF
     exit 0
@@ -482,13 +486,14 @@ parse_args() {
             MAX_ATTEMPTS="$2"
             shift 2
             ;;
+        --log)
+            LOGGING_ENABLED=true
+            shift
+            ;;
         --log-file)
+            LOGGING_ENABLED=true
             LOG_FILE="$2"
             shift 2
-            ;;
-        --no-log)
-            LOGGING_ENABLED=false
-            shift
             ;;
         --no-color)
             COLOR_ENABLED=false
@@ -1940,15 +1945,15 @@ main() {
     log_info "Started: $(date)"
     log_info ""
     
-    # Show logging configuration
+    # Show logging configuration  
     if [[ "$LOGGING_ENABLED" == "true" ]]; then
+        log_info "Logging: Enabled"
         log_info "Log file: $LOG_FILE"
         if [[ "$CLOUDWATCH_ENABLED" == "true" ]]; then
             log_info "CloudWatch: $CLOUDWATCH_LOG_GROUP/$CLOUDWATCH_LOG_STREAM"
         fi
-    else
-        log_info "Logging: Console output only (file logging disabled)"
     fi
+    # Don't show anything if logging is disabled (default) to keep output clean
     
     log_info ""
     
