@@ -323,6 +323,48 @@ pipeline {
                         uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     }
                 }
+                stage('Oracle Linux 10') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:10", "RPM")
+                        sh '''
+                            pwd
+                            ls -la test/rpm
+                            cp -r test/srpm .
+                            cp -r test/rpm .
+                        '''
+
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Oracle Linux 10 ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:10", "RPM")
+                        sh '''
+                            pwd
+                            ls -la test/rpm
+                            cp -r test/srpm .
+                            cp -r test/rpm .
+                        '''
+
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Ubuntu Focal (20.04)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
