@@ -501,9 +501,15 @@ extract_metadata() {
     local metadata_file="$1"
 
     if [[ -f "$metadata_file" ]]; then
-        INFRA_ID=$(jq -r '.infraID' "$metadata_file" 2>/dev/null || echo "")
-        CLUSTER_NAME=$(jq -r '.clusterName' "$metadata_file" 2>/dev/null || echo "")
-        AWS_REGION=$(jq -r '.aws.region // .platform.aws.region' "$metadata_file" 2>/dev/null || echo "$AWS_REGION")
+        # Use jq with proper null handling - convert null to empty string
+        INFRA_ID=$(jq -r '.infraID // empty' "$metadata_file" 2>/dev/null || echo "")
+        CLUSTER_NAME=$(jq -r '.clusterName // empty' "$metadata_file" 2>/dev/null || echo "")
+        AWS_REGION=$(jq -r '.aws.region // .platform.aws.region // empty' "$metadata_file" 2>/dev/null || echo "$AWS_REGION")
+        
+        # Clean up any "null" strings that might have leaked through
+        [[ "$INFRA_ID" == "null" ]] && INFRA_ID=""
+        [[ "$CLUSTER_NAME" == "null" ]] && CLUSTER_NAME=""
+        [[ "$AWS_REGION" == "null" ]] && AWS_REGION=""
 
         if [[ -n "$INFRA_ID" ]]; then
             log_info "Extracted from metadata: cluster=$CLUSTER_NAME, infra-id=$INFRA_ID, region=$AWS_REGION"
@@ -1766,7 +1772,7 @@ main() {
     # Handle no resources case
     if [[ "$resource_count" -eq 0 ]]; then
         log_warning "No AWS resources found for this cluster"
-        cleanup_s3_state "${CLUSTER_NAME:-$INFRA_ID}"
+        cleanup_s3_state "$CLUSTER_NAME" "$INFRA_ID"
         log_success "Cluster cleanup completed (no resources to delete)"
         exit 0
     fi
