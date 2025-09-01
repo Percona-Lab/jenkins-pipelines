@@ -1773,6 +1773,11 @@ execute_destruction() {
     if [[ "$use_openshift_install" != "true" ]]; then
         log_info "Running comprehensive AWS resource cleanup..."
         destroy_aws_resources "$infra_id"
+    else
+        # Even with successful openshift-install, we need to clean up Route53
+        # as openshift-install sometimes leaves DNS records behind
+        log_info "Cleaning up Route53 records (post openshift-install)..."
+        cleanup_route53_records "$infra_id"
     fi
 
     # Clean up S3 state
