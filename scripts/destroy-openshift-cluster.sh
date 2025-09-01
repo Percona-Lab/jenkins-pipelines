@@ -35,7 +35,7 @@ check_dependencies() {
     local missing_deps=()
     
     # Check for required commands
-    for cmd in aws jq; do
+    for cmd in aws; do
         if ! command -v "$cmd" &>/dev/null; then
             missing_deps+=("$cmd")
         fi
@@ -54,8 +54,8 @@ check_dependencies() {
         done
         echo "" >&2
         echo "Please install missing dependencies:" >&2
-        echo "  macOS: brew install awscli jq" >&2
-        echo "  Linux: apt-get install awscli jq  # or yum/dnf equivalent" >&2
+        echo "  macOS: brew install awscli" >&2
+        echo "  Linux: apt-get install awscli  # or yum/dnf equivalent" >&2
         exit 1
     fi
 }
@@ -75,6 +75,9 @@ INFRA_ID=""
 METADATA_FILE=""
 S3_BUCKET=""
 MAX_ATTEMPTS=5
+LOG_FILE=""  # Custom log file path (optional)
+LOGGING_ENABLED=true  # Enable/disable logging
+COLOR_ENABLED=true  # Enable/disable colored output
 
 # CloudWatch configuration
 CLOUDWATCH_LOG_GROUP="/aws/openshift/cluster-destroyer"
@@ -116,7 +119,7 @@ setup_cloudwatch_logging() {
         --log-stream-name "$CLOUDWATCH_LOG_STREAM" \
         --region "$AWS_REGION" --profile "$AWS_PROFILE" 2>/dev/null; then
         CLOUDWATCH_ENABLED=true
-        echo "CloudWatch logging enabled: $CLOUDWATCH_LOG_GROUP/$CLOUDWATCH_LOG_STREAM" >&2
+        # Don't echo here, let main() handle it after setup_logging completes
         return 0
     fi
     
@@ -131,10 +134,8 @@ send_to_cloudwatch() {
     
     # Prepare log event
     local timestamp=$(date +%s000)  # Milliseconds since epoch
-    local log_event=$(jq -n \
-        --arg msg "$message" \
-        --arg ts "$timestamp" \
-        '[{message: $msg, timestamp: ($ts | tonumber)}]')
+    local escaped_msg=$(echo "$message" | sed 's/"/\\"/g')
+    local log_event='[{"message":"'"$escaped_msg"'","timestamp":'"$timestamp"'}]'
     
     # Send to CloudWatch (fire and forget to avoid slowing down the script)
     {
@@ -155,13 +156,40 @@ send_to_cloudwatch() {
         
         # Update sequence token for next call
         if [[ -n "$result" ]]; then
-            CLOUDWATCH_SEQUENCE_TOKEN=$(echo "$result" | jq -r '.nextSequenceToken // empty')
+            # Extract sequence token using grep and cut
+            CLOUDWATCH_SEQUENCE_TOKEN=$(echo "$result" | grep -o '"nextSequenceToken":"[^"]*"' | cut -d'"' -f4)
         fi
     } 2>/dev/null &
 }
 
 # Set up log directory and file
 setup_logging() {
+    # Skip logging setup if disabled
+    if [[ "$LOGGING_ENABLED" == "false" ]]; then
+        LOG_FILE="/dev/null"
+        return 0
+    fi
+    
+    # Use custom log file if specified
+    if [[ -n "$LOG_FILE" ]]; then
+        # Ensure the directory exists
+        local custom_dir=$(dirname "$LOG_FILE")
+        if ! mkdir -p "$custom_dir" 2>/dev/null; then
+            echo "ERROR: Cannot create log directory: $custom_dir" >&2
+            exit 1
+        fi
+        # Touch and set permissions
+        touch "$LOG_FILE" 2>/dev/null || {
+            echo "ERROR: Cannot create log file: $LOG_FILE" >&2
+            exit 1
+        }
+        chmod 600 "$LOG_FILE" 2>/dev/null || true
+        # Don't echo here, let main() handle it after setup_logging completes
+        # Try to set up CloudWatch logging
+        setup_cloudwatch_logging || true
+        return 0
+    fi
+    
     local log_dir=""
     
     # Try different locations in order of preference
@@ -172,11 +200,27 @@ setup_logging() {
         # GitLab CI environment
         log_dir="${CI_PROJECT_DIR}/logs"
     else
-        # Local execution - use current directory or home
-        if [[ -w "." ]]; then
-            log_dir="./logs"
-        else
-            log_dir="${HOME}/.openshift-destroy/logs"
+        # Local execution - try /var/log first (system-wide logging)
+        if [[ -w "/var/log" ]] || sudo -n mkdir -p "/var/log/openshift-destroy" 2>/dev/null; then
+            log_dir="/var/log/openshift-destroy"
+            # Ensure the directory exists and is writable
+            if [[ ! -d "$log_dir" ]]; then
+                sudo mkdir -p "$log_dir" 2>/dev/null || log_dir=""
+            fi
+            # Set appropriate permissions if we created it with sudo
+            if [[ -d "$log_dir" ]] && [[ ! -w "$log_dir" ]]; then
+                sudo chmod 755 "$log_dir" 2>/dev/null
+                sudo chown "$USER" "$log_dir" 2>/dev/null || log_dir=""
+            fi
+        fi
+        
+        # Fall back to other locations if /var/log is not accessible
+        if [[ -z "$log_dir" ]] || [[ ! -w "$log_dir" ]]; then
+            if [[ -w "." ]]; then
+                log_dir="./logs"
+            else
+                log_dir="${HOME}/.openshift-destroy/logs"
+            fi
         fi
     fi
     
@@ -192,29 +236,56 @@ setup_logging() {
     touch "$LOG_FILE"
     chmod 600 "$LOG_FILE"
     
-    echo "Logging to: $LOG_FILE" >&2
+    # Don't echo here, let main() handle it after setup_logging completes
     
     # Try to set up CloudWatch logging
     setup_cloudwatch_logging || true
 }
 
-# Initialize logging
-setup_logging
+# Setup color codes based on COLOR_ENABLED setting
+setup_colors() {
+    if [[ "$COLOR_ENABLED" == "true" ]]; then
+        RED='\033[0;31m'
+        GREEN='\033[0;32m'
+        YELLOW='\033[1;33m'
+        BLUE='\033[0;34m'
+        CYAN='\033[0;36m'
+        MAGENTA='\033[0;35m'
+        BOLD='\033[1m'
+        NC='\033[0m' # No Color
+    else
+        # Disable all colors
+        RED=''
+        GREEN=''
+        YELLOW=''
+        BLUE=''
+        CYAN=''
+        MAGENTA=''
+        BOLD=''
+        NC=''
+    fi
+}
 
-# Color codes for output
+# Initialize colors with defaults (will be updated after parsing args)
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+MAGENTA='\033[0;35m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 # Logging functions
 log() {
     local message="${1}"
-    echo -e "${message}" | tee -a "$LOG_FILE"
-    # Also send to CloudWatch if enabled
-    send_to_cloudwatch "$(echo -e "${message}" | sed 's/\x1b\[[0-9;]*m//g')" # Strip color codes for CloudWatch
+    if [[ "$LOGGING_ENABLED" == "true" ]] && [[ -n "$LOG_FILE" ]]; then
+        echo -e "${message}" | tee -a "$LOG_FILE"
+        # Also send to CloudWatch if enabled
+        send_to_cloudwatch "$(echo -e "${message}" | sed 's/\x1b\[[0-9;]*m//g')" # Strip color codes for CloudWatch
+    else
+        echo -e "${message}"
+    fi
 }
 
 log_info() {
@@ -296,6 +367,9 @@ OPTIONS:
     --detailed            Show detailed resource counts (with --list)
     --s3-bucket BUCKET    S3 bucket for state files (auto-detected if not provided)
     --max-attempts NUM    Maximum deletion attempts for reconciliation (default: 5)
+    --log-file PATH       Custom log file path (default: auto-determined)
+    --no-log              Disable logging to file (output only to console)
+    --no-color            Disable colored output
     --help                Show this help message
 
 EXAMPLES:
@@ -316,6 +390,15 @@ EXAMPLES:
     
     # Run with more reconciliation attempts for stubborn resources
     $(basename "$0") --cluster-name test-cluster --max-attempts 10
+
+    # Use custom log file
+    $(basename "$0") --cluster-name test-cluster --log-file /var/log/my-destroy.log
+
+    # Disable logging (console output only)
+    $(basename "$0") --cluster-name test-cluster --no-log
+
+    # Disable colored output (useful for CI/CD or log parsing)
+    $(basename "$0") --cluster-name test-cluster --no-color
 
 NOTES:
     - The script will attempt to use openshift-install if metadata exists
@@ -399,6 +482,18 @@ parse_args() {
             MAX_ATTEMPTS="$2"
             shift 2
             ;;
+        --log-file)
+            LOG_FILE="$2"
+            shift 2
+            ;;
+        --no-log)
+            LOGGING_ENABLED=false
+            shift
+            ;;
+        --no-color)
+            COLOR_ENABLED=false
+            shift
+            ;;
         --help | -h)
             show_help
             ;;
@@ -411,6 +506,19 @@ parse_args() {
 
     # If list mode, handle it separately
     if [[ "$list_mode" == "true" ]]; then
+        # Setup colors based on user preference
+        setup_colors
+        
+        # Initialize logging for list mode
+        setup_logging
+        
+        log_info ""
+        log_info "${BOLD}Listing OpenShift Clusters${NC}"
+        log_info "Started: $(date)"
+        if [[ "$LOGGING_ENABLED" == "true" ]]; then
+            log_info "Log file: $LOG_FILE"
+        fi
+        
         # Auto-detect S3 bucket if not provided
         if [[ -z "$S3_BUCKET" ]]; then
             auto_detect_s3_bucket
@@ -505,10 +613,15 @@ extract_metadata() {
     local orig_aws_region="$AWS_REGION"
 
     if [[ -f "$metadata_file" ]]; then
-        # Use jq with proper null handling - convert null to empty string
-        INFRA_ID=$(jq -r '.infraID // empty' "$metadata_file" 2>/dev/null || echo "")
-        local extracted_cluster=$(jq -r '.clusterName // empty' "$metadata_file" 2>/dev/null || echo "")
-        local extracted_region=$(jq -r '.aws.region // .platform.aws.region // empty' "$metadata_file" 2>/dev/null || echo "")
+        # Extract values using grep, sed, and awk
+        INFRA_ID=$(grep -o '"infraID"[[:space:]]*:[[:space:]]*"[^"]*"' "$metadata_file" 2>/dev/null | sed 's/.*:.*"\([^"]*\)".*/\1/' || echo "")
+        local extracted_cluster=$(grep -o '"clusterName"[[:space:]]*:[[:space:]]*"[^"]*"' "$metadata_file" 2>/dev/null | sed 's/.*:.*"\([^"]*\)".*/\1/' || echo "")
+        # Try aws.region first using awk
+        local extracted_region=$(awk '/"aws"[[:space:]]*:/{p=1} p && /"region"[[:space:]]*:/{gsub(/.*"region"[[:space:]]*:[[:space:]]*"/,""); gsub(/".*/,""); print; exit}' "$metadata_file" 2>/dev/null || echo "")
+        # Fall back to platform.aws.region if needed
+        if [[ -z "$extracted_region" ]]; then
+            extracted_region=$(sed -n '/"platform"[[:space:]]*:/,/^[[:space:]]*}/p' "$metadata_file" 2>/dev/null | sed -n '/"aws"[[:space:]]*:/,/^[[:space:]]*}/p' | grep '"region"' | sed 's/.*"region"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/' || echo "")
+        fi
         
         # Only update CLUSTER_NAME if we got a valid value
         if [[ -n "$extracted_cluster" && "$extracted_cluster" != "null" ]]; then
@@ -536,7 +649,7 @@ extract_metadata() {
 detect_infra_id() {
     local cluster_name="$1"
 
-    log_info "Searching for infrastructure ID for cluster: $cluster_name"
+    log_info "Searching for infrastructure ID for cluster: ${CYAN}${BOLD}$cluster_name${NC}"
 
     # Search for VPCs with cluster tags
     local vpc_tags=$(aws ec2 describe-vpcs \
@@ -653,7 +766,7 @@ count_resources() {
                 --region "$AWS_REGION" --profile "$AWS_PROFILE" \
                 --query "Subnets | length(@)" --output text 2>/dev/null || echo 0)
             echo "$count" > "$temp_dir/subnets"
-            [[ $count -gt 0 ]] && echo "  Subnets:$count" > "$temp_dir/subnets.log"
+            [[ $count -gt 0 ]] && echo "Subnets:$count" > "$temp_dir/subnets.log"
         ) &
         
         # Security Groups (excluding default)
@@ -663,7 +776,7 @@ count_resources() {
                 --region "$AWS_REGION" --profile "$AWS_PROFILE" \
                 --query "SecurityGroups[?GroupName!='default'] | length(@)" --output text 2>/dev/null || echo 0)
             echo "$count" > "$temp_dir/sgs"
-            [[ $count -gt 0 ]] && echo "  Security Groups:$count" > "$temp_dir/sgs.log"
+            [[ $count -gt 0 ]] && echo "Security Groups:$count" > "$temp_dir/sgs.log"
         ) &
         
         # Route Tables (excluding main)
@@ -673,7 +786,7 @@ count_resources() {
                 --region "$AWS_REGION" --profile "$AWS_PROFILE" \
                 --query "RouteTables[?Associations[0].Main!=\`true\`] | length(@)" --output text 2>/dev/null || echo 0)
             echo "$count" > "$temp_dir/rts"
-            [[ $count -gt 0 ]] && echo "  Route Tables:$count" > "$temp_dir/rts.log"
+            [[ $count -gt 0 ]] && echo "Route Tables:$count" > "$temp_dir/rts.log"
         ) &
         
         # Internet Gateways
@@ -683,7 +796,7 @@ count_resources() {
                 --region "$AWS_REGION" --profile "$AWS_PROFILE" \
                 --query "InternetGateways | length(@)" --output text 2>/dev/null || echo 0)
             echo "$count" > "$temp_dir/igws"
-            [[ $count -gt 0 ]] && echo "  Internet Gateways:$count" > "$temp_dir/igws.log"
+            [[ $count -gt 0 ]] && echo "Internet Gateways:$count" > "$temp_dir/igws.log"
         ) &
     else
         echo "0" > "$temp_dir/vpc"
@@ -784,7 +897,7 @@ cleanup_route53_records() {
     local api_name="api.${cluster_name}.${base_domain}."
     local apps_name="\\052.apps.${cluster_name}.${base_domain}."
     
-    # Fetch all records and filter in jq to avoid JMESPath escaping issues
+    # Fetch all records
     local all_records
     if ! all_records=$(aws route53 list-resource-record-sets \
         --hosted-zone-id "$zone_id" \
@@ -794,34 +907,75 @@ cleanup_route53_records() {
         return 1
     fi
     
-    # Filter for our specific records using jq
-    local records
-    records=$(echo "$all_records" | jq --arg api "$api_name" --arg apps "$apps_name" \
-        '[.ResourceRecordSets[] | select(.Name == $api or .Name == $apps)]')
+    # Function to extract a complete record by name
+    extract_route53_record() {
+        local json="$1"
+        local target_name="$2"
+        
+        echo "$json" | awk -v name="$target_name" '
+        BEGIN { in_record=0; brace_count=0; found=0; record="" }
+        /"Name"[[:space:]]*:[[:space:]]*"/ {
+            gsub(/.*"Name"[[:space:]]*:[[:space:]]*"/, "")
+            gsub(/".*/, "")
+            if ($0 == name) {
+                found=1
+                in_record=1
+                brace_count=1
+                record="{"
+                next
+            }
+        }
+        in_record && found {
+            record = record "\n" $0
+            gsub(/[^{}]/, "", $0)
+            for (i=1; i<=length($0); i++) {
+                c = substr($0, i, 1)
+                if (c == "{") brace_count++
+                if (c == "}") {
+                    brace_count--
+                    if (brace_count == 0) {
+                        print record
+                        exit
+                    }
+                }
+            }
+        }
+        '
+    }
     
-    # Check if we found any records
-    if [[ "$records" == "[]" || -z "$records" || "$records" == "null" ]]; then
+    # Extract field from record
+    extract_field() {
+        local record="$1"
+        local field="$2"
+        echo "$record" | grep "\"$field\"" | head -1 | sed "s/.*\"$field\"[[:space:]]*:[[:space:]]*\"\([^\"]*\)\".*/\1/"
+    }
+    
+    # Find our specific records
+    local api_record=$(extract_route53_record "$all_records" "$api_name")
+    local apps_record_name="\\\\052.apps.${cluster_name}.${base_domain}."
+    local apps_record=$(extract_route53_record "$all_records" "$apps_record_name")
+    
+    local count=0
+    [[ -n "$api_record" ]] && ((count++))
+    [[ -n "$apps_record" ]] && ((count++))
+    
+    if [[ $count -eq 0 ]]; then
         log_info "  No Route53 records found for cluster"
         return 0
     fi
     
-    # Count records for user feedback
-    local count=$(echo "$records" | jq 'length')
     log_info "  Found $count Route53 DNS record(s) to clean up"
     
-    # Process each record with proper error handling
-    echo "$records" | jq -c '.[]' | while IFS= read -r record; do
+    # Process each record
+    for record in "$api_record" "$apps_record"; do
         [[ -z "$record" ]] && continue
         
-        local name=$(echo "$record" | jq -r '.Name')
-        local type=$(echo "$record" | jq -r '.Type')
+        local name=$(extract_field "$record" "Name")
+        local type=$(extract_field "$record" "Type")
         
         if [[ "$DRY_RUN" == "false" ]]; then
-            # Create change batch using jq for proper JSON formatting
-            local change_batch
-            change_batch=$(jq -n \
-                --argjson record "$record" \
-                '{Changes: [{Action: "DELETE", ResourceRecordSet: $record}]}')
+            # Create change batch using string concatenation
+            local change_batch="{\"Changes\":[{\"Action\":\"DELETE\",\"ResourceRecordSet\":$record}]}"
             
             # Apply the change with explicit error handling
             if aws route53 change-resource-record-sets \
@@ -1309,11 +1463,13 @@ destroy_aws_resources() {
 list_clusters() {
     local detailed="${1:-false}"
 
-    log_info "Searching for OpenShift clusters in region: $AWS_REGION"
+    log_info ""
+    log_info "${BOLD}Searching for OpenShift Clusters${NC}"
+    log_info "Region: $AWS_REGION"
     if [[ "$detailed" == "true" ]]; then
         log_warning "Detailed mode enabled - this will be slower as it counts all resources"
     fi
-    echo ""
+    log_info ""
 
     # Find clusters from EC2 instances (excluding terminated instances)
     log_info "Checking EC2 instances for cluster tags..."
@@ -1383,9 +1539,9 @@ list_clusters() {
         return 1
     fi
 
-    echo ""
-    log_info "${BOLD}Found OpenShift Clusters:${NC}"
-    echo ""
+    log_info ""
+    log_info "${BOLD}Found OpenShift Clusters${NC}"
+    log_info ""
 
     # Display cluster information
     echo "$all_clusters" | while read -r cluster; do
@@ -1450,22 +1606,23 @@ list_clusters() {
             # Display cluster and infra ID appropriately
             if [[ "$cluster" == "$base_name" ]]; then
                 # No separate infra ID (orphaned or custom cluster)
-                echo -e "  ${BOLD}Cluster:${NC} $base_name"
-                echo "    Infrastructure ID: (none - orphaned cluster)"
+                log_info "  ${BOLD}Cluster:${NC} ${CYAN}${BOLD}$base_name${NC}"
+                log_info "    Infrastructure ID: (none - orphaned cluster)"
             else
                 # Proper OpenShift cluster with infra ID
-                echo -e "  ${BOLD}Cluster:${NC} $base_name"
-                echo "    Infrastructure ID: $cluster"
+                log_info "  ${BOLD}Cluster:${NC} ${CYAN}${BOLD}$base_name${NC}"
+                log_info "    Infrastructure ID: $cluster"
             fi
-            echo "    $resource_info"
-            echo "    S3 State: $s3_state$created"
-            echo ""
+            log_info "    $resource_info"
+            log_info "    S3 State: $s3_state$created"
+            log_info ""
         fi
     done
 
     # Show summary
     local cluster_count=$(echo "$all_clusters" | grep -c .)
-    echo ""
+    log_info ""
+    log_info "${BOLD}Summary${NC}"
     log_info "Total clusters found: $cluster_count"
 
     return 0
@@ -1554,7 +1711,7 @@ show_resource_details() {
     if [[ -n "$instances" ]]; then
         log_info "EC2 Instances:"
         echo "$instances" | while read -r id type name; do
-            echo "  - $id ($type) - $name"
+            log_info "  - $id ($type) - $name"
         done
     fi
 
@@ -1567,7 +1724,7 @@ show_resource_details() {
     if [[ -n "$nlbs" ]]; then
         log_info "Load Balancers:"
         echo "$nlbs" | while read -r name type; do
-            echo "  - $name ($type)"
+            log_info "  - $name ($type)"
         done
     fi
 
@@ -1581,7 +1738,7 @@ show_resource_details() {
     if [[ -n "$nats" ]]; then
         log_info "NAT Gateways:"
         echo "$nats" | while read -r id state; do
-            echo "  - $id ($state)"
+            log_info "  - $id ($state)"
         done
     fi
 
@@ -1595,7 +1752,7 @@ show_resource_details() {
     if [[ -n "$eips" ]]; then
         log_info "Elastic IPs:"
         echo "$eips" | while read -r id ip; do
-            echo "  - $id ($ip)"
+            log_info "  - $id ($ip)"
         done
     fi
 
@@ -1608,28 +1765,28 @@ show_resource_details() {
 
     if [[ -n "$vpc" && "$vpc" != "None" ]]; then
         log_info "VPC:"
-        echo -e "  - $(echo $vpc | awk '{print $1}') ($(echo $vpc | awk '{print $2}'))"
+        log_info "  - $(echo $vpc | awk '{print $1}') ($(echo $vpc | awk '{print $2}')})"
 
         # Count subnets
         local subnet_count=$(aws ec2 describe-subnets \
             --filters "Name=vpc-id,Values=$(echo $vpc | awk '{print $1}')" \
             --region "$AWS_REGION" --profile "$AWS_PROFILE" \
             --query "Subnets | length(@)" --output text 2>/dev/null)
-        echo "    - $subnet_count subnets"
+        log_info "    - $subnet_count subnets"
 
         # Count security groups
         local sg_count=$(aws ec2 describe-security-groups \
             --filters "Name=vpc-id,Values=$(echo $vpc | awk '{print $1}')" \
             --region "$AWS_REGION" --profile "$AWS_PROFILE" \
             --query "SecurityGroups | length(@)" --output text 2>/dev/null)
-        echo "    - $sg_count security groups"
+        log_info "    - $sg_count security groups"
 
         # Count route tables
         local rt_count=$(aws ec2 describe-route-tables \
             --filters "Name=vpc-id,Values=$(echo $vpc | awk '{print $1}')" \
             --region "$AWS_REGION" --profile "$AWS_PROFILE" \
             --query "RouteTables | length(@)" --output text 2>/dev/null)
-        echo "    - $rt_count route tables"
+        log_info "    - $rt_count route tables"
     fi
 
     # Check S3 resources
@@ -1645,7 +1802,7 @@ show_s3_resources() {
         if aws s3 ls "s3://${S3_BUCKET}/${CLUSTER_NAME}/" \
             --region "$AWS_REGION" --profile "$AWS_PROFILE" &>/dev/null; then
             log_info "S3 State:"
-            echo "  - s3://${S3_BUCKET}/${CLUSTER_NAME}/"
+            log_info "  - s3://${S3_BUCKET}/${CLUSTER_NAME}/"
         fi
     fi
 }
@@ -1714,7 +1871,7 @@ execute_destruction() {
 
                     # Extract infrastructure ID from metadata if not already set
                     if [[ -z "$INFRA_ID" ]]; then
-                        INFRA_ID=$(jq -r '.infraID // empty' "$temp_dir/metadata.json" 2>/dev/null)
+                        INFRA_ID=$(grep -o '"infraID"[[:space:]]*:[[:space:]]*"[^"]*"' "$temp_dir/metadata.json" 2>/dev/null | sed 's/.*:.*"\([^"]*\)".*/\1/')
                         if [[ -n "$INFRA_ID" ]]; then
                             log_info "Extracted infrastructure ID: $INFRA_ID"
                         fi
@@ -1768,11 +1925,34 @@ execute_destruction() {
 
 # Main execution
 main() {
-    log_info "OpenShift Cluster Destroyer started at $(date)"
-    log_info "Log file: $LOG_FILE"
-
-    # Parse and validate inputs
+    # Parse arguments first (before logging setup)
     parse_args "$@"
+    
+    # Setup colors based on user preference
+    setup_colors
+    
+    # Initialize logging after parsing arguments (so we have LOG_FILE and LOGGING_ENABLED set)
+    setup_logging
+    
+    # Now we can start logging - organize the preamble
+    log_info ""
+    log_info "${BOLD}OpenShift Cluster Destroyer${NC}"
+    log_info "Started: $(date)"
+    log_info ""
+    
+    # Show logging configuration
+    if [[ "$LOGGING_ENABLED" == "true" ]]; then
+        log_info "Log file: $LOG_FILE"
+        if [[ "$CLOUDWATCH_ENABLED" == "true" ]]; then
+            log_info "CloudWatch: $CLOUDWATCH_LOG_GROUP/$CLOUDWATCH_LOG_STREAM"
+        fi
+    else
+        log_info "Logging: Console output only (file logging disabled)"
+    fi
+    
+    log_info ""
+    
+    # Validate inputs
     validate_inputs
 
     # Extract metadata if file provided
@@ -1835,15 +2015,16 @@ main() {
     fi
 
     # Show cluster summary
-    echo ""
-    log_info "${BOLD}Cluster Destruction Summary${NC}"
-    log_info "Cluster Name:      ${CLUSTER_NAME:-unknown}"
+    log_info ""
+    log_info "${BOLD}Target Cluster Information${NC}"
+    log_info "Cluster Name:      ${CYAN}${BOLD}${CLUSTER_NAME:-unknown}${NC}"
     log_info "Infrastructure ID: $INFRA_ID"
     log_info "AWS Region:        $AWS_REGION"
     log_info "AWS Profile:       $AWS_PROFILE"
+    log_info "Base Domain:       $BASE_DOMAIN"
     log_info "Mode:              $([ "$DRY_RUN" == "true" ] && echo "DRY RUN" || echo "LIVE")"
     log_info "Max Attempts:      $MAX_ATTEMPTS"
-    echo ""
+    log_info ""
 
     # Count total resources
     local resource_count=$(count_resources "$INFRA_ID")
@@ -1866,8 +2047,12 @@ main() {
     # Execute destruction
     execute_destruction "$INFRA_ID"
 
-    log_info "Destruction completed at $(date)"
-    log_info "Full log available at: $LOG_FILE"
+    log_info ""
+    log_info "${BOLD}Operation Completed${NC}"
+    log_info "Finished: $(date)"
+    if [[ "$LOGGING_ENABLED" == "true" ]]; then
+        log_info "Full log: $LOG_FILE"
+    fi
 }
 
 # Run main function
