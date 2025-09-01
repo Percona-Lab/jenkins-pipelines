@@ -140,8 +140,7 @@ pipeline {
                     '''
                 }
                 script {
-                    sh (script: 'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-${BRANCH_NAME}-${SHORTENED_COMMIT}.tar.gz" | tee CLIENT_URL_DYNAMIC_OL8')
-                    env.CLIENT_URL_DYNAMIC_OL8 = sh (script: "cat CLIENT_URL_DYNAMIC_OL8", returnStdout: true).trim()
+                    env.CLIENT_URL_DYNAMIC_OL8 = sh (script: 'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-${BRANCH_NAME}-${SHORTENED_COMMIT}.tar.gz" | tee CLIENT_URL_DYNAMIC_OL8', returnStdout: true).trim()
                 }
             }
         }
