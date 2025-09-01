@@ -121,7 +121,7 @@ pipeline {
         stage('Build dynamic client binary for OL8 (GSSAPI)') {
             when { expression { return params.GSSAPI_DYNAMIC_TARBALLS } }
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                withCredentials([aws(credentialsId: 'AMI/OVF')]) {
                     sh '''
                         set -o errexit
 
