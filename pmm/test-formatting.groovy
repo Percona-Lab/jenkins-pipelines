@@ -2,17 +2,17 @@ pipeline {
     agent {
         label 'docker'
     }
-    
+
     parameters {
         choice(name: 'FORMAT_TEST', choices: ['CLEAN_TEXT', 'BR_ONLY', 'FULL_HTML', 'PLAIN_TEXT', 'MIXED_FORMAT', 'COMPLEX_HTML', 'PIPE_SEPARATED'], description: 'Select format to test')
     }
-    
+
     stages {
         stage('Test Formatting') {
             steps {
                 script {
                     echo "Testing format: ${params.FORMAT_TEST}"
-                    
+
                     switch(params.FORMAT_TEST) {
                         case 'CLEAN_TEXT':
                             // Clean single-line format optimized for Blue Ocean (no HTML)
@@ -25,7 +25,7 @@ pipeline {
                                 "Masters: 3×m5.xlarge | Workers: 3×m5.large | " +
                                 "Auto-delete: 72h | Team: PMM"
                             break
-                            
+
                         case 'BR_ONLY':
                             // Test with only BR tags - most likely to work in Blue Ocean
                             currentBuild.description = """Cluster: helm-test-75<br>
@@ -57,7 +57,7 @@ Lifecycle:<br>
 • Team: PMM<br>
 • S3 Backup: s3://openshift-clusters-119175775298-us-east-2/helm-test-75/"""
                             break
-                            
+
                         case 'FULL_HTML':
                             // Full HTML with all tags - current approach
                             currentBuild.description = """<b>Cluster:</b> <a href='https://console-openshift-console.apps.helm-test-75.cd.percona.com'>helm-test-75</a><br/>
@@ -89,7 +89,7 @@ Lifecycle:<br>
 • Team: PMM<br/>
 • S3 Backup: <code>s3://openshift-clusters-119175775298-us-east-2/helm-test-75/</code>"""
                             break
-                            
+
                         case 'PLAIN_TEXT':
                             // Plain text with newlines (no HTML)
                             currentBuild.description = """Cluster: helm-test-75
@@ -121,7 +121,7 @@ Lifecycle:
 • Team: PMM
 • S3 Backup: s3://openshift-clusters-119175775298-us-east-2/helm-test-75/"""
                             break
-                            
+
                         case 'MIXED_FORMAT':
                             // Mixed approach - minimal HTML
                             currentBuild.description = """<b>Cluster:</b> helm-test-75<br>
@@ -141,7 +141,7 @@ IP: 10.0.1.234 | User: admin | Pass: PMM123456<br>
 <b>Resources:</b> Masters: 3×m5.xlarge | Workers: 3×m5.large<br>
 <b>Lifecycle:</b> Auto-delete: 72h | Team: PMM"""
                             break
-                            
+
                         case 'COMPLEX_HTML':
                             // Complex HTML structure (like from screenshot)
                             def descriptionHtml = new StringBuilder()
@@ -162,10 +162,10 @@ IP: 10.0.1.234 | User: admin | Pass: PMM123456<br>
                             descriptionHtml.append("• Auto-delete: 72 hours<br/>")
                             descriptionHtml.append("• Team: PMM<br/>")
                             descriptionHtml.append("• S3 Backup: <code>s3://openshift-clusters-119175775298-us-east-2/helm-test-75/</code><br/>")
-                            
+
                             currentBuild.description = descriptionHtml.toString()
                             break
-                            
+
                         case 'PIPE_SEPARATED':
                             // Pipe-separated format for Blue Ocean
                             currentBuild.description = "helm-test-75 | OCP 4.16.9 | us-east-2 | Active | " +
@@ -176,7 +176,7 @@ IP: 10.0.1.234 | User: admin | Pass: PMM123456<br>
                                 "Auto-delete: 72h | Team: PMM"
                             break
                     }
-                    
+
                     // Use single sh step to avoid multiple "Print Message" labels in Blue Ocean
                     sh """
                         echo "Description set. Check Blue Ocean and Classic UI to compare rendering."
