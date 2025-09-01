@@ -38,8 +38,8 @@ void setup_rhel_package_tests()
 void setup_rhel_10_package_tests()
 {
     sh '''
-        dnf config-manager --set-enabled crb
-        dnf clean all && dnf makecache
+        sudo dnf config-manager --set-enabled crb
+        sudo dnf clean all && dnf makecache
         sudo dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm
         sudo dnf -y update
         sudo dnf install -y ansible-core git wget
