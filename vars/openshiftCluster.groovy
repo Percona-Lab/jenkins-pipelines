@@ -232,6 +232,7 @@ def create(Map config) {
             metadata.pmmDeployed = true
             metadata.pmmImageTag = params.pmmImageTag
             metadata.pmmUrl = pmmInfo.url
+            metadata.pmmIp = pmmInfo.ip
             metadata.pmmNamespace = pmmInfo.namespace
 
             // Update metadata in S3 with PMM information
@@ -727,6 +728,29 @@ def deployPMM(Map params) {
         returnStdout: true
     ).trim()
 
+    // Get the public IP address from the OpenShift ingress controller
+    // The monitoring-service is a ClusterIP (internal only), so we need the ingress IP
+    def pmmIp = sh(
+        script: """
+            export PATH="\$HOME/.local/bin:\$PATH"
+
+            # AWS provides hostname in LoadBalancer status, not direct IP
+            INGRESS_HOSTNAME=\$(oc get service -n openshift-ingress router-default \
+                -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+            
+            if [[ -n "\$INGRESS_HOSTNAME" ]]; then
+                # Resolve AWS ELB hostname to IP address
+                # Use getent (available by default on Oracle Linux) with nslookup fallback
+                getent hosts "\$INGRESS_HOSTNAME" 2>/dev/null | awk '{print \$1; exit}' || \
+                    nslookup "\$INGRESS_HOSTNAME" 2>/dev/null | grep -A 1 "^Name:" | grep "Address" | head -1 | awk '{print \$2}'
+            else
+                # No hostname found - ingress might not be ready yet
+                echo ''
+            fi
+        """,
+        returnStdout: true
+    ).trim()
+
     // Get the actual password from the secret (either set or generated)
     def actualPassword = sh(
         script: """
@@ -738,6 +762,7 @@ def deployPMM(Map params) {
 
     def result = [
         url: "https://${pmmUrl}",
+        ip: pmmIp ?: 'N/A',  // Return 'N/A' if we couldn't determine the IP
         username: 'admin',
         password: actualPassword,
         namespace: params.pmmNamespace,

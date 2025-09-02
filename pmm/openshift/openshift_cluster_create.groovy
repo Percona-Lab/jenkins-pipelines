@@ -395,6 +395,7 @@ Starting cluster creation process...
 
                         if (clusterInfo.pmm) {
                             env.PMM_URL = clusterInfo.pmm.url
+                            env.PMM_IP = clusterInfo.pmm.ip ?: 'N/A'
                             env.PMM_PASSWORD = clusterInfo.pmm.password
                             env.PMM_PASSWORD_GENERATED = clusterInfo.pmm.passwordGenerated.toString()
                         }
@@ -568,6 +569,7 @@ Starting cluster creation process...
                         echo "Helm Chart:           ${params.PMM_HELM_CHART_VERSION}"
                         echo "Namespace:            pmm-monitoring"
                         echo "Access URL:           ${env.PMM_URL}"
+                        echo "IP Address:           ${env.PMM_IP}"
                         echo "Username:             admin"
                         echo "Password:             ${passwordInfo}"
                         
@@ -611,9 +613,49 @@ Starting cluster creation process...
                     echo ""
                     echo "===================================================================="
 
-                    // Update build description with final status
-                    def pmmFinalStatus = env.PMM_URL ? "PMM:${params.PMM_IMAGE_TAG}✓" : (params.DEPLOY_PMM ? "PMM:Failed" : "No-PMM")
-                    currentBuild.description = "${env.FINAL_CLUSTER_NAME} | OCP:${params.OPENSHIFT_VERSION} | ${params.AWS_REGION} | ${pmmFinalStatus}"
+                    // Update build description with comprehensive connection details
+                    def descriptionHtml = new StringBuilder()
+                    descriptionHtml.append("<b>Cluster:</b> ${env.FINAL_CLUSTER_NAME}<br/>")
+                    descriptionHtml.append("<b>OpenShift:</b> ${params.OPENSHIFT_VERSION}<br/>")
+                    descriptionHtml.append("<b>Region:</b> ${params.AWS_REGION}<br/>")
+                    descriptionHtml.append("<b>Status:</b> Active<br/>")
+                    descriptionHtml.append("<br/>")
+                    
+                    // OpenShift access details
+                    descriptionHtml.append("<b>Access URLs:</b><br/>")
+                    descriptionHtml.append("• Console: <a href='https://console-openshift-console.apps.${env.FINAL_CLUSTER_NAME}.cd.percona.com'>https://console-openshift-console.apps.${env.FINAL_CLUSTER_NAME}.cd.percona.com</a><br/>")
+                    descriptionHtml.append("• API: <code>https://api.${env.FINAL_CLUSTER_NAME}.cd.percona.com:6443</code><br/>")
+                    descriptionHtml.append("<br/>")
+                    
+                    descriptionHtml.append("<b>Login Command:</b><br/>")
+                    descriptionHtml.append("<code>oc login https://api.${env.FINAL_CLUSTER_NAME}.cd.percona.com:6443 -u kubeadmin -p &lt;password&gt;</code><br/>")
+                    descriptionHtml.append("<i>(Password in Jenkins artifacts)</i><br/>")
+                    descriptionHtml.append("<br/>")
+                    
+                    // PMM details if deployed
+                    if (env.PMM_URL) {
+                        descriptionHtml.append("<b>PMM Monitoring:</b><br/>")
+                        descriptionHtml.append("• URL: <a href='${env.PMM_URL}'>${env.PMM_URL}</a><br/>")
+                        descriptionHtml.append("• IP: <code>${env.PMM_IP}</code><br/>")
+                        descriptionHtml.append("• User: <code>admin</code><br/>")
+                        descriptionHtml.append("• Password: <code>${env.PMM_PASSWORD ?: 'Check deployment logs'}</code><br/>")
+                        descriptionHtml.append("• Version: ${params.PMM_IMAGE_TAG}<br/>")
+                        descriptionHtml.append("<br/>")
+                    }
+                    
+                    // Cluster resources
+                    descriptionHtml.append("<b>Resources:</b><br/>")
+                    descriptionHtml.append("• Masters: 3 × ${params.MASTER_INSTANCE_TYPE}<br/>")
+                    descriptionHtml.append("• Workers: ${params.WORKER_COUNT} × ${params.WORKER_INSTANCE_TYPE}<br/>")
+                    descriptionHtml.append("<br/>")
+                    
+                    // Lifecycle details
+                    descriptionHtml.append("<b>Lifecycle:</b><br/>")
+                    descriptionHtml.append("• Auto-delete: ${params.DELETE_AFTER_HOURS} hours<br/>")
+                    descriptionHtml.append("• Team: ${params.TEAM_NAME}<br/>")
+                    descriptionHtml.append("• S3 Backup: <code>s3://${env.S3_BUCKET}/${env.FINAL_CLUSTER_NAME}/</code><br/>")
+                    
+                    currentBuild.description = descriptionHtml.toString()
 
                     // Keep display name consistent
                     currentBuild.displayName = "#${BUILD_NUMBER} - ${env.FINAL_CLUSTER_NAME}"
