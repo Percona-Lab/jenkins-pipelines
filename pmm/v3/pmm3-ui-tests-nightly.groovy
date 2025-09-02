@@ -61,7 +61,7 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
     ]
 
     def pmmAddress = clusterCreateJob.buildVariables.PMM_URL
-    def pmmHostname = pmmIp.split("//")[1]
+    def pmmHostname = pmmAddress.split("//")[1]
 
     env.VM_IP = pmmHostname
     env.VM_NAME = clusterCreateJob.buildVariables.VM_NAME
