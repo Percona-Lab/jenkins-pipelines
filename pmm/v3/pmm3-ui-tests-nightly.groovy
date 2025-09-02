@@ -60,15 +60,12 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
         string(name: 'PMM_IMAGE_TAG', value: pmmImageTag),
     ]
 
-    def pmmUiUrl = clusterCreateJob.buildVariables.PMM_URL
-    def pmmHostname = pmmUiUrl.split("//")[1]
-
-    env.VM_IP = pmmHostname
+    env.VM_IP = clusterCreateJob.buildVariables.PMM_IP
     env.VM_NAME = clusterCreateJob.buildVariables.VM_NAME
     env.WORK_DIR = clusterCreateJob.buildVariables.WORK_DIR
     env.FINAL_CLUSTER_NAME = clusterCreateJob.buildVariables.FINAL_CLUSTER_NAME
-    env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${pmmHostname}"
-    env.PMM_UI_URL = pmmUiUrl
+    env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${VM_IP}"
+    env.PMM_UI_URL = "https://${VM_IP}/"
 }
 
 void runAMIStagingStart(String AMI_ID) {
