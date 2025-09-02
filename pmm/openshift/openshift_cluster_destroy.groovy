@@ -38,9 +38,9 @@ pipeline {
 
                     echo "Preparing to destroy cluster: ${params.CLUSTER_NAME}"
 
-                    // Set initial build description
+                    // Set initial build description - optimized for Blue Ocean
                     currentBuild.displayName = "#${BUILD_NUMBER} - ${params.CLUSTER_NAME}"
-                    currentBuild.description = "${params.CLUSTER_NAME} | ${params.AWS_REGION} | DESTROYING..."
+                    currentBuild.description = "${params.CLUSTER_NAME} | ${params.AWS_REGION} | ${params.DESTROY_REASON} | DESTROYING"
                 }
             }
         }
@@ -74,22 +74,28 @@ pipeline {
                         // Metadata already retrieved above
 
                         if (metadata) {
-                            echo """
-                            Found cluster metadata:
-                            - Created: ${metadata.created_date}
-                            - Created by: ${metadata.created_by}
-                            - OpenShift Version: ${metadata.openshift_version}
-                            - Master Type: ${metadata.master_type}
-                            - Worker Type: ${metadata.worker_type}
-                            - Worker Count: ${metadata.worker_count}
-                            """
+                            echo "Found cluster in S3:"
+                            echo ""
+                            // Cluster info (most important)
+                            echo "Cluster Name:        ${params.CLUSTER_NAME}"
+                            echo "OpenShift Version:   ${metadata.openshift_version}"
+                            echo "AWS Region:          ${params.AWS_REGION}"
+                            echo ""
+                            // Resources
+                            echo "Master Nodes:        3 × ${metadata.master_type}"
+                            echo "Worker Nodes:        ${metadata.worker_count} × ${metadata.worker_type}"
+                            echo ""
+                            // Metadata
+                            echo "Created:             ${metadata.created_date}"
+                            echo "Created By:          ${metadata.created_by}"
+                            echo ""
 
                             // Store metadata as JSON
                             if (metadata) {
                                 env.CLUSTER_METADATA = JsonOutput.toJson(metadata)
-                                // Update description with cluster version info
+                                // Update description with cluster version info - optimized for Blue Ocean
                                 def ocpVersion = metadata.openshift_version ?: 'Unknown'
-                                currentBuild.description = "${params.CLUSTER_NAME} | OCP:${ocpVersion} | ${params.AWS_REGION} | DESTROYING..."
+                                currentBuild.description = "${params.CLUSTER_NAME} | OCP ${ocpVersion} | ${params.AWS_REGION} | ${params.DESTROY_REASON} | DESTROYING"
                             }
                         }
                     }
@@ -162,7 +168,7 @@ pipeline {
 
                     def ocpVersion = env.CLUSTER_METADATA ?
                         new JsonSlurper().parseText(env.CLUSTER_METADATA).openshift_version : 'Unknown'
-                    currentBuild.description = "${params.CLUSTER_NAME} | OCP:${ocpVersion} | ${params.AWS_REGION} | DRY-RUN"
+                    currentBuild.description = "${params.CLUSTER_NAME} | OCP ${ocpVersion} | ${params.AWS_REGION} | DRY-RUN"
                 }
             }
         }
@@ -180,7 +186,7 @@ pipeline {
                     def ocpVersion = env.CLUSTER_METADATA ?
                         new JsonSlurper().parseText(env.CLUSTER_METADATA).openshift_version : 'Unknown'
 
-                    currentBuild.description = "${params.CLUSTER_NAME} | OCP:${ocpVersion} | ${params.AWS_REGION} | DESTROYED✓"
+                    currentBuild.description = "${params.CLUSTER_NAME} | OCP ${ocpVersion} | ${params.AWS_REGION} | ${params.DESTROY_REASON} | DESTROYED"
 
                     // Send notification if configured
                     if (env.SLACK_WEBHOOK) {
@@ -201,7 +207,7 @@ pipeline {
                     new JsonSlurper().parseText(env.CLUSTER_METADATA).openshift_version : 'Unknown'
                 def failedStage = env.STAGE_NAME ?: 'Unknown'
 
-                currentBuild.description = "${params.CLUSTER_NAME} | OCP:${ocpVersion} | ${params.AWS_REGION} | FAILED at: ${failedStage}"
+                currentBuild.description = "${params.CLUSTER_NAME} | OCP ${ocpVersion} | ${params.AWS_REGION} | FAILED: ${failedStage}"
 
                 // Send notification if configured
                 if (env.SLACK_WEBHOOK) {
@@ -220,7 +226,7 @@ pipeline {
                 def ocpVersion = env.CLUSTER_METADATA ?
                     new JsonSlurper().parseText(env.CLUSTER_METADATA).openshift_version : 'Unknown'
 
-                currentBuild.description = "${params.CLUSTER_NAME} | OCP:${ocpVersion} | ${params.AWS_REGION} | ABORTED"
+                currentBuild.description = "${params.CLUSTER_NAME} | OCP ${ocpVersion} | ${params.AWS_REGION} | ABORTED"
 
                 // Send notification if configured
                 if (env.SLACK_WEBHOOK) {
