@@ -598,7 +598,6 @@ Starting cluster creation process...
                         "${params.AWS_REGION} | " +
                         "Active | " +
                         "Console: https://console-openshift-console.apps.${env.FINAL_CLUSTER_NAME}.${params.BASE_DOMAIN} | " +
-                        "API: https://api.${env.FINAL_CLUSTER_NAME}.${params.BASE_DOMAIN}:6443 | " +
                         "${pmmStatus}${pmmDetails} | " +
                         "Masters: 3×${params.MASTER_INSTANCE_TYPE} | " +
                         "Workers: ${params.WORKER_COUNT}×${params.WORKER_INSTANCE_TYPE} | " +
