@@ -2,30 +2,45 @@
 #
 # OpenShift Cluster Destroyer Script
 #
-# This script can destroy OpenShift clusters in various states:
-# - Properly installed clusters with metadata.json
-# - Orphaned clusters without state files
-# - Partially created clusters that failed during installation
+# Safely destroys OpenShift clusters on AWS by cleaning up all associated resources.
+# Handles various cluster states including properly installed, orphaned, and failed installations.
 #
-# Usage: ./destroy-openshift-cluster.sh [OPTIONS]
+# CAPABILITIES:
+#   • Auto-detects infrastructure IDs from cluster names
+#   • Downloads and uses cluster state from S3 for openshift-install destroy
+#   • Comprehensive resource cleanup including EC2, VPC, Route53, ELB, S3, and EBS
+#   • Reconciliation loop ensures thorough cleanup of stubborn resources
+#   • Dry-run mode for safety verification before deletion
+#   • In-memory caching to optimize repeated AWS API calls
+#   • Tested with OpenShift versions 4.16 through 4.19
 #
-# Commands:
-#   --list                 List all OpenShift clusters in the region
+# USAGE: 
+#   ./destroy-openshift-cluster.sh [OPTIONS]
 #
-# Destruction parameters (one of):
-#   --cluster-name NAME     Base cluster name (will auto-detect infra-id)
-#   --infra-id ID          Infrastructure ID (e.g., cluster-name-xxxxx)
-#   --metadata-file PATH   Path to metadata.json file
+# COMMANDS:
+#   --list                 List all OpenShift clusters in the region with details
 #
-# Optional parameters:
-#   --region REGION        AWS region (default: us-east-2)
-#   --profile PROFILE      AWS profile (default: percona-dev-admin)
-#   --base-domain DOMAIN   Base domain for Route53 (default: cd.percona.com)
-#   --dry-run             Show what would be deleted without actually deleting
-#   --force               Skip confirmation prompts
-#   --verbose             Enable verbose output
-#   --s3-bucket BUCKET    S3 bucket for state files (auto-detected if not provided)
-#   --help                Show this help message
+# DESTRUCTION OPTIONS (choose one):
+#   --cluster-name NAME    Base cluster name (auto-detects infrastructure ID)
+#   --infra-id ID         Direct infrastructure ID (e.g., cluster-name-xxxxx)
+#   --metadata-file PATH   Path to OpenShift metadata.json file
+#
+# AWS CONFIGURATION:
+#   --region REGION       AWS region (default: us-east-2)
+#   --profile PROFILE     AWS CLI profile (default: percona-dev-admin)
+#   --s3-bucket BUCKET    S3 bucket for cluster state (auto-detected if not set)
+#
+# SAFETY & BEHAVIOR:
+#   --dry-run            Preview resources to be deleted without making changes
+#   --force              Skip confirmation prompts (use with caution)
+#   --verbose            Enable detailed debug output
+#   --max-attempts NUM   Maximum reconciliation attempts (default: 5)
+#
+# ROUTE53 OPTIONS:
+#   --base-domain DOMAIN  Base domain for Route53 cleanup (default: cd.percona.com)
+#
+# HELP:
+#   --help               Display this help message
 
 set -euo pipefail
 unset PAGER
@@ -342,71 +357,94 @@ execute_with_timeout() {
 # Help function
 show_help() {
     cat <<EOF
-OpenShift Cluster Destroyer Script
+${BOLD}OpenShift Cluster Destroyer Script${NC}
 
-This script safely removes OpenShift clusters and all associated AWS resources.
+Safely destroys OpenShift clusters on AWS by cleaning up all associated resources.
+Handles various cluster states including properly installed, orphaned, and failed installations.
 
-USAGE:
-    $(basename "$0") [OPTIONS]
+${BOLD}CAPABILITIES:${NC}
+  • Auto-detects infrastructure IDs from cluster names
+  • Downloads and uses cluster state from S3 for openshift-install destroy
+  • Comprehensive resource cleanup including EC2, VPC, Route53, ELB, S3, and EBS
+  • Reconciliation loop ensures thorough cleanup of stubborn resources
+  • Dry-run mode for safety verification before deletion
+  • In-memory caching to optimize repeated AWS API calls
 
-COMMANDS:
-    --list                 List all OpenShift clusters in the region
+${BOLD}USAGE:${NC}
+  $(basename "$0") [OPTIONS]
 
-REQUIRED (one of these for destruction):
-    --cluster-name NAME     Base cluster name (will auto-detect infra-id)
-    --infra-id ID          Infrastructure ID (e.g., cluster-name-xxxxx)
-    --metadata-file PATH   Path to metadata.json file
+${BOLD}COMMANDS:${NC}
+  --list                 List all OpenShift clusters in the region with details
 
-OPTIONS:
-    --region REGION        AWS region (default: us-east-2)
-    --profile PROFILE      AWS profile (default: percona-dev-admin)
-    --base-domain DOMAIN   Base domain for Route53 (default: cd.percona.com)
-    --dry-run             Show what would be deleted without actually deleting
-    --force               Skip confirmation prompts
-    --verbose             Enable verbose output
-    --s3-bucket BUCKET    S3 bucket for state files (auto-detected if not provided)
-    --max-attempts NUM    Maximum deletion attempts for reconciliation (default: 5)
-    --log                 Enable logging to file (auto-determines location)
-    --log-file PATH       Enable logging with custom path (implies --log)
-    --no-color            Disable colored output
-    --help                Show this help message
+${BOLD}DESTRUCTION OPTIONS${NC} (choose one):
+  --cluster-name NAME    Base cluster name (auto-detects infrastructure ID)
+  --infra-id ID         Direct infrastructure ID (e.g., cluster-name-xxxxx)
+  --metadata-file PATH   Path to OpenShift metadata.json file
 
-EXAMPLES:
-    # Destroy using cluster name (auto-detects infra-id)
-    $(basename "$0") --cluster-name helm-test
+${BOLD}AWS CONFIGURATION:${NC}
+  --region REGION       AWS region (default: us-east-2)
+  --profile PROFILE     AWS CLI profile (default: percona-dev-admin)
+  --s3-bucket BUCKET    S3 bucket for cluster state (auto-detected if not set)
 
-    # Destroy using specific infrastructure ID
-    $(basename "$0") --infra-id helm-test-tqtlx
+${BOLD}SAFETY & BEHAVIOR:${NC}
+  --dry-run            Preview resources to be deleted without making changes
+  --force              Skip confirmation prompts (use with caution)
+  --verbose            Enable detailed debug output
+  --max-attempts NUM   Maximum reconciliation attempts (default: 5)
 
-    # Dry run to see what would be deleted
-    $(basename "$0") --cluster-name test-cluster --dry-run
+${BOLD}ROUTE53 OPTIONS:${NC}
+  --base-domain DOMAIN  Base domain for Route53 cleanup (default: cd.percona.com)
 
-    # Destroy using metadata file
-    $(basename "$0") --metadata-file /path/to/metadata.json
+${BOLD}LOGGING:${NC}
+  --log                Enable logging to auto-determined file location
+  --log-file PATH      Enable logging to specific file path
+  --no-color           Disable colored output
 
-    # Force deletion without prompts
-    $(basename "$0") --infra-id helm-test-tqtlx --force
-    
-    # Run with more reconciliation attempts for stubborn resources
-    $(basename "$0") --cluster-name test-cluster --max-attempts 10
+${BOLD}HELP:${NC}
+  --help               Display this help message
 
-    # Enable logging to default location
-    $(basename "$0") --cluster-name test-cluster --log
+${BOLD}EXAMPLES:${NC}
+  # Destroy using cluster name (auto-detects infrastructure ID)
+  $(basename "$0") --cluster-name helm-test
 
-    # Enable logging with custom path
-    $(basename "$0") --cluster-name test-cluster --log-file /var/log/my-destroy.log
+  # Preview what would be deleted (dry-run)
+  $(basename "$0") --cluster-name helm-test --dry-run
 
-    # Disable colored output (useful for CI/CD or log parsing)
-    $(basename "$0") --cluster-name test-cluster --no-color
+  # Force destruction without confirmation
+  $(basename "$0") --cluster-name helm-test --force
 
-NOTES:
-    - The script will attempt to use openshift-install if metadata exists
-    - Falls back to manual AWS resource deletion for orphaned clusters
-    - Default log locations (when --log is used):
-      * /var/log/openshift-destroy/ (if writable)
-      * ./logs/ (if current dir is writable)
-      * ~/.openshift-destroy/logs/ (fallback)
-    - Log filename format: destroy-YYYYMMDD-HHMMSS-PID.log
+  # Destroy using specific infrastructure ID
+  $(basename "$0") --infra-id helm-test-tqtlx
+
+  # List all clusters in us-west-2
+  $(basename "$0") --list --region us-west-2
+
+  # Destroy with custom settings and logging
+  $(basename "$0") --cluster-name test-cluster \\
+    --region us-west-2 \\
+    --s3-bucket my-bucket \\
+    --log-file ./destroy.log \\
+    --verbose
+
+${BOLD}DESTRUCTION PROCESS:${NC}
+  1. Attempts to download cluster state from S3
+  2. Extracts cluster-state.tar.gz if present
+  3. Uses openshift-install destroy if metadata.json found
+  4. Performs comprehensive manual cleanup for remaining resources
+  5. Runs reconciliation loop to ensure all resources are deleted
+  6. Cleans up Route53 records and S3 state
+
+${BOLD}NOTES:${NC}
+  • Tested with OpenShift versions 4.16 through 4.19
+  • The script prioritizes openshift-install when cluster state exists
+  • Manual cleanup runs if openshift-install fails or state is missing
+  • Reconciliation ensures eventual consistency for resource deletion
+  • Cached API calls significantly improve performance on large cleanups
+  • Default log locations (when --log is used):
+    - /var/log/openshift-destroy/ (if writable)
+    - ./logs/ (if current dir is writable)
+    - ~/.openshift-destroy/logs/ (fallback)
+  • Log filename format: destroy-YYYYMMDD-HHMMSS-PID.log
 
 EOF
     exit 0
