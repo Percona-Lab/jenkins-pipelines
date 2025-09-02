@@ -351,7 +351,6 @@ USAGE:
 
 COMMANDS:
     --list                 List all OpenShift clusters in the region
-    --list --detailed      List clusters with detailed resource counts
 
 REQUIRED (one of these for destruction):
     --cluster-name NAME     Base cluster name (will auto-detect infra-id)
@@ -365,7 +364,6 @@ OPTIONS:
     --dry-run             Show what would be deleted without actually deleting
     --force               Skip confirmation prompts
     --verbose             Enable verbose output
-    --detailed            Show detailed resource counts (with --list)
     --s3-bucket BUCKET    S3 bucket for state files (auto-detected if not provided)
     --max-attempts NUM    Maximum deletion attempts for reconciliation (default: 5)
     --log                 Enable logging to file (auto-determines location)
@@ -431,16 +429,11 @@ auto_detect_s3_bucket() {
 # Parse command line arguments
 parse_args() {
     local list_mode=false
-    local detailed=false
 
     while [[ $# -gt 0 ]]; do
         case $1 in
         --list)
             list_mode=true
-            shift
-            ;;
-        --detailed)
-            detailed=true
             shift
             ;;
         --cluster-name)
@@ -529,7 +522,7 @@ parse_args() {
         if [[ -z "$S3_BUCKET" ]]; then
             auto_detect_s3_bucket
         fi
-        list_clusters "$detailed"
+        list_clusters
         exit 0
     fi
 }
@@ -1467,14 +1460,9 @@ destroy_aws_resources() {
 
 # List all OpenShift clusters
 list_clusters() {
-    local detailed="${1:-false}"
-
     log_info ""
     log_info "${BOLD}Searching for OpenShift Clusters${NC}"
     log_info "Region: $AWS_REGION"
-    if [[ "$detailed" == "true" ]]; then
-        log_warning "Detailed mode enabled - this will be slower as it counts all resources"
-    fi
     log_info ""
 
     # Find clusters from EC2 instances (excluding terminated instances)
@@ -1558,22 +1546,15 @@ list_clusters() {
                 base_name="${BASH_REMATCH[1]}"
             fi
 
-            # Resource counting - use detailed mode for full count or quick check for status
+            # Quick status check - just see if VPC exists
             local resource_info=""
-            if [[ "$detailed" == "true" ]]; then
-                # Full resource count (slow - makes many API calls)
-                local resource_count=$(count_resources "$cluster" 2>/dev/null || echo "0")
-                resource_info="AWS Resources: $resource_count"
+            if aws ec2 describe-vpcs \
+                --filters "Name=tag:kubernetes.io/cluster/$cluster,Values=owned" \
+                --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+                --query "Vpcs[0].VpcId" --output text 2>/dev/null | grep -q "vpc-"; then
+                resource_info="Status: Active"
             else
-                # Quick status check - just see if VPC exists
-                if aws ec2 describe-vpcs \
-                    --filters "Name=tag:kubernetes.io/cluster/$cluster,Values=owned" \
-                    --region "$AWS_REGION" --profile "$AWS_PROFILE" \
-                    --query "Vpcs[0].VpcId" --output text 2>/dev/null | grep -q "vpc-"; then
-                    resource_info="Status: Active"
-                else
-                    resource_info="Status: Partial/None"
-                fi
+                resource_info="Status: Partial/None"
             fi
 
             # Check if S3 state exists (using base name)
