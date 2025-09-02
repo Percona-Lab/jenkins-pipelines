@@ -84,6 +84,7 @@ CLOUDWATCH_LOG_GROUP="/aws/openshift/cluster-destroyer"
 CLOUDWATCH_LOG_STREAM=""
 CLOUDWATCH_ENABLED=false
 CLOUDWATCH_SEQUENCE_TOKEN=""
+# CloudWatch region will be set to match AWS_REGION
 
 # Check if CloudWatch logging is available
 check_cloudwatch_access() {
