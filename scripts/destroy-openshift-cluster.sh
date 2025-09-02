@@ -1855,6 +1855,21 @@ execute_destruction() {
             if aws s3 sync "s3://${S3_BUCKET}/${CLUSTER_NAME}/" "$temp_dir/" \
                 --region "$AWS_REGION" --profile "$AWS_PROFILE" --quiet; then
 
+                # Extract cluster-state.tar.gz if it exists
+                if [[ -f "$temp_dir/cluster-state.tar.gz" ]]; then
+                    log_info "Extracting cluster state archive..."
+                    if tar -xzf "$temp_dir/cluster-state.tar.gz" -C "$temp_dir" 2>/dev/null; then
+                        log_info "Successfully extracted cluster state archive"
+                        # Move the extracted cluster directory contents up one level
+                        if [[ -d "$temp_dir/${CLUSTER_NAME}" ]]; then
+                            mv "$temp_dir/${CLUSTER_NAME}"/* "$temp_dir/" 2>/dev/null || true
+                            rmdir "$temp_dir/${CLUSTER_NAME}" 2>/dev/null || true
+                        fi
+                    else
+                        log_warning "Failed to extract cluster-state.tar.gz"
+                    fi
+                fi
+
                 if [[ -f "$temp_dir/metadata.json" ]]; then
                     log_info "Successfully downloaded cluster state, using openshift-install..."
 
