@@ -16,6 +16,7 @@ pipeline {
         choice(name: 'instance', choices: ['docker-x64','docker-aarch64'], description: 'Instance type for running tests')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
         string(name: 'PYTEST_PARAMS', defaultValue: '', description: 'Extra args passed to pytest')
+        booleanParam(name: 'ADD_JENKINS_MARKED_TESTS', defaultValue: false, description: 'Include tests with jenkins marker')
     }
     stages {
         stage('Set build name'){
@@ -43,7 +44,12 @@ pipeline {
                 stages {
                     stage ('Run tests') {
                         steps {
-                            withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN')]) {
+                            withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN'),
+                            string(credentialsId: 'KMS_ID', variable: 'KMS_ID'),
+                            file(credentialsId: 'PBM-AWS-S3', variable: 'PBM_AWS_S3_YML'),
+                            file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'),
+                            file(credentialsId: 'PBM-GCS-HMAC-S3', variable: 'PBM_GCS_HMAC_S3_YML'),
+                            file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML')]) {
                                 sh """
                                     docker kill \$(docker ps -a -q) || true
                                     docker rm \$(docker ps -a -q) || true
@@ -61,9 +67,14 @@ pipeline {
                                 git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                                 sh """
                                     cd pbm-functional/pytest
+                                    cp $PBM_AWS_S3_YML ./conf/pbm/aws.yaml
+                                    cp $PBM_GCS_S3_YML ./conf/pbm/gcs.yaml
+                                    cp $PBM_GCS_HMAC_S3_YML ./conf/pbm/gcs_hmac.yaml
+                                    cp $PBM_AZURE_YML ./conf/pbm/azure.yaml
+                                    if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
                                     PSMDB=perconalab/percona-server-mongodb:${PSMDB} docker-compose build --no-cache
                                     docker-compose up -d
-                                    docker-compose run test pytest -s --junitxml=junit.xml -k ${TEST} ${params.PYTEST_PARAMS} || true
+                                    KMS_ID="${KMS_ID}" docker-compose run test pytest -s --junitxml=junit.xml \$JENKINS_FLAG -k ${TEST} ${params.PYTEST_PARAMS} || true
                                     docker-compose down -v --remove-orphans
                                     curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PBM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PBM branch": "${PBM_BRANCH}","PSMDB docker image": "percona/percona-server-mongodb:${PSMDB}","instance": "${instance}"}};type=application/json' -i || true
                                 """
