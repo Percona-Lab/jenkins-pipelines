@@ -102,7 +102,14 @@ def create(Map config) {
         pmmHelmChartVersion: '1.4.7',
         pmmImageRepository: 'percona/pmm-server',
         pmmNamespace: 'pmm-monitoring',
-        pmmAdminPassword: '<GENERATED>'  // Default to auto-generation
+        pmmAdminPassword: '<GENERATED>',  // Default to auto-generation
+        // SSL Configuration defaults
+        enableSSL: false,
+        sslMethod: 'acm',
+        sslEmail: 'admin@percona.com',
+        useStaging: false,
+        consoleCustomDomain: '',
+        pmmCustomDomain: ''
     ] + config
 
     // Use provided credentials or fall back to environment variables
@@ -212,7 +219,15 @@ def create(Map config) {
         // Deploy Percona Monitoring and Management if enabled
         if (params.deployPMM) {
             env.KUBECONFIG = "${clusterDir}/auth/kubeconfig"
-            def pmmInfo = deployPMM(params)
+            
+            // Pass SSL configuration to PMM deployment
+            def pmmParams = params + [
+                clusterName: params.clusterName,
+                baseDomain: params.baseDomain,
+                awsRegion: params.awsRegion
+            ]
+            
+            def pmmInfo = deployPMM(pmmParams)
 
             metadata.pmmDeployed = true
             metadata.pmmImageTag = params.pmmImageTag
@@ -645,6 +660,12 @@ def deployPMM(Map params) {
     // Install Helm if not already installed
     openshiftTools.installHelm()
 
+    // Determine service type based on SSL configuration
+    // When SSL is enabled, PMM needs LoadBalancer for ACM certificate
+    def serviceType = params.enableSSL ? 'LoadBalancer' : 'ClusterIP'
+    
+    openshiftTools.log('INFO', "PMM service type: ${serviceType} (SSL enabled: ${params.enableSSL})")
+
     sh """
         export PATH="\$HOME/.local/bin:\$PATH"
         # Create namespace
@@ -670,7 +691,7 @@ def deployPMM(Map params) {
             --namespace ${params.pmmNamespace} \
             --version ${params.pmmHelmChartVersion} \
             --set platform=openshift \
-            --set service.type=ClusterIP \
+            --set service.type=${serviceType} \
             --set image.repository=${params.pmmImageRepository} \
             --set image.tag=${params.pmmImageTag}"""
 
@@ -739,7 +760,7 @@ def deployPMM(Map params) {
         returnStdout: true
     ).trim()
 
-    return [
+    def result = [
         url: "https://${pmmUrl}",
         ip: pmmIp ?: 'N/A',  // Return 'N/A' if we couldn't determine the IP
         username: 'admin',
@@ -748,6 +769,74 @@ def deployPMM(Map params) {
         // Indicate if password was auto-generated
         passwordGenerated: !params.pmmAdminPassword || params.pmmAdminPassword == '<GENERATED>'
     ]
+
+    // Configure SSL with ACM if enabled
+    if (params.enableSSL && serviceType == 'LoadBalancer') {
+        openshiftTools.log('INFO', 'Configuring ACM SSL for PMM LoadBalancer...')
+        
+        // Wait for LoadBalancer to be ready
+        sleep(time: 30, unit: 'SECONDS')
+        
+        // Get LoadBalancer hostname
+        def lbHostname = sh(
+            script: """
+                export PATH="\$HOME/.local/bin:\$PATH"
+                oc get svc monitoring-service -n ${params.pmmNamespace} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+            """,
+            returnStdout: true
+        ).trim()
+        
+        if (lbHostname) {
+            openshiftTools.log('INFO', "PMM LoadBalancer hostname: ${lbHostname}")
+            
+            // Find ACM certificate for the domain
+            def pmmDomain = params.pmmCustomDomain ?: "pmm-${params.clusterName}.${params.baseDomain}"
+            def wildcardDomain = "*.${params.baseDomain}"
+            
+            // Note: This requires AWS credentials to be available
+            def acmArn = awsCertificates.findACMCertificate([
+                domain: wildcardDomain,
+                region: params.awsRegion ?: 'us-east-2'
+            ])
+            
+            if (acmArn) {
+                openshiftTools.log('INFO', "Found ACM certificate: ${acmArn}")
+                
+                // Apply ACM certificate to LoadBalancer
+                def acmApplied = awsCertificates.applyACMToLoadBalancer([
+                    namespace: params.pmmNamespace,
+                    serviceName: 'monitoring-service',
+                    certificateArn: acmArn,
+                    kubeconfig: env.KUBECONFIG
+                ])
+                
+                if (acmApplied) {
+                    // Create Route53 DNS record
+                    def dnsCreated = awsCertificates.createRoute53Record([
+                        domain: pmmDomain,
+                        value: lbHostname,
+                        region: params.awsRegion ?: 'us-east-2'
+                    ])
+                    
+                    if (dnsCreated) {
+                        result.sslDomain = pmmDomain
+                        result.sslUrl = "https://${pmmDomain}"
+                        openshiftTools.log('INFO', "PMM SSL configured successfully at: https://${pmmDomain}")
+                    } else {
+                        openshiftTools.log('WARN', 'Failed to create Route53 DNS record for PMM')
+                    }
+                } else {
+                    openshiftTools.log('WARN', 'Failed to apply ACM certificate to PMM LoadBalancer')
+                }
+            } else {
+                openshiftTools.log('WARN', "No ACM certificate found for ${wildcardDomain}")
+            }
+        } else {
+            openshiftTools.log('WARN', 'LoadBalancer hostname not available yet')
+        }
+    }
+
+    return result
 }
 
 /**

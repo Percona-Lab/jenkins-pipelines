@@ -372,6 +372,13 @@ Starting cluster creation process...
                             pmmHelmChartVersion: params.PMM_HELM_CHART_VERSION,
                             pmmImageRepository: params.PMM_IMAGE_REPOSITORY,
                             pmmAdminPassword: params.PMM_ADMIN_PASSWORD ?: '<GENERATED>',  // Default to auto-generation
+                            // SSL Configuration
+                            enableSSL: params.ENABLE_SSL,
+                            sslMethod: params.SSL_METHOD,
+                            sslEmail: params.SSL_EMAIL,
+                            useStaging: params.USE_STAGING_CERT,
+                            consoleCustomDomain: params.CONSOLE_CUSTOM_DOMAIN,
+                            pmmCustomDomain: params.PMM_CUSTOM_DOMAIN,
                             buildUser: env.BUILD_USER_ID ?: 'jenkins',
                             accessKey: AWS_ACCESS_KEY_ID,
                             secretKey: AWS_SECRET_ACCESS_KEY
@@ -411,6 +418,103 @@ Starting cluster creation process...
             }
         }
 
+        stage('Configure SSL Certificates') {
+            when {
+                expression { params.ENABLE_SSL && env.CLUSTER_DIR }
+            }
+            steps {
+                script {
+                    echo ""
+                    echo "====================================================================="
+                    echo "Configuring SSL Certificates"
+                    echo "====================================================================="
+                    echo ""
+                    echo "SSL Method: ${params.SSL_METHOD}"
+                    echo "Base Domain: ${params.BASE_DOMAIN}"
+                    
+                    def sslConfig = [
+                        clusterName: env.FINAL_CLUSTER_NAME,
+                        baseDomain: params.BASE_DOMAIN,
+                        kubeconfig: env.KUBECONFIG,
+                        method: params.SSL_METHOD,
+                        email: params.SSL_EMAIL,
+                        useStaging: params.USE_STAGING_CERT
+                    ]
+
+                    def sslResults = [:]
+                    
+                    if (params.SSL_METHOD == 'letsencrypt') {
+                        echo "Setting up Let's Encrypt certificates..."
+                        
+                        // Configure console domain
+                        def consoleDomain = params.CONSOLE_CUSTOM_DOMAIN ?: 
+                            "console-${env.FINAL_CLUSTER_NAME}.${params.BASE_DOMAIN}"
+                        
+                        sslConfig.consoleDomain = consoleDomain
+                        
+                        // Setup Let's Encrypt
+                        sslResults = openshiftSSL.setupLetsEncrypt(sslConfig)
+                        
+                        if (sslResults.consoleCert) {
+                            echo "✓ Console certificate configured for: ${consoleDomain}"
+                            env.CONSOLE_SSL_DOMAIN = consoleDomain
+                        }
+                    } else if (params.SSL_METHOD == 'acm') {
+                        echo "Setting up AWS ACM certificates..."
+                        
+                        withCredentials([
+                            aws(
+                                credentialsId: 'jenkins-openshift-aws',
+                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                            )
+                        ]) {
+                            def services = []
+                            
+                            // Add PMM service if deployed
+                            if (params.DEPLOY_PMM && env.PMM_URL) {
+                                def pmmDomain = params.PMM_CUSTOM_DOMAIN ?: 
+                                    "pmm-${env.FINAL_CLUSTER_NAME}.${params.BASE_DOMAIN}"
+                                
+                                services.add([
+                                    name: 'monitoring-service',
+                                    namespace: 'pmm-monitoring',
+                                    domain: pmmDomain
+                                ])
+                            }
+                            
+                            sslConfig.services = services
+                            sslConfig.accessKey = AWS_ACCESS_KEY_ID
+                            sslConfig.secretKey = AWS_SECRET_ACCESS_KEY
+                            
+                            sslResults = awsCertificates.setupACM(sslConfig)
+                            
+                            if (sslResults.services) {
+                                sslResults.services.each { name, config ->
+                                    if (config.configured) {
+                                        echo "✓ Service ${name} configured with ACM certificate"
+                                        if (config.domain) {
+                                            echo "  Domain: https://${config.domain}"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Store SSL results for post-creation display
+                    env.SSL_CONFIGURED = sslResults ? 'true' : 'false'
+                    
+                    if (sslResults.errors && !sslResults.errors.isEmpty()) {
+                        echo "SSL configuration completed with warnings:"
+                        sslResults.errors.each { error ->
+                            echo "  ⚠ ${error}"
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Post-Creation Tasks') {
             steps {
                 script {
@@ -436,6 +540,12 @@ Starting cluster creation process...
                     echo "------------------"
                     echo "API URL:              ${env.CLUSTER_API_URL}"
                     echo "Console URL:          ${env.CLUSTER_CONSOLE_URL ?: 'Pending...'}"
+                    
+                    // Display SSL console URL if configured
+                    if (params.ENABLE_SSL && params.SSL_METHOD == 'letsencrypt' && env.CONSOLE_SSL_DOMAIN) {
+                        echo "Console SSL URL:      https://${env.CONSOLE_SSL_DOMAIN}"
+                    }
+                    
                     echo "Kubeconfig:           Available in Jenkins artifacts"
                     echo ""
 
@@ -462,6 +572,13 @@ Starting cluster creation process...
                         echo "IP Address:           ${env.PMM_IP}"
                         echo "Username:             admin"
                         echo "Password:             ${passwordInfo}"
+                        
+                        // Display SSL info if configured
+                        if (params.ENABLE_SSL && params.SSL_METHOD == 'acm' && env.SSL_CONFIGURED == 'true') {
+                            def pmmDomain = params.PMM_CUSTOM_DOMAIN ?: 
+                                "pmm-${env.FINAL_CLUSTER_NAME}.${params.BASE_DOMAIN}"
+                            echo "SSL Access:           https://${pmmDomain}"
+                        }
                         echo ""
                     } else if (params.DEPLOY_PMM) {
                         echo "PMM DEPLOYMENT STATUS: NOT DEPLOYED"
