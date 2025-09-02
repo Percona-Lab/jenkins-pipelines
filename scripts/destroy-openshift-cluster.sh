@@ -817,7 +817,9 @@ count_resources() {
     for logfile in "$temp_dir"/*.log; do
         if [[ -f "$logfile" ]]; then
             while IFS=: read -r label count; do
-                log_info "  $label: $count" >&2
+                # Clean up extra spaces in label for consistent formatting
+                label=$(echo "$label" | sed 's/  */ /g')
+                log_info "$label: $count" >&2
             done < "$logfile"
         fi
     done
