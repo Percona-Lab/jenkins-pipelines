@@ -501,6 +501,12 @@ pipeline {
                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
                     ]
                 }
+                if (env.SERVER_TYPE == "helm") {
+                    build job: 'openshift-cluster-destroy', parameters: [
+                        string(name: 'CLUSTER_NAME', value: env.FINAL_CLUSTER_NAME),
+                        string(name: 'DESTROY_REASON', value: 'testing-complete'),
+                    ]
+                }
                 if(env.VM_NAME && env.SERVER_TYPE == "docker")
                 {
                     destroyStaging(VM_NAME)
