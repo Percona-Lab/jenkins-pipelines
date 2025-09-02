@@ -301,7 +301,7 @@ parameters {
                        }
                        sh '''
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                           sudo docker manifest create ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE} \
+                           sudo docker manifest create --amend ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE} \
                                ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 \
                                ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64
                            sudo docker manifest annotate ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8

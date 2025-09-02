@@ -960,6 +960,9 @@ parameters {
             }
         }
         stage('Build docker containers') {
+            when {
+                expression { env.FIPSMODE == 'NO' }
+            }
             agent {
                 label 'launcher-x64'
             }
