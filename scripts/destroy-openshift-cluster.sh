@@ -1844,7 +1844,7 @@ execute_destruction() {
         log_info "Checking for S3 state to use openshift-install..."
 
         # Check if S3 has cluster state
-        if aws s3 ls "s3://${S3_BUCKET}/${CLUSTER_NAME}/metadata.json" \
+        if aws s3 ls "s3://${S3_BUCKET}/${CLUSTER_NAME}/cluster-state.tar.gz" \
             --region "$AWS_REGION" --profile "$AWS_PROFILE" &>/dev/null; then
 
             log_info "Found cluster state in S3, downloading for openshift-install..."
