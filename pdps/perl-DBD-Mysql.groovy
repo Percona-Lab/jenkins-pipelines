@@ -42,7 +42,7 @@ pipeline {
             description: 'URL for perl-DBD-MySQL repository',
             name: 'REPO')
         string(
-            defaultValue: '4_050',
+            defaultValue: '5_011',
             description: 'Tag/Branch for orchestartor repository',
             name: 'BRANCH')
         string(
@@ -54,7 +54,7 @@ pipeline {
             description: 'Tag/Branch for perl-DBD-MySQL packaging repository',
             name: 'PACKAGE_REPO_BRANCH')
         string(
-            defaultValue: '4_050',
+            defaultValue: '5_011',
             description: 'General version of the product',
             name: 'VERSION')
         string(
