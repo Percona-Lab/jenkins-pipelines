@@ -12,6 +12,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
+            sed -i "s:archive.ubuntu.com:mirrors.edge.kernel.org:g" /etc/apt/sources.list
             cd \${build_dir}
             bash -x ./pt_builder.sh --builddir=\${build_dir}/test --install_deps=1
             bash -x ./pt_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
