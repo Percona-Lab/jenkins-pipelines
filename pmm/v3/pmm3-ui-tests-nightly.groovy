@@ -68,7 +68,7 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
     env.WORK_DIR = clusterCreateJob.buildVariables.WORK_DIR
     env.FINAL_CLUSTER_NAME = clusterCreateJob.buildVariables.FINAL_CLUSTER_NAME
     env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${pmmHostname}"
-    env.PMM_UI_URL = pmmUiUrl
+    env.PMM_UI_URL = pmmAddress
 }
 
 void runAMIStagingStart(String AMI_ID) {
