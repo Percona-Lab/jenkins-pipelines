@@ -40,12 +40,12 @@ pipeline {
             name: 'PSP_BRANCH'
         )
         string(
-            defaultValue: 'ppg-17.5',
+            defaultValue: 'ppg-17.6',
             description: 'Server PG version for test, including major and minor version, e.g ppg-17.4, ppg-17.3',
             name: 'VERSION'
         )
         string(
-            defaultValue: 'Q2-2025',
+            defaultValue: 'main',
             description: 'Branch for ppg-testing testing repository',
             name: 'TESTING_BRANCH'
         )
@@ -56,7 +56,7 @@ pipeline {
         )
         booleanParam(
             name: 'MAJOR_REPO',
-            description: "Enable to use major (ppg-17) repo instead of ppg-17.5"
+            description: "Enable to use major (ppg-17) repo instead of ppg-17.6"
         )
   }
   environment {
