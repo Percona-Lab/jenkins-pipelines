@@ -358,7 +358,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(PT_REPO, COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, PT_REPO, COMPONENT)
             }
         }
         stage('Build docker containers') {
