@@ -711,12 +711,11 @@ def deployPMM(Map params) {
 
     sh """
         export PATH="\$HOME/.local/bin:\$PATH"
-        # Create OpenShift route for HTTPS access
-        # Fixed: Use correct service name and HTTP port for edge termination
-        oc create route edge pmm-https \
+        # Create OpenShift route for HTTPS access with passthrough termination
+        # This allows end-to-end TLS for both HTTPS and GRPC traffic
+        oc create route passthrough pmm-https \
             --service=monitoring-service \
-            --port=http \
-            --insecure-policy=Redirect \
+            --port=https \
             -n ${params.pmmNamespace} || true
     """
 
