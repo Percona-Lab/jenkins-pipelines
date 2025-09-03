@@ -60,13 +60,14 @@ pipeline {
                     def os = pdmdbOperatingSystems("${PSMDB_VER}")
                     os.removeAll { it.contains('-arm') }
                     moleculeParallelTest(os, moleculeDir)
-                    sleep(3600000)
                 }
             }
         }
     }
     post {
         always {
+            print("SLEEPING")
+            sleep(3600000)
             junit testResults: "**/*-report.xml", keepLongStdio: true
             script {
                 def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()
