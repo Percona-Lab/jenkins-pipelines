@@ -82,6 +82,9 @@ pipeline {
         PMM_QA_RDS_PGSQL16_HOST=credentials('PMM_QA_RDS_PGSQL16_HOST')
         PMM_QA_RDS_PGSQL16_USER=credentials('PMM_QA_RDS_PGSQL16_USER')
         PMM_QA_RDS_PGSQL16_PASSWORD=credentials('PMM_QA_RDS_PGSQL16_PASSWORD')
+        PMM_QA_RDS_PGSQL17_HOST=credentials('PMM_QA_RDS_PGSQL17_HOST')
+        PMM_QA_RDS_PGSQL17_USER=credentials('PMM_QA_RDS_PGSQL17_USER')
+        PMM_QA_RDS_PGSQL17_PASSWORD=credentials('PMM_QA_RDS_PGSQL17_PASSWORD')
     }
     parameters {
         string(
