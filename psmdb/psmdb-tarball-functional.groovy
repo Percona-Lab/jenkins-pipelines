@@ -67,7 +67,7 @@ pipeline {
     post {
         always {
             print("SLEEPING")
-            sleep(3600000)
+            sleep time: 1, unit: 'HOURS'
             junit testResults: "**/*-report.xml", keepLongStdio: true
             script {
                 def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()
