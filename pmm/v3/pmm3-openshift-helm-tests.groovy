@@ -111,7 +111,7 @@ pipeline {
                     withEnv(["KUBECONFIG=${kubeconfig}"]) {
                         sh """
                             # Wait for up to 1 minute for the cluster to be accessible
-                            for i in \$(seq 1 6); do
+                            for i in {1..6}; do
                                 if kubectl get nodes &>/dev/null; then
                                     echo "Successfully connected to OpenShift cluster"
                                     kubectl get nodes -o wide
