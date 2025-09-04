@@ -68,7 +68,7 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
     env.WORK_DIR = clusterCreateJob.buildVariables.WORK_DIR
     env.FINAL_CLUSTER_NAME = clusterCreateJob.buildVariables.FINAL_CLUSTER_NAME
     env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${pmmHostname}"
-    env.PMM_UI_URL = pmmAddress
+    env.PMM_UI_URL = "${pmmAddress}/"
 }
 
 void runAMIStagingStart(String AMI_ID) {
@@ -293,6 +293,9 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                script {
+                    currentBuild.description = "${env.SERVER_TYPE} Server: ${env.DOCKER_VERSION}. Client: ${env.CLIENT_VERSION}"
+                }
                 // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
@@ -475,21 +478,6 @@ pipeline {
     post {
         always {
             // stop staging
-            sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-            '''
-            script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/*.xml'
-                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'logs.zip'
-                } else {
-                    junit 'tests/output/*.xml'
-                    slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'tests/output/*.png'
-                }
-            }
             script {
                 if (env.SERVER_TYPE == "ovf") {
                     ovfStagingStopJob = build job: 'pmm-ovf-staging-stop', parameters: [
@@ -530,6 +518,21 @@ pipeline {
                 if(env.VM_CLIENT_NAME_PGSQL)
                 {
                     destroyStaging(VM_CLIENT_NAME_PS_GR)
+                }
+            }
+            sh '''
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+            '''
+            script {
+                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
+                    junit 'tests/output/*.xml'
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                    archiveArtifacts artifacts: 'logs.zip'
+                } else {
+                    junit 'tests/output/*.xml'
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    archiveArtifacts artifacts: 'logs.zip'
+                    archiveArtifacts artifacts: 'tests/output/*.png'
                 }
             }
             deleteDir()
