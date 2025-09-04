@@ -9,7 +9,6 @@ List all_nodes = [
     'ubuntu-jammy',
     'debian-11',
     'debian-12',
-    'centos-7',
     'oracle-8',
     'oracle-9',
     'rhel-8',
@@ -65,7 +64,6 @@ pipeline {
                 'ubuntu-jammy',
                 'debian-11',
                 'debian-12',
-                'centos-7',
                 'oracle-8',
                 'oracle-9',
                 'rhel-8',
@@ -286,18 +284,6 @@ pipeline {
 
                     steps {
                         runNodeBuild("debian-12-arm")
-                    }
-                }
-
-                stage("Centos 7") {
-                    when {
-                        expression {
-                            TEST_DISTS.contains("centos-7")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("centos-7")
                     }
                 }
 
