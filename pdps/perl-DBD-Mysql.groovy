@@ -42,7 +42,7 @@ pipeline {
             description: 'URL for perl-DBD-MySQL repository',
             name: 'REPO')
         string(
-            defaultValue: '5_011',
+            defaultValue: '5_013',
             description: 'Tag/Branch for orchestartor repository',
             name: 'BRANCH')
         string(
@@ -54,7 +54,7 @@ pipeline {
             description: 'Tag/Branch for perl-DBD-MySQL packaging repository',
             name: 'PACKAGE_REPO_BRANCH')
         string(
-            defaultValue: '5_011',
+            defaultValue: '5_013',
             description: 'General version of the product',
             name: 'VERSION')
         string(
@@ -364,6 +364,9 @@ pipeline {
         }
         failure {
             slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${BRANCH} - [${BUILD_URL}]")
+            script {
+                currentBuild.description = "Built on ${BRANCH} by ${PACKAGE_REPO_BRANCH}"
+            }
             deleteDir()
         }
         always {
