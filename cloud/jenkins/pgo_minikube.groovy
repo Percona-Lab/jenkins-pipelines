@@ -301,8 +301,8 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
-                prepareSources()
                 initParams()
+                prepareSources()
             }
         }
         stage('Docker Build and Push') {

@@ -423,8 +423,8 @@ pipeline {
             steps {
                 script { deleteDir() }
                 prepareSources()
-                prepareAgent()
                 initParams()
+                prepareAgent()
             }
         }
         stage('Docker Build and Push') {

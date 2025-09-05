@@ -301,8 +301,8 @@ pipeline {
         stage('Prepare Node') {
             steps {
                 script { deleteDir() }
-                prepareSources()
                 initParams()
+                prepareSources()
             }
         }
         stage('Docker Build and Push') {
