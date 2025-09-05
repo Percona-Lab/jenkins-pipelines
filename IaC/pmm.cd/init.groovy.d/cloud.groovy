@@ -23,28 +23,31 @@ netMap['us-east-2c'] = 'subnet-00b3df129e7d8c658'
 
 // TODO We use rhel label here, in reality it's a RHEL-compatible derivative.
 imageMap = [:]
-imageMap['us-east-2a.min-rhel-8-x64']     = 'ami-0eeed66f8f65afdba'               // oraclelinux 8.9
-imageMap['us-east-2a.min-ol-8-x64']       = imageMap['us-east-2a.min-rhel-8-x64'] // oraclelinux 8.9
-imageMap['us-east-2a.min-rhel-9-x64']     = 'ami-0b5a1d936f517ad3e'               // oraclelinux 9.3
-imageMap['us-east-2a.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64'] // oraclelinux 9.3
-imageMap['us-east-2a.min-jammy-x64']      = 'ami-085438ce84ab3ac76'               // ubuntu 22
-imageMap['us-east-2a.min-noble-x64']      = 'ami-0d1b5a8c13042c939'               // ubuntu 24
-imageMap['us-east-2a.min-bullseye-x64']   = 'ami-0434754593ce7b895'               // debian 11
-imageMap['us-east-2a.min-bookworm-x64']   = 'ami-065eb7eeb82248b49'               // debian 12
+imageMap['us-east-2a.min-rhel-8-x64']     = 'ami-0eeed66f8f65afdba'                 // oraclelinux 8.9
+imageMap['us-east-2a.min-ol-8-x64']       = imageMap['us-east-2a.min-rhel-8-x64']   // oraclelinux 8.9
+imageMap['us-east-2a.min-rhel-9-x64']     = 'ami-0b5a1d936f517ad3e'                 // oraclelinux 9.3
+imageMap['us-east-2a.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64']   // oraclelinux 9.3
+imageMap['us-east-2a.min-alma-10-x64']    = 'ami-06be7a8dff9965741'                 // almalinux 10
+imageMap['us-east-2a.min-jammy-x64']      = 'ami-085438ce84ab3ac76'                 // ubuntu 22
+imageMap['us-east-2a.min-noble-x64']      = 'ami-0d1b5a8c13042c939'                 // ubuntu 24
+imageMap['us-east-2a.min-bullseye-x64']   = 'ami-0434754593ce7b895'                 // debian 11
+imageMap['us-east-2a.min-bookworm-x64']   = 'ami-065eb7eeb82248b49'                 // debian 12
 
 imageMap['us-east-2b.min-rhel-8-x64']     = imageMap['us-east-2a.min-rhel-8-x64']
-imageMap['us-east-2b.min-ol-8-x64']       = imageMap['us-east-2a.min-ol-8-x64']   // oraclelinux 8
+imageMap['us-east-2b.min-ol-8-x64']       = imageMap['us-east-2a.min-ol-8-x64']     // oraclelinux 8
 imageMap['us-east-2b.min-rhel-9-x64']     = imageMap['us-east-2a.min-rhel-9-x64']
-imageMap['us-east-2b.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64'] // oraclelinux 9
+imageMap['us-east-2b.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64']   // oraclelinux 9
+imageMap['us-east-2b.min-alma-10-x64']    = imageMap['us-east-2a.min-alma-10-x64']  // almalinux 10
 imageMap['us-east-2b.min-jammy-x64']      = imageMap['us-east-2a.min-jammy-x64']
 imageMap['us-east-2b.min-noble-x64']      = imageMap['us-east-2a.min-noble-x64']
 imageMap['us-east-2b.min-bullseye-x64']   = imageMap['us-east-2a.min-bullseye-x64']
 imageMap['us-east-2b.min-bookworm-x64']   = imageMap['us-east-2a.min-bookworm-x64']
 
 imageMap['us-east-2c.min-rhel-8-x64']     = imageMap['us-east-2a.min-rhel-8-x64']
-imageMap['us-east-2c.min-ol-8-x64']       = imageMap['us-east-2a.min-ol-8-x64']   // oraclelinux 8
+imageMap['us-east-2c.min-ol-8-x64']       = imageMap['us-east-2a.min-ol-8-x64']     // oraclelinux 8
 imageMap['us-east-2c.min-rhel-9-x64']     = imageMap['us-east-2a.min-rhel-9-x64']
-imageMap['us-east-2c.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64'] // oraclelinux 9
+imageMap['us-east-2c.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64']   // oraclelinux 9
+imageMap['us-east-2c.min-alma-10-x64']    = imageMap['us-east-2a.min-alma-10-x64']  // almalinux 10
 imageMap['us-east-2c.min-jammy-x64']      = imageMap['us-east-2a.min-jammy-x64']
 imageMap['us-east-2c.min-noble-x64']      = imageMap['us-east-2a.min-noble-x64']
 imageMap['us-east-2c.min-bullseye-x64']   = imageMap['us-east-2a.min-bullseye-x64']
@@ -53,6 +56,7 @@ imageMap['us-east-2c.min-bookworm-x64']   = imageMap['us-east-2a.min-bookworm-x6
 // ARM64 based AMIs
 imageMap['us-east-2a.min-ol-8-arm64']       = 'ami-0f77cbbab56907b6c'               // oraclelinux 8.9 arm64
 imageMap['us-east-2a.min-ol-9-arm64']       = 'ami-0ffbdb6ee492c2cd5'               // oraclelinux 9.3 arm64
+imageMap['us-east-2a.min-alma-10-arm64']    = 'ami-0f5ead2bc98a63a65'               // almalinux 10 arm64
 imageMap['us-east-2a.min-jammy-arm64']      = 'ami-0f732d76e7fad24ca'               // ubuntu 22.04 arm64
 imageMap['us-east-2a.min-noble-arm64']      = 'ami-019eeff96c2865995'               // ubuntu 24.04 arm64
 imageMap['us-east-2a.min-bullseye-arm64']   = 'ami-0d0902423ff93b14f'               // debian 11 arm64
@@ -60,6 +64,7 @@ imageMap['us-east-2a.min-bookworm-arm64']   = 'ami-0de4c77901001cfe7'           
 
 imageMap['us-east-2b.min-ol-8-arm64']       = imageMap['us-east-2a.min-ol-8-arm64']
 imageMap['us-east-2b.min-ol-9-arm64']       = imageMap['us-east-2a.min-ol-9-arm64']
+imageMap['us-east-2b.min-alma-10-arm64']    = imageMap['us-east-2a.min-alma-10-arm64']
 imageMap['us-east-2b.min-jammy-arm64']      = imageMap['us-east-2a.min-jammy-arm64']
 imageMap['us-east-2b.min-noble-arm64']      = imageMap['us-east-2a.min-noble-arm64']
 imageMap['us-east-2b.min-bullseye-arm64']   = imageMap['us-east-2a.min-bullseye-arm64']
@@ -67,6 +72,7 @@ imageMap['us-east-2b.min-bookworm-arm64']   = imageMap['us-east-2a.min-bookworm-
 
 imageMap['us-east-2c.min-ol-8-arm64']       = imageMap['us-east-2a.min-ol-8-arm64']
 imageMap['us-east-2c.min-ol-9-arm64']       = imageMap['us-east-2a.min-ol-9-arm64']
+imageMap['us-east-2c.min-alma-10-arm64']    = imageMap['us-east-2a.min-alma-10-arm64']
 imageMap['us-east-2c.min-jammy-arm64']      = imageMap['us-east-2a.min-jammy-arm64']
 imageMap['us-east-2c.min-noble-arm64']      = imageMap['us-east-2a.min-noble-arm64']
 imageMap['us-east-2c.min-bullseye-arm64']   = imageMap['us-east-2a.min-bullseye-arm64']
@@ -85,6 +91,7 @@ userMap['min-rhel-8-x64']      = 'ec2-user'
 userMap['min-ol-8-x64']        = 'ec2-user'
 userMap['min-rhel-9-x64']      = 'ec2-user'
 userMap['min-ol-9-x64']        = 'ec2-user'
+userMap['min-alma-10-x64']     = 'ec2-user'
 userMap['min-jammy-x64']       = 'ubuntu'
 userMap['min-noble-x64']       = 'ubuntu'
 userMap['min-bullseye-x64']    = 'admin'
@@ -92,6 +99,7 @@ userMap['min-bookworm-x64']    = 'admin'
 
 userMap['min-ol-8-arm64']      = 'ec2-user'
 userMap['min-ol-9-arm64']      = 'ec2-user'
+userMap['min-alma-10-arm64']   = 'ec2-user'
 userMap['min-jammy-arm64']     = 'ubuntu'
 userMap['min-noble-arm64']     = 'ubuntu'
 userMap['min-bullseye-arm64']  = 'admin'
@@ -121,20 +129,13 @@ initMap['rpmMap'] = '''
     10.30.6.9 repo.ci.percona.com
     "     | sudo tee -a /etc/hosts
 
-    if [[ $SYSREL -eq 2 ]]; then
-        sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
-        sudo sysctl -w fs.aio-max-nr=1048576 || true
-        sudo sysctl -w fs.file-max=6815744 || true
-        echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
-        sudo amazon-linux-extras install epel java-openjdk11 -y
-        PKGLIST="tar coreutils p7zip"
-    elif [[ $SYSREL -eq 7 ]]; then
-        PKGLIST="tar coreutils java-11-openjdk"
+    if [[ $SYSREL -ge 10 ]]; then
+        PKGLIST="tar coreutils java-21-openjdk-headless tzdata-java"
     elif [[ $SYSREL -ge 8 ]]; then
         PKGLIST="tar coreutils java-11-openjdk tzdata-java"
     fi
 
-    if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
+    if [[ ${RHVER} -eq 8 ]]; then
         sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
         sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
     fi
@@ -145,24 +146,6 @@ initMap['rpmMap'] = '''
     done
 
     sudo yum -y install git ${PKGLIST} || :
-    aws --version || :
-    sudo yum -y remove aws-cli || :
-
-    if [[ $SYSREL -eq 2 ]]; then
-        if ! $(aws --version | grep -q 'aws-cli/2'); then
-            find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
-
-            until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
-                sleep 1
-                echo try again
-            done
-
-            7za -o/tmp x /tmp/awscliv2.zip
-            cd /tmp/aws && sudo ./install
-            aws --version || :
-        fi
-    fi
-
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
 '''
@@ -225,6 +208,7 @@ initMap['min-rhel-8-x64']     = initMap['rpmMap']
 initMap['min-ol-8-x64']       = initMap['rpmMap']
 initMap['min-rhel-9-x64']     = initMap['rpmMap']
 initMap['min-ol-9-x64']       = initMap['rpmMap']
+initMap['min-alma-10-x64']    = initMap['rpmMap']
 initMap['min-jammy-x64']      = initMap['debMap']
 initMap['min-noble-x64']      = initMap['debMap']
 initMap['min-bullseye-x64']   = initMap['debMap']
@@ -232,6 +216,7 @@ initMap['min-bookworm-x64']   = initMap['debMap']
 
 initMap['min-ol-8-arm64']     = initMap['rpmMap']
 initMap['min-ol-9-arm64']     = initMap['rpmMap']
+initMap['min-alma-10-arm64']  = initMap['rpmMap']
 initMap['min-jammy-arm64']    = initMap['debMap']
 initMap['min-noble-arm64']    = initMap['debMap']
 initMap['min-bullseye-arm64'] = initMap['debMap']
@@ -250,6 +235,7 @@ typeMap['min-rhel-8-x64']     = 'm7a.large'
 typeMap['min-ol-8-x64']       = typeMap['min-rhel-8-x64']
 typeMap['min-rhel-9-x64']     = typeMap['min-rhel-8-x64']
 typeMap['min-ol-9-x64']       = typeMap['min-rhel-8-x64']
+typeMap['min-alma-10-x64']    = typeMap['min-rhel-8-x64']
 typeMap['min-jammy-x64']      = typeMap['min-rhel-8-x64']
 typeMap['min-noble-x64']      = typeMap['min-rhel-8-x64']
 typeMap['min-bullseye-x64']   = typeMap['min-rhel-8-x64']
@@ -257,6 +243,7 @@ typeMap['min-bookworm-x64']   = typeMap['min-rhel-8-x64']
 
 typeMap['min-ol-8-arm64']     = 'm7g.large'
 typeMap['min-ol-9-arm64']     = typeMap['min-ol-8-arm64']
+typeMap['min-alma-10-arm64']  = typeMap['min-ol-8-arm64']
 typeMap['min-jammy-arm64']    = typeMap['min-ol-8-arm64']
 typeMap['min-noble-arm64']    = typeMap['min-ol-8-arm64']
 typeMap['min-bullseye-arm64'] = typeMap['min-ol-8-arm64']
@@ -267,6 +254,7 @@ execMap['min-rhel-8-x64']     = '1'
 execMap['min-ol-8-x64']       = '1'
 execMap['min-rhel-9-x64']     = '1'
 execMap['min-ol-9-x64']       = '1'
+execMap['min-alma-10-x64']    = '1'
 execMap['min-jammy-x64']      = '1'
 execMap['min-noble-x64']      = '1'
 execMap['min-bullseye-x64']   = '1'
@@ -274,6 +262,7 @@ execMap['min-bookworm-x64']   = '1'
 
 execMap['min-ol-8-arm64']     = '1'
 execMap['min-ol-9-arm64']     = '1'
+execMap['min-alma-10-arm64']  = '1'
 execMap['min-jammy-arm64']    = '1'
 execMap['min-noble-arm64']    = '1'
 execMap['min-bullseye-arm64'] = '1'
@@ -284,6 +273,7 @@ devMap['min-rhel-8-x64']     = '/dev/sda1=:80:true:gp3,/dev/sdd=:20:true:gp3'
 devMap['min-ol-8-x64']       = devMap['min-rhel-8-x64']
 devMap['min-rhel-9-x64']     = devMap['min-rhel-8-x64']
 devMap['min-ol-9-x64']       = devMap['min-rhel-8-x64']
+devMap['min-alma-10-x64']    = devMap['min-rhel-8-x64']
 devMap['min-jammy-x64']      = devMap['min-rhel-8-x64']
 devMap['min-noble-x64']      = devMap['min-rhel-8-x64']
 devMap['min-bullseye-x64']   = '/dev/xvda=:80:true:gp3,/dev/xvdd=:20:true:gp3'
@@ -291,6 +281,7 @@ devMap['min-bookworm-x64']   = '/dev/xvda=:80:true:gp3,/dev/xvdd=:20:true:gp3'
 
 devMap['min-ol-8-arm64']     = devMap['min-rhel-8-x64']
 devMap['min-ol-9-arm64']     = devMap['min-rhel-8-x64']
+devMap['min-alma-10-arm64']  = devMap['min-rhel-8-x64']
 devMap['min-jammy-arm64']    = devMap['min-rhel-8-x64']
 devMap['min-noble-arm64']    = devMap['min-rhel-8-x64']
 devMap['min-bullseye-arm64'] = '/dev/xvda=:80:true:gp3,/dev/xvdd=:20:true:gp3'
@@ -301,6 +292,7 @@ labelMap['min-rhel-8-x64']     = 'min-rhel-8-x64'
 labelMap['min-ol-8-x64']       = 'min-ol-8-x64'
 labelMap['min-rhel-9-x64']     = 'min-rhel-9-x64'
 labelMap['min-ol-9-x64']       = 'min-ol-9-x64'
+labelMap['min-alma-10-x64']    = 'min-alma-10-x64'
 labelMap['min-jammy-x64']      = 'min-jammy-x64'
 labelMap['min-noble-x64']      = 'min-noble-x64'
 labelMap['min-bullseye-x64']   = 'min-bullseye-x64'
@@ -308,6 +300,7 @@ labelMap['min-bookworm-x64']   = 'min-bookworm-x64'
 
 labelMap['min-ol-8-arm64']     = 'min-ol-8-arm64'
 labelMap['min-ol-9-arm64']     = 'min-ol-9-arm64'
+labelMap['min-alma-10-arm64']  = 'min-alma-10-arm64'
 labelMap['min-jammy-arm64']    = 'min-jammy-arm64'
 labelMap['min-noble-arm64']    = 'min-noble-arm64'
 labelMap['min-bullseye-arm64'] = 'min-bullseye-arm64'
@@ -318,6 +311,7 @@ jvmoptsMap['min-rhel-8-x64']     = '-Xmx512m -Xms512m'
 jvmoptsMap['min-ol-8-x64']       = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-rhel-9-x64']     = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-ol-9-x64']       = jvmoptsMap['min-rhel-8-x64']
+jvmoptsMap['min-alma-10-x64']    = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-jammy-x64']      = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-noble-x64']      = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-bullseye-x64']   = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
@@ -325,6 +319,7 @@ jvmoptsMap['min-bookworm-x64']   = '-Xmx512m -Xms512m --add-opens=java.base/java
 
 jvmoptsMap['min-ol-8-arm64']     = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-ol-9-arm64']     = jvmoptsMap['min-rhel-8-x64']
+jvmoptsMap['min-alma-10-arm64']  = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-jammy-arm64']    = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-noble-arm64']    = jvmoptsMap['min-rhel-8-x64']
 jvmoptsMap['min-bullseye-arm64'] = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
@@ -403,12 +398,14 @@ String region = 'us-east-2'
             getTemplate('min-ol-8-x64',        "${region}${it}"),
             getTemplate('min-rhel-9-x64',      "${region}${it}"),
             getTemplate('min-ol-9-x64',        "${region}${it}"),
+            getTemplate('min-alma-10-x64',     "${region}${it}"),
             getTemplate('min-jammy-x64',       "${region}${it}"),
             getTemplate('min-noble-x64',       "${region}${it}"),
             getTemplate('min-bullseye-x64',    "${region}${it}"),
             getTemplate('min-bookworm-x64',    "${region}${it}"),
             getTemplate('min-ol-8-arm64',      "${region}${it}"),
             getTemplate('min-ol-9-arm64',      "${region}${it}"),
+            getTemplate('min-alma-10-arm64',   "${region}${it}"),
             getTemplate('min-jammy-arm64',     "${region}${it}"),
             getTemplate('min-noble-arm64',     "${region}${it}"),
             getTemplate('min-bullseye-arm64',  "${region}${it}"),
