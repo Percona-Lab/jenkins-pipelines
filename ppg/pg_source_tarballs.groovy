@@ -120,7 +120,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=17
-                                def BRANCH_NAME = "release-17.4.1"
+                                def BRANCH_NAME = "release-17.6.1"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Source-Tarballs"
@@ -138,7 +138,7 @@ pipeline {
                         }
                     }
                 }
-                stage('Build source tarball for PG 16') {
+/*                stage('Build source tarball for PG 16') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -241,7 +241,7 @@ pipeline {
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }
-                }
+                } */
             }  //parallel
         } // stage
 
