@@ -422,8 +422,8 @@ pipeline {
         stage('Prepare Node') {
             steps {
                 script { deleteDir() }
-                prepareSources()
                 initParams()
+                prepareSources()
                 prepareAgent()
             }
         }
