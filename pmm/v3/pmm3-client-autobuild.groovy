@@ -55,6 +55,8 @@ pipeline {
                         string(name: 'DESTINATION', value: params.DESTINATION)
                     ]
                     env.TARBALL_AMD64_URL = pmmClientAmd64.buildVariables.TARBALL_URL
+                    env.TARBALL_AMD64_DYNAMIC_OL8_URL = pmmClientAmd64.buildVariables.TARBALL_AMD64_DYNAMIC_OL8_URL
+                    env.TARBALL_AMD64_DYNAMIC_OL9_URL = pmmClientAmd64.buildVariables.TARBALL_AMD64_DYNAMIC_OL9_URL
                 }
             }
         }

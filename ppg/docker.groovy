@@ -22,17 +22,17 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '17.5',
+            defaultValue: '17.6',
             description: 'TAG of the docker to test. For example, 16, 16.1, 16.1-multi.',
             name: 'DOCKER_TAG'
         )
         string(
-            defaultValue: '17.5',
+            defaultValue: '17.6',
             description: 'Docker PG version to test, including both major and minor version. For example, 15.4.',
             name: 'SERVER_VERSION'
         )
         string(
-            defaultValue: 'Q2-2025',
+            defaultValue: 'main',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
