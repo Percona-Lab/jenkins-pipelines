@@ -138,7 +138,7 @@ pipeline {
                         }
                     }
                 }
-/*                stage('Build source tarball for PG 16') {
+                stage('Build source tarball for PG 16') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -241,7 +241,7 @@ pipeline {
 				uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
 			}
                     }
-                } */
+                }
             }  //parallel
         } // stage
 
