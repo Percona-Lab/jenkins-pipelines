@@ -63,7 +63,7 @@ void runNodeBuild(String node_to_test) {
             echo "PRO is not supported for PXC-5.7 or PXC-innovation-lts testing"
         } else {
             echo "Normal testing"
-            job = "pxc-package-testing"
+            job = "pxc-package-testing-test"
             env.JOB_TO_RUN = "${job}"
             test_type = params.test_type
 
@@ -107,7 +107,7 @@ void runNodeBuild(String node_to_test) {
 
         } else {
             echo "Testing Non Pro packages"
-            job = "pxc-package-testing"
+            job = "pxc-package-testing-test"
             env.JOB_TO_RUN = "${job}"
             test_type = params.test_type
 
@@ -135,6 +135,125 @@ void runNodeBuild(String node_to_test) {
     echo "inside runNodeBuild job_to_run is ${env.JOB_TO_RUN}"
 }
 
+properties([
+    parameters([
+        [
+            $class: 'ChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'PXC product to test',
+            name: 'product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: 'return ["pxc84", "pxc80", "pxc57", "pxc-innovation-lts"]'
+                ]
+            ]
+        ],
+        choice(
+            name: 'test_repo',
+            choices: ['testing', 'main', 'experimental'],
+            description: 'Repo to install packages from'
+        ),
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'PRO packages (only for PXC80/84)',
+            name: 'pro_repo',
+            referencedParameters: 'product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (product_to_test == "pxc80" || product_to_test == "pxc84") {
+                            return ["no", "yes"]
+                        }
+                        return ["no"]
+                    '''
+                ]
+            ]
+        ],
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'PXC57 repo (only for PXC57)',
+            name: 'pxc57_repo',
+            referencedParameters: 'product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (product_to_test == "pxc57") {
+                            return ["EOL", "original", "pxc57"]
+                        }
+                        return ["N/A"]
+                    '''
+                ]
+            ]
+        ],
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'Test type',
+            name: 'test_type',
+            referencedParameters: 'product_to_test,pro_repo,pxc57_repo',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        def result = ["install"]
+                        
+                        // Debug - you can remove this later
+                        // return ["DEBUG: product=" + product_to_test + " pro=" + pro_repo + " pxc57=" + pxc57_repo]
+                        
+                        if (product_to_test == "pxc57") {
+                            if (pxc57_repo == "EOL") {
+                                result.add("min_upgrade_pxc57_eol_main_to_eol_testing")
+                            }
+                        } 
+                        else if (product_to_test == "pxc80") {
+                            if (pro_repo == "yes") {
+                                result = ["install", "min_upgrade_pro_pro", "min_upgrade_nonpro_pro", "min_upgrade_pro_nonpro"]
+                            } else {
+                                result.add("min_upgrade_pxc_80")
+                            }
+                        } 
+                        else if (product_to_test == "pxc84") {
+                            if (pro_repo == "yes") {
+                                result = ["install", "min_upgrade_pro_pro", "min_upgrade_nonpro_pro", "min_upgrade_pro_nonpro"]
+                            } else {
+                                result.add("min_upgrade_pxc_84")
+                            }
+                        } 
+                        else if (product_to_test == "pxc-innovation-lts") {
+                            result.add("min_upgrade_pxc_innovation")
+                        }
+                        
+                        return result
+                    '''
+                ]
+            ]
+        ],
+        string(
+            name: 'git_repo',
+            defaultValue: 'Percona-QA/package-testing',
+            description: 'Git repository to use for testing'
+        ),
+        string(
+            name: 'BRANCH',
+            defaultValue: 'master',
+            description: 'Git branch to use for testing'
+        )
+    ])
+])
+
 pipeline {
     agent {
         label 'docker'
@@ -142,81 +261,30 @@ pipeline {
     options {
         buildDiscarder(logRotator(numToKeepStr: '100'))
     }
-    parameters {
-        choice(
-            name: 'product_to_test',
-            choices: [
-                'pxc84',
-                'pxc80',
-                'pxc57',
-                'pxc-innovation-lts'
-            ],
-            description: 'PXC product_to_test to test'
-        )
 
-        choice(
-            name: 'test_repo',
-            choices: [
-                'testing',
-                'main',
-                'experimental'
-            ],
-            description: 'Repo to install packages from'
-        )
-
-        choice(
-            name: "pxc57_repo",
-            choices: ["EOL","original","pxc57"],
-            description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."
-        )
-
-        choice(
-            name: 'test_type',
-            choices: [
-                "install"
-                ,"min_upgrade_pxc57_eol_main_to_eol_testing"
-                ,"min_upgrade_pxc_80"
-                ,"min_upgrade_pxc_84"
-                ,"min_upgrade_pxc_innovation"
-            ],
-            description: 'Supports PXC57, PXC80, PXC84, PXC Innovation NON PRO Packages'
-        )
-
-        choice(
-            name: 'test_type_pro',
-            choices: [
-                'install',
-                'min_upgrade_pro_pro',
-                'min_upgrade_nonpro_pro',
-                'min_upgrade_pro_nonpro',
-            ],
-            description: 'Supports PXC80 and PXC84 PRO packages'
-        )
-
-        choice(
-            name: 'pro_repo',
-            choices: [
-                'no',
-                'yes'
-            ],
-            description: 'Set if PRO packages should be tested or not (PXC 80 and PXC 84)'
-        )
-
-        string(
-            name: 'git_repo',
-            defaultValue: "Percona-QA/package-testing",
-            description: 'Git repository to use for testing'
-        )
-        
-        string(
-            name: 'BRANCH',
-            defaultValue: 'master',
-            description: 'Git branch to use for testing'
-        )
-
-    }
 
     stages {
+
+        stage('Show Configuration') {
+            steps {
+                script {
+                    echo "=== Test Configuration ==="
+                    echo "Product: ${params.product_to_test}"
+                    echo "Test Repo: ${params.test_repo}"
+                    echo "PRO Repo: ${params.pro_repo}"
+                    
+                    if (params.product_to_test == 'pxc57') {
+                        echo "PXC57 Repo: ${params.pxc57_repo}"
+                    }
+                    
+                    echo "Test Type: ${params.test_type}"
+                    echo "Git Repo: ${params.git_repo}"
+                    echo "Branch: ${params.BRANCH}"
+                }
+            }
+        }
+
+
         stage("Prepare") {
             steps {
                 script {
