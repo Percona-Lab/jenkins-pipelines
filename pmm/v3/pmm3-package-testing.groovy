@@ -186,6 +186,7 @@ pipeline {
                         label 'min-alma-10-arm64'
                     }
                     steps{
+                        env.PS_REPOSITORY='testing'
                         setup_rhel_10_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
                     }
