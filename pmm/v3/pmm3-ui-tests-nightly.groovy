@@ -44,6 +44,33 @@ void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
     env.ADMIN_PASSWORD = "admin"
 }
 
+def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PASSWORD) {
+    def clusterName = "nightly-test-${env.BUILD_NUMBER}"
+    def pmmImageRepo = DOCKER_VERSION.split(":")[0]
+    def pmmImageTag = DOCKER_VERSION.split(":")[1]
+
+    clusterCreateJob = build job: 'openshift-cluster-create', parameters: [
+        string(name: 'CLUSTER_NAME', value: clusterName),
+        string(name: 'OPENSHIFT_VERSION', value: OPENSHIFT_VERSION),
+        booleanParam(name: 'DEPLOY_PMM', value: true),
+        string(name: 'TEAM_NAME', value: 'pmm'),
+        string(name: 'PRODUCT_TAG', value: 'pmm'),
+        string(name: 'PMM_ADMIN_PASSWORD', value: ADMIN_PASSWORD),
+        string(name: 'PMM_IMAGE_REPOSITORY', value: pmmImageRepo),
+        string(name: 'PMM_IMAGE_TAG', value: pmmImageTag),
+    ]
+
+    def pmmAddress = clusterCreateJob.buildVariables.PMM_URL
+    def pmmHostname = pmmAddress.split("//")[1]
+
+    env.VM_IP = pmmHostname
+    env.VM_NAME = clusterCreateJob.buildVariables.VM_NAME
+    env.WORK_DIR = clusterCreateJob.buildVariables.WORK_DIR
+    env.FINAL_CLUSTER_NAME = clusterCreateJob.buildVariables.FINAL_CLUSTER_NAME
+    env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${pmmHostname}"
+    env.PMM_UI_URL = "${pmmAddress}/"
+}
+
 void runAMIStagingStart(String AMI_ID) {
     amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
         string(name: 'AMI_ID', value: AMI_ID)
@@ -191,7 +218,7 @@ pipeline {
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: ['docker', 'ovf', 'ami'],
+            choices: ['docker', 'ovf', 'ami', 'helm'],
             description: "PMM Server installation type.",
             name: 'SERVER_TYPE')
         string(
@@ -218,6 +245,10 @@ pipeline {
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
+        choice(
+            choices: ['latest', '4.19.6', '4.19.5', '4.19.4', '4.19.3', '4.19.2', '4.18.9', '4.18.8', '4.18.7', '4.18.6', '4.18.5', '4.17.9', '4.17.8', '4.17.7', '4.17.6', '4.17.5', '4.16.9', '4.16.8', '4.16.7', '4.16.6', '4.16.5'],
+            description: 'OpenShift version to install (specific version or channel)',
+            name: 'OPENSHIFT_VERSION')
         choice(
             choices: ['8.0', '8.4', '5.7'],
             description: 'Percona XtraDB Cluster version',
@@ -262,6 +293,9 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
+                script {
+                    currentBuild.description = "${env.SERVER_TYPE} Server: ${env.DOCKER_VERSION}. Client: ${env.CLIENT_VERSION}"
+                }
                 // clean up workspace and fetch pmm-ui-tests repository
                 deleteDir()
                 git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-ui-tests.git'
@@ -301,6 +335,14 @@ pipeline {
                         runAMIStagingStart(DOCKER_VERSION)
                     }
                 }
+                stage('Setup Helm Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "helm" }
+                    }
+                    steps {
+                        runOpenshiftClusterCreate(OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PASSWORD)
+                    }
+                }
             }
         }
         stage('Sanity check') {
@@ -329,7 +371,7 @@ pipeline {
                 }
                 stage('ps single and mongo pss client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps --database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,QUERY_SOURCE=slowlog --database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('pdpgsql, pgsql and pdpgsql patroni client') {
@@ -436,21 +478,6 @@ pipeline {
     post {
         always {
             // stop staging
-            sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-            '''
-            script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/*.xml'
-                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'logs.zip'
-                } else {
-                    junit 'tests/output/*.xml'
-                    slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                    archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'tests/output/*.png'
-                }
-            }
             script {
                 if (env.SERVER_TYPE == "ovf") {
                     ovfStagingStopJob = build job: 'pmm-ovf-staging-stop', parameters: [
@@ -460,6 +487,12 @@ pipeline {
                 if (env.SERVER_TYPE == "ami") {
                     amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
                         string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
+                    ]
+                }
+                if (env.SERVER_TYPE == "helm") {
+                    build job: 'openshift-cluster-destroy', parameters: [
+                        string(name: 'CLUSTER_NAME', value: env.FINAL_CLUSTER_NAME),
+                        string(name: 'DESTROY_REASON', value: 'testing-complete'),
                     ]
                 }
                 if(env.VM_NAME && env.SERVER_TYPE == "docker")
@@ -487,7 +520,24 @@ pipeline {
                     destroyStaging(VM_CLIENT_NAME_PS_GR)
                 }
             }
-            deleteDir()
+            sh '''
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+            '''
+        }
+        success {
+            script {
+                junit 'tests/output/*.xml'
+                slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                archiveArtifacts artifacts: 'logs.zip'
+            }
+        }
+        failure {
+            script {
+                junit 'tests/output/*.xml'
+                slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                archiveArtifacts artifacts: 'logs.zip'
+                archiveArtifacts artifacts: 'tests/output/*.png'
+            }
         }
     }
 }
