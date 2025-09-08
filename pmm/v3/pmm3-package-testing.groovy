@@ -190,7 +190,7 @@ pipeline {
                     }
                     steps{
                         setup_rhel_10_package_tests()
-                        if(!TESTS.contains("upgrade") {
+                        if(!TESTS.contains("upgrade")) {
                             run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                         }
                     }
