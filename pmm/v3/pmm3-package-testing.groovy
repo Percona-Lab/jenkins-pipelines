@@ -182,6 +182,11 @@ pipeline {
                     }
                 }
                 stage('alma-10-arm64') {
+                    when {
+                        expression {
+                            !(env.TESTS ?: '').contains('upgrade')
+                        }
+                    }
                     agent {
                         label 'min-alma-10-arm64'
                     }
@@ -190,9 +195,7 @@ pipeline {
                     }
                     steps{
                         setup_rhel_10_package_tests()
-                        if(!TESTS.contains("upgrade")) {
-                            run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
-                        }
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
                         always {
