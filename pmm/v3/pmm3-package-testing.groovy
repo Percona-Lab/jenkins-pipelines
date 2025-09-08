@@ -67,7 +67,7 @@ void setup_ubuntu_package_tests()
     '''
 }
 
-void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
+void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO, String TARBALL)
 {
     deleteDir()
     git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/package-testing'
@@ -159,7 +159,7 @@ pipeline {
                     }
                     steps{
                         setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
                         always {
@@ -173,7 +173,7 @@ pipeline {
                     }
                     steps{
                         setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
                         always {
@@ -190,7 +190,7 @@ pipeline {
                     }
                     steps{
                         setup_rhel_10_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
                         always {
@@ -204,7 +204,7 @@ pipeline {
                     }
                     steps{
                         setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
                         always {
@@ -218,7 +218,7 @@ pipeline {
                     }
                     steps {
                         setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
                         always {
@@ -232,7 +232,7 @@ pipeline {
                     }
                     steps{
                         setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
                         always {
