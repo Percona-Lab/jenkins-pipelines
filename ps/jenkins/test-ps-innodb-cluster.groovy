@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@rhel10-ps', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 void installDependencies() {
@@ -183,8 +183,10 @@ pipeline {
                 'oracle-9',
                 'rhel-8',
                 'rhel-9',
+                'rhel-10',
                 'rhel-8-arm',
                 'rhel-9-arm',
+                'rhel-10-arm',
                 'debian-11-arm',
                 'debian-12-arm',
                 'ubuntu-focal-arm',
