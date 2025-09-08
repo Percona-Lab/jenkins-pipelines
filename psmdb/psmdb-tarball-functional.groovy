@@ -18,12 +18,21 @@ pipeline {
             defaultValue: 'https://downloads.percona.com/downloads/percona-server-mongodb-4.2/percona-server-mongodb-4.2.15-16/binary/tarball/percona-server-mongodb-4.2.15-16-x86_64.glibc2.17-minimal.tar.gz',
             description: 'URL/S3 link for tarball to upgrade/downgrade from',
             name: 'TARBALL'
+
         )
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
+        string(
+                name: 'SSH_USER',
+                description: 'User for debugging',
+                defaultValue: 'none')
+        string(
+                name: 'SSH_PUBKEY',
+                description: 'User ssh public key for debugging',
+                defaultValue: 'none')
     }
     options {
           withCredentials(moleculePbmJenkinsCreds())
