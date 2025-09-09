@@ -671,90 +671,140 @@ def deployPMM(Map params) {
     // Check if we're using a custom branch
     def chartPath = "percona/pmm"
     def usingCustomBranch = params.pmmHelmChartBranch && params.pmmHelmChartBranch.trim() != ''
+    def tempDir = null
 
     if (usingCustomBranch) {
         openshiftTools.log('INFO', "Using custom branch '${params.pmmHelmChartBranch}' from percona-helm-charts repository")
 
-        // Clone the repository and checkout the specified branch
+        try {
+            // Create secure temporary directory
+            tempDir = sh(
+                script: "mktemp -d /tmp/percona-helm-charts.XXXXXX",
+                returnStdout: true
+            ).trim()
+            
+            openshiftTools.log('INFO', "Created temporary directory: ${tempDir}")
+
+            // First validate that the branch exists
+            def branchExists = sh(
+                script: """
+                    export PATH="\$HOME/.local/bin:\$PATH"
+                    # Check if branch exists in remote repository
+                    git ls-remote --heads https://github.com/percona/percona-helm-charts.git refs/heads/${params.pmmHelmChartBranch} | grep -q ${params.pmmHelmChartBranch}
+                """,
+                returnStatus: true
+            ) == 0
+
+            if (!branchExists) {
+                error("Branch '${params.pmmHelmChartBranch}' does not exist in percona-helm-charts repository")
+            }
+
+            // Clone the repository and checkout the specified branch
+            def gitStatus = sh(
+                script: """
+                    export PATH="\$HOME/.local/bin:\$PATH"
+                    set -e  # Exit on any error
+                    
+                    # Clone the repository
+                    echo "Cloning percona-helm-charts repository..."
+                    git clone --depth 1 --branch ${params.pmmHelmChartBranch} \
+                        https://github.com/percona/percona-helm-charts.git ${tempDir}
+                    
+                    # Verify we're on the correct branch
+                    cd ${tempDir}
+                    CURRENT_BRANCH=\$(git branch --show-current)
+                    if [[ "\$CURRENT_BRANCH" != "${params.pmmHelmChartBranch}" ]]; then
+                        echo "ERROR: Expected branch '${params.pmmHelmChartBranch}' but got '\$CURRENT_BRANCH'"
+                        exit 1
+                    fi
+                    
+                    # Show current branch for confirmation
+                    echo "Successfully checked out branch: \$CURRENT_BRANCH"
+                    echo "Commit: \$(git rev-parse --short HEAD)"
+                    
+                    # Verify PMM chart exists
+                    if [[ ! -d "${tempDir}/charts/pmm" ]]; then
+                        echo "ERROR: PMM chart not found at ${tempDir}/charts/pmm"
+                        exit 1
+                    fi
+                """,
+                returnStatus: true
+            )
+
+            if (gitStatus != 0) {
+                error("Failed to clone repository or checkout branch '${params.pmmHelmChartBranch}'")
+            }
+
+            // Use the local chart path
+            chartPath = "${tempDir}/charts/pmm"
+            
+        } catch (Exception e) {
+            // Clean up on error
+            if (tempDir) {
+                sh "rm -rf ${tempDir} || true"
+            }
+            throw new Exception("Failed to setup custom Helm chart branch: ${e.message}", e)
+        }
+    }
+
+    try {
         sh """
             export PATH="\$HOME/.local/bin:\$PATH"
+            # Create namespace
+            oc create namespace ${params.pmmNamespace} || true
 
-            # Clean up any existing clone
-            rm -rf /tmp/percona-helm-charts || true
-
-            # Clone the repository
-            git clone https://github.com/percona/percona-helm-charts.git /tmp/percona-helm-charts
-
-            # Checkout the specified branch
-            cd /tmp/percona-helm-charts
-            git checkout ${params.pmmHelmChartBranch}
-
-            # Show current branch for confirmation
-            echo "Current branch: \$(git branch --show-current)"
-            echo "Commit: \$(git rev-parse --short HEAD)"
+            # Grant anyuid SCC permissions - required for PMM containers
+            # WARNING: PMM requires elevated privileges to run monitoring components
+            oc adm policy add-scc-to-user anyuid -z default -n ${params.pmmNamespace}
+            oc adm policy add-scc-to-user anyuid -z pmm -n ${params.pmmNamespace}
         """
 
-        // Use the local chart path
-        chartPath = "/tmp/percona-helm-charts/charts/pmm"
-    }
+        // Only add Helm repo if not using custom branch
+        if (!usingCustomBranch) {
+            sh """
+                export PATH="\$HOME/.local/bin:\$PATH"
+                # Add Percona Helm repo
+                helm repo add percona https://percona.github.io/percona-helm-charts/ || true
+                helm repo update
+            """
+        }
 
-    sh """
-        export PATH="\$HOME/.local/bin:\$PATH"
-        # Create namespace
-        oc create namespace ${params.pmmNamespace} || true
-
-        # Grant anyuid SCC permissions - required for PMM containers
-        # WARNING: PMM requires elevated privileges to run monitoring components
-        oc adm policy add-scc-to-user anyuid -z default -n ${params.pmmNamespace}
-        oc adm policy add-scc-to-user anyuid -z pmm -n ${params.pmmNamespace}
-    """
-
-    // Only add Helm repo if not using custom branch
-    if (!usingCustomBranch) {
         sh """
             export PATH="\$HOME/.local/bin:\$PATH"
-            # Add Percona Helm repo
-            helm repo add percona https://percona.github.io/percona-helm-charts/ || true
-            helm repo update
+            # Deploy PMM using Helm (will be retried if it fails)
+            echo "Deploying PMM with Helm..."
         """
-    }
 
-    sh """
-        export PATH="\$HOME/.local/bin:\$PATH"
-        # Deploy PMM using Helm (will be retried if it fails)
-        echo "Deploying PMM with Helm..."
-    """
+        // Prepare helm command with optional password
+        def helmCommand = """
+            export PATH="\$HOME/.local/bin:\$PATH"
+            helm upgrade --install pmm ${chartPath} \\
+                --namespace ${params.pmmNamespace}"""
 
-    // Prepare helm command with optional password
-    def helmCommand = """
-        export PATH="\$HOME/.local/bin:\$PATH"
-        helm upgrade --install pmm ${chartPath} \\
-            --namespace ${params.pmmNamespace}"""
+        // Add version flag only when not using custom branch
+        if (!usingCustomBranch) {
+            helmCommand += " \\\n            --version ${params.pmmHelmChartVersion}"
+        }
 
-    // Add version flag only when not using custom branch
-    if (!usingCustomBranch) {
-        helmCommand += " \\\n            --version ${params.pmmHelmChartVersion}"
-    }
+        helmCommand += """ \\
+                --set platform=openshift \\
+                --set service.type=${serviceType} \\
+                --set image.repository=${params.pmmImageRepository} \\
+                --set image.tag=${params.pmmImageTag}"""
 
-    helmCommand += """ \\
-            --set platform=openshift \\
-            --set service.type=${serviceType} \\
-            --set image.repository=${params.pmmImageRepository} \\
-            --set image.tag=${params.pmmImageTag}"""
+        // Set password based on user input
+        // Only generate random password if value is '<GENERATED>' or empty
+        if (params.pmmAdminPassword && params.pmmAdminPassword != '<GENERATED>') {
+            // Escape single quotes in password for shell safety
+            // This prevents command injection and syntax errors
+            def escapedPassword = params.pmmAdminPassword.replaceAll("'", "'\"'\"'")
+            helmCommand += " \\\n            --set secret.pmm_password='${escapedPassword}'"
+        }
+        // If password is '<GENERATED>' or empty, Helm will auto-generate one
 
-    // Set password based on user input
-    // Only generate random password if value is '<GENERATED>' or empty
-    if (params.pmmAdminPassword && params.pmmAdminPassword != '<GENERATED>') {
-        // Escape single quotes in password for shell safety
-        // This prevents command injection and syntax errors
-        def escapedPassword = params.pmmAdminPassword.replaceAll("'", "'\"'\"'")
-        helmCommand += " \\\n            --set secret.pmm_password='${escapedPassword}'"
-    }
-    // If password is '<GENERATED>' or empty, Helm will auto-generate one
+        helmCommand += ' \\\n            --wait --timeout 10m'
 
-    helmCommand += ' \\\n            --wait --timeout 10m'
-
-    sh helmCommand
+        sh helmCommand
 
     sh """
         export PATH="\$HOME/.local/bin:\$PATH"
@@ -882,7 +932,15 @@ def deployPMM(Map params) {
         }
     }
 
-    return result
+        return result
+        
+    } finally {
+        // Clean up temporary directory if it was created
+        if (tempDir) {
+            openshiftTools.log('INFO', "Cleaning up temporary directory: ${tempDir}")
+            sh "rm -rf ${tempDir} || true"
+        }
+    }
 }
 
 /**
