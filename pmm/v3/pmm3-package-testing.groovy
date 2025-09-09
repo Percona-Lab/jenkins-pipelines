@@ -3,12 +3,12 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runStaging(String DOCKER_VERSION, ADMIN_PASSWORD) {
+void runStaging(String DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS) {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: '3-dev-latest'),
         string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_ENABLE_TELEMETRY=false -e PMM_DATA_RETENTION=48h -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PMM_ENABLE_NOMAD=1'),
-        string(name: 'CLIENTS', value: '--help'),
+        string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1')
@@ -127,6 +127,10 @@ pipeline {
             defaultValue: 'pmm3admin!',
             description: 'Password for pmm server admin user',
             name: 'ADMIN_PASSWORD')
+        string(
+            defaultValue: '--help',
+            description: 'Flag for pmm framework',
+            name: 'CLIENTS')
         choice(
             choices: ['auto', 'push', 'pull'],
             description: 'Select the Metrics Mode for Client',
@@ -138,7 +142,7 @@ pipeline {
     stages {
         stage('Setup Server Instance') {
             steps {
-                runStaging(DOCKER_VERSION, ADMIN_PASSWORD)
+                runStaging(DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS)
                 script {
                     def PUBLIC_IP = sh(script: "curl -s ifconfig.me", returnStdout: true).trim()
                     echo "Public IP: ${VM_IP}"
