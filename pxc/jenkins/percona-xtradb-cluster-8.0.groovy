@@ -642,14 +642,14 @@ pipeline {
             }
         }
         stage('Build docker containers') {
+            when {
+               expression { env.FIPSMODE == 'NO' }
+            }
             agent {
                label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
             }
             steps {
                 script {
-                    if (env.FIPSMODE == 'YES') {
-                        echo "The step is skipped"
-                    } else {
                         echo "====> Build docker containers"
                         cleanUpWS()
                         sh '''
@@ -770,7 +770,6 @@ pipeline {
                            sudo docker buildx imagetools create -t perconalab/percona-xtradb-cluster:latest perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}
                        '''
                        }
-                    }
                 }
             }
         }
