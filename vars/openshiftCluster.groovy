@@ -804,6 +804,10 @@ def deployPMM(Map params) {
 
         helmCommand += ' \\\n            --wait --timeout 10m'
 
+        // Log the full Helm command for debugging
+        openshiftTools.log('DEBUG', "Executing Helm command:")
+        echo helmCommand
+
         sh helmCommand
 
     sh """
