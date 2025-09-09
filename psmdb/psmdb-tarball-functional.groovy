@@ -77,8 +77,6 @@ pipeline {
         always {
             junit testResults: "**/*-report.xml", keepLongStdio: true
             script {
-                println("SLEEPING")
-                sleep time: 3600, unit: 'SECONDS'
                 def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()
                 def os = pdmdbOperatingSystems("${PSMDB_VER}")
                 os.removeAll { it.contains('-arm') }
