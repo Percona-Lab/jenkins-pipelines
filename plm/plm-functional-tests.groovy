@@ -33,6 +33,7 @@ pipeline {
         choice(name: 'ARCH', choices: ['x86','arm'], description: 'Ec2 instance type for running tests')
         string(name: 'PSMDB_TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
         string(name: 'TEST_FILTER', defaultValue: '', description: 'Optional pytest filter, f.e. T2 or T3')
+        booleanParam(name: 'ADD_JENKINS_MARKED_TESTS', defaultValue: true, description: 'Include tests with jenkins marker')
     }
     stages {
         stage('Set build name'){
@@ -80,10 +81,11 @@ pipeline {
                                     cd psmdb-testing/plm-pytest
                                     docker-compose build --no-cache
                                     docker-compose up -d
+                                    if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
                                     if [ -n "${params.TEST_FILTER}" ]; then
-                                        docker-compose run test pytest -v -s -k "${params.TEST_FILTER}" --junitxml=junit.xml || true
+                                        docker-compose run test pytest -v -s \$JENKINS_FLAG -k "${params.TEST_FILTER}" --junitxml=junit.xml || true
                                     else
-                                        docker-compose run test pytest -v -s --junitxml=junit.xml || true
+                                        docker-compose run test pytest -v -s \$JENKINS_FLAG --junitxml=junit.xml || true
                                     fi
                                     docker-compose down -v --remove-orphans
                                     curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PLM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PLM branch": "${PLM_BRANCH}","PSMDB docker image": "${MONGODB_IMAGE}","Instance": "${params.INSTANCE}"}};type=application/json' -i || true

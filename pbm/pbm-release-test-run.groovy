@@ -21,7 +21,7 @@ pipeline {
     stages {
         stage ('Run e2e tests') {
             steps {
-                build job: 'hetzner-pbm-functional-tests-full', propagate: false, wait: true, parameters: [ string(name: 'PBM_BRANCH', value: params.PBM_BRANCH) ]
+                build job: 'hetzner-pbm-functional-tests-full', propagate: false, wait: true, parameters: [ string(name: 'PBM_BRANCH', value: params.PBM_BRANCH), booleanParam(name: 'ADD_JENKINS_MARKED_TESTS', value: true) ]
             }
         }
         stage ('Run package tests') {
