@@ -43,7 +43,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+              - 'master'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pmm/openshift/openshift_cluster_destroy.groovy

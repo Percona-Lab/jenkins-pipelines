@@ -162,6 +162,10 @@ def downloadState(Map config) {
  * Stores metadata separately from the main state file for quick access
  * without downloading the full cluster state tarball.
  *
+ * NOTE: Changed from metadata.json to cluster-metadata.json to avoid
+ * overwriting the OpenShift installer's metadata.json file which is
+ * required for openshift-install destroy operations.
+ *
  * @param params Map containing S3 configuration:
  *   - bucket: S3 bucket name (required)
  *   - clusterName: Name of the cluster (required)
@@ -171,18 +175,19 @@ def downloadState(Map config) {
  * @throws RuntimeException When S3 upload fails
  *
  * @since 2.0.0
+ * @since 2.1.0 - Changed filename to cluster-metadata.json
  */
 def saveMetadata(Map params, Map metadata) {
     def json = new JsonBuilder(metadata).toPrettyString()
-    def s3Uri = "s3://${params.bucket}/${params.clusterName}/metadata.json"
+    def s3Uri = "s3://${params.bucket}/${params.clusterName}/cluster-metadata.json"
 
     try {
         sh """
-            cat > metadata.json <<'EOF'
+            cat > cluster-metadata.json <<'EOF'
 ${json}
 EOF
-            aws s3 cp metadata.json '${s3Uri}' --region ${params.region}
-            rm -f metadata.json
+            aws s3 cp cluster-metadata.json '${s3Uri}' --region ${params.region}
+            rm -f cluster-metadata.json
         """
         openshiftTools.log('INFO', "Metadata saved successfully to ${s3Uri}", params)
     } catch (Exception e) {
@@ -193,8 +198,12 @@ EOF
 /**
  * Retrieves cluster metadata JSON from S3.
  *
- * Fetches and parses the metadata.json file for a specific cluster.
+ * Fetches and parses the cluster-metadata.json file for a specific cluster.
  * Returns null if not found rather than throwing an error.
+ *
+ * NOTE: Changed from metadata.json to cluster-metadata.json to avoid
+ * conflicts with the OpenShift installer's metadata.json file which is
+ * required for openshift-install destroy operations.
  *
  * @param params Map containing retrieval configuration:
  *   - bucket: S3 bucket name (required)
@@ -204,6 +213,7 @@ EOF
  * @return Map parsed metadata or null if not found
  *
  * @since 2.0.0
+ * @since 2.1.0 - Changed filename to cluster-metadata.json (no fallback)
  *
  * @example
  * def metadata = openshiftS3.getMetadata([
@@ -216,7 +226,8 @@ EOF
  * }
  */
 def getMetadata(Map params) {
-    def s3Uri = "s3://${params.bucket}/${params.clusterName}/metadata.json"
+    // Use cluster-metadata.json - metadata.json is reserved for OpenShift installer
+    def s3Uri = "s3://${params.bucket}/${params.clusterName}/cluster-metadata.json"
 
     // Check if metadata exists
     def existsResult = sh(
