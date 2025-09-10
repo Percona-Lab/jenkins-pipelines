@@ -541,22 +541,22 @@ def formatClustersSummary(List clusters, String title = "OPENSHIFT CLUSTERS") {
         clusters.each { cluster ->
             // Primary info (most important)
             summary.append("Cluster Name:        ${cluster.name}\n")
-            
+
             // Version and status info
             summary.append("OpenShift Version:   ${cluster.version}\n")
             summary.append("Status:              ${getClusterStatus(cluster)}\n")
             summary.append("PMM Deployed:        ${cluster.pmm_deployed}\n")
-            
+
             // Metadata
             summary.append("AWS Region:          ${cluster.region}\n")
             summary.append("Created:             ${cluster.created_at}\n")
             summary.append("Created By:          ${cluster.created_by}\n")
-            
+
             // Technical details
             summary.append("Data Source:         ${cluster.source}\n")
             summary.append("S3 Backup:           ${cluster.has_backup}\n")
             summary.append("Resource Types:      ${cluster.resource_count}\n")
-            
+
             // Show base name only if it differs (for clusters with random suffixes)
             if (cluster.baseName && cluster.baseName != cluster.name) {
                 summary.append("S3 Base Name:        ${cluster.baseName}\n")

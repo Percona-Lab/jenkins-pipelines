@@ -38,7 +38,7 @@ pipeline {
                         def clusterCount = clusters.size()
                         def clustersText = clusterCount == 1 ? "1 cluster" : "${clusterCount} clusters"
                         currentBuild.description = "${clustersText} | ${env.OPENSHIFT_AWS_REGION} | ${params.OUTPUT_FORMAT ?: 'table'}"
-                        
+
                         if (params.OUTPUT_FORMAT == 'json') {
                             // For JSON output, just print the raw JSON
                             def json = new groovy.json.JsonBuilder(clusters)

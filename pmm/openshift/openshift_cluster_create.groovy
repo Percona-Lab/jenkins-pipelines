@@ -431,7 +431,7 @@ Starting cluster creation process...
                     echo ""
                     echo "SSL Method: ${params.SSL_METHOD}"
                     echo "Base Domain: ${params.BASE_DOMAIN}"
-                    
+
                     def sslConfig = [
                         clusterName: env.FINAL_CLUSTER_NAME,
                         baseDomain: params.BASE_DOMAIN,
@@ -442,26 +442,26 @@ Starting cluster creation process...
                     ]
 
                     def sslResults = [:]
-                    
+
                     if (params.SSL_METHOD == 'letsencrypt') {
                         echo "Setting up Let's Encrypt certificates..."
-                        
+
                         // Configure console domain
-                        def consoleDomain = params.CONSOLE_CUSTOM_DOMAIN ?: 
+                        def consoleDomain = params.CONSOLE_CUSTOM_DOMAIN ?:
                             "console-${env.FINAL_CLUSTER_NAME}.${params.BASE_DOMAIN}"
-                        
+
                         sslConfig.consoleDomain = consoleDomain
-                        
+
                         // Setup Let's Encrypt
                         sslResults = openshiftSSL.setupLetsEncrypt(sslConfig)
-                        
+
                         if (sslResults.consoleCert) {
                             echo "✓ Console certificate configured for: ${consoleDomain}"
                             env.CONSOLE_SSL_DOMAIN = consoleDomain
                         }
                     } else if (params.SSL_METHOD == 'acm') {
                         echo "Setting up AWS ACM certificates..."
-                        
+
                         withCredentials([
                             aws(
                                 credentialsId: 'jenkins-openshift-aws',
@@ -470,25 +470,25 @@ Starting cluster creation process...
                             )
                         ]) {
                             def services = []
-                            
+
                             // Add PMM service if deployed
                             if (params.DEPLOY_PMM && env.PMM_URL) {
-                                def pmmDomain = params.PMM_CUSTOM_DOMAIN ?: 
+                                def pmmDomain = params.PMM_CUSTOM_DOMAIN ?:
                                     "pmm-${env.FINAL_CLUSTER_NAME}.${params.BASE_DOMAIN}"
-                                
+
                                 services.add([
                                     name: 'monitoring-service',
                                     namespace: 'pmm-monitoring',
                                     domain: pmmDomain
                                 ])
                             }
-                            
+
                             sslConfig.services = services
                             sslConfig.accessKey = AWS_ACCESS_KEY_ID
                             sslConfig.secretKey = AWS_SECRET_ACCESS_KEY
-                            
+
                             sslResults = awsCertificates.setupACM(sslConfig)
-                            
+
                             if (sslResults.services) {
                                 sslResults.services.each { name, config ->
                                     if (config.configured) {
@@ -501,10 +501,10 @@ Starting cluster creation process...
                             }
                         }
                     }
-                    
+
                     // Store SSL results for post-creation display
                     env.SSL_CONFIGURED = sslResults ? 'true' : 'false'
-                    
+
                     if (sslResults.errors && !sslResults.errors.isEmpty()) {
                         echo "SSL configuration completed with warnings:"
                         sslResults.errors.each { error ->
@@ -523,7 +523,7 @@ Starting cluster creation process...
                     echo "OpenShift Cluster Deployment Complete"
                     echo "====================================================================="
                     echo ""
-                    
+
                     // Primary access info (most important for QA)
                     echo "Console URL:         ${env.CLUSTER_CONSOLE_URL ?: 'https://console-openshift-console.apps.' + env.FINAL_CLUSTER_NAME + '.' + params.BASE_DOMAIN}"
                     if (params.DEPLOY_PMM && env.PMM_URL) {
@@ -531,7 +531,7 @@ Starting cluster creation process...
                         echo "PMM Public IP:       ${env.PMM_IP}"
                     }
                     echo ""
-                    
+
                     // Credentials
                     if (params.DEPLOY_PMM && env.PMM_URL) {
                         def passwordInfo = env.PMM_PASSWORD_GENERATED == 'true' ?
@@ -542,19 +542,19 @@ Starting cluster creation process...
                     }
                     echo "Kubeadmin Password:  <check Jenkins artifacts: auth/kubeadmin-password>"
                     echo ""
-                    
+
                     // Version info (critical for testing)
                     if (params.DEPLOY_PMM && env.PMM_URL) {
                         echo "PMM Version:         ${params.PMM_IMAGE_TAG}"
                     }
                     echo "OpenShift Version:   ${params.OPENSHIFT_VERSION}"
                     echo ""
-                    
+
                     // Technical access details
                     echo "API Endpoint:        ${env.CLUSTER_API_URL}"
                     echo "Login Command:       oc login ${env.CLUSTER_API_URL} -u kubeadmin"
                     echo ""
-                    
+
                     // Cluster configuration
                     echo "Cluster Name:        ${env.FINAL_CLUSTER_NAME}"
                     echo "AWS Region:          ${params.AWS_REGION}"
@@ -562,13 +562,13 @@ Starting cluster creation process...
                     echo "Master Nodes:        3 × ${params.MASTER_INSTANCE_TYPE}"
                     echo "Worker Nodes:        ${params.WORKER_COUNT} × ${params.WORKER_INSTANCE_TYPE}"
                     echo ""
-                    
+
                     // Administrative info (least urgent)
                     echo "Team Owner:          ${params.TEAM_NAME}"
                     echo "Product Tag:         ${params.PRODUCT_TAG}"
                     echo "Auto-Delete After:   ${params.DELETE_AFTER_HOURS} hours"
                     echo "S3 Backup Location:  s3://${env.S3_BUCKET}/${env.FINAL_CLUSTER_NAME}/"
-                    
+
                     // PMM deployment details (if deployed)
                     if (params.DEPLOY_PMM && env.PMM_URL) {
                         echo ""
@@ -580,7 +580,7 @@ Starting cluster creation process...
                         echo ""
                         echo "PMM Status:          Not deployed (may have failed or is pending)"
                     }
-                    
+
                     echo ""
                     echo "===================================================================="
 
@@ -592,7 +592,7 @@ Starting cluster creation process...
                         pmmDetails = " | PMM IP: ${env.PMM_IP}"
                         // Don't include password in description for security
                     }
-                    
+
                     currentBuild.description = "${env.FINAL_CLUSTER_NAME} | " +
                         "OCP ${params.OPENSHIFT_VERSION} | " +
                         "${params.AWS_REGION} | " +

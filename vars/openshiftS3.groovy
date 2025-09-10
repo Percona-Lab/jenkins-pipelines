@@ -161,7 +161,7 @@ def downloadState(Map config) {
  *
  * Stores metadata separately from the main state file for quick access
  * without downloading the full cluster state tarball.
- * 
+ *
  * NOTE: Changed from metadata.json to cluster-metadata.json to avoid
  * overwriting the OpenShift installer's metadata.json file which is
  * required for openshift-install destroy operations.
@@ -200,7 +200,7 @@ EOF
  *
  * Fetches and parses the cluster-metadata.json file for a specific cluster.
  * Returns null if not found rather than throwing an error.
- * 
+ *
  * NOTE: Changed from metadata.json to cluster-metadata.json to avoid
  * conflicts with the OpenShift installer's metadata.json file which is
  * required for openshift-install destroy operations.
@@ -228,7 +228,7 @@ EOF
 def getMetadata(Map params) {
     // Use cluster-metadata.json - metadata.json is reserved for OpenShift installer
     def s3Uri = "s3://${params.bucket}/${params.clusterName}/cluster-metadata.json"
-    
+
     // Check if metadata exists
     def existsResult = sh(
         script: "aws s3 ls '${s3Uri}' --region ${params.region} 2>/dev/null | wc -l",
