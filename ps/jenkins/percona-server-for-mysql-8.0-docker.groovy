@@ -214,7 +214,11 @@ parameters {
                             sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                             rm -rf percona-docker
                             git clone https://github.com/percona/percona-docker
-                            cd percona-docker/percona-server-8.0
+                            if [ ${PS_MAJOR_RELEASE} = "80" ]; then
+                                cd percona-docker/percona-server-8.0
+                            else
+                                cd percona-docker/percona-server-8.4
+                            fi
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
@@ -301,7 +305,7 @@ parameters {
                        }
                        sh '''
                            PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
-                           sudo docker manifest create ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE} \
+                           sudo docker manifest create --amend ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE} \
                                ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 \
                                ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64
                            sudo docker manifest annotate ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE} ${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
