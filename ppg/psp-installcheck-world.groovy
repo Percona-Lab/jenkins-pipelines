@@ -15,13 +15,13 @@ pipeline {
             choices: ppgOperatingSystemsALL()
         )
         string(
-            defaultValue: '17.5',
+            defaultValue: '17.6',
             description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3',
             name: 'VERSION'
         )
         string(
-            defaultValue: 'ppg-17.5.1',
-            description: 'Server PG version for test, including major and minor version, e.g 17.5.1',
+            defaultValue: '17.6.1',
+            description: 'Server PG version for test, including major and minor version, e.g 17.6.1',
             name: 'PERCONA_SERVER_VERSION'
         )
         string(
@@ -35,7 +35,7 @@ pipeline {
             name: 'PSP_BRANCH'
         )
         string(
-            defaultValue: 'Q2-2025',
+            defaultValue: 'main',
             description: 'Branch for ppg-testing testing repository',
             name: 'TESTING_BRANCH'
         )
