@@ -118,6 +118,11 @@
                 description: "Helm chart version for PMM deployment (default: 1.4.7 for PMM 3.x)"
                 trim: true
           - string:
+                name: PMM_HELM_CHART_BRANCH
+                default: ""
+                description: "Branch from percona-helm-charts repo to use for PMM deployment (optional, overrides chart version)"
+                trim: true
+          - string:
                 name: PMM_IMAGE_REPOSITORY
                 default: "percona/pmm-server"
                 description: "Docker image repository (e.g., percona/pmm-server, perconalab/pmm-server)"
