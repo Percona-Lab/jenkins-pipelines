@@ -689,6 +689,8 @@ def setup(){
                 '''
 }
 
+
+
 properties([
     parameters([
         [
@@ -705,31 +707,54 @@ properties([
                 ]
             ]
         ],
-        choice(
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'Distribution to run test (filtered by product)',
             name: 'node_to_test',
-            choices: [
-                'ubuntu-noble',
-                'ubuntu-jammy', 
-                'ubuntu-noble-arm',
-                'ubuntu-jammy-arm',
-                'ubuntu-focal',
-                'debian-12',
-                'debian-11',
-                'debian-12-arm',
-                'debian-11-arm',
-                'debian-10',
-                'centos-7',
-                'ol-8',
-                'ol-9',
-                'rhel-8',
-                'rhel-9',
-                'rhel-8-arm',
-                'rhel-9-arm',
-                'amazon-linux-2023',
-                'amazon-linux-2023-arm'
-            ],
-            description: 'Distribution to run test'
-        ),
+            referencedParameters: 'product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        def non_pro_nodes = [
+                                        'ubuntu-noble',
+                                        'ubuntu-jammy',
+                                        'ubuntu-noble-arm',
+                                        'ubuntu-jammy-arm',
+                                        'ubuntu-focal',
+                                        'debian-12',
+                                        'debian-11',
+                                        'debian-12-arm',
+                                        'debian-11-arm',
+                                        'ol-8',
+                                        'ol-9',
+                                        'rhel-8',
+                                        'rhel-9',
+                                        'amazon-linux-2023',
+                                        'amazon-linux-2023-arm'
+                        ]
+
+                        def pxc57_nodes = [
+                                        'ubuntu-jammy',
+                                        'ubuntu-focal',
+                                        'debian-12',
+                                        'debian-11',
+                                        'ol-8',
+                                        'ol-9'
+                        ]
+
+                        if (product_to_test == "pxc57") {
+                            return pxc57_nodes
+                        } else {
+                            return non_pro_nodes
+                        }
+                    '''
+                ]
+            ]
+        ],
         choice(
             name: 'test_repo',
             choices: ['testing', 'main', 'experimental'],
