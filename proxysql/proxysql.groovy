@@ -89,10 +89,13 @@ pipeline {
     }
     stages {
         stage('Create PROXYSQL source tarball') {
+            agent {
+                label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+            }
             steps {
                 // slackNotify("", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
-                buildStage("centos:7", "--get_sources=1")
+                buildStage("oraclelinux:8", "--get_sources=1")
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/proxysql.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
@@ -118,7 +121,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:7", "--build_src_rpm=1")
+                        buildStage("oraclelinux:8", "--build_src_rpm=1")
 
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
