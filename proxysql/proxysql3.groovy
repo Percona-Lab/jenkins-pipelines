@@ -89,6 +89,9 @@ pipeline {
     }
     stages {
         stage('Create PROXYSQL source tarball') {
+            agent {
+                label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+            }
             steps {
                 // slackNotify("", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
