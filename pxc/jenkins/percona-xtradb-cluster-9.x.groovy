@@ -543,29 +543,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Debian Bullseye(11) tarball') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                unstash 'pxc-9x.properties'
-                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                                buildStage("debian:bullseye", "--build_tarball=1")
-
-                                stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                                if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
-                                    uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
-                                }
-                            }
-                        }
-                    }
-                }
                 stage('Ubuntu Jammy(22.04) tarball') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
