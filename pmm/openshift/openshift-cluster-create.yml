@@ -100,7 +100,7 @@
                     - "m6i.xlarge"
                     - "m6i.2xlarge"
                     - "c5.2xlarge"
-                description: "EC2 instance type for feature/openshift-shared-libraries nodes (x86_64)"
+                description: "EC2 instance type for master nodes (x86_64)"
 
           # === PMM Configuration ===
           - bool:
