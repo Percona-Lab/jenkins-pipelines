@@ -216,8 +216,15 @@ Deploy PMM:           ${params.DEPLOY_PMM ? 'Yes' : 'No'}"""
                     if (params.DEPLOY_PMM) {
                         preCreationSummary += """
 PMM Repository:       ${params.PMM_IMAGE_REPOSITORY}
-PMM Image Tag:        ${params.PMM_IMAGE_TAG}
-Helm Chart Version:   ${params.PMM_HELM_CHART_VERSION}
+PMM Image Tag:        ${params.PMM_IMAGE_TAG}"""
+                        if (params.PMM_HELM_CHART_BRANCH) {
+                            preCreationSummary += """
+Helm Chart Branch:    ${params.PMM_HELM_CHART_BRANCH} (from percona-helm-charts)"""
+                        } else {
+                            preCreationSummary += """
+Helm Chart Version:   ${params.PMM_HELM_CHART_VERSION}"""
+                        }
+                        preCreationSummary += """
 Admin Password:       ${params.PMM_ADMIN_PASSWORD == '<GENERATED>' ? 'Auto-generated' : 'User-specified'}"""
                     }
 
@@ -370,6 +377,7 @@ Starting cluster creation process...
                             deployPMM: params.DEPLOY_PMM,
                             pmmImageTag: params.PMM_IMAGE_TAG,
                             pmmHelmChartVersion: params.PMM_HELM_CHART_VERSION,
+                            pmmHelmChartBranch: params.PMM_HELM_CHART_BRANCH ?: '',
                             pmmImageRepository: params.PMM_IMAGE_REPOSITORY,
                             pmmAdminPassword: params.PMM_ADMIN_PASSWORD ?: '<GENERATED>',  // Default to auto-generation
                             // SSL Configuration
@@ -574,7 +582,11 @@ Starting cluster creation process...
                         echo ""
                         echo "PMM Deployment:"
                         echo "  Repository:        ${params.PMM_IMAGE_REPOSITORY}"
-                        echo "  Helm Chart:        ${params.PMM_HELM_CHART_VERSION}"
+                        if (params.PMM_HELM_CHART_BRANCH) {
+                            echo "  Helm Chart Branch: ${params.PMM_HELM_CHART_BRANCH} (from percona-helm-charts)"
+                        } else {
+                            echo "  Helm Chart:        ${params.PMM_HELM_CHART_VERSION}"
+                        }
                         echo "  Namespace:         pmm-monitoring"
                     } else if (params.DEPLOY_PMM) {
                         echo ""
