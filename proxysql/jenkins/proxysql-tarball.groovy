@@ -22,8 +22,8 @@ pipeline {
   }
   parameters {
     string(
-      name: 'Proxysql_version', 
-      defaultValue: '8.0.36-28', 
+      name: 'PROXYSQL_VERSION', 
+      defaultValue: '3.0.1-1.1', 
       description: 'proxysql full version'
     )
     string(
