@@ -17,7 +17,7 @@ pipeline {
   environment {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
     MOLECULE_DIR = "molecule/proxysql-tarball/";
-    PROXYSQL_VERSION = "${params.Proxysql_version}"
+    PROXYSQL_VERSION = "${params.PROXYSQL_VERSION}"
     WSREP_VERSION = "${params.WSREP_VERSION}"
   }
   parameters {
@@ -45,7 +45,7 @@ pipeline {
     stage('Set build name'){
       steps {
         script {
-          currentBuild.displayName = "${env.BUILD_NUMBER}-${env.Proxysql_version}"
+          currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PROXYSQL_VERSION}"
           currentBuild.description = "${env.REVISION}-${env.TESTING_BRANCH}-${env.TESTING_GIT_ACCOUNT}"
         }
       }
