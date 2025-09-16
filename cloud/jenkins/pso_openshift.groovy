@@ -463,39 +463,49 @@ pipeline {
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
-                        // clusterRunner('cluster1')
+                        clusterRunner('cluster1')
                     }
                 }
-                // stage('cluster2') {
-                //     agent {
-                //         label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                //     }
-                //     steps {
-                //         prepareAgent()
-                //         unstash "sourceFILES"
-                //         clusterRunner('cluster2')
-                //     }
-                // }
-                // stage('cluster3') {
-                //     agent {
-                //         label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                //     }
-                //     steps {
-                //         prepareAgent()
-                //         unstash "sourceFILES"
-                //         clusterRunner('cluster3')
-                //     }
-                // }
-                // stage('cluster4') {
-                //     agent {
-                //         label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                //     }
-                //     steps {
-                //         prepareAgent()
-                //         unstash "sourceFILES"
-                //         clusterRunner('cluster4')
-                //     }
-                // }
+                stage('cluster2') {
+                    agent {
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster2')
+                    }
+                }
+                stage('cluster3') {
+                    agent {
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster3')
+                    }
+                }
+                stage('cluster4') {
+                    agent {
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster4')
+                    }
+                }
+                stage('cluster5') {
+                    agent {
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster5')
+                    }
+                }
             }
         }
     }
