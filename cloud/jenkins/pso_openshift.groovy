@@ -110,7 +110,7 @@ void prepareAgent() {
         kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
         echo \$(kubectl kuttl --version) is installed
 
-        if [[ $AGENT_CLOUD == "AWS" ]]; then
+        if [[ $JENKINS_AGENT == "AWS" ]]; then
             curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OC_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
         else
             curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
@@ -422,10 +422,10 @@ pipeline {
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'AWS_REGION', defaultValue: 'eu-west-3', description: 'AWS region to use for openshift cluster')
-        choice(name: 'AGENT_CLOUD', choices: ['Hetzner','AWS'],description: 'Cloud infra for build')
+        choice(name: 'JENKINS_AGENT', choices: ['Hetzner','AWS'],description: 'Cloud infra for build')
     }
     agent {
-        label params.AGENT_CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
@@ -458,7 +458,7 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     agent {
-                        label params.AGENT_CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         prepareAgent()
@@ -468,7 +468,7 @@ pipeline {
                 }
                 // stage('cluster2') {
                 //     agent {
-                //         label params.AGENT_CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                //         label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
                 //     }
                 //     steps {
                 //         prepareAgent()
@@ -478,7 +478,7 @@ pipeline {
                 // }
                 // stage('cluster3') {
                 //     agent {
-                //         label params.AGENT_CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                //         label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
                 //     }
                 //     steps {
                 //         prepareAgent()
@@ -488,7 +488,7 @@ pipeline {
                 // }
                 // stage('cluster4') {
                 //     agent {
-                //         label params.AGENT_CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                //         label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
                 //     }
                 //     steps {
                 //         prepareAgent()
