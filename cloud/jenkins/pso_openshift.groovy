@@ -395,7 +395,7 @@ pipeline {
         string(name: 'AWS_REGION', defaultValue: 'eu-west-3', description: 'AWS region to use for openshift cluster')
     }
     agent {
-        label 'docker'
+        label 'docker-x64-min'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
@@ -428,7 +428,7 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     agent {
-                        label 'docker'
+                        label 'docker-x64-min'
                     }
                     steps {
                         prepareAgent()
@@ -438,7 +438,7 @@ pipeline {
                 }
                 stage('cluster2') {
                     agent {
-                        label 'docker'
+                        label 'docker-x64-min'
                     }
                     steps {
                         prepareAgent()
@@ -448,7 +448,7 @@ pipeline {
                 }
                 stage('cluster3') {
                     agent {
-                        label 'docker'
+                        label 'docker-x64-min'
                     }
                     steps {
                         prepareAgent()
@@ -458,7 +458,7 @@ pipeline {
                 }
                 stage('cluster4') {
                     agent {
-                        label 'docker'
+                        label 'docker-x64-min'
                     }
                     steps {
                         prepareAgent()
