@@ -453,7 +453,7 @@ pipeline {
         }
         stage('Run Tests') {
             options {
-                timeout(time: 4, unit: 'HOURS')
+                timeout(time: 210, unit: 'MINUTES')
             }
             parallel {
                 stage('cluster1') {
