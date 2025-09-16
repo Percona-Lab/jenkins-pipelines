@@ -154,6 +154,7 @@ parameters {
             description: 'Organization on hub.docker.com',
             name: 'ORGANIZATION')
         string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
+        string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
         string(defaultValue: 'release-8.0.43-34', description: 'Tag/Branch for percona-server repository', name: 'BRANCH')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
@@ -221,10 +222,12 @@ parameters {
                             sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                             rm -rf percona-docker
                             git clone ${REPO_DOCKER}
+                            cd percona-docker
+                            git checkout ${REPO_DOCKER_BRANCH}
                             if [ ${PS_MAJOR_RELEASE} = "80" ]; then
-                                cd percona-docker/percona-server-8.0
+                                cd percona-server-8.0
                             else
-                                cd percona-docker/percona-server-8.4
+                                cd percona-server-8.4
                             fi
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" ${Dockerfile}
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" ${Dockerfile}
