@@ -417,9 +417,10 @@ pipeline {
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'AWS_REGION', defaultValue: 'eu-west-3', description: 'AWS region to use for openshift cluster')
+        choice(name: 'AGENT_CLOUD', choices: ['Hetzner','AWS'],description: 'Cloud infra for build')
     }
     agent {
-        label 'docker-x64-min'
+        label params.AGENT_CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
@@ -452,7 +453,7 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     agent {
-                        label 'docker-x64-min'
+                        label params.AGENT_CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         prepareAgent()
@@ -462,7 +463,7 @@ pipeline {
                 }
                 stage('cluster2') {
                     agent {
-                        label 'docker-x64-min'
+                        label params.AGENT_CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         prepareAgent()
@@ -472,7 +473,7 @@ pipeline {
                 }
                 stage('cluster3') {
                     agent {
-                        label 'docker-x64-min'
+                        label params.AGENT_CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         prepareAgent()
@@ -482,7 +483,7 @@ pipeline {
                 }
                 stage('cluster4') {
                     agent {
-                        label 'docker-x64-min'
+                        label params.AGENT_CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
                         prepareAgent()
