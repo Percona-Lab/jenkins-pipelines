@@ -8,6 +8,9 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         set -o xtrace
         mkdir test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/etcd/etcd_builder.sh -O builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/versions.sh -O versions.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/install-deps.sh -O install-deps.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/common-functions.sh -O common-functions.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
