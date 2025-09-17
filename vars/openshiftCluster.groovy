@@ -48,6 +48,7 @@ import groovy.json.JsonBuilder
  *   - deployPMM: Whether to deploy PMM after cluster creation (optional, default: true)
  *   - pmmImageTag: Docker image tag for PMM server (optional, default: '3.3.1')
  *   - pmmHelmChartVersion: Helm chart version for PMM (optional, default: '1.4.7')
+ *   - pmmHelmChartBranch: Branch from percona-helm-charts repo (optional, overrides chart version)
  *   - pmmImageRepository: Docker image repository (optional, default: 'percona/pmm-server')
  *   - pmmNamespace: Kubernetes namespace for PMM deployment (optional, default: 'pmm-monitoring')
  *   - pmmAdminPassword: PMM admin password (optional, default: '<GENERATED>' for random password)
@@ -219,14 +220,14 @@ def create(Map config) {
         // Deploy Percona Monitoring and Management if enabled
         if (params.deployPMM) {
             env.KUBECONFIG = "${clusterDir}/auth/kubeconfig"
-            
+
             // Pass SSL configuration to PMM deployment
             def pmmParams = params + [
                 clusterName: params.clusterName,
                 baseDomain: params.baseDomain,
                 awsRegion: params.awsRegion
             ]
-            
+
             def pmmInfo = deployPMM(pmmParams)
 
             metadata.pmmDeployed = true
@@ -630,6 +631,7 @@ def createMetadata(Map params, String clusterDir) {
  *   - pmmImageRepository: Docker image repository (required)
  *   - pmmNamespace: Namespace for PMM deployment (optional, default: 'pmm-monitoring')
  *   - pmmAdminPassword: Admin password for PMM (optional, '<GENERATED>' for random password)
+ *   - pmmHelmChartBranch: Branch from percona-helm-charts repo (optional, overrides chart version)
  *   - clusterName: Name of the cluster (for logging)
  *
  * @return Map with PMM access details:
@@ -663,51 +665,150 @@ def deployPMM(Map params) {
     // Determine service type based on SSL configuration
     // When SSL is enabled, PMM needs LoadBalancer for ACM certificate
     def serviceType = params.enableSSL ? 'LoadBalancer' : 'ClusterIP'
-    
+
     openshiftTools.log('INFO', "PMM service type: ${serviceType} (SSL enabled: ${params.enableSSL})")
 
-    sh """
-        export PATH="\$HOME/.local/bin:\$PATH"
-        # Create namespace
-        oc create namespace ${params.pmmNamespace} || true
+    // Check if we're using a custom branch
+    def chartPath = "percona/pmm"
+    def usingCustomBranch = params.pmmHelmChartBranch && params.pmmHelmChartBranch.trim() != ''
+    def tempDir = null
 
-        # Grant anyuid SCC permissions - required for PMM containers
-        # WARNING: PMM requires elevated privileges to run monitoring components
-        oc adm policy add-scc-to-user anyuid -z default -n ${params.pmmNamespace}
-        oc adm policy add-scc-to-user anyuid -z pmm -n ${params.pmmNamespace}
+    if (usingCustomBranch) {
+        openshiftTools.log('INFO', "Using custom branch '${params.pmmHelmChartBranch}' from percona-helm-charts repository")
 
-        # Add Percona Helm repo
-        helm repo add percona https://percona.github.io/percona-helm-charts/ || true
-        helm repo update
+        try {
+            // Create secure temporary directory
+            tempDir = sh(
+                script: "mktemp -d /tmp/percona-helm-charts.XXXXXX",
+                returnStdout: true
+            ).trim()
+            
+            openshiftTools.log('INFO', "Created temporary directory: ${tempDir}")
 
-        # Deploy PMM using Helm (will be retried if it fails)
-        echo "Deploying PMM with Helm..."
-    """
+            // First validate that the branch exists
+            def branchExists = sh(
+                script: """
+                    export PATH="\$HOME/.local/bin:\$PATH"
+                    # Check if branch exists in remote repository
+                    git ls-remote --heads https://github.com/percona/percona-helm-charts.git refs/heads/${params.pmmHelmChartBranch} | grep -q ${params.pmmHelmChartBranch}
+                """,
+                returnStatus: true
+            ) == 0
 
-    // Prepare helm command with optional password
-    def helmCommand = """
-        export PATH="\$HOME/.local/bin:\$PATH"
-        helm upgrade --install pmm percona/pmm \
-            --namespace ${params.pmmNamespace} \
-            --version ${params.pmmHelmChartVersion} \
-            --set platform=openshift \
-            --set service.type=${serviceType} \
-            --set image.repository=${params.pmmImageRepository} \
-            --set image.tag=${params.pmmImageTag}"""
+            if (!branchExists) {
+                error("Branch '${params.pmmHelmChartBranch}' does not exist in percona-helm-charts repository")
+            }
 
-    // Set password based on user input
-    // Only generate random password if value is '<GENERATED>' or empty
-    if (params.pmmAdminPassword && params.pmmAdminPassword != '<GENERATED>') {
-        // Escape single quotes in password for shell safety
-        // This prevents command injection and syntax errors
-        def escapedPassword = params.pmmAdminPassword.replaceAll("'", "'\"'\"'")
-        helmCommand += " \\\n            --set secret.pmm_password='${escapedPassword}'"
+            // Clone the repository and checkout the specified branch
+            def gitStatus = sh(
+                script: """
+                    export PATH="\$HOME/.local/bin:\$PATH"
+                    set -e  # Exit on any error
+                    
+                    # Clone the repository
+                    echo "Cloning percona-helm-charts repository..."
+                    git clone --depth 1 --branch ${params.pmmHelmChartBranch} \
+                        https://github.com/percona/percona-helm-charts.git ${tempDir}
+                    
+                    # Verify we're on the correct branch
+                    cd ${tempDir}
+                    CURRENT_BRANCH=\$(git branch --show-current)
+                    if [[ "\$CURRENT_BRANCH" != "${params.pmmHelmChartBranch}" ]]; then
+                        echo "ERROR: Expected branch '${params.pmmHelmChartBranch}' but got '\$CURRENT_BRANCH'"
+                        exit 1
+                    fi
+                    
+                    # Show current branch for confirmation
+                    echo "Successfully checked out branch: \$CURRENT_BRANCH"
+                    echo "Commit: \$(git rev-parse --short HEAD)"
+                    
+                    # Verify PMM chart exists
+                    if [[ ! -d "${tempDir}/charts/pmm" ]]; then
+                        echo "ERROR: PMM chart not found at ${tempDir}/charts/pmm"
+                        exit 1
+                    fi
+                """,
+                returnStatus: true
+            )
+
+            if (gitStatus != 0) {
+                error("Failed to clone repository or checkout branch '${params.pmmHelmChartBranch}'")
+            }
+
+            // Use the local chart path
+            chartPath = "${tempDir}/charts/pmm"
+            
+        } catch (Exception e) {
+            // Clean up on error
+            if (tempDir) {
+                sh "rm -rf ${tempDir} || true"
+            }
+            throw new Exception("Failed to setup custom Helm chart branch: ${e.message}", e)
+        }
     }
-    // If password is '<GENERATED>' or empty, Helm will auto-generate one
 
-    helmCommand += ' \\\n            --wait --timeout 10m'
+    try {
+        sh """
+            export PATH="\$HOME/.local/bin:\$PATH"
+            # Create namespace
+            oc create namespace ${params.pmmNamespace} || true
 
-    sh helmCommand
+            # Grant anyuid SCC permissions - required for PMM containers
+            # WARNING: PMM requires elevated privileges to run monitoring components
+            oc adm policy add-scc-to-user anyuid -z default -n ${params.pmmNamespace}
+            oc adm policy add-scc-to-user anyuid -z pmm -n ${params.pmmNamespace}
+        """
+
+        // Only add Helm repo if not using custom branch
+        if (!usingCustomBranch) {
+            sh """
+                export PATH="\$HOME/.local/bin:\$PATH"
+                # Add Percona Helm repo
+                helm repo add percona https://percona.github.io/percona-helm-charts/ || true
+                helm repo update
+            """
+        }
+
+        sh """
+            export PATH="\$HOME/.local/bin:\$PATH"
+            # Deploy PMM using Helm (will be retried if it fails)
+            echo "Deploying PMM with Helm..."
+        """
+
+        // Prepare helm command with optional password
+        def helmCommand = """
+            export PATH="\$HOME/.local/bin:\$PATH"
+            helm upgrade --install pmm ${chartPath} \\
+                --namespace ${params.pmmNamespace}"""
+
+        // Add version flag only when not using custom branch
+        if (!usingCustomBranch) {
+            helmCommand += " \\\n            --version ${params.pmmHelmChartVersion}"
+        }
+
+        helmCommand += """ \\
+                --set platform=openshift \\
+                --set service.type=${serviceType} \\
+                --set image.repository=${params.pmmImageRepository} \\
+                --set image.tag=${params.pmmImageTag}"""
+
+        // Set password based on user input
+        // Only generate random password if value is '<GENERATED>' or empty
+        if (params.pmmAdminPassword && params.pmmAdminPassword != '<GENERATED>') {
+            // Escape single quotes in password for shell safety
+            // This prevents command injection and syntax errors
+            def escapedPassword = params.pmmAdminPassword.replaceAll("'", "'\"'\"'")
+            helmCommand += " \\\n            --set secret.pmm_password='${escapedPassword}'"
+        }
+        // If password is '<GENERATED>' or empty, Helm will auto-generate one
+
+        helmCommand += ' \\\n            --wait --timeout 10m'
+
+        // Log the full Helm command for debugging
+        openshiftTools.log('DEBUG', "Executing Helm command:")
+        echo helmCommand
+
+        sh helmCommand
 
     sh """
         export PATH="\$HOME/.local/bin:\$PATH"
@@ -736,7 +837,7 @@ def deployPMM(Map params) {
             # AWS provides hostname in LoadBalancer status, not direct IP
             INGRESS_HOSTNAME=\$(oc get service -n openshift-ingress router-default \
                 -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
-            
+
             if [[ -n "\$INGRESS_HOSTNAME" ]]; then
                 # Resolve AWS ELB hostname to IP address
                 # Use getent (available by default on Oracle Linux) with nslookup fallback
@@ -772,10 +873,10 @@ def deployPMM(Map params) {
     // Configure SSL with ACM if enabled
     if (params.enableSSL && serviceType == 'LoadBalancer') {
         openshiftTools.log('INFO', 'Configuring ACM SSL for PMM LoadBalancer...')
-        
+
         // Wait for LoadBalancer to be ready
         sleep(time: 30, unit: 'SECONDS')
-        
+
         // Get LoadBalancer hostname
         def lbHostname = sh(
             script: """
@@ -784,23 +885,23 @@ def deployPMM(Map params) {
             """,
             returnStdout: true
         ).trim()
-        
+
         if (lbHostname) {
             openshiftTools.log('INFO', "PMM LoadBalancer hostname: ${lbHostname}")
-            
+
             // Find ACM certificate for the domain
             def pmmDomain = params.pmmCustomDomain ?: "pmm-${params.clusterName}.${params.baseDomain}"
             def wildcardDomain = "*.${params.baseDomain}"
-            
+
             // Note: This requires AWS credentials to be available
             def acmArn = awsCertificates.findACMCertificate([
                 domain: wildcardDomain,
                 region: params.awsRegion ?: 'us-east-2'
             ])
-            
+
             if (acmArn) {
                 openshiftTools.log('INFO', "Found ACM certificate: ${acmArn}")
-                
+
                 // Apply ACM certificate to LoadBalancer
                 def acmApplied = awsCertificates.applyACMToLoadBalancer([
                     namespace: params.pmmNamespace,
@@ -808,7 +909,7 @@ def deployPMM(Map params) {
                     certificateArn: acmArn,
                     kubeconfig: env.KUBECONFIG
                 ])
-                
+
                 if (acmApplied) {
                     // Create Route53 DNS record
                     def dnsCreated = awsCertificates.createRoute53Record([
@@ -816,7 +917,7 @@ def deployPMM(Map params) {
                         value: lbHostname,
                         region: params.awsRegion ?: 'us-east-2'
                     ])
-                    
+
                     if (dnsCreated) {
                         result.sslDomain = pmmDomain
                         result.sslUrl = "https://${pmmDomain}"
@@ -835,7 +936,15 @@ def deployPMM(Map params) {
         }
     }
 
-    return result
+        return result
+        
+    } finally {
+        // Clean up temporary directory if it was created
+        if (tempDir) {
+            openshiftTools.log('INFO', "Cleaning up temporary directory: ${tempDir}")
+            sh "rm -rf ${tempDir} || true"
+        }
+    }
 }
 
 /**
