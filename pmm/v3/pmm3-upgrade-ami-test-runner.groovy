@@ -1,12 +1,7 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-14156', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
-
-library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
-  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
-  libraryPath: 'pmm/v3/'
-)
 
 void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) {
     def PMM_VERSION = CLIENT_VERSION.trim();
@@ -160,7 +155,7 @@ pipeline {
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '3.1.0',
+            defaultValue: latestVersion,
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         choice(
@@ -179,22 +174,6 @@ pipeline {
             choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"],
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
-        string(
-            defaultValue: '8.4',
-            description: "Percona Server for MySQL version",
-            name: 'PS_VERSION')
-        string(
-            defaultValue: '17',
-            description: "Which version of PostgreSQL",
-            name: 'PGSQL_VERSION')
-        string(
-            defaultValue: '17',
-            description: "Which version of Percona Distribution for PostgreSQL",
-            name: 'PDPGSQL_VERSION')
-        string(
-            defaultValue: '8.0',
-            description: "Which version of Percona Server for MongoDB",
-            name: 'PSMDB_VERSION')
     }
     options {
         skipDefaultCheckout()
