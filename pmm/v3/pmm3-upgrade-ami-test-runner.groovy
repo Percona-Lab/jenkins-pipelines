@@ -495,13 +495,9 @@ pipeline {
                 amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
                     string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
                 ]
-
-//                 def PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
-//                 try {
-//                     junit PATH_TO_REPORT_RESULTS
-//                 } catch (err) {
-//                     error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
-//                 }
+                clientStagingStopJob = build job: 'aws-staging-stop', parameters: [
+                    string(name: 'VM', value: env.CLIENT_IP),
+                ]
             }
         }
         failure {
