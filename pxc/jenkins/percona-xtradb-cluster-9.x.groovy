@@ -541,7 +541,7 @@ pipeline {
                         }
                     }
                 }
-                stage('Ubuntu Jammy(22.04) tarball') {
+                stage('Ubuntu Noble(24.04) tarball') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -551,9 +551,9 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
+                                buildStage("ubuntu:noble", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("ubuntu:jammy", "--build_tarball=1")
+                                buildStage("ubuntu:noble", "--build_tarball=1")
                             }
                         }
 
