@@ -75,7 +75,6 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
         "'
     """
   }
-}
 
 void runStagingClient(String CLIENT_VERSION, CLIENTS, SERVER_IP, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
@@ -267,7 +266,7 @@ pipeline {
         }
         stage('Setup PMM Client') {
             steps {
-                runStagingClient(CLIENT_VERSION, env.PMM_CLIENTS, 'yes', env.VM_IP, QA_INTEGRATION_GIT_BRANCH, env.ADMIN_PASSWORD)
+                runStagingClient(CLIENT_VERSION, env.PMM_CLIENTS, env.VM_IP, QA_INTEGRATION_GIT_BRANCH, env.ADMIN_PASSWORD)
             }
         }
         stage('Sanity check') {
