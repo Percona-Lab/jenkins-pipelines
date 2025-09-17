@@ -468,7 +468,7 @@ pipeline {
                     }
                     steps {
                         script {
-                             withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
+                            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                                 sh '''
                                     ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} "bash -c '
                                         export PMM_VERSION=$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}v1/server/version | jq -r \'.version\')
