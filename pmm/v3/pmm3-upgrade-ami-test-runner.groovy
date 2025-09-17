@@ -51,27 +51,8 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
             cat /home/admin/.config/systemd/user/pmm-server.env
 
             systemctl --user restart pmm-server
-            sudo git clone --single-branch --branch $QA_INTEGRATION_GIT_BRANCH https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
-            sudo git clone --single-branch --branch $PMM_UI_GIT_BRANCH https://github.com/percona/pmm-ui-tests.git /srv/pmm-ui-tests
-
-            cd /srv/qa-integration/pmm_qa
-                echo \\"Setting docker based PMM clients\\"
-                sudo dnf install -y python3.12
-                sudo mkdir -m 777 -p /tmp/backup_data
-                sudo python3 -m ensurepip --upgrade
-                sudo chown -R \$(whoami) /srv/qa-integration/
-                sudo chown -R \$(whoami) /srv/pmm-ui-tests/
-                python3.12 -m venv virtenv
-                source virtenv/bin/activate
-                pip3 install --upgrade pip
-                pip3 install -r requirements.txt
-                pip3 install setuptools
-
-                export AMI_UPGRADE_FLAG=\\"--database bucket,BUCKET_NAMES=\\"bcp\\"\\"
-
-                python pmm-framework.py --verbosity-level=1 \\\$AMI_UPGRADE_FLAG
-                docker network connect pmm-qa pmm-server
-                docker network connect pmm-qa watchtower
+            docker network connect pmm-qa pmm-server
+            docker network connect pmm-qa watchtower
         "'
     """
   }
