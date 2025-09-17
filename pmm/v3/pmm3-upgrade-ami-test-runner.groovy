@@ -227,7 +227,16 @@ pipeline {
         stage('Start AMI server Instance') {
             steps {
                 runAMIStagingStart(AMI_TAG, PMM_QA_GIT_BRANCH)
-                echo "AMI Server IP is: ${env.SERVER_IP}"
+            }
+        }
+        stage('Setup PMM Client') {
+            steps {
+                runStagingClient(CLIENT_VERSION, env.PMM_CLIENTS, env.VM_IP, QA_INTEGRATION_GIT_BRANCH, env.ADMIN_PASSWORD)
+            }
+        }
+        stage('PMM Server sanity check') {
+            steps {
+                sh 'timeout 100 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
         stage('Install dependencies') {
@@ -245,16 +254,6 @@ pipeline {
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                 '''
-            }
-        }
-        stage('Setup PMM Client') {
-            steps {
-                runStagingClient(CLIENT_VERSION, env.PMM_CLIENTS, env.VM_IP, QA_INTEGRATION_GIT_BRANCH, env.ADMIN_PASSWORD)
-            }
-        }
-        stage('Sanity check') {
-            steps {
-                sh 'timeout 100 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
         stage('Setup Custom queries') {
