@@ -82,6 +82,22 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
   }
 }
 
+void runStagingClient(String CLIENT_VERSION, CLIENTS, SERVER_IP, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
+    stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
+        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
+        string(name: 'CLIENTS', value: CLIENTS),
+        string(name: 'CLIENT_INSTANCE', value: 'yes'),
+        string(name: 'QUERY_SOURCE', value: 'slowlog'),
+        string(name: 'SERVER_IP', value: SERVER_IP),
+        string(name: 'NOTIFY', value: 'false'),
+        string(name: 'DAYS', value: '1'),
+        string(name: 'PMM_QA_GIT_BRANCH', value: QA_INTEGRATION_GIT_BRANCH),
+        string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
+    ]
+        env.CLIENT_IP = stagingJob.buildVariables.IP
+        env.CLIENT_NAME = stagingJob.buildVariables.VM_NAME
+}
+
 def versionsList = pmmVersion('v3-ami')
 def amiVersions = versionsList.values()
 def versions = versionsList.keySet()
@@ -255,93 +271,24 @@ pipeline {
         }
         stage('Install dependencies') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh '''
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} 'bash -c "
-                            curl -sL https://rpm.nodesource.com/setup_22.x -o nodesource_setup.sh
-                            sudo bash nodesource_setup.sh
-                            sudo dnf install -y nodejs
-                            cd /srv/pmm-ui-tests
-                            ls
-                            npm ci
-                            npx playwright install
-                            sudo sudo dnf install -y \
-                                nss \
-                                nspr \
-                                atk \
-                                at-spi2-atk \
-                                cups-libs \
-                                libdrm \
-                                at-spi2-atk \
-                                libX11 \
-                                libXcomposite \
-                                libXdamage \
-                                libXext \
-                                libXfixes \
-                                libXrandr \
-                                mesa-libgbm \
-                                libxcb \
-                                libxkbcommon \
-                                pango \
-                                cairo \
-                                alsa-lib
-
-                            envsubst < env.list > env.generated.list
-                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                            export PWD=$(pwd)
-                            export CHROMIUM_PATH=/usr/bin/chromium
-                        "'
-                    '''
-                }
+                sh '''
+                    curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
+                    sudo bash nodesource_setup.sh
+                    sudo apt install -y nodejs
+                    sudo apt-get install -y gettext
+                    npm ci
+                    npx playwright install
+                    sudo npx playwright install-deps
+                    envsubst < env.list > env.generated.list
+                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                    export PWD=$(pwd)
+                    export CHROMIUM_PATH=/usr/bin/chromium
+                '''
             }
         }
         stage('Setup PMM Client') {
             steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh """
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} 'bash -c "
-                            sudo dnf install -y microdnf wget perl
-                            cd /srv/qa-integration/pmm_qa
-                            sudo chmod +x pmm3-client-setup-centos.sh
-                            docker exec pmm-server change-admin-password pmm3admin!
-                            sudo ./pmm3-client-setup-centos.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password pmm3admin!
-                        "'
-                    """
-                }
-
-            }
-        }
-        stage('Setup Databases for PMM-Server') {
-            steps {
-                withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                    sh """
-                        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} 'bash -c "
-                            set -o errexit
-                            set -o xtrace
-
-                            cat /etc/containers/registries.conf
-                            sudo sed -i \\"/^\\[engine\\]/,/^\\[/{s/^short-name-mode *= *.*/short-name-mode = \\"permissive\\"/}\\" /etc/containers/registries.conf
-                            cat /etc/containers/registries.conf
-
-                            sudo chown -R \$(whoami):\$(whoami) /srv/qa-integration 1>/dev/null
-                            cd /srv/qa-integration/pmm_qa
-                            sudo dnf install -y python3.12 1>/dev/null
-                            mkdir -m 777 -p /tmp/backup_data 1>/dev/null
-                            python3 -m venv virtenv 1>/dev/null
-                            . virtenv/bin/activate 1>/dev/null
-                            pip install --upgrade pip 1>/dev/null
-                            pip install -r requirements.txt
-                            pip install setuptools
-
-                            python pmm-framework.py --verbose \
-                                --client-version=${CLIENT_VERSION} \
-                                --pmm-server-password=pmm3admin! \
-                                --pmm-server-ip=${SERVER_IP} \
-                                ${PMM_CLIENTS}
-                                docker ps -a
-                        "'
-                    """
-                }
+                runStagingClient(CLIENT_VERSION, env.PMM_CLIENTS, 'yes', env.VM_IP, QA_INTEGRATION_GIT_BRANCH, env.ADMIN_PASSWORD)
             }
         }
         stage('Sanity check') {
