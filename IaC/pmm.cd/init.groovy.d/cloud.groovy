@@ -192,15 +192,15 @@ initMap['debMap'] = '''
         echo try again
     done
 
-    if [[ ${DEB_VERSION} == "trixie" ]]; then
+    if [ "${DEB_VERSION}" == "trixie" ]; then
         JDK_PACKAGE="openjdk-21-jdk-headless"
-    elif [[ ${DEB_VERSION} == "bookworm" ]]; then
+    elif [ "${DEB_VERSION}" == "bookworm" ]; then
         JDK_PACKAGE="openjdk-17-jre-headless"
     else
         JDK_PACKAGE="openjdk-11-jre-headless"
     fi
 
-    if [ ${DEB_VERSION} = "bookworm" ] || [ ${DEB_VERSION} = "trixie" ]; then
+    if [ "${DEB_VERSION}" = "bookworm" ] || [ "${DEB_VERSION}" = "trixie" ]; then
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JDK_PACKAGE} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JDK_PACKAGE}
