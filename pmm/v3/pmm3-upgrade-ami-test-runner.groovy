@@ -78,7 +78,7 @@ void runStagingClient(String CLIENT_VERSION, CLIENTS, SERVER_IP, QA_INTEGRATION_
 def versionsList = pmmVersion('v3-ami')
 def amiVersions = versionsList.values()
 def versions = versionsList.keySet()
-def upgradeAmiVersion = amiVersions[amiVersions.size() - 1]
+def upgradeAmiVersion = amiVersions[0]
 def latestVersion = versions[versions.size() - 1]
 def upgradeVersion = versions[versions.size() - 2]
 
