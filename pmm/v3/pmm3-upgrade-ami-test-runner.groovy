@@ -51,6 +51,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
             cat /home/admin/.config/systemd/user/pmm-server.env
 
             systemctl --user restart pmm-server
+            docker network create pmm-qa || true
             docker network connect pmm-qa pmm-server
             docker network connect pmm-qa watchtower
         "'
