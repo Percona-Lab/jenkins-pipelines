@@ -1,6 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
 import hudson.model.*
-import hudson.plugins.ec2.AmazonEC2Cloud
+import hudson.plugins.ec2.EC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -217,6 +217,7 @@ initMap['docker'] = '''
 
     sudo amazon-linux-extras install epel -y
     sudo amazon-linux-extras install java-openjdk11 -y
+    sudo yum -y install java-17-amazon-corretto-headless
     sudo yum -y install git docker p7zip tzdata-java
     sudo yum -y remove awscli
 
@@ -228,7 +229,7 @@ initMap['docker'] = '''
             echo try again
         done
 
-        7za -aoa -o/tmp x /tmp/awscliv2.zip 
+        7za -aoa -o/tmp x /tmp/awscliv2.zip
         cd /tmp/aws && sudo ./install
     fi
 
@@ -421,7 +422,7 @@ initMap['rpmMap'] = '''
             PKGLIST="epel-release"
         fi
 
-        until sudo yum -y install ${PKGLIST}; do    
+        until sudo yum -y install ${PKGLIST}; do
             sleep 1
             echo try again
         done
@@ -734,7 +735,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
 
 String privateKey = ''
 jenkins.clouds.each {
-    if (it.hasProperty('cloudName') && it['cloudName'] == 'AWS-Dev b') {
+    if (it.hasProperty('name') && it.name == 'AWS-Dev b') {
         privateKey = it['privateKey']
     }
 }
@@ -744,7 +745,7 @@ String sshKeysCredentialsId = '2ab73cff-5575-4ca2-be48-17761b165103'
 String region = 'eu-west-1'
 ('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
+    EC2Cloud ec2Cloud = new EC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
         '',                                     // String credentialsId
@@ -785,7 +786,7 @@ String region = 'eu-west-1'
 
     // add cloud configuration to Jenkins
     jenkins.clouds.each {
-        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
+        if (it.hasProperty('name') && it.name == ec2Cloud.name) {
             jenkins.clouds.remove(it)
         }
     }

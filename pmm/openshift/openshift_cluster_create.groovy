@@ -216,8 +216,15 @@ Deploy PMM:           ${params.DEPLOY_PMM ? 'Yes' : 'No'}"""
                     if (params.DEPLOY_PMM) {
                         preCreationSummary += """
 PMM Repository:       ${params.PMM_IMAGE_REPOSITORY}
-PMM Image Tag:        ${params.PMM_IMAGE_TAG}
-Helm Chart Version:   ${params.PMM_HELM_CHART_VERSION}
+PMM Image Tag:        ${params.PMM_IMAGE_TAG}"""
+                        if (params.PMM_HELM_CHART_BRANCH) {
+                            preCreationSummary += """
+Helm Chart Branch:    ${params.PMM_HELM_CHART_BRANCH} (from percona-helm-charts)"""
+                        } else {
+                            preCreationSummary += """
+Helm Chart Version:   ${params.PMM_HELM_CHART_VERSION}"""
+                        }
+                        preCreationSummary += """
 Admin Password:       ${params.PMM_ADMIN_PASSWORD == '<GENERATED>' ? 'Auto-generated' : 'User-specified'}"""
                     }
 
@@ -370,8 +377,16 @@ Starting cluster creation process...
                             deployPMM: params.DEPLOY_PMM,
                             pmmImageTag: params.PMM_IMAGE_TAG,
                             pmmHelmChartVersion: params.PMM_HELM_CHART_VERSION,
+                            pmmHelmChartBranch: params.PMM_HELM_CHART_BRANCH ?: '',
                             pmmImageRepository: params.PMM_IMAGE_REPOSITORY,
                             pmmAdminPassword: params.PMM_ADMIN_PASSWORD ?: '<GENERATED>',  // Default to auto-generation
+                            // SSL Configuration
+                            enableSSL: params.ENABLE_SSL,
+                            sslMethod: params.SSL_METHOD,
+                            sslEmail: params.SSL_EMAIL,
+                            useStaging: params.USE_STAGING_CERT,
+                            consoleCustomDomain: params.CONSOLE_CUSTOM_DOMAIN,
+                            pmmCustomDomain: params.PMM_CUSTOM_DOMAIN,
                             buildUser: env.BUILD_USER_ID ?: 'jenkins',
                             accessKey: AWS_ACCESS_KEY_ID,
                             secretKey: AWS_SECRET_ACCESS_KEY
@@ -388,6 +403,7 @@ Starting cluster creation process...
 
                         if (clusterInfo.pmm) {
                             env.PMM_URL = clusterInfo.pmm.url
+                            env.PMM_IP = clusterInfo.pmm.ip ?: 'N/A'
                             env.PMM_PASSWORD = clusterInfo.pmm.password
                             env.PMM_PASSWORD_GENERATED = clusterInfo.pmm.passwordGenerated.toString()
                         }
@@ -410,6 +426,103 @@ Starting cluster creation process...
             }
         }
 
+        stage('Configure SSL Certificates') {
+            when {
+                expression { params.ENABLE_SSL && env.CLUSTER_DIR }
+            }
+            steps {
+                script {
+                    echo ""
+                    echo "====================================================================="
+                    echo "Configuring SSL Certificates"
+                    echo "====================================================================="
+                    echo ""
+                    echo "SSL Method: ${params.SSL_METHOD}"
+                    echo "Base Domain: ${params.BASE_DOMAIN}"
+
+                    def sslConfig = [
+                        clusterName: env.FINAL_CLUSTER_NAME,
+                        baseDomain: params.BASE_DOMAIN,
+                        kubeconfig: env.KUBECONFIG,
+                        method: params.SSL_METHOD,
+                        email: params.SSL_EMAIL,
+                        useStaging: params.USE_STAGING_CERT
+                    ]
+
+                    def sslResults = [:]
+
+                    if (params.SSL_METHOD == 'letsencrypt') {
+                        echo "Setting up Let's Encrypt certificates..."
+
+                        // Configure console domain
+                        def consoleDomain = params.CONSOLE_CUSTOM_DOMAIN ?:
+                            "console-${env.FINAL_CLUSTER_NAME}.${params.BASE_DOMAIN}"
+
+                        sslConfig.consoleDomain = consoleDomain
+
+                        // Setup Let's Encrypt
+                        sslResults = openshiftSSL.setupLetsEncrypt(sslConfig)
+
+                        if (sslResults.consoleCert) {
+                            echo "✓ Console certificate configured for: ${consoleDomain}"
+                            env.CONSOLE_SSL_DOMAIN = consoleDomain
+                        }
+                    } else if (params.SSL_METHOD == 'acm') {
+                        echo "Setting up AWS ACM certificates..."
+
+                        withCredentials([
+                            aws(
+                                credentialsId: 'jenkins-openshift-aws',
+                                accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                            )
+                        ]) {
+                            def services = []
+
+                            // Add PMM service if deployed
+                            if (params.DEPLOY_PMM && env.PMM_URL) {
+                                def pmmDomain = params.PMM_CUSTOM_DOMAIN ?:
+                                    "pmm-${env.FINAL_CLUSTER_NAME}.${params.BASE_DOMAIN}"
+
+                                services.add([
+                                    name: 'monitoring-service',
+                                    namespace: 'pmm-monitoring',
+                                    domain: pmmDomain
+                                ])
+                            }
+
+                            sslConfig.services = services
+                            sslConfig.accessKey = AWS_ACCESS_KEY_ID
+                            sslConfig.secretKey = AWS_SECRET_ACCESS_KEY
+
+                            sslResults = awsCertificates.setupACM(sslConfig)
+
+                            if (sslResults.services) {
+                                sslResults.services.each { name, config ->
+                                    if (config.configured) {
+                                        echo "✓ Service ${name} configured with ACM certificate"
+                                        if (config.domain) {
+                                            echo "  Domain: https://${config.domain}"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Store SSL results for post-creation display
+                    env.SSL_CONFIGURED = sslResults ? 'true' : 'false'
+
+                    if (sslResults.errors && !sslResults.errors.isEmpty()) {
+                        echo "SSL configuration completed with warnings:"
+                        sslResults.errors.each { error ->
+                            echo "  ⚠ ${error}"
+                        }
+                    }
+                }
+            }
+        }
+
         stage('Post-Creation Tasks') {
             steps {
                 script {
@@ -418,85 +531,90 @@ Starting cluster creation process...
                     echo "OpenShift Cluster Deployment Complete"
                     echo "====================================================================="
                     echo ""
-                    echo "DEPLOYMENT STATUS: SUCCESS"
+
+                    // Primary access info (most important for QA)
+                    echo "Console URL:         ${env.CLUSTER_CONSOLE_URL ?: 'https://console-openshift-console.apps.' + env.FINAL_CLUSTER_NAME + '.' + params.BASE_DOMAIN}"
+                    if (params.DEPLOY_PMM && env.PMM_URL) {
+                        echo "PMM URL:             ${env.PMM_URL}"
+                        echo "PMM Public IP:       ${env.PMM_IP}"
+                    }
                     echo ""
 
-                    // Display cluster details
-                    echo "CLUSTER DETAILS"
-                    echo "---------------"
-                    echo "Cluster Name:         ${env.FINAL_CLUSTER_NAME}"
-                    echo "OpenShift Version:    ${params.OPENSHIFT_VERSION}"
-                    echo "AWS Region:           ${params.AWS_REGION}"
-                    echo "Base Domain:          ${params.BASE_DOMAIN}"
-                    echo ""
-
-                    // Display access information
-                    echo "ACCESS INFORMATION"
-                    echo "------------------"
-                    echo "API URL:              ${env.CLUSTER_API_URL}"
-                    echo "Console URL:          ${env.CLUSTER_CONSOLE_URL ?: 'Pending...'}"
-                    echo "Kubeconfig:           Available in Jenkins artifacts"
-                    echo ""
-
-                    // Display compute resources
-                    echo "COMPUTE RESOURCES DEPLOYED"
-                    echo "--------------------------"
-                    echo "Master Nodes:         3 x ${params.MASTER_INSTANCE_TYPE}"
-                    echo "Worker Nodes:         ${params.WORKER_COUNT} x ${params.WORKER_INSTANCE_TYPE}"
-                    echo ""
-
+                    // Credentials
                     if (params.DEPLOY_PMM && env.PMM_URL) {
                         def passwordInfo = env.PMM_PASSWORD_GENERATED == 'true' ?
-                            "${env.PMM_PASSWORD} (auto-generated)" :
+                            env.PMM_PASSWORD :
                             "*** (user-specified)"
-
-                        // Display PMM deployment details
-                        echo "PMM DEPLOYMENT STATUS: DEPLOYED"
-                        echo "-------------------------------"
-                        echo "Repository Used:      ${params.PMM_IMAGE_REPOSITORY}"
-                        echo "Image Tag:            ${params.PMM_IMAGE_TAG}"
-                        echo "Helm Chart:           ${params.PMM_HELM_CHART_VERSION}"
-                        echo "Namespace:            pmm-monitoring"
-                        echo "Access URL:           ${env.PMM_URL}"
-                        echo "Username:             admin"
-                        echo "Password:             ${passwordInfo}"
-                        echo ""
-                    } else if (params.DEPLOY_PMM) {
-                        echo "PMM DEPLOYMENT STATUS: NOT DEPLOYED"
-                        echo "-----------------------------------"
-                        echo "Reason:               Deployment may have failed or is pending"
-                        echo ""
-                    } else {
-                        echo "PMM DEPLOYMENT:       Skipped (not requested)"
-                        echo ""
+                        echo "PMM Username:        admin"
+                        echo "PMM Password:        ${passwordInfo}"
                     }
-
-                    // Display backup and lifecycle information
-                    echo "BACKUP & LIFECYCLE"
-                    echo "------------------"
-                    echo "S3 State Backup:      Saved to S3"
-                    echo "Backup Location:      s3://${env.S3_BUCKET}/${env.FINAL_CLUSTER_NAME}/"
-                    echo "Auto-delete after:    ${params.DELETE_AFTER_HOURS} hours"
-                    echo "Team:                 ${params.TEAM_NAME}"
-                    echo "Product Tag:          ${params.PRODUCT_TAG}"
+                    echo "Kubeadmin Password:  <check Jenkins artifacts: auth/kubeadmin-password>"
                     echo ""
 
-                    echo "--------------------------------------------------------------------"
-                    echo "NEXT STEPS:"
-                    echo "1. Access the console: ${env.CLUSTER_CONSOLE_URL ?: 'URL pending...'}"
-                    echo "2. Download kubeconfig from Jenkins artifacts"
-                    echo "3. Use 'oc login' with the API URL above"
+                    // Version info (critical for testing)
+                    if (params.DEPLOY_PMM && env.PMM_URL) {
+                        echo "PMM Version:         ${params.PMM_IMAGE_TAG}"
+                    }
+                    echo "OpenShift Version:   ${params.OPENSHIFT_VERSION}"
+                    echo ""
 
-                    if (env.PMM_URL) {
-                        echo "4. Access PMM at: ${env.PMM_URL}"
+                    // Technical access details
+                    echo "API Endpoint:        ${env.CLUSTER_API_URL}"
+                    echo "Login Command:       oc login ${env.CLUSTER_API_URL} -u kubeadmin"
+                    echo ""
+
+                    // Cluster configuration
+                    echo "Cluster Name:        ${env.FINAL_CLUSTER_NAME}"
+                    echo "AWS Region:          ${params.AWS_REGION}"
+                    echo "Status:              Active"
+                    echo "Master Nodes:        3 × ${params.MASTER_INSTANCE_TYPE}"
+                    echo "Worker Nodes:        ${params.WORKER_COUNT} × ${params.WORKER_INSTANCE_TYPE}"
+                    echo ""
+
+                    // Administrative info (least urgent)
+                    echo "Team Owner:          ${params.TEAM_NAME}"
+                    echo "Product Tag:         ${params.PRODUCT_TAG}"
+                    echo "Auto-Delete After:   ${params.DELETE_AFTER_HOURS} hours"
+                    echo "S3 Backup Location:  s3://${env.S3_BUCKET}/${env.FINAL_CLUSTER_NAME}/"
+
+                    // PMM deployment details (if deployed)
+                    if (params.DEPLOY_PMM && env.PMM_URL) {
+                        echo ""
+                        echo "PMM Deployment:"
+                        echo "  Repository:        ${params.PMM_IMAGE_REPOSITORY}"
+                        if (params.PMM_HELM_CHART_BRANCH) {
+                            echo "  Helm Chart Branch: ${params.PMM_HELM_CHART_BRANCH} (from percona-helm-charts)"
+                        } else {
+                            echo "  Helm Chart:        ${params.PMM_HELM_CHART_VERSION}"
+                        }
+                        echo "  Namespace:         pmm-monitoring"
+                    } else if (params.DEPLOY_PMM) {
+                        echo ""
+                        echo "PMM Status:          Not deployed (may have failed or is pending)"
                     }
 
                     echo ""
                     echo "===================================================================="
 
-                    // Update build description with final status
-                    def pmmFinalStatus = env.PMM_URL ? "PMM:${params.PMM_IMAGE_TAG}✓" : (params.DEPLOY_PMM ? "PMM:Failed" : "No-PMM")
-                    currentBuild.description = "${env.FINAL_CLUSTER_NAME} | OCP:${params.OPENSHIFT_VERSION} | ${params.AWS_REGION} | ${pmmFinalStatus}"
+                    // Update build description - optimized for Blue Ocean (single line with pipe separators)
+                    // Blue Ocean doesn't render HTML, so we use a clean single-line format
+                    def pmmStatus = env.PMM_URL ? "PMM: ${env.PMM_URL}" : "No PMM"
+                    def pmmDetails = ""
+                    if (env.PMM_URL && env.PMM_IP) {
+                        pmmDetails = " | PMM IP: ${env.PMM_IP}"
+                        // Don't include password in description for security
+                    }
+
+                    currentBuild.description = "${env.FINAL_CLUSTER_NAME} | " +
+                        "OCP ${params.OPENSHIFT_VERSION} | " +
+                        "${params.AWS_REGION} | " +
+                        "Active | " +
+                        "Console: https://console-openshift-console.apps.${env.FINAL_CLUSTER_NAME}.${params.BASE_DOMAIN} | " +
+                        "${pmmStatus}${pmmDetails} | " +
+                        "Masters: 3×${params.MASTER_INSTANCE_TYPE} | " +
+                        "Workers: ${params.WORKER_COUNT}×${params.WORKER_INSTANCE_TYPE} | " +
+                        "Auto-delete: ${params.DELETE_AFTER_HOURS}h | " +
+                        "Team: ${params.TEAM_NAME}"
 
                     // Keep display name consistent
                     currentBuild.displayName = "#${BUILD_NUMBER} - ${env.FINAL_CLUSTER_NAME}"
@@ -555,7 +673,10 @@ Starting cluster creation process...
             script {
                 // Update build description to show failure
                 def failedStage = env.STAGE_NAME ?: 'Unknown'
-                currentBuild.description = "${env.FINAL_CLUSTER_NAME ?: 'Unknown'} | FAILED at: ${failedStage} | ${params.AWS_REGION}"
+                currentBuild.description = "${env.FINAL_CLUSTER_NAME ?: 'Unknown'} | " +
+                    "OCP ${params.OPENSHIFT_VERSION} | " +
+                    "${params.AWS_REGION} | " +
+                    "FAILED: ${failedStage}"
 
                 // Display failure summary
                 def failureSummary = """
@@ -609,7 +730,10 @@ Logs:                 Available in Jenkins artifacts
         aborted {
             script {
                 // Update build description to show aborted
-                currentBuild.description = "${env.FINAL_CLUSTER_NAME ?: 'Unknown'} | ABORTED | ${params.AWS_REGION}"
+                currentBuild.description = "${env.FINAL_CLUSTER_NAME ?: 'Unknown'} | " +
+                    "OCP ${params.OPENSHIFT_VERSION} | " +
+                    "${params.AWS_REGION} | " +
+                    "ABORTED"
 
                 echo 'Job was manually terminated - attempting to clean up cluster resources'
 

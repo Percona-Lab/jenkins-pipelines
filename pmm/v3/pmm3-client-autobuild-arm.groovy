@@ -142,6 +142,11 @@ pipeline {
                         '''
                     }
                 }
+                stage('Build client binary rpm EL10') {
+                    steps {
+                        sh '${PATH_TO_SCRIPTS}/build-client-rpm oraclelinux:10'
+                    }
+                }
                 stage('Build client binary rpm AL2023') {
                     steps {
                         sh '''
@@ -166,6 +171,11 @@ pipeline {
         }
         stage('Build client binary debs') {
             parallel {
+                stage('Build client binary deb Trixie') {
+                    steps {
+                        sh "${PATH_TO_SCRIPTS}/build-client-deb debian:trixie"
+                    }
+                }
                 stage('Build client binary deb Bookworm') {
                     steps {
                         sh "${PATH_TO_SCRIPTS}/build-client-deb debian:bookworm"

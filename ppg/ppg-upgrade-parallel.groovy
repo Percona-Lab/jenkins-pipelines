@@ -39,12 +39,12 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'ppg-17.4',
+            defaultValue: 'ppg-17.5',
             description: 'From this version PPG will be updated',
             name: 'FROM_VERSION'
         )
         string(
-            defaultValue: 'ppg-17.5',
+            defaultValue: 'ppg-17.6',
             description: 'To this version PPG will be updated',
             name: 'VERSION'
         )
@@ -54,7 +54,7 @@ pipeline {
             choices: ppgUpgradeScenarios()
         )
         string(
-            defaultValue: 'Q2-2025',
+            defaultValue: 'main',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
   }
