@@ -200,7 +200,7 @@ initMap['debMap'] = '''
         JDK_PACKAGE="openjdk-11-jre-headless"
     fi
 
-    if [[ ${DEB_VERSION} == "bookworm" ]] || [[ ${DEB_VERSION} == "trixie" ]]; then
+    if [ ${DEB_VERSION} = "bookworm" ] || [ ${DEB_VERSION} = "trixie" ]; then
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JDK_PACKAGE} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JDK_PACKAGE}
