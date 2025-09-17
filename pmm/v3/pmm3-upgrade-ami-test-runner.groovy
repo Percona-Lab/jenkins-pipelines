@@ -250,6 +250,7 @@ pipeline {
         stage('Start AMI server Instance') {
             steps {
                 runAMIStagingStart(AMI_TAG, PMM_QA_GIT_BRANCH)
+                echo "AMI Server IP is: ${env.SERVER_IP}"
             }
         }
         stage('Install dependencies') {
