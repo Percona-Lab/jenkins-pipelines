@@ -31,7 +31,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
             sh """
                 ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ec2-user@${CLIENT_IP} 'bash -c "
                     sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
-                    python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py \${PMM_VERSION}
+                    python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py $PMM_VERSION
                 "'
             """
         }
