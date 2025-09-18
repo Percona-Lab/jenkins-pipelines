@@ -241,11 +241,11 @@ pipeline {
                 runAMIStagingStart(AMI_TAG, PMM_QA_GIT_BRANCH)
             }
         }
-        stage('Setup PMM Client') {
-            steps {
-                runStagingClient(CLIENT_VERSION, env.PMM_CLIENTS, env.VM_IP, QA_INTEGRATION_GIT_BRANCH, env.ADMIN_PASSWORD)
-            }
-        }
+//         stage('Setup PMM Client') {
+//             steps {
+//                 runStagingClient(CLIENT_VERSION, env.PMM_CLIENTS, env.VM_IP, QA_INTEGRATION_GIT_BRANCH, env.ADMIN_PASSWORD)
+//             }
+//         }
         stage('PMM Server sanity check') {
             steps {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
@@ -265,6 +265,30 @@ pipeline {
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
+                '''
+            }
+        }
+        stage('Setup Databases for PMM-Server') {
+            steps {
+                sh '''
+                    set -o errexit
+                    set -o xtrace
+
+                    cd /srv/qa-integration/pmm_qa
+                    echo "Setting docker based PMM clients"
+                    sudo apt install -y python3.12 python3.12-venv
+                    mkdir -m 777 -p /tmp/backup_data
+                    python3 -m venv virtenv
+                    . virtenv/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                    pip install setuptools
+
+                    python3 pmm-framework.py --verbose \
+                        --client-version=\${CLIENT_VERSION} \
+                        --pmm-server-ip=\${SERVER_IP} \
+                        --pmm-server-password=\${ADMIN_PASSWORD} \
+                        \${PMM_CLIENTS}
                 '''
             }
         }
