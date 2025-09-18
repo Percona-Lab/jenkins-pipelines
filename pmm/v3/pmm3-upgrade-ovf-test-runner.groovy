@@ -70,7 +70,7 @@ def amiVersions = versionsList.values()
 def versions = versionsList.keySet()
 def upgradeAmiVersion = amiVersions[0]
 def latestVersion = versions[versions.size() - 1]
-def upgradeVersion = versions[versions.size() - 2]
+def upgradeVersion = versions[0]
 
 pipeline {
     agent {
@@ -115,7 +115,7 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
-            defaultValue: upgradeAmiVersion,
+            defaultValue: upgradeVersion,
             description: 'PMM Server Version to test for Upgrade (Docker Tag, AMI ID or OVF version)',
             name: 'AMI_TAG')
         string(
