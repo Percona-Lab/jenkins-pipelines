@@ -190,7 +190,7 @@ parameters {
             steps {
                 script {
                         def Dockerfile = (MYSQLSHELL == "percona") ? "Dockerfile" : "Dockerfile-mysqlsh-upstream"
-                        echo "====> Build docker container that is based on ${dockerfile}"
+                        echo "====> Build docker container that is based on ${Dockerfile}"
                         sh '''
                             PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                             PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
