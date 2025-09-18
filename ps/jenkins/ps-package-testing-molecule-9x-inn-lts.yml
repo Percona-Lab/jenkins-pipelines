@@ -1,16 +1,12 @@
 - job:
-    name: package-testing-ps80-build
+    name: ps-package-testing-molecule-9x-innovation
     project-type: pipeline
     description: |
-        Use package-testing-ps to run in all nodes
         Do not edit this job through the web!
-    concurrent: true
     properties:
         - build-discarder:
-            artifact-days-to-keep: -1
-            artifact-num-to-keep: 10
-            days-to-keep: -1
-            num-to-keep: 50
+            num-to-keep: 15
+    concurrent: true
     pipeline-scm:
         scm:
             - git:
@@ -19,12 +15,14 @@
                     - 'master'
                 wipe-workspace: true
         lightweight-checkout: true
-        script-path: ps/jenkins/package-testing-ps-build-8.0.groovy
+        script-path: ps/jenkins/ps-package-testing-molecule-9x-inn-lts.groovy
     parameters:
         - choice:
             name: product_to_test
             choices:
-                - "ps80"
+                - "ps_80"
+                - "ps_84"
+                - "ps_lts_innovation"
                 - "client_test"
             description: "Product for which the packages will be tested"
         - choice:
@@ -34,19 +32,6 @@
                 - "main"
                 - "experimental"
             description: "Repo to use in install test"
-        - choice:
-            name: node_to_test
-            choices:
-                - "min-bullseye-x64"
-                - "min-bookworm-x64"
-                - "min-centos-7-x64"
-                - "min-ol-8-x64"
-                - "min-ol-9-x64"
-                - "min-focal-x64"
-                - "min-jammy-x64"
-                - "min-noble-x64"
-                - "min-amazon-2-x64"
-            description: "Node in which to test the product"
         - choice:
             name: action_to_test
             choices:
@@ -67,4 +52,4 @@
             choices:
                 - "yes"
                 - "no"
-            description: "install and check mysql-shell for ps80"
+            description: "install and check mysql-shell for innovation-lts"

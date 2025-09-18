@@ -39,8 +39,8 @@ pipeline {
                     }
                 }
 
-                stage('Test on Ubuntu Focal (x64)') {
-                    agent { label 'min-focal-x64' }  // Run on the node with label 'min-focal-x64'
+                stage('Test on Ubuntu Noble (x64)') {
+                    agent { label 'min-noble-x64' }  // Run on the node with label 'min-noble-x64'
                     steps {
                         script {
                             sh '''
@@ -48,7 +48,6 @@ pipeline {
                             sudo apt-get update
                             sudo apt-get install -y sudo wget gnupg2 lsb-release curl systemd
 
-                            # Download and run your script
                             wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
                             chmod +x test-telemetry-agent.sh
                             sudo ./test-telemetry-agent.sh \${TARGET_VERSION}
@@ -59,8 +58,9 @@ pipeline {
                         }
                     }
                 }
-                stage('Test on Ubuntu Noble (x64)') {
-                    agent { label 'min-noble-x64' }  // Run on the node with label 'min-focal-x64'
+
+                stage('Test on Debian Trixie (x64)') {
+                    agent { label 'min-trixie-x64' }  // Run on the node with label 'min-trixie-x64'
                     steps {
                         script {
                             sh '''
@@ -142,6 +142,26 @@ pipeline {
 
                 stage('Test on Oracle Linux 9 (x64)') {
                     agent { label 'min-ol-9-x64' }  // Run on the node with label 'min-oraclelinux-9-x64'
+                    steps {
+                        script {
+                            sh '''
+                            # Update package list and install necessary dependencies
+                            sudo yum install -y sudo wget gnupg2 curl systemd
+
+                            # Download and run your script
+                            wget \${TEST_SCRIPT} -O test-telemetry-agent.sh
+                            chmod +x test-telemetry-agent.sh
+                            sudo ./test-telemetry-agent.sh \${TARGET_VERSION}
+
+                            # Verify service behavior
+                            pgrep -f percona-telemetry-agent || echo "Telemetry agent is not running, as expected"
+                            '''
+                        }
+                    }
+                }
+
+                stage('Test on RedHat 10 (x64)') {
+                    agent { label 'min-rhel-10-x64' }  // Run on the node with label 'min-rhel-10-x64'
                     steps {
                         script {
                             sh '''

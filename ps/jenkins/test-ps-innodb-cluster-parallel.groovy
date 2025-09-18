@@ -9,7 +9,6 @@ List all_nodes = [
     'ubuntu-jammy',
     'debian-11',
     'debian-12',
-    'centos-7',
     'oracle-8',
     'oracle-9',
     'rhel-8',
@@ -65,7 +64,6 @@ pipeline {
                 'ubuntu-jammy',
                 'debian-11',
                 'debian-12',
-                'centos-7',
                 'oracle-8',
                 'oracle-9',
                 'rhel-8',
@@ -89,42 +87,48 @@ pipeline {
             ],
             description: 'Repo to install packages from'
         )
+        string(
+            name: 'git_repo',
+            defaultValue: "Percona-QA/package-testing",
+            description: 'Git repository to use for testing'
+        )
+        string(
+            name: 'BRANCH',
+            defaultValue: 'master',
+            description: 'Git branch to use for testing'
+        )
     }
     stages {
         stage('SET UPSTREAM_VERSION,PS_VERSION and PS_REVISION') {
             steps {
                 script {
                     echo "PRODUCT_TO_TEST is: ${env.PRODUCT_TO_TEST}"
-                    sh '''
-                        rm -rf /package-testing
-                        rm -f master.zip
-                        wget https://github.com/Percona-QA/package-testing/archive/master.zip
-                        unzip master.zip
-                        rm -f master.zip
-                        mv "package-testing-master" package-testing
-                        echo "Contents of package-testing directory:"
-                        ls -l package-testing
-                        echo "Contents of VERSIONS file:"
-                        cat package-testing/VERSIONS
-                    '''
                     
+                    sh """
+                        echo "BRANCH is: \${BRANCH}"
+                        echo "git_repo is: \${git_repo}"
+                        rm -rf /tmp/package-testing
+                        mkdir /tmp/package-testing
+                        wget -O /tmp/package-testing/VERSIONS https://raw.githubusercontent.com/\${git_repo}/refs/heads/\${BRANCH}/VERSIONS
+                    """
+
                     def UPSTREAM_VERSION = sh(
                         script: ''' 
-                            grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}'
+                            grep ${PRODUCT_TO_TEST}_VER /tmp/package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}'
                          ''',
                         returnStdout: true
                         ).trim()
 
                     def PS_VERSION = sh(
                         script: ''' 
-                            grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}'
+                            grep ${PRODUCT_TO_TEST}_VER /tmp/package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}'
                         ''',
                         returnStdout: true
                         ).trim()
 
                     def PS_REVISION = sh(
                         script: '''
-                             grep ${PRODUCT_TO_TEST}_REV package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' 
+                             grep ${PRODUCT_TO_TEST}_REV /tmp/package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' 
                         ''',
                         returnStdout: true
                         ).trim()
@@ -280,18 +284,6 @@ pipeline {
 
                     steps {
                         runNodeBuild("debian-12-arm")
-                    }
-                }
-
-                stage("Centos 7") {
-                    when {
-                        expression {
-                            TEST_DISTS.contains("centos-7")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("centos-7")
                     }
                 }
 

@@ -27,7 +27,7 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
             sh """
             mkdir -p "${WORKSPACE}/${product_to_test}/${params.node_to_test}/${param_test_type}/"
             """
-
+            echo "action is ${action}!!!!!!!!!!!"
             if(param_test_type == "install"){   
                 def install_repo="${test_repo}"
                 def check_version="${version_check}"
@@ -89,8 +89,8 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
             }else if(param_test_type == "min_upgrade"){
                     
                 def install_repo="main"
-                def check_version="${version_check}"
                 def upgrade_repo="testing"
+                def check_version="${version_check}"
                 def pxc57repo = "${params.pxc57_repo}"
                 def MIN_UPGRADE_TEST = env.MIN_UPGRADE_TEST
                 echo "MIN UPGRADE TYPE: ${MIN_UPGRADE_TEST}"
@@ -113,8 +113,6 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     ).trim()
                     sh """
                         echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                        echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-
                         echo 'PXC1_IP: "${UP_PXC1_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         echo 'PXC2_IP: "${UP_PXC2_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         echo 'PXC3_IP: "${UP_PXC3_IP}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
@@ -124,8 +122,9 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                         sh """
                             echo 'check_version: "no"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         """
-                    } else {
-                        sh """
+                    } else if(action == "side-effect"){
+                        sh """ # This will check version during side effect
+                            echo 'install_repo: "${upgrade_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                             echo 'check_version: "yes"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
                         """
                     }
@@ -175,17 +174,6 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
                     
                 }else{
                     echo "Not setting up VARS as in create or destroy stage"
-                    sh """
-                    echo 'install_repo: "${install_repo}"' > "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                    echo 'upgrade_repo: "${upgrade_repo}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                    """
-                    if ("${product_to_test}" != "pxc57"){
-                        
-                    sh """
-                        echo 'check_version: "${check_version}"' >> "${WORKSPACE}/${product_to_test}/${params.node_to_test}/min_upgrade/envfile"
-                    """
-                    }
-
                 }
             }else if(param_test_type == "maj_upgrade"){
                 def install_repo="testing"
@@ -261,8 +249,9 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
             if(action == "create" || action == "destroy"){
                 sh"""
                     . virtenv/bin/activate
-                    export MOLECULE_DEBUG=1
+                    #export MOLECULE_DEBUG=1
                     #export DESTROY_ENV=no
+                    export INSTALLTYPE="nonpro"
                     
                     mkdir -p ${WORKSPACE}/install
                     mkdir -p ${WORKSPACE}/min_upgrade
@@ -284,9 +273,9 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
 
                 sh"""
                     . virtenv/bin/activate
-                    export MOLECULE_DEBUG=1
+                    #export MOLECULE_DEBUG=1
                     #export DESTROY_ENV=no
-
+                    export INSTALLTYPE="nonpro"
                     cd package-testing/molecule/pxc
 
                     echo "param_test_type is ${param_test_type}"
@@ -303,6 +292,105 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
     }
 }
 
+def install(){
+    script {
+        def param_test_type = "install"
+        echo "1. CREATE"
+        try {
+            runMoleculeAction("create", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes")
+        } catch (Exception e) {
+            echo "Failed during Molecule create step: ${e.message}"
+            throw e
+        }
+
+        echo "2. CONVERGE"
+        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+            try {
+                runMoleculeAction("converge", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes")
+            } catch (Exception e) {
+                echo "Failed during Molecule converge step: ${e.message}"
+                throw e
+            }
+        }
+    }
+}
+
+def post_install(){
+
+        script {
+            try {
+                echo "3. BACKUP LOGS"
+                setInventories("install")
+                runlogsbackup(params.product_to_test, "install")
+            } catch (Exception e) {
+                echo "Failed during logs backup: ${e.message}"
+            }
+
+            echo "4. DESTROY"
+            try {
+                runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes")
+            } catch (Exception e) {
+                echo "Failed during Molecule destroy step: ${e.message}"
+            }
+        
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                try {
+                    archiveArtifacts artifacts: 'PXC/**/*.tar.gz', followSymlinks: false
+                } catch (Exception e) {
+                    echo "Failed to archive artifacts: ${e.message}"
+                }
+            }
+        }
+
+}
+
+def upgrade(String upgrade_type){
+
+    script{
+
+        echo "1 CREATE INSTANCES"
+
+        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+            runMoleculeAction("create", params.product_to_test, params.node_to_test, upgrade_type, "main", "no")
+        }
+
+        echo "2 SET INVENTORIES FOR CONVERGE AND SIDE EFFECT"
+
+        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+            setInventories("min_upgrade")
+        }
+
+        echo "3 CONVERGE"
+
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                runMoleculeAction("converge", params.product_to_test, params.node_to_test, upgrade_type, "main", "no")
+            }
+
+        echo "4 SIDE_EFFECT"
+
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+                runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, upgrade_type, params.test_repo, "yes")
+            }
+    }
+
+}
+
+def post_upgrade(String upgrade_type){
+
+        script{
+            echo "5. Backup logs"
+            setInventories(upgrade_type)
+            runlogsbackup(params.product_to_test, upgrade_type)
+            echo "6. Destroy"
+            runMoleculeAction("destroy", params.product_to_test, params.node_to_test, upgrade_type, params.test_repo, "yes")
+        }
+        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
+            echo "7. Archive Logs and Artifacts"
+            archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
+        }
+
+}
+
 void setInventories(String param_test_type){
 
                     def KEYPATH_BOOTSTRAP
@@ -317,7 +405,7 @@ void setInventories(String param_test_type){
                         SSH_USER="ubuntu"            
                     }else if(("${params.node_to_test}" == "debian-11") ||("${params.node_to_test}" == "debian-12") || ("${params.node_to_test}" == "debian-11-arm") || ("${params.node_to_test}" == "debian-12-arm") || ("${params.node_to_test}" == "debian-10")){
                         SSH_USER="admin"
-                    }else if(("${params.node_to_test}" == "ol-8") || ("${params.node_to_test}" == "ol-9") || ("${params.node_to_test}" == "min-amazon-2") || ("${params.node_to_test}" == "rhel-8") || ("${params.node_to_test}" == "rhel-9") ("${params.node_to_test}" == "rhel-8-arm") || ("${params.node_to_test}" == "rhel-9-arm")){
+                    }else if(("${params.node_to_test}" == "amazon-linux-2023-arm") || ("${params.node_to_test}" == "amazon-linux-2023") || ("${params.node_to_test}" == "ol-8") || ("${params.node_to_test}" == "ol-9") || ("${params.node_to_test}" == "min-amazon-2") || ("${params.node_to_test}" == "rhel-8") || ("${params.node_to_test}" == "rhel-9") ("${params.node_to_test}" == "rhel-8-arm") || ("${params.node_to_test}" == "rhel-9-arm")){
                         SSH_USER="ec2-user"
                     }else if(("${params.node_to_test}" == "centos-7")){
                         SSH_USER="centos"
@@ -496,98 +584,293 @@ void runlogsbackup(String product_to_test, String param_test_type) {
     
 }
 
+def deleteBuildInstances(){
+            script {
+                        echo "All tests completed"
+                        def awsCredentials = [
+                                sshUserPrivateKey(
+                                    credentialsId: 'MOLECULE_AWS_PRIVATE_KEY',
+                                    keyFileVariable: 'MOLECULE_AWS_PRIVATE_KEY',
+                                    passphraseVariable: '',
+                                    usernameVariable: ''
+                                ),
+                                aws(
+                                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                    credentialsId: '7e252458-7ef8-4d0e-a4d5-5773edcbfa5e',
+                                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                                )
+                        ]
+
+                        withCredentials(awsCredentials) {
+
+                            def jobName = env.JOB_NAME
+                            def BUILD_NUMBER = env.BUILD_NUMBER
+                            jobName.trim()
+
+                            echo "Fetched JOB_TO_RUN from environment: '${jobName}'"
+
+                            echo "Listing EC2 instances with job-name tag: ${jobName}"
+                            sh """
+                            aws ec2 describe-instances --region us-west-1 --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}"  --query "Reservations[].Instances[].InstanceId" --output text
+                            """
+
+                            sh """
+                            echo "=== EC2 Instances to be cleaned up ==="
+                            aws ec2 describe-instances --region us-west-1 \\
+                            --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}" \\
+                            --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" \\
+                            --output table || echo "No instances found with job-name tag: ${jobName}"
+                            """
+
+                            def instanceIds = sh(
+                                script: """
+                                aws ec2 describe-instances --region us-west-1 \\
+                                --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}" "Name=instance-state-name,Values=running" \\
+                                --query "Reservations[].Instances[].InstanceId" \\
+                                --output text
+                                """,
+                                returnStdout: true
+                            ).trim()
+
+                            if (instanceIds != null && !instanceIds.trim().isEmpty()) {
+                                echo "Found instances to terminate: ${instanceIds.trim()}"
+
+                                sh """
+                                echo "${instanceIds.trim()}" | xargs -r aws ec2 terminate-instances --instance-ids
+                                """
+                            
+                                sleep(30)
+                                
+                                echo "Terminated instances: ${instanceIds.trim()}"
+                                
+                                echo "==========================================="
+
+                                echo "Verification: Status of terminated instances:"
+
+                                sh """
+                                sleep 5 && aws ec2 describe-instances --instance-ids ${instanceIds} --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" --output table
+                                """
+                            
+                            
+                            } else {
+                                echo "No instances found to terminate"
+                            }
+                        
+
+                        }
+            }
+
+}
+
 def setup(){
 
-                script{
-                    def pxc57repo = "${params.pxc57_repo}"
-
-                    if("${product_to_test}" == "pxc57"){
-                        echo "PXC 57 REPO VARIABLE is ${pxc57repo}"
-                    }else{
-                        echo "Product is not pxc57 so skipping value assignment to it"
-                    }                                 
-                    if (( params.test_type == "min_upgrade" ) && ( params.test_repo == "main" )) {
-                         echo "Skipping as the min_upgrade and main are not supported together."
-                         echo "Exiting the Stage as the inputs are invalid."
-                         currentBuild.result = 'UNSTABLE'
-                    } else {
-                         echo "Continue with the package tests"
-                    }                
-                }   
                 echo "${JENWORKSPACE}"
-                installMoleculeBookworm()
-                    sh '''
-                        rm -rf package-testing                    
-                        git clone https://github.com/Percona-QA/package-testing --branch master
-                    '''
+                script {
+                    try {
+                        echo "Installing Molecule Bookworm..."
+                        installMoleculeBookworm()
+                        echo "Installation completed successfully"
+                    } catch (Exception e) {
+                        echo "First attempt failed: ${e.getMessage()}"
+                        echo "Retrying installation..."
+                        try {
+                            installMoleculeBookworm()
+                            echo "Installation completed successfully on retry"
+                        } catch (Exception retryException) {
+                            echo "Retry failed: ${retryException.getMessage()}"
+                            error("Failed to install Molecule Bookworm after 2 attempts")
+                        }
+                    }
+                } 
+ 
+                sh '''
+                    rm -rf package-testing
+                    git clone https://github.com/${git_repo} --branch ${BRANCH}
+                '''
 }
 
 
+
+properties([
+    parameters([
+        [
+            $class: 'ChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'PXC product to test',
+            name: 'product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: 'return ["pxc84", "pxc80", "pxc57", "pxc-innovation-lts"]'
+                ]
+            ]
+        ],
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'Distribution to run test (filtered by product)',
+            name: 'node_to_test',
+            referencedParameters: 'product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        def non_pro_pxc80 = [
+                                        'ubuntu-noble',
+                                        'ubuntu-jammy',
+                                        'ubuntu-noble-arm',
+                                        'ubuntu-jammy-arm',
+                                        'ubuntu-focal',
+                                        'debian-12',
+                                        'debian-11',
+                                        'debian-12-arm',
+                                        'debian-11-arm',
+                                        'ol-8',
+                                        'ol-9',
+                                        'rhel-8',
+                                        'rhel-9',
+                                        'rhel-8-arm',
+                                        'rhel-9-arm'
+                        ]
+
+                        def non_pro_pxc84 = [
+                                        'ubuntu-noble',
+                                        'ubuntu-jammy',
+                                        'ubuntu-noble-arm',
+                                        'ubuntu-jammy-arm',
+                                        'ubuntu-focal',
+                                        'debian-12',
+                                        'debian-11',
+                                        'debian-12-arm',
+                                        'debian-11-arm',
+                                        'ol-8',
+                                        'ol-9',
+                                        'rhel-8',
+                                        'rhel-9',
+                                        'rhel-10',
+                                        'rhel-8-arm',
+                                        'rhel-9-arm',
+                                        'rhel-10-arm'
+                        ]
+
+                        def pxc_innovation_lts = [
+                                        'ubuntu-noble',
+                                        'ubuntu-jammy',
+                                        'ubuntu-noble-arm',
+                                        'ubuntu-jammy-arm'
+                        ]
+
+                        def pxc57_nodes = [
+                                        'ubuntu-jammy',
+                                        'ubuntu-focal',
+                                        'debian-12',
+                                        'debian-11',
+                                        'ol-8',
+                                        'ol-9'
+                        ]
+
+                        if (product_to_test == "pxc57") {
+                            return pxc57_nodes
+                        } else if (product_to_test == "pxc80") {
+                            return non_pro_pxc80
+                        } else if (product_to_test == "pxc84") {
+                            return non_pro_pxc84
+                        } else if (product_to_test == "pxc-innovation-lts") {
+                            return pxc_innovation_lts
+                        } else {
+                            return ["N/A"]
+                        }
+                    '''
+                ]
+            ]
+        ],
+        choice(
+            name: 'test_repo',
+            choices: ['testing', 'main', 'experimental'],
+            description: 'Repo to install packages from'
+        ),
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'PXC-5.7 repo selection',
+            name: 'pxc57_repo',
+            referencedParameters: 'product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (product_to_test == "pxc57") {
+                            return ["EOL", "original", "pxc57"]
+                        }
+                        return ["N/A"]
+                    '''
+                ]
+            ]
+        ],
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'Test type based on product selection',
+            name: 'test_type',
+            referencedParameters: 'product_to_test,pxc57_repo',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        def result = ["install"]
+                        
+                        if (product_to_test == "pxc57") {
+                            if (pxc57_repo == "EOL") {
+                                result.add("min_upgrade_pxc57_eol_main_to_eol_testing")
+                            }
+                        } 
+                        else if (product_to_test == "pxc80") {
+                            result.add("min_upgrade_pxc_80")
+                        } 
+                        else if (product_to_test == "pxc84") {
+                            result.add("min_upgrade_pxc_84")
+                        } 
+                        else if (product_to_test == "pxc-innovation-lts") {
+                            result.add("min_upgrade_pxc_innovation")
+                        }
+                        
+                        return result
+                    '''
+                ]
+            ]
+        ],
+        string(
+            name: 'git_repo',
+            defaultValue: 'Percona-QA/package-testing',
+            description: 'Git repository to use for testing'
+        ),
+        string(
+            name: 'BRANCH',
+            defaultValue: 'master',
+            description: 'Git branch to use for testing'
+        )
+    ])
+])
+
 pipeline {
-    agent none
+    agent {
+        label 'min-bookworm-x64'
+    }
+
+    options {
+        buildDiscarder(logRotator(numToKeepStr: '100'))
+    }
 
     environment {
         pro = "no"
-    }
-
-    parameters {
-        choice(
-            name: 'product_to_test',
-            choices: [
-                'pxc84',
-                'pxc80',
-                'pxc57',
-                'pxc-innovation-lts'
-            ],
-            description: 'PXC product_to_test to test'
-        )
-        choice(
-            name: 'node_to_test',
-            choices: [
-                'ubuntu-noble',
-                'ubuntu-jammy',
-                'ubuntu-noble-arm',
-                'ubuntu-jammy-arm',
-                'ubuntu-focal',
-                'debian-12',
-                'debian-11',
-                'debian-12-arm',
-                'debian-11-arm',
-                'debian-10',
-                'centos-7',
-                'ol-8',
-                'ol-9',
-                'rhel-8',
-                'rhel-9',
-                'rhel-8-arm',
-                'rhel-9-arm'
-            ],
-            description: 'Distribution to run test'
-        )
-        choice(
-            name: 'test_repo',
-            choices: [
-                'testing',
-                'main',
-                'experimental'
-            ],
-            description: 'Repo to install packages from'
-        )
-        choice(
-            name: 'test_type',
-            choices: [
-                'install_and_upgrade',
-                'install',
-                'min_upgrade',
-                'maj_upgrade'
-            ],
-            description: 'Set test type for testing'
-        )      
-        choice(
-            name: "pxc57_repo",
-            choices: ["original","pxc57","EOL"],
-            description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."
-        )
     }
 
     stages {
@@ -601,10 +884,9 @@ pipeline {
         stage("Run parallel Install and UPGRADE"){
             parallel{
 
-
                 stage("INSTALL") {
                     when {
-                        expression { params.test_type == "install" || params.test_type == "install_and_upgrade" }
+                        expression { params.test_type == "install" }
                     }
 
                     agent {
@@ -625,78 +907,28 @@ pipeline {
 
                     steps {
                         setup()
-                        script {
-                            def param_test_type = "install"
-                            echo "1. Creating Molecule Instances for running INSTALL PXC tests.. Molecule create step"
-                            try {
-                                runMoleculeAction("create", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes")
-                            } catch (Exception e) {
-                                echo "Failed during Molecule create step: ${e.message}"
-                                throw e
-                            }
-
-                            echo "2. Run Install scripts and tests for PXC INSTALL PXC tests.. Molecule converge step"
-                            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                                try {
-                                    runMoleculeAction("converge", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes")
-                                } catch (Exception e) {
-                                    echo "Failed during Molecule converge step: ${e.message}"
-                                    throw e
-                                }
-                            }
-                        }
+                        install()
                     }
 
                     post {
                         always {
-                            script {
-                                def param_test_type = "install"
-                                echo "Always INSTALL"
-
-                                // Back up logs if possible, log failure if any
-                                try {
-                                    echo "3. Take Backups of the Logs.. PXC INSTALL tests.."
-                                    setInventories("install")
-                                    runlogsbackup(params.product_to_test, "install")
-                                } catch (Exception e) {
-                                    echo "Failed during logs backup: ${e.message}"
-                                }
-
-                                // Ensure Molecule instances are destroyed no matter what
-                                echo "4. Destroy the Molecule instances for the PXC INSTALL tests.."
-                                try {
-                                    runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes")
-                                } catch (Exception e) {
-                                    echo "Failed during Molecule destroy step: ${e.message}"
-                                }
-                            }
-
-                            // Always try to archive artifacts even if tests fail
-                            script {
-                                catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                                    try {
-                                        archiveArtifacts artifacts: 'PXC/**/*.tar.gz', followSymlinks: false
-                                    } catch (Exception e) {
-                                        echo "Failed to archive artifacts: ${e.message}"
-                                    }
-                                }
-                            }
+                            post_install()
                         }
                     }
                 }
 
-                stage("MIN UPGRADE PXC INNOVATION LTS") {
+                stage("MIN_UPGRADE INNOVATION ") {
                             when {
                                 allOf{
-                                    expression{params.test_type == "min_upgrade" || params.test_type == "install_and_upgrade"}
+                                    expression{params.test_type == "min_upgrade_pxc_innovation"}
                                     expression{params.test_repo != "main"}
                                     expression{params.product_to_test == "pxc-innovation-lts"}                
                                 }
                             }
 
-                            agent {
-                                label 'min-bookworm-x64'
-                            }
+                            //agent {
+                                //label 'min-bookworm-x64'
+                            //}
 
 
                             environment {
@@ -719,61 +951,29 @@ pipeline {
 
                             steps {
                                 setup()
-                                script{
-
-                                    echo "UPGRADE STAGE INSIDE"
-                                    def param_test_type = "min_upgrade"   
-                                    echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
-                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-                                    setInventories("min_upgrade")
-                                    echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
-                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-                                        }
-                                    echo "3. Run UPGRADE scripts and playbooks for running PXC UPGRADE tests.. Molecule side-effect step"
-                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
-                                        }
-                                }
+                                upgrade("min_upgrade")
                             }
                             post{
-                                always{
-                                    script{
-                                        def param_test_type = "min_upgrade"
-                                        try{
-                                            echo "4. Take Backups of the Logs.. for PXC UPGRADE tests"
-                                            setInventories("min_upgrade")
-                                            runlogsbackup(params.product_to_test, "min_upgrade")
-                                        }catch(Exception e){
-                                            echo "Failed during logs backup"
-                                        }
-                                        echo "5. Destroy the Molecule instances for PXC UPGRADE tests.."
-                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
-
-                                    }
-                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                        archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
-                                    }
+                                always {
+                                    post_upgrade("min_upgrade")
                                 }
-
                             }
                 }
 
-                stage("MIN UPGRADE PXC 80/84") {
+                stage("MIN_UPGRADE_PXC80") {
                             when {
                                 allOf{
-                                    expression{params.test_type == "min_upgrade" || params.test_type == "install_and_upgrade"}
+                                    expression{params.test_type == "min_upgrade_pxc_80"}
                                     expression{params.test_repo != "main"}
-                                    expression{params.pxc57_repo != "EOL"}
-                                    expression{params.product_to_test == "pxc80" || params.product_to_test == "pxc84"}
+                                    expression{params.product_to_test == "pxc80" }
                                 }
                             }
 
 
 
-                            agent {
-                                label 'min-bookworm-x64'
-                            }
+                            //agent {
+                                //label 'min-bookworm-x64'
+                            //}
 
 
                             environment {
@@ -796,69 +996,69 @@ pipeline {
 
                             steps {
                                 setup()
-                                script{
-
-                                    echo "UPGRADE STAGE INSIDE"
-                                    def param_test_type = "min_upgrade"   
-                                    echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
-                                    
-                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                        runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-                                    }
-
-                                    echo "1-2 Setting INVENTORIES"
-
-                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                        setInventories("min_upgrade")
-                                    }
-
-                                    echo "2-2 Setting INVENTORIES COMPLETE"
-
-                                    echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
-                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-                                        }
-                                    echo "3. Run UPGRADE scripts and playbooks for running PXC UPGRADE tests.. Molecule side-effect step"
-                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
-                                        }
-                                }
+                                upgrade("min_upgrade")
                             }
                             post{
-                                always{
-                                    script{
-                                        def param_test_type = "min_upgrade"
-                                        try{
-                                            echo "4. Take Backups of the Logs.. for PXC UPGRADE tests"
-                                            setInventories("min_upgrade")
-                                            runlogsbackup(params.product_to_test, "min_upgrade")
-                                        }catch(Exception e){
-                                            echo "Failed during logs backup"
-                                        }
-                                        echo "5. Destroy the Molecule instances for PXC UPGRADE tests.."
-                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
-
-                                    }
-                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                        archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
-                                    }
+                                always {
+                                    post_upgrade("min_upgrade")
                                 }
-
                             }
                 }
 
-                stage("MIN UPGRADE (EOL_MAIN_TO_EOL_TESTING)") {
+                stage("MIN_UPGRADE_PXC84") {
                             when {
                                 allOf{
-                                    expression{params.test_type == "min_upgrade" || params.test_type == "install_and_upgrade"}
+                                    expression{params.test_type == "min_upgrade_pxc_84"}
+                                    expression{params.test_repo != "main"}
+                                    expression{params.product_to_test == "pxc84" }
+                                }
+                            }
+
+                            //agent {
+                                //label 'min-bookworm-x64'
+                            //}
+
+                            environment {
+
+                                UPGRADE_BOOTSTRAP_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_private_ip.json"
+                                UPGRADE_COMMON_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/common_instance_private_ip.json"
+                                
+                                UPGRADE_BOOTSTRAP_INSTANCE_PUBLIC_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_public_ip.json"
+                                UPGRADE_COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/min_upgrade/common_instance_public_ip.json"
+
+                                JENWORKSPACE = "${env.WORKSPACE}"
+
+                                MIN_UPGRADE_TEST = "PXC84_MINOR_UPGRADE"
+                            }
+
+                            options {
+                                skipDefaultCheckout()
+                            }
+
+
+                            steps {
+                                setup()
+                                upgrade("min_upgrade")
+                            }
+                            post{
+                                always {
+                                    post_upgrade("min_upgrade")
+                                }
+                            }
+                }
+
+                stage("MIN_UPGRADE_PXC57_EOL_MAIN_TO_EOL_TESTING") {
+                            when {
+                                allOf{
+                                    expression{params.test_type == "min_upgrade_pxc57_eol_main_to_eol_testing"}
                                     expression{params.test_repo != "main"}
                                     expression{params.product_to_test == "pxc57"}
                                 }
                             }
 
-                            agent {
-                                label 'min-bookworm-x64'
-                            }
+                            //agent {
+                                //label 'min-bookworm-x64'
+                            //}
 
                             environment {
 
@@ -881,131 +1081,14 @@ pipeline {
 
                             steps {
                                 setup()
-                                script {
-                                    echo "UPGRADE STAGE INSIDE"
-                                    def param_test_type = "min_upgrade"
-                                    echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
-                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-                                    setInventories("min_upgrade")
-                                    
-                                    echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
-                                    def convergeSuccess = true // Flag to track the success of the converge step
-
-//                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-//                                        runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-//                                    }.catch {
-//                                        convergeSuccess = false // If the converge step fails, set the flag to false
-//                                    }
-
-                                    try {
-                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-                                        }
-                                    } catch (Exception e) {
-                                        convergeSuccess = false
-                                        echo "Converge step failed: ${e.message}"
-                                    }
-
-                                    if (convergeSuccess) {
-                                        echo "3. Run UPGRADE scripts and playbooks for running PXC UPGRADE tests.. Molecule side-effect step"
-                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
-                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
-                                        }
-                                    } else {
-                                        echo "Skipping side-effect step due to failure in converge step."
-                                    }
-                                }
-
+                                upgrade("min_upgrade")
                             }
                             post{
-                                always{
-                                    script{
-                                        def param_test_type = "min_upgrade"
-                                        echo "4. Take Backups of the Logs.. for PXC UPGRADE tests"
-                                        setInventories("min_upgrade")
-                                        runlogsbackup(params.product_to_test, "min_upgrade")
-                                        echo "5. Destroy the Molecule instances for PXC UPGRADE tests.."
-                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
-                                    }
-                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-                                        archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
-                                    }
-                                }
-
+                                always {
+                                    post_upgrade("min_upgrade")
+                                }   
                             }
                 }
-
-//                stage("MIN UPGRADE (PXC57_MAIN_TO_EOL_TESTING)") {
-//                            when {
-//                                allOf{
-//                                    expression{params.test_type == "min_upgrade" || params.test_type == "install_and_upgrade"}
-//                                    expression{params.test_repo != "main"}
-//                                    expression{params.product_to_test == "pxc57"}
-//                                }
-//                            }
-//
-//
-//
-//                            agent {
-//                                label 'min-bookworm-x64'
-//                            }
-//
-//
-//                            environment {
-//
-//                                UPGRADE_BOOTSTRAP_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_private_ip.json"
-//                                UPGRADE_COMMON_INSTANCE_PRIVATE_IP = "${WORKSPACE}/min_upgrade/common_instance_private_ip.json"
-//                                
-//                                UPGRADE_BOOTSTRAP_INSTANCE_PUBLIC_IP = "${WORKSPACE}/min_upgrade/bootstrap_instance_public_ip.json"
-//                                UPGRADE_COMMON_INSTANCE_PUBLIC_IP  = "${WORKSPACE}/min_upgrade/common_instance_public_ip.json"
-//
-//                                JENWORKSPACE = "${env.WORKSPACE}"
-//
-//                                MIN_UPGRADE_TEST = "PXC57_MAIN_TO_EOL_TESTING"
-//
-//                            }
-//
-//                            options {
-//                                skipDefaultCheckout()
-//                            }
-//
-//
-//                            steps {
-//                                setup()
-//                                script{
-//
-//                                    echo "UPGRADE STAGE INSIDE"
-//                                    def param_test_type = "min_upgrade"   
-//                                    echo "1. Creating Molecule Instances for running PXC UPGRADE tests.. Molecule create step"
-//                                    runMoleculeAction("create", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-//                                    setInventories("min_upgrade")
-//                                    echo "2. Run Install scripts and tests for running PXC UPGRADE tests.. Molecule converge step"
-//                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-//                                            runMoleculeAction("converge", params.product_to_test, params.node_to_test, "min_upgrade", "main", "no")
-//                                        }
-//                                    echo "3. Run UPGRADE scripts and playbooks for running PXC UPGRADE tests.. Molecule side-effect step"
-//                                        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-//                                            runMoleculeAction("side-effect", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
-//                                        }
-//                                }
-//                            }
-//                            post{
-//                                always{
-//                                    script{
-//                                        def param_test_type = "min_upgrade"
-//                                        echo "4. Take Backups of the Logs.. for PXC UPGRADE tests"
-//                                        setInventories("min_upgrade")
-//                                        runlogsbackup(params.product_to_test, "min_upgrade")
-//                                        echo "5. Destroy the Molecule instances for PXC UPGRADE tests.."
-//                                        runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "min_upgrade", params.test_repo, "yes")
-//                                    }
-//                                    catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-//                                        archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
-//                                    }
-//                                }
-//
-//                            }
-//                }
 
                 stage("MAJOR UPGRADE pxc57") {
                             when {
@@ -1017,9 +1100,9 @@ pipeline {
                             }
 
 
-                            agent {
-                                label 'min-bookworm-x64'
-                            }
+                            //agent {
+                                //label 'min-bookworm-x64'
+                            //}
 
                             environment {
 
@@ -1033,11 +1116,9 @@ pipeline {
 
                             }
 
-
                             options {
                                 skipDefaultCheckout()
                             }
-
 
                             steps {
                                 setup()
@@ -1076,27 +1157,15 @@ pipeline {
                                 }
                             }
                 }
-
             }
-        }
+         }
     }
 
 
     post {
-
-        aborted {
-                slackSend channel: '#dev-server-qa', color: '#B2BEB5', message: "[${env.JOB_NAME}]: Aborted during the Package testing (Build Failed) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , test_repo: ${params.test_repo}, test_type: ${params.test_type}"
+        always {
+            deleteBuildInstances()
         }
-
-        unstable {
-                slackSend channel: '#dev-server-qa', color: '#DEFF13', message: "[${env.JOB_NAME}]: Failed during the Package testing (Unstable Build) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , test_repo: ${params.test_repo}, test_type: ${params.test_type}"
-        }
-
-        failure {
-                slackSend channel: '#dev-server-qa', color: '#FF0000', message: "[${env.JOB_NAME}]: Failed during the Package testing (Build Failed) [${env.BUILD_URL}] Parameters: product_to_test: ${params.product_to_test} , node_to_test: ${params.node_to_test} , test_repo: ${params.test_repo}, test_type: ${params.test_type}"
-        }
-
-
     }
-
 }
+
