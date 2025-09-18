@@ -196,6 +196,12 @@ pipeline {
                     sudo chown $(id -u):$(id -u) -R /srv/qa-integration
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
 
+                    sudo apt-get update
+                    sudo apt-get install ca-certificates curl
+                    sudo install -m 0755 -d /etc/apt/keyrings
+                    sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+                    sudo chmod a+r /etc/apt/keyrings/docker.asc
+
                      # Add the repository to Apt sources:
                     echo \
                         "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu \
