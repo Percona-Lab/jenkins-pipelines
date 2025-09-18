@@ -12,34 +12,22 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     def PMM_VERSION = CLIENT_VERSION.trim();
     env.PMM_VERSION = PMM_VERSION;
     if (PMM_VERSION == '3-dev-latest') {
-        withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-            sh """
-                ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ec2-user@${CLIENT_IP} 'bash -c "
-                    GET_PMM_CLIENT_VERSION=\$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
-                    sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
-                    python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py \$GET_PMM_CLIENT_VERSION
-                 "'
-            """
-        }
+        sh '''
+            GET_PMM_CLIENT_VERSION=$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
+            sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
+            python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${GET_PMM_CLIENT_VERSION}
+        '''
     } else if (PMM_VERSION == 'pmm3-rc') {
-        withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-            sh """
-                ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ec2-user@${CLIENT_IP} 'bash -c "
-                    GET_PMM_CLIENT_VERSION=\$(wget -q \"https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc\" -O - | jq -r .results[].name  | grep 3.*.*-rc\$ | sort -V | tail -n1)
-                    sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
-                    python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py \$GET_PMM_CLIENT_VERSION
-                 "'
-            """
-        }
+        sh '''
+            GET_PMM_CLIENT_VERSION=$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 3.*.*-rc$ | sort -V | tail -n1)
+            sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
+            python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${GET_PMM_CLIENT_VERSION}
+        '''
     } else {
-        withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-            sh """
-                ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no ec2-user@${CLIENT_IP} 'bash -c "
-                    sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
-                    python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py $PMM_VERSION
-                "'
-            """
-        }
+        sh '''
+            sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
+            python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${PMM_VERSION}
+        '''
     }
 }
 
@@ -74,22 +62,6 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
         "'
     """
   }
-}
-
-void runStagingClient(String CLIENT_VERSION, CLIENTS, SERVER_IP, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
-    stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
-        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
-        string(name: 'CLIENTS', value: CLIENTS),
-        string(name: 'CLIENT_INSTANCE', value: 'yes'),
-        string(name: 'QUERY_SOURCE', value: 'slowlog'),
-        string(name: 'SERVER_IP', value: SERVER_IP),
-        string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1'),
-        string(name: 'PMM_QA_GIT_BRANCH', value: QA_INTEGRATION_GIT_BRANCH),
-        string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
-    ]
-        env.CLIENT_IP = stagingJob.buildVariables.IP
-        env.CLIENT_NAME = stagingJob.buildVariables.VM_NAME
 }
 
 def versionsList = pmmVersion('v3-ami')
