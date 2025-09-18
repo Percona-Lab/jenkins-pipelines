@@ -377,8 +377,10 @@ pipeline {
                             }
 
                             stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -398,8 +400,10 @@ pipeline {
                             }
 
                             stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -419,10 +423,8 @@ pipeline {
                             }
 
                             stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                            if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            }
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -442,10 +444,8 @@ pipeline {
                             }
 
                             stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                            if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            }
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                         }
                     }
                 }
