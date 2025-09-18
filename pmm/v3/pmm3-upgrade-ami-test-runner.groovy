@@ -264,6 +264,7 @@ pipeline {
                     pip install setuptools
 
                     python pmm-framework.py --verbose \
+                        --pmm-server-ip=\${SERVER_IP}
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         \${PMM_CLIENTS}
