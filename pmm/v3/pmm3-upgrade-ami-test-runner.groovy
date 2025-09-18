@@ -189,7 +189,7 @@ pipeline {
                     sudo mkdir -p /srv/pmm-qa || :
                     cd  /srv/pmm-qa
                         sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                    sudo mkdir -p /srv/qa-integration || true
+                    mkdir -p /srv/qa-integration || true
                     cd  /srv/qa-integration
                         sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
                     sudo chmod -R 755 /srv/qa-integration
