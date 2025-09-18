@@ -36,11 +36,11 @@ void runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH) {
         string(name: 'OVA_VERSION', value: SERVER_VERSION),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
     ]
-    env.SERVER_IP = ovfStagingJob.buildVariables.PUBLIC_IP
-    env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.PUBLIC_IP
+    env.SERVER_IP = ovfStagingJob.buildVariables.IP
+    env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
     env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
     env.ADMIN_PASSWORD = 'admin'
-    env.VM_IP = ovfStagingJob.buildVariables.PUBLIC_IP
+    env.VM_IP = ovfStagingJob.buildVariables.IP
     env.VM_NAME = ovfStagingJob.buildVariables.VM_NAME
     env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
     env.PMM_UI_URL = "https://${SERVER_IP}/"
