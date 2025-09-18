@@ -483,40 +483,19 @@ pipeline {
             }
         }
         stage('Check PMM Server Packages after Upgrade') {
-            parallel {
-                stage('Check docker packages') {
-                    when {
-                        expression { env.SERVER_TYPE == "docker" }
-                    }
-                    steps {
-                        script {
-                            sh '''
-                                export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
+            steps {
+                script {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                        sh '''
+                            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} "bash -c '
+                                export PMM_VERSION=$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}v1/server/version | jq -r \'.version\')
+                                echo \\${PMM_VERSION}
+                                echo "PMM Version is: \\${PMM_VERSION}"
                                 sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                                python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p post
-                            '''
-                        }
-                    }
-                }
-                stage('Check ami packages') {
-                    when {
-                        expression { env.SERVER_TYPE == "ami" }
-                    }
-                    steps {
-                        script {
-                            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'pmm-staging-slave', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                                sh '''
-                                    ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} "bash -c '
-                                        export PMM_VERSION=$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}v1/server/version | jq -r \'.version\')
-                                        echo \\${PMM_VERSION}
-                                        echo "PMM Version is: \\${PMM_VERSION}"
-                                        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \\$PMM_VERSION -p post
-                                        '
-                                    "
-                                '''
-                             }
-                        }
+                                python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \\$PMM_VERSION -p post
+                                '
+                            "
+                        '''
                     }
                 }
             }
