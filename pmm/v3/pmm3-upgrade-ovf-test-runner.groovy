@@ -31,7 +31,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     }
 }
 
-void runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO) {
+void runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH) {
     ovfStagingJob = build job: 'pmm2-ovf-staging-start', parameters: [
         string(name: 'OVA_VERSION', value: SERVER_VERSION),
         string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
@@ -117,7 +117,7 @@ pipeline {
         string(
             defaultValue: upgradeVersion,
             description: 'PMM Server Version to test for Upgrade (Docker Tag, AMI ID or OVF version)',
-            name: 'AMI_TAG')
+            name: 'OVF_TAG')
         string(
             defaultValue: '',
             description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
@@ -217,7 +217,7 @@ pipeline {
         }
         stage('Start AMI server Instance') {
             steps {
-                runOVFStagingStart(AMI_TAG, PMM_QA_GIT_BRANCH)
+                runOVFStagingStart(OVF_TAG, PMM_QA_GIT_BRANCH)
             }
         }
 
