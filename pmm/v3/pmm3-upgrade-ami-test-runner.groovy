@@ -531,9 +531,6 @@ pipeline {
                 amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
                     string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
                 ]
-                clientStagingStopJob = build job: 'aws-staging-stop', parameters: [
-                    string(name: 'VM', value: env.CLIENT_IP),
-                ]
             }
         }
         failure {
