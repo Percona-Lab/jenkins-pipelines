@@ -189,11 +189,12 @@ parameters {
             }
             steps {
                 script {
-                        def dockerfile = (MYSQLSHELL == "percona") ? "Dockerfile" : "Dockerfile-mysqlsh-upstream"
-                        echo "====> Build docker container that is based on ${dockerfile}"
                         sh '''
-                            Dockerfile="${dockerfile}"
-                            echo "Using Dockerfile: ${Dockerfile} due to ${MYSQLSHELL}"
+                            if [ "${MYSQL-SHELL}" = "percona" ]; then
+                                Dockerfile="Dockerfile"
+                            else
+                                Dockerfile="Dockerfile-mysqlsh-upstream"
+                            fi
                             PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                             PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
