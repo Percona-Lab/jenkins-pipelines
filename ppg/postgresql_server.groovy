@@ -94,7 +94,7 @@ pipeline {
         }
         stage('Build PPG-SERVER generic source packages') {
             parallel {
-                stage('Build PPG-SERVER generic source rpm') {
+                /*stage('Build PPG-SERVER generic source rpm') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -106,7 +106,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     }
-                }
+                }*/
                 stage('Build PPG-SERVER generic source deb') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -337,7 +337,7 @@ pipeline {
 
         stage('Sign packages') {
             steps {
-                signRPM(params.CLOUD)
+                //signRPM(params.CLOUD)
                 signDEB(params.CLOUD)
             }
         }
