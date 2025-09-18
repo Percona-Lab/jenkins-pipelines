@@ -165,7 +165,7 @@ parameters {
         choice(
             choices: 'percona\nmysql',
             description: 'Which mysql-shell version have to be used in images.',
-            name: 'MYSQL-SHELL')
+            name: 'MYSQLSHELL')
         choice(
             choices: 'testing\nexperimental\nrelease',
             description: 'Repo component to push packages to',
@@ -193,7 +193,7 @@ parameters {
                         sh '''
                             PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                             PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
-                            if [ ${MYSQL-SHELL} = "percona" ]; then
+                            if [ ${MYSQLSHELL} = "percona" ]; then
                                 Dockerfile="Dockerfile"
                             else
                                 Dockerfile="Dockerfile-mysqlsh-upstream"
