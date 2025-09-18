@@ -34,12 +34,11 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
 void runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH) {
     ovfStagingJob = build job: 'pmm2-ovf-staging-start', parameters: [
         string(name: 'OVA_VERSION', value: SERVER_VERSION),
-        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
-        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: ENABLE_EXPERIMENTAL_REPO)
     ]
     env.SERVER_IP = ovfStagingJob.buildVariables.PUBLIC_IP
     env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.PUBLIC_IP
+    env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
     env.ADMIN_PASSWORD = 'admin'
     env.VM_IP = ovfStagingJob.buildVariables.PUBLIC_IP
     env.VM_NAME = ovfStagingJob.buildVariables.VM_NAME
@@ -116,7 +115,7 @@ pipeline {
             name: 'PMM_UI_GIT_BRANCH')
         string(
             defaultValue: upgradeVersion,
-            description: 'PMM Server Version to test for Upgrade (Docker Tag, AMI ID or OVF version)',
+            description: 'PMM Server Version to test for Upgrade',
             name: 'OVF_TAG')
         string(
             defaultValue: '',
@@ -215,7 +214,7 @@ pipeline {
                 }
             }
         }
-        stage('Start AMI server Instance') {
+        stage('Start OVF server Instance') {
             steps {
                 runOVFStagingStart(OVF_TAG, PMM_QA_GIT_BRANCH)
             }
@@ -265,7 +264,7 @@ pipeline {
                     pip install setuptools
 
                     python pmm-framework.py --verbose \
-                        --pmm-server-ip=\${SERVER_IP}
+                        --pmm-server-ip=\${SERVER_IP} \
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         \${PMM_CLIENTS}
@@ -320,7 +319,7 @@ pipeline {
                 script {
                     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh '''
-                            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} "bash -c '
+                            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${SERVER_IP} "bash -c '
                                 export PMM_VERSION=$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}v1/server/version | jq -r \'.version\')
                                 echo \\${PMM_VERSION}
                                 echo "PMM Version is: \\${PMM_VERSION}"
@@ -426,7 +425,7 @@ pipeline {
                 script {
                     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh '''
-                            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} "bash -c '
+                            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${SERVER_IP} "bash -c '
                                 export PMM_VERSION=$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}v1/server/version | jq -r \'.version\')
                                 echo \\${PMM_VERSION}
                                 echo "PMM Version is: \\${PMM_VERSION}"
@@ -446,8 +445,8 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             script {
-                amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
-                    string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
+                ovfStagingStopJob = build job: 'pmm3-ovf-staging-stop', parameters: [
+                    string(name: 'VM', value: env.OVF_INSTANCE_NAME),
                 ]
             }
         }
