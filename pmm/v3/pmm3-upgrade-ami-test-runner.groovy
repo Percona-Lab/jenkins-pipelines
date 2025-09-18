@@ -470,8 +470,6 @@ pipeline {
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                        fi
                    done
-                   sudo percona-release enable pmm3-client $CLIENT_REPOSITORY
-                   sudo dnf install -y pmm-client
                 """
             }
         }
