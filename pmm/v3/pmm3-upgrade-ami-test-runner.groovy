@@ -101,7 +101,7 @@ def upgradeVersion = versions[versions.size() - 2]
 
 pipeline {
     agent {
-        label 'min-noble-x64'
+        label 'agent-amd64-ol9'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
