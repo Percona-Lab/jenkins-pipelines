@@ -190,7 +190,7 @@ parameters {
             steps {
                 script {
                         sh '''
-                            if [ "${MYSQL-SHELL}" = "percona" ]; then
+                            if [ "${MYSQLSHELL}" = "percona" ]; then
                                 Dockerfile="Dockerfile"
                             else
                                 Dockerfile="Dockerfile-mysqlsh-upstream"
