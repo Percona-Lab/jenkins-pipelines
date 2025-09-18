@@ -265,30 +265,26 @@ pipeline {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
-        stage('Install dependencies') {
-            steps {
-                sh '''
-                    curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
-                    sudo bash nodesource_setup.sh
-                    sudo apt install -y nodejs
-                    sudo apt-get install -y gettext
-                    npm ci
-                    npx playwright install
-                    sudo npx playwright install-deps
-                    envsubst < env.list > env.generated.list
-                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    export PWD=$(pwd)
-                    export CHROMIUM_PATH=/usr/bin/chromium
-                '''
-            }
-        }
-        stage('Setup PMM Client') {
-            steps {
-                sh """
-                    cd /srv/qa-integration/pmm_qa
-                    sudo chmod +x pmm3-client-setup.sh
-                    sudo ./pmm3-client-setup.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
-                """
+        stage('Setup Dependencies and PMM Client') {
+            parallel {
+                stage('Setup PMM Client') {
+                    steps {
+                        setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
+                    }
+                }
+                stage('Setup dependencies') {
+                    steps {
+                        sh '''
+                            npm ci
+                            npx playwright install
+                            envsubst < env.list > env.generated.list
+                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                            export PWD=$(pwd)
+                            export CHROMIUM_PATH=/usr/bin/chromium
+                            ansible-galaxy collection install ansible.utils
+                        '''
+                    }
+                }
             }
         }
         stage('Setup Databases for PMM-Server') {
