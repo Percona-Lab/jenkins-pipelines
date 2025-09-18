@@ -102,7 +102,11 @@ pipeline {
                 }
                 node(env.VM_NAME){
                     sh '''
-                        curl -kL -o pmm-server.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
+                        if [[ ${OVA_VERSION} = 3* ]]; then
+                            wget -nv -O ${VM_NAME}.ova https://downloads.percona.com/downloads/pmm2/${OVA_VERSION}/ova/pmm-server-${OVA_VERSION}.ova
+                        else
+                            wget -nv -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
+                        fi
                     '''
                     sh '''
                         export BUILD_ID=dont-kill-virtualbox
