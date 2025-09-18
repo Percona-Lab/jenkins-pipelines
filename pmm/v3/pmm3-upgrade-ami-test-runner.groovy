@@ -259,11 +259,7 @@ pipeline {
                 runAMIStagingStart(AMI_TAG, PMM_QA_GIT_BRANCH)
             }
         }
-//         stage('Setup PMM Client') {
-//             steps {
-//                 runStagingClient(CLIENT_VERSION, env.PMM_CLIENTS, env.VM_IP, QA_INTEGRATION_GIT_BRANCH, env.ADMIN_PASSWORD)
-//             }
-//         }
+
         stage('PMM Server sanity check') {
             steps {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
@@ -284,6 +280,15 @@ pipeline {
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                 '''
+            }
+        }
+        stage('Setup PMM Client') {
+            steps {
+                sh """
+                    cd /srv/qa-integration/pmm_qa
+                    sudo chmod +x pmm3-client-setup.sh
+                    sudo ./pmm3-client-setup.sh --pmm_server_ip ${SERVER_IP} --client_version ${CLIENT_VERSION.trim()} --admin_password ${ADMIN_PASSWORD}
+                """
             }
         }
         stage('Setup Databases for PMM-Server') {
@@ -371,9 +376,6 @@ pipeline {
             }
         }
         stage('Check Client before Upgrade') {
-            when {
-                expression { env.SERVER_TYPE == "docker" }
-            }
             steps {
                 script {
                     checkClientBeforeUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION)
