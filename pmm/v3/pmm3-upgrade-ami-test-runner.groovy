@@ -281,21 +281,21 @@ pipeline {
                     set -o errexit
                     set -o xtrace
 
-                    cd /srv/qa-integration/pmm_qa
+                    pushd /srv/qa-integration/pmm_qa
                     echo "Setting docker based PMM clients"
-                    sudo apt install -y python3.12 python3.12-venv
                     mkdir -m 777 -p /tmp/backup_data
                     python3 -m venv virtenv
                     . virtenv/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
+                    pip install netaddr
                     pip install setuptools
 
-                    python3 pmm-framework.py --verbose \
+                    python pmm-framework.py --verbose \
                         --client-version=\${CLIENT_VERSION} \
-                        --pmm-server-ip=\${SERVER_IP} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         \${PMM_CLIENTS}
+                    popd
                 '''
             }
         }
