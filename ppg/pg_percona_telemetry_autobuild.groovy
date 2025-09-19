@@ -160,9 +160,9 @@ pipeline {
                 } //stage
             }  //parallel
         } //stage
-        stage('Build percona_pg_telemetry RPMs') {
+        /*stage('Build percona_pg_telemetry RPMs') {
             parallel {
-                /*stage('OL 8 AMD') {
+                stage('OL 8 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -247,10 +247,10 @@ pipeline {
                     }
                 } //stage
             } //parallel
-        } //stage
+        } //stage*/
         stage('Build percona_pg_telemetry DEBs') {
             parallel {
-                stage('Ubuntu 20.04 AMD') {
+                /*stage('Ubuntu 20.04 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -395,7 +395,7 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
                     steps {
-                        echo "====> Build percona_pg_telemetry deb on Debian 12 PG${PG_RELEASE}"
+                        echo "====> Build percona_pg_telemetry deb on Debian 13 PG${PG_RELEASE}"
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:trixie", "--build_deb=1")
@@ -409,7 +409,7 @@ pipeline {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                        echo "====> Build percona_pg_telemetry deb on Debian 12 PG${PG_RELEASE}"
+                        echo "====> Build percona_pg_telemetry deb on Debian 13 PG${PG_RELEASE}"
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:trixie", "--build_deb=1")
