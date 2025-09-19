@@ -90,7 +90,7 @@ pipeline {
         }
         stage('Build PPG-SERVER generic source packages') {
             parallel {
-                stage('Build PPG-SERVER generic source rpm') {
+                /*stage('Build PPG-SERVER generic source rpm') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -102,7 +102,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     }
-                }
+                }*/
                 stage('Build PPG-SERVER generic source deb') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -120,7 +120,7 @@ pipeline {
         } // stage
         stage('Build PPG-SERVER RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Oracle Linux 8 AMD') {
+                /*stage('Oracle Linux 8 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -301,13 +301,39 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
+                }*/
+                stage('Debian trixie(13) AMD') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:trixie", "--build_deb=1")
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian trixie(13) ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:trixie", "--build_deb=1")
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
                 }
             }
         }
 
         stage('Sign packages') {
             steps {
-                signRPM(params.CLOUD)
+                //signRPM(params.CLOUD)
                 signDEB(params.CLOUD)
             }
         }
