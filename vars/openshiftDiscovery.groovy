@@ -107,17 +107,33 @@ def discoverClusters(Map params = [:]) {
     // Step 3: Consolidate data
     def consolidatedClusters = []
 
-    // Process all unique cluster names
-    def allClusterNames = (s3Clusters.keySet() + awsClusters.keySet()) as Set
+    // Track which S3 clusters have been matched to AWS clusters
+    def matchedS3Clusters = [] as Set
+    def matchedAWSClusters = [] as Set
 
-    allClusterNames.each { clusterName ->
-        def s3Cluster = s3Clusters[clusterName]
-        def awsCluster = awsClusters[clusterName]
+    // First pass: Try to match AWS clusters with S3 clusters
+    // AWS cluster names often have random suffixes (e.g., test-cluster-7-qc8lc)
+    // while S3 stores them with base names (e.g., test-cluster-7)
+    awsClusters.each { awsClusterName, awsCluster ->
+        def matchedS3Name = null
 
-        if (s3Cluster && awsCluster) {
-            // Merge data from both sources
+        // Check if this AWS cluster name starts with any S3 cluster name
+        s3Clusters.each { s3ClusterName, s3Cluster ->
+            // Match if AWS cluster name starts with S3 cluster name followed by a hyphen
+            // This handles the pattern: base-name-randomsuffix
+            if (awsClusterName == s3ClusterName ||
+                awsClusterName.startsWith("${s3ClusterName}-")) {
+                matchedS3Name = s3ClusterName
+                return true // Break out of the inner loop
+            }
+        }
+
+        if (matchedS3Name) {
+            // Found matching S3 backup
+            def s3Cluster = s3Clusters[matchedS3Name]
             def merged = [
-                name: clusterName,
+                name: awsClusterName,  // Use the AWS cluster name (with suffix) as the primary name
+                baseName: matchedS3Name, // Store the base name for reference
                 source: 'combined',
                 status: s3Cluster.status ?: awsCluster.status,
                 metadata: [:],
@@ -130,13 +146,23 @@ def discoverClusters(Map params = [:]) {
             merged.metadata.putAll(s3Cluster.metadata ?: [:])
 
             consolidatedClusters << merged
-        } else if (s3Cluster) {
-            // S3 only - cluster might be deleted but state preserved
-            consolidatedClusters << s3Cluster
-        } else if (awsCluster) {
-            // AWS only - active cluster without S3 backup
+            matchedS3Clusters << matchedS3Name
+            matchedAWSClusters << awsClusterName
+        }
+    }
+
+    // Second pass: Add unmatched AWS clusters (no S3 backup)
+    awsClusters.each { awsClusterName, awsCluster ->
+        if (!matchedAWSClusters.contains(awsClusterName)) {
             awsCluster.s3State = [hasBackup: false]
             consolidatedClusters << awsCluster
+        }
+    }
+
+    // Third pass: Add unmatched S3 clusters (deleted or no AWS resources)
+    s3Clusters.each { s3ClusterName, s3Cluster ->
+        if (!matchedS3Clusters.contains(s3ClusterName)) {
+            consolidatedClusters << s3Cluster
         }
     }
 
@@ -167,24 +193,25 @@ private performAWSResourceDiscovery(String region, String accessKey = null, Stri
         def clusters = [:]
 
         // Set up AWS credentials if provided
-        def awsEnv = [:]
+        def awsEnvVars = []
         if (accessKey && secretKey) {
-            awsEnv['AWS_ACCESS_KEY_ID'] = accessKey
-            awsEnv['AWS_SECRET_ACCESS_KEY'] = secretKey
+            awsEnvVars = ["AWS_ACCESS_KEY_ID=${accessKey}", "AWS_SECRET_ACCESS_KEY=${secretKey}"]
         }
 
         // First, get all VPCs to identify cluster names
-        def vpcOutput = sh(
-            script: """
-                aws resourcegroupstaggingapi get-resources \
-                    --resource-type-filters 'ec2:vpc' \
-                    --region ${region} \
-                    --query 'ResourceTagMappingList[].Tags[?starts_with(Key, `kubernetes.io/cluster/`)].Key' \
-                    --output text 2>/dev/null || echo ''
-            """,
-            returnStdout: true,
-            env: awsEnv
-        ).trim()
+        def vpcOutput = ''
+        withEnv(awsEnvVars) {
+            vpcOutput = sh(
+                script: """
+                    aws resourcegroupstaggingapi get-resources \
+                        --resource-type-filters 'ec2:vpc' \
+                        --region ${region} \
+                        --query 'ResourceTagMappingList[].Tags[?starts_with(Key, `kubernetes.io/cluster/`)].Key' \
+                        --output text 2>/dev/null || echo ''
+                """,
+                returnStdout: true
+            ).trim()
+        }
 
         if (!vpcOutput) {
             return [clusters: [], error: null]
@@ -221,18 +248,20 @@ private performAWSResourceDiscovery(String region, String accessKey = null, Stri
             ]
 
             // Get metadata from first EC2 instance
-            def metadataJson = sh(
-                script: """
-                    aws resourcegroupstaggingapi get-resources \
-                        --resource-type-filters 'ec2:instance' \
-                        --tag-filters 'Key=kubernetes.io/cluster/${clusterName}' \
-                        --region ${region} \
-                        --query 'ResourceTagMappingList[0].Tags' \
-                        --output json 2>/dev/null || echo '[]'
-                """,
-                returnStdout: true,
-                env: awsEnv
-            ).trim()
+            def metadataJson = ''
+            withEnv(awsEnvVars) {
+                metadataJson = sh(
+                    script: """
+                        aws resourcegroupstaggingapi get-resources \
+                            --resource-type-filters 'ec2:instance' \
+                            --tag-filters 'Key=kubernetes.io/cluster/${clusterName}' \
+                            --region ${region} \
+                            --query 'ResourceTagMappingList[0].Tags' \
+                            --output json 2>/dev/null || echo '[]'
+                    """,
+                    returnStdout: true
+                ).trim()
+            }
 
             if (metadataJson && metadataJson != '[]' && metadataJson != 'null') {
                 def tags = new JsonSlurper().parseText(metadataJson)
@@ -266,18 +295,20 @@ private performAWSResourceDiscovery(String region, String accessKey = null, Stri
 
             // Count resources for this cluster
             resourceTypes.each { resourceType, displayName ->
-                def count = sh(
-                    script: """
-                        aws resourcegroupstaggingapi get-resources \
-                            --resource-type-filters '${resourceType}' \
-                            --tag-filters 'Key=kubernetes.io/cluster/${clusterName}' \
-                            --region ${region} \
-                            --query 'ResourceTagMappingList | length(@)' \
-                            --output text 2>/dev/null || echo '0'
-                    """,
-                    returnStdout: true,
-                    env: awsEnv
-                ).trim()
+                def count = ''
+                withEnv(awsEnvVars) {
+                    count = sh(
+                        script: """
+                            aws resourcegroupstaggingapi get-resources \
+                                --resource-type-filters '${resourceType}' \
+                                --tag-filters 'Key=kubernetes.io/cluster/${clusterName}' \
+                                --region ${region} \
+                                --query 'ResourceTagMappingList | length(@)' \
+                                --output text 2>/dev/null || echo '0'
+                        """,
+                        returnStdout: true
+                    ).trim()
+                }
 
                 if (count != '0' && count.isInteger()) {
                     cluster.resources[displayName] = count.toInteger()

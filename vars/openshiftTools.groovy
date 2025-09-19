@@ -540,6 +540,10 @@ def formatClustersSummary(List clusters, String title = "OPENSHIFT CLUSTERS") {
         // Format each cluster
         clusters.each { cluster ->
             summary.append("Cluster: ${cluster.name}\n")
+            // Show base name if it differs from the cluster name (for clusters with random suffixes)
+            if (cluster.baseName && cluster.baseName != cluster.name) {
+                summary.append("  S3 Base Name:   ${cluster.baseName}\n")
+            }
             summary.append("  Version:        ${cluster.version}\n")
             summary.append("  Region:         ${cluster.region}\n")
             summary.append("  Created:        ${cluster.created_at}\n")
