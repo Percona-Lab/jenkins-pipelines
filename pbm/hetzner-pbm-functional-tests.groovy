@@ -74,7 +74,12 @@ pipeline {
                                     if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
                                     docker-compose build
                                     docker-compose up -d
-                                    KMS_ID="${KMS_ID}" docker-compose run test pytest -s --junitxml=junit.xml \$JENKINS_FLAG -k ${TEST} ${params.PYTEST_PARAMS} || true
+                                    if [ -n "${params.PYTEST_PARAMS}" ]; then
+                                        FULL_EXPR="${TEST} and ${params.PYTEST_PARAMS}"
+                                    else
+                                        FULL_EXPR="${TEST}"
+                                    fi
+                                    KMS_ID="${KMS_ID}" docker-compose run test pytest -s --junitxml=junit.xml \$JENKINS_FLAG -k "\$FULL_EXPR" || true
                                     docker-compose down -v --remove-orphans
                                     curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PBM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PBM branch": "${PBM_BRANCH}","PSMDB docker image": "${PSMDB}","instance": "${instance}"}};type=application/json' -i || true
                                 """
