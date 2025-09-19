@@ -153,9 +153,9 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                def ip = sh(script: "hostname -I", returnStdout: true).trim()
-                echo "Runner IP: ${ip}"
                 script {
+                    env.JENKINS_IP = sh(script: "hostname -I", returnStdout: true).trim()
+                    echo "Runner IP: ${env.JENKINS_IP}"
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     env.PMM_UI_URL = params.PMM_UI_URL
                     currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade AMI PMM from ${env.AMI_TAG} to ${env.PMM_SERVER_LATEST}."
