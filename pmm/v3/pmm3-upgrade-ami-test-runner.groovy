@@ -154,7 +154,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    env.JENKINS_IP = sh(script: "hostname -I", returnStdout: true).trim()
+                    env.JENKINS_IP = sh(script: "hostname -I | awk '{print \$1}'", returnStdout: true).trim()
                     echo "Runner IP: ${env.JENKINS_IP}"
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     env.PMM_UI_URL = params.PMM_UI_URL
