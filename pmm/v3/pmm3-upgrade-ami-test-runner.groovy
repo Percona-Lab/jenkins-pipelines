@@ -152,6 +152,10 @@ pipeline {
     }
     stages {
         stage('Prepare') {
+            node {
+                def ip = sh(script: "hostname -I", returnStdout: true).trim()
+                echo "Runner IP: ${ip}"
+            }
             steps {
                 script {
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
