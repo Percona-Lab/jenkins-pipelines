@@ -86,12 +86,13 @@ EOF
                         | tee IP
                     ATTEMPTS=$((ATTEMPTS-1))
                 done
+
                 if [ -s IP ]; then
                     break
-                else
-                    aws ec2 cancel-spot-instance-requests --region us-east-2 --spot-instance-request-ids $REQUEST_ID
-                    PRICE_MULTIPLIER=$((PRICE_MULTIPLIER+1))
                 fi
+
+                aws ec2 cancel-spot-instance-requests --region us-east-2 --spot-instance-request-ids $REQUEST_ID
+                PRICE_MULTIPLIER=$((PRICE_MULTIPLIER+1))
             done
 
             AMI_ID=$(

@@ -54,7 +54,7 @@ pipeline {
             name: 'DAYS'
         )
         text(
-            defaultValue: '-e PMM_DEBUG=1 -e PMM_ENABLE_TELEMETRY=0 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com',
+            defaultValue: '-e PMM_DEBUG=1 -e PMM_ENABLE_TELEMETRY=0',
             description: '''
             Pass environment variables to PMM Server Docker container.
             Example: -e PMM_DEV_TELEMETRY_DISABLE_START_DELAY=1 -e PMM_DEBUG=1
