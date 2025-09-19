@@ -67,7 +67,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
 def versionsList = pmmVersion('v3-ami')
 def amiVersions = versionsList.values()
 def versions = versionsList.keySet()
-def upgradeAmiVersion = amiVersions[0]
+def upgradeAmiVersion = amiVersions[1]
 def latestVersion = versions[versions.size() - 1]
 def upgradeVersion = versions[versions.size() - 2]
 
@@ -122,7 +122,7 @@ pipeline {
             description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
             name: 'DOCKER_TAG_UPGRADE')
         string(
-            defaultValue: '3.0.0',
+            defaultValue: '3.1.0',
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
