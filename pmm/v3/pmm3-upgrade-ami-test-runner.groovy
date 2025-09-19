@@ -368,7 +368,7 @@ pipeline {
         }
         stage('Upgrade PMM client') {
             steps {
-                sh """
+                sh '''
                    containers=\$(docker ps --format "{{ .Names }}")
 
                    for i in \$containers; do
@@ -395,11 +395,11 @@ pipeline {
                            docker exec \$i kill \$pgsql_process_id
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                        elif [[ \$i == *"ps_"* ]]; then
-                           docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                           docker exec \$i apt install -y pmm-client
+                           docker exec -u root \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                           docker exec -u root \$i microdnf install -y pmm-client
                            ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
-                           docker exec \$i kill \$ps_process_id
-                           docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                           docker exec -u root \$i kill \$ps_process_id
+                           docker exec -u root -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                        elif [[ \$i == *"external_pmm"* ]]; then
                            docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
                            docker exec \$i apt install -y pmm-client
@@ -408,7 +408,9 @@ pipeline {
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                        fi
                    done
-                """
+                   sudo percona-release enable pmm3-client $CLIENT_REPOSITORY
+                   sudo dnf install -y pmm-client
+               '''
             }
         }
         stage('Run post pmm client upgrade UI tests') {
