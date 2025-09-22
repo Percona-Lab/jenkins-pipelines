@@ -537,37 +537,38 @@ def formatClustersSummary(List clusters, String title = "OPENSHIFT CLUSTERS") {
     if (clusters.isEmpty()) {
         summary.append("No OpenShift clusters found in this region\n")
     } else {
-        // Format each cluster
+        // Format each cluster with improved field names and alignment
         clusters.each { cluster ->
-            summary.append("Cluster: ${cluster.name}\n")
-            // Show base name if it differs from the cluster name (for clusters with random suffixes)
+            // Primary info (most important)
+            summary.append("Cluster Name:        ${cluster.name}\n")
+
+            // Version and status info
+            summary.append("OpenShift Version:   ${cluster.version}\n")
+            summary.append("Status:              ${getClusterStatus(cluster)}\n")
+            summary.append("PMM Deployed:        ${cluster.pmm_deployed}\n")
+
+            // Metadata
+            summary.append("AWS Region:          ${cluster.region}\n")
+            summary.append("Created:             ${cluster.created_at}\n")
+            summary.append("Created By:          ${cluster.created_by}\n")
+
+            // Technical details
+            summary.append("Data Source:         ${cluster.source}\n")
+            summary.append("S3 Backup:           ${cluster.has_backup}\n")
+            summary.append("Resource Types:      ${cluster.resource_count}\n")
+
+            // Show base name only if it differs (for clusters with random suffixes)
             if (cluster.baseName && cluster.baseName != cluster.name) {
-                summary.append("  S3 Base Name:   ${cluster.baseName}\n")
+                summary.append("S3 Base Name:        ${cluster.baseName}\n")
             }
-            summary.append("  Version:        ${cluster.version}\n")
-            summary.append("  Region:         ${cluster.region}\n")
-            summary.append("  Created:        ${cluster.created_at}\n")
-            summary.append("  Created By:     ${cluster.created_by}\n")
-            summary.append("  PMM Deployed:   ${cluster.pmm_deployed}\n")
-            summary.append("  Data Source:    ${cluster.source}\n")
-            summary.append("  S3 Backup:      ${cluster.has_backup}\n")
-            summary.append("  Resource Types: ${cluster.resource_count}\n")
-            summary.append("  Status:         ${getClusterStatus(cluster)}\n")
             summary.append("-" * 80).append("\n")
         }
 
-        // Legend
+        // Legend (more concise)
         summary.append("\nLEGEND:\n")
-        summary.append("  Data Source:\n")
-        summary.append("    - combined  = Found in both S3 and AWS (normal)\n")
-        summary.append("    - s3        = Only in S3 (cluster may be deleted)\n")
-        summary.append("    - aws-tags  = Only in AWS (missing S3 backup!)\n")
-        summary.append("\n")
-        summary.append("  S3 Backup:\n")
-        summary.append("    - Yes = Cluster state saved to S3\n")
-        summary.append("    - No  = No S3 backup (may indicate failed creation/deletion)\n")
-        summary.append("\n")
-        summary.append("  Resource Types = Number of different AWS resource types for the cluster\n")
+        summary.append("  Data Source:    combined = S3+AWS (normal) | s3 = S3 only | aws-tags = AWS only\n")
+        summary.append("  S3 Backup:      Yes = State saved | No = Missing backup\n")
+        summary.append("  Resource Types: Number of AWS resource types for the cluster\n")
     }
 
     return summary.toString()
