@@ -60,6 +60,9 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
             docker network connect pmm-qa pmm-server
             docker network connect pmm-qa watchtower
 
+            yum install python3 -y
+            python3 --version
+
             sudo mkdir -p /srv/qa-integration
             sudo chmod -R 755 /srv/qa-integration
             pushd  /srv/qa-integration
