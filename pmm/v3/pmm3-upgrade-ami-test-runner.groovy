@@ -70,6 +70,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
 
             pushd  /srv/qa-integration
                 sudo git clone --single-branch --branch ${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+            pushd  /srv/qa-integration/pmm_qa
 
             mkdir -m 777 -p /tmp/backup_data
             python3 -m venv virtenv
