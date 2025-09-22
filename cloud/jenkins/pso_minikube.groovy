@@ -145,8 +145,11 @@ void initTests() {
     withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret.yml
         """
     }
+
+    stash includes: "source/**", name: "sourceFILES"
 }
 
 void clusterRunner(String cluster) {
@@ -166,6 +169,7 @@ void clusterRunner(String cluster) {
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
+    clusters.add("$CLUSTER_SUFFIX")
     sh """
         echo "Creating cluster $CLUSTER_SUFFIX"
         export CHANGE_MINIKUBE_NONE_USER=true
@@ -292,7 +296,7 @@ pipeline {
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
     }
     agent {
-        label 'docker-32gb'
+        label 'docker'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
@@ -323,9 +327,19 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
+                    agent { label 'docker' }
                     steps {
                         prepareAgent()
+                        unstash "sourceFILES"
                         clusterRunner('cluster1')
+                    }
+                }
+                stage('cluster2') {
+                    agent { label 'docker' }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster2')
                     }
                 }
             }
