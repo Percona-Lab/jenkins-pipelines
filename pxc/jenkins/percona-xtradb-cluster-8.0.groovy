@@ -85,11 +85,11 @@ pipeline {
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
-            choices: 'laboratory\ntesting\nexperimental',
+            choices: 'testing\nexperimental\nlaboratory',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
         choice(
-            choices: '#releases\n#releases-ci',
+            choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
             name: 'SLACKNOTIFY')
     }
