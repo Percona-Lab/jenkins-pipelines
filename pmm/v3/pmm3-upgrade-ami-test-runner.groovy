@@ -64,12 +64,13 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
             python3 --version
 
             sudo mkdir -p /srv/qa-integration
-            sudo chmod -R 755 /srv/qa-integration
-            sudo chown -R \$(id -u):\$(id -u) /srv/qa-integration
+
             ls /srv/qa-integration
 
             pushd  /srv/qa-integration
                 sudo git clone --single-branch --branch ${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+            sudo chmod -R 755 /srv/qa-integration
+            sudo chown -R \$(id -u):\$(id -u) /srv/qa-integration
             pushd  /srv/qa-integration/pmm_qa
 
             mkdir -m 777 -p /tmp/backup_data
