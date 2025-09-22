@@ -71,7 +71,10 @@ RUN set -euo pipefail && \
     GC_LATEST=$(curl -sSL https://dl.google.com/dl/cloudsdk/channels/rapid/components-2.json | jq -r '.version') && \
     install_dependency "https://dl.google.com/dl/cloudsdk/channels/rapid/downloads/google-cloud-cli-${GC_LATEST}-linux-x86_64.tar.gz" "0" "" "0" && \
     "${HOME}/.local/bin/google-cloud-sdk/install.sh" --quiet && \
-    "${HOME}/.local/bin/google-cloud-sdk/bin/gcloud" components install gke-gcloud-auth-plugin --quiet && gcloud --version
+    "${HOME}/.local/bin/google-cloud-sdk/bin/gcloud" components install gke-gcloud-auth-plugin --quiet && gcloud --version && \
+    # Minikube
+    install_dependency "https://storage.googleapis.com/minikube/releases/latest/minikube-linux-${TARGETARCH}" && \
+    mv "$HOME/.local/bin/minikube-linux-${TARGETARCH}" "$HOME/.local/bin/minikube" && minikube version
 
 # Azure cli requires root
 USER root
