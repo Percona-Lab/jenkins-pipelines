@@ -60,11 +60,11 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
             docker network connect pmm-qa pmm-server
             docker network connect pmm-qa watchtower
 
-            sudo mkdir -p /srv/qa-integration || true
+            sudo mkdir -p /srv/qa-integration
             sudo chmod -R 755 /srv/qa-integration
             pushd  /srv/qa-integration
                 sudo git clone --single-branch --branch ${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-            echo "Setting up S3 bucket"
+
             mkdir -m 777 -p /tmp/backup_data
             python3 -m venv virtenv
             . virtenv/bin/activate
