@@ -60,6 +60,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
             docker network connect pmm-qa pmm-server
             docker network connect pmm-qa watchtower
 
+            sudo mkdir -p /srv/qa-integration || true
             pushd  /srv/qa-integration
                 sudo git clone --single-branch --branch ${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
             popd
