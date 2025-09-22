@@ -331,26 +331,6 @@ pipeline {
                 }
             }
         }
-        // This staging instance currently sees no use
-        // stage('Launch a staging instance') {
-        //     when {
-        //         expression { env.REMOVE_RELEASE_BRANCH == "no"}
-        //     }            
-        //     steps {
-        //         script {
-        //             pmmStaging = build job: 'pmm3-aws-staging-start', propagate: false, parameters: [
-        //                 string(name: 'DOCKER_VERSION', value: "perconalab/pmm-server:${VERSION}-rc"),
-        //                 string(name: 'CLIENT_VERSION', value: "pmm-rc"),
-        //                 string(name: 'ENABLE_TESTING_REPO', value: "yes"),
-        //                 string(name: 'ENABLE_EXPERIMENTAL_REPO', value: "no"),
-        //                 string(name: 'NOTIFY', value: "false"),
-        //                 string(name: 'DAYS', value: "14")
-        //             ]
-        //             env.IP = pmmStaging.buildVariables.IP
-        //             env.TEST_URL = env.IP ? "Testing environment (14d): https://${env.IP}" : ""
-        //         }
-        //     }
-        // }
         stage('Scan image for vulnerabilities') {
             when {
                 expression { env.REMOVE_RELEASE_BRANCH == "no"}
