@@ -41,23 +41,23 @@ pipeline {
             description: 'URL for ppg-server repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: 'release-17.5.3',
+            defaultValue: 'TDE_REL_17_STABLE',
             description: 'Tag/Branch for postgresql',
             name: 'PG_BRANCH')
         string(
-            defaultValue: '17.5.2',
+            defaultValue: '17.6',
             description: 'Tag/Branch for ppg-server repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '3',
+            defaultValue: '1',
             description: 'RPM release value',
             name: 'RPM_RELEASE')
         string(
-            defaultValue: '3',
+            defaultValue: '1',
             description: 'DEB release value',
             name: 'DEB_RELEASE')
         string(
-            defaultValue: 'ppg-17.5',
+            defaultValue: 'ppg-17.6',
             description: 'PPG repo name',
             name: 'PPG_REPO')
         choice(
