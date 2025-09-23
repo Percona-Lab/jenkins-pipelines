@@ -169,7 +169,6 @@ void clusterRunner(String cluster) {
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
-    clusters.add("$CLUSTER_SUFFIX")
     sh """
         echo "Creating cluster $CLUSTER_SUFFIX"
         export CHANGE_MINIKUBE_NONE_USER=true
