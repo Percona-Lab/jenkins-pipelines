@@ -326,7 +326,7 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
-                    agent { label 'docker' }
+                    agent { label 'docker-32gb' }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
@@ -334,7 +334,7 @@ pipeline {
                     }
                 }
                 stage('cluster2') {
-                    agent { label 'docker' }
+                    agent { label 'docker-32gb' }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
