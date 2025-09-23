@@ -61,38 +61,8 @@ void prepareSources() {
     CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
 }
 
-void prepareAgent() {
-    echo "=========================[ Installing tools on the Jenkins executor ]========================="
-    sh """
-        sudo curl -sLo /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
-        kubectl version --client --output=yaml
-
-        curl -fsSL https://get.helm.sh/helm-v3.18.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-
-        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
-        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
-
-        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
-        ./krew-linux_amd64 install krew
-        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-
-        kubectl krew install assert
-
-        # v0.22.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
-        echo \$(kubectl kuttl --version) is installed
-
-        sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
-[google-cloud-cli]
-name=Google Cloud CLI
-baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-        sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
-    """
+void authenticate() {
+    echo "=========================[ Authenticating with Google Cloud ]========================="
 
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
@@ -110,12 +80,10 @@ void dockerBuildPush() {
                 echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
-                sg docker -c "
-                    docker login -u '$USER' -p '$PASS'
-                    export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
-                    make build-docker-image
-                    docker logout
-                "
+                docker login -u '$USER' -p '$PASS'
+                export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
+                make build-docker-image
+                docker logout
                 sudo rm -rf build
             fi
         """
@@ -352,6 +320,15 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     }
 }
 
+def dockerAgent(image) {
+    return docker {
+        label "docker"
+        image "${image}"
+        args '-v /var/run/docker.sock:/var/run/docker.sock --group-add 992  -e CLOUDSDK_CONFIG=/tmp/gcloud-config'
+        alwaysPull true
+    }
+}
+
 pipeline {
     environment {
         DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg17", , returnStdout: true).trim()
@@ -377,10 +354,9 @@ pipeline {
         string(name: 'IMAGE_UPGRADE', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-upgrade')
         string(name: 'GKE_REGION', defaultValue: 'us-central1-c', description: 'GKE region to use for cluster')
         choice(name: 'SKIP_TEST_WARNINGS', choices: 'false\ntrue', description: 'Skip test warnings that requires release documentation')
+        string(name: 'IMAGE_PIPELINE', defaultValue: 'perconalab/cloud-qa:latest', description: 'ex: perconalab/cloud-qa:latest')
     }
-    agent {
-        label 'docker'
-    }
+    agent dockerAgent(params.IMAGE_PIPELINE)
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
@@ -390,9 +366,13 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
-                script { deleteDir() }
+                script { 
+                    sh """
+                        sudo rm -rf *
+                    """ 
+                }
                 prepareSources()
-                prepareAgent()
+                authenticate()
             }
         }
         stage('Docker Build and Push') {
@@ -411,41 +391,33 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
-                    agent {
-                        label 'docker'
-                    }
+                    agent dockerAgent(params.IMAGE_PIPELINE)
                     steps {
-                        prepareAgent()
+                        authenticate()
                         unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
                 }
                 stage('cluster2') {
-                    agent {
-                        label 'docker'
-                    }
+                    agent dockerAgent(params.IMAGE_PIPELINE)
                     steps {
-                        prepareAgent()
+                        authenticate()
                         unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
                 }
                 stage('cluster3') {
-                    agent {
-                        label 'docker'
-                    }
+                    agent dockerAgent(params.IMAGE_PIPELINE)
                     steps {
-                        prepareAgent()
+                        authenticate()
                         unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
                 }
                 stage('cluster4') {
-                    agent {
-                        label 'docker'
-                    }
+                    agent dockerAgent(params.IMAGE_PIPELINE)
                     steps {
-                        prepareAgent()
+                        authenticate()
                         unstash "sourceFILES"
                         clusterRunner('cluster4')
                     }
@@ -468,7 +440,7 @@ pipeline {
                 clusters.each { shutdownCluster(it) }
             }
             sh """
-                sudo docker system prune --volumes -af
+                docker system prune --volumes -af
                 sudo rm -rf *
             """
             deleteDir()
