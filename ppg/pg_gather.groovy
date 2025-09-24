@@ -304,8 +304,7 @@ pipeline {
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                    }
-                }*/
+                    }*/
                 stage('Debian trixie(13) AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -331,7 +330,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
-                
+                }
             }
         }
 
