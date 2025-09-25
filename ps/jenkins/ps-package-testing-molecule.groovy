@@ -1,132 +1,95 @@
 
 
-    library changelog: false, identifier: "lib@master", retriever: modernSCM([
-        $class: 'GitSCMSource',
-        remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
-    ])
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+])
 
-    pipeline {
-    agent {
-        label 'min-bookworm-x64'
-    }
-    environment {
-        product_to_test = "${params.product_to_test}"
-        git_repo = "${params.git_repo}"
-        install_repo = "${params.install_repo}"
-        action_to_test  = "${params.action_to_test}"
-        check_warnings = "${params.check_warnings}"
-        install_mysql_shell = "${params.install_mysql_shell}"
-    }
-    parameters {
-        choice(
-            choices: ['ps_80', 'ps_84', 'ps_lts_innovation','client_test'],
-            description: 'Choose the product version to test: PS8.0 OR ps_lts_innovation',
-            name: 'product_to_test'
-        )
-        choice(
-            choices: ['testing', 'main', 'experimental'],
-            description: 'Choose the repo to install packages and run the tests',
-            name: 'install_repo'
-        )
-        string(
-            defaultValue: 'https://github.com/Percona-QA/package-testing.git',
-            description: 'repo name',
-            name: 'git_repo',
-            trim: false
-        )
-        string(
-            defaultValue: 'master',
-            description: 'Branch name',
-            name: 'git_branch',
-            trim: false
-        )
-        choice(
-            choices: [
-                'install',
-                'upgrade',
-                'major_upgrade_to',
-                'kmip',
-                'kms'
-            ],
-            description: 'Action To Test',
-            name: 'action_to_test'
-        )
-        choice(
-            choices: [
-                'yes',
-                'no',
-            ],
-            description: 'check_warnings',
-            name: 'check_warnings'
-        )
-        choice(
-            choices: [
-                'yes',
-                'no'
-            ],
-            description: 'Install MySQL Shell',
-            name: 'install_mysql_shell'
-        )
-    }
-    options {
-        withCredentials(moleculePdpsJenkinsCreds())
-    }
 
-        stages {
-            stage('Set Build Name'){
-                steps {
-                    script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${product_to_test}-${action_to_test}"
-                    }
+def ps90PackageTesting() {
+    return [
+        'ubuntu-noble',
+        'ubuntu-noble-arm'
+    ]
+}
+
+def ps80PackageTesting() {
+    return [
+        'debian-11',
+        'debian-11-arm',
+        'debian-12',
+        'debian-12-arm',
+        'oracle-8',
+        'oracle-9',
+        'rhel-9',
+        'rhel-8-arm',
+        'rhel-9-arm',
+        'ubuntu-jammy',
+        'ubuntu-jammy-arm',
+        'ubuntu-focal',
+        'ubuntu-focal-arm',
+        'ubuntu-noble',
+        'ubuntu-noble-arm'
+    ]
+}
+
+def ps84PackageTesting() {
+    return [
+        'debian-11',
+        'debian-11-arm',
+        'debian-12',
+        'debian-12-arm',
+        'oracle-8',
+        'oracle-9',
+        'rhel-9',
+        'rhel-10',
+        'rhel-8-arm',
+        'rhel-9-arm',
+        'rhel-10-arm',
+        'ubuntu-jammy',
+        'ubuntu-jammy-arm',
+        'ubuntu-focal',
+        'ubuntu-focal-arm',
+        'ubuntu-noble',
+        'ubuntu-noble-arm'
+    ]
+}
+
+def ps57PackageTesting() {
+    return [
+        "debian-10",
+        "centos-7",
+        "oracle-8",
+        "ubuntu-bionic",
+        "ubuntu-focal",
+        "amazon-linux-2",
+        "ubuntu-jammy",
+        "oracle-9",
+        "debian-12"
+    ]
+}
+
+List allOS = ps90PackageTesting() + ps80PackageTesting() + ps84PackageTesting() + ps57PackageTesting()
+
+def moleculeParallelTestALL(allOS, operatingSystems, moleculeDir) {
+    def tests = [:]
+    allOS.each { os ->
+        tests["${os}"] = {
+            stage("${os}") {
+                if (operatingSystems.contains(os)) {
+                    sh """
+                        . virtenv/bin/activate
+                        cd ${moleculeDir}
+                        molecule test -s ${os}
+                    """
+                } else {
+                    echo "Skipping ${os} as it's not in operatingSystems"
                 }
             }
-
-            stage('Checkout') {
-                steps {
-                    deleteDir()
-                    git poll: false, branch: "${params.git_branch}", url: "${params.git_repo}"      }
-            }
-
-            stage('Prepare') {
-                steps {
-                    script {
-                        installMolecule()
-                    }
-                }
-            }
-             stage('RUN TESTS') {
-                        steps {
-                            script {
-                                if (action_to_test == 'install') {
-                                    sh """
-                                        echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
-                                    """
-                                } else {
-                                    sh """
-                                        echo PLAYBOOK_VAR="${product_to_test}_${action_to_test}" > .env.ENV_VARS
-                                    """
-                                }
-
-                                def envMap = loadEnvFile('.env.ENV_VARS')
-                                withEnv(envMap) {
-                                    if (product_to_test == "ps_lts_innovation") {
-                                    moleculeParallelTestPS(ps90PackageTesting(), "molecule/ps/")
-                                  } 
-                                    else {
-                                    moleculeParallelTestPS(psPackageTesting(), "molecule/ps/")
-                                }
-                                }
-                            }
-                        }
-            }
-        }
-
-    post {
-        always {
-            deleteBuildInstances()
         }
     }
-    }
+    parallel tests
+}
 
 def deleteBuildInstances(){
     script {
@@ -216,13 +179,6 @@ def installMolecule() {
         """
 }
 
-def ps90PackageTesting() {
-    return [
-        'ubuntu-noble', 'ubuntu-noble-arm'
-    ]
-}
-
-
 def loadEnvFile(envFilePath) {
     def envMap = []
     def envFileContent = readFile(file: envFilePath).trim().split('\n')
@@ -236,3 +192,143 @@ def loadEnvFile(envFilePath) {
     }
     return envMap
 }
+
+
+
+pipeline {
+    agent {
+        label 'min-bookworm-x64'
+    }
+    environment {
+        product_to_test = "${params.product_to_test}"
+        git_repo = "${params.git_repo}"
+        install_repo = "${params.install_repo}"
+        action_to_test  = "${params.action_to_test}"
+        check_warnings = "${params.check_warnings}"
+        install_mysql_shell = "${params.install_mysql_shell}"
+        EOL="${params.EOL}"
+    }
+    parameters {
+        choice(
+            choices: ['ps_57','ps_80', 'ps_84', 'ps_lts_innovation','client_test'],
+            description: 'Choose the product version to test: PS8.0 OR ps_lts_innovation',
+            name: 'product_to_test'
+        )
+        choice(
+            choices: ['testing', 'main', 'experimental'],
+            description: 'Choose the repo to install packages and run the tests',
+            name: 'install_repo'
+        )
+        string(
+            defaultValue: 'https://github.com/Percona-QA/package-testing.git',
+            description: 'repo name',       
+            name: 'git_repo',
+            trim: false
+        )
+        string(
+            defaultValue: 'master',
+            description: 'Branch name',
+            name: 'git_branch',
+            trim: false
+        )
+        choice(
+            choices: [
+                'install',
+                'upgrade',
+                'major_upgrade_from',
+                'kmip',
+                'kms'
+            ],
+            description: 'Action To Test',
+            name: 'action_to_test'
+        )
+        choice(
+            name: "EOL",
+            choices: ["yes", "no"],
+            description: "EOL version or Normal"
+        )
+        choice(
+            choices: [
+                'yes',
+                'no',
+            ],
+            description: 'check_warnings',
+            name: 'check_warnings'
+        )
+        choice(
+            choices: [
+                'yes',
+                'no'
+            ],
+            description: 'Install MySQL Shell',
+            name: 'install_mysql_shell'
+        )
+    }
+    options {
+        withCredentials(moleculePdpsJenkinsCreds())
+    }
+        stages {
+            stage('Set Build Name'){
+                steps {
+                    script {
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${product_to_test}-${action_to_test}"
+                    }
+                }
+            }
+            stage('Checkout') {
+                steps {
+                    deleteDir()
+                    git poll: false, branch: "${params.git_branch}", url: "${params.git_repo}"      }
+            }
+            stage('Prepare') {
+                steps {
+                    script {
+                        installMolecule()
+                    }
+                }
+            }
+            stage('RUN TESTS') {
+                        steps {
+                            script {
+                                if (action_to_test == 'install') {
+                                    sh """
+                                        echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
+                                    """
+                                } 
+                                else {
+                                    sh """
+                                        echo PLAYBOOK_VAR="${product_to_test}_${action_to_test}" > .env.ENV_VARS
+                                    """
+                                }
+                                def envMap = loadEnvFile('.env.ENV_VARS')
+                                withEnv(envMap) {
+                                    if (product_to_test == "ps_lts_innovation") {
+                                        moleculeParallelTestALL(allOS, ps90PackageTesting(), "molecule/ps/")
+                                    } 
+                                    else if (product_to_test == "ps_57") {
+                                        withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                                            moleculeParallelTestALL(allOS, ps57PackageTesting(), "molecule/ps/")
+                                        }
+                                    }
+                                    else if (product_to_test == "ps_80") {
+                                        moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
+                                    }
+                                    else if (product_to_test == "ps_84") {
+                                        moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
+                                    }
+                                    else {
+                                        error("Unsupported product_to_test: ${product_to_test}")
+                                    }
+                                }
+                            }
+                        }
+            }
+        }
+    post {
+        always {
+            deleteBuildInstances()
+            echo "Pipeline completed."
+        }
+    }
+}
+
