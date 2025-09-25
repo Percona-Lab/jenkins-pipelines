@@ -337,7 +337,7 @@ pipeline {
 
         stage('Sign packages') {
             steps {
-                signRPM(params.CLOUD)
+                //signRPM(params.CLOUD)
                 signDEB(params.CLOUD)
             }
         }
