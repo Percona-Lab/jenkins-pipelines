@@ -172,7 +172,7 @@ void createCluster(String CLUSTER_SUFFIX) {
     sh """
         echo "Creating cluster $CLUSTER_SUFFIX"
         export CHANGE_MINIKUBE_NONE_USER=true
-        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G --force
+        minikube start --driver=docker --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G --force
     """
 }
 
