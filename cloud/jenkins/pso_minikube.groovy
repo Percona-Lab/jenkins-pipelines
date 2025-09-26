@@ -294,7 +294,7 @@ pipeline {
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner','AWS'], description: 'Cloud infra for build')
-        choice(name: 'DOCKER_IMAGE', defaultValue: 'perconalab/cloud-qa:latest', description: 'Docker image for build')
+        string(name: 'DOCKER_IMAGE', defaultValue: 'perconalab/cloud-qa:latest', description: 'Docker image for build')
     }
     agent {
         label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
