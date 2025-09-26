@@ -169,10 +169,6 @@ pipeline {
             defaultValue: 'PMM-14156-ami-ovf',
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
-        choice(
-            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"],
-            description: 'Subset of tests for the upgrade',
-            name: 'UPGRADE_FLAG')
     }
     options {
         skipDefaultCheckout()
@@ -188,7 +184,7 @@ pipeline {
                     echo "Runner IP: ${env.JENKINS_IP_2}"
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     env.PMM_UI_URL = params.PMM_UI_URL
-                    currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade AMI PMM from ${env.AMI_TAG} to ${env.PMM_SERVER_LATEST}."
+                    currentBuild.description = "Upgrade AMI PMM from ${env.AMI_TAG} to ${env.PMM_SERVER_LATEST}."
                 }
                 git poll: false,
                     branch: PMM_UI_GIT_BRANCH,
@@ -205,45 +201,6 @@ pipeline {
                     sudo chown $(id -u):$(id -u) -R /srv/qa-integration
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
                 '''
-            }
-        }
-        stage('Select subset of tests') {
-            steps {
-                script {
-                    if (env.UPGRADE_FLAG == "SSL") {
-                        env.PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-ssl-upgrade"
-                        env.PMM_CLIENTS = "--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql"
-                    } else if (env.UPGRADE_FLAG == "EXTERNAL SERVICES") {
-                        env.PRE_UPGRADE_FLAG = "@pre-external-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-external-upgrade"
-                        env.PMM_CLIENTS = "--database external --database ps --database pdpgsql --database psmdb --database pxc"
-                    } else if (env.UPGRADE_FLAG == "MONGO BACKUP") {
-                        env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
-                        env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss,COMPOSE_PROFILES=extra"
-                    } else if (env.UPGRADE_FLAG == "CUSTOM PASSWORD") {
-                        env.PRE_UPGRADE_FLAG = "@pre-custom-password-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-custom-password-upgrade"
-                        env.PMM_CLIENTS = "--database ps --database pgsql --database psmdb"
-                    } else if (env.UPGRADE_FLAG == "CUSTOM DASHBOARDS") {
-                        env.PRE_UPGRADE_FLAG = "@pre-dashboards-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-dashboards-upgrade"
-                        env.PMM_CLIENTS = "--help"
-                    } else if (env.UPGRADE_FLAG == "ANNOTATIONS-PROMETHEUS") {
-                        env.PRE_UPGRADE_FLAG = "@pre-annotations-prometheus-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-annotations-prometheus-upgrade"
-                        env.PMM_CLIENTS = "--database ps --database pgsql --database psmdb"
-                    } else if (env.UPGRADE_FLAG == "ADVISORS-ALERTING") {
-                        env.PRE_UPGRADE_FLAG = "@pre-advisors-alerting-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-advisors-alerting-upgrade"
-                        env.PMM_CLIENTS = "--help"
-                    } else if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
-                        env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade"
-                        env.PMM_CLIENTS = "--database pgsql --database ps --database psmdb"
-                    }
-                }
             }
         }
         stage('Start AMI server Instance') {
@@ -299,46 +256,9 @@ pipeline {
                         --pmm-server-ip=\${SERVER_IP} \
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
-                        \${PMM_CLIENTS}
+                        --database ps --database pgsql --database psmdb
                     popd
                 '''
-            }
-        }
-        stage('Setup Custom queries') {
-            steps {
-                script {
-                    if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
-                        sh '''
-                            containers=$(docker ps -a)
-                            echo $containers
-                            psContainerName=$(docker ps -a --format "{{.Names}}" | grep "ps_pmm")
-                            echo "$psContainerName"
-                            pgsqlContainerName=$(docker ps -a --format "{{.Names}}" | grep "pgsql_pg")
-                            echo "$pgsqlContainerName"
-                            echo "Creating Custom Queries"
-                            git clone https://github.com/Percona-Lab/pmm-custom-queries
-                            docker cp pmm-custom-queries/mysql/. $psContainerName:/usr/local/percona/pmm/collectors/custom-queries/mysql/high-resolution/
-                            echo "Adding Custom Queries for postgres"
-                            docker cp pmm-custom-queries/postgresql/. $pgsqlContainerName:/usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
-                            echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
-                            sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
-                            docker exec $psContainerName pkill -f mysqld_exporter
-                            docker exec $pgsqlContainerName pkill -f postgres_exporter
-                            docker exec $pgsqlContainerName pmm-admin list
-                            docker exec $psContainerName pmm-admin list
-                            sudo pkill -f node_exporter
-                            sleep 5
-                            echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
-                            docker ps -a --format "{{.Names}}"
-
-                            docker exec $psContainerName pmm-admin list | grep mysqld_exporter
-
-                            psAgentId=$(docker exec $psContainerName pmm-admin list | grep mysqld_exporter | awk -F' ' '{ print $4 }')
-                            psAgentPort=$(docker exec $psContainerName pmm-admin list | grep mysqld_exporter | awk -F' ' '{ print $6 }')
-                            echo $psAgentPort
-                        '''
-                    }
-                }
             }
         }
         stage('Sleep') {
@@ -375,7 +295,7 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep \${PRE_UPGRADE_FLAG}
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep @ami-ovf-pre-upgrade
                     '''
                 }
             }
@@ -403,7 +323,7 @@ pipeline {
                 }
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep @ami-ovf-post-upgrade
                     '''
                 }
             }
@@ -459,7 +379,7 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep \${POST_UPGRADE_FLAG}
+                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep @ami-ovf-post-upgrade
                     '''
                 }
             }
