@@ -38,30 +38,6 @@ void downloadKubectl() {
     """
 }
 
-void prepareAgent() {
-    echo "=========================[ Installing tools on the Jenkins executor ]========================="
-    sh """
-        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.45.4/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
-        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
-
-    """
-    downloadKubectl()
-    sh """
-        curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
-        ./krew-linux_amd64 install krew
-        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-
-        kubectl krew install assert
-
-        # v0.22.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
-        echo \$(kubectl kuttl --version) is installed
-
-        sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
-    """
-}
-
 void initParams() {
     if ("$PILLAR_VERSION" != "none") {
         echo "=========================[ Getting parameters for release test ]========================="
@@ -318,6 +294,7 @@ pipeline {
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner','AWS'],description: 'Cloud infra for build')
+        choice(name: 'DOCKER_IMAGE',defaultValue: 'perconalab/cloud-qa:latest',description: 'Docker image for build')
     }
     agent {
         label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -351,17 +328,27 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
-                    agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64' : 'docker-32gb' }
+                    agent {
+                        docker {
+                            label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                            image params.DOCKER_IMAGE
+                            args '''-u 0:0 -v /var/run/docker.sock:/var/run/docker.sock'''
+                        }
+                    }
                     steps {
-                        prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
                 }
                 stage('cluster2') {
-                    agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64' : 'docker-32gb' }
+                    agent {
+                        docker {
+                            label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                            image params.DOCKER_IMAGE
+                            args '''-u 0:0 -v /var/run/docker.sock:/var/run/docker.sock'''
+                        }
+                    }
                     steps {
-                        prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
@@ -376,11 +363,11 @@ pipeline {
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml,*.txt'
 
-            script {
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
-                }
-            }
+            // script {
+            //     if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
+            //         slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+            //     }
+            // }
             sh """
                     sudo docker system prune --volumes -af
                     sudo rm -rf *
