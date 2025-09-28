@@ -1,8 +1,8 @@
 
 
-    library changelog: false, identifier: "lib@master", retriever: modernSCM([
+    library changelog: false, identifier: "lib@rhel10-ps", retriever: modernSCM([
         $class: 'GitSCMSource',
-        remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+        remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
     ])
 
     pipeline {
