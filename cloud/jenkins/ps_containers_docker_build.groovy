@@ -27,6 +27,10 @@ void build(String IMAGE_POSTFIX){
             docker build --no-cache --squash --progress plain \
                 -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
                 -f ./percona-server-8.4/Dockerfile ./percona-server-8.4
+        elif [ "${IMAGE_POSTFIX}" == "router8.4" ]; then
+            docker build --no-cache --squash --progress plain \
+                -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
+                -f ./mysql-router/Dockerfile.84 ./mysql-router
         elif [ "${IMAGE_POSTFIX}" == "toolkit" ]; then
             docker build --no-cache --squash --progress plain \
                 -t perconalab/percona-server-mysql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
@@ -56,6 +60,8 @@ void checkImageForDocker(String IMAGE_SUFFIX){
                     elif [ ${IMAGE_SUFFIX} = haproxy ]; then
                         PATH_TO_DOCKERFILE="source/haproxy"
                     elif [ ${IMAGE_SUFFIX} = router8.0 ]; then
+                        PATH_TO_DOCKERFILE="source/mysql-router"
+                    elif [ ${IMAGE_SUFFIX} = router8.4 ]; then
                         PATH_TO_DOCKERFILE="source/mysql-router"
                     elif [ ${IMAGE_SUFFIX} = orchestrator ]; then
                         PATH_TO_DOCKERFILE="source/orchestrator"
@@ -186,6 +192,9 @@ pipeline {
                     build('router8.0')
                 }
                 retry(3) {
+                    build('router8.4')
+                }
+                retry(3) {
                     build('psmysql8.0')
                 }
                 retry(3) {
@@ -205,6 +214,7 @@ pipeline {
                 pushImageToDocker('backup8.0')
                 pushImageToDocker('backup8.4')
                 pushImageToDocker('router8.0')
+                pushImageToDocker('router8.4')
                 pushImageToDocker('psmysql8.0')
                 pushImageToDocker('psmysql8.4')
                 pushImageToDocker('toolkit')
@@ -231,6 +241,11 @@ pipeline {
                 stage('router8.0'){
                     steps {
                         checkImageForDocker('router8.0')
+                    }
+                }
+                stage('router8.4'){
+                    steps {
+                        checkImageForDocker('router8.4')
                     }
                 }
                 stage('psmysql8.0'){

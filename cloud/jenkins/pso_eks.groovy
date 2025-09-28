@@ -14,17 +14,40 @@ String getParam(String paramName, String keyName = null) {
     return param
 }
 
+void downloadKubectl() {
+    sh """
+        KUBECTL_VERSION="\$(curl -L -s https://api.github.com/repos/kubernetes/kubernetes/releases/latest | jq -r .tag_name)"
+        for i in {1..5}; do
+          if [ -f /usr/local/bin/kubectl ]; then
+              break
+          fi
+          echo "Attempt \$i: downloading kubectl..."
+          sudo curl -s -L -o /usr/local/bin/kubectl "https://dl.k8s.io/release/\${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          sudo curl -s -L -o /tmp/kubectl.sha256 "https://dl.k8s.io/release/\${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256"
+
+          if echo "\$(cat /tmp/kubectl.sha256) /usr/local/bin/kubectl" | sha256sum --check --status; then
+            echo 'Download passed checksum'
+            sudo chmod +x /usr/local/bin/kubectl
+            kubectl version --client --output=yaml
+            break
+          else
+            echo 'Checksum failed, retrying...'
+            sudo rm -f /usr/local/bin/kubectl /tmp/kubectl.sha256
+            sleep 5
+          fi
+        done
+    """
+}
+
 void prepareAgent() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
-        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
-        kubectl version --client --output=yaml
-
-        curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.45.4/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
-
+    """
+    downloadKubectl()
+    sh """
+        curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
         curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
         ./krew-linux_amd64 install krew
         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
@@ -376,6 +399,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
 pipeline {
     environment {
         DB_TAG = sh(script: "[[ \$IMAGE_MYSQL ]] && echo \$IMAGE_MYSQL | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
+        PMM_TELEMETRY_TOKEN = credentials('PMM-CHECK-DEV-TOKEN')
     }
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
@@ -395,9 +419,10 @@ pipeline {
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'EKS_REGION', defaultValue: 'eu-west-2', description: 'EKS region to use for cluster')
+        choice(name: 'JENKINS_AGENT', choices: ['Hetzner','AWS'],description: 'Cloud infra for build')
     }
     agent {
-        label 'docker'
+        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
@@ -429,7 +454,7 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
-                    agent { label 'docker' }
+                    agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker' }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
@@ -437,7 +462,7 @@ pipeline {
                     }
                 }
                 stage('cluster2') {
-                    agent { label 'docker' }
+                    agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker' }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
@@ -445,7 +470,7 @@ pipeline {
                     }
                 }
                 stage('cluster3') {
-                    agent { label 'docker' }
+                    agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker' }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"
@@ -453,7 +478,7 @@ pipeline {
                     }
                 }
                 stage('cluster4') {
-                    agent { label 'docker' }
+                    agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker' }
                     steps {
                         prepareAgent()
                         unstash "sourceFILES"

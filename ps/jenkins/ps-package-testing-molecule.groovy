@@ -94,7 +94,7 @@
                     }
                 }
             }
-            stage('RUN TESTS') {
+             stage('RUN TESTS') {
                         steps {
                             script {
                                 if (action_to_test == 'install') {
@@ -109,9 +109,13 @@
 
                                 def envMap = loadEnvFile('.env.ENV_VARS')
                                 withEnv(envMap) {
+                                    if (product_to_test == "ps_lts_innovation") {
+                                    moleculeParallelTestPS(ps90PackageTesting(), "molecule/ps/")
+                                  } 
+                                    else {
                                     moleculeParallelTestPS(psPackageTesting(), "molecule/ps/")
                                 }
-
+                                }
                             }
                         }
             }
@@ -211,6 +215,13 @@ def installMolecule() {
             python3 -m pip install --upgrade PyYaml==5.3.1 molecule==3.3.0 testinfra pytest molecule-ec2==0.3 molecule[ansible] "ansible<10.0.0" "ansible-lint>=5.1.1,<6.0.0" boto3 boto
         """
 }
+
+def ps90PackageTesting() {
+    return [
+        'ubuntu-noble', 'ubuntu-noble-arm'
+    ]
+}
+
 
 def loadEnvFile(envFilePath) {
     def envMap = []

@@ -13,8 +13,10 @@ List all_nodes = [
     'oracle-9',
     'rhel-8',
     'rhel-9',
+    'rhel-10',
     'rhel-8-arm',
     'rhel-9-arm',
+    'rhel-10-arm',
     'debian-11-arm',
     'debian-12-arm',
     'ubuntu-focal-arm',
@@ -68,8 +70,10 @@ pipeline {
                 'oracle-9',
                 'rhel-8',
                 'rhel-9',
+                'rhel-10', 
                 'rhel-8-arm',
                 'rhel-9-arm',
+                'rhel-10-arm',
                 'debian-11-arm',
                 'debian-12-arm',
                 'ubuntu-focal-arm',
@@ -360,6 +364,32 @@ pipeline {
 
                     steps {
                         runNodeBuild("rhel-9-arm")
+
+                    }
+                }
+
+                stage("Rhel-10") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("rhel-10")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("rhel-10")
+
+                    }
+                }
+
+                stage("Rhel-10-arm") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("rhel-10-arm")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("rhel-10-arm")
 
                     }
                 }
