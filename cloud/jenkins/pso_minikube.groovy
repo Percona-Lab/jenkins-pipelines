@@ -332,7 +332,7 @@ pipeline {
                         docker {
                             label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                             image params.DOCKER_IMAGE
-                            args '''-u 0:0 -v /var/run/docker.sock:/var/run/docker.sock'''
+                            args '''-u 0:0 -v /var/run/docker.sock:/var/run/docker.sock --network host'''
                         }
                     }
                     steps {
@@ -345,7 +345,7 @@ pipeline {
                         docker {
                             label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                             image params.DOCKER_IMAGE
-                            args '''-u 0:0 -v /var/run/docker.sock:/var/run/docker.sock'''
+                            args '''-u 0:0 -v /var/run/docker.sock:/var/run/docker.sock --network host'''
                         }
                     }
                     steps {
