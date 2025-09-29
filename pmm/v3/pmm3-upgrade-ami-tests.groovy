@@ -23,6 +23,8 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT
 
 def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList) {
     def results = new HashMap<>();
+    def latestVersion = PMM_SERVER_LATEST;
+
     for (version in versionsList.keySet()) {
         if(versionsList[version] == latestVersion) {
             results.put("Run \"$versionsList[version]\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, amiVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
