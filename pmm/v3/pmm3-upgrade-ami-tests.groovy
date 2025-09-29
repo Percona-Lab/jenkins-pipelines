@@ -26,13 +26,13 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
 
     for (version in versionsList.keySet()) {
         def upgradeVersion = versionsList[version];
-        println upgradeVersion;
-        println version;
-        println latestVersion;
-        if(versionsList[version] == latestVersion) {
-//             results.put("Run \"$upgradeVersion\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', latestVersion, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
+        println upgradeVersion; // ami tag
+        println version; // low version
+        println latestVersion; // 3.4.0
+        if(version == latestVersion) {
+            results.put("Run \"$upgradeVersion\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', latestVersion, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
         } else {
-//             results.put("Run \"$upgradeVersion\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, "perconalab/pmm-server:${latestVersion}-rc", upgradeVersion, 'release', latestVersion, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
+            results.put("Run \"$upgradeVersion\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, "perconalab/pmm-server:${latestVersion}-rc", version, 'release', latestVersion, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
         }
     }
 
