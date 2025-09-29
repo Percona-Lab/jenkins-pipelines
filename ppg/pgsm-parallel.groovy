@@ -35,12 +35,12 @@ pipeline {
             name: 'PGSM_REPO'
         )
         string(
-            defaultValue: '2.1.1',
+            defaultValue: '2.2.0',
             description: 'PGSM repo version/branch/tag to use; e.g main, 2.0.5',
             name: 'PGSM_BRANCH'
         )
         string(
-            defaultValue: 'ppg-17.5',
+            defaultValue: 'ppg-17.6',
             description: 'Server PG version for test, including major and minor version, e.g ppg-16.2, ppg-15.5',
             name: 'VERSION'
         )
@@ -49,7 +49,7 @@ pipeline {
             description: "If Selected, then pgsm rpm/deb will be installed in server that is shipped with ppg mentioned in VERSION above. Build sources will only be used for regression and binary will not be installed into server from built sources. If UnSelected, then no pgsm rpm/deb will be installed into the server, and pgsm binary from the built sources will be installed into the server."
         )
         string(
-            defaultValue: 'Q2-2025',
+            defaultValue: 'main',
             description: 'Branch for ppg-testing testing repository',
             name: 'TESTING_BRANCH'
         )

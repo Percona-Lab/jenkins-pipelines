@@ -35,6 +35,17 @@ void setup_rhel_package_tests()
     '''
 }
 
+void setup_rhel_10_package_tests()
+{
+    sh '''
+        sudo dnf config-manager --set-enabled crb
+        sudo dnf clean all && dnf makecache
+        sudo dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm
+        sudo dnf -y update
+        sudo dnf install -y ansible-core git wget
+    '''
+}
+
 void setup_debian_package_tests()
 {
     sh '''
@@ -56,7 +67,7 @@ void setup_ubuntu_package_tests()
     '''
 }
 
-void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
+void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO, String TARBALL)
 {
     deleteDir()
     git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/package-testing'
@@ -72,7 +83,7 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO)
     '''
 }
 
-def latestVersion = pmmVersion('v3')[0]
+def latestVersion = pmmVersion('v3').last()
 
 pipeline {
     agent {
@@ -117,8 +128,8 @@ pipeline {
             description: 'Password for pmm server admin user',
             name: 'ADMIN_PASSWORD')
         string(
-            defaultValue: '--database ps',
-            description: 'Clients to setup pmm server with',
+            defaultValue: '--help',
+            description: 'Flag for pmm framework',
             name: 'CLIENTS')
         choice(
             choices: ['auto', 'push', 'pull'],
@@ -152,7 +163,7 @@ pipeline {
                     }
                     steps{
                         setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
                         always {
@@ -166,7 +177,29 @@ pipeline {
                     }
                     steps{
                         setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('alma-10-arm64') {
+                    when {
+                        expression {
+                            !(env.TESTS ?: '').contains('upgrade')
+                        }
+                    }
+                    agent {
+                        label 'min-alma-10-arm64'
+                    }
+                    environment {
+                        PS_REPOSITORY='testing'
+                    }
+                    steps{
+                        setup_rhel_10_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
                         always {
@@ -180,7 +213,7 @@ pipeline {
                     }
                     steps{
                         setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
                         always {
@@ -194,7 +227,7 @@ pipeline {
                     }
                     steps {
                         setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
                         always {
@@ -208,7 +241,21 @@ pipeline {
                     }
                     steps{
                         setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('bullseye-arm64') {
+                    agent {
+                        label 'min-bullseye-arm64'
+                    }
+                    steps{
+                        setup_debian_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
                         always {

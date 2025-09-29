@@ -17,20 +17,20 @@ pipeline {
             choices: repoList()
         )
         string(
-            defaultValue: 'ppg-17.5',
+            defaultValue: 'ppg-17.6',
             description: 'PPG version for test',
             name: 'VERSION'
          )
         string(
-            defaultValue: 'Q2-2025',
+            defaultValue: 'main',
             description: 'Base branch for ppg-testing repo',
             name: 'TESTING_BRANCH')
         string(
-            defaultValue: '2.1.1',
+            defaultValue: '2.2.0',
             description: 'PGSM version',
             name: 'PGSM_VERSION')
         string(
-            defaultValue: '4.6.0',
+            defaultValue: '4.6.2',
             description: 'pgpool version',
             name: 'PGPOOL_VERSION')
         string(
@@ -46,11 +46,11 @@ pipeline {
             description: 'PG_REPACK version',
             name: 'PG_REPACK_VERSION')
         string(
-            defaultValue: 'v4.0.5',
+            defaultValue: 'v4.0.6',
             description: 'Patroni version',
             name: 'PATRONI_VERSION')
         string(
-            defaultValue: 'release/2.55.0',
+            defaultValue: 'release/2.56.0',
             description: 'pgbackrest version',
             name: 'PGBACKREST_VERSION')
         string(

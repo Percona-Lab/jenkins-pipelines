@@ -61,8 +61,7 @@ def call(String INSTANCE_TYPE, String SPOT_PRICE, VOLUME) {
                     set -x
 
                     # increase price by 15% each time
-                    # TODO: Temporarily increasing the price by 30% due to the holiday season.
-                    export SPOT_PRICE=\$(bc -l <<< "scale=8; \$SPOT_PRICE + ((\$SPOT_PRICE / 100) * (30 * \$PRICE_MULTIPLIER))" | sed 's/^\\./0./')
+                    export SPOT_PRICE=\$(bc -l <<< "scale=8; \$SPOT_PRICE + ((\$SPOT_PRICE / 100) * (15 * \$PRICE_MULTIPLIER))" | sed 's/^\\./0./')
                     echo SET PRICE: \$SPOT_PRICE
                     echo \$SPOT_PRICE > SPOT_PRICE
                 else

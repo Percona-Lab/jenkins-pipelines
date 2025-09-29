@@ -294,6 +294,48 @@ ENDSSH
             }
         }
 
+        stage('Upload private client tarballs to percona.com') {
+            steps {
+                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
+                    sh """
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com << 'ENDSSH'
+                            set -e
+                            set -x
+
+                            # Only process AMD64 architecture (private tarballs only exist for amd64)
+                            cd /srv/UPLOAD/${PATH_TO_CLIENT_AMD64}/
+
+                            # Create temporary directory for flat structure
+                            TMPDIR="/srv/UPLOAD/${PATH_TO_CLIENT_AMD64}/.tmp-private"
+                            rm -fr \${TMPDIR} && mkdir -p \${TMPDIR}
+
+                            # Copy and process binary tarballs from different OS versions
+                            for os_dir in binary.ol8 binary.ol9; do
+                                if [ -f \${os_dir}/tarball/*.tar.gz ]; then
+                                    # Get the tarball name
+                                    _tar=\$(ls \${os_dir}/tarball/*.tar.gz)
+                                    TAR_BASENAME=\$(basename \${_tar})
+
+                                    # Rename with x86_64 suffix
+                                    TAR_NAME=\$(basename \${TAR_BASENAME} .tar.gz)-x86_64.tar.gz
+
+                                    # Copy to flat directory and generate checksum
+                                    cp \${_tar} \${TMPDIR}/\${TAR_NAME}
+                                    sha256sum \${TMPDIR}/\${TAR_NAME} > \${TMPDIR}/\${TAR_NAME}.sha256sum
+                                fi
+                            done
+
+                            # Upload to private downloads area (flat structure)
+                            rsync -avt -e "ssh -p 2222" --bwlimit=50000 --progress \${TMPDIR}/* jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/private/pmm3-client-gssapi-tarballs/
+
+                            # Cleanup
+                            rm -fr \${TMPDIR}
+ENDSSH
+                """
+                }
+            }
+        }
+
         stage('Set Docker Tag') {
             agent {
                 label 'min-ol-9-x64'

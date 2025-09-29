@@ -31,7 +31,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'Q2-2025',
+            defaultValue: 'main',
             description: 'Branch for tests',
             name: 'TEST_BRANCH'
          )
@@ -46,7 +46,7 @@ pipeline {
             name: 'COMPONENT_VERSION'
          )
         string(
-            defaultValue: 'ppg-17.5',
+            defaultValue: 'ppg-17.6',
             description: 'PPG version for test',
             name: 'VERSION'
          )

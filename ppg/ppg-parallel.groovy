@@ -31,7 +31,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'ppg-17.5',
+            defaultValue: 'ppg-17.6',
             description: 'PG version for test',
             name: 'VERSION'
         )
@@ -41,7 +41,7 @@ pipeline {
             choices: ppgScenarios()
         )
         string(
-            defaultValue: 'Q2-2025',
+            defaultValue: 'main',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
         booleanParam(

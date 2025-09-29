@@ -13,6 +13,10 @@ pipeline {
             choices: ['el9', 'el7'],
             description: 'Select the OS to build for',
             name: 'BUILD_OS')
+        booleanParam(
+            defaultValue: false,
+            description: 'Build GSSAPI dynamic client tarballs for OL8 and OL9 (amd64)',
+            name: 'GSSAPI_DYNAMIC_TARBALLS')
     }
     environment {
         PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
@@ -46,6 +50,7 @@ pipeline {
                     string(name: 'CHANGE_URL', value: "${CHANGE_URL}"),
                     string(name: 'CHANGE_ID', value: "${CHANGE_ID}"),
                     string(name: 'BRANCH_NAME', value: "${BRANCH_NAME}"),
+                    booleanParam(name: 'GSSAPI_DYNAMIC_TARBALLS', value: params.GSSAPI_DYNAMIC_TARBALLS),
                 ]
             }
         }

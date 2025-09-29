@@ -34,11 +34,17 @@
             name: 'git_repo',
             trim: false
         )
+        string(
+            defaultValue: 'master',
+            description: 'Branch name',
+            name: 'git_branch',
+            trim: false
+        )
         choice(
             choices: [
                 'install',
                 'upgrade',
-                'maj_upgrade_to',
+                'major_upgrade_to',
                 'kmip',
                 'kms'
             ],
@@ -78,8 +84,7 @@
             stage('Checkout') {
                 steps {
                     deleteDir()
-                    git poll: false, branch: "master", url: "https://github.com/Percona-QA/package-testing.git"
-                }
+                    git poll: false, branch: "${params.git_branch}", url: "${params.git_repo}"      }
             }
 
             stage('Prepare') {
@@ -89,7 +94,7 @@
                     }
                 }
             }
-            stage('RUN TESTS') {
+             stage('RUN TESTS') {
                         steps {
                             script {
                                 if (action_to_test == 'install') {
@@ -104,14 +109,98 @@
 
                                 def envMap = loadEnvFile('.env.ENV_VARS')
                                 withEnv(envMap) {
+                                    if (product_to_test == "ps_lts_innovation") {
+                                    moleculeParallelTestPS(ps90PackageTesting(), "molecule/ps/")
+                                  } 
+                                    else {
                                     moleculeParallelTestPS(psPackageTesting(), "molecule/ps/")
                                 }
-
+                                }
                             }
                         }
             }
         }
+
+    post {
+        always {
+            deleteBuildInstances()
+        }
     }
+    }
+
+def deleteBuildInstances(){
+    script {
+        echo "All tests completed"
+
+        def awsCredentials = [
+                sshUserPrivateKey(
+                    credentialsId: 'MOLECULE_AWS_PRIVATE_KEY',
+                    keyFileVariable: 'MOLECULE_AWS_PRIVATE_KEY',
+                    passphraseVariable: '',
+                    usernameVariable: ''
+                ),
+                aws(
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    credentialsId: '5d78d9c7-2188-4b16-8e31-4d5782c6ceaa',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                )
+        ]
+
+        withCredentials(awsCredentials) {
+            def jobName = env.JOB_NAME
+            def BUILD_NUMBER = env.BUILD_NUMBER
+            jobName.trim()
+
+            echo "Fetched JOB_TO_RUN from environment: '${jobName}'"
+
+            echo "Listing EC2 instances with job-name tag: ${jobName}"
+            sh """
+            aws ec2 describe-instances --region us-west-2 --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}"  --query "Reservations[].Instances[].InstanceId" --output text
+            """
+
+            sh """
+            echo "=== EC2 Instances to be cleaned up ==="
+            aws ec2 describe-instances --region us-west-2 \\
+            --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}" \\
+            --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" \\
+            --output table || echo "No instances found with job-name tag: ${jobName}"
+            """
+
+            def instanceIds = sh(
+                script: """
+                aws ec2 describe-instances --region us-west-2 \\
+                --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}" "Name=instance-state-name,Values=running" \\
+                --query "Reservations[].Instances[].InstanceId" \\
+                --output text
+                """,
+                returnStdout: true
+            ).trim()
+
+            if (instanceIds != null && !instanceIds.trim().isEmpty()) {
+                echo "Found instances to terminate: ${instanceIds.trim()}"
+
+                sh """
+                echo "${instanceIds.trim()}" | xargs -r aws ec2 terminate-instances --instance-ids
+                """
+            
+                sleep(30)
+                
+                echo "Terminated instances: ${instanceIds.trim()}"
+                
+                echo "==========================================="
+
+                echo "Verification: Status of terminated instances:"
+                
+                sh """
+                sleep 5 && aws ec2 describe-instances --instance-ids ${instanceIds} --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" --output table
+                """            
+            
+            } else {
+                echo "No instances found to terminate"
+            }
+        }
+    }
+}
 
 def installMolecule() {
         sh """
@@ -126,6 +215,13 @@ def installMolecule() {
             python3 -m pip install --upgrade PyYaml==5.3.1 molecule==3.3.0 testinfra pytest molecule-ec2==0.3 molecule[ansible] "ansible<10.0.0" "ansible-lint>=5.1.1,<6.0.0" boto3 boto
         """
 }
+
+def ps90PackageTesting() {
+    return [
+        'ubuntu-noble', 'ubuntu-noble-arm'
+    ]
+}
+
 
 def loadEnvFile(envFilePath) {
     def envMap = []

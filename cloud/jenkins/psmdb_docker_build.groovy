@@ -37,7 +37,7 @@ void checkImageForDocker(String IMAGE_SUFFIX){
                         docker login -u '${USER}' -p '${PASS}'
 
                         snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
-                            --fail-on=all --severity-threshold=high --json-file-output=\${IMAGE_SUFFIX}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
+                            --severity-threshold=high --json-file-output=\${IMAGE_SUFFIX}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
                     "
                 """
              }
@@ -104,7 +104,7 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker'
+         label 'docker-x64-min'
     }
     environment {
         PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
@@ -249,23 +249,19 @@ pipeline {
                 }
             }
         }
-        stage('Generate Report') {
-            steps {
-                script {
-                    def summary = generateImageSummary('list-of-images.txt')
-
-                    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
-                      text: "<pre>${summary}</pre>"
-                    )
-                    // Also save as a file if needed
-                    writeFile(file: 'image-summary.html', text: summary)
-                }
-            }
-        }
     }
 
     post {
         always {
+            script {
+                def summary = generateImageSummary('list-of-images.txt')
+
+                addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+                    text: "<pre>${summary}</pre>"
+                )
+                // Also save as a file if needed
+                 writeFile(file: 'image-summary.html', text: summary)
+            }
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./source/build

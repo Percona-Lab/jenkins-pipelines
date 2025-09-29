@@ -6,7 +6,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 void installDependencies() {
     sh """
         sudo apt update -y
-        sudo apt install -y python3 python3-pip python3-dev python3-venv jq tar
+        sudo apt install -y python3 python3-pip python3-dev python3-venv jq tar unzip
         python3 -m venv virtenv
         . virtenv/bin/activate
         python3 --version
@@ -18,8 +18,8 @@ void installDependencies() {
        """
 
     sh '''
-        rm -rf package-testing
-        git clone https://github.com/Percona-QA/package-testing
+        rm -rf /tmp/package-testing
+        git clone -b "${BRANCH}" https://github.com/${git_repo}.git /tmp/package-testing
     '''
 }
 
@@ -41,7 +41,7 @@ void runMoleculeAction(String action, String scenario) {
     withCredentials(awsCredentials) {
         sh """
             . virtenv/bin/activate
-            cd package-testing/molecule/ps-innodb-cluster
+            cd /tmp/package-testing/molecule/ps-innodb-cluster
             cd server
             export INSTANCE_PRIVATE_IP=\${SERVER_INSTANCE_PRIVATE_IP}
             molecule ${action} -s ${scenario}
@@ -73,6 +73,83 @@ void setInstancePrivateIPEnvironment() {
     ).trim()
 }
 
+def deleteBuildInstances(){
+    script {
+        echo "All tests completed"
+
+        def awsCredentials = [
+                sshUserPrivateKey(
+                    credentialsId: 'MOLECULE_AWS_PRIVATE_KEY',
+                    keyFileVariable: 'MOLECULE_AWS_PRIVATE_KEY',
+                    passphraseVariable: '',
+                    usernameVariable: ''
+                ),
+                aws(
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    credentialsId: '5d78d9c7-2188-4b16-8e31-4d5782c6ceaa',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                )
+        ]
+
+        withCredentials(awsCredentials) {
+            def jobName = env.JOB_NAME
+            def BUILD_NUMBER = env.BUILD_NUMBER
+            jobName.trim()
+
+            echo "Fetched JOB_TO_RUN from environment: '${jobName}'"
+
+            echo "Listing EC2 instances with job-name tag: ${jobName}"
+            sh """
+            aws ec2 describe-instances --region us-west-2 --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}"  --query "Reservations[].Instances[].InstanceId" --output text
+            """
+
+            sh """
+            echo "=== EC2 Instances to be cleaned up ==="
+            aws ec2 describe-instances --region us-west-2 \\
+            --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}" \\
+            --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" \\
+            --output table || echo "No instances found with job-name tag: ${jobName}"
+            """
+
+            def instanceIds = sh(
+                script: """
+                aws ec2 describe-instances --region us-west-2 \\
+                --filters "Name=tag:job-name,Values=${jobName}" "Name=tag:build-number,Values=${BUILD_NUMBER}" "Name=instance-state-name,Values=running" \\
+                --query "Reservations[].Instances[].InstanceId" \\
+                --output text
+                """,
+                returnStdout: true
+            ).trim()
+
+            if (instanceIds != null && !instanceIds.trim().isEmpty()) {
+                echo "Found instances to terminate: ${instanceIds.trim()}"
+
+                
+                sh """
+                echo "${instanceIds.trim()}" | xargs -r aws ec2 terminate-instances --instance-ids
+                """
+                
+            
+                sleep(30)
+                
+                echo "Terminated instances: ${instanceIds.trim()}"
+                
+                echo "==========================================="
+
+                echo "Verification: Status of terminated instances:"
+                
+                sh """
+                sleep 5 && aws ec2 describe-instances --instance-ids ${instanceIds} --query "Reservations[].Instances[].[InstanceId,Tags[?Key=='Name'].Value|[0],State.Name]" --output table
+                """            
+            
+            } else {
+                echo "No instances found to terminate"
+            }
+        }
+    }
+}
+
+
 pipeline {
     agent {
         label 'min-bookworm-x64'
@@ -102,13 +179,14 @@ pipeline {
                 'ubuntu-focal',  
                 'debian-12',
                 'debian-11',
-                'centos-7',
                 'oracle-8',
                 'oracle-9',
                 'rhel-8',
                 'rhel-9',
+                'rhel-10',
                 'rhel-8-arm',
                 'rhel-9-arm',
+                'rhel-10-arm',
                 'debian-11-arm',
                 'debian-12-arm',
                 'ubuntu-focal-arm',
@@ -126,42 +204,47 @@ pipeline {
             ],
             description: 'Repo to install packages from'
         )
+        string(
+            name: 'git_repo',
+            defaultValue: "Percona-QA/package-testing",
+            description: 'Git repository to use for testing'
+        )
+        string(
+            name: 'BRANCH',
+            defaultValue: 'master',
+            description: 'Git branch to use for testing'
+        )
     }
     stages {
+        stage('Install Dependencies') {
+            steps {
+                script {
+                    installDependencies()
+                }
+            }
+        }
         stage('SET UPSTREAM_VERSION,PS_VERSION and PS_REVISION') {
             steps {
                 script {
                     echo "PRODUCT_TO_TEST is: ${env.PRODUCT_TO_TEST}"
-                    sh '''
-                        sudo apt-get update && sudo apt-get install -y unzip
-                        rm -rf /package-testing
-                        rm -f master.zip
-                        wget https://github.com/Percona-QA/package-testing/archive/master.zip
-                        unzip master.zip
-                        rm -f master.zip
-                        mv "package-testing-master" package-testing
-                        echo "Contents of package-testing directory:"
-                        ls -l package-testing
-                        echo "Contents of VERSIONS file:"
-                        cat package-testing/VERSIONS
-                    '''
+
                     def UPSTREAM_VERSION = sh(
                         script: ''' 
-                            grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}'
+                            grep ${PRODUCT_TO_TEST}_VER /tmp/package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$1}'
                          ''',
                         returnStdout: true
                         ).trim()
 
                     def PS_VERSION = sh(
                         script: ''' 
-                            grep ${PRODUCT_TO_TEST}_VER package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}'
+                            grep ${PRODUCT_TO_TEST}_VER /tmp/package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' | awk -F- '{print \$2}'
                         ''',
                         returnStdout: true
                         ).trim()
 
                     def PS_REVISION = sh(
                         script: '''
-                             grep ${PRODUCT_TO_TEST}_REV package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' 
+                             grep ${PRODUCT_TO_TEST}_REV /tmp/package-testing/VERSIONS | awk -F= '{print \$2}' | sed 's/"//g' 
                         ''',
                         returnStdout: true
                         ).trim()
@@ -190,11 +273,10 @@ pipeline {
         }
         stage("Set up") {
             steps {
-	        script {
+            script {
                    currentBuild.displayName = "#${BUILD_NUMBER}-${UPSTREAM_VERSION}-${PS_VERSION}-${TEST_DIST}"
                    currentBuild.description = "${PS_REVISION}-${INSTALL_REPO}"
                 }
-                installDependencies()
             }
         }
 
@@ -223,6 +305,9 @@ pipeline {
             script {
                 runMoleculeAction("destroy", params.TEST_DIST)
             }
+
+            deleteBuildInstances()
+
         }
     }
 }

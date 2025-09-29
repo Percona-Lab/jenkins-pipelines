@@ -15,7 +15,7 @@ pipeline {
             choices: ['ol-9', 'debian-12', 'ubuntu-noble', 'ol-9-arm', 'debian-12-arm', 'ubuntu-noble-arm']
         )
         string(
-            defaultValue: 'ppg-17.5',
+            defaultValue: 'ppg-17.6',
             description: 'Server PG version for test, including major and minor version, e.g ppg-16.2, ppg-15.5',
             name: 'VERSION'
         )
