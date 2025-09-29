@@ -875,7 +875,7 @@ String sshKeysCredentialsId = '2ab73cff-5575-4ca2-be48-17761b165103'
 String region = 'eu-west-1'
 ('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-    EC2Cloud ec2Cloud = new EC2Cloud(
+    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
         '',                                     // String credentialsId
