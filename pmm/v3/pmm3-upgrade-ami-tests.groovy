@@ -26,6 +26,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
 
     for (version in versionsList.keySet()) {
         def upgradeVersion = versionsList[version];
+        println upgradeVersion;
         println version;
         println latestVersion;
         if(versionsList[version] == latestVersion) {
@@ -56,14 +57,6 @@ pipeline {
             defaultValue: 'v3',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
-        string(
-            defaultValue: '',
-            description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
-            name: 'DOCKER_TAG_UPGRADE')
-        choice(
-            choices: ["experimental", "testing", "release"],
-            description: 'PMM client repository',
-            name: 'CLIENT_REPOSITORY')
         string(
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm-qa repository',
