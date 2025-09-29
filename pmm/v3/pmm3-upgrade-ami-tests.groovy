@@ -30,9 +30,10 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
         println version; // low version
         println latestVersion; // 3.4.0
         if(version == latestVersion) {
-            results.put("Run \"$upgradeVersion\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', latestVersion, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
+
+            results.put("Run upgrade tests", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', latestVersion, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
         } else {
-            results.put("Run \"$upgradeVersion\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, "perconalab/pmm-server:${latestVersion}-rc", version, 'release', latestVersion, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
+            results.put("Run upgrade tests", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, "perconalab/pmm-server:${latestVersion}-rc", version, 'release', latestVersion, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
         }
     }
 
@@ -41,7 +42,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
 
 def generateStage(String PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
     return {
-        stage("Run \"$amiVersion\" upgrade tests") {
+        stage("Upgrade AMI PMM from ${CLIENT_VERSION} (AMI tag: ${amiVersion})to ${PMM_SERVER_LATEST}.") {
             runUpgradeJob(PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH);
         }
     }
