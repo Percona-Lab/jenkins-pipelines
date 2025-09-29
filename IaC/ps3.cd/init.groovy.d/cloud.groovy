@@ -1,6 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
 import hudson.model.*
-import hudson.plugins.ec2.EC2Cloud
+import hudson.plugins.ec2.AmazonEC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -111,6 +111,7 @@ imageMap['eu-west-1b.fips-centos-7-x64']    = imageMap['eu-west-1a.fips-centos-7
 imageMap['eu-west-1b.min-ol-8-x64']         = imageMap['eu-west-1a.min-ol-8-x64']
 imageMap['eu-west-1b.min-ol-9-x64']         = imageMap['eu-west-1a.min-ol-9-x64']
 imageMap['eu-west-1b.min-rhel-10-x64']      = imageMap['eu-west-1a.min-rhel-10-x64']
+imageMap['eu-west-1b.min-al2023-x64']       = imageMap['eu-west-1a.min-al2023-x64']
 
 imageMap['eu-west-1b.min-centos-6-x64']     = imageMap['eu-west-1a.min-centos-6-x64']
 imageMap['eu-west-1b.min-bookworm-x64']     = imageMap['eu-west-1a.min-bookworm-x64']
@@ -133,6 +134,7 @@ imageMap['eu-west-1b.min-bullseye-aarch64']   = imageMap['eu-west-1a.min-bullsey
 imageMap['eu-west-1b.min-jammy-aarch64']      = imageMap['eu-west-1a.min-jammy-aarch64']
 imageMap['eu-west-1b.min-noble-aarch64']      = imageMap['eu-west-1a.min-noble-aarch64']
 imageMap['eu-west-1b.min-trixie-aarch64']     = imageMap['eu-west-1a.min-trixie-aarch64']
+imageMap['eu-west-1b.min-al2023-aarch64']     = imageMap['eu-west-1a.min-al2023-aarch64']
 
 imageMap['eu-west-1c.docker']               = imageMap['eu-west-1a.docker']
 imageMap['eu-west-1c.docker-32gb']          = imageMap['eu-west-1a.docker-32gb']
@@ -143,6 +145,7 @@ imageMap['eu-west-1c.fips-centos-7-x64']    = imageMap['eu-west-1a.fips-centos-7
 imageMap['eu-west-1c.min-ol-8-x64']         = imageMap['eu-west-1a.min-ol-8-x64']
 imageMap['eu-west-1c.min-ol-9-x64']         = imageMap['eu-west-1a.min-ol-9-x64']
 imageMap['eu-west-1c.min-rhel-10-x64']      = imageMap['eu-west-1a.min-rhel-10-x64']
+imageMap['eu-west-1c.min-al2023-x64']       = imageMap['eu-west-1a.min-al2023-x64']
 
 imageMap['eu-west-1c.min-centos-6-x64']     = imageMap['eu-west-1a.min-centos-6-x64']
 imageMap['eu-west-1c.min-bookworm-x64']     = imageMap['eu-west-1a.min-bookworm-x64']
@@ -151,6 +154,7 @@ imageMap['eu-west-1c.min-buster-x64']       = imageMap['eu-west-1a.min-buster-x6
 imageMap['eu-west-1c.min-bionic-x64']       = imageMap['eu-west-1a.min-bionic-x64']
 imageMap['eu-west-1c.min-stretch-x64']      = imageMap['eu-west-1a.min-stretch-x64']
 imageMap['eu-west-1c.min-xenial-x64']       = imageMap['eu-west-1a.min-xenial-x64']
+imageMap['eu-west-1c.min-trixie-x64']       = imageMap['eu-west-1a.min-trixie-x64']
 imageMap['eu-west-1c.docker-32gb-hirsute']  = imageMap['eu-west-1a.docker-32gb-hirsute']
 imageMap['eu-west-1c.docker-32gb-focal']    = imageMap['eu-west-1a.docker-32gb-focal']
 imageMap['eu-west-1c.docker-32gb-jammy']    = imageMap['eu-west-1a.docker-32gb-jammy']
@@ -164,6 +168,7 @@ imageMap['eu-west-1c.min-bullseye-aarch64']   = imageMap['eu-west-1a.min-bullsey
 imageMap['eu-west-1c.min-jammy-aarch64']      = imageMap['eu-west-1a.min-jammy-aarch64']
 imageMap['eu-west-1c.min-noble-aarch64']      = imageMap['eu-west-1a.min-noble-aarch64']
 imageMap['eu-west-1c.min-trixie-aarch64']     = imageMap['eu-west-1a.min-trixie-aarch64']
+imageMap['eu-west-1c.min-al2023-aarch64']     = imageMap['eu-west-1a.min-al2023-aarch64']
 
 
 priceMap = [:]
@@ -819,7 +824,7 @@ jvmoptsMap['min-al2023-aarch64']   = jvmoptsMap['docker']
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
     return new SlaveTemplate(
-        imageMap[AZ + '.' + OSType],                // String ami
+        imageMap[AZ + '.' + OSType].toString(),     // String ami
         '',                                         // String zone
         new SpotConfiguration(true, priceMap[typeMap[OSType]], false, '0'), // SpotConfiguration spotConfig
         'default',                                  // String securityGroups
@@ -833,7 +838,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         '',                                         // String tmpDir
         '',                                         // String userData
         execMap[OSType],                            // String numExecutors
-        userMap[OSType],                            // String remoteAdmin
+        userMap[OSType].toString(),                 // String remoteAdmin
         new UnixData('', '', '', '22', ''),         // AMITypeData amiType
         jvmoptsMap[OSType],                         // String jvmopts
         false,                                      // boolean stopOnTerminate
@@ -921,7 +926,7 @@ String region = 'eu-west-1'
 
     // add cloud configuration to Jenkins
     jenkins.clouds.each {
-        if (it.hasProperty('name') && it.name == ec2Cloud.name) {
+        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
             jenkins.clouds.remove(it)
         }
     }
