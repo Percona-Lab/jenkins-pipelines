@@ -24,13 +24,11 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT
 def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList) {
     def results = new HashMap<>();
     for (version in versionsList.keySet()) {
-        println version;
-        println versionsList[version];
-//         if(pmmVersion == latestVersion) {
-//             results.put("Run \"$amiVersion\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, amiVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
-//         } else {
-//             results.put("Run \"$amiVersion\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, amiVersion, "perconalab/pmm-server:${latestVersion}-rc", pmmVersion, 'release', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
-//         }
+        if(pmmVersion == latestVersion) {
+            results.put("Run \"$amiVersion\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, amiVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
+        } else {
+            results.put("Run \"$amiVersion\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, amiVersion, "perconalab/pmm-server:${latestVersion}-rc", versionsList[version], 'release', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
+        }
     }
 
 
