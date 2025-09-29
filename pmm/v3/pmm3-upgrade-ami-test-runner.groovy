@@ -230,31 +230,31 @@ pipeline {
                 }
             }
         }
-//         stage('Setup Databases for PMM-Server') {
-//             steps {
-//                 sh '''
-//                     set -o errexit
-//                     set -o xtrace
-//
-//                     pushd /srv/qa-integration/pmm_qa
-//                     echo "Setting docker based PMM clients"
-//                     mkdir -m 777 -p /tmp/backup_data
-//                     python3 -m venv virtenv
-//                     . virtenv/bin/activate
-//                     pip install --upgrade pip
-//                     pip install -r requirements.txt
-//                     pip install netaddr
-//                     pip install setuptools
-//
-//                     python pmm-framework.py --verbose \
-//                         --pmm-server-ip=\${SERVER_IP} \
-//                         --client-version=\${CLIENT_VERSION} \
-//                         --pmm-server-password=\${ADMIN_PASSWORD} \
-//                          --database ps --database pgsql --database psmdb
-//                     popd
-//                 '''
-//             }
-//         }
+        stage('Setup Databases for PMM-Server') {
+            steps {
+                sh '''
+                    set -o errexit
+                    set -o xtrace
+
+                    pushd /srv/qa-integration/pmm_qa
+                    echo "Setting docker based PMM clients"
+                    mkdir -m 777 -p /tmp/backup_data
+                    python3 -m venv virtenv
+                    . virtenv/bin/activate
+                    pip install --upgrade pip
+                    pip install -r requirements.txt
+                    pip install netaddr
+                    pip install setuptools
+
+                    python pmm-framework.py --verbose \
+                        --pmm-server-ip=\${SERVER_IP} \
+                        --client-version=\${CLIENT_VERSION} \
+                        --pmm-server-password=\${ADMIN_PASSWORD} \
+                         --database ps --database pgsql --database psmdb
+                    popd
+                '''
+            }
+        }
         stage('Sleep') {
             steps {
                 sleep 60
@@ -377,6 +377,9 @@ pipeline {
             }
         }
         stage('Run post pmm client upgrade UI tests') {
+            environment {
+                ADMIN_PASSWORD = "pmm3admin!"
+            }
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
@@ -386,6 +389,9 @@ pipeline {
             }
         }
         stage('Check PMM Server Packages after Upgrade') {
+            environment {
+                ADMIN_PASSWORD = "pmm3admin!"
+            }
             steps {
                 script {
                     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
