@@ -311,6 +311,9 @@ pipeline {
             }
         }
         stage('Run post pmm server upgrade UI tests') {
+            environment {
+                ADMIN_PASSWORD = "pmm3admin!"
+            }
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
