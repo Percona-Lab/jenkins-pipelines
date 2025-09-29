@@ -178,7 +178,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    currentBuild.description = "Upgrade AMI PMM from ${env.CLIENT_VERSION} (AMI tag: ${env.AMI_TAG})to ${env.PMM_SERVER_LATEST}."
+                    currentBuild.description = "Upgrade AMI PMM from ${env.CLIENT_VERSION} (AMI tag: ${env.AMI_TAG}) to ${env.PMM_SERVER_LATEST}."
                 }
                 git poll: false,
                     branch: PMM_UI_GIT_BRANCH,
