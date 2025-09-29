@@ -178,12 +178,6 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    env.JENKINS_IP = sh(script: "hostname -I | awk '{print \$1}'", returnStdout: true).trim()
-                    env.JENKINS_IP_2 = sh(script: "curl -s https://api.ipify.org", returnStdout: true).trim()
-                    echo "Runner IP: ${env.JENKINS_IP}"
-                    echo "Runner IP: ${env.JENKINS_IP_2}"
-                    env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
-                    env.PMM_UI_URL = params.PMM_UI_URL
                     currentBuild.description = "Upgrade AMI PMM from ${env.AMI_TAG} to ${env.PMM_SERVER_LATEST}."
                 }
                 git poll: false,
