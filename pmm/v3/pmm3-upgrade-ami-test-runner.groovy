@@ -230,31 +230,31 @@ pipeline {
                 }
             }
         }
-        stage('Setup Databases for PMM-Server') {
-            steps {
-                sh '''
-                    set -o errexit
-                    set -o xtrace
-
-                    pushd /srv/qa-integration/pmm_qa
-                    echo "Setting docker based PMM clients"
-                    mkdir -m 777 -p /tmp/backup_data
-                    python3 -m venv virtenv
-                    . virtenv/bin/activate
-                    pip install --upgrade pip
-                    pip install -r requirements.txt
-                    pip install netaddr
-                    pip install setuptools
-
-                    python pmm-framework.py --verbose \
-                        --pmm-server-ip=\${SERVER_IP} \
-                        --client-version=\${CLIENT_VERSION} \
-                        --pmm-server-password=\${ADMIN_PASSWORD} \
-                         --database ps --database pgsql --database psmdb
-                    popd
-                '''
-            }
-        }
+//         stage('Setup Databases for PMM-Server') {
+//             steps {
+//                 sh '''
+//                     set -o errexit
+//                     set -o xtrace
+//
+//                     pushd /srv/qa-integration/pmm_qa
+//                     echo "Setting docker based PMM clients"
+//                     mkdir -m 777 -p /tmp/backup_data
+//                     python3 -m venv virtenv
+//                     . virtenv/bin/activate
+//                     pip install --upgrade pip
+//                     pip install -r requirements.txt
+//                     pip install netaddr
+//                     pip install setuptools
+//
+//                     python pmm-framework.py --verbose \
+//                         --pmm-server-ip=\${SERVER_IP} \
+//                         --client-version=\${CLIENT_VERSION} \
+//                         --pmm-server-password=\${ADMIN_PASSWORD} \
+//                          --database ps --database pgsql --database psmdb
+//                     popd
+//                 '''
+//             }
+//         }
         stage('Sleep') {
             steps {
                 sleep 60
