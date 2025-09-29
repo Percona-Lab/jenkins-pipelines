@@ -26,7 +26,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
 
     for (version in versionsList.keySet()) {
         def upgradeVersion = versionsList[version];
-        println upgradeVersion;
+        println version;
         println latestVersion;
         if(versionsList[version] == latestVersion) {
 //             results.put("Run \"$upgradeVersion\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', latestVersion, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
