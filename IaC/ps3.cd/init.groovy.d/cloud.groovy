@@ -32,7 +32,7 @@ if (!initGroovyDir.exists()) {
 }
 File amiProperties = new File(initGroovyDir, "ami-defs.properties")
 try {
-    def propertiesChecksum = new URL("https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/ami-defs.properties.sha256").text.trim()
+    def propertiesChecksum = new URL("https://raw.githubusercontent.com/vorsel/jenkins-pipelines/PKG-1092_ps3.cd_update_workers/IaC/init.groovy.d/ami-defs.properties.sha256").text.trim()
     boolean writeProperties = true
     if (amiProperties.exists()) {
         // String.digest() is not available in Groovy 2.4 :-(
@@ -42,7 +42,7 @@ try {
         }
     }
     if (writeProperties) {
-        def propertiesText = new URL("https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/ami-defs.properties").text
+        def propertiesText = new URL("https://raw.githubusercontent.com/vorsel/jenkins-pipelines/PKG-1092_ps3.cd_update_workers/IaC/init.groovy.d/ami-defs.properties").text
         // We should continue with existing properties file, so we can't just assert:
         // assert propertiesText.digest('SHA-256') == propertiesChecksum
         //if (propertiesText.digest('SHA-256') == propertiesChecksum) {
@@ -75,7 +75,6 @@ imageMap['eu-west-1a.micro-amazon']         = properties.AwsAmi['AmazonLinux2_x8
 imageMap['eu-west-1a.min-al2023-x64']       = properties.AwsAmi['AmazonLinux2023_x86_64']['euWest1']
 imageMap['eu-west-1a.fips-centos-7-x64']    = properties.AwsAmi['FipsCentos7_x86_64']['euWest1']
 
-imageMap['eu-west-1a.min-centos-6-x64']     = properties.AwsAmi['Centos6_x86_64']['euWest1']
 imageMap['eu-west-1a.min-centos-7-x64']     = properties.AwsAmi['Centos7_x86_64']['euWest1']
 imageMap['eu-west-1a.min-ol-8-x64']         = properties.AwsAmi['OracleLinux8_x86_64']['euWest1']
 imageMap['eu-west-1a.min-ol-9-x64']         = properties.AwsAmi['OracleLinux9_x86_64']['euWest1']
@@ -113,7 +112,6 @@ imageMap['eu-west-1b.min-ol-9-x64']         = imageMap['eu-west-1a.min-ol-9-x64'
 imageMap['eu-west-1b.min-rhel-10-x64']      = imageMap['eu-west-1a.min-rhel-10-x64']
 imageMap['eu-west-1b.min-al2023-x64']       = imageMap['eu-west-1a.min-al2023-x64']
 
-imageMap['eu-west-1b.min-centos-6-x64']     = imageMap['eu-west-1a.min-centos-6-x64']
 imageMap['eu-west-1b.min-bookworm-x64']     = imageMap['eu-west-1a.min-bookworm-x64']
 imageMap['eu-west-1b.min-bullseye-x64']     = imageMap['eu-west-1a.min-bullseye-x64']
 imageMap['eu-west-1b.min-buster-x64']       = imageMap['eu-west-1a.min-buster-x64']
@@ -147,7 +145,6 @@ imageMap['eu-west-1c.min-ol-9-x64']         = imageMap['eu-west-1a.min-ol-9-x64'
 imageMap['eu-west-1c.min-rhel-10-x64']      = imageMap['eu-west-1a.min-rhel-10-x64']
 imageMap['eu-west-1c.min-al2023-x64']       = imageMap['eu-west-1a.min-al2023-x64']
 
-imageMap['eu-west-1c.min-centos-6-x64']     = imageMap['eu-west-1a.min-centos-6-x64']
 imageMap['eu-west-1c.min-bookworm-x64']     = imageMap['eu-west-1a.min-bookworm-x64']
 imageMap['eu-west-1c.min-bullseye-x64']     = imageMap['eu-west-1a.min-bullseye-x64']
 imageMap['eu-west-1c.min-buster-x64']       = imageMap['eu-west-1a.min-buster-x64']
@@ -186,7 +183,6 @@ userMap['micro-amazon']         = properties.AwsAmi['AmazonLinux2_x86_64']['user
 userMap['min-al2023-x64']       = properties.AwsAmi['AmazonLinux2023_x86_64']['user']
 userMap['min-bionic-x64']       = properties.AwsAmi['Ubuntu1804_x86_64']['user']
 userMap['min-xenial-x64']       = properties.AwsAmi['Ubuntu1604_x86_64']['user']
-userMap['min-centos-6-x64']     = properties.AwsAmi['Centos6_x86_64']['user']
 userMap['min-centos-7-x64']     = properties.AwsAmi['Centos7_x86_64']['user']
 userMap['fips-centos-7-x64']    = properties.AwsAmi['FipsCentos7_x86_64']['user']
 userMap['min-ol-8-x64']         = properties.AwsAmi['OracleLinux8_x86_64']['user']
@@ -426,33 +422,6 @@ initMap['rpmMap'] = '''
         fi
     fi
 
-    if [[ ${RHVER} -eq 6 ]]; then
-        if [[ ${ARCH} == "x86_64" ]]; then
-            sudo curl https://jenkins.percona.com/downloads/cent6/centos6-eol.repo --output /etc/yum.repos.d/CentOS-Base.repo
-        else
-            sudo curl -k https://jenkins.percona.com/downloads/cent6/centos6-eol-s3.repo --output /etc/yum.repos.d/CentOS-Base.repo
-        fi
-        until sudo yum makecache; do
-            sleep 1
-            echo try again
-        done
-        if [[ ${ARCH} == "x86_64" ]]; then
-            PKGLIST="epel-release centos-release-scl"
-        else
-            PKGLIST="epel-release"
-        fi
-
-        until sudo yum -y install ${PKGLIST}; do
-            sleep 1
-            echo try again
-        done
-        sudo rm /etc/yum.repos.d/epel-testing.repo
-        sudo curl https://jenkins.percona.com/downloads/cent6/centos6-epel-eol.repo --output /etc/yum.repos.d/epel.repo
-        if [[ ${ARCH} == "x86_64" ]]; then
-            sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl.repo
-            sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
-        fi
-    fi
 
     if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
         sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
@@ -463,25 +432,20 @@ initMap['rpmMap'] = '''
         sleep 1
         echo try again
     done
-    sudo amazon-linux-extras install java-openjdk11 -y
+
+    # Install Java based on RHEL version and OS type
+    if [[ -f /etc/system-release ]] && grep -q "Amazon Linux" /etc/system-release; then
+        sudo yum -y install java-17-amazon-corretto-headless || :
+    elif [[ ${RHVER} -eq 7 ]]; then
+        sudo yum -y install java-17-openjdk-headless || sudo yum -y install java-11-openjdk-headless || :
+    else
+        sudo yum -y install java-17-openjdk-headless || :
+    fi
+
     sudo yum -y install git tzdata-java || :
     sudo yum -y install aws-cli || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
-    # CentOS 6 x32 workarounds
-    if [[ ${ARCH} != "x86_64" ]] && [[ ${ARCH} != "aarch64" ]]; then
-        echo 'Defaults !requiretty' | sudo tee /etc/sudoers.d/requiretty
-        if [ ! -f /mnt/swapfile ]; then
-            sudo dd if=/dev/zero of=/mnt/swapfile bs=1024 count=524288
-            sudo chown root:root /mnt/swapfile
-            sudo chmod 0600 /mnt/swapfile
-            sudo mkswap /mnt/swapfile
-            sudo swapon /mnt/swapfile
-        fi
-        sudo /bin/sed -i '/shm/s/defaults/defaults,size=2500M/' /etc/fstab
-        sudo umount /dev/shm
-        sudo mount /dev/shm
-    fi
 '''
 
 initMap['min-al2023-x64'] = '''
@@ -505,7 +469,7 @@ initMap['min-al2023-x64'] = '''
         echo try again
     done
 
-    sudo yum -y install java-11-amazon-corretto-headless || :
+    sudo yum -y install java-17-amazon-corretto-headless || :
     sudo yum -y install git docker p7zip
     sudo yum -y remove awscli
 
@@ -541,7 +505,7 @@ initMap['min-al2023-x64'] = '''
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl status docker || sudo systemctl start docker
     sudo service docker status || sudo service docker start
-    echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+    #echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 
 initMap['debMap'] = '''
@@ -571,10 +535,8 @@ initMap['debMap'] = '''
 
     if [[ ${DEB_VER} == "trixie" ]]; then
         JAVA_VER="openjdk-21-jre-headless"
-    elif [[ ${DEB_VER} == "bookworm" ]]; then
-        JAVA_VER="openjdk-17-jre-headless"
     else
-        JAVA_VER="openjdk-11-jre-headless"
+        JAVA_VER="openjdk-17-jre-headless"
     fi
 
     if [[ ${DEB_VER} == "trixie" ]] || [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "buster" ]]; then
@@ -594,8 +556,6 @@ initMap['docker-32gb'] = initMap['docker']
 initMap['docker2'] = initMap['docker']
 
 initMap['micro-amazon'] = initMap['rpmMap']
-initMap['min-al2023-x64'] = initMap['rpmMap']
-initMap['min-centos-6-x64']  = initMap['rpmMap']
 initMap['min-centos-7-x64']  = initMap['rpmMap']
 initMap['fips-centos-7-x64'] = initMap['rpmMap']
 initMap['min-ol-8-x64']      = initMap['rpmMap']
@@ -665,7 +625,6 @@ typeMap['min-bionic-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-bookworm-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-buster-x64']    = typeMap['min-centos-7-x64']
-typeMap['min-centos-6-x64']  = 't3.2xlarge'
 typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-trixie-x64']    = typeMap['min-centos-7-x64']
@@ -691,7 +650,6 @@ execMap['docker2']           = execMap['docker']
 execMap['micro-amazon']      = '30'
 execMap['min-al2023-x64']    = '1'
 execMap['min-bionic-x64']    = '1'
-execMap['min-centos-6-x64']  = '1'
 execMap['min-centos-7-x64']  = '1'
 execMap['fips-centos-7-x64'] = '1'
 execMap['min-ol-8-x64']      = '1'
@@ -725,7 +683,6 @@ devMap['docker-32gb']       = devMap['docker']
 devMap['micro-amazon']      = devMap['docker']
 devMap['min-al2023-x64']    = devMap['docker']
 devMap['min-bionic-x64']    = '/dev/sda1=:8:true:gp2,/dev/sdd=:80:true:gp2'
-devMap['min-centos-6-x64']  = devMap['min-bionic-x64']
 devMap['min-centos-7-x64']  = devMap['min-bionic-x64']
 devMap['fips-centos-7-x64'] = devMap['min-bionic-x64']
 devMap['min-ol-8-x64']      = devMap['min-bionic-x64']
@@ -760,7 +717,6 @@ labelMap['docker2']           = 'docker-32gb'
 labelMap['micro-amazon']      = 'master'
 labelMap['min-al2023-x64']    = ''
 labelMap['min-bionic-x64']    = 'asan'
-labelMap['min-centos-6-x64']  = ''
 labelMap['min-centos-7-x64']  = ''
 labelMap['fips-centos-7-x64'] = ''
 labelMap['min-ol-8-x64']      = ''
@@ -794,7 +750,6 @@ jvmoptsMap['docker2']           = jvmoptsMap['docker']
 jvmoptsMap['micro-amazon']      = jvmoptsMap['docker']
 jvmoptsMap['min-al2023-x64']    = jvmoptsMap['docker']
 jvmoptsMap['min-bionic-x64']    = jvmoptsMap['docker']
-jvmoptsMap['min-centos-6-x64']  = jvmoptsMap['docker']
 jvmoptsMap['min-centos-7-x64']  = jvmoptsMap['docker']
 jvmoptsMap['fips-centos-7-x64'] = jvmoptsMap['docker']
 jvmoptsMap['min-ol-8-x64']      = jvmoptsMap['docker']
@@ -898,7 +853,6 @@ String region = 'eu-west-1'
             getTemplate('min-ol-8-x64',         "${region}${it}"),
             getTemplate('min-ol-9-x64',         "${region}${it}"),
             getTemplate('min-rhel-10-x64',      "${region}${it}"),
-            getTemplate('min-centos-6-x64',     "${region}${it}"),
             getTemplate('min-bionic-x64',       "${region}${it}"),
             getTemplate('min-buster-x64',       "${region}${it}"),
             getTemplate('min-bookworm-x64',     "${region}${it}"),
