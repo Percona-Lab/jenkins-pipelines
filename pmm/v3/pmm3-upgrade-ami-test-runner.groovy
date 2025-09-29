@@ -299,7 +299,6 @@ pipeline {
                         export ADMIN_PASSWORD="pmm3admin!"
                     '''
                 }
-                env.ADMIN_PASSWORD="pmm3admin!"
             }
         }
         stage('Run UI upgrade') {
