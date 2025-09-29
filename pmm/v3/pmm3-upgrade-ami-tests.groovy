@@ -5,6 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 def versionsList = pmmVersion('v3-ami')
 def amiVersions = versionsList.values()
+def latestVersion = versions[versions.size() - 1]
 
 void runUpgradeJob(String PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
     upgradeJob = build job: 'pmm3-upgrade-ami-test-runner', parameters: [
@@ -19,10 +20,10 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT
     ]
 }
 
-def generateVariants(String PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, amiVersions) {
+def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, amiVersions) {
     def results = new HashMap<>();
     for (amiVersion in amiVersions) {
-        results.put("Run \"$amiVersion\" upgrade tests", runUpgradeJob(PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
+        results.put("Run \"$amiVersion\" upgrade tests", runUpgradeJob(PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
     }
 
     return results;
@@ -37,10 +38,6 @@ pipeline {
             defaultValue: 'v3',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
-        string(
-            defaultValue: 'percona/pmm-server:3.0.0',
-            description: 'PMM Server Version to test for Upgrade',
-            name: 'AMI_TAG')
         string(
             defaultValue: '',
             description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
@@ -77,7 +74,7 @@ pipeline {
             steps {
                 println amiVersions;
                 script {
-                    parallel generateVariants(PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, amiVersions)
+                    parallel generateVariants(PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, amiVersions)
                 }
             }
         }
