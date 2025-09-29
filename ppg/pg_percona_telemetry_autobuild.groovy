@@ -130,7 +130,7 @@ pipeline {
         } //stage
         stage('Build percona_pg_telemetry generic source packages') {
             parallel {
-                /*stage('Source rpm') {
+                stage('Source rpm') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -143,7 +143,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     }
-                }*/
+                }
                 stage('Source deb') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -160,7 +160,7 @@ pipeline {
                 } //stage
             }  //parallel
         } //stage
-        /*stage('Build percona_pg_telemetry RPMs') {
+        stage('Build percona_pg_telemetry RPMs') {
             parallel {
                 stage('OL 8 AMD') {
                     agent {
@@ -247,10 +247,10 @@ pipeline {
                     }
                 } //stage
             } //parallel
-        } //stage*/
+        } //stage
         stage('Build percona_pg_telemetry DEBs') {
             parallel {
-                /*stage('Ubuntu 20.04 AMD') {
+                stage('Ubuntu 20.04 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -389,7 +389,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
-                } //stage*/
+                } //stage
                 stage('Debian 13 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -422,7 +422,7 @@ pipeline {
         } //stage
         stage('Sign packages') {
             steps {
-                //signRPM(params.CLOUD)
+                signRPM(params.CLOUD)
                 signDEB(params.CLOUD)
             }
         }

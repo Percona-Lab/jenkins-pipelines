@@ -94,7 +94,7 @@ pipeline {
         }
         stage('Build PYSYNCOBJ generic source packages') {
             parallel {
-                /*stage('Build PYSYNCOBJ generic source rpm') {
+                stage('Build PYSYNCOBJ generic source rpm') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -106,7 +106,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     }
-                }*/
+                }
                 stage('Build PYSYNCOBJ generic source deb') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -124,7 +124,7 @@ pipeline {
         } // stage
         stage('Build PYSYNCOBJ RPMs/DEBs/Binary tarballs') {
             parallel {
-                /*stage('Oracle Linux 8') {
+                stage('Oracle Linux 8') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -214,7 +214,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
-                }*/
+                }
                 stage('Debian trixie(13)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -233,7 +233,7 @@ pipeline {
 
         stage('Sign packages') {
             steps {
-                //signRPM(params.CLOUD)
+                signRPM(params.CLOUD)
                 signDEB(params.CLOUD)
             }
         }
