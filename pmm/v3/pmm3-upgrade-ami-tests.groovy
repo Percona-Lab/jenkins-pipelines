@@ -24,10 +24,10 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT
 def generateVariants(String PMM_UI_GIT_BRANCH, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList) {
     def results = new HashMap<>();
     for (version in versionsList.keySet()) {
-        if(pmmVersion == latestVersion) {
-            results.put("Run \"$amiVersion\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, amiVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
+        if(versionsList[version] == latestVersion) {
+            results.put("Run \"$versionsList[version]\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, amiVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
         } else {
-            results.put("Run \"$amiVersion\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, amiVersion, "perconalab/pmm-server:${latestVersion}-rc", versionsList[version], 'release', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
+            results.put("Run \"$versionsList[version]\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, amiVersion, "perconalab/pmm-server:${latestVersion}-rc", versionsList[version], 'release', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
         }
     }
 
@@ -58,18 +58,10 @@ pipeline {
             defaultValue: '',
             description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
             name: 'DOCKER_TAG_UPGRADE')
-        string(
-            defaultValue: '3.0.0',
-            description: 'PMM Client Version to test for Upgrade',
-            name: 'CLIENT_VERSION')
         choice(
             choices: ["experimental", "testing", "release"],
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
-        string(
-            defaultValue: latestVersion,
-            description: 'latest PMM Server Version',
-            name: 'PMM_SERVER_LATEST')
         string(
             defaultValue: 'v3',
             description: 'Tag/Branch for pmm-qa repository',
