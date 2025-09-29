@@ -23,7 +23,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIE
     def results = new HashMap<>();
     for (amiVersion in amiVersions) {
         println amiVersion;
-        results.put("Run \"$UPGRADE_VARIANT\" upgrade tests", runUpgradeJob(PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, UPGRADE_VARIANT))
+        results.put("Run \"$UPGRADE_VARIANT\" upgrade tests", runUpgradeJob(PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
     }
 
     return results;
