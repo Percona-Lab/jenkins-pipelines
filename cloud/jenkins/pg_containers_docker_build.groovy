@@ -52,13 +52,17 @@ void build(String IMAGE_POSTFIX){
                   -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}\${PG_VER} \
                   -f ./percona-pgbouncer/Dockerfile ./percona-pgbouncer
             elif [ ${IMAGE_POSTFIX} = pgbackrest ]; then
-                docker build --no-cache --squash --build-arg PG_VERSION=\${PG_VER} --build-arg PGO_TAG=\${GIT_PD_BRANCH} \
+                docker build --no-cache --squash --build-arg PG_VERSION=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=\${GIT_PD_BRANCH} \
                   -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}\${PG_VER} \
                   -f ./percona-pgbackrest/Dockerfile ./percona-pgbackrest
+            elif [ ${IMAGE_POSTFIX} = postgres-gis ]; then
+                docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=\${GIT_PD_BRANCH} \
+                  -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX} \
+                  -f ./postgresql-containers/build/${IMAGE_POSTFIX}/Dockerfile ./postgresql-containers
             else
-                docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} --build-arg PGO_TAG=\${GIT_PD_BRANCH} \
+                docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=\${GIT_PD_BRANCH} \
                     -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-ppg\${PG_VER}-${IMAGE_POSTFIX} \
-                    -f ./postgresql-containers/build/${IMAGE_POSTFIX}/Dockerfile ./postgresql-containers
+                    -f ./percona-distribution-postgresql-\${PG_VER}/Dockerfile ./percona-distribution-postgresql-\${PG_VER}
             fi
         done
     """
