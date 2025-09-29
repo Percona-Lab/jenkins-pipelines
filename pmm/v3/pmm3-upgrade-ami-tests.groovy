@@ -26,9 +26,9 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
 
     for (version in versionsList.keySet()) {
         if(versionsList[version] == latestVersion) {
-            results.put("Run \"$versionsList[version]\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, amiVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
+            results.put("Run \"$versionsList[version]\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, versionsList[version], 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
         } else {
-            results.put("Run \"$versionsList[version]\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, amiVersion, "perconalab/pmm-server:${latestVersion}-rc", versionsList[version], 'release', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
+            results.put("Run \"$versionsList[version]\" upgrade tests", generateStage(PMM_UI_GIT_BRANCH, versionsList[version], "perconalab/pmm-server:${latestVersion}-rc", versionsList[version], 'release', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
         }
     }
 
