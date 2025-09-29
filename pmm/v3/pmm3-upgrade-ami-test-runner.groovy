@@ -298,6 +298,7 @@ pipeline {
                         ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-pre-upgrade'
                         export ADMIN_PASSWORD="pmm3admin!"
                     '''
+                    env.ADMIN_PASSWORD="pmm3admin!"
                 }
             }
         }
