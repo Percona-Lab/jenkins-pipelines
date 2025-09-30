@@ -1,6 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
 import hudson.model.*
-import hudson.plugins.ec2.AmazonEC2Cloud
+import hudson.plugins.ec2.EC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -522,6 +522,9 @@ initMap['debMap'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
+
+    sudo sed -i '/bullseye-backports/ s/cdn-aws.deb.debian.org/archive.debian.org/' /etc/apt/sources.list
+
     until sudo apt-get update; do
         sleep 1
         echo try again
@@ -601,7 +604,7 @@ initMap['min-bullseye-aarch64'] = initMap['debMap']
 initMap['min-jammy-aarch64']    = initMap['debMap']
 initMap['min-noble-aarch64']    = initMap['debMap']
 initMap['min-trixie-aarch64']   = initMap['debMap']
-initMap['min-al2023-aarch64']   = initMap['docker']
+initMap['min-al2023-aarch64']   = initMap['min-al2023-x64']
 
 capMap = [:]
 capMap['c5n.2xlarge'] = '60'
@@ -835,7 +838,7 @@ String sshKeysCredentialsId = '2ab73cff-5575-4ca2-be48-17761b165103'
 String region = 'eu-west-1'
 ('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
+    EC2Cloud ec2Cloud = new EC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
         '',                                     // String credentialsId
@@ -880,7 +883,7 @@ String region = 'eu-west-1'
 
     // add cloud configuration to Jenkins
     jenkins.clouds.each {
-        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
+        if (it.hasProperty('name') && it.name == ec2Cloud.name) {
             jenkins.clouds.remove(it)
         }
     }
