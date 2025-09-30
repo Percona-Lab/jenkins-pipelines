@@ -25,14 +25,15 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
     def results = new HashMap<>();
     println versionsList.keySet();
     println versionsList.keySet().last();
+    println versionsList.keySet()[versionsList.keySet().size() - 2];
 
     for (version in versionsList.keySet()) {
         def upgradeVersion = versionsList[version];
 
         if(version == latestVersion) {
-            results.put("Upgrade AMI PMM from ${version} (AMI tag: ${upgradeVersion}) to repo: experimental.", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'experimental', latestVersion, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
+            results.put("Upgrade AMI PMM from ${version} (AMI tag: ${upgradeVersion}) to repo: experimental.", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'experimental', versionsList.keySet().last(), PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
         } else {
-            results.put("Upgrade AMI PMM from ${version} (AMI tag: ${upgradeVersion}) to repo: testing.", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, "perconalab/pmm-server:${latestVersion}-rc", version, 'testing', latestVersion, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
+            results.put("Upgrade AMI PMM from ${version} (AMI tag: ${upgradeVersion}) to repo: testing.", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, "perconalab/pmm-server:${latestVersion}-rc", version, 'testing', versionsList.keySet()[versionsList.keySet().size() - 2], PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
         }
     }
 
