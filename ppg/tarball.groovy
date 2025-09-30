@@ -19,11 +19,12 @@ pipeline {
             description: 'SSL version to use',
             choices: [
                 '1',
-                '3'
+                '3',
+                '3.5'
             ]
         )
         string(
-            defaultValue: 'ppg-17.6',
+            defaultValue: 'ppg-18.0',
             description: 'PG version for test',
             name: 'VERSION'
         )
