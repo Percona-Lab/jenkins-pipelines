@@ -29,12 +29,12 @@ pipeline {
             name: 'PSP_REPO'
         )
         string(
-            defaultValue: 'TDE_REL_17_STABLE',
+            defaultValue: 'TDE_REL_18_STABLE',
             description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE',
             name: 'PSP_BRANCH'
         )
         string(
-            defaultValue: 'ppg-17.6',
+            defaultValue: 'ppg-18.0',
             description: 'Server PG version for test, including major and minor version, e.g ppg-17.4, ppg-17.3',
             name: 'VERSION'
         )
