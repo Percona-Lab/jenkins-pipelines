@@ -34,6 +34,10 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
             println "Client Repository is Experimental"
             results.put("Upgrade AMI PMM from ${version} (AMI tag: ${upgradeVersion}) to repo: experimental.", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'experimental', versionsList.keySet().last(), PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
         } else {
+            if(CLIENT_REPOSITORY != 'experimental') {
+                latestVersion = versionsList.keySet()[versionsList.keySet().size() - 2]
+            }
+
             println "Client Repository is NOT Experimental"
             results.put("Upgrade AMI PMM from ${version} (AMI tag: ${upgradeVersion}) to repo: testing.", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, "perconalab/pmm-server:${latestVersion}-rc", version, 'testing', versionsList.keySet()[versionsList.keySet().size() - 2], PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH))
         }
