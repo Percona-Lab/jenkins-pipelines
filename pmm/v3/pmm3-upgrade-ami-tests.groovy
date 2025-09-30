@@ -76,7 +76,10 @@ pipeline {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
-                    generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList, latestVersion)
+                    def jobs = generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList, latestVersion)
+                    for (job in jobs.values()) {
+                        job()
+                    }
                 }
             }
         }
