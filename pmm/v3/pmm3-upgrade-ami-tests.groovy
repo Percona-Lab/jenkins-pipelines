@@ -24,6 +24,7 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT
 def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList, latestVersion) {
     def results = new HashMap<>();
     println versionsList.keySet();
+    println versionsList.keySet().last();
 
     for (version in versionsList.keySet()) {
         def upgradeVersion = versionsList[version];
