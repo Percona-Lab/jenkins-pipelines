@@ -50,8 +50,18 @@ void setup_debian_package_tests()
 {
     sh '''
         sudo apt-get install -y dirmngr gnupg2
-        echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
+        echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu jammy main" | sudo tee -a /etc/apt/sources.list > /dev/null
         sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
+        sudo apt update -y
+        sudo apt-get install -y ansible git wget
+    '''
+}
+
+void setup_debian_trixie_package_tests()
+{
+    sh '''
+        sudo apt-get install -y dirmngr gnupg2
+        echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
         sudo apt update -y
         sudo apt-get install -y ansible git wget
     '''
@@ -378,7 +388,7 @@ pipeline {
                         label 'min-trixie-x64'
                     }
                     steps{
-                        setup_debian_package_tests()
+                        setup_debian_trixie_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
@@ -392,7 +402,7 @@ pipeline {
                         label 'min-trixie-arm64'
                     }
                     steps{
-                        setup_debian_package_tests()
+                        setup_debian_trixie_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
