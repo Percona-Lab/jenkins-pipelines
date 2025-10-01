@@ -23,7 +23,7 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT
 
 def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion) {
     def results = new HashMap<>();
-    def upgradeVersions = versionsList.keySet();
+    def upgradeVersions = versionsList.keySet().toList();
     if(CLIENT_REPOSITORY != 'experimental') {
         upgradeVersions.pop();
     }
