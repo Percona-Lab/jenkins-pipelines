@@ -373,6 +373,34 @@ pipeline {
                         }
                     }
                 }
+                stage('Debian 13 Trixie - X64') {
+                    agent {
+                        label 'min-trixie-x64'
+                    }
+                    steps{
+                        setup_debian_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('Debian 13 Trixie - ARM64') {
+                    agent {
+                        label 'min-trixie-arm64'
+                    }
+                    steps{
+                        setup_debian_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
             }
         }
     }
