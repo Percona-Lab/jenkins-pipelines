@@ -60,12 +60,11 @@ void setup_debian_package_tests()
 void setup_debian_trixie_package_tests()
 {
     sh '''
-        sudo apt-get install -y dirmngr gnupg2
-	    echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu jammy main" | sudo tee -a /etc/apt/sources.list > /dev/null
-	    sudo mkdir -p /etc/apt/keyrings
-        curl -fsSL https://keyserver.ubuntu.com/pks/lookup?op=get&search=0x93C4A3FD7BB9C367 | sudo tee /etc/apt/keyrings/ansible.gpg > /dev/null
-	    sudo apt update -y
-        sudo apt-get install -y ansible git wget
+        sudo apt-get install -y git wget python3-pip dirmngr gnupg2
+        sudo apt update -y
+        pip3 install --user ansible
+        export PATH=$HOME/.local/bin:$PATH
+        ansible --version
     '''
 }
 
