@@ -121,8 +121,12 @@ pipeline {
             name: 'INSTALL_REPO')
         string(
             defaultValue: '',
-            description: 'PMM Client tarball link or FB-code',
+            description: 'PMM Client (X64) tarball link or FB-code',
             name: 'TARBALL')
+        string(
+            defaultValue: '',
+            description: 'PMM Client (ARM64) tarball link or FB-code',
+            name: 'TARBALL_ARM')
         string(
             defaultValue: 'pmm3admin!',
             description: 'Password for pmm server admin user',
@@ -163,7 +167,7 @@ pipeline {
                     }
                     steps{
                         setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
                     }
                     post {
                         always {
@@ -191,7 +195,7 @@ pipeline {
                     }
                     steps{
                         setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
                     }
                     post {
                         always {
@@ -227,7 +231,7 @@ pipeline {
                     }
                     steps{
                         setup_rhel_10_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
                     }
                     post {
                         always {
@@ -263,7 +267,7 @@ pipeline {
                     }
                     steps{
                         setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
                     }
                     post {
                         always {
@@ -291,7 +295,7 @@ pipeline {
                     }
                     steps {
                         setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
                     }
                     post {
                         always {
@@ -319,7 +323,7 @@ pipeline {
                     }
                     steps{
                         setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
                     }
                     post {
                         always {
@@ -347,7 +351,7 @@ pipeline {
                     }
                     steps{
                         setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
                     }
                     post {
                         always {
