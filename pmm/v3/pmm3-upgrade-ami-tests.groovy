@@ -31,7 +31,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
     println versionsList.keySet().last();
     println versionsList.keySet()[versionsList.keySet().size() - 2];
 
-    for (version in versionsList.keySet()) {
+    for (version in upgradeVersions) {
         def upgradeVersion = versionsList[version];
 
         if(version == latestVersion && CLIENT_REPOSITORY == 'experimental') {
