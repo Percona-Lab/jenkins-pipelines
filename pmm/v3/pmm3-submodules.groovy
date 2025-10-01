@@ -282,9 +282,7 @@ pipeline {
                           inputs: [
                             pmm_server_image: "${IMAGE}", pmm_client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
                             pmm_qa_branch: "${PMM_QA_GIT_BRANCH}", pmm_ui_tests_branch: "${PMM_UI_TESTS_GIT_BRANCH}",
-                            pmm_client_version: "${CLIENT_URL}",
-                            pmm_client_dynamic_ol8: params.GSSAPI_DYNAMIC_TARBALLS && env.CLIENT_URL_DYNAMIC_OL8 ? env.CLIENT_URL_DYNAMIC_OL8 : '',
-                            pmm_client_dynamic_ol9: params.GSSAPI_DYNAMIC_TARBALLS && env.CLIENT_URL_DYNAMIC_OL9 ? env.CLIENT_URL_DYNAMIC_OL9 : ''
+                            pmm_client_version: "${CLIENT_URL}"
                           ]
                         ]
                         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
