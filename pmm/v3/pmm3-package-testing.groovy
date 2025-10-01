@@ -157,7 +157,7 @@ pipeline {
         }
         stage('Execute Package Tests') {
             parallel {
-                stage('ol-8-arm64') {
+                stage('Oracle Linux 8 - ARM64') {
                     agent {
                         label 'min-ol-8-arm64'
                     }
@@ -171,7 +171,7 @@ pipeline {
                         }
                     }
                 }
-                stage('ol-8-x64') {
+                stage('Oracle Linux 8 - X64') {
                     agent {
                         label 'min-ol-8-x64'
                     }
@@ -185,7 +185,7 @@ pipeline {
                         }
                     }
                 }
-                stage('ol-9-arm64') {
+                stage('Oracle Linux 9 - ARM64') {
                     agent {
                         label 'min-ol-9-arm64'
                     }
@@ -199,7 +199,21 @@ pipeline {
                         }
                     }
                 }
-                stage('alma-10-arm64') {
+                stage('Oracle Linux 9 - X64') {
+                    agent {
+                        label 'min-ol-9-x64'
+                    }
+                    steps{
+                        setup_rhel_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('Almalinux 10 - ARM64') {
                     when {
                         expression {
                             !(env.TESTS ?: '').contains('upgrade')
@@ -221,7 +235,29 @@ pipeline {
                         }
                     }
                 }
-                stage('jammy-arm64') {
+                stage('Almalinux 10 - X64') {
+                    when {
+                        expression {
+                            !(env.TESTS ?: '').contains('upgrade')
+                        }
+                    }
+                    agent {
+                        label 'min-alma-10-x64'
+                    }
+                    environment {
+                        PS_REPOSITORY='testing'
+                    }
+                    steps{
+                        setup_rhel_10_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('Ubuntu 22.04 Jammy - ARM64') {
                     agent {
                         label 'min-jammy-arm64'
                     }
@@ -235,7 +271,21 @@ pipeline {
                         }
                     }
                 }
-                stage('noble-arm64') {
+                stage('Ubuntu 22.04 Jammy - X64') {
+                    agent {
+                        label 'min-jammy-x64'
+                    }
+                    steps{
+                        setup_ubuntu_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('Ubuntu 24.04 Noble - ARM64') {
                     agent {
                         label 'min-noble-arm64'
                     }
@@ -249,7 +299,21 @@ pipeline {
                         }
                     }
                 }
-                stage('bookworm-arm64') {
+                stage('Ubuntu 24.04 Noble - X64') {
+                    agent {
+                        label 'min-noble-x64'
+                    }
+                    steps {
+                        setup_ubuntu_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('Debian 12 Bookworm - ARM64') {
                     agent {
                         label 'min-bookworm-arm64'
                     }
@@ -263,9 +327,37 @@ pipeline {
                         }
                     }
                 }
-                stage('bullseye-arm64') {
+                stage('Debian 12 Bookworm - X64') {
+                    agent {
+                        label 'min-bookworm-x64'
+                    }
+                    steps{
+                        setup_debian_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('Debian 11 Bullseye - ARM64') {
                     agent {
                         label 'min-bullseye-arm64'
+                    }
+                    steps{
+                        setup_debian_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('Debian 11 Bullseye - X64') {
+                    agent {
+                        label 'min-bullseye-x64'
                     }
                     steps{
                         setup_debian_package_tests()
