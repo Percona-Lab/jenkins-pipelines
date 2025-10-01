@@ -23,7 +23,11 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT
 
 def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion) {
     def results = new HashMap<>();
-    println versionsList.keySet();
+    def upgradeVersions = versionsList.keySet();
+    if(CLIENT_REPOSITORY != 'experimental') {
+        upgradeVersions.pop();
+    }
+    println upgradeVersions;
     println versionsList.keySet().last();
     println versionsList.keySet()[versionsList.keySet().size() - 2];
 
@@ -72,7 +76,7 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ["experimental", "testing", "release"],
+            choices: ["testing", "experimental", "release"],
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
         string(
