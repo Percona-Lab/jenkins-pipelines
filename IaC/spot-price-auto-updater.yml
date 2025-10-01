@@ -3,8 +3,10 @@
     project-type: pipeline
     description: |
         Checks current AWS spot prices for each AZ
-         and updates maxBidPrice in all templates: currentAWSSpotPrice + 0.07$
-        Do not edit this job through the web!
+         and updates maxBidPrice in all templates: currentAWSSpotPrice + 0.07$<br>
+        Uses correct product description based on AMI details for proper price calculation
+         (like "Red Hat Enterprise Linux" for RHEL AMIs which adds extra charges)<br><br>
+        Do not edit this job through the web!<br>
     disabled: false
     concurrent: false
     properties:
@@ -24,6 +26,42 @@
         import com.amazonaws.auth.InstanceProfileCredentialsProvider
         import com.amazonaws.services.ec2.AmazonEC2ClientBuilder
         import com.amazonaws.services.ec2.model.DescribeSpotPriceHistoryRequest
+        import com.amazonaws.services.ec2.model.DescribeImagesRequest
+
+        // get AMI details for product description
+        def getAMIDetails(amiId, region) {
+            try {
+                def ec2Client = AmazonEC2ClientBuilder.standard()
+                        .withRegion(region)
+                        .build()
+
+                def request = new DescribeImagesRequest()
+                        .withImageIds(amiId)
+
+                def response = ec2Client.describeImages(request)
+                if (response.getImages().size() > 0) {
+                    def image = response.getImages().get(0)
+                    return [
+                        platformDetails: image.getPlatformDetails() ?: "Linux/UNIX",
+                        usageOperation: image.getUsageOperation() ?: "RunInstances",
+                        name: image.getName() ?: "Unknown"
+                    ]
+                }
+            } catch (Exception e) {
+                // Fallback to Linux/UNIX if AMI details can't be retrieved
+                return [
+                    platformDetails: "Linux/UNIX",
+                    usageOperation: "RunInstances",
+                    name: "AMI lookup failed: ${e.message}"
+                ]
+            }
+
+            return [
+                platformDetails: "Linux/UNIX",
+                usageOperation: "RunInstances",
+                name: "AMI not found"
+            ]
+        }
 
         // Get the Jenkins instance
         def jenkins = Jenkins.instance
@@ -52,17 +90,19 @@
             // Get all templates for the current cloud
             def templates = cloud.getTemplates()
 
-            // Initialize a set to track unique instance types per Availability Zone
-            def uniqueInstanceTypes = new HashSet<String>()
+            // Initialize a set to track unique instance types + AMI combinations per Availability Zone
+            def uniqueInstanceAMICombinations = new HashSet<String>()
 
             // Iterate through each template
             templates.each { template ->
                 if (template instanceof SlaveTemplate) {
                     def instanceType = template.type.toString()
+                    def amiId = template.ami
+                    def uniqueKey = "${instanceType}:${amiId}"
 
-                    // Check if this instance type is already processed for this Availability Zone
-                    if (!uniqueInstanceTypes.contains(instanceType)) {
-                        // Create an entry for the instance type in the AvailabilityZone data
+                    // Check if this instance type + AMI combination is already processed for this Availability Zone
+                    if (!uniqueInstanceAMICombinations.contains(uniqueKey)) {
+                        // Create an entry for the instance type + AMI combination in the AvailabilityZone data
                         def instanceData = [:]
                         instanceData.instanceType = instanceType
 
@@ -71,12 +111,19 @@
                         if (spotConfig instanceof SpotConfiguration) {
                             def maxBidPrice = spotConfig.getSpotMaxBidPrice()
 
+                            // Get AMI details for proper product description
+                            def amiDetails = getAMIDetails(template.ami, region)
+
                             // Create an entry for the instance type in the AvailabilityZone data
                             instanceData.maxBidPrice = maxBidPrice
                             instanceData.az = null
                             instanceData.timestamp = null
                             instanceData.awsCurrentPrice = null
                             instanceData.newMaxBidPrice = null
+                            instanceData.amiId = template.ami
+                            instanceData.amiName = amiDetails.name
+                            instanceData.platformDetails = amiDetails.platformDetails
+                            instanceData.usageOperation = amiDetails.usageOperation
 
                             // Add the instance data to the AvailabilityZone
                             if (!cloudData[AvailabilityZone]) {
@@ -87,16 +134,16 @@
 
                             cloudData[AvailabilityZone].instanceTypes << instanceData
 
-                            // Add the instance type to the set to mark it as processed
-                            uniqueInstanceTypes.add(instanceType)
+                            // Add the instance type + AMI combination to the set to mark it as processed
+                            uniqueInstanceAMICombinations.add(uniqueKey)
 
                             // Create the EC2 client using the instance profile credentials provider
                             def ec2Client = AmazonEC2ClientBuilder.standard()
                                     .withRegion(region)
                                     .build()
 
-                            // Set the product description
-                            def productDescription = "Linux/UNIX"
+                            // Use the correct product description from AMI details
+                            def productDescription = amiDetails.platformDetails
 
                             // Make the necessary API call to AWS to retrieve the spot price history
                             def request = new DescribeSpotPriceHistoryRequest()
@@ -126,6 +173,10 @@
             data.instanceTypes.each { instanceData ->
                 dbgOutput += "  Availability Zone: ${instanceData.az}\n"
                 dbgOutput += "  Instance Type: ${instanceData.instanceType}\n"
+                dbgOutput += "  AMI ID: ${instanceData.amiId}\n"
+                dbgOutput += "  AMI Name: ${instanceData.amiName}\n"
+                dbgOutput += "  Platform Details: ${instanceData.platformDetails}\n"
+                dbgOutput += "  Usage Operation: ${instanceData.usageOperation}\n"
                 dbgOutput += "  Max Bid Price: ${instanceData.maxBidPrice}\n"
                 dbgOutput += "  Current AWS Spot Price: ${instanceData.awsCurrentPrice ?: 'N/A'}\n"
                 dbgOutput += "  New Max Bid Price: ${instanceData.newMaxBidPrice ?: 'N/A'}\n"
@@ -148,18 +199,21 @@
             templates.each { template ->
                 if (template instanceof SlaveTemplate) {
                     def instanceType = template.type.toString()
+                    def amiId = template.ami
                     def maxBidPrice = template.spotConfig.getSpotMaxBidPrice()
                     def templateName = template.getDisplayName()
 
-                    // Iterate through each entry in cloudData to find the corresponding instanceType and AZ
+                    // Iterate through each entry in cloudData to find the corresponding instanceType, AMI and AZ
                     cloudData.each { _, data ->
                         data.instanceTypes.each { instanceData ->
-                            if (instanceData.instanceType == instanceType && data.availabilityZone == cloudAvailabilityZone) {
+                            if (instanceData.instanceType == instanceType &&
+                                instanceData.amiId == amiId &&
+                                data.availabilityZone == cloudAvailabilityZone) {
                                 // Update only if the newMaxBidPrice is different
                                 if (instanceData.newMaxBidPrice != maxBidPrice) {
                                     template.spotConfig.setSpotMaxBidPrice(instanceData.newMaxBidPrice)
                                     priceChanges = true
-                                    dbgOutput += " Price change for ${templateName}(${data.availabilityZone}, ${instanceData.instanceType}):\n"
+                                    dbgOutput += " Price change for ${templateName}(${data.availabilityZone}, ${instanceData.instanceType}, ${instanceData.amiId}, ${instanceData.amiName}):\n"
                                     dbgOutput += "                  ${maxBidPrice} -> ${instanceData.newMaxBidPrice}\n"
                                 }
                             }
