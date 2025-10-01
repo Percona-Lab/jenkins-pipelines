@@ -147,7 +147,7 @@ pipeline {
                     def PUBLIC_IP = sh(script: "curl -s ifconfig.me", returnStdout: true).trim()
                     echo "Public IP: ${VM_IP}"
                      sh """
-                        curl --location --request PUT "http://${VM_IP}/v1/server/settings" \
+                        curl --location --request PUT "https://${VM_IP}/v1/server/settings" \
                         --header 'Content-Type: application/json' \
                         --user admin:${ADMIN_PASSWORD} \
                         --data "{\\\"pmm_public_address\\\": \\\"${VM_IP}\\\"}"
@@ -160,6 +160,20 @@ pipeline {
                 stage('ol-8-arm64') {
                     agent {
                         label 'min-ol-8-arm64'
+                    }
+                    steps{
+                        setup_rhel_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                    post {
+                        always {
+                            deleteDir()
+                        }
+                    }
+                }
+                stage('ol-8-x64') {
+                    agent {
+                        label 'min-ol-8-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
