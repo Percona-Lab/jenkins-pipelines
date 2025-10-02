@@ -8,7 +8,7 @@ resource "aws_sqs_queue" "jenkins" {
 }
 
 resource "aws_sqs_queue_policy" "jenkins" {
-  queue_url = "${aws_sqs_queue.jenkins.id}"
+  queue_url = aws_sqs_queue.jenkins.id
 
   policy = <<POLICY
 {
@@ -52,6 +52,6 @@ PATTERN
 # notify about instance interruption from AWS side
 resource "aws_cloudwatch_event_target" "aws-stop" {
   target_id = "${var.cloud_name}-termination"
-  rule      = "${aws_cloudwatch_event_rule.aws-stop.name}"
-  arn       = "${aws_sqs_queue.jenkins.arn}"
+  rule      = aws_cloudwatch_event_rule.aws-stop.name
+  arn       = aws_sqs_queue.jenkins.arn
 }
