@@ -47,6 +47,8 @@
                 - 'rhel-9'
                 - 'rhel-8-arm'
                 - 'rhel-9-arm'
+                - 'rhel-10'
+                - 'rhel-10-arm'
             description: "Distribution to run test"
         - choice:
             name: test_repo
