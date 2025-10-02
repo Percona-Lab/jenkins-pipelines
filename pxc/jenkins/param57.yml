@@ -55,11 +55,16 @@
         - "no"
         description: Run mysql-test-run.pl
     - choice:
-        name: WITH_ASAN
+        name: ANALYZER_OPTS
         choices:
-        - "no"
-        - "yes"
-        description: Build with ASAN
+        -
+        - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON
+        - -DWITH_ASAN=ON
+        - -DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON
+        - -DWITH_ASAN=ON -DWITH_UBSAN=ON
+        - -DWITH_UBSAN=ON
+        - -DWITH_VALGRIND=ON
+        description: ANALYZER_OPTS
     - string:
         name: PARALLEL_RUN
         default: "4"
@@ -86,6 +91,19 @@
         name: MTR_REPEAT
         default: "1"
         description: Run each test N number of times, --repeat=N
+    - choice:
+        name: CLOUD
+        choices:
+        - "Hetzner"
+        - "AWS"
+        description: "Host provider for Jenkins workers"
+    - string:
+        name: JENKINS_SCRIPTS_REPO
+        default: 'https://github.com/Percona-Lab/jenkins-pipelines'
+        description: Download the build scripts from this repository, except for the Groovy script referenced by the path defined in pipeline.yml
+    - string:
+        name: JENKINS_SCRIPTS_BRANCH
+        default: 'master'
     axes:
       - axis:
          type: user-defined
@@ -103,6 +121,7 @@
           - ubuntu:bionic
           - ubuntu:focal
           - ubuntu:jammy
+          - ubuntu:noble
           - debian:buster
           - debian:bullseye
           - debian:bookworm          

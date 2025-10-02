@@ -17,7 +17,7 @@ TAG=${TAG:-}
 DIST_NAME=${DIST_NAME:-}
 SSL_VER=${SSL_VER:-}
 TARGET_CFLAGS=${TARGET_CFLAGS:-}
-WITH_ASAN=${WITH_ASAN:-no}
+ANALYZER_OPTS=${ANALYZER_OPTS:-}
 
 
 # ------------------------------------------------------------------------------
@@ -62,10 +62,11 @@ if [[ "${CMAKE_BUILD_TYPE}" = "Debug" ]]; then
     SCONS_ARGS+=' debug=0'
 fi
 if [[ "${ANALYZER_OPTS}" = *WITH_VALGRIND=ON* ]]; then
+    CMAKE_OPTS+=" ${ANALYZER_OPTS}"
     BUILD_COMMENT+="-valgrind"
 fi
-if [[ "${WITH_ASAN}" = "yes" ]]; then
-    CMAKE_OPTS+=" -DWITH_ASAN=ON"
+if [[ "${ANALYZER_OPTS}" = *WITH_ASAN=ON* ]]; then
+    CMAKE_OPTS+=" ${ANALYZER_OPTS}"
     BUILD_COMMENT+="-asan"
 fi
 export CMAKE_OPTS=${CMAKE_OPTS}
