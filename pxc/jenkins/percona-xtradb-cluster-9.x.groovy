@@ -273,94 +273,90 @@ pipeline {
                         }
                     }
                 }
-                stage('Amazon Linux 2023') {
+                stage('Oracle Linux 10') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'NO') {
-                                echo "The step is skipped"
+                            cleanUpWS()
+                            unstash 'pxc-9x.properties'
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("oraclelinux:10", "--build_rpm=1 --enable_fipsmode=1")
                             } else {
-                                cleanUpWS()
-                                unstash 'pxc-9x.properties'
-                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                                buildStage("oraclelinux:10", "--build_rpm=1")
+                            }
+                            stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Oracle Linux 10 ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            unstash 'pxc-9x.properties'
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("oraclelinux:10", "--build_rpm=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("oraclelinux:10", "--build_rpm=1")
+                            }
+                            stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Amazon Linux 2023') {
+                    when {
+                        expression { env.FIPSMODE == 'YES' }
+                    }
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            unstash 'pxc-9x.properties'
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
-                                stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                                if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                                    uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                                }
+                            stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                             }
                         }
                     }
                 }
                 stage('Amazon Linux 2023 ARM') {
+                    when {
+                        expression { env.FIPSMODE == 'YES' }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'NO') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                unstash 'pxc-9x.properties'
-                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            cleanUpWS()
+                            unstash 'pxc-9x.properties'
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
-                                stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                                if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                                    uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('Ubuntu Focal(20.04)') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                unstash 'pxc-9x.properties'
-                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                                buildStage("ubuntu:focal", "--build_deb=1")
-
-                                stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                                if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                    uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('Ubuntu Focal(20.04) ARM') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                unstash 'pxc-9x.properties'
-                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                                buildStage("ubuntu:focal", "--build_deb=1")
-
-                                stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                                if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                    uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                }
+                            stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -381,8 +377,8 @@ pipeline {
                             }
 
                             stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -402,8 +398,8 @@ pipeline {
                             }
 
                             stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -423,10 +419,8 @@ pipeline {
                             }
 
                             stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                            if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            }
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -446,56 +440,8 @@ pipeline {
                             }
 
                             stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                            if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            }
-                        }
-                    }
-                }
-                stage('Debian Bullseye(11)') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                unstash 'pxc-9x.properties'
-                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                                buildStage("debian:bullseye", "--build_deb=1")
-
-                                stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                                if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                    uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('Debian Bullseye(11) ARM') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                unstash 'pxc-9x.properties'
-                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                                buildStage("debian:bullseye", "--build_deb=1")
-
-                                stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                                if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                    uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                }
-                            }
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -591,30 +537,7 @@ pipeline {
                         }
                     }
                 }
-                stage('Debian Bullseye(11) tarball') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                unstash 'pxc-9x.properties'
-                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                                buildStage("debian:bullseye", "--build_tarball=1")
-
-                                stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
-                                if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
-                                    uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('Ubuntu Jammy(22.04) tarball') {
+                stage('Ubuntu Noble(24.04) tarball') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -624,9 +547,9 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
+                                buildStage("ubuntu:noble", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("ubuntu:jammy", "--build_tarball=1")
+                                buildStage("ubuntu:noble", "--build_tarball=1")
                             }
                         }
 
