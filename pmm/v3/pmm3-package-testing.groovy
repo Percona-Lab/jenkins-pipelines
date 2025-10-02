@@ -150,7 +150,7 @@ pipeline {
                     def PUBLIC_IP = sh(script: "curl -s ifconfig.me", returnStdout: true).trim()
                     echo "Public IP: ${VM_IP}"
                      sh """
-                        curl --location --request PUT "http://${VM_IP}/v1/server/settings" \
+                        curl -k --location --request PUT "https://${VM_IP}/v1/server/settings" \
                         --header 'Content-Type: application/json' \
                         --user admin:${ADMIN_PASSWORD} \
                         --data "{\\\"pmm_public_address\\\": \\\"${VM_IP}\\\"}"
