@@ -54,40 +54,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
             echo \\"PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com\\" >> /home/admin/.config/systemd/user/pmm-server.env
             echo \\"PMM_DEV_UPDATE_DOCKER_IMAGE=$DOCKER_TAG_UPGRADE\\" >> /home/admin/.config/systemd/user/pmm-server.env
             cat /home/admin/.config/systemd/user/pmm-server.env
-
-            systemctl --user restart pmm-server
-            docker network create pmm-qa || true
-            docker network connect pmm-qa pmm-server
-            docker network connect pmm-qa watchtower
-
-            yum install python3 -y
-            python3 --version
-
-            sudo mkdir -p /srv/qa-integration
-
-            ls /srv/qa-integration
-
-            pushd  /srv/qa-integration
-                sudo git clone --single-branch --branch ${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-            sudo chmod -R 755 /srv/qa-integration
-            sudo chown -R \$(id -u):\$(id -u) /srv/qa-integration
-            pushd  /srv/qa-integration/pmm_qa
-
-            mkdir -m 777 -p /tmp/backup_data
-            python3 -m venv virtenv
-            . virtenv/bin/activate
-            pip install --upgrade pip
-            pip install -r requirements.txt
-            pip install netaddr
-            pip install setuptools
-
-            python pmm-framework.py --verbose \
-                --pmm-server-ip=${SERVER_IP} \
-                --client-version=${CLIENT_VERSION} \
-                --pmm-server-password=${ADMIN_PASSWORD} \
-                --database bucket
-            popd
-        "'
+         "'
     """
   }
 }
