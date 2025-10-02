@@ -139,6 +139,9 @@ pipeline {
     options {
         skipDefaultCheckout()
     }
+    triggers {
+        cron('0 2 * * *')
+    }
     stages {
         stage('Setup Server Instance') {
             steps {

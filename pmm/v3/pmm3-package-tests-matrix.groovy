@@ -161,9 +161,6 @@ pipeline {
         skipDefaultCheckout()
         disableConcurrentBuilds()
     }
-    triggers {
-        cron('0 4 * * *')
-    }
     stages {
         stage('Run package tests') {
             parallel {
