@@ -49,17 +49,6 @@ void setup_rhel_10_package_tests()
 void setup_debian_package_tests()
 {
     sh '''
-        sudo apt-get install -y dirmngr gnupg2
-        echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu jammy main" | sudo tee -a /etc/apt/sources.list > /dev/null
-        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
-        sudo apt update -y
-        sudo apt-get install -y ansible git wget
-    '''
-}
-
-void setup_debian_trixie_package_tests()
-{
-    sh '''
         sudo apt-get update
         sudo apt-get install -y gpg wget dirmngr gnupg2
         wget -O- "https://keyserver.ubuntu.com/pks/lookup?fingerprint=on&op=get&search=0x6125E2A8C77F2818FB7BD15B93C4A3FD7BB9C367" | sudo gpg --dearmour -o /usr/share/keyrings/ansible-archive-keyring.gpg
@@ -391,7 +380,7 @@ pipeline {
                         label 'min-trixie-x64'
                     }
                     steps{
-                        setup_debian_trixie_package_tests()
+                        setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
@@ -405,7 +394,7 @@ pipeline {
                         label 'min-trixie-arm64'
                     }
                     steps{
-                        setup_debian_trixie_package_tests()
+                        setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                     post {
