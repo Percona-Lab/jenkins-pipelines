@@ -23,11 +23,15 @@ void runUpgradeJob(String PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT
 
 def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion) {
     def results = new HashMap<>();
-    println versionsList.keySet();
+    def upgradeVersions = versionsList.keySet().toList();
+    if(CLIENT_REPOSITORY != 'experimental') {
+        upgradeVersions.pop();
+    }
+    println upgradeVersions;
     println versionsList.keySet().last();
     println versionsList.keySet()[versionsList.keySet().size() - 2];
 
-    for (version in versionsList.keySet()) {
+    for (version in upgradeVersions) {
         def upgradeVersion = versionsList[version];
 
         if(version == latestVersion && CLIENT_REPOSITORY == 'experimental') {
@@ -50,7 +54,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
 def generateStage(String PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
     return {
         stage("Upgrade AMI PMM from ${CLIENT_VERSION} (AMI tag: ${amiVersion}) to repo: ${CLIENT_REPOSITORY}.") {
-            retry(2) {
+            retry(3) {
                 runUpgradeJob(PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH);
             }
         }
@@ -72,7 +76,7 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
-            choices: ["experimental", "testing", "release"],
+            choices: ["testing", "experimental", "release"],
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
         string(
