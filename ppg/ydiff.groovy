@@ -254,6 +254,19 @@ pipeline {
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Debian trixie(13)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("debian:trixie", "--build_deb=1")
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
             }
         }
 
