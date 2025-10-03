@@ -42,6 +42,8 @@ imageMap['docker-32gb']      = imageMap['docker']
 imageMap['min-bullseye-x64'] = 'ami-0bf166b48bbe2bf7c'
 imageMap['min-bookworm-x64'] = 'ami-02ee139f24936eba5'
 imageMap['min-al2023-x64']   = 'ami-01eb4eefd88522422'
+imageMap['min-trixie-x64']   = 'ami-07d66fa11c7e97a8f'
+imageMap['min-rhel-10-x64']  = 'ami-0a5229853eaaa29c1'
 
 imageMap['min-al2023-aarch64'] = 'ami-0288dbce011958818'
 
@@ -90,6 +92,8 @@ userMap['min-buster-x64']    = 'admin'
 userMap['min-xenial-x64']    = 'ubuntu'
 userMap['min-bullseye-x64']  = 'admin'
 userMap['min-bookworm-x64']  = 'admin'
+userMap['min-trixie-x64']    = 'admin'
+userMap['min-rhel-10-x64']   = 'ec2-user'
 userMap['min-al2023-x64']    = 'ec2-user'
 userMap['min-al2023-aarch64'] = 'ec2-user'
 
@@ -315,6 +319,7 @@ initMap['debMap'] = '''
         fi
     fi
     sudo sed -i '/buster-backports/ s/cdn-aws.deb.debian.org/archive.debian.org/' /etc/apt/sources.list
+    sudo sed -i '/bullseye-backports/ s/cdn-aws.deb.debian.org/archive.debian.org/' /etc/apt/sources.list
     until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
@@ -326,6 +331,8 @@ initMap['debMap'] = '''
     DEB_VER=$(lsb_release -sc)
     if [[ ${DEB_VER} == "bookworm" ]]; then
         JAVA_VER="openjdk-17-jre-headless"
+    elif [[ ${DEB_VER} == "trixie" ]]; then
+        JAVA_VER="openjdk-21-jre-headless"
     else
         JAVA_VER="openjdk-11-jre-headless"
     fi
@@ -386,6 +393,7 @@ initMap['min-buster-x64']   = initMap['debMap']
 initMap['min-bionic-x64']   = initMap['debMap']
 initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-bookworm-x64'] = initMap['debMap']
+initMap['min-trixie-x64']   = initMap['debMap']
 initMap['min-focal-x64']    = initMap['debMap']
 initMap['min-jammy-x64']    = initMap['debMap']
 initMap['min-noble-x64']    = initMap['debMap']
@@ -497,6 +505,32 @@ initMap['min-al2023-x64'] = '''
 '''
 initMap['min-al2023-aarch64'] = initMap['min-al2023-x64']
 
+initMap['min-rhel-10-x64'] = '''
+    set -o xtrace
+    RHVER=$(rpm --eval %rhel)
+    if ! mountpoint -q /mnt; then
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext2 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
+    fi
+
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+    sudo yum -y install java-21-openjdk-headless tzdata-java || :
+    sudo yum -y install awscli2 || :
+    sudo yum -y install git || :
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
+
 capMap = [:]
 capMap['c5.2xlarge'] = '40'
 capMap['c5.4xlarge'] = '80'
@@ -526,6 +560,8 @@ typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-bookworm-x64']  = typeMap['min-centos-7-x64']
+typeMap['min-trixie-x64']    = typeMap['docker-32gb']
+typeMap['min-rhel-10-x64']   = typeMap['docker-32gb']
 typeMap['min-al2023-x64']    = 'c5.2xlarge'
 typeMap['min-al2023-aarch64'] = 'm6gd.4xlarge'
 
@@ -564,6 +600,8 @@ execMap['min-stretch-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
 execMap['min-bullseye-x64'] = '1'
 execMap['min-bookworm-x64'] = '1'
+execMap['min-trixie-x64'] = '1'
+execMap['min-rhel-10-x64'] = '1'
 execMap['min-al2023-x64']    = '1'
 execMap['min-al2023-aarch64'] = '1'
 
@@ -602,6 +640,8 @@ devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-buster-x64']    = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-bullseye-x64']  = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-bookworm-x64']  = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-trixie-x64']    = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-rhel-10-x64']   = '/dev/sda1=:12:true:gp3,/dev/sdd=:80:true:gp3'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-centos-6-x32']  = '/dev/sda=:12:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-al2023-x64']    = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -644,6 +684,8 @@ labelMap['min-buster-x64']    = 'min-buster-x64'
 labelMap['min-xenial-x64']    = 'min-xenial-x64'
 labelMap['min-bullseye-x64']  = 'min-bullseye-x64'
 labelMap['min-bookworm-x64']  = 'min-bookworm-x64'
+labelMap['min-trixie-x64']    = 'min-trixie-x64'
+labelMap['min-rhel-10-x64']   = 'min-rhel-10-x64'
 labelMap['min-al2023-x64']    = 'min-al2023-x64'
 labelMap['min-al2023-aarch64'] = 'min-al2023-aarch64 docker-32gb-aarch64'
 
@@ -687,6 +729,8 @@ maxUseMap['min-buster-x64']    = maxUseMap['singleUse']
 maxUseMap['min-xenial-x64']    = maxUseMap['singleUse']
 maxUseMap['min-bullseye-x64']  = maxUseMap['singleUse']
 maxUseMap['min-bookworm-x64']  = maxUseMap['singleUse']
+maxUseMap['min-trixie-x64']    = maxUseMap['singleUse']
+maxUseMap['min-rhel-10-x64']   = maxUseMap['singleUse']
 maxUseMap['min-al2023-x64']    = maxUseMap['singleUse']
 maxUseMap['min-al2023-aarch64'] = maxUseMap['singleUse']
 
@@ -727,6 +771,8 @@ jvmoptsMap['min-buster-x64']    = jvmoptsMap['docker']
 jvmoptsMap['min-xenial-x64']    = jvmoptsMap['docker']
 jvmoptsMap['min-bullseye-x64']  = jvmoptsMap['docker']
 jvmoptsMap['min-bookworm-x64']  = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
+jvmoptsMap['min-trixie-x64']    = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
+jvmoptsMap['min-rhel-10-x64']   = jvmoptsMap['docker']
 jvmoptsMap['min-al2023-x64']    = '-Xmx512m -Xms512m'
 jvmoptsMap['min-al2023-aarch64'] = '-Xmx512m -Xms512m'
 
@@ -824,10 +870,12 @@ String region = 'us-west-1'
             getTemplate('min-centos-8-x64', "${region}${it}"),
             getTemplate('min-ol-8-x64',     "${region}${it}"),
             getTemplate('min-ol-9-x64',     "${region}${it}"),
+            getTemplate('min-rhel-10-x64',  "${region}${it}"),
             // getTemplate('min-stretch-x64',  "${region}${it}"),
             getTemplate('min-buster-x64',   "${region}${it}"),
             getTemplate('min-bullseye-x64', "${region}${it}"),
             getTemplate('min-bookworm-x64', "${region}${it}"),
+            getTemplate('min-trixie-x64',   "${region}${it}"),
             // getTemplate('min-xenial-x64',   "${region}${it}"),
             getTemplate('min-bionic-x64',   "${region}${it}"),
             getTemplate('min-focal-x64',    "${region}${it}"),
