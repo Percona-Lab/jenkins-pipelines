@@ -7,7 +7,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 
 def operatingsystems() {
-    return ['oracle-9','debian-12','ubuntu-jammy', 'al-2023']
+    return ['oracle-9','debian-12','ubuntu-jammy', 'al-2023', 'rhel-10']
 }
 
 

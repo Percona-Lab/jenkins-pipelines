@@ -14,7 +14,7 @@ data "aws_iam_policy_document" "jenkins-master-assume" {
 resource "aws_iam_role" "jenkins-master" {
   name               = "${var.cloud_name}-master"
   path               = "/"
-  assume_role_policy = "${data.aws_iam_policy_document.jenkins-master-assume.json}"
+  assume_role_policy = data.aws_iam_policy_document.jenkins-master-assume.json
 }
 
 # create policy for master instance role
@@ -97,18 +97,18 @@ data "aws_iam_policy_document" "jenkins-master" {
 # create policy for master instance role
 resource "aws_iam_policy" "jenkins-master" {
   name   = "${var.cloud_name}-master"
-  policy = "${data.aws_iam_policy_document.jenkins-master.json}"
+  policy = data.aws_iam_policy_document.jenkins-master.json
 }
 
 # attach policy to master instance role
 resource "aws_iam_role_policy_attachment" "jenkins-master" {
-  role       = "${aws_iam_role.jenkins-master.name}"
-  policy_arn = "${aws_iam_policy.jenkins-master.arn}"
+  role       = aws_iam_role.jenkins-master.name
+  policy_arn = aws_iam_policy.jenkins-master.arn
 }
 
 # create instance profile for master instance
 resource "aws_iam_instance_profile" "jenkins-master" {
   name = "${var.cloud_name}-master"
   path = "/"
-  role = "${aws_iam_role.jenkins-master.name}"
+  role = aws_iam_role.jenkins-master.name
 }

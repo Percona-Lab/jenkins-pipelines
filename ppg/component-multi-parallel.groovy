@@ -17,7 +17,7 @@ pipeline {
             choices: repoList()
         )
         string(
-            defaultValue: 'ppg-17.6',
+            defaultValue: 'ppg-18.0',
             description: 'PPG version for test',
             name: 'VERSION'
          )
@@ -26,19 +26,19 @@ pipeline {
             description: 'Base branch for ppg-testing repo',
             name: 'TESTING_BRANCH')
         string(
-            defaultValue: '2.2.0',
+            defaultValue: '2.3.0',
             description: 'PGSM version',
             name: 'PGSM_VERSION')
         string(
-            defaultValue: '4.6.2',
+            defaultValue: '4.6.3',
             description: 'pgpool version',
             name: 'PGPOOL_VERSION')
         string(
-            defaultValue: '3.3.8',
+            defaultValue: '3.5.3',
             description: 'postgis version',
             name: 'POSTGIS_VERSION')
         string(
-            defaultValue: '17.1',
+            defaultValue: '18.0',
             description: ' version',
             name: 'PGAUDIT_VERSION')
         string(
@@ -46,7 +46,7 @@ pipeline {
             description: 'PG_REPACK version',
             name: 'PG_REPACK_VERSION')
         string(
-            defaultValue: 'v4.0.6',
+            defaultValue: 'v4.1.0',
             description: 'Patroni version',
             name: 'PATRONI_VERSION')
         string(
@@ -54,7 +54,7 @@ pipeline {
             description: 'pgbackrest version',
             name: 'PGBACKREST_VERSION')
         string(
-            defaultValue: 'REL4_1_0',
+            defaultValue: 'REL4_2_0',
             description: 'pgaudit13_set_user version',
             name: 'SETUSER_VERSION')
         string(
@@ -70,7 +70,7 @@ pipeline {
             description: 'wal2json version',
             name: 'WAL2JSON_VERSION')
         string(
-            defaultValue: 'v0.8.0',
+            defaultValue: 'v0.8.1',
             description: 'pgvector version',
             name: 'PGVECTOR_VERSION')
         string(

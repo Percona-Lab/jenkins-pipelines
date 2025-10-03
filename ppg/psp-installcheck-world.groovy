@@ -15,12 +15,12 @@ pipeline {
             choices: ppgOperatingSystemsALL()
         )
         string(
-            defaultValue: '17.6',
+            defaultValue: '18.0',
             description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3',
             name: 'VERSION'
         )
         string(
-            defaultValue: '17.6.1',
+            defaultValue: '18.0.1',
             description: 'Server PG version for test, including major and minor version, e.g 17.6.1',
             name: 'PERCONA_SERVER_VERSION'
         )
@@ -30,7 +30,7 @@ pipeline {
             name: 'PSP_REPO'
         )
         string(
-            defaultValue: 'TDE_REL_17_STABLE',
+            defaultValue: 'TDE_REL_18_STABLE',
             description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE',
             name: 'PSP_BRANCH'
         )
