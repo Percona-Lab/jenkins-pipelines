@@ -87,9 +87,14 @@ void prepareNode() {
     curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
     
     if ! command -v az &>/dev/null; then
-        sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
-        
-        cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
+        if command -v apt-get &>/dev/null; then
+            # Ubuntu/Debian systems (AWS EC2 Ubuntu instances)
+            echo "Installing Azure CLI for Ubuntu/Debian..."
+            curl -sL https://aka.ms/InstallAzureCLIDeb | sudo bash
+        elif command -v yum &>/dev/null; then
+            echo "Installing Azure CLI for Amazon Linux/CentOS/RHEL..."
+            sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+            cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
 [azure-cli]
 name=Azure CLI
 baseurl=https://packages.microsoft.com/yumrepos/azure-cli
@@ -97,8 +102,22 @@ enabled=1
 gpgcheck=1
 gpgkey=https://packages.microsoft.com/keys/microsoft.asc
 EOF
-        
-        sudo dnf install azure-cli -y
+            sudo yum install azure-cli -y
+        elif command -v dnf &>/dev/null; then
+            echo "Installing Azure CLI for Fedora/RHEL 8+..."
+            sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+            cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
+[azure-cli]
+name=Azure CLI
+baseurl=https://packages.microsoft.com/yumrepos/azure-cli
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc
+EOF
+            sudo dnf install azure-cli -y
+        else
+            echo "Unsupported package manager"
+        fi
     fi
 """
 
