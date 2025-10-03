@@ -194,7 +194,7 @@ pipeline {
                         }
                     }
                 }*/
-                stage('Build pg_tarball 16 for OpenSSL 3.5') {
+                /*stage('Build pg_tarball 16 for OpenSSL 3.5') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -220,7 +220,7 @@ pipeline {
                         }
                     }
                 }
-                /*stage('Build pg_tarball 16 for OpenSSL 3') {
+                stage('Build pg_tarball 16 for OpenSSL 3') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -272,7 +272,7 @@ pipeline {
 			}
                     }
                 }*/
-            stage('Build pg_tarball 15 for OpenSSL 3.5') {
+            /*stage('Build pg_tarball 15 for OpenSSL 3.5') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -298,7 +298,7 @@ pipeline {
                         }
                     }
                 }
-		/*stage('Build pg_tarball 15 for OpenSSL 3') {
+		stage('Build pg_tarball 15 for OpenSSL 3') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -428,7 +428,7 @@ pipeline {
 			}
                     }
                 }*/
-            stage('Build pg_tarball 13 for OpenSSL 3.5') {
+            /*stage('Build pg_tarball 13 for OpenSSL 3.5') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -454,7 +454,7 @@ pipeline {
                         }
                     }
                 }
-		/*stage('Build pg_tarball 13 for OpenSSL 3') {
+		stage('Build pg_tarball 13 for OpenSSL 3') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
