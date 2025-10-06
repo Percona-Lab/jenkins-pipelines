@@ -20,7 +20,7 @@ Parameters:
     ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
 
 Resources:
-  SVPC:  # separate virtual network for Staging instances
+  SVPC: # separate virtual network for Staging instances
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 10.178.0.0/22
@@ -33,7 +33,7 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SInternetGateway:  # Internet Gateway for Staging VPC
+  SInternetGateway: # Internet Gateway for Staging VPC
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
@@ -42,13 +42,13 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SVPCGatewayAttachment:  # Attach Gateway to VPC
+  SVPCGatewayAttachment: # Attach Gateway to VPC
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       VpcId: !Ref SVPC
       InternetGatewayId: !Ref SInternetGateway
 
-  SSubnetA:  # create subnet in AZ
+  SSubnetA: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref SVPC
@@ -63,7 +63,7 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SSubnetB:  # create subnet in AZ
+  SSubnetB: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref SVPC
@@ -78,7 +78,7 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SSubnetC:  # create subnet in AZ
+  SSubnetC: # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref SVPC
@@ -93,7 +93,7 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SRouteTable:  # create route table for VPC
+  SRouteTable: # create route table for VPC
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref SVPC
@@ -103,32 +103,32 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SInternetRoute:  # add default route
+  SInternetRoute: # add default route
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref SInternetGateway
       RouteTableId: !Ref SRouteTable
 
-  SSubnetARouteTable:  # add subnet route
+  SSubnetARouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref SRouteTable
       SubnetId: !Ref SSubnetA
 
-  SSubnetBRouteTable:  # add subnet route
+  SSubnetBRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref SRouteTable
       SubnetId: !Ref SSubnetB
 
-  SSubnetCRouteTable:  # add subnet route
+  SSubnetCRouteTable: # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref SRouteTable
       SubnetId: !Ref SSubnetC
 
-  SSSHSecurityGroup:  # allow ssh access to staging instances
+  SSSHSecurityGroup: # allow ssh access to staging instances
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: SSH
@@ -143,7 +143,7 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SNOMADSecurityGroup:  # allow nomad access to staging instances
+  SNOMADSecurityGroup: # allow nomad access to staging instances
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: NOMAD
@@ -158,7 +158,7 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SHTTPSecurityGroup:  # allow http and https access
+  SHTTPSecurityGroup: # allow http and https access
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: HTTP
@@ -177,7 +177,7 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SInstancesRole:  # separate IAM role for Staging instances
+  SInstancesRole: # separate IAM role for Staging instances
     Type: "AWS::IAM::Role"
     Properties:
       RoleName: !Join ["-", [!Ref SShortName, "slave"]]
@@ -229,7 +229,7 @@ Resources:
         - !Ref SInstancesRole
       InstanceProfileName: !Join ["-", [!Ref SShortName, "slave"]]
 
-  SInstancesUser:  # create standalone user for PMM jenkins jobs
+  SInstancesUser: # create standalone user for PMM jenkins jobs
     Type: AWS::IAM::User
     Properties:
       UserName: !Join ["-", [!Ref SShortName, "slave"]]
@@ -327,7 +327,7 @@ Resources:
     Properties:
       UserName: !Ref SInstancesUser
 
-  LambdaExecutionRole:  # create Role for lambda function
+  LambdaExecutionRole: # create Role for lambda function
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Ref LambdaName
@@ -351,6 +351,7 @@ Resources:
                   - ec2:DescribeSpotPriceHistory
                   - ec2:DescribeInstances
                   - ses:SendEmail
+                  - pricing:GetProducts
               - Effect: Allow
                 Resource: "arn:aws:logs:*:*:*"
                 Action:
@@ -358,7 +359,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:PutLogEvents
 
-  LambdaFunction:  # create lambda function which email staging owner at night
+  LambdaFunction: # create lambda function which email staging owner at night
     Type: AWS::Lambda::Function
     Properties:
       Description: email owner about running stagging instances
@@ -379,9 +380,60 @@ Resources:
           import boto3
           import datetime
           import collections
+          import json
+          from functools import lru_cache
+
+          # Region to location mapping for pricing API
+          REGION_LOCATION_MAP = {
+              'us-east-1': 'US East (N. Virginia)',
+              'us-east-2': 'US East (Ohio)',
+              'us-west-1': 'US West (N. California)',
+              'us-west-2': 'US West (Oregon)',
+              'eu-west-1': 'EU (Ireland)',
+              'eu-central-1': 'EU (Frankfurt)',
+              'eu-west-2': 'EU (London)',
+              'eu-west-3': 'EU (Paris)',
+              'eu-north-1': 'EU (Stockholm)'
+          }
+
+          @lru_cache(maxsize=128)
+          def get_on_demand_price(instance_type, region='us-east-2'):
+              """Get accurate on-demand price from AWS Pricing API"""
+              try:
+                  # Pricing API is only available in us-east-1
+                  pricing_client = boto3.client('pricing', region_name='us-east-1')
+                  location = REGION_LOCATION_MAP.get(region, 'US East (Ohio)')
+
+                  response = pricing_client.get_products(
+                      ServiceCode='AmazonEC2',
+                      Filters=[
+                          {'Type': 'TERM_MATCH', 'Field': 'instanceType', 'Value': instance_type},
+                          {'Type': 'TERM_MATCH', 'Field': 'location', 'Value': location},
+                          {'Type': 'TERM_MATCH', 'Field': 'tenancy', 'Value': 'Shared'},
+                          {'Type': 'TERM_MATCH', 'Field': 'operatingSystem', 'Value': 'Linux'},
+                          {'Type': 'TERM_MATCH', 'Field': 'preInstalledSw', 'Value': 'NA'},
+                          {'Type': 'TERM_MATCH', 'Field': 'capacitystatus', 'Value': 'Used'}
+                      ],
+                      MaxResults=1
+                  )
+
+                  if response['PriceList']:
+                      price_item = json.loads(response['PriceList'][0])
+                      on_demand = price_item['terms']['OnDemand']
+
+                      for term in on_demand.values():
+                          for price_dimension in term['priceDimensions'].values():
+                              price = float(price_dimension['pricePerUnit']['USD'])
+                              if price > 0:
+                                  return price
+              except Exception as e:
+                  print(f"Error: Could not get on-demand price for {instance_type} in {region}: {e}")
+                  raise e  # Re-raise to ensure we know if pricing fails
+
+              raise ValueError(f"No on-demand price found for {instance_type} in {region}")
 
           def lambda_handler(event, context):
-              fullReportEmail = ['alexander.tymchuk@percona.com', 'talha.rizwan@percona.com', 'anderson.nogueira@percona.com', 'alex.miroshnychenko@percona.com']
+              fullReportEmail = ['alexander.tymchuk@percona.com', 'talha.rizwan@percona.com', 'anderson.nogueira@percona.com']
               region = 'us-east-2'
               session = boto3.Session(region_name=region)
               resources = session.resource('ec2')
@@ -458,19 +510,15 @@ Resources:
                           hours = (period_end - period_start).total_seconds() / 3600
                           totalCost += hours * price
                   else:
-                      # On-demand pricing (simplified - use current spot price as estimate)
-                      priceHistory = ec2.describe_spot_price_history(
-                          InstanceTypes=[instance.instance_type],
-                          AvailabilityZone=instance.placement['AvailabilityZone'],
-                          ProductDescriptions=['Linux/UNIX'],
-                          MaxResults=1
-                      )
-                      if priceHistory['SpotPriceHistory']:
-                          price = float(priceHistory['SpotPriceHistory'][0]['SpotPrice'])
-                      else:
-                          price = 0.05  # fallback
+                      # On-demand pricing using AWS Pricing API
                       hours = uptime.total_seconds() / 3600
-                      totalCost = hours * price * 2  # On-demand is ~2x spot price
+                      try:
+                          on_demand_price = get_on_demand_price(instance.instance_type, region)
+                          totalCost = hours * on_demand_price
+                      except Exception as e:
+                          print(f"Failed to get on-demand price for {instance.instance_type}: {e}")
+                          # Skip this instance if we can't get pricing
+                          continue
 
                   costStr = '%0.2f USD' % totalCost
 
@@ -533,7 +581,7 @@ Resources:
 
               return 'successful finish'
 
-  ScheduledRule:  # cron rule
+  ScheduledRule: # cron rule
     Type: AWS::Events::Rule
     Properties:
       Name: !Ref LambdaName
@@ -544,7 +592,7 @@ Resources:
         - Arn: !GetAtt LambdaFunction.Arn
           Id: !Ref LambdaName
 
-  PermissionForEventsToInvokeLambda:  # create permitions to run function from ScheduledRule
+  PermissionForEventsToInvokeLambda: # create permitions to run function from ScheduledRule
     Type: AWS::Lambda::Permission
     Properties:
       FunctionName: !Ref LambdaFunction
