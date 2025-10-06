@@ -109,7 +109,11 @@
                     stage("major_upgrade_to") {
                         steps {
                             script {
-                                runpsptjob("major_upgrade_to")
+                                if (params.product_to_test == 'ps_57' ) {
+                                    echo "Skip as not supported for major_upgrade_to"
+                                } else {
+                                    runpsptjob("major_upgrade_to")
+                                }
                             }
                         }
                     }
@@ -120,7 +124,7 @@
                                 if (params.product_to_test == 'ps_57' ) {
                                     runpsptjob("major_upgrade_from")
                                 } else {
-                                    echo "Skip as not supported yet"
+                                    echo "Skip as not supported for major_upgrade_from"
                                 }
                             }
                         }

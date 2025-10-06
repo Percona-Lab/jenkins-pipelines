@@ -236,6 +236,7 @@ pipeline {
                 'install',
                 'upgrade',
                 'major_upgrade_from',
+                'major_upgrade_to',
                 'kmip',
                 'kms'
             ],
