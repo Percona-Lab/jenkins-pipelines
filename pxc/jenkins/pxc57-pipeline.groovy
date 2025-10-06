@@ -60,15 +60,7 @@ pipeline {
             description: 'Run mysql-test-run.pl',
             name: 'DEFAULT_TESTING')
         choice(name: 'ANALYZER_OPTS',
-           choices: [
-             '',
-             '-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON',
-             '-DWITH_ASAN=ON',
-             '-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON',
-             '-DWITH_ASAN=ON -DWITH_UBSAN=ON',
-             '-DWITH_UBSAN=ON',
-             '-DWITH_VALGRIND=ON'
-           ].join('\n'),
+           choices: ' \n-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON\n-DWITH_ASAN=ON\n-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON\n-DWITH_ASAN=ON -DWITH_UBSAN=ON\n-DWITH_UBSAN=ON\n-DWITH_VALGRIND=ON'
            description: 'Analyzer options passed to CMake (ASAN/UBSAN/Valgrind)')
 		string(
 		    defaultValue: '4',
@@ -93,13 +85,13 @@ pipeline {
         string(
             defaultValue: '1',
             description: 'Run each test N number of times, --repeat=N',
-            name: 'MTR_REPEAT'),
+            name: 'MTR_REPEAT')
         choice(name: 'CLOUD',
-           choices: ['Hetzner', 'AWS'].join('\n'),
-           description: 'Host provider for Jenkins workers'),
+           choices: 'Hetzner\nAWS',
+           description: 'Host provider for Jenkins workers')
         string(name: 'JENKINS_SCRIPTS_REPO',
             defaultValue: 'https://github.com/Percona-Lab/jenkins-pipelines',
-            description: "Download the build scripts from this repository, except for the Groovy script referenced by the path defined in pipeline.yml"),
+            description: "Download the build scripts from this repository, except for the Groovy script referenced by the path defined in pipeline.yml")
         string(name: 'JENKINS_SCRIPTS_BRANCH',
             defaultValue: 'master',
             description: 'Branch in the scripts repo to checkout')
