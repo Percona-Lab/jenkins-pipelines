@@ -1,17 +1,48 @@
 void checkImageForDocker(String IMAGE_SUFFIX){
-     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            IMAGE_SUFFIX=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
-            IMAGE_NAME='percona-postgresql-operator'
-            TrivyLog="$WORKSPACE/trivy-\$IMAGE_NAME-${IMAGE_SUFFIX}.xml"
+    try {
+             withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'SNYK_ID', variable: 'SNYK_ID')]) {
+                sh """
+                    IMAGE_TAG=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
+                    IMAGE_NAME="percona-postgresql-operator"
+                    PATH_TO_DOCKERFILE="/source/build/postgres-operator"
 
-            sg docker -c "
-                docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image  --format template --template @/tmp/junit.tpl -o \$TrivyLog \
-                    --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
-            "
+                    sg docker -c "
+                        set -e
+                        docker login -u '${USER}' -p '${PASS}'
+
+                        snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
+                            --severity-threshold=high --json-file-output=\${IMAGE_TAG}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
+                    "
+                """
+             }
+    } catch (Exception e) {
+        echo "Stage failed: ${e.getMessage()}"
+        sh """
+            exit 1
         """
+    } finally {
+         echo "Executing post actions..."
+         sh """
+             IMAGE_TAG=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
+             snyk-to-html -i \${IMAGE_TAG}-report.json -o \${IMAGE_TAG}-report.html
+         """
+        archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
     }
+}
+
+void generateImageSummary(filePath) {
+    def images = readFile(filePath).trim().split("\n")
+
+    def report = "<h2>Image Summary Report</h2>\n"
+    report += "<p><strong>Total Images:</strong> ${images.size()}</p>\n"
+    report += "<ul>\n"
+
+    images.each { image ->
+        report += "<li>${image}</li>\n"
+    }
+
+    report += "</ul>\n"
+    return report
 }
 
 pipeline {
@@ -26,9 +57,11 @@ pipeline {
             name: 'GIT_REPO')
     }
     agent {
-         label 'docker'
+         label 'docker-x64-min'
     }
     environment {
+        PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
+        SNYK_TOKEN=credentials('SNYK_ID')
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
     }
     options {
@@ -42,14 +75,12 @@ pipeline {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
                     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     sh """
-                        export GIT_REPO=\$(echo \${GIT_REPO} | sed "s#github.com#\${GITHUB_TOKEN}@github.com#g")
-                        TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
-                        wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                        sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
+                    curl -sL https://static.snyk.io/cli/latest/snyk-linux -o snyk
+                    chmod +x snyk
+                    sudo mv ./snyk /usr/local/bin/
 
-                        if [ ! -f junit.tpl ]; then
-                            wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
-                        fi
+                    sudo npm install snyk-to-html -g
+                        export GIT_REPO=\$(echo \${GIT_REPO} | sed "s#github.com#\${GITHUB_TOKEN}@github.com#g")
 
                         # sudo is needed for better node recovery after compilation failure
                         # if building failed on compilation stage directory will have files owned by docker user
@@ -77,9 +108,12 @@ pipeline {
                             sh """
                                 cd ./source/
                                 TAG_PREFIX=\$(echo $GIT_BRANCH | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
+                                IMAGE_NAME="percona-postgresql-operator"
                                 sg docker -c "
+                                    set -e
+
                                     if [ ! -d ~/.docker/trust/private ]; then
-                                        mkdir -p /home/ec2-user/.docker/trust/private
+                                        mkdir -p ~/.docker/trust/private
                                         cp "${docker_key}" ~/.docker/trust/private/
                                     fi
 
@@ -89,6 +123,7 @@ pipeline {
                                     DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' make build-docker-image
 
                                     docker logout
+                                    echo "perconalab/\$IMAGE_NAME:\${TAG_PREFIX}" >> list-of-images.txt
                                "
                             """
                         }
@@ -96,16 +131,11 @@ pipeline {
                 }
             }
         }
-        stage('Trivy Checks') {
+        stage('Snyk CVEs Checks') {
             parallel {
                 stage('postgres-operator'){
                     steps {
                         checkImageForDocker('\$GIT_BRANCH')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-operator.xml"
-                        }
                     }
                 }
             }
@@ -114,6 +144,19 @@ pipeline {
 
     post {
         always {
+            script {
+                if (fileExists('./source/list-of-images.txt')) {
+                    def summary = generateImageSummary('./source/list-of-images.txt')
+
+                    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+                        text: "<pre>${summary}</pre>"
+                    )
+                    // Also save as a file if needed
+                     writeFile(file: 'image-summary.html', text: summary)
+                } else {
+                    echo 'No ./source/list-of-images.txt file found - skipping summary generation'
+                }
+            }
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./source/build
