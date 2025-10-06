@@ -19,7 +19,8 @@ pipeline {
             description: 'SSL version to use',
             choices: [
                 '1',
-                '3'
+                '3',
+                '3.5'
             ]
         )
         string(
