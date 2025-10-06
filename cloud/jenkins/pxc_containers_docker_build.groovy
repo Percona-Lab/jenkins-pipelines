@@ -1,10 +1,7 @@
 void build(String IMAGE_PREFIX){
     sh """
         cd ./source/
-        if [ ${IMAGE_PREFIX} = pxc5.7 ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtradb-cluster-5.7/Dockerfile percona-xtradb-cluster-5.7
-            docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX}-debug -f percona-xtradb-cluster-5.7/Dockerfile percona-xtradb-cluster-5.7
-        elif [ ${IMAGE_PREFIX} = pxc8.0 ]; then
+        if [ ${IMAGE_PREFIX} = pxc8.0 ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0/Dockerfile percona-xtradb-cluster-8.0
             docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX}-debug -f percona-xtradb-cluster-8.0/Dockerfile percona-xtradb-cluster-8.0
         elif [ ${IMAGE_PREFIX} = pxc8.4 ]; then
@@ -12,8 +9,6 @@ void build(String IMAGE_PREFIX){
             docker build --build-arg DEBUG=1 --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX}-debug -f percona-xtradb-cluster-8.4/Dockerfile percona-xtradb-cluster-8.4
         elif [ ${IMAGE_PREFIX} = proxysql ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f proxysql/Dockerfile proxysql
-        elif [ ${IMAGE_PREFIX} = pxc5.7-backup ]; then
-            docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtrabackup-2.4/Dockerfile percona-xtrabackup-2.4
         elif [ ${IMAGE_PREFIX} = pxc8.0-backup ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtrabackup-8.0/Dockerfile percona-xtrabackup-8.0
         elif [ ${IMAGE_PREFIX} = pxc8.4-backup ]; then
@@ -111,9 +106,6 @@ pipeline {
                    ./cloud/local/checkout
                 """
                 retry(3) {
-                    build('pxc5.7-backup')
-                }
-                retry(3) {
                     build('pxc8.0-backup')
                 }
                 retry(3) {
@@ -121,9 +113,6 @@ pipeline {
                 }
                 retry(3) {
                     build('proxysql')
-                }
-                retry(3) {
-                    build('pxc5.7')
                 }
                 retry(3) {
                     build('pxc8.0')
@@ -138,14 +127,11 @@ pipeline {
         }
         stage('Push Images to Docker registry') {
             steps {
-                pushImageToDocker('pxc5.7')
                 pushImageToDocker('pxc8.0')
                 pushImageToDocker('pxc8.4')
-                pushImageToDocker('pxc5.7-debug')
                 pushImageToDocker('pxc8.0-debug')
                 pushImageToDocker('pxc8.4-debug')
                 pushImageToDocker('proxysql')
-                pushImageToDocker('pxc5.7-backup')
                 pushImageToDocker('pxc8.0-backup')
                 pushImageToDocker('pxc8.4-backup')
                 pushImageToDocker('haproxy')
@@ -153,16 +139,6 @@ pipeline {
         }
        stage('Trivy Checks') {
             parallel {
-                stage('pxc5.7'){
-                    steps {
-                        checkImageForDocker('pxc5.7')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc5.7.xml"
-                        }
-                    }
-                }
                 stage('pxc8.0'){
                     steps {
                         checkImageForDocker('pxc8.0')
@@ -180,16 +156,6 @@ pipeline {
                     post {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc8.4.xml"
-                        }
-                    }
-                }
-                stage('pxc5.7-debug'){
-                    steps {
-                        checkImageForDocker('pxc5.7-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc5.7-debug.xml"
                         }
                     }
                 }
@@ -220,16 +186,6 @@ pipeline {
                     post {
                         always {
                             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-proxysql.xml"
-                        }
-                    }
-                }
-                stage('pxc5.7-backup'){
-                    steps {
-                        checkImageForDocker('pxc5.7-backup')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc5.7-backup.xml"
                         }
                     }
                 }
