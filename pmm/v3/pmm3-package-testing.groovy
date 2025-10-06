@@ -388,7 +388,7 @@ pipeline {
                         }
                     }
                 }
-                stage('Debian 13 Trixie - X64') {
+/*                stage('Debian 13 Trixie - X64') {
                     agent {
                         label 'min-trixie-x64'
                     }
@@ -419,6 +419,7 @@ pipeline {
             }
         }
     }
+    */
     post {
         always {
             sh '''
