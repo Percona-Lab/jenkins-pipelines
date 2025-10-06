@@ -83,16 +83,16 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO, Str
 {
     deleteDir()
     git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/package-testing'
-    sh '''
-        export install_repo=\${INSTALL_REPO}
-        export TARBALL_LINK=\${TARBALL}
+    sh """
+        export install_repo=${INSTALL_REPO}
+        export TARBALL_LINK=${TARBALL}
         git clone https://github.com/Percona-QA/ppg-testing
         ansible-playbook \
         -vvv \
         --connection=local \
         --inventory 127.0.0.1, \
-        --limit 127.0.0.1 playbooks/\${TESTS}.yml
-    '''
+        --limit 127.0.0.1 playbooks/${TESTS}.yml
+    """
 }
 
 def latestVersion = pmmVersion('v3').last()
