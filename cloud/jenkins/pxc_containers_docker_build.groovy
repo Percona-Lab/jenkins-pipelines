@@ -34,7 +34,6 @@ void checkImageForDocker(String IMAGE_SUFFIX){
                         PATH_TO_DOCKERFILE="source/percona-xtrabackup-8.x"
                     elif [ ${IMAGE_SUFFIX} = proxysql ]; then
                         PATH_TO_DOCKERFILE="source/proxysql"
-                    fi
                     elif [ ${IMAGE_SUFFIX} = haproxy ]; then
                         PATH_TO_DOCKERFILE="source/haproxy"
                     fi
@@ -107,7 +106,7 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker-x64-min'
+         label 'docker-x64'
     }
     environment {
         PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
