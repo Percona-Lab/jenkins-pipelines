@@ -1,5 +1,6 @@
 void build(String IMAGE_PREFIX){
     sh """
+        set -e
         cd ./source/
         if [ ${IMAGE_PREFIX} = pxc8.0 ]; then
             docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f percona-xtradb-cluster-8.0/Dockerfile percona-xtradb-cluster-8.0
@@ -18,18 +19,47 @@ void build(String IMAGE_PREFIX){
         fi
     """
 }
-void checkImageForDocker(String IMAGE_PREFIX){
-     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            IMAGE_PREFIX=${IMAGE_PREFIX}
-            IMAGE_NAME='percona-xtradb-cluster-operator'
-            TrivyLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_PREFIX}.xml"
+void checkImageForDocker(String IMAGE_SUFFIX){
+    try {
+             withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'SNYK_ID', variable: 'SNYK_ID')]) {
+                sh """
+                    IMAGE_SUFFIX=${IMAGE_SUFFIX}
+                    IMAGE_NAME='percona-xtradb-cluster-operator'
+                    VERSION=\$(echo ${IMAGE_SUFFIX} | tr -d '\\-debug' | tr -d 'pxc' | tr -d '\\-backup')
+                    PATH_TO_DOCKERFILE="source/percona-xtradb-cluster-\${VERSION}"
+                    IMAGE_TAG="\${GIT_PD_BRANCH}-\${IMAGE_SUFFIX}"
+                    if [ ${IMAGE_SUFFIX} = pxc8.0-backup ]; then
+                        PATH_TO_DOCKERFILE="source/percona-xtrabackup-\${VERSION}"
+                    elif [ ${IMAGE_SUFFIX} = pxc8.4-backup ]; then
+                        PATH_TO_DOCKERFILE="source/percona-xtrabackup-8.x"
+                    elif [ ${IMAGE_SUFFIX} = proxysql ]; then
+                        PATH_TO_DOCKERFILE="source/proxysql"
+                    fi
+                    elif [ ${IMAGE_SUFFIX} = haproxy ]; then
+                        PATH_TO_DOCKERFILE="source/haproxy"
+                    fi
 
-            sg docker -c "
-                docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --ignore-unfixed  --timeout 10m --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-${IMAGE_PREFIX}
-            "
+                    sg docker -c "
+                        set -e
+                        docker login -u '${USER}' -p '${PASS}'
+
+                        snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
+                            --severity-threshold=high --json-file-output=\${IMAGE_SUFFIX}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
+                    "
+                """
+             }
+    } catch (Exception e) {
+        echo "Stage failed: ${e.getMessage()}"
+        sh """
+            exit 1
         """
+    } finally {
+         echo "Executing post actions..."
+         sh """
+             IMAGE_SUFFIX=${IMAGE_SUFFIX}
+             snyk-to-html -i \${IMAGE_SUFFIX}-report.json -o \${IMAGE_SUFFIX}-report.html
+         """
+        archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
     }
 }
 void pushImageToDocker(String IMAGE_PREFIX){
@@ -37,8 +67,9 @@ void pushImageToDocker(String IMAGE_PREFIX){
         sh """
             IMAGE_PREFIX=${IMAGE_PREFIX}
             sg docker -c "
+                set -e
                 if [ ! -d ~/.docker/trust/private ]; then
-                    mkdir -p /home/ec2-user/.docker/trust/private
+                    mkdir -p ~/.docker/trust/private
                     cp "${docker_key}" ~/.docker/trust/private/
                 fi
 
@@ -46,8 +77,23 @@ void pushImageToDocker(String IMAGE_PREFIX){
                 docker push perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX}
                 docker logout
             "
+            echo "perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX}" >> list-of-images.txt
         """
     }
+}
+void generateImageSummary(filePath) {
+    def images = readFile(filePath).trim().split("\n")
+
+    def report = "<h2>Image Summary Report</h2>\n"
+    report += "<p><strong>Total Images:</strong> ${images.size()}</p>\n"
+    report += "<ul>\n"
+
+    images.each { image ->
+        report += "<li>${image}</li>\n"
+    }
+
+    report += "</ul>\n"
+    return report
 }
 pipeline {
     parameters {
@@ -61,9 +107,11 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker'
+         label 'docker-x64-min'
     }
     environment {
+        PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
+        SNYK_TOKEN=credentials('SNYK_ID')
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
     }
     options {
@@ -76,35 +124,32 @@ pipeline {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
-                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
-                    wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                    sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
-
-                    if [ ! -f junit.tpl ]; then
-                        wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
-                    fi
+                    curl -sL https://static.snyk.io/cli/latest/snyk-linux -o snyk
+                    chmod +x snyk
+                    sudo mv ./snyk /usr/local/bin/
+                    sudo npm install snyk-to-html -g
 
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
                     sudo git config --global --add safe.directory '*'
                     sudo git reset --hard
                     sudo git clean -xdf
+
+                    sudo rm -rf source
+                    export GIT_REPO=$GIT_PD_REPO
+                    export GIT_BRANCH=$GIT_PD_BRANCH
+                    sudo rm -rf source
+                    ./cloud/local/checkout
                 """
                 stash includes: "cloud/**", name: "cloud"
+
+                sh '''
+                    rm -rf cloud
+                '''
             }
         }
         stage('Build pxc docker images') {
             steps {
-                sh '''
-                    sudo rm -rf cloud
-                '''
-                unstash "cloud"
-                sh """
-                   sudo rm -rf source
-                   export GIT_REPO=$GIT_PD_REPO
-                   export GIT_BRANCH=$GIT_PD_BRANCH
-                   ./cloud/local/checkout
-                """
                 retry(3) {
                     build('pxc8.0-backup')
                 }
@@ -137,86 +182,46 @@ pipeline {
                 pushImageToDocker('haproxy')
             }
         }
-       stage('Trivy Checks') {
+       stage('Snyk CVEs Check') {
             parallel {
                 stage('pxc8.0'){
                     steps {
                         checkImageForDocker('pxc8.0')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc8.0.xml"
-                        }
                     }
                 }
                 stage('pxc8.4'){
                     steps {
                         checkImageForDocker('pxc8.4')
                     }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc8.4.xml"
-                        }
-                    }
                 }
                 stage('pxc8.0-debug'){
                     steps {
                         checkImageForDocker('pxc8.0-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc8.0-debug.xml"
-                        }
                     }
                 }
                 stage('pxc8.4-debug'){
                     steps {
                         checkImageForDocker('pxc8.4-debug')
                     }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc8.4-debug.xml"
-                        }
-                    }
                 }
                 stage('proxysql'){
                     steps {
                         checkImageForDocker('proxysql')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-proxysql.xml"
-                        }
                     }
                 }
                 stage('pxc8.0-backup'){
                     steps {
                         checkImageForDocker('pxc8.0-backup')
                     }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc8.0-backup.xml"
-                        }
-                    }
                 }
                 stage('pxc8.4-backup'){
                     steps {
                         checkImageForDocker('pxc8.4-backup')
                     }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-pxc8.4-backup.xml"
-                        }
-                    }
                 }
                 stage('haproxy'){
                     steps {
                         checkImageForDocker('haproxy')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-haproxy.xml"
-                        }
                     }
                 }
             }
@@ -224,7 +229,15 @@ pipeline {
     }
     post {
         always {
-            archiveArtifacts artifacts: '*.pdf', allowEmptyArchive: true
+            script {
+                def summary = generateImageSummary('list-of-images.txt')
+
+                addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+                    text: "<pre>${summary}</pre>"
+                )
+                // Also save as a file if needed
+                 writeFile(file: 'image-summary.html', text: summary)
+            }
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
             '''
