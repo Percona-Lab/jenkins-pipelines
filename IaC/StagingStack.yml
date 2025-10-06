@@ -1,4 +1,3 @@
-# aws cloudformation --region us-east-2 create-stack --template-body file://IaC/StagingStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name pmm-staging --tags Key=iit-billing-tag,Value=pmm-staging --parameters ParameterKey=LambdaName,ParameterValue=email_running_instances ParameterKey=SShortName,ParameterValue=pmm-staging
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
@@ -21,7 +20,7 @@ Parameters:
     ConstraintDescription: must begin with a letter and must contain only lowercase letters, numbers, periods (.), and dashes (-).
 
 Resources:
-  SVPC: # separate virtual network for Staging instances
+  SVPC:  # separate virtual network for Staging instances
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: 10.178.0.0/22
@@ -34,7 +33,7 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SInternetGateway: # Internet Gateway for Staging VPC
+  SInternetGateway:  # Internet Gateway for Staging VPC
     Type: AWS::EC2::InternetGateway
     Properties:
       Tags:
@@ -43,13 +42,13 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SVPCGatewayAttachment: # Attach Gateway to VPC
+  SVPCGatewayAttachment:  # Attach Gateway to VPC
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
       VpcId: !Ref SVPC
       InternetGatewayId: !Ref SInternetGateway
 
-  SSubnetA: # create subnet in AZ
+  SSubnetA:  # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref SVPC
@@ -64,7 +63,7 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SSubnetB: # create subnet in AZ
+  SSubnetB:  # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref SVPC
@@ -79,7 +78,7 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SSubnetC: # create subnet in AZ
+  SSubnetC:  # create subnet in AZ
     Type: AWS::EC2::Subnet
     Properties:
       VpcId: !Ref SVPC
@@ -94,7 +93,7 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SRouteTable: # create route table for VPC
+  SRouteTable:  # create route table for VPC
     Type: AWS::EC2::RouteTable
     Properties:
       VpcId: !Ref SVPC
@@ -104,32 +103,32 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SInternetRoute: # add default route
+  SInternetRoute:  # add default route
     Type: AWS::EC2::Route
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref SInternetGateway
       RouteTableId: !Ref SRouteTable
 
-  SSubnetARouteTable: # add subnet route
+  SSubnetARouteTable:  # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref SRouteTable
       SubnetId: !Ref SSubnetA
 
-  SSubnetBRouteTable: # add subnet route
+  SSubnetBRouteTable:  # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref SRouteTable
       SubnetId: !Ref SSubnetB
 
-  SSubnetCRouteTable: # add subnet route
+  SSubnetCRouteTable:  # add subnet route
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       RouteTableId: !Ref SRouteTable
       SubnetId: !Ref SSubnetC
 
-  SSSHSecurityGroup: # allow ssh access to staging instances
+  SSSHSecurityGroup:  # allow ssh access to staging instances
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: SSH
@@ -144,7 +143,7 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SNOMADSecurityGroup: # allow nomad access to staging instances
+  SNOMADSecurityGroup:  # allow nomad access to staging instances
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: NOMAD
@@ -159,7 +158,7 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SHTTPSecurityGroup: # allow http and https access
+  SHTTPSecurityGroup:  # allow http and https access
     Type: AWS::EC2::SecurityGroup
     Properties:
       GroupName: HTTP
@@ -178,7 +177,7 @@ Resources:
         - Key: iit-billing-tag
           Value: !Ref SShortName
 
-  SInstancesRole: # separate IAM role for Staging instances
+  SInstancesRole:  # separate IAM role for Staging instances
     Type: "AWS::IAM::Role"
     Properties:
       RoleName: !Join ["-", [!Ref SShortName, "slave"]]
@@ -230,7 +229,7 @@ Resources:
         - !Ref SInstancesRole
       InstanceProfileName: !Join ["-", [!Ref SShortName, "slave"]]
 
-  SInstancesUser: # create standalone user for PMM jenkins jobs
+  SInstancesUser:  # create standalone user for PMM jenkins jobs
     Type: AWS::IAM::User
     Properties:
       UserName: !Join ["-", [!Ref SShortName, "slave"]]
@@ -328,7 +327,7 @@ Resources:
     Properties:
       UserName: !Ref SInstancesUser
 
-  LambdaExecutionRole: # create Role for lambda function
+  LambdaExecutionRole:  # create Role for lambda function
     Type: AWS::IAM::Role
     Properties:
       RoleName: !Ref LambdaName
@@ -359,7 +358,7 @@ Resources:
                   - logs:CreateLogGroup
                   - logs:PutLogEvents
 
-  LambdaFunction: # create lambda function which email staging owner at night
+  LambdaFunction:  # create lambda function which email staging owner at night
     Type: AWS::Lambda::Function
     Properties:
       Description: email owner about running stagging instances
@@ -484,7 +483,7 @@ Resources:
 
               return 'successful finish'
 
-  ScheduledRule: # cron rule
+  ScheduledRule:  # cron rule
     Type: AWS::Events::Rule
     Properties:
       Name: !Ref LambdaName
@@ -495,7 +494,7 @@ Resources:
         - Arn: !GetAtt LambdaFunction.Arn
           Id: !Ref LambdaName
 
-  PermissionForEventsToInvokeLambda: # create permitions to run function from ScheduledRule
+  PermissionForEventsToInvokeLambda:  # create permitions to run function from ScheduledRule
     Type: AWS::Lambda::Permission
     Properties:
       FunctionName: !Ref LambdaFunction
