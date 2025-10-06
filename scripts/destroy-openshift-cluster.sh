@@ -207,8 +207,8 @@ setup_logging() {
     fi
     
     local log_dir=""
-    
-    # Try different locations in order of preference
+
+    # Use different locations based on environment
     if [[ -n "${WORKSPACE:-}" ]] && [[ -d "${WORKSPACE}" ]]; then
         # Jenkins/CI environment - logs go to workspace
         log_dir="${WORKSPACE}/logs"
@@ -216,34 +216,33 @@ setup_logging() {
         # GitLab CI environment
         log_dir="${CI_PROJECT_DIR}/logs"
     else
-        # Local execution - try /var/log first (system-wide logging)
-        if [[ -w "/var/log" ]] || sudo -n mkdir -p "/var/log/openshift-destroy" 2>/dev/null; then
-            log_dir="/var/log/openshift-destroy"
-            # Ensure the directory exists and is writable
-            if [[ ! -d "$log_dir" ]]; then
-                sudo mkdir -p "$log_dir" 2>/dev/null || log_dir=""
-            fi
-            # Set appropriate permissions if we created it with sudo
-            if [[ -d "$log_dir" ]] && [[ ! -w "$log_dir" ]]; then
-                sudo chmod 755 "$log_dir" 2>/dev/null
-                sudo chown "$USER" "$log_dir" 2>/dev/null || log_dir=""
-            fi
+        # Local execution - use /var/log for system-wide logging
+        log_dir="/var/log/openshift-destroy"
+
+        # Ensure the directory exists
+        if [[ ! -d "$log_dir" ]]; then
+            sudo mkdir -p "$log_dir" 2>/dev/null || {
+                echo "ERROR: Cannot create log directory: $log_dir" >&2
+                echo "       Run with sudo or ensure /var/log is writable" >&2
+                exit 1
+            }
         fi
-        
-        # Fall back to other locations if /var/log is not accessible
-        if [[ -z "$log_dir" ]] || [[ ! -w "$log_dir" ]]; then
-            if [[ -w "." ]]; then
-                log_dir="./logs"
-            else
-                log_dir="${HOME}/.openshift-destroy/logs"
-            fi
+
+        # Ensure directory is writable
+        if [[ ! -w "$log_dir" ]]; then
+            sudo chmod 755 "$log_dir" 2>/dev/null
+            sudo chown "$USER" "$log_dir" 2>/dev/null || {
+                echo "ERROR: Cannot write to log directory: $log_dir" >&2
+                echo "       Run with sudo or ensure proper permissions" >&2
+                exit 1
+            }
         fi
     fi
-    
-    # Create log directory if it doesn't exist
+
+    # Create log directory
     mkdir -p "$log_dir" 2>/dev/null || {
-        # If we can't create the preferred directory, use temp
-        log_dir="$(mktemp -d -t "openshift-destroy-logs.XXXXXX")"
+        echo "ERROR: Failed to create log directory: $log_dir" >&2
+        exit 1
     }
     
     LOG_FILE="${log_dir}/destroy-$(date +%Y%m%d-%H%M%S)-$$.log"
@@ -266,7 +265,6 @@ setup_colors() {
         YELLOW='\033[1;33m'
         BLUE='\033[0;34m'
         CYAN='\033[0;36m'
-        MAGENTA='\033[0;35m'
         BOLD='\033[1m'
         NC='\033[0m' # No Color
     else
@@ -276,7 +274,6 @@ setup_colors() {
         YELLOW=''
         BLUE=''
         CYAN=''
-        MAGENTA=''
         BOLD=''
         NC=''
     fi
@@ -288,7 +285,6 @@ GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 CYAN='\033[0;36m'
-MAGENTA='\033[0;35m'
 BOLD='\033[1m'
 NC='\033[0m' # No Color
 
@@ -331,9 +327,9 @@ log_debug() {
 execute_with_timeout() {
     local timeout_sec="$1"
     shift
-    
+
     log_debug "Executing with ${timeout_sec}s timeout: $*"
-    
+
     # Use timeout command if available
     if command -v timeout &>/dev/null; then
         if timeout "$timeout_sec" "$@" 2>&1; then
@@ -352,6 +348,39 @@ execute_with_timeout() {
         log_warning "timeout command not available, running without timeout"
         "$@"
     fi
+}
+
+# Wait for network interfaces to detach from VPC
+# Polls AWS API until all in-use ENIs (that won't auto-delete) are detached
+wait_for_network_interfaces() {
+    local vpc_id="$1"
+    local max_wait=300  # 5 minutes
+    local elapsed=0
+    local check_interval=10
+
+    log_info "Waiting for network interfaces to detach from VPC: $vpc_id"
+
+    while [[ $elapsed -lt $max_wait ]]; do
+        local eni_count
+        eni_count=$(aws ec2 describe-network-interfaces \
+            --filters "Name=vpc-id,Values=$vpc_id" \
+            "Name=status,Values=in-use" \
+            --region "$AWS_REGION" --profile "$AWS_PROFILE" \
+            --query "NetworkInterfaces[?Attachment.DeleteOnTermination==\`false\`] | length(@)" \
+            --output text 2>/dev/null || echo "0")
+
+        if [[ "$eni_count" -eq 0 ]]; then
+            log_success "All network interfaces detached"
+            return 0
+        fi
+
+        log_debug "Waiting for $eni_count network interface(s) to detach... (${elapsed}s/${max_wait}s)"
+        sleep $check_interval
+        elapsed=$((elapsed + check_interval))
+    done
+
+    log_warning "Timeout waiting for network interfaces after ${max_wait}s"
+    return 1
 }
 
 # Help function
@@ -441,9 +470,8 @@ ${BOLD}NOTES:${NC}
   • Reconciliation ensures eventual consistency for resource deletion
   • Cached API calls significantly improve performance on large cleanups
   • Default log locations (when --log is used):
-    - /var/log/openshift-destroy/ (if writable)
-    - ./logs/ (if current dir is writable)
-    - ~/.openshift-destroy/logs/ (fallback)
+    - CI environment: $WORKSPACE/logs or $CI_PROJECT_DIR/logs
+    - Local execution: /var/log/openshift-destroy/ (requires sudo if not writable)
   • Log filename format: destroy-YYYYMMDD-HHMMSS-PID.log
 
 EOF
@@ -644,10 +672,6 @@ validate_inputs() {
 # Extract metadata from file
 extract_metadata() {
     local metadata_file="$1"
-    
-    # Save original values to restore if extraction fails
-    local orig_cluster_name="$CLUSTER_NAME"
-    local orig_aws_region="$AWS_REGION"
 
     if [[ -f "$metadata_file" ]]; then
         # Extract values using grep, sed, and awk
@@ -934,8 +958,7 @@ cleanup_route53_records() {
     
     # Define exact record names (Note: Route53 stores wildcard as \052)
     local api_name="api.${cluster_name}.${base_domain}."
-    local apps_name="\\052.apps.${cluster_name}.${base_domain}."
-    
+
     # Fetch all records
     local all_records
     if ! all_records=$(aws route53 list-resource-record-sets \
@@ -1272,10 +1295,9 @@ destroy_aws_resources_single_pass() {
         done
     fi
 
-    # 7. Delete Security Groups (wait a bit for dependencies to clear)
-    if [[ "$DRY_RUN" == "false" ]]; then
-        log_info "  Waiting for network interfaces to detach..."
-        sleep 30
+    # 7. Delete Security Groups (wait for network interfaces to detach)
+    if [[ "$DRY_RUN" == "false" ]] && [[ "$vpc_id" != "None" && -n "$vpc_id" ]]; then
+        wait_for_network_interfaces "$vpc_id" || log_warning "Proceeding despite network interface timeout"
     fi
 
     log_info "Step 7/11: Deleting security groups..."
