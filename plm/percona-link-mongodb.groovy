@@ -332,6 +332,19 @@ pipeline {
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Oraclelinux 8 tarball') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("oraclelinux:8", "--build_tarball=1")
+
+                        pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS(params.CLOUD, "tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
             }
         }
 
@@ -345,6 +358,11 @@ pipeline {
             steps {
                 // sync packages
                 sync2ProdAutoBuild(params.CLOUD, PTA_REPO, COMPONENT)
+            }
+        }
+        stage('Push Tarballs to TESTING download area') {
+            steps {
+                uploadTarballToDownloadsTesting(params.CLOUD, "plm", "${VERSION}")
             }
         }
 
