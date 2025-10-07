@@ -548,7 +548,7 @@ Resources:
                       echo try again
                   done
 
-                  yum -y install yum-utils wget cronie rsync bc
+                  yum -y install yum-utils wget cronie rsync bc htop vim
                   yum-config-manager --add-repo "https://openresty.org/package/amazon/2023/x86_64/"
                   rpm --import https://openresty.org/package/pubkey.gpg
                   wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
@@ -637,7 +637,7 @@ Resources:
                   cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
 
                        # Arguments for the Jenkins JVM
-                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
               	EOF
 
                   systemctl daemon-reload
