@@ -22,37 +22,45 @@ netMap['eu-west-1b'] = 'subnet-04221bb8f6d0aeeff'
 netMap['eu-west-1c'] = 'subnet-0b9a1fd4ba5296a8b'
 
 imageMap = [:]
-imageMap['eu-west-1a.docker'] = 'ami-05247819264504af0'
-imageMap['eu-west-1a.docker-32gb'] = 'ami-05247819264504af0'
-imageMap['eu-west-1a.docker2'] = 'ami-05247819264504af0'
-imageMap['eu-west-1a.micro-amazon'] = 'ami-05247819264504af0'
-imageMap['eu-west-1a.docker-32gb-aarch64'] = 'ami-0b3f5005d71118f36'
+imageMap['eu-west-1a.docker']                = 'ami-05247819264504af0'
+imageMap['eu-west-1a.docker-32gb']           = 'ami-05247819264504af0'
+imageMap['eu-west-1a.docker2']               = 'ami-05247819264504af0'
+imageMap['eu-west-1a.micro-amazon']          = 'ami-05247819264504af0'
+imageMap['eu-west-1a.min-al2023-x64']        = 'ami-091a906f2e1e40076'
+imageMap['eu-west-1a.docker-32gb-aarch64']   = 'ami-0b3f5005d71118f36'
+imageMap['eu-west-1a.min-al2023-aarch64']    = 'ami-0b24063151d1c59e7'
 
-imageMap['eu-west-1b.docker'] = imageMap['eu-west-1a.docker']
-imageMap['eu-west-1b.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
-imageMap['eu-west-1b.docker2'] = imageMap['eu-west-1a.docker2']
-imageMap['eu-west-1b.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
-imageMap['eu-west-1b.docker-32gb-aarch64'] = imageMap['eu-west-1a.docker-32gb-aarch64']
+imageMap['eu-west-1b.docker']                = imageMap['eu-west-1a.docker']
+imageMap['eu-west-1b.docker-32gb']           = imageMap['eu-west-1a.docker-32gb']
+imageMap['eu-west-1b.docker2']               = imageMap['eu-west-1a.docker2']
+imageMap['eu-west-1b.micro-amazon']          = imageMap['eu-west-1a.micro-amazon']
+imageMap['eu-west-1b.min-al2023-x64']        = imageMap['eu-west-1a.min-al2023-x64']
+imageMap['eu-west-1b.docker-32gb-aarch64']   = imageMap['eu-west-1a.docker-32gb-aarch64']
+imageMap['eu-west-1b.min-al2023-aarch64']    = imageMap['eu-west-1a.min-al2023-aarch64']
 
-imageMap['eu-west-1c.docker'] = imageMap['eu-west-1a.docker']
-imageMap['eu-west-1c.docker-32gb'] = imageMap['eu-west-1a.docker-32gb']
-imageMap['eu-west-1c.docker2'] = imageMap['eu-west-1a.docker2']
-imageMap['eu-west-1c.micro-amazon'] = imageMap['eu-west-1a.micro-amazon']
-imageMap['eu-west-1b.docker-32gb-aarch64'] = imageMap['eu-west-1a.docker-32gb-aarch64']
+imageMap['eu-west-1c.docker']                = imageMap['eu-west-1a.docker']
+imageMap['eu-west-1c.docker-32gb']           = imageMap['eu-west-1a.docker-32gb']
+imageMap['eu-west-1c.docker2']               = imageMap['eu-west-1a.docker2']
+imageMap['eu-west-1c.micro-amazon']          = imageMap['eu-west-1a.micro-amazon']
+imageMap['eu-west-1c.min-al2023-x64']        = imageMap['eu-west-1a.min-al2023-x64']
+imageMap['eu-west-1c.docker-32gb-aarch64']   = imageMap['eu-west-1a.docker-32gb-aarch64']
+imageMap['eu-west-1c.min-al2023-aarch64']    = imageMap['eu-west-1a.min-al2023-aarch64']
 
 priceMap = [:]
-priceMap['t2.small'] = '0.02'      // type=t2.small, vCPU=1, memory=2GiB, saving=64%, interruption='<5%', price=0.009200
-priceMap['c5.xlarge'] = '0.15'     // type=c5.xlarge, vCPU=4, memory=8GiB, saving=52%, interruption='<5%', price=0.096000
+priceMap['t2.small']    = '0.02'      // type=t2.small, vCPU=1, memory=2GiB, saving=64%, interruption='<5%', price=0.009200
+priceMap['c5.xlarge']   = '0.15'     // type=c5.xlarge, vCPU=4, memory=8GiB, saving=52%, interruption='<5%', price=0.096000
 priceMap['m5n.2xlarge'] = '0.33'   // type=m5n.2xlarge, vCPU=8, memory=32GiB, saving=59%, interruption='<5%', price=0.254900
 priceMap['r7a.4xlarge'] = '0.60'   // type=r7a.4xlarge, vCPU=16, memory=128GiB, saving=67%, interruption='<5%', price=0.532900
 priceMap['c6g.4xlarge'] = '0.35'     // aarch64 type=c6g.4xlarge, vCPU=16, memory=32GiB, saving=54%, interruption='<5%', price=0.280900
 
 userMap = [:]
-userMap['docker'] = 'ec2-user'
-userMap['docker-32gb'] = userMap['docker']
-userMap['docker2'] = userMap['docker']
-userMap['micro-amazon'] = userMap['docker']
-userMap['docker-32gb-aarch64'] = userMap['docker']
+userMap['docker']                = 'ec2-user'
+userMap['docker-32gb']           = userMap['docker']
+userMap['docker2']               = userMap['docker']
+userMap['micro-amazon']          = userMap['docker']
+userMap['min-al2023-x64']        = userMap['docker']
+userMap['docker-32gb-aarch64']   = userMap['docker']
+userMap['min-al2023-aarch64']    = userMap['docker']
 
 initMap = [:]
 initMap['docker'] = '''
@@ -77,7 +85,7 @@ initMap['docker'] = '''
     done
 
     sudo amazon-linux-extras install epel -y
-    sudo amazon-linux-extras install java-openjdk11 -y
+    sudo amazon-linux-extras install java-openjdk17 -y
     sudo yum -y install git docker p7zip
     sudo yum -y install npm --disableplugin=priorities
     sudo yum -y remove awscli
@@ -139,7 +147,7 @@ initMap['docker-32gb'] = '''
     done
 
     sudo amazon-linux-extras install epel -y
-    sudo amazon-linux-extras install java-openjdk11 -y
+    sudo amazon-linux-extras install java-openjdk17 -y
     sudo yum -y install git docker p7zip
     sudo yum -y remove awscli
 
@@ -209,45 +217,115 @@ initMap['micro-amazon'] = '''
         echo try again
     done
     sudo amazon-linux-extras install epel -y
-    sudo amazon-linux-extras install java-openjdk11 -y || :
+    sudo amazon-linux-extras install java-openjdk17 -y || :
     sudo yum -y install git aws-cli || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 '''
 initMap['docker-32gb-aarch64'] = initMap['docker']
+initMap['min-al2023-x64'] = '''
+    set -o xtrace
+
+    if ! mountpoint -q /mnt; then
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext4 ${DEVICE}
+            sudo mount -o noatime ${DEVICE} /mnt
+        fi
+    fi
+    sudo ethtool -K eth0 sg off
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+
+    sudo yum -y install java-17-amazon-corretto tzdata-java git docker p7zip cronie
+    sudo yum -y install npm --disableplugin=priorities
+    sudo yum -y remove awscli
+    sudo systemctl enable crond
+    sudo systemctl start crond
+
+    if ! $(aws --version | grep -q 'aws-cli/2'); then
+        find /tmp -maxdepth 1 -name "*aws*" | xargs sudo rm -rf
+
+        until curl "https://awscli.amazonaws.com/awscli-exe-linux-$(uname -m).zip" -o "/tmp/awscliv2.zip"; do
+            sleep 1
+            echo try again
+        done
+
+        7za -aoa -o/tmp x /tmp/awscliv2.zip
+        cd /tmp/aws && sudo ./install
+    fi
+
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+
+    sudo sysctl net.ipv4.tcp_fin_timeout=15
+    sudo sysctl net.ipv4.tcp_tw_reuse=1
+    sudo sysctl net.ipv6.conf.all.disable_ipv6=1
+    sudo sysctl net.ipv6.conf.default.disable_ipv6=1
+    sudo sysctl -w fs.inotify.max_user_watches=10000000 || true
+    sudo sysctl -w fs.aio-max-nr=1048576 || true
+    sudo sysctl -w fs.file-max=6815744 || true
+    echo "*  soft  core  unlimited" | sudo tee -a /etc/security/limits.conf
+    sudo sed -i.bak -e 's/nofile=1024:4096/nofile=900000:900000/; s/DAEMON_MAXFILES=.*/DAEMON_MAXFILES=990000/' /etc/sysconfig/docker
+    echo 'DOCKER_STORAGE_OPTIONS="--data-root=/mnt/docker"' | sudo tee -a /etc/sysconfig/docker-storage
+    sudo sed -i.bak -e 's^ExecStart=.*^ExecStart=/usr/bin/dockerd --data-root=/mnt/docker --default-ulimit nofile=900000:900000^' /usr/lib/systemd/system/docker.service
+    sudo systemctl daemon-reload
+    sudo install -o root -g root -d /mnt/docker
+    sudo usermod -aG docker $(id -u -n)
+    sudo mkdir -p /etc/docker
+    echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
+    sudo systemctl status docker || sudo systemctl start docker
+    sudo service docker status || sudo service docker start
+    echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
+'''
+initMap['min-al2023-aarch64'] = initMap['min-al2023-x64']
 
 capMap = [:]
-capMap['c5.xlarge'] = '40'
+capMap['c5.xlarge']   = '40'
 capMap['m5n.2xlarge'] = '40'
 capMap['r7a.4xlarge'] = '40'
 capMap['c6g.4xlarge'] = '40'
 
 typeMap = [:]
-typeMap['micro-amazon'] = 't2.small'
-typeMap['docker'] = 'c5.xlarge'
-typeMap['docker-32gb'] = 'm5n.2xlarge'
-typeMap['docker2'] = 'r7a.4xlarge'
-typeMap['docker-32gb-aarch64'] = 'c6g.4xlarge'
+typeMap['micro-amazon']          = 't2.small'
+typeMap['docker']                = 'c5.xlarge'
+typeMap['docker-32gb']           = 'm5n.2xlarge'
+typeMap['docker2']               = 'r7a.4xlarge'
+typeMap['min-al2023-x64']        = 'c5.xlarge'
+typeMap['docker-32gb-aarch64']   = 'c6g.4xlarge'
+typeMap['min-al2023-aarch64']    = 'c6g.4xlarge'
 
 execMap = [:]
-execMap['docker'] = '1'
-execMap['docker-32gb'] = execMap['docker']
-execMap['docker-32gb-aarch64'] = execMap['docker']
-execMap['docker2'] = execMap['docker']
-execMap['micro-amazon'] = '30'
+execMap['docker']                = '1'
+execMap['docker-32gb']           = execMap['docker']
+execMap['docker-32gb-aarch64']   = execMap['docker']
+execMap['docker2']               = execMap['docker']
+execMap['micro-amazon']          = '30'
+execMap['min-al2023-x64']        = execMap['docker']
+execMap['min-al2023-aarch64']    = execMap['docker']
 
 devMap = [:]
-devMap['docker'] = '/dev/xvda=:15:true:gp2,/dev/xvdd=:80:true:gp2'
-devMap['docker2'] = '/dev/xvda=:15:true:gp2,/dev/xvdd=:80:true:gp2'
-devMap['docker-32gb'] = devMap['docker']
-devMap['docker-32gb-aarch64'] = devMap['docker']
-devMap['micro-amazon'] = devMap['docker']
+devMap['docker']                 = '/dev/xvda=:15:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker2']                = '/dev/xvda=:15:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker-32gb']            = devMap['docker']
+devMap['docker-32gb-aarch64']    = devMap['docker']
+devMap['micro-amazon']           = devMap['docker']
+devMap['min-al2023-x64']         = '/dev/xvda=:15:true:gp3,/dev/xvdd=:80:true:gp3'
+devMap['min-al2023-aarch64']     = '/dev/xvda=:15:true:gp3,/dev/xvdd=:80:true:gp3'
 
 labelMap = [:]
-labelMap['docker'] = ''
-labelMap['docker-32gb'] = ''
-labelMap['docker-32gb-aarch64'] = 'docker-32gb-aarch64'
-labelMap['docker2'] = 'docker-32gb'
-labelMap['micro-amazon'] = 'master'
+labelMap['docker']                 = ''
+labelMap['docker-32gb']            = ''
+labelMap['docker-32gb-aarch64']    = 'docker-32gb-aarch64'
+labelMap['docker2']                = 'docker-32gb'
+labelMap['micro-amazon']           = 'master'
+labelMap['min-al2023-x64']         = ''
+labelMap['min-al2023-aarch64']     = ''
 
 // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/SlaveTemplate.java
 SlaveTemplate getTemplate(String OSType, String AZ) {
@@ -320,7 +398,9 @@ String region = 'eu-west-1'
             getTemplate('docker',              "${region}${it}"),
             getTemplate('docker-32gb',         "${region}${it}"),
             getTemplate('micro-amazon',        "${region}${it}"),
+            getTemplate('min-al2023-x64',      "${region}${it}"),
             getTemplate('docker-32gb-aarch64', "${region}${it}"),
+            getTemplate('min-al2023-aarch64',  "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates
         '',
         ''

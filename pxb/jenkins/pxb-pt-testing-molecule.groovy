@@ -4,6 +4,80 @@
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
     ])
 
+    properties([
+        parameters([
+
+            [
+                $class: 'ChoiceParameter',
+                choiceType: 'PT_SINGLE_SELECT',
+                description: 'Choose the product version to test: PXB8.0, PXB8.4 OR pxb_innovation_lts',
+                name: 'product_to_test',
+                script: [
+                    $class: 'GroovyScript',
+                    script: [
+                        classpath: [],
+                        sandbox: true,
+                        script: 'return ["pxb_80", "pxb_innovation_lts", "pxb_84"]'
+                    ]
+                ]
+            ],
+            [
+                $class: 'CascadeChoiceParameter',
+                choiceType: 'PT_SINGLE_SELECT',
+                description: 'Server to test (filtered by product version)',
+                name: 'server_to_test',
+                referencedParameters: 'product_to_test',
+                script: [
+                    $class: 'GroovyScript',
+                    script: [
+                        classpath: [],
+                        sandbox: true,
+                        script: '''
+                            if (product_to_test == "pxb_80") {
+                                return ["ps-80", "ms-80"]
+                            }
+                            else if (product_to_test == "pxb_84") {
+                                return ["ps-84", "ms-84"]
+                            }
+                            else if (product_to_test == "pxb_innovation_lts") {
+                                return ["ps_innovation_lts", "ms_innovation_lts"]
+                            }
+                            else {
+                                return ["ps_innovation_lts", "ms_innovation_lts", "ps-80", "ms-80", "ps-84", "ms-84"]
+                            }
+                        '''
+                    ]
+                ]
+            ],
+            choice(
+                choices: ['testing', 'main', 'experimental'],
+                description: 'Choose the repo to install packages and run the tests',
+                name: 'install_repo'
+            ),
+            string(
+                defaultValue: 'https://github.com/Percona-QA/package-testing.git',
+                description: 'repo name',
+                name: 'git_repo',
+                trim: false
+            ),
+            string(
+                defaultValue: 'master',
+                description: 'Branch for package-testing repository',
+                name: 'TESTING_BRANCH'
+            ),
+            choice(
+                choices: ['install', 'upgrade', 'kms'],
+                description: 'Scenario To Test',
+                name: 'scenario_to_test'
+            ),
+            choice(
+                choices: ['NORMAL', 'PRO'],
+                description: 'Choose the product to test',
+                name: 'REPO_TYPE'
+            )
+        ])
+    ])
+
     pipeline {
     agent {
         label 'min-bookworm-x64'
@@ -17,61 +91,12 @@
         REPO_TYPE = "${params.REPO_TYPE}"
         TESTING_BRANCH = "${params.TESTING_BRANCH}"
     }
-    parameters {
-        choice(
-            choices: ['pxb_80', 'pxb_innovation_lts', 'pxb_84'],
-            description: 'Choose the product version to test: PXB8.0, PXB8.4 OR pxb_innovation_lts',
-            name: 'product_to_test'
-        )
-        choice(
-            choices: ['testing', 'main', 'experimental'],
-            description: 'Choose the repo to install packages and run the tests',
-            name: 'install_repo'
-        )
-        string(
-            defaultValue: 'https://github.com/Percona-QA/package-testing.git',
-            description: 'repo name',
-            name: 'git_repo',
-            trim: false
-        )
-        string(
-        defaultValue: 'master',
-        description: 'Branch for package-testing repository',
-        name: 'TESTING_BRANCH'
-        )
-        choice(
-            choices: [
-                'ps_innovation_lts',
-                'ms_innovation_lts',
-                'ps-80',
-                'ms-80',
-                'ps-84',
-                'ms-84'
-            ],
-            description: 'Server to test',
-            name: 'server_to_test'
-        )
-        choice(
-            choices: [
-                'install',
-                'upgrade',
-                'kms'
-            ],
-            description: 'Scenario To Test',
-            name: 'scenario_to_test'
-        )
-        choice(
-            choices: ['NORMAL', 'PRO'],
-            description: 'Choose the product to test',
-            name: 'REPO_TYPE'
-        )
-
-    }
     options {
         withCredentials(moleculepxbJenkinsCreds())
     }
 
         stages {
+            
             stage('Set Build Name'){
                 steps {
                     script {

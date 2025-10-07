@@ -690,6 +690,176 @@ def setup(){
 }
 
 
+
+properties([
+    parameters([
+        [
+            $class: 'ChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'PXC product to test',
+            name: 'product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: 'return ["pxc84", "pxc80", "pxc57", "pxc-innovation-lts"]'
+                ]
+            ]
+        ],
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'Distribution to run test (filtered by product)',
+            name: 'node_to_test',
+            referencedParameters: 'product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        def non_pro_pxc80 = [
+                                        'ubuntu-noble',
+                                        'ubuntu-jammy',
+                                        'ubuntu-noble-arm',
+                                        'ubuntu-jammy-arm',
+                                        'ubuntu-focal',
+                                        'debian-12',
+                                        'debian-11',
+                                        'debian-12-arm',
+                                        'debian-11-arm',
+                                        'ol-8',
+                                        'ol-9',
+                                        'rhel-8',
+                                        'rhel-9',
+                                        'rhel-8-arm',
+                                        'rhel-9-arm'
+                        ]
+
+                        def non_pro_pxc84 = [
+                                        'ubuntu-noble',
+                                        'ubuntu-jammy',
+                                        'ubuntu-noble-arm',
+                                        'ubuntu-jammy-arm',
+                                        'ubuntu-focal',
+                                        'debian-12',
+                                        'debian-11',
+                                        'debian-12-arm',
+                                        'debian-11-arm',
+                                        'ol-8',
+                                        'ol-9',
+                                        'rhel-8',
+                                        'rhel-9',
+                                        'rhel-10',
+                                        'rhel-8-arm',
+                                        'rhel-9-arm',
+                                        'rhel-10-arm'
+                        ]
+
+                        def pxc_innovation_lts = [
+                                        'ubuntu-noble',
+                                        'ubuntu-jammy',
+                                        'ubuntu-noble-arm',
+                                        'ubuntu-jammy-arm'
+                        ]
+
+                        def pxc57_nodes = [
+                                        'ubuntu-jammy',
+                                        'ubuntu-focal',
+                                        'debian-12',
+                                        'debian-11',
+                                        'ol-8',
+                                        'ol-9'
+                        ]
+
+                        if (product_to_test == "pxc57") {
+                            return pxc57_nodes
+                        } else if (product_to_test == "pxc80") {
+                            return non_pro_pxc80
+                        } else if (product_to_test == "pxc84") {
+                            return non_pro_pxc84
+                        } else if (product_to_test == "pxc-innovation-lts") {
+                            return pxc_innovation_lts
+                        } else {
+                            return ["N/A"]
+                        }
+                    '''
+                ]
+            ]
+        ],
+        choice(
+            name: 'test_repo',
+            choices: ['testing', 'main', 'experimental'],
+            description: 'Repo to install packages from'
+        ),
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'PXC-5.7 repo selection',
+            name: 'pxc57_repo',
+            referencedParameters: 'product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (product_to_test == "pxc57") {
+                            return ["EOL", "original", "pxc57"]
+                        }
+                        return ["N/A"]
+                    '''
+                ]
+            ]
+        ],
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'Test type based on product selection',
+            name: 'test_type',
+            referencedParameters: 'product_to_test,pxc57_repo',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        def result = ["install"]
+                        
+                        if (product_to_test == "pxc57") {
+                            if (pxc57_repo == "EOL") {
+                                result.add("min_upgrade_pxc57_eol_main_to_eol_testing")
+                            }
+                        } 
+                        else if (product_to_test == "pxc80") {
+                            result.add("min_upgrade_pxc_80")
+                        } 
+                        else if (product_to_test == "pxc84") {
+                            result.add("min_upgrade_pxc_84")
+                        } 
+                        else if (product_to_test == "pxc-innovation-lts") {
+                            result.add("min_upgrade_pxc_innovation")
+                        }
+                        
+                        return result
+                    '''
+                ]
+            ]
+        ],
+        string(
+            name: 'git_repo',
+            defaultValue: 'Percona-QA/package-testing',
+            description: 'Git repository to use for testing'
+        ),
+        string(
+            name: 'BRANCH',
+            defaultValue: 'master',
+            description: 'Git branch to use for testing'
+        )
+    ])
+])
+
 pipeline {
     agent {
         label 'min-bookworm-x64'
@@ -701,79 +871,6 @@ pipeline {
 
     environment {
         pro = "no"
-    }
-
-    parameters {
-        choice(
-            name: 'product_to_test',
-            choices: [
-                'pxc84',
-                'pxc80',
-                'pxc57',
-                'pxc-innovation-lts'
-            ],
-            description: 'PXC product_to_test to test'
-        )
-        choice(
-            name: 'node_to_test',
-            choices: [
-                'ubuntu-noble',
-                'ubuntu-jammy',
-                'ubuntu-noble-arm',
-                'ubuntu-jammy-arm',
-                'ubuntu-focal',
-                'debian-12',
-                'debian-11',
-                'debian-12-arm',
-                'debian-11-arm',
-                'debian-10',
-                'centos-7',
-                'ol-8',
-                'ol-9',
-                'rhel-8',
-                'rhel-9',
-                'rhel-8-arm',
-                'rhel-9-arm',
-                'amazon-linux-2023',
-                'amazon-linux-2023-arm'
-            ],
-            description: 'Distribution to run test'
-        )
-        choice(
-            name: 'test_repo',
-            choices: [
-                'testing',
-                'main',
-                'experimental'
-            ],
-            description: 'Repo to install packages from'
-        )
-        choice(
-            name: 'test_type',
-            choices: [
-                "install"
-                ,"min_upgrade_pxc57_eol_main_to_eol_testing"
-                ,"min_upgrade_pxc_80"
-                ,"min_upgrade_pxc_84"
-                ,"min_upgrade_pxc_innovation"
-            ],
-            description: 'Set test type for testing'
-        )      
-        choice(
-            name: "pxc57_repo",
-            choices: ["EOL","original","pxc57"],
-            description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."
-        )
-        string(
-            name: 'git_repo',
-            defaultValue: "Percona-QA/package-testing",
-            description: 'Git repository to use for testing'
-        )
-        string(
-            name: 'BRANCH',
-            defaultValue: 'master',
-            description: 'Git branch to use for testing'
-        )
     }
 
     stages {

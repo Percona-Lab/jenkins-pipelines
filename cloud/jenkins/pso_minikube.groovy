@@ -13,17 +13,41 @@ String getParam(String paramName, String keyName = null) {
     return param
 }
 
+void downloadKubectl() {
+    sh """
+        KUBECTL_VERSION="\$(curl -L -s https://api.github.com/repos/kubernetes/kubernetes/releases/latest | jq -r .tag_name)"
+        for i in {1..5}; do
+          if [ -f /usr/local/bin/kubectl ]; then
+              break
+          fi
+          echo "Attempt \$i: downloading kubectl..."
+          sudo curl -s -L -o /usr/local/bin/kubectl "https://dl.k8s.io/release/\${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
+          sudo curl -s -L -o /tmp/kubectl.sha256 "https://dl.k8s.io/release/\${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256"
+
+          if echo "\$(cat /tmp/kubectl.sha256) /usr/local/bin/kubectl" | sha256sum --check --status; then
+            echo 'Download passed checksum'
+            sudo chmod +x /usr/local/bin/kubectl
+            kubectl version --client --output=yaml
+            break
+          else
+            echo 'Checksum failed, retrying...'
+            sudo rm -f /usr/local/bin/kubectl /tmp/kubectl.sha256
+            sleep 5
+          fi
+        done
+    """
+}
+
 void prepareAgent() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
-        sudo curl -s -L -o /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
-        kubectl version --client --output=yaml
-
-        curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.45.4/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
 
+    """
+    downloadKubectl()
+    sh """
+        curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
         curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
         ./krew-linux_amd64 install krew
         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
@@ -36,17 +60,6 @@ void prepareAgent() {
 
         sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
     """
-}
-
-void prepareSources() {
-    echo "=========================[ Cloning the sources ]========================="
-    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-    sh """
-        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
-    """
-
-    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MYSQL-$IMAGE_BACKUP-$IMAGE_ROUTER-$IMAGE_HAPROXY-$IMAGE_ORCHESTRATOR-$IMAGE_TOOLKIT-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void initParams() {
@@ -73,6 +86,19 @@ void initParams() {
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
         currentBuild.description = "$PLATFORM_VER " + "$IMAGE_MYSQL".split(":")[1] + " $cw"
     }
+}
+
+void prepareSources() {
+    echo "=========================[ Cloning the sources ]========================="
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    sh """
+        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
+    """
+
+    initParams()
+
+    GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MYSQL-$IMAGE_BACKUP-$IMAGE_ROUTER-$IMAGE_HAPROXY-$IMAGE_ORCHESTRATOR-$IMAGE_TOOLKIT-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -143,8 +169,11 @@ void initTests() {
     withCredentials([file(credentialsId: 'cloud-secret-file-ps', variable: 'CLOUD_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
+            chmod 600 source/e2e-tests/conf/cloud-secret.yml
         """
     }
+
+    stash includes: "source/**", name: "sourceFILES"
 }
 
 void clusterRunner(String cluster) {
@@ -167,7 +196,7 @@ void createCluster(String CLUSTER_SUFFIX) {
     sh """
         echo "Creating cluster $CLUSTER_SUFFIX"
         export CHANGE_MINIKUBE_NONE_USER=true
-        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G
+        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G --force
     """
 }
 
@@ -269,6 +298,7 @@ PLATFORM_VER=$PLATFORM_VER"""
 pipeline {
     environment {
         DB_TAG = sh(script: "[[ \$IMAGE_MYSQL ]] && echo \$IMAGE_MYSQL | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
+        PMM_TELEMETRY_TOKEN = credentials('PMM-CHECK-DEV-TOKEN')
     }
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-minikube.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
@@ -276,7 +306,7 @@ pipeline {
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
         choice(name: 'PILLAR_VERSION', choices: 'none\n84\n80', description: 'Implies release run.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mysql-operator repository')
-        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'Minikube kubernetes version. If set to rel, value will be automatically taken from release_versions file.')
+        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'Minikube kubernetes version. If set to max, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main')
         string(name: 'IMAGE_MYSQL', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-psmysql8.0')
@@ -287,9 +317,10 @@ pipeline {
         string(name: 'IMAGE_TOOLKIT', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-toolkit')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
+        choice(name: 'JENKINS_AGENT', choices: ['Hetzner','AWS'],description: 'Cloud infra for build')
     }
     agent {
-        label 'docker-32gb'
+        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
@@ -302,7 +333,6 @@ pipeline {
             steps {
                 script { deleteDir() }
                 prepareSources()
-                initParams()
             }
         }
         stage('Docker Build and Push') {
@@ -321,9 +351,19 @@ pipeline {
             }
             parallel {
                 stage('cluster1') {
+                    agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64' : 'docker-32gb' }
                     steps {
                         prepareAgent()
+                        unstash "sourceFILES"
                         clusterRunner('cluster1')
+                    }
+                }
+                stage('cluster2') {
+                    agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64' : 'docker-32gb' }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster2')
                     }
                 }
             }

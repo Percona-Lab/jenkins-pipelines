@@ -100,7 +100,7 @@
                     - "m6i.xlarge"
                     - "m6i.2xlarge"
                     - "c5.2xlarge"
-                description: "EC2 instance type for feature/openshift-shared-libraries nodes (x86_64)"
+                description: "EC2 instance type for master nodes (x86_64)"
 
           # === PMM Configuration ===
           - bool:
@@ -116,6 +116,11 @@
                 name: PMM_HELM_CHART_VERSION
                 default: "1.4.7"
                 description: "Helm chart version for PMM deployment (default: 1.4.7 for PMM 3.x)"
+                trim: true
+          - string:
+                name: PMM_HELM_CHART_BRANCH
+                default: ""
+                description: "Branch from percona-helm-charts repo to use for PMM deployment (optional, overrides chart version)"
                 trim: true
           - string:
                 name: PMM_IMAGE_REPOSITORY

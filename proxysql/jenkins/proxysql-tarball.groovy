@@ -6,7 +6,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 
 def operatingsystems() {
-    return ['ubuntu-noble','ubuntu-jammy','debian-11','debian-12','oracle-8','oracle-9']
+    return ['ubuntu-noble','ubuntu-jammy','debian-11','debian-12','oracle-8','oracle-9','rhel-10']
 }
 
 
@@ -17,13 +17,13 @@ pipeline {
   environment {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
     MOLECULE_DIR = "molecule/proxysql-tarball/";
-    PROXYSQL_VERSION = "${params.Proxysql_version}"
+    PROXYSQL_VERSION = "${params.PROXYSQL_VERSION}"
     WSREP_VERSION = "${params.WSREP_VERSION}"
   }
   parameters {
     string(
-      name: 'Proxysql_version', 
-      defaultValue: '8.0.36-28', 
+      name: 'PROXYSQL_VERSION', 
+      defaultValue: '3.0.1-1.1', 
       description: 'proxysql full version'
     )
     string(
@@ -45,7 +45,7 @@ pipeline {
     stage('Set build name'){
       steps {
         script {
-          currentBuild.displayName = "${env.BUILD_NUMBER}-${env.Proxysql_version}"
+          currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PROXYSQL_VERSION}"
           currentBuild.description = "${env.REVISION}-${env.TESTING_BRANCH}-${env.TESTING_GIT_ACCOUNT}"
         }
       }
