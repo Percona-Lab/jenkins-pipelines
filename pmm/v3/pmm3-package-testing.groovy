@@ -174,22 +174,8 @@ pipeline {
                 }
             }
         }
-        stage('Execute Package Tests') {
+        stage('Execute X64 Package Tests') {
             parallel {
-                stage('Oracle Linux 8 - ARM64') {
-                    agent {
-                        label 'min-ol-8-arm64'
-                    }
-                    steps{
-                        setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
                 stage('Oracle Linux 8 - X64') {
                     agent {
                         label 'min-ol-8-x64'
@@ -197,25 +183,6 @@ pipeline {
                     steps{
                         setup_rhel_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
-                stage('Oracle Linux 9 - ARM64') {
-                    agent {
-                        label 'min-ol-9-arm64'
-                    }
-                    steps{
-                        setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
                     }
                 }
                 stage('Oracle Linux 9 - X64') {
@@ -225,33 +192,6 @@ pipeline {
                     steps{
                         setup_rhel_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
-                stage('Almalinux 10 - ARM64') {
-                    when {
-                        expression {
-                            !(env.TESTS ?: '').contains('upgrade')
-                        }
-                    }
-                    agent {
-                        label 'min-alma-10-arm64'
-                    }
-                    environment {
-                        PS_REPOSITORY='testing'
-                    }
-                    steps{
-                        setup_rhel_10_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
                     }
                 }
                 stage('Almalinux 10 - X64') {
@@ -270,25 +210,6 @@ pipeline {
                         setup_rhel_10_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
-                stage('Ubuntu 22.04 Jammy - ARM64') {
-                    agent {
-                        label 'min-jammy-arm64'
-                    }
-                    steps{
-                        setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
                 }
                 stage('Ubuntu 22.04 Jammy - X64') {
                     agent {
@@ -297,25 +218,6 @@ pipeline {
                     steps{
                         setup_ubuntu_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
-                stage('Ubuntu 24.04 Noble - ARM64') {
-                    agent {
-                        label 'min-noble-arm64'
-                    }
-                    steps {
-                        setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
                     }
                 }
                 stage('Ubuntu 24.04 Noble - X64') {
@@ -326,24 +228,14 @@ pipeline {
                         setup_ubuntu_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
                 }
-                stage('Debian 12 Bookworm - ARM64') {
+                stage('Debian 11 Bullseye - X64') {
                     agent {
-                        label 'min-bookworm-arm64'
+                        label 'min-bullseye-x64'
                     }
                     steps{
                         setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
                 stage('Debian 12 Bookworm - X64') {
@@ -354,10 +246,73 @@ pipeline {
                         setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
-                    post {
-                        always {
-                            deleteDir()
+                }
+/*
+                stage('Debian 13 Trixie - X64') {
+                    agent {
+                        label 'min-trixie-x64'
+                    }
+                    steps{
+                        setup_debian_trixie_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                    }
+                }
+*/
+            }
+        }
+        stage('Execute ARM 64 Package Tests') {
+            parallel {
+                stage('Oracle Linux 8 - ARM64') {
+                    agent {
+                        label 'min-ol-8-arm64'
+                    }
+                    steps{
+                        setup_rhel_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                    }
+                }
+                stage('Oracle Linux 9 - ARM64') {
+                    agent {
+                        label 'min-ol-9-arm64'
+                    }
+                    steps{
+                        setup_rhel_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                    }
+                }
+                stage('Almalinux 10 - ARM64') {
+                    when {
+                        expression {
+                            !(env.TESTS ?: '').contains('upgrade')
                         }
+                    }
+                    agent {
+                        label 'min-alma-10-arm64'
+                    }
+                    environment {
+                        PS_REPOSITORY='testing'
+                    }
+                    steps{
+                        setup_rhel_10_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                    }
+                }
+                stage('Ubuntu 22.04 Jammy - ARM64') {
+                    agent {
+                        label 'min-jammy-arm64'
+                    }
+                    steps{
+                        setup_ubuntu_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                    }
+                }
+                stage('Ubuntu 24.04 Noble - ARM64') {
+                    agent {
+                        label 'min-noble-arm64'
+                    }
+                    steps {
+                        setup_ubuntu_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
                     }
                 }
                 stage('Debian 11 Bullseye - ARM64') {
@@ -368,40 +323,17 @@ pipeline {
                         setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
                     }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
                 }
-                stage('Debian 11 Bullseye - X64') {
+                stage('Debian 12 Bookworm - ARM64') {
                     agent {
-                        label 'min-bullseye-x64'
+                        label 'min-bookworm-arm64'
                     }
                     steps{
                         setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
                     }
                 }
-/*                stage('Debian 13 Trixie - X64') {
-                    agent {
-                        label 'min-trixie-x64'
-                    }
-                    steps{
-                        setup_debian_trixie_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
-                    }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
-                }
+/*
                 stage('Debian 13 Trixie - ARM64') {
                     agent {
                         label 'min-trixie-arm64'
@@ -410,13 +342,8 @@ pipeline {
                         setup_debian_trixie_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
                 }
-                */
+*/
             }
         }
     }
