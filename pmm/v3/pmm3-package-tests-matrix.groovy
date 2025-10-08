@@ -165,6 +165,7 @@ pipeline {
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
+                timeout(time: 120, unit: 'MINUTES')
     }
     stages {
         stage('Run package tests') {

@@ -154,7 +154,7 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
-        timeout(time: 120, unit: 'MINUTES')
+        timeout(time: 90, unit: 'MINUTES')
     }
     triggers {
         cron('0 2 * * *')
