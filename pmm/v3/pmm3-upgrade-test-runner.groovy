@@ -33,7 +33,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
 
 def versionsList = pmmVersion('v3')
 def latestVersion = versionsList.last()
-def clientRepoAvailableVersions = versionsList[][-5..-1]
+// def clientRepoAvailableVersions = versionsList[][-5..-1]
 
 pipeline {
     agent {
@@ -150,6 +150,9 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
+                    println versionsList
+                    println CLIENT_VERSION.trim()
+//                     println clientRepoAvailableVersions
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
@@ -276,10 +279,6 @@ pipeline {
             parallel {
                 stage('Setup PMM Client') {
                     steps {
-                        script {
-                            println CLIENT_VERSION.trim()
-                            println clientRepoAvailableVersions
-                        }
                         setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
                     }
                 }
