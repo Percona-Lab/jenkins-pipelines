@@ -33,7 +33,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
 
 def versionsList = pmmVersion('v3')
 def latestVersion = versionsList.last()
-def clientRepoAvailableVersions = versionsList[][-5..-1]
+def clientRepoAvailableVersions = versionsList[-5..-1]
 
 pipeline {
     agent {
