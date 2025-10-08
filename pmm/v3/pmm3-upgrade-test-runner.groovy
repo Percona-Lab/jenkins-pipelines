@@ -31,11 +31,9 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     }
 }
 
-def latestVersion = pmmVersion()
-def versionsList = pmmVersion('list')
-def getMinorVersion(VERSION) {
-    return VERSION.split("\\.")[1].toInteger()
-}
+def versionsList = pmmVersion('v3')
+def latestVersion = versionsList.last()
+def clientRepoAvailableVersions = versionsList[][-5..-1]
 
 pipeline {
     agent {
@@ -278,6 +276,10 @@ pipeline {
             parallel {
                 stage('Setup PMM Client') {
                     steps {
+                        script {
+                            println CLIENT_VERSION.trim()
+                            println clientRepoAvailableVersions
+                        }
                         setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
                     }
                 }
