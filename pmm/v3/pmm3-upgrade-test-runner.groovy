@@ -122,22 +122,6 @@ pipeline {
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
         string(
-            defaultValue: '8.4',
-            description: "Percona Server for MySQL version",
-            name: 'PS_VERSION')
-        string(
-            defaultValue: '17',
-            description: "Which version of PostgreSQL",
-            name: 'PGSQL_VERSION')
-        string(
-            defaultValue: '17',
-            description: "Which version of Percona Distribution for PostgreSQL",
-            name: 'PDPGSQL_VERSION')
-        string(
-            defaultValue: '8.0',
-            description: "Which version of Percona Server for MongoDB",
-            name: 'PSMDB_VERSION')
-        string(
             defaultValue: 'admin',
             description: "Password for PMM Server ",
             name: 'ADMIN_PASSWORD')
