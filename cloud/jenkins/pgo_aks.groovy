@@ -206,7 +206,7 @@ void createCluster(String CLUSTER_SUFFIX) {
         az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
             -g percona-operators \
             --subscription eng-cloud-dev \
-            --load-balancer-sku basic \
+            --load-balancer-sku standard \
             --enable-managed-identity \
             --node-count 3 \
             --node-vm-size Standard_B4ms \
