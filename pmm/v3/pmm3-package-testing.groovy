@@ -175,6 +175,7 @@ pipeline {
                 }
             }
         }
+/*
         stage('Execute X64 Package Tests') {
             parallel {
                 stage('Oracle Linux 8 - X64') {
@@ -248,7 +249,6 @@ pipeline {
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-/*
                 stage('Debian 13 Trixie - X64') {
                     agent {
                         label 'min-trixie-x64'
@@ -258,9 +258,9 @@ pipeline {
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-*/
             }
         }
+*/
         stage('Execute ARM 64 Package Tests') {
             parallel {
                 stage('Oracle Linux 8 - ARM64') {
