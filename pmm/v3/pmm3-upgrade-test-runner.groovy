@@ -139,7 +139,7 @@ pipeline {
                     println clientRepoAvailableVersions
                     println clientRepoAvailableVersions.contains(CLIENT_VERSION.trim())
                     if (!clientRepoAvailableVersions.contains(CLIENT_VERSION.trim())) {
-                        env.CLIENT_VERSION = "https://downloads.percona.com/downloads/pmm3/3.0.0/binary/tarball/pmm-client-${CLIENT_VERSION}-x86_64.tar.gz"
+                        env.CLIENT_VERSION = "https://downloads.percona.com/downloads/pmm3/${CLIENT_VERSION}/binary/tarball/pmm-client-${CLIENT_VERSION}-x86_64.tar.gz"
                     }
                     println CLIENT_VERSION
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
