@@ -12,7 +12,7 @@ pipeline {
     }
     parameters {
         choice(name: 'image', choices: ['build','predefined'], description: 'Build image from sources or use predefined docker image for tests')
-        string(name: 'dockerfile', defaultValue: 'https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/regression-tests/build_image/Dockerfile_gcc_from_scratch', description: 'Dockerfile for image')
+        string(name: 'dockerfile', defaultValue: 'https://raw.githubusercontent.com/Percona-QA/psmdb-testing/refs/heads/main/regression-tests/build_image/Dockerfile_gcc_from_scratch', description: 'Dockerfile for image')
         string(name: 'branch', defaultValue: 'v8.0', description: 'Repo branch for build image from sources')
         string(name: 'version', defaultValue: '8.0.4', description: 'Version for build tag (psm_ver) to build image from sources')
         string(name: 'release', defaultValue: '1', description: 'Release for build tag (psm_release) to build image from sources')
@@ -110,7 +110,10 @@ pipeline {
                                     script {
                                         def image = "public.ecr.aws/e7j3v3n0/psmdb-build:" + params.tag
                                         sh """
-                                            docker pull ${image}
+                                            for i in \$(seq 5); do 
+                                                docker pull ${image} && break || sleep 30 
+                                                echo "Docker pull failed, retrying..."
+                                            done
                                         """  
                                         def suites = []
                                         if ( params.listsuites != '') {
@@ -214,7 +217,7 @@ pipeline {
                                     """
                                     script {
                                         sh """
-                                            docker pull public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag}
+                                            docker pull public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} || true
                                             curl -o Dockerfile ${params.dockerfile}
                                             VER=\$(echo ${params.version} | cut -d"." -f1)
                                             build_args="--build-arg branch=${params.branch} \
@@ -297,7 +300,7 @@ pipeline {
                                     """
                                     script {
                                         sh """
-                                            docker pull public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag}
+                                            docker pull public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} || true
                                             curl -o Dockerfile ${params.dockerfile}
                                             VER=\$(echo ${params.version} | cut -d"." -f1)
                                             build_args="--build-arg branch=${params.branch} \
@@ -331,9 +334,6 @@ pipeline {
                                                 def suite = suiteArray[0]
                                                 def suiteName = suite.split(' ')[0]
                                                 suite += " --continueOnFailure --shuffle"
-                                                if ( !suite.contains('--jobs') ) {
-                                                    suite += " --jobs=${params.paralleljobs}"
-                                                }
                                                 sh """
                                                     echo "start suite ${suiteName}"
                                                     docker run -v `pwd`/test_results:/work -w /work --rm -i benchmarks bash -c 'rm -rf *'
@@ -380,7 +380,7 @@ pipeline {
                                     """
                                     script {
                                         sh """
-                                            docker pull public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag}
+                                            docker pull public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} || true
                                             curl -o Dockerfile ${params.dockerfile}
                                             VER=\$(echo ${params.version} | cut -d"." -f1)
                                             build_args="--build-arg branch=${params.branch} \
