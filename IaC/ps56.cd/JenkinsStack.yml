@@ -555,7 +555,7 @@ Resources:
 
                   sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
-                  echo "exclude=java*" >> /etc/yum/yum-cron.conf
+                  echo "exclude=java-11-openjdk* jenkins*" >> /etc/yum/yum-cron.conf
                   systemctl enable --now yum-cron
               }
 
