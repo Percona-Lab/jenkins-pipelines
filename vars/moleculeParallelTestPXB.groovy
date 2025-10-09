@@ -18,6 +18,8 @@ def call(operatingSystems, moleculeDir) {
               (params.REPO_TYPE == 'PRO' && params.product_to_test == 'pxb_84' && "${os}" == 'rhel-8-arm' ) ||
               (params.REPO_TYPE == 'PRO' && params.product_to_test == 'pxb_84' && "${os}" == 'rhel-8' ) ||
               (params.REPO_TYPE == 'PRO' && params.product_to_test == 'pxb_84' && "${os}" == 'oracle-8' ) ||
+              (params.REPO_TYPE == 'NORMAL' && params.product_to_test == 'pxb_84' && "${os}" == 'al-2023' ) ||
+              (params.REPO_TYPE == 'NORMAL' && params.product_to_test == 'pxb_80' && "${os}" == 'al-2023' ) ||
               (params.server_to_test == 'ms-84' && params.product_to_test == 'pxb_84' && "${os}" == 'debian-11-arm' ) ||
               (params.server_to_test == 'ms-84' && params.product_to_test == 'pxb_84' && "${os}" == 'debian-12-arm' ) ||
               (params.server_to_test == 'ms-84' && params.product_to_test == 'pxb_84' && "${os}" == 'rhel-9-arm' ) ||
@@ -31,7 +33,10 @@ def call(operatingSystems, moleculeDir) {
               (params.product_to_test == 'pxb_80' && params.server_to_test == 'ms-80' && "${os}" == 'debian-11-arm' ) ||
               (params.product_to_test == 'pxb_80' && params.server_to_test == 'ms-80' && "${os}" == 'rhel-8-arm' ) ||
               (params.product_to_test == 'pxb_80' && params.server_to_test == 'ms-80' && "${os}" == 'rhel-9-arm' ) ||
-              (params.product_to_test == 'pxb_80' && params.server_to_test == 'ms-80' && "${os}" == 'ubuntu-noble' )
+              (params.product_to_test == 'pxb_80' && params.server_to_test == 'ms-80' && "${os}" == 'ubuntu-noble' ) ||
+              (params.product_to_test == 'pxb_80' && params.scenario_to_test == 'pykmip' && ("${os}" == 'ubuntu-jammy-arm' || "${os}" == 'ubuntu-noble-arm' || "${os}" == 'debian-12-arm' || "${os}" == 'debian-11-arm' || "${os}" == 'rhel-8-arm' || "${os}" == 'rhel-9-arm') )
+
+
               ) {
                 echo "OS is not supported for this test. Skipping this stage."
                 // Optional: Use return to skip the rest of the stage

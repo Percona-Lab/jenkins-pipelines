@@ -21,12 +21,12 @@ pipeline {
   }
   parameters {
         string(
-            defaultValue: '17.0-multi',
+            defaultValue: '18.0',
             description: 'TAG of the docker to test. For example, 16, 16.1, 16.1-multi.',
             name: 'DOCKER_TAG'
         )
         string(
-            defaultValue: '17.0',
+            defaultValue: '18.0',
             description: 'Docker PG version to test, including both major and minor version. For example, 15.4.',
             name: 'SERVER_VERSION'
         )
@@ -80,7 +80,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(['ol-9', 'debian-12', 'ubuntu-jammy', 'ol-9-arm64', 'debian-12-arm64', 'ubuntu-jammy-arm64'], env.MOLECULE_DIR)
+                    moleculeParallelTestPPG(['rocky-9', 'rhel-10', 'debian-12', 'debian-13', 'ubuntu-jammy', 'rocky-9-arm64', 'rhel-10-arm64', 'debian-12-arm64', 'debian-13-arm64', 'ubuntu-jammy-arm64'], env.MOLECULE_DIR)
                 }
             }
          }
@@ -89,7 +89,7 @@ pipeline {
         always {
           script {
               if (env.DESTROY_ENV == "yes") {
-                    moleculeParallelPostDestroy(['ol-9', 'debian-12', 'ubuntu-jammy', 'ol-9-arm64', 'debian-12-arm64', 'ubuntu-jammy-arm64'], env.MOLECULE_DIR)
+                    moleculeParallelPostDestroyPPG(['rocky-9', 'rhel-10', 'debian-12', 'debian-13', 'ubuntu-jammy', 'rocky-9-arm64', 'rhel-10-arm64', 'debian-12-arm64', 'debian-13-arm64', 'ubuntu-jammy-arm64'], env.MOLECULE_DIR)
               }
               sendSlackNotification(env.REPOSITORY, env.SERVER_VERSION, env.DOCKER_TAG)
          }

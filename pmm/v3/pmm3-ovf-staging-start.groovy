@@ -8,6 +8,11 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+  scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+  libraryPath: 'pmm/v3/'
+)
+
 Jenkins.instance.getItemByFullName(env.JOB_NAME).description = '''
 With this job you can run an OVA image with PMM server on a Digital Ocean droplet. We use DO instead of AWS here because AWS doesn't support nested virtualization.
 '''
@@ -43,7 +48,6 @@ pipeline {
     environment {
         VM_MEMORY = "10240"
         OVF_PUBLIC_KEY=credentials('OVF_STAGING_PUB_KEY_QA')
-        DEFAULT_SSH_KEYS = getSHHKeysPMM()
     }
     stages {
         stage('Run staging server') {
@@ -51,6 +55,7 @@ pipeline {
                 deleteDir()
                 script {
                     env.VM_NAME = "pmm-ovf-staging-${BUILD_ID}"
+                    env.DEFAULT_SSH_KEYS = getSSHKeys()
                 }
                 withCredentials([
                         sshUserPrivateKey(credentialsId: 'e54a801f-e662-4e3c-ace8-0d96bec4ce0e', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER'),
@@ -79,7 +84,7 @@ pipeline {
                             sleep 5
                         done
 
-                        echo "$DEFAULT_SSH_KEYS" | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@${PUBLIC_IP} 'cat - >> /root/.ssh/authorized_keys'
+                        echo "${env.DEFAULT_SSH_KEYS}" | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@${PUBLIC_IP} 'cat - >> /root/.ssh/authorized_keys'
                         if [ -n "$SSH_KEY" ]; then
                             echo "$SSH_KEY" | ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@${PUBLIC_IP} 'cat - >> /root/.ssh/authorized_keys'
                         fi
@@ -96,43 +101,39 @@ pipeline {
                     Jenkins.instance.addNode(node)
                 }
                 node(env.VM_NAME){
-                    sh """
-                        if [[ ${OVA_VERSION} = 2* ]]; then
-                            wget -nv -O ${VM_NAME}.ova https://downloads.percona.com/downloads/pmm/${OVA_VERSION}/ova/pmm-server-${OVA_VERSION}.ova
-                        else
-                            wget -nv -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
-                        fi
-                    """
-                    sh """
+                    sh '''
+                        curl -kL -o pmm-server.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
+                    '''
+                    sh '''
                         export BUILD_ID=dont-kill-virtualbox
                         export JENKINS_NODE_COOKIE=dont-kill-virtualbox
 
-                        tar xvf ${VM_NAME}.ova
-                        export OVF_NAME=\$(find -type f -name '*.ovf');
-                        VBoxManage import \$OVF_NAME --vsys 0 --memory ${VM_MEMORY} --vmname ${VM_NAME}
-                        VBoxManage modifyvm ${VM_NAME} \
+                        tar xvf pmm-server.ova
+                        export OVF_NAME=$(find -type f -name '*.ovf');
+                        VBoxManage import $OVF_NAME --vsys 0 --memory ${VM_MEMORY} --vmname pmm-server
+                        VBoxManage modifyvm pmm-server \
                             --memory ${VM_MEMORY} \
                             --audio none \
                             --cpus 6 \
                             --natpf1 "guestweb,tcp,,80,,80" \
-                            --uart1 0x3F8 4 --uartmode1 file /tmp/${VM_NAME}-console.log \
+                            --uart1 0x3F8 4 --uartmode1 file /tmp/pmm-server-console.log \
                             --groups "/pmm"
-                        VBoxManage modifyvm ${VM_NAME} --natpf1 "guesthttps,tcp,,443,,443"
-                        VBoxManage modifyvm ${VM_NAME} --natpf1 "guestssh,tcp,,3022,,22"
-                        for p in \$(seq 0 30); do
-                            VBoxManage modifyvm ${VM_NAME} --natpf1 "guestexporters\$p,tcp,,4200\$p,,4200\$p"
+                        VBoxManage modifyvm pmm-server --natpf1 "guesthttps,tcp,,443,,443"
+                        VBoxManage modifyvm pmm-server --natpf1 "guestssh,tcp,,3022,,22"
+                        for p in $(seq 0 30); do
+                            PORT=$((42000+p))
+                            VBoxManage modifyvm pmm-server --natpf1 "guestexporters$p,tcp,,$PORT,,$PORT"
                         done
-                        VBoxManage modifyvm ${VM_NAME} --vrde on
-                        VBoxManage modifyvm ${VM_NAME} --vrdeport 5000
-                        VBoxManage startvm --type headless ${VM_NAME}
-                        cat /tmp/${VM_NAME}-console.log
-                        timeout 100 bash -c 'until curl --insecure -LI https://${IP}; do sleep 5; done' || true
-                    """
-                    sh """
-                        # This fails sometimes, so we want to isolate this step
-                        sleep 180
-                        curl -k --user admin:admin -X PUT https://${IP}/v1/server/settings --data '{"ssh_key": "'"\${OVF_PUBLIC_KEY}"'"}'
-                    """
+                        VBoxManage modifyvm pmm-server --vrde on
+                        VBoxManage modifyvm pmm-server --vrdeport 5000
+                        VBoxManage startvm --type headless pmm-server
+                        timeout 200 bash -c "until curl -ksf https://${IP}/graph/login > /dev/null; do sleep 5; done" || true
+                    '''
+                    sh '''
+                        # Isolate this step in case it fails
+                        sleep 10
+                        curl -k --user admin:admin -X PUT https://${IP}/v1/server/settings --data '{"ssh_key": "'"$OVF_PUBLIC_KEY"'"}'
+                    '''
                 }
             }
         }
@@ -142,10 +143,9 @@ pipeline {
                     withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
                             ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
-                                export PMM_QA_GIT_BRANCH=${PMM_QA_GIT_BRANCH}
-                                export PMM_QA_GIT_COMMIT_HASH=${PMM_QA_GIT_COMMIT_HASH}
-                                sudo yum install -y wget git
+                                sudo dnf install -y wget git
                                 sudo mkdir -p /srv/pmm-qa || :
+                                set -x
                                 pushd /srv/pmm-qa
                                     sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                                     sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
@@ -153,6 +153,7 @@ pipeline {
                                     sudo chmod 755 get_download_link.sh
                                 popd
                                 sudo chmod 755 /srv/pmm-qa/pmm-tests/pmm-framework.sh
+                                set +x
                             '
                         """
                     }
@@ -165,16 +166,17 @@ pipeline {
                     withCredentials([sshUserPrivateKey(credentialsId: 'OVF_VM_TESTQA', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
                             ssh -i "${KEY_PATH}" -p 3022 -o ConnectTimeout=1 -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null admin@${IP} '
-                                echo "${DEFAULT_SSH_KEYS}" >> /home/admin/.ssh/authorized_keys
+                                if [ -n "${env.DEFAULT_SSH_KEYS}" ]; then
+                                    echo "${env.DEFAULT_SSH_KEYS}" >> /home/admin/.ssh/authorized_keys
+                                fi
                                 if [ -n "$SSH_KEY" ]; then
-                                    echo "$SSH_KEY" | sudo tee -a /home/admin/.ssh/authorized_keysj
+                                    echo "$SSH_KEY" | sudo tee -a /home/admin/.ssh/authorized_keys
                                 fi
                             '
                         """
                     }
                 }
             }
-
         }
     }
     post {
@@ -199,13 +201,13 @@ pipeline {
         failure {
             withCredentials([string(credentialsId: 'f5415992-e274-45c2-9eb9-59f9e8b90f43', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
                 node(env.VM_NAME){
-                sh '''
-                    set -o xtrace
+                    sh '''
+                        set -o xtrace
 
-                    # https://docs.digitalocean.com/products/droplets/how-to/retrieve-droplet-metadata/
-                    DROPLET_ID=$(curl -s http://169.254.169.254/metadata/v1/id)
-                    doctl compute droplet delete $DROPLET_ID --force
-                '''
+                        # https://docs.digitalocean.com/products/droplets/how-to/retrieve-droplet-metadata/
+                        DROPLET_ID=$(curl -s http://169.254.169.254/metadata/v1/id)
+                        doctl compute droplet delete $DROPLET_ID --force
+                    '''
                 }
             }
         }

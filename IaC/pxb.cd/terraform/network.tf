@@ -13,7 +13,7 @@ resource "aws_vpc" "jenkins" {
 
 # Internet Gateway for jenkins VPC
 resource "aws_internet_gateway" "jenkins" {
-  vpc_id = "${aws_vpc.jenkins.id}"
+  vpc_id = aws_vpc.jenkins.id
 
   tags = {
     Name            = "${var.cloud_name}"
@@ -23,11 +23,11 @@ resource "aws_internet_gateway" "jenkins" {
 
 # create subnet in all AZs
 resource "aws_subnet" "jenkins" {
-  count = "${length(var.aws_az_list)}"
+  count = length(var.aws_az_list)
 
-  vpc_id                  = "${aws_vpc.jenkins.id}"
+  vpc_id                  = aws_vpc.jenkins.id
   cidr_block              = "10.179.${count.index}.0/24"
-  availability_zone       = "${element(var.aws_az_list, count.index)}"
+  availability_zone       = element(var.aws_az_list, count.index)
   map_public_ip_on_launch = true
 
   tags = {
@@ -38,11 +38,11 @@ resource "aws_subnet" "jenkins" {
 
 # create route table for VPC
 resource "aws_route_table" "jenkins" {
-  vpc_id = "${aws_vpc.jenkins.id}"
+  vpc_id = aws_vpc.jenkins.id
 
   route {
     cidr_block = "0.0.0.0/0"
-    gateway_id = "${aws_internet_gateway.jenkins.id}"
+    gateway_id = aws_internet_gateway.jenkins.id
   }
 
   tags = {
@@ -53,17 +53,17 @@ resource "aws_route_table" "jenkins" {
 
 # add subnet route
 resource "aws_route_table_association" "jenkins" {
-  count = "${length(var.aws_az_list)}"
+  count = length(var.aws_az_list)
 
-  route_table_id = "${aws_route_table.jenkins.id}"
-  subnet_id      = "${element(aws_subnet.jenkins.*.id, count.index)}"
+  route_table_id = aws_route_table.jenkins.id
+  subnet_id      = element(aws_subnet.jenkins.*.id, count.index)
 }
 
 # allow ssh access (assign when needed)
 resource "aws_security_group" "jenkins-SSH" {
   name        = "${var.cloud_name}-SSH"
   description = "SSH traffic in"
-  vpc_id      = "${aws_vpc.jenkins.id}"
+  vpc_id      = aws_vpc.jenkins.id
 
   ingress {
     from_port = 22
@@ -78,7 +78,7 @@ resource "aws_security_group" "jenkins-SSH" {
       "54.214.47.252/32",
       "54.214.47.254/32",
       "46.149.84.26/32",
-    ] 
+    ]
   }
 
   egress {
@@ -97,7 +97,7 @@ resource "aws_security_group" "jenkins-SSH" {
 resource "aws_security_group" "jenkins-HTTP" {
   name        = "${var.cloud_name}-HTTP"
   description = "HTTP and HTTPS traffic in"
-  vpc_id      = "${aws_vpc.jenkins.id}"
+  vpc_id      = aws_vpc.jenkins.id
 
   ingress {
     from_port   = 80

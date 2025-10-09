@@ -73,21 +73,31 @@ if [ -f /usr/bin/yum ]; then
     fi
   fi
 else
-  if [[ $(lsb_release -sc) == "focal" ]] || [[ $(lsb_release -sc) == "buster" ]]; then
-    sudo apt update
-    sudo DEBIAN_FRONTEND=noninteractive apt install -y libtirpc3
-    if [[ ${XTRABACKUP_TARGET} == "galera56" ]] || [[ ${XTRABACKUP_TARGET} == "xtradb56" ]]; then
-      errmsg
-    fi
-  elif [[ $(lsb_release -sc) == "xenial" ]]; then
-    if [[ ${XTRABACKUP_TARGET} == "xtradb56" ]]; then
-      errmsg
-    fi
-  elif [[ $(lsb_release -sc) == "bionic" ]]; then
-    if [[ ${XTRABACKUP_TARGET} == "galera56" ]]; then
-      errmsg
-    fi
-  fi
+  CODENAME=$(lsb_release -sc)
+  case "$CODENAME" in
+    focal|buster)
+      sudo apt update
+      sudo DEBIAN_FRONTEND=noninteractive apt install -y libtirpc3
+      if [[ ${XTRABACKUP_TARGET} == "galera56" || ${XTRABACKUP_TARGET} == "xtradb56" ]]; then
+        errmsg
+      fi
+      ;;
+    noble|bookworm)
+      sudo apt update
+      sudo DEBIAN_FRONTEND=noninteractive apt install -y python3-subunit python3-junitxml
+      SUBUNIT2JUNITXML_CMD="./subunit2junitxml_python3"
+      ;;
+    xenial)
+      if [[ ${XTRABACKUP_TARGET} == "xtradb56" ]]; then
+        errmsg
+      fi
+      ;;
+    bionic)
+      if [[ ${XTRABACKUP_TARGET} == "galera56" ]]; then
+        errmsg
+      fi
+      ;;
+  esac
 fi
 
 mkdir -p server-tarball/${XTRABACKUP_TARGET}
@@ -115,6 +125,36 @@ else
     fi
     ./bootstrap.sh --pxb-type=${CMAKE_BUILD_TYPE} --type=${XTRABACKUP_TARGET} --version=${XTRABACKUP_TARGET_VERSION}
 fi
+
+fix_libaio_symlink() {
+    local server_dir="$1"
+    local binary="$server_dir/bin/mysqld"
+    local missing_lib="libaio.so.1"
+    local target_path="/usr/lib/x86_64-linux-gnu"
+    local real_lib="$target_path/${missing_lib}t64"
+    local link_lib="$target_path/$missing_lib"
+
+    if [ ! -x "$binary" ]; then
+        echo "Error: $binary does not exist or is not executable."
+        return 1
+    fi
+
+    if ldd "$binary" | grep -q "$missing_lib => not found"; then
+        echo "$missing_lib is missing in $binary."
+
+        if [ -e "$real_lib" ]; then
+            echo "$real_lib exists. Creating symlink..."
+            sudo ln -sf "$real_lib" "$link_lib"
+            echo "Symlink created: $link_lib -> $real_lib"
+        else
+            echo "Error: $real_lib not found. Cannot fix missing $missing_lib."
+            return 2
+        fi
+    fi
+}
+
+fix_libaio_symlink ./server
+
 if [[ ${CMAKE_BUILD_TYPE} == "Debug" ]]; then
     if [[ ${XTRABACKUP_TARGET} == "innodb80" ]] || [[ ${XTRABACKUP_TARGET} == "innodb57" ]]; then
         XBTR_ARGS+=" -D"

@@ -3,12 +3,13 @@
     project-type: pipeline
     description: |
         Do not edit this job through the web!
+    concurrent: true
     properties:
         - build-discarder:
             artifact-days-to-keep: -1
             artifact-num-to-keep: 10
             days-to-keep: -1
-            num-to-keep: 10
+            num-to-keep: 100
     pipeline-scm:
         scm:
             - git:
@@ -18,34 +19,3 @@
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: pxc/jenkins/pxc-package-testing-parallel.groovy
-    parameters:
-        - choice:
-            name: product_to_test
-            choices:
-                - 'pxc84'
-                - 'pxc80'
-                - 'pxc57'
-                - 'pxc-innovation-lts'
-            description: "PXC version to test"
-        - choice:
-            name: test_repo
-            choices:
-                - "testing"
-                - "main"
-                - "experimental"
-            description: "Repo to install packages from"
-        - choice:
-            name: pxc57_repo
-            choices:
-                - "original"
-                - "pxc57"
-                - "EOL"
-            description: "PXC-5.7 packages are located in 2 repos: pxc-57 and original and both should be tested. Choose which repo to use for test."
-        - choice:
-            name: 'test_type'
-            choices:
-                - "install"
-                - "install_and_upgrade"
-                - "min_upgrade"
-                - "maj_upgrade"
-            description: "Set test type for testing"

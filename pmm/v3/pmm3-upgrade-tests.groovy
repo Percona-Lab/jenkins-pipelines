@@ -39,7 +39,7 @@ def generateStage(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIE
 
 pipeline {
     agent {
-        label 'cli'
+        label 'docker'
     }
     parameters {
         string(
@@ -68,7 +68,7 @@ pipeline {
             name: 'PMM_SERVER_LATEST')
         string(
             defaultValue: 'v3',
-            description: 'Tag/Branch for qa-integration repository',
+            description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
             defaultValue: 'v3',
@@ -76,7 +76,7 @@ pipeline {
             name: 'QA_INTEGRATION_GIT_BRANCH')
     }
     options {
-        disableConcurrentBuilds()
+        timeout(time: 90, unit: 'MINUTES')
     }
     triggers {
         cron('0 3 * * *')

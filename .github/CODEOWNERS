@@ -2,9 +2,9 @@
 * @Percona-Lab/build-engineers
 
 /cloud/gcp-functions/ @egegunes @inelpandzic
-/cloud/ @hors @tplavcic @nmarukovich @ptankov @jvpasinatto @eleo007
-/pmm/ @talhabinrizwan @ademidoff @puneet0191
-/IaC/pmm.cd/ @talhabinrizwan @ademidoff
+/cloud/ @hors @nmarukovich @jvpasinatto @eleo007 @valmiranogueira
+/pmm/ @Percona-Lab/build-engineers @ademidoff @puneet0191
+/IaC/pmm.cd/ @Percona-Lab/build-engineers @ademidoff
 /pxb/ @mchawla16 @eleo007 @mohitj1988 @kaushikpuneet07 @panchal-yash @Percona-Lab/build-engineers
 /pxc/ @mchawla16 @eleo007 @mohitj1988 @kaushikpuneet07 @panchal-yash @Percona-Lab/build-engineers
 /ps/jenkins/ @mchawla16 @eleo007 @mohitj1988 @kaushikpuneet07 @panchal-yash @Percona-Lab/build-engineers

@@ -16,7 +16,7 @@ def call() {
                         ${USER}@repo.ci.percona.com:${path_to_build}/source/redhat/
                 fi
 
-                export arch_list=$( find . -name '*.el[8-9].*.rpm' -o -name '*.amzn2023.*.rpm' -o -name '*.noarch.rpm' | awk -F'[.]' '{print $(NF -1)}' | sort -n | uniq )
+                export arch_list=$( find . -name '*.el[8-9].*.rpm' -o -name '*.el10.*.rpm' -o -name '*.amzn2023.*.rpm' -o -name '*.noarch.rpm' | awk -F'[.]' '{print $(NF -1)}' | sort -n | uniq )
 
                 for arch in ${arch_list}; do
                     if [ `find . -name "*.el8.${arch}.rpm" | wc -l` -gt 0 ]; then
@@ -35,6 +35,14 @@ def call() {
                             ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/9/${arch}/
                     fi
 
+                    if [ `find . -name "*.el10.${arch}.rpm" | wc -l` -gt 0 ]; then
+                        ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
+                            mkdir -p ${path_to_build}/binary/redhat/10/${arch}
+                        scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                            `find . -name "*.el10.${arch}.rpm"` \
+                            ${USER}@repo.ci.percona.com:${path_to_build}/binary/redhat/10/${arch}/
+                    fi
+
                     if [ `find . -name "*.amzn2023.${arch}.rpm" | wc -l` -gt 0 ]; then
                         ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                             mkdir -p ${path_to_build}/binary/redhat/2023/${arch}
@@ -44,7 +52,7 @@ def call() {
                     fi
 
                     if [ `find . -name "*.noarch.rpm" | wc -l` -gt 0 ]; then
-                        Vers=("8" "9" "2023")
+                        Vers=("8" "9" "10" "2023")
                         for osVer in "${Vers[@]}"; do
                             ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                                 mkdir -p ${path_to_build}/binary/redhat/${osVer}/${arch}

@@ -8,8 +8,8 @@ pipeline {
             description: 'Tag/Branch for pmm-submodules repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: ['experimental', 'testing', 'laboratory'],
-            description: 'Publish packages to repositories: testing (for RC), experimental: (for dev-latest), laboratory: (for FBs)',
+            choices: ['experimental', 'testing'],
+            description: 'Publish packages to repositories: testing (for RC), experimental: (for dev-latest)',
             name: 'DESTINATION')
     }
     options {
@@ -55,6 +55,8 @@ pipeline {
                         string(name: 'DESTINATION', value: params.DESTINATION)
                     ]
                     env.TARBALL_AMD64_URL = pmmClientAmd64.buildVariables.TARBALL_URL
+                    env.TARBALL_AMD64_DYNAMIC_OL8_URL = pmmClientAmd64.buildVariables.TARBALL_AMD64_DYNAMIC_OL8_URL
+                    env.TARBALL_AMD64_DYNAMIC_OL9_URL = pmmClientAmd64.buildVariables.TARBALL_AMD64_DYNAMIC_OL9_URL
                 }
             }
         }

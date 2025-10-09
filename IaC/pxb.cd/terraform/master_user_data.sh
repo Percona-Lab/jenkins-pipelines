@@ -3,8 +3,18 @@
 JENKINS_HOST=${JHostName}
 JENKINS_EIP=${MasterIP_AllocationId}
 JENKINS_VOLUME_ID=${JDataVolume}
-INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
-INSTANCE_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e 's/[a-z]$//')
+
+# Get IMDSv2 token (works with both IMDSv1 and IMDSv2)
+TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" -s)
+
+# Use token for metadata requests (fallback to IMDSv1 if token is empty)
+if [ -n "$TOKEN" ]; then
+    INSTANCE_ID=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/instance-id)
+    INSTANCE_REGION=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e 's/[a-z]$//')
+else
+    INSTANCE_ID=$(curl -s http://169.254.169.254/latest/meta-data/instance-id)
+    INSTANCE_REGION=$(curl -s http://169.254.169.254/latest/meta-data/placement/availability-zone | sed -e 's/[a-z]$//')
+fi
 
 set -o xtrace
 set -o errexit
@@ -18,25 +28,23 @@ setup_aws() {
 }
 
 install_software() {
-    wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-    rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
-
     until yum makecache; do
         sleep 1
         echo try again
     done
 
+    yum -y install yum-utils wget cronie rsync bc htop vim nginx
+    wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+    # rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
+    rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+    yum -y install java-17-amazon-corretto
     yum -y update --security
-    amazon-linux-extras install -y nginx1.12
-    amazon-linux-extras install -y epel
-    amazon-linux-extras install -y java-openjdk11
-    yum -y install jenkins-2.462.1 certbot git yum-cron aws-cli xfsprogs
+    yum -y install jenkins-2.462.1 certbot git dnf-automatic aws-cli xfsprogs
 
-    sed -i 's/update_cmd = default/update_cmd = security/' /etc/yum/yum-cron.conf
-    sed -i 's/apply_updates = no/apply_updates = yes/'     /etc/yum/yum-cron.conf
-    echo "exclude=java*" >> /etc/yum/yum-cron.conf
-    chkconfig yum-cron on
-    service yum-cron start
+    sed -i 's/upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf
+    sed -i 's/apply_updates = no/apply_updates = yes/'         /etc/dnf/automatic.conf
+    echo "exclude=java-17-amazon-corretto" >> /etc/dnf/automatic.conf
+    systemctl enable --now dnf-automatic.timer
 }
 
 volume_state() {
@@ -113,7 +121,7 @@ start_jenkins() {
     cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
 
          # Arguments for the Jenkins JVM
-          Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+          Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
 	EOF
 
     systemctl daemon-reload
@@ -123,7 +131,10 @@ start_jenkins() {
     #echo "/usr/bin/aws s3 sync --sse-kms-key-id alias/jenkins-pmm-backup --sse aws:kms --exclude '*/caches/*' --exclude '*/config-history/nodes/*' --exclude '*/secretFiles/*' --delete /mnt/ s3://backup.cd.percona.com/" > /etc/cron.daily/jenkins-backup
     #chmod 755 /etc/cron.daily/jenkins-backup
 
-    printf "* * * * * root bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"service jenkins stop; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n* * * * * root sleep 30; bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"service jenkins stop; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n" > /etc/cron.d/terminate-check
+    cat > /etc/cron.d/terminate-check << 'CRON_EOF'
+* * * * * root bash -c 'TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" -s 2>/dev/null); if [ -n "$TOKEN" ]; then SPOT_ACTION=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/spot/instance-action 2>/dev/null); else SPOT_ACTION=$(curl -s http://169.254.169.254/latest/meta-data/spot/instance-action 2>/dev/null); fi; echo "$SPOT_ACTION" | grep -q action && systemctl stop jenkins && cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log && umount /mnt || :'
+* * * * * root sleep 30; bash -c 'TOKEN=$(curl -X PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600" -s 2>/dev/null); if [ -n "$TOKEN" ]; then SPOT_ACTION=$(curl -H "X-aws-ec2-metadata-token: $TOKEN" -s http://169.254.169.254/latest/meta-data/spot/instance-action 2>/dev/null); else SPOT_ACTION=$(curl -s http://169.254.169.254/latest/meta-data/spot/instance-action 2>/dev/null); fi; echo "$SPOT_ACTION" | grep -q action && systemctl stop jenkins && cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log && umount /mnt || :'
+CRON_EOF
 }
 
 create_fake_ssl_cert() {
@@ -207,25 +218,45 @@ setup_nginx() {
 		  }
 		}
 	EOF
-    chkconfig nginx on
-    service nginx start
+    systemctl enable nginx
+    systemctl start nginx
 }
 
 setup_letsencrypt() {
+    install -d /usr/share/nginx/html
     if [[ -d /mnt/ssl_backup ]]; then
         rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
         certbot renew
     else
         certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
     fi
-    certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
     ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
     ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-    printf '#!/bin/sh\ncertbot renew\nservice nginx restart\nrsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/\n' > /etc/cron.daily/certbot
-    chmod 755 /etc/cron.daily/certbot
-    service nginx stop
+
+    # Create deploy hook directory
+    mkdir -p /etc/letsencrypt/renewal-hooks/deploy
+
+    # Create the hook script that runs after successful renewal
+    cat << 'EOF' > /etc/letsencrypt/renewal-hooks/deploy/restart-nginx.sh
+#!/bin/bash
+# This script runs automatically after certbot renews certificates
+# Create certs backup
+BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
+rsync -aHSv /etc/letsencrypt/ /mnt/ssl_backup_$${BACKUP_DATE}/
+# also to regular backup directory
+rsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/
+systemctl stop nginx
+sleep 2
+systemctl start nginx
+EOF
+
+    chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-nginx.sh
+
+    systemctl stop nginx
     sleep 2
-    service nginx start
+    systemctl start nginx
+    systemctl enable certbot-renew.timer
+    systemctl restart certbot-renew.timer
 }
 
 setup_dhparam() {
@@ -233,7 +264,7 @@ setup_dhparam() {
         openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem 4096
     fi
     cp /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem /etc/nginx/ssl/dhparam.pem
-    service nginx restart
+    systemctl restart nginx
 }
 
 setup_nginx_allow_list() {
@@ -260,7 +291,7 @@ EOF
 }
 
 setup_ssh_keys() {
-    KEYS_LIST="evgeniy.patlan slava.sarzhan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen serhii.stasiuk vadim.yalovets surabhi.bhat talha.rizwan muhammad.aqeel"
+    KEYS_LIST="evgeniy.patlan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen vadim.yalovets surabhi.bhat talha.rizwan"
 
     for KEY in $KEYS_LIST; do
         RETRY="3"

@@ -24,9 +24,9 @@ pipeline {
                             string(credentialsId: 'f5415992-e274-45c2-9eb9-59f9e8b90f43', variable: 'DIGITALOCEAN_ACCESS_TOKEN')
                         ]) {
                         if ( params.VM == "ALL" ) {
-                            runPython('do_remove_droplets')
+                            runPython("do_remove_droplets", " ", "/home/ec2-user/venv/bin/python")
                         } else {
-                            runPython('do_remove_droplets', "-o ${VM}")
+                            runPython("do_remove_droplets", "-o ${VM}", "/home/ec2-user/venv/bin/python")
                         }
                     }
                 }

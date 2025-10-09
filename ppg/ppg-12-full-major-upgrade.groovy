@@ -65,28 +65,28 @@ pipeline {
     stage ('Create virtual machines') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(moleculeDir, "create", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(moleculeDir, "create", env.PLATFORM)
             }
         }
     }
     stage ('Prepare VM for test') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(moleculeDir, "prepare", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(moleculeDir, "prepare", env.PLATFORM)
             }
         }
     }
     stage ('Run playbook for test with old version') {
       steps {
           script{
-              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "converge", env.PLATFORM, "VERSION", env.FROM_VERSION)
+              moleculeExecuteActionWithVariableAndScenarioPPG(moleculeDir, "converge", env.PLATFORM, "VERSION", env.FROM_VERSION)
             }
         }
     }
     stage ('Start testinfra tests for old version') {
       steps {
             script{
-              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "verify", env.PLATFORM, "VERSION", env.FROM_VERSION)
+              moleculeExecuteActionWithVariableAndScenarioPPG(moleculeDir, "verify", env.PLATFORM, "VERSION", env.FROM_VERSION)
             }
             junit "molecule/ppg/pg-12-full-major-upgrade/molecule/${PLATFORM}/report.xml"
         }
@@ -94,14 +94,14 @@ pipeline {
     stage ('Run playbook for test with new version') {
       steps {
           script{
-              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "side-effect", env.PLATFORM, "VERSION", env.VERSION)
+              moleculeExecuteActionWithVariableAndScenarioPPG(moleculeDir, "side-effect", env.PLATFORM, "VERSION", env.VERSION)
             }
         }
     }
     stage ('Start testinfra tests for new version') {
       steps {
             script{
-              moleculeExecuteActionWithVariableAndScenario(moleculeDir, "verify", env.PLATFORM, "VERSION", env.VERSION)
+              moleculeExecuteActionWithVariableAndScenarioPPG(moleculeDir, "verify", env.PLATFORM, "VERSION", env.VERSION)
             }
             junit "molecule/ppg/pg-12-full-major-upgrade/molecule/${PLATFORM}/report.xml"
         }
@@ -109,7 +109,7 @@ pipeline {
       stage ('Start Cleanup ') {
         steps {
              script {
-               moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.PLATFORM)
+               moleculeExecuteActionWithScenarioPPG(moleculeDir, "cleanup", env.PLATFORM)
             }
         }
     }
@@ -117,7 +117,7 @@ pipeline {
   post {
     always {
           script {
-             moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.PLATFORM)
+             moleculeExecuteActionWithScenarioPPG(moleculeDir, "destroy", env.PLATFORM)
         }
     }
   }

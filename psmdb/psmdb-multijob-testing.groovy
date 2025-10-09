@@ -32,10 +32,10 @@ pipeline {
                 build job: 'psmdb-parallel', parameters: [ string(name: 'REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: params.PSMDB_VERSION ), string(name: 'ENABLE_TOOLKIT', value: "false"), string(name: 'TESTING_BRANCH', value: "main") ]
             }
         }
-        stage ('Build docker images and check for vulnerabilities') { 
-            steps { 
+        stage ('Build docker images and check for vulnerabilities') {
+            steps {
                 script {
-                    def version = params.PSMDB_VERSION + '-' + params.PSMDB_RELEASE 
+                    def version = params.PSMDB_VERSION + '-' + params.PSMDB_RELEASE
                     build job: 'psmdb-docker', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'TARGET_REPO', value: "PerconaLab") ]
                     build job: 'psmdb-docker-arm', parameters: [string(name: 'PSMDB_REPO', value: "testing"), string(name: 'PSMDB_VERSION', value: version ), string(name: 'TARGET_REPO', value: "PerconaLab") ]
                 }
@@ -45,8 +45,9 @@ pipeline {
             steps {
                 script {
                     def version = params.PSMDB_VERSION + '-' + params.PSMDB_RELEASE
-                    build job: 'psmdb-integration', parameters: [string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "release"), string(name: 'PMM_IMAGE', value: "percona/pmm-server:latest") ]
-                    build job: 'psmdb-integration', parameters: [string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "experimental"), string(name: 'PMM_IMAGE', value: "perconalab/pmm-server:dev-latest") ]
+                    build job: 'psmdb-integration', parameters: [string(name: 'TEST_VERSION', value: "main"), string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "release"), string(name: 'PMM_IMAGE', value: "percona/pmm-server:2") ]
+                    build job: 'psmdb-integration', parameters: [string(name: 'TEST_VERSION', value: "v3"), string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "release"), string(name: 'PMM_IMAGE', value: "percona/pmm-server:latest") ]
+                    build job: 'psmdb-integration', parameters: [string(name: 'TEST_VERSION', value: "v3"), string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "experimental"), string(name: 'PMM_IMAGE', value: "perconalab/pmm-server:dev-latest") ]
                 }
             }
         }

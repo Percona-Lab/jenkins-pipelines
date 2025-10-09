@@ -74,7 +74,7 @@ function get_glibc_version {
     "oraclelinux:8" | "ol:8")
       echo "2.28"
       ;;
-    "oraclelinux:9" | "ol:9")
+    "oraclelinux:9" | "ol:9" | "ol:9.6")
       echo "2.34"
       ;;
     "ubuntu:focal")
@@ -177,7 +177,7 @@ if [[ "${PXC_VERSION}" == "PXC84" ]]; then
 
   # Downloading PXC-8.4 tarball package
   sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_${LATEST_VERSION_84}_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz\
-      https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-84/Percona-XtraDB-Cluster-${LATEST_VERSION_84}/binary/tarball/Percona-XtraDB-Cluster_${LATEST_VERSION_84}-${VERSION_SUFFIX_84}_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz
+      http://downloads.percona.com/downloads/Percona-XtraDB-Cluster-84/Percona-XtraDB-Cluster-${LATEST_VERSION_84}/binary/tarball/Percona-XtraDB-Cluster_${LATEST_VERSION_84}-${VERSION_SUFFIX_84}_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz
 
   # Installing PXC-8.4 client package
   enable_repo pxc-84-lts release
@@ -191,7 +191,7 @@ elif [[ "${PXC_VERSION}" == "PXC80" ]]; then
 
   # Downloading PXC-8.0 tarball package
   sudo wget -q -O ${WORKDIR_ABS}/WORKDIR/Percona-XtraDB-Cluster_${LATEST_VERSION_80}_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz \
-      https://downloads.percona.com/downloads/Percona-XtraDB-Cluster-80/Percona-XtraDB-Cluster-${LATEST_VERSION_80}/binary/tarball/Percona-XtraDB-Cluster_${LATEST_VERSION_80}-${VERSION_SUFFIX_80}_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz
+      http://downloads.percona.com/downloads/Percona-XtraDB-Cluster-80/Percona-XtraDB-Cluster-${LATEST_VERSION_80}/binary/tarball/Percona-XtraDB-Cluster_${LATEST_VERSION_80}-${VERSION_SUFFIX_80}_Linux.x86_64.glibc${glibc_version}-minimal.tar.gz
 
   # Installing PXC-8.0 client package
   enable_repo pxc-80 release
@@ -230,14 +230,14 @@ for X in $(seq 0 $COPY_TIMEOUT); do
   sleep 1
 done
 
-for file in proxysql-admin proxysql-admin-common proxysql-login-file proxysql-common percona-scheduler-admin; do
+for file in proxysql-admin proxysql-admin-common proxysql-login-file proxysql-common percona-scheduler-admin proxysql; do
   sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/usr/bin/$file ${WORKDIR_ABS}/WORKDIR/$file
 done;
 sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/etc/proxysql-admin.cnf ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/etc/proxysql-admin.cnf
 sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/usr/bin/pxc_scheduler_handler ${WORKDIR_ABS}/WORKDIR/pxc_scheduler_handler
 sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/etc/config.toml ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/etc/config.toml
 sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/tests/testsuite.toml ${WORKDIR_ABS}/WORKDIR/testsuite.toml
-sudo ln -s /usr/bin/proxysql $WORKDIR_ABS/WORKDIR/proxysql-2.0/usr/bin/proxysql
+sudo ln -s $WORKDIR_ABS/PROXY_ADMIN/proxysql*/usr/bin/proxysql ${WORKDIR_ABS}/WORKDIR/proxysql-2.0/usr/bin/proxysql
 status=0
 
 # Running ProxySQL QA script

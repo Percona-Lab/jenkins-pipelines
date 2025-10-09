@@ -134,6 +134,7 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
+        timeout(time: 60, unit: 'MINUTES')
     }
     stages {
         stage('Prepare') {
@@ -405,7 +406,7 @@ pipeline {
                         for i in \$containers; do
                             if [[ \$i == *"rs10"* ]]; then
                                 docker exec rs101 percona-release enable pmm3-client $CLIENT_REPOSITORY
-                                docker exec rs101 yum install -y pmm-client
+                                docker exec rs101 dnf install -y pmm-client
                                 docker exec rs101 systemctl restart pmm-agent
                             elif [[ \$i == *"mysql_"* ]]; then
                                 docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
@@ -431,10 +432,16 @@ pipeline {
                                 ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                                 docker exec \$i kill \$ps_process_id
                                 docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                            elif [[ \$i == *"external_pmm"* ]]; then
+                                docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                docker exec \$i apt install -y pmm-client
+                                ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
+                                docker exec \$i kill \$ps_process_id
+                                docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                             fi
                         done
                         sudo percona-release enable pmm3-client $CLIENT_REPOSITORY
-                        sudo yum install -y pmm-client
+                        sudo dnf install -y pmm-client
                     '''
                 }
             }

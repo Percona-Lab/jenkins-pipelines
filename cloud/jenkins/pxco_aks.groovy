@@ -46,6 +46,8 @@ void prepareNode() {
         IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: getParam("IMAGE_LOGCOLLECTOR")
         IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
+        IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: getParam("IMAGE_PMM3_CLIENT")
+        IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: getParam("IMAGE_PMM3_SERVER")
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
             PLATFORM_VER = getParam("PLATFORM_VER", "AKS_${PLATFORM_VER}")
         }
@@ -94,7 +96,7 @@ void prepareNode() {
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
     CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_PXC-$IMAGE_PROXY-$IMAGE_HAPROXY-$IMAGE_BACKUP-$IMAGE_LOGCOLLECTOR-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -198,7 +200,7 @@ void createCluster(String CLUSTER_SUFFIX) {
         az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
             -g percona-operators \
             --subscription eng-cloud-dev \
-            --load-balancer-sku basic \
+            --load-balancer-sku standard \
             --enable-managed-identity \
             --node-count 3 \
             --node-vm-size Standard_B4ms \
@@ -230,7 +232,7 @@ void runTest(Integer TEST_ID) {
                 sh """
                     cd source
 
-                    export DEBUG_TESTS=1
+                    [[ "$DEBUG_TESTS" == "YES" ]] && export DEBUG_TESTS=1
                     [[ "$CLUSTER_WIDE" == "YES" ]] && export OPERATOR_NS=pxc-operator
                     [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-xtradb-cluster-operator:$GIT_BRANCH
                     export IMAGE_PXC=$IMAGE_PXC
@@ -240,6 +242,8 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+                    export IMAGE_PMM3_CLIENT=$IMAGE_PMM3_CLIENT
+                    export IMAGE_PMM3_SERVER=$IMAGE_PMM3_SERVER
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
 
                     e2e-tests/$testName/run
@@ -298,6 +302,8 @@ IMAGE_BACKUP=${IMAGE_BACKUP ?: 'e2e_defaults'}
 IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR ?: 'e2e_defaults'}
 IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
 IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
+IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT ?: 'e2e_defaults'}
+IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER ?: 'e2e_defaults'}
 PLATFORM_VER=$PLATFORM_VER"""
 
     writeFile file: "TestsReport.xml", text: testsReport
@@ -400,8 +406,20 @@ pipeline {
             name: 'IMAGE_PMM_SERVER')
         string(
             defaultValue: '',
+            description: 'ex: perconalab/pmm-client:3-dev-latest',
+            name: 'IMAGE_PMM3_CLIENT')
+        string(
+            defaultValue: '',
+            description: 'ex: perconalab/pmm-server:3-dev-latest',
+            name: 'IMAGE_PMM3_SERVER')
+        string(
+            defaultValue: '',
             description: 'AKS location to use for cluster. By default "eastus" is for aks-1 job and "norwayeast" for aks-2',
             name: 'AKS_LOCATION')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Run tests with debug',
+            name: 'DEBUG_TESTS')
     }
     agent {
         label 'docker'

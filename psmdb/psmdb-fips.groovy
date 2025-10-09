@@ -4,7 +4,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def moleculeDir = "psmdb/psmdb"
-def fipsOS = ['al2023','rhel8-fips','rhel9','ubuntu-focal-pro','ubuntu-jammy-pro']
+def fipsOS = ['al2023','rhel8-fips','rhel9','ubuntu-jammy-pro']
 
 pipeline {
     agent {
@@ -69,8 +69,10 @@ pipeline {
         }
         stage('Test') {
             steps {
-                withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
-                    script {
+                withCredentials([
+                    usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME'),
+                    usernamePassword(credentialsId: 'OIDC_ACCESS', passwordVariable: 'OIDC_CLIENT_SECRET', usernameVariable: 'OIDC_CLIENT_ID')]) {
+                      script {
                         moleculeParallelTest(fipsOS, moleculeDir)
                     }
                 }

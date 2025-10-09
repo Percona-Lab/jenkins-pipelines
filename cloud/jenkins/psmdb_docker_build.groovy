@@ -1,27 +1,58 @@
 void build(String IMAGE_SUFFIX){
     sh """
+        set -e
+
         cd ./source/
         if [ ${IMAGE_SUFFIX} = backup ]; then
-            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX} -f percona-backup-mongodb/Dockerfile percona-backup-mongodb
+            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
+                         -f percona-backup-mongodb/Dockerfile percona-backup-mongodb
         else
             DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
-            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX} -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
-            docker build --build-arg DEBUG=1 --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX}-debug -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
+            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
+                         -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
+
+            docker build --build-arg DEBUG=1 --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}-debug \
+                         -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
         fi
     """
 }
 void checkImageForDocker(String IMAGE_SUFFIX){
-     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            IMAGE_SUFFIX=${IMAGE_SUFFIX}
-            IMAGE_NAME='percona-server-mongodb-operator'
-            TrivyLog="$WORKSPACE/trivy-\$IMAGE_NAME-${IMAGE_SUFFIX}-psmdb.xml"
+    try {
+             withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'SNYK_ID', variable: 'SNYK_ID')]) {
+                sh """
+                    IMAGE_SUFFIX=${IMAGE_SUFFIX}
+                    IMAGE_NAME='percona-server-mongodb-operator'
+                    MONGODB_VER=\$(echo ${IMAGE_SUFFIX} | tr -d '\\-debug' | tr -d 'mongod')
+                    PATH_TO_DOCKERFILE="source/percona-server-mongodb-\${MONGODB_VER}"
+                    IMAGE_TAG="\${GIT_PD_BRANCH}-\${IMAGE_SUFFIX}"
+                    if [ ${IMAGE_SUFFIX} = backup ]; then
+                        PATH_TO_DOCKERFILE="source/percona-backup-mongodb"
+                    elif [ ${IMAGE_SUFFIX} = operator ]; then
+                        PATH_TO_DOCKERFILE="operator-source/build"
+                        IMAGE_TAG=${GIT_BRANCH}
+                    fi
 
-            sg docker -c "
-                docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --timeout 40m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:\${IMAGE_SUFFIX}
-            "
+                    sg docker -c "
+                        set -e
+                        docker login -u '${USER}' -p '${PASS}'
+
+                        snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
+                            --severity-threshold=high --json-file-output=\${IMAGE_SUFFIX}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
+                    "
+                """
+             }
+    } catch (Exception e) {
+        echo "Stage failed: ${e.getMessage()}"
+        sh """
+            exit 1
         """
+    } finally {
+         echo "Executing post actions..."
+         sh """
+             IMAGE_SUFFIX=${IMAGE_SUFFIX}
+             snyk-to-html -i \${IMAGE_SUFFIX}-report.json -o \${IMAGE_SUFFIX}-report.html
+         """
+        archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
     }
 }
 
@@ -30,12 +61,28 @@ void pushImageToDocker(String IMAGE_SUFFIX){
         sh """
             IMAGE_SUFFIX=${IMAGE_SUFFIX}
             sg docker -c "
+                set -e
                 docker login -u '${USER}' -p '${PASS}'
-                docker push perconalab/percona-server-mongodb-operator:main-${IMAGE_SUFFIX}
+                docker push perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}
                 docker logout
             "
+            echo "perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}" >> list-of-images.txt
         """
     }
+}
+void generateImageSummary(filePath) {
+    def images = readFile(filePath).trim().split("\n")
+
+    def report = "<h2>Image Summary Report</h2>\n"
+    report += "<p><strong>Total Images:</strong> ${images.size()}</p>\n"
+    report += "<ul>\n"
+
+    images.each { image ->
+        report += "<li>${image}</li>\n"
+    }
+
+    report += "</ul>\n"
+    return report
 }
 pipeline {
     parameters {
@@ -57,9 +104,11 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker'
+         label 'docker-x64-min'
     }
     environment {
+        PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
+        SNYK_TOKEN=credentials('SNYK_ID')
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
     }
     options {
@@ -72,13 +121,10 @@ pipeline {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
-                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
-                    wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                    sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
-
-                    if [ ! -f junit.tpl ]; then
-                        wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
-                    fi
+                    curl -sL https://static.snyk.io/cli/latest/snyk-linux -o snyk
+                    chmod +x snyk
+                    sudo mv ./snyk /usr/local/bin/
+                    sudo npm install snyk-to-html -g
 
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
@@ -105,12 +151,15 @@ pipeline {
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                             sh '''
                                 docker buildx create --use
-                                cd ./source/
                                 sg docker -c "
                                     docker login -u '${USER}' -p '${PASS}'
-                                    RHEL=1 DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
+                                    pushd source
+                                    export IMAGE=perconalab/percona-server-mongodb-operator:${GIT_BRANCH}
+                                    DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
+                                    popd
                                     docker logout
                                 "
+                                echo "perconalab/percona-server-mongodb-operator:${GIT_BRANCH}" >> list-of-images.txt
                             '''
                         }
                     }
@@ -123,7 +172,7 @@ pipeline {
             steps {
                 unstash "checkout"
                 sh """
-                    sudo rm -rf ./source
+                    sudo mv ./source ./operator-source
                     export GIT_REPO=$GIT_PD_REPO
                     export GIT_BRANCH=$GIT_PD_BRANCH
                     ./cloud/local/checkout
@@ -133,9 +182,6 @@ pipeline {
                     build('backup')
                 }
                 echo 'Build PSMDB docker images'
-                retry(3) {
-                    build('mongod5.0')
-                }
                 retry(3) {
                     build('mongod6.0')
                 }
@@ -150,8 +196,6 @@ pipeline {
 
         stage('Push PSMDB images to Docker registry') {
             steps {
-                pushImageToDocker('mongod5.0')
-                pushImageToDocker('mongod5.0-debug')
                 pushImageToDocker('mongod6.0')
                 pushImageToDocker('mongod6.0-debug')
                 pushImageToDocker('mongod7.0')
@@ -161,106 +205,46 @@ pipeline {
                 pushImageToDocker('backup')
             }
         }
-       stage('Trivy Checks') {
+       stage('Snyk CVEs Check') {
             parallel {
                 stage('psmdb operator'){
                     steps {
-                        checkImageForDocker('main')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod5.0'){
-                    steps {
-                        checkImageForDocker('main-mongod5.0')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod5.0-psmdb.xml"
-                        }
+                        checkImageForDocker('operator')
                     }
                 }
                 stage('mongod6.0'){
                     steps {
-                        checkImageForDocker('main-mongod6.0')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod6.0-psmdb.xml"
-                        }
+                        checkImageForDocker('mongod6.0')
                     }
                 }
                 stage('mongod7.0'){
                     steps {
-                        checkImageForDocker('main-mongod7.0')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod7.0-psmdb.xml"
-                        }
+                        checkImageForDocker('mongod7.0')
                     }
                 }
                 stage('mongod8.0'){
                     steps {
-                        checkImageForDocker('main-mongod8.0')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-mongod8.0-psmdb.xml"
-                        }
-                    }
-                }
-                stage('mongod5.0-debug'){
-                    steps {
-                        checkImageForDocker('main-mongod5.0-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod5.0-debug-psmdb.xml"
-                        }
+                        checkImageForDocker('mongod8.0')
                     }
                 }
                 stage('mongod6.0-debug'){
                     steps {
-                        checkImageForDocker('main-mongod6.0-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod6.0-debug-psmdb.xml"
-                        }
+                        checkImageForDocker('mongod6.0-debug')
                     }
                 }
                 stage('mongod7.0-debug'){
                     steps {
-                        checkImageForDocker('main-mongod7.0-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod7.0-debug-psmdb.xml"
-                        }
+                        checkImageForDocker('mongod7.0-debug')
                     }
                 }
                 stage('mongod8.0-debug'){
                     steps {
-                        checkImageForDocker('main-mongod8.0-debug')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-mongod8.0-debug-psmdb.xml"
-                        }
+                        checkImageForDocker('mongod8.0-debug')
                     }
                 }
                 stage('PBM'){
                     steps {
-                        checkImageForDocker('main-backup')
-                    }
-                    post {
-                        always {
-                            junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-main-backup-psmdb.xml"
-                        }
+                        checkImageForDocker('backup')
                     }
                 }
             }
@@ -269,6 +253,15 @@ pipeline {
 
     post {
         always {
+            script {
+                def summary = generateImageSummary('list-of-images.txt')
+
+                addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+                    text: "<pre>${summary}</pre>"
+                )
+                // Also save as a file if needed
+                 writeFile(file: 'image-summary.html', text: summary)
+            }
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./source/build

@@ -44,6 +44,10 @@ pipeline {
             defaultValue: '',
             description: 'Change Request Number for pmm-submodules repository PR',
             name: 'BRANCH_NAME')
+        booleanParam(
+            defaultValue: false,
+            description: 'Build GSSAPI dynamic client tarballs for OL8 and OL9 (amd64)',
+            name: 'GSSAPI_DYNAMIC_TARBALLS')
     }
     environment {
         PATH_TO_SCRIPTS = 'sources/pmm/src/github.com/percona/pmm/build/scripts'
@@ -114,6 +118,58 @@ pipeline {
                 }
             }
         }
+        stage('Build dynamic client binary for OL8 (GSSAPI)') {
+            when { expression { return params.GSSAPI_DYNAMIC_TARBALLS } }
+            steps {
+                withCredentials([aws(credentialsId: 'AMI/OVF')]) {
+                    sh '''
+                        set -o errexit
+
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+
+                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3-ol8
+                        export BUILD_TYPE=dynamic
+                        export OS_VARIANT=ol8
+
+                        ${PATH_TO_SCRIPTS}/build-client-binary
+
+                        aws s3 cp \
+                            --acl public-read \
+                            results/tarball/pmm-client-*-dynamic-ol8.tar.gz \
+                            s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-${BRANCH_NAME}-${SHORTENED_COMMIT}.tar.gz
+                    '''
+                }
+                script {
+                    env.CLIENT_URL_DYNAMIC_OL8 = sh (script: 'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol8-${BRANCH_NAME}-${SHORTENED_COMMIT}.tar.gz" | tee CLIENT_URL_DYNAMIC_OL8', returnStdout: true).trim()
+                }
+            }
+        }
+        stage('Build dynamic client binary for OL9 (GSSAPI)') {
+            when { expression { return params.GSSAPI_DYNAMIC_TARBALLS } }
+            steps {
+                withCredentials([aws(credentialsId: 'AMI/OVF')]) {
+                    sh '''
+                        set -o errexit
+
+                        aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
+
+                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3
+                        export BUILD_TYPE=dynamic
+                        export OS_VARIANT=ol9
+
+                        ${PATH_TO_SCRIPTS}/build-client-binary
+
+                        aws s3 cp \
+                            --acl public-read \
+                            results/tarball/pmm-client-*-dynamic-ol9.tar.gz \
+                            s3://pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-${BRANCH_NAME}-${SHORTENED_COMMIT}.tar.gz
+                    '''
+                }
+                script {
+                    env.CLIENT_URL_DYNAMIC_OL9 = sh (script: 'echo "https://s3.us-east-2.amazonaws.com/pmm-build-cache/PR-BUILDS/pmm-client/pmm-client-dynamic-ol9-${BRANCH_NAME}-${SHORTENED_COMMIT}.tar.gz" | tee CLIENT_URL_DYNAMIC_OL9', returnStdout: true).trim()
+                }
+            }
+        }
         stage('Build client docker') {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -144,8 +200,6 @@ pipeline {
 
                         export RPM_EPOCH=1
                         export PATH=${PATH}:$(pwd -P)/${PATH_TO_SCRIPTS}
-                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3
-                        export RPMBUILD_DIST="el9"
 
                         ${PATH_TO_SCRIPTS}/build-server-rpm-all
                     '''
@@ -156,7 +210,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                     sh '''
-                        docker login -u "${USER}" -p "${PASS}"
+                        echo "${PASS}" | docker login -u "${USER}" --password-stdin
                     '''
                 }
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
@@ -166,8 +220,6 @@ pipeline {
                         export PUSH_DOCKER=1
                         export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${SHORTENED_COMMIT}
 
-                        export RPMBUILD_DOCKER_IMAGE=public.ecr.aws/e7j3v3n0/rpmbuild:3
-                        export RPMBUILD_DIST=el9
                         export DOCKERFILE=Dockerfile.el9
 
                         ${PATH_TO_SCRIPTS}/build-server-docker
@@ -198,8 +250,17 @@ pipeline {
                         def FB_COMMIT_HASH = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                         def STAGING_URL = "https://pmm.cd.percona.com/job/pmm3-aws-staging-start/parambuild/"
 
+                        def message = "Server docker: ${IMAGE}\nClient docker: ${CLIENT_IMAGE}\nWatchtower docker: perconalab/pmm-watchtower-fb:${BRANCH_NAME}-${SHORTENED_COMMIT}\nClient tarball: ${CLIENT_URL}"
+                        if (params.GSSAPI_DYNAMIC_TARBALLS && env.CLIENT_URL_DYNAMIC_OL8) {
+                          message += "\nClient dynamic OL8 tarball: ${CLIENT_URL_DYNAMIC_OL8}"
+                        }
+                        if (params.GSSAPI_DYNAMIC_TARBALLS && env.CLIENT_URL_DYNAMIC_OL9) {
+                          message += "\nClient dynamic OL9 tarball: ${CLIENT_URL_DYNAMIC_OL9}"
+                        }
+                        message += "\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
+
                         def payload = [
-                          body: "Server docker: ${IMAGE}\nClient docker: ${CLIENT_IMAGE}\nWatchtower docker: perconalab/pmm-watchtower-fb:${BRANCH_NAME}-${SHORTENED_COMMIT}\nClient tarball: ${CLIENT_URL}\nStaging instance: ${STAGING_URL}?DOCKER_VERSION=${IMAGE}&CLIENT_VERSION=${CLIENT_URL}"
+                          body: message
                         ]
                         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))
                         sh '''

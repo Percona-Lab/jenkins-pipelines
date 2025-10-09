@@ -8,9 +8,9 @@
     properties:
         - build-discarder:
             artifact-days-to-keep: -1
-            artifact-num-to-keep: 20
+            artifact-num-to-keep: 100
             days-to-keep: -1
-            num-to-keep: 20
+            num-to-keep: 100
     pipeline-scm:
         scm:
             - git:
@@ -47,6 +47,8 @@
                 - 'rhel-9'
                 - 'rhel-8-arm'
                 - 'rhel-9-arm'
+                - 'rhel-10'
+                - 'rhel-10-arm'
             description: "Distribution to run test"
         - choice:
             name: test_repo
@@ -58,7 +60,6 @@
         - choice:
             name: test_type
             choices:
-                - "install_and_upgrade"
                 - "install"
                 - "min_upgrade_pro_pro"
                 - "min_upgrade_nonpro_pro"

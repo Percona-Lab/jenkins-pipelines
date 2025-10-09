@@ -8,51 +8,15 @@
     properties:
         - build-discarder:
             artifact-days-to-keep: -1
-            artifact-num-to-keep: 10
+            artifact-num-to-keep: 100
             days-to-keep: -1
-            num-to-keep: 10
+            num-to-keep: 100
     pipeline-scm:
         scm:
             - git:
                 url: https://github.com/Percona-Lab/jenkins-pipelines.git
                 branches:
                     - 'master'
-                wipe-workspace: true
+                wipe-workspace: false
         lightweight-checkout: true
         script-path: ps/jenkins/test-ps-innodb-cluster.groovy
-    parameters:
-        - choice:
-            name: PRODUCT_TO_TEST
-            choices:
-                - "PS80"
-                - "PS84"
-                - "PS_INN_LTS"
-            description: "Product for which the packages will be tested"
-        - choice:
-            name: TEST_DIST
-            choices:
-                - 'ubuntu-noble'
-                - 'ubuntu-jammy'
-                - 'ubuntu-focal'
-                - 'debian-12'
-                - 'debian-11'
-                - 'centos-7'
-                - 'oracle-8'
-                - 'oracle-9'
-                - 'rhel-8'
-                - 'rhel-9'
-                - 'rhel-8-arm'
-                - 'rhel-9-arm'
-                - 'debian-11-arm'
-                - 'debian-12-arm'
-                - 'ubuntu-focal-arm'
-                - 'ubuntu-jammy-arm'
-                - 'ubuntu-noble-arm'
-            description: "Distribution to run test"
-        - choice:
-            name: INSTALL_REPO
-            choices:
-                - "testing"
-                - "main"
-                - "experimental"
-            description: "Repo to install packages from"

@@ -117,7 +117,7 @@ def generateStage(LABEL, PLAYBOOK) {
     }
 }
 
-def latestVersion = pmmVersion()
+def latestVersion = pmmVersion('v3')[0]
 
 pipeline {
     agent {
@@ -160,9 +160,6 @@ pipeline {
     options {
         skipDefaultCheckout()
         disableConcurrentBuilds()
-    }
-    triggers {
-        cron('0 4 * * *')
     }
     stages {
         stage('Run package tests') {

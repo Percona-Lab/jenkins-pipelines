@@ -17,52 +17,52 @@ pipeline {
             choices: repoList()
         )
         string(
-            defaultValue: 'ppg-17.2',
+            defaultValue: 'ppg-18.0',
             description: 'PPG version for test',
             name: 'VERSION'
          )
         string(
             defaultValue: 'main',
-            description: 'Base branch for upgrade test',
+            description: 'Base branch for ppg-testing repo',
             name: 'TESTING_BRANCH')
         string(
-            defaultValue: '2.1.0',
+            defaultValue: '2.3.0',
             description: 'PGSM version',
             name: 'PGSM_VERSION')
         string(
-            defaultValue: '4.5.4',
+            defaultValue: '4.6.3',
             description: 'pgpool version',
             name: 'PGPOOL_VERSION')
         string(
-            defaultValue: '3.3.7',
+            defaultValue: '3.5.3',
             description: 'postgis version',
             name: 'POSTGIS_VERSION')
         string(
-            defaultValue: '17.0',
+            defaultValue: '18.0',
             description: ' version',
             name: 'PGAUDIT_VERSION')
         string(
-            defaultValue: 'ver_1.5.1',
+            defaultValue: 'ver_1.5.2',
             description: 'PG_REPACK version',
             name: 'PG_REPACK_VERSION')
         string(
-            defaultValue: 'v4.0.3',
+            defaultValue: 'v4.1.0',
             description: 'Patroni version',
             name: 'PATRONI_VERSION')
         string(
-            defaultValue: 'release/2.54.0',
+            defaultValue: 'release/2.56.0',
             description: 'pgbackrest version',
             name: 'PGBACKREST_VERSION')
         string(
-            defaultValue: 'REL4_1_0',
+            defaultValue: 'REL4_2_0',
             description: 'pgaudit13_set_user version',
             name: 'SETUSER_VERSION')
         string(
-            defaultValue: 'v12.4',
+            defaultValue: 'v13.1',
             description: 'pgbadger version',
             name: 'PGBADGER_VERSION')
         string(
-            defaultValue: 'pgbouncer_1_23_1',
+            defaultValue: 'pgbouncer_1_24_1',
             description: 'pgbouncer version',
             name: 'PGBOUNCER_VERSION')
         string(
@@ -70,7 +70,7 @@ pipeline {
             description: 'wal2json version',
             name: 'WAL2JSON_VERSION')
         string(
-            defaultValue: '0.8.0',
+            defaultValue: 'v0.8.1',
             description: 'pgvector version',
             name: 'PGVECTOR_VERSION')
         string(

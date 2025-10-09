@@ -11,6 +11,7 @@ pipeline {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
+        string(name: 'TEST_VERSION', defaultValue: 'main', description: 'Integration tests version: main, v3')
         string(name: 'PSMDB_VERSION', defaultValue: 'latest', description: 'PSMDB version')
         string(name: 'PBM_VERSION', defaultValue: 'latest', description: 'PBM version')
         string(name: 'PMM_VERSION', defaultValue: 'latest', description: 'PMM2 agent version')
@@ -29,7 +30,7 @@ pipeline {
                              -H "Accept: application/vnd.github.v3+json" \
                              -H "Authorization: token ${GITHUB_API_TOKEN}" \
                              "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PSMDB_PBM.yml/dispatches" \
-                             -d '{"ref":"main","inputs":{"psmdb_version":"${params.PSMDB_VERSION}","pbm_version":"${params.PBM_VERSION}","pmm_version":"${params.PMM_VERSION}","pmm_repo":"${params.PMM_REPO}","pmm_image":"${params.PMM_IMAGE}"}}'
+                             -d '{"ref":"${params.TEST_VERSION}","inputs":{"psmdb_version":"${params.PSMDB_VERSION}","pbm_version":"${params.PBM_VERSION}","pmm_version":"${params.PMM_VERSION}","pmm_repo":"${params.PMM_REPO}","pmm_image":"${params.PMM_IMAGE}"}}'
                     """
                 }
             }

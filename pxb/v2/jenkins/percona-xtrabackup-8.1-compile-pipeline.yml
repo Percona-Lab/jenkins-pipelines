@@ -25,11 +25,13 @@
     - choice:
         name: DOCKER_OS
         choices:
-        - centos:7
         - centos:8
         - oraclelinux:9
+        - ubuntu:focal
         - ubuntu:jammy
+        - ubuntu:noble
         - debian:bullseye
+        - debian:bookworm
         - asan
         description: OS version for compilation
     - choice:

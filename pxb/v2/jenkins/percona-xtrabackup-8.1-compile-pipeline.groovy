@@ -11,7 +11,7 @@ pipeline {
             name: 'BRANCH',
             trim: true)
         choice(
-            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:jammy\ndebian:bullseye\nasan',
+            choices: 'centos:8\noraclelinux:9\nubuntu:focal\nubuntu:jammy\nubuntu:noble\ndebian:bullseye\ndebian:bookworm\nasan',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(

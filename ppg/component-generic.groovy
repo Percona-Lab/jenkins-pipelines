@@ -51,7 +51,7 @@ pipeline {
             name: 'COMPONENT_VERSION'
         )
         string(
-            defaultValue: 'ppg-17.2',
+            defaultValue: 'ppg-18.0',
             description: 'PPG version for test',
             name: 'VERSION'
         )
@@ -109,7 +109,7 @@ pipeline {
     stage ('Run tests') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "test", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "test", env.PLATFORM)
             }
         }
     }
@@ -118,7 +118,7 @@ pipeline {
     always {
           script {
              if (env.DESTROY_ENV == "yes") {
-             moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+             moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
              }
              sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION, env.PLATFORM)
         }

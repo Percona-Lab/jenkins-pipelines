@@ -554,11 +554,11 @@ Resources:
                   rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
                   yum -y install java-17-amazon-corretto
                   yum -y update --security
-                  yum -y install jenkins-2.462.1 certbot git dnf-automatic aws-cli xfsprogs openresty
+                  yum -y install jenkins-2.516.3 certbot git dnf-automatic aws-cli xfsprogs openresty
 
                   sed -i 's/upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf
                   sed -i 's/apply_updates = no/apply_updates = yes/'         /etc/dnf/automatic.conf
-                  echo "exclude=java-17-amazon-corretto" >> /etc/dnf/automatic.conf
+                  echo "exclude=java-17-amazon-corretto* jenkins*" >> /etc/dnf/automatic.conf
                   systemctl enable --now dnf-automatic.timer
               }
 
@@ -636,7 +636,7 @@ Resources:
                   cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
 
               		# Arguments for the Jenkins JVM
-                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
               	EOF
 
                   systemctl daemon-reload
@@ -736,7 +736,7 @@ Resources:
               		EOF
                   fi
 
-                  ln -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
+                  ln -f -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
                   sed -i'' -e 's/listen/#listen/; s/mime.types/jenkins.conf/' /usr/local/openresty/nginx/conf/nginx.conf
 
                   systemctl enable --now openresty
@@ -752,11 +752,31 @@ Resources:
                   fi
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-                  printf '#!/bin/sh\ncertbot renew\nsystemctl restart openresty\nrsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/\n' > /etc/cron.daily/certbot
-                  chmod 755 /etc/cron.daily/certbot
+                  
+                  # Create deploy hook directory
+                  mkdir -p /etc/letsencrypt/renewal-hooks/deploy
+                  
+                  # Create the hook script that runs after successful renewal
+                  cat << 'EOF' > /etc/letsencrypt/renewal-hooks/deploy/restart-openresty.sh
+              #!/bin/bash
+              # This script runs automatically after certbot renews certificates
+              # Create certs backup
+              BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
+              rsync -aHSv /etc/letsencrypt/ /mnt/ssl_backup_${BACKUP_DATE}/
+              # also to regular backup directory
+              rsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/
+              systemctl stop openresty
+              sleep 2
+              systemctl start openresty
+              EOF
+                  
+                  chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-openresty.sh
+                  
                   systemctl stop openresty
                   sleep 2
                   systemctl start openresty
+                  systemctl enable certbot-renew.timer
+                  systemctl restart certbot-renew.timer
               }
 
               setup_dhparam() {

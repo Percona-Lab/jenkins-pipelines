@@ -1,37 +1,22 @@
-def JENKINS_SCRIPTS_BRANCH = 'master'
-def JENKINS_SCRIPTS_REPO = 'https://github.com/Percona-Lab/jenkins-pipelines'
+JENKINS_SCRIPTS_BRANCH = 'master'
+JENKINS_SCRIPTS_REPO = 'https://github.com/Percona-Lab/jenkins-pipelines'
+LABEL = 'docker-32gb'
+MICRO_LABEL = 'micro-amazon'
+
+if (params.CLOUD == 'Hetzner') {
+    LABEL = 'docker-x64'
+    MICRO_LABEL = 'launcher-x64'
+} else if (params.CLOUD == 'AWS') {
+    LABEL = 'docker-32gb'
+    MICRO_LABEL = 'micro-amazon'
+} else {
+    // by default fallback to AWS
+    LABEL = 'docker-32gb'
+    MICRO_LABEL = 'micro-amazon'
+}
 
 pipeline {
-    parameters {
-        string(
-            name: 'GIT_REPO',
-            defaultValue: 'https://github.com/percona/orchestrator',
-            description: 'URL to the Orchestrator repository',
-            trim: true)
-        string(
-            name: 'BRANCH',
-            defaultValue: 'master',
-            description: 'Tag/Branch for the Orchestrator repository',
-            trim: true)
-        string(
-            name: 'PS_TARBALL',
-            defaultValue: 'https://downloads.percona.com/downloads/Percona-Server-8.0/Percona-Server-8.0.30-22/binary/tarball/Percona-Server-8.0.30-22-Linux.x86_64.glibc2.17-minimal.tar.gz',
-            description: 'PS tarball to be used for testing',
-            trim: true)
-        string(
-            name: 'CI_ENV_GIT_REPO',
-            defaultValue: 'https://github.com/percona/orchestrator-ci-env.git',
-            description: 'URL to the Orchestrator CI repository',
-            trim: true)
-        string(
-            name: 'CI_ENV_BRANCH',
-            defaultValue: 'master',
-            description: 'Tag/Branch for the Orchestrator CI repository',
-            trim: true)
-    }
-    agent {
-        label 'micro-amazon'
-    }
+    agent { label MICRO_LABEL }
     options {
         skipDefaultCheckout()
         skipStagesAfterUnstable()
@@ -40,7 +25,7 @@ pipeline {
     }
     stages {
         stage('Integration Tests') {
-            agent { label 'docker-32gb' }
+            agent { label LABEL }
             steps {
                 git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
                 echo 'Run Orchestrator integration tests'
@@ -67,7 +52,7 @@ pipeline {
         }
 
         stage('System Tests') {
-            agent { label 'docker-32gb' }
+            agent { label LABEL }
             steps {
                 git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
                 echo 'Run Orchestrator system tests'

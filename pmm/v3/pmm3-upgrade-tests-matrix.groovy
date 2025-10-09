@@ -3,41 +3,52 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void runUpgradeJob(String PMM_UI_GIT_BRANCH, PMM_VERSION, PMM_SERVER_LATEST, ENABLE_TESTING_REPO, ENABLE_EXPERIMENTAL_REPO, PERFORM_DOCKER_WAY_UPGRADE, PMM_SERVER_TAG) {
-    upgradeJob = build job: 'pmm-upgrade-tests', parameters: [
+def pmmVersions = pmmVersion('v3')
+def latestVersion = pmmVersions[0]
+
+void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
+    upgradeJob = build job: 'pmm3-upgrade-tests', parameters: [
         string(name: 'PMM_UI_GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
-        string(name: 'CLIENT_VERSION', value: PMM_VERSION),
-        string(name: 'DOCKER_VERSION', value: PMM_VERSION),
+        string(name: 'DOCKER_TAG', value: DOCKER_TAG),
+        string(name: 'DOCKER_TAG_UPGRADE', value: DOCKER_TAG_UPGRADE),
+        string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
+        string(name: 'CLIENT_REPOSITORY', value: CLIENT_REPOSITORY),
         string(name: 'PMM_SERVER_LATEST', value: PMM_SERVER_LATEST),
-        string(name: 'ENABLE_TESTING_REPO', value: ENABLE_TESTING_REPO),
-        string(name: 'ENABLE_EXPERIMENTAL_REPO', value: ENABLE_EXPERIMENTAL_REPO),
-        string(name: 'PERFORM_DOCKER_WAY_UPGRADE', value: PERFORM_DOCKER_WAY_UPGRADE),
-        string(name: 'PMM_SERVER_TAG', value: PMM_SERVER_TAG)
+        string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
+        string(name: 'QA_INTEGRATION_GIT_BRANCH', value: QA_INTEGRATION_GIT_BRANCH),
     ]
 }
 
-def versions = pmmVersion('list')
-def parallelStagesMatrix = versions.collectEntries {
-    ["${it}" : generateStage(it)]
+def generateVariants(String PMM_UI_GIT_BRANCH, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions) {
+    def results = new HashMap<>();
+    def latestVersion = PMM_SERVER_LATEST;
+
+    for (pmmVersion in pmmVersions) {
+        if(pmmVersion == latestVersion) {
+            results.put(
+                "Run matrix upgrade tests from version: \"$pmmVersion\"",
+                generateStage(PMM_UI_GIT_BRANCH, "perconalab/pmm-server:${pmmVersion}-rc", 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH)
+            )
+        } else {
+            results.put(
+                "Run matrix upgrade tests from version: \"$pmmVersion\"",
+                generateStage(PMM_UI_GIT_BRANCH, 'percona/pmm-server:' + pmmVersion, "perconalab/pmm-server:${latestVersion}-rc", pmmVersion, 'release', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH)
+            )
+        }
+    }
+
+    return results;
 }
 
-def generateStage(VERSION) {
+def generateStage(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
     return {
-        stage("${VERSION}") {
-            runUpgradeJob(
-                PMM_UI_GIT_BRANCH,
-                VERSION,
-                PMM_SERVER_LATEST,
-                ENABLE_TESTING_REPO,
-                ENABLE_EXPERIMENTAL_REPO,
-                PERFORM_DOCKER_WAY_UPGRADE,
-                PMM_SERVER_TAG
-            )
+        stage("Run \"$pmmVersion\" upgrade tests") {
+            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH);
         }
     }
 }
 
-def latestVersion = pmmVersion()
+
 
 pipeline {
     agent {
@@ -46,57 +57,35 @@ pipeline {
     parameters {
         string(
             defaultValue: 'v3',
-            description: 'Tag/Branch for pmm-ui-tests repository',
+            description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
             defaultValue: latestVersion,
-            description: '3-dev-latest PMM Server Version',
+            description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: latestVersion,
-            description: 'RC PMM Server Version',
-            name: 'PMM_SERVER_RC')
-        choice(
-            choices: ['no', 'yes'],
-            description: 'Enable Testing Repo for RC',
-            name: 'ENABLE_TESTING_REPO')
-        choice(
-            choices: ['yes', 'no'],
-            description: 'Enable EXPERIMENTAL Repo for Dev-latest',
-            name: 'ENABLE_EXPERIMENTAL_REPO')
-        choice(
-            choices: ['no', 'yes'],
-            description: 'Perform Docker way Upgrade using this option',
-            name: 'PERFORM_DOCKER_WAY_UPGRADE')
+            defaultValue: 'v3',
+            description: 'Tag/Branch for pmm-qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: 'perconalab/pmm-server:3-dev-latest',
-            description: 'PMM Server Tag to be Upgraded to via Docker way Upgrade',
-            name: 'PMM_SERVER_TAG')
+            defaultValue: 'v3',
+            description: 'Tag/Branch for qa-integration repository',
+            name: 'QA_INTEGRATION_GIT_BRANCH')
     }
     options {
         disableConcurrentBuilds()
     }
     triggers {
-        cron('0 3 * * *')
+        cron('0 1 * * *')
     }
-    stages{
-        stage('Upgrade Matrix'){
-            steps{
+    stages {
+        stage('UI tests Upgrade Matrix') {
+            steps {
                 script {
-                    parallel parallelStagesMatrix
-                }
-            }
-        }
-    }
-    post {
-        always {
-            script {
-                if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    slackSend channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL} "
-                } else {
-                    slackSend channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
+                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions)
                 }
             }
         }
     }
 }
+

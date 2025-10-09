@@ -19,16 +19,17 @@ pipeline {
             description: 'SSL version to use',
             choices: [
                 '1',
-                '3'
+                '3',
+                '3.5'
             ]
         )
         string(
-            defaultValue: 'ppg-17.0',
+            defaultValue: 'ppg-18.0',
             description: 'PG version for test',
             name: 'VERSION'
         )
         string(
-            defaultValue: 'https://downloads.percona.com/downloads/TESTING/pg_tarballs-17.0/percona-postgresql-17.0-ssl1.1-linux-x86_64.tar.gz',
+            defaultValue: 'https://downloads.percona.com/downloads/TESTING/pg_tarballs-17.6/percona-postgresql-17.6-ssl1.1-linux-x86_64.tar.gz',
             description: 'URL for tarball.',
             name: 'TARBALL_URL'
         )
@@ -75,28 +76,28 @@ pipeline {
     stage ('Create virtual machines') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "create", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "create", env.PLATFORM)
             }
         }
     }
     stage ('Run playbook for test') {
       steps {
           script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "converge", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "converge", env.PLATFORM)
             }
         }
     }
     stage ('Start testinfra tests') {
       steps {
             script{
-              moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "verify", env.PLATFORM)
+              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "verify", env.PLATFORM)
             }
         }
     }
       stage ('Start Cleanup ') {
         steps {
              script {
-               moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
+               moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
             }
         }
     }
@@ -105,7 +106,7 @@ pipeline {
     always {
           script {
              if (env.DESTROY_ENV == "yes") {
-                        moleculeExecuteActionWithScenario(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                        moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
                     }
         }
     }
