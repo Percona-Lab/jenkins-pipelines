@@ -2,9 +2,9 @@ def awsCredentials = [[$class: 'AmazonWebServicesCredentialsBinding', credential
 
 void sendMessage(String REPO_NAME, String REPO_URL) {
     TAGS = sh (
-        script: "cat ${REPO_NAME}.newtags",
+        script: "cat ${REPO_NAME}.newtags 2>/dev/null || echo ''",
         returnStdout: true
-    )
+    ).trim()
  
     if (TAGS) {
         slackSend channel: "${ReposSlackMap["$REPO_NAME"]}", color: '#00FF00', message: "[${JOB_NAME}]: New tag(s) have been created for ${REPO_NAME}, please check the following link(s):\n${TAGS}"
@@ -16,7 +16,7 @@ void sendMessage(String REPO_NAME, String REPO_URL) {
 void checkRepo(String REPO_NAME, String REPO_URL) {
     popArtifactFile("${REPO_NAME}.last")
     sh """
-        if [ -n ${REPO_NAME}.last ]; then
+        if [ -f ${REPO_NAME}.last ]; then
             git ls-remote --tags --refs ${REPO_URL} | awk -F'/' '{print \$3}' | sort | uniq > ${REPO_NAME}.current
             cat ${REPO_NAME}.last ${REPO_NAME}.current | sort | uniq -u | awk '{print "$REPO_URL/tree/"\$1}' > ${REPO_NAME}.newtags
             mv -fv ${REPO_NAME}.current ${REPO_NAME}.last
@@ -30,7 +30,7 @@ void checkRepo(String REPO_NAME, String REPO_URL) {
 
 void pushArtifactFile(String FILE_NAME) {
     sh """
-        S3_PATH=s3://rel-repo-cache
+        S3_PATH=s3://rel-repo-cache/mysql-monitor
         aws s3 ls \$S3_PATH/${FILE_NAME} || :
         aws s3 cp --quiet ${FILE_NAME} \$S3_PATH/${FILE_NAME} || :
     """
@@ -38,7 +38,7 @@ void pushArtifactFile(String FILE_NAME) {
 
 void popArtifactFile(String FILE_NAME) {
     sh """
-        S3_PATH=s3://rel-repo-cache
+        S3_PATH=s3://rel-repo-cache/mysql-monitor
         aws s3 cp --quiet \$S3_PATH/${FILE_NAME} ${FILE_NAME} || :
     """
 }
@@ -47,28 +47,12 @@ def GitHubURL='https://github.com'
 
 // Filtered to only MySQL-related repositories
 ReposPathMap = [
-    'MySQL':                "${GitHubURL}/mysql/mysql-server",
-    'MySQLShell':           "${GitHubURL}/mysql/mysql-shell",
-    'ProxySQL':             "${GitHubURL}/sysown/proxysql",
-    'MyRocks':              "${GitHubURL}/facebook/mysql-5.6",
-    'Galera':               "${GitHubURL}/codership/galera",
-    'MySQL-Wsrep':          "${GitHubURL}/codership/mysql-wsrep",
-    'Wsrep-API':            "${GitHubURL}/codership/wsrep-API",
-    'SysBench':             "${GitHubURL}/akopytov/sysbench",
-    'HAProxy':              "${GitHubURL}/haproxy/haproxy"
+    'MySQL':                "${GitHubURL}/mysql/mysql-server"
 ]
 
 // Corresponding Slack channels for MySQL repositories
 ReposSlackMap = [
-    'MySQL':                "#mysql",
-    'MySQLShell':           "#mysql",
-    'ProxySQL':             "#mysql",
-    'MyRocks':              "#mysql",
-    'Galera':               "#mysql",
-    'MySQL-Wsrep':          "#mysql",
-    'Wsrep-API':            "#mysql",
-    'SysBench':             "#mysql",
-    'HAProxy':              '#mysql'
+    'MySQL':                "#mysql"
 ]
 
 pipeline {
@@ -127,8 +111,47 @@ pipeline {
                         chmod +x gen_csv_diff.sh
                     """
                     
-                    // Execute the script
-                    sh "./gen_csv_diff.sh"
+                    // Create directory for CSV output
+                    sh "mkdir -p csv_output"
+                    
+                    // Clone mysql-server repository once
+                    sh """
+                        git clone ${ReposPathMap['MySQL']} mysql-server-repo
+                    """
+                    
+                    // Define version patterns to track
+                    def versionPatterns = ['mysql-5.7', 'mysql-8.0', 'mysql-8.4']
+                    
+                    versionPatterns.each { versionPattern ->
+                        echo "Processing version series: ${versionPattern}"
+                        
+                        // Get latest two tags for this version series
+                        def tags = sh(
+                            script: """
+                                git -C mysql-server-repo tag -l '${versionPattern}.*' | sort -V | tail -2
+                            """,
+                            returnStdout: true
+                        ).trim().split('\n')
+                        
+                        if (tags.size() >= 2) {
+                            def oldTag = tags[-2].trim()
+                            def newTag = tags[-1].trim()
+                            
+                            if (oldTag && newTag) {
+                                echo "Comparing ${versionPattern}: ${oldTag} -> ${newTag}"
+                                
+                                // Execute script with version-specific parameters
+                                sh """
+                                    cd mysql-server-repo
+                                    ../gen_csv_diff.sh ${oldTag} ${newTag} ../csv_output
+                                """
+                            } else {
+                                echo "Could not determine tags for ${versionPattern}"
+                            }
+                        } else {
+                            echo "Not enough tags found for ${versionPattern} (found: ${tags.size()})"
+                        }
+                    }
                 }
             }
         }
@@ -145,8 +168,7 @@ pipeline {
     }
     post {
         always {
-            archiveArtifacts artifacts: '*.newtags', allowEmptyArchive: true
-            deleteDir()
+            archiveArtifacts artifacts: '*.newtags, csv_output/**/*.csv', allowEmptyArchive: true
         }
     }
 }
