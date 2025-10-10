@@ -196,7 +196,7 @@ void initTests() {
         }
     }
 
-    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+    withCredentials([file(credentialsId: 'cloud-secret-file-psmdb', variable: 'CLOUD_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
         """
@@ -231,7 +231,7 @@ void createCluster(String CLUSTER_SUFFIX) {
         az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
             -g percona-operators \
             --subscription eng-cloud-dev \
-            --load-balancer-sku basic \
+            --load-balancer-sku standard \
             --enable-managed-identity \
             --node-count 3 \
             --node-vm-size Standard_B4ms \

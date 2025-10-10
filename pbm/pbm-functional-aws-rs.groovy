@@ -73,9 +73,10 @@ pipeline {
         }
         stage ('Create infrastructure') {
             steps {
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '8468e4e0-5371-4741-a9bb-7c143140acea', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),file(credentialsId: 'PBM-MINIO-S3', variable: 'PBM_MINIO_S3_YML'),file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'),file(credentialsId: 'PBM-GCS-HMAC-S3', variable: 'PBM_GCS_HMAC_S3_YML'), file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML')]) {
+                withCredentials([file(credentialsId: 'PBM-AWS-S3', variable: 'PBM_AWS_S3_YML'),file(credentialsId: 'PBM-MINIO-S3', variable: 'PBM_MINIO_S3_YML'),file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'),file(credentialsId: 'PBM-GCS-HMAC-S3', variable: 'PBM_GCS_HMAC_S3_YML'), file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML')]) {
                     script{
                         sh """
+                            cp $PBM_AWS_S3_YML /tmp/pbm-agent-storage-aws.yaml
                             cp $PBM_MINIO_S3_YML /tmp/pbm-agent-storage-aws-minio.yaml
                             cp $PBM_GCS_S3_YML /tmp/pbm-agent-storage-gcp.conf
                             cp $PBM_GCS_HMAC_S3_YML /tmp/pbm-agent-storage-gcp-hmac.conf
@@ -105,6 +106,7 @@ pipeline {
         always {
             script {
                 sh """
+                    rm -f /tmp/pbm-agent-storage-aws.yaml
                     rm -f /tmp/pbm-agent-storage-aws-minio.yaml
                     rm -f /tmp/pbm-agent-storage-gcp.conf
                     rm -f /tmp/pbm-agent-storage-azure.conf
