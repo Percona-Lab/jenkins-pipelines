@@ -114,7 +114,7 @@ pipeline {
                         uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Build POSTGIS generic source deb') {
+                /*stage('Build POSTGIS generic source deb') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -126,12 +126,12 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                     }
-                }
+                }*/
             }  //parallel
         } // stage
         stage('Build POSTGIS RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Oracle Linux 8 AMD') {
+                /*stage('Oracle Linux 8 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -156,7 +156,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
-                }
+                }*/
                 stage('Oracle Linux 9 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -183,7 +183,7 @@ pipeline {
                         uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Oracle Linux 10 AMD') {
+                /*stage('Oracle Linux 10 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -338,14 +338,14 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
-                }
+                }*/
             }
         }
 
         stage('Sign packages') {
             steps {
                 signRPM(params.CLOUD)
-                signDEB(params.CLOUD)
+                //signDEB(params.CLOUD)
             }
         }
         stage('Push to public repository') {
