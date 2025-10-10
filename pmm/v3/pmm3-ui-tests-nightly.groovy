@@ -463,7 +463,7 @@ pipeline {
         }
         stage('Run UI Tests') {
             options {
-                timeout(time: 150, unit: "MINUTES")
+                timeout(time: 300, unit: "MINUTES")
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
