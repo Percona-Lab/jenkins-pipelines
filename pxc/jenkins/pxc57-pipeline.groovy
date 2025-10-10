@@ -1,5 +1,13 @@
-def JENKINS_SCRIPTS_BRANCH = 'master'
-def JENKINS_SCRIPTS_REPO = 'https://github.com/Percona-Lab/jenkins-pipelines'
+AWS_CREDENTIALS_ID = 'c42456e5-c28d-4962-b32c-b75d161bff27'
+
+if (params.CLOUD == 'Hetzner') {
+    LABEL = 'docker-x64'
+    MICRO_LABEL = 'launcher-x64'
+} else {
+    // by default fallback to AWS
+    LABEL = 'docker-32gb'
+    MICRO_LABEL = 'micro-amazon'
+}
 
 pipeline {
     parameters {
@@ -14,9 +22,9 @@ pipeline {
             name: 'PXC57_BRANCH',
             trim: true)
         booleanParam(
-            defaultValue: false, 
+            defaultValue: false,
             description: 'Check only if you pass PR number to PXC57_BRANCH field',
-            name: 'USE_PR') 
+            name: 'USE_PR')
         string(
             defaultValue: 'https://github.com/percona/percona-xtrabackup',
             description: 'URL to PXB24 repository',
@@ -28,7 +36,7 @@ pipeline {
             name: 'PXB24_BRANCH',
             trim: true)
         choice(
-            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:bionic\nubuntu:focal\nubuntu:jammy\ndebian:buster\ndebian:bullseye\ndebian:bookworm',
+            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:bionic\nubuntu:focal\nubuntu:jammy\nubuntu:noble\ndebian:buster\ndebian:bullseye\ndebian:bookworm',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(
@@ -51,10 +59,9 @@ pipeline {
             choices: 'yes\nno',
             description: 'Run mysql-test-run.pl',
             name: 'DEFAULT_TESTING')
-        choice(
-            choices: 'no\nyes',
-            description: 'Build with ASAN',
-            name: 'WITH_ASAN')
+        choice(name: 'ANALYZER_OPTS',
+           choices: ' \n-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON\n-DWITH_ASAN=ON\n-DWITH_ASAN=ON -DWITH_ASAN_SCOPE=ON -DWITH_UBSAN=ON\n-DWITH_ASAN=ON -DWITH_UBSAN=ON\n-DWITH_UBSAN=ON\n-DWITH_VALGRIND=ON',
+           description: 'Analyzer options passed to CMake (ASAN/UBSAN/Valgrind)')
 		string(
 		    defaultValue: '4',
 		    description: 'mtr can start n parallel server and distrbute workload among them. More parallelism is better but extra parallelism (beyond CPU power) will have less effect. This value is used for all test suites except Galera specific suites.',
@@ -79,9 +86,18 @@ pipeline {
             defaultValue: '1',
             description: 'Run each test N number of times, --repeat=N',
             name: 'MTR_REPEAT')
+        choice(name: 'CLOUD',
+           choices: 'Hetzner\nAWS',
+           description: 'Host provider for Jenkins workers')
+        string(name: 'JENKINS_SCRIPTS_REPO',
+            defaultValue: 'https://github.com/Percona-Lab/jenkins-pipelines',
+            description: "Download the build scripts from this repository, except for the Groovy script referenced by the path defined in pipeline.yml")
+        string(name: 'JENKINS_SCRIPTS_BRANCH',
+            defaultValue: 'master',
+            description: 'Branch in the scripts repo to checkout')
     }
     agent {
-        label 'micro-amazon'
+        label MICRO_LABEL
     }
     options {
         skipDefaultCheckout()
@@ -96,11 +112,11 @@ pipeline {
                     currentBuild.displayName = "${BUILD_NUMBER} ${CMAKE_BUILD_TYPE}/${DOCKER_OS}"
                 }
 
-		withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+		withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: AWS_CREDENTIALS_ID, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'PXC_SECRET_TOKEN')]) {
                             sh 'echo Prepare: \$(date -u "+%s")'
                             echo 'Checking PXC branch version'
-                            sh '''
+                            sh '''#!/bin/bash -x
                                 MY_BRANCH_BASE_MAJOR=5
                                 MY_BRANCH_BASE_MINOR=7
 
@@ -114,10 +130,11 @@ pipeline {
                                PXC57_REPO=$(curl https://api.github.com/repos/percona/percona-xtradb-cluster/pulls/${PXC57_BRANCH} | jq -r '.head.repo.html_url')
                                PXC57_BRANCH=$(curl https://api.github.com/repos/percona/percona-xtradb-cluster/pulls/${PXC57_BRANCH} | jq -r '.head.ref')
                             fi
-		            GIT_REPO_LINK=${PXC57_REPO}
-                                if [[ "${PXC57_REPO}" =~ "private" ]]; then
-                                    GIT_REPO_LINK=$(echo ${PXC57_REPO} | sed -e "s|github|x-access-token:${PXC_SECRET_TOKEN}@github|g")
-                                fi
+
+		                    GIT_REPO_LINK=${PXC57_REPO}
+                            if [[ "${PXC57_REPO}" =~ "private" ]]; then
+                                GIT_REPO_LINK=$(echo ${PXC57_REPO} | sed -e "s|github|x-access-token:${PXC_SECRET_TOKEN}@github|g")
+                            fi
                             RAW_VERSION_LINK=$(echo ${GIT_REPO_LINK%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
                             REPLY=$(curl -Is ${RAW_VERSION_LINK}/${PXC57_BRANCH}/MYSQL_VERSION | head -n 1 | awk '{print $2}')
                             if [[ ${REPLY} != 200 ]]; then
@@ -141,7 +158,7 @@ pipeline {
         stage('Check out and Build PXB') {
             parallel {
                 stage('Build PXB24') {
-                    agent { label 'docker' }
+                    agent { label LABEL }
                     steps {
                         git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
                         echo 'Checkout PXB24 sources'
@@ -154,8 +171,8 @@ pipeline {
                             ./pxc/local/checkout57 PXB24
                         '''
                         echo 'Build PXB24'
-                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                            sh '''
+                        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: AWS_CREDENTIALS_ID, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                            sh '''#!/bin/bash -x
                                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                                 sg docker -c "
                                     if [ \$(docker ps -q | wc -l) -ne 0 ]; then
@@ -179,11 +196,11 @@ pipeline {
             }
         }
         stage('Build PXC57') {
-                agent { label 'docker-32gb' }
+                agent { label LABEL }
                 steps {
                     git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
                     echo 'Checkout PXC57 sources'
-		    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+		    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: AWS_CREDENTIALS_ID, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'PXC_SECRET_TOKEN')]) {
                             sh '''
                             # sudo is needed for better node recovery after compilation failure
@@ -195,7 +212,7 @@ pipeline {
                             '''
 
                             echo 'Build PXC57'
-                            sh '''
+                            sh '''#!/bin/bash -x
                                 aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                                 sg docker -c "
                                     if [ \$(docker ps -q | wc -l) -ne 0 ]; then
@@ -218,11 +235,11 @@ pipeline {
                 }
         }
         stage('Test PXC57') {
-                agent { label 'docker-32gb' }
+                agent { label LABEL }
                 steps {
                     git branch: JENKINS_SCRIPTS_BRANCH, url: JENKINS_SCRIPTS_REPO
                     echo 'Test PXC57'
-                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'c42456e5-c28d-4962-b32c-b75d161bff27', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: AWS_CREDENTIALS_ID, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh '''
                             sudo git reset --hard
                             sudo git clean -xdf
