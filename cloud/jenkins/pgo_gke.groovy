@@ -306,6 +306,7 @@ void pushArtifactFile(String FILE_NAME) {
             touch $FILE_NAME
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
             aws s3 ls \$S3_PATH/$FILE_NAME || :
+            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
         """
     }
 }
