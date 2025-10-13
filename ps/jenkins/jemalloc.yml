@@ -1,5 +1,5 @@
 - job:
-    name: hetzner-jemalloc-RELEASE
+    name: jemalloc-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!
