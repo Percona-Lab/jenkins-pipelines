@@ -61,7 +61,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
 }
 
 def versionsList = pmmVersion('v3-ami')
-def versionsListParameter = versionsList.collect { k, v -> "${v} - ${k}" }
+// def versionsListParameter = versionsList.collect { k, v -> "${v} - ${k}" }
 def amiVersions = versionsList.values()
 def versions = versionsList.keySet()
 def upgradeAmiVersion = amiVersions[1]
