@@ -112,10 +112,12 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     DEBIAN_FRONTEND=noninteractive apt-get -y purge eatmydata || true
                     if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = noble ]; then
                         PKGLIST=\\"gcc-9\\"
+                    elif [ \\\$DEBIAN_VERSION = trixie ]; then
+                        PKGLIST=\\"gcc-13\\"
                     else
                         PKGLIST=\\"gcc-11\\"
                     fi
-                    if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = bookworm -o  \\\$DEBIAN_VERSION = noble ]; then
+                    if [ \\\$DEBIAN_VERSION = focal -o  \\\$DEBIAN_VERSION = bullseye -o \\\$DEBIAN_VERSION = jammy -o  \\\$DEBIAN_VERSION = bookworm -o  \\\$DEBIAN_VERSION = noble -o  \\\$DEBIAN_VERSION = trixie ]; then
                         PKGLIST=\\"\\\${PKGLIST} python3-mysqldb\\"
                     else
                         PKGLIST=\\"\\\${PKGLIST} python-mysqldb\\"
@@ -139,8 +141,10 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                     dpkg-source -x jemalloc_3.6.0-2.dsc
                     cd jemalloc-3.6.0
                     sed -i 's/@EXTRA_LDFLAGS@/@EXTRA_LDFLAGS@ -Wl,--allow-multiple-definition/g' Makefile.in
-                    if [ \\\$DEBIAN_VERSION = bookworm -a \\\$ARCH = aarch64 ]; then
-                        sed -i 's/make check/#make check/g' debian/rules
+                    if [ \\\$DEBIAN_VERSION = bookworm -o  \\\$DEBIAN_VERSION = trixie ]; then
+                        if [ \\\$ARCH = aarch64 ]; then
+                            sed -i 's/make check/#make check/g' debian/rules
+                        fi
                     fi
                     sed -i 's/override_dh_auto_test:/override_dh_builddeb:\\n\\tdh_builddeb -- -Zgzip\n\noverride_dh_auto_test:/g' debian/rules
                     cat debian/rules
@@ -499,6 +503,42 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "DEB")
+                        sh '''
+                            pwd
+                            ls -la test/deb
+                            cp -r test/deb .
+                        '''
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Trixie (13)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:trixie", "DEB")
+                        sh '''
+                            pwd
+                            ls -la test/deb
+                            cp -r test/deb .
+                        '''
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Trixie (13) ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:trixie", "DEB")
                         sh '''
                             pwd
                             ls -la test/deb
