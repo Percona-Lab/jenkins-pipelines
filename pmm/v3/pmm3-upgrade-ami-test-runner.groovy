@@ -61,6 +61,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH) {
 }
 
 def versionsList = pmmVersion('v3-ami')
+def versionsListParameter = versionsList.collect { k, v -> "${v} - ${k}" }
 def amiVersions = versionsList.values()
 def versions = versionsList.keySet()
 def upgradeAmiVersion = amiVersions[1]
@@ -146,6 +147,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
+                    println versionsListParameter
                     currentBuild.description = "Upgrade AMI PMM from ${env.CLIENT_VERSION} (AMI tag: ${env.AMI_TAG}) to ${env.PMM_SERVER_LATEST}."
                 }
                 git poll: false,
@@ -384,9 +386,9 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             script {
-                amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
-                    string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
-                ]
+//                 amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
+//                     string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
+//                 ]
             }
         }
         failure {
