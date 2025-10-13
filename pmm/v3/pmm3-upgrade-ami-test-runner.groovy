@@ -147,6 +147,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
+                    println versionsList
                     currentBuild.description = "Upgrade AMI PMM from ${env.CLIENT_VERSION} (AMI tag: ${env.AMI_TAG}) to ${env.PMM_SERVER_LATEST}."
                 }
                 git poll: false,
@@ -384,11 +385,11 @@ pipeline {
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
-            script {
+//             script {
 //                 amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
 //                     string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
 //                 ]
-            }
+//             }
         }
         failure {
             archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
