@@ -1,0 +1,18 @@
+- job:
+    name: active-choice-demo
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    properties:
+        - build-discarder:
+            num-to-keep: 100
+    concurrent: true
+    pipeline-scm:
+        scm:
+            - git:
+                url: https://github.com/Percona-Lab/jenkins-pipelines.git
+                branches:
+                    - 'active-choice-demo'
+                wipe-workspace: true
+        lightweight-checkout: true
+        script-path: misc/active-choice-demo.groovy
