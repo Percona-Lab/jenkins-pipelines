@@ -30,18 +30,21 @@ void prepareCluster(String TEST_TYPE) {
 
     git poll: false, branch: params.PBM_BRANCH, url: 'https://github.com/percona/percona-backup-mongodb.git'
 
-    withCredentials([file(credentialsId: 'PBM-AWS-S3', variable: 'PBM_AWS_S3_YML'), file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'), file(credentialsId: 'PBM-GCS-HMAC-S3', variable: 'PBM_GCS_HMAC_S3_YML'), file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML')]) {
+    withCredentials([file(credentialsId: 'PBM-AWS-S3', variable: 'PBM_AWS_S3_YML'), file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'), file(credentialsId: 'PBM-GCS-HMAC-S3', variable: 'PBM_GCS_HMAC_S3_YML'), file(credentialsId: 'PBM-MINIO-S3', variable: 'PBM_MINIO_S3_YML'), file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML')]) {
     sh """
         cp $PBM_AWS_S3_YML ./e2e-tests/docker/conf/aws.yaml
+        cp $PBM_MINIO_S3_YML ./e2e-tests/docker/conf/aws_minio.yaml
         cp $PBM_GCS_S3_YML ./e2e-tests/docker/conf/gcs.yaml
         cp $PBM_GCS_HMAC_S3_YML ./e2e-tests/docker/conf/gcs_hmac.yaml
         cp $PBM_AZURE_YML ./e2e-tests/docker/conf/azure.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/aws.yaml
+        sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/aws_minio.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/gcs.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/gcs_hmac.yaml
         sed -i s:pbme2etest:pbme2etest-${TEST_TYPE}:g ./e2e-tests/docker/conf/azure.yaml
 
         chmod 664 ./e2e-tests/docker/conf/aws.yaml
+        chmod 664 ./e2e-tests/docker/conf/aws_minio.yaml
         chmod 664 ./e2e-tests/docker/conf/gcs.yaml
         chmod 664 ./e2e-tests/docker/conf/gcs_hmac.yaml
         chmod 664 ./e2e-tests/docker/conf/azure.yaml
@@ -91,15 +94,6 @@ pipeline {
                         runTest('run-new-cluster', '8.0', 'logical')
                     }
                 }
-                stage('New cluster 6.0 logical') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-			prepareCluster('60-newc-logic')
-                        runTest('run-new-cluster', '6.0', 'logical')
-                    }
-                }
                 stage('New cluster 7.0 logical') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -116,15 +110,6 @@ pipeline {
                     steps {
 			prepareCluster('80-shrd-logic')
                         runTest('run-sharded', '8.0', 'logical')
-                    }
-                }
-                stage('Sharded 6.0 logical') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-                    }
-                    steps {
-			prepareCluster('60-shrd-logic')
-                        runTest('run-sharded', '6.0', 'logical')
                     }
                 }
                 stage('Sharded 7.0 logical') {
@@ -145,15 +130,6 @@ pipeline {
                         runTest('run-rs', '8.0', 'logical')
                     }
                 }
-                stage('Non-sharded 6.0 logical') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-			prepareCluster('60-rs-logic')
-                        runTest('run-rs', '6.0', 'logical')
-                    }
-                }
                 stage('Non-sharded 7.0 logical') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -170,15 +146,6 @@ pipeline {
                     steps {
 			prepareCluster('80-single-logic')
                         runTest('run-single', '8.0', 'logical')
-                    }
-                }
-                stage('Single-node 6.0 logical') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-			prepareCluster('60-single-logic')
-                        runTest('run-single', '6.0', 'logical')
                     }
                 }
                 stage('Single-node 7.0 logical') {
@@ -199,15 +166,6 @@ pipeline {
                         runTest('run-sharded', '8.0', 'physical')
                     }
                 }
-                stage('Sharded 6.0 physical') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
-                    }
-                    steps {
-			prepareCluster('60-shrd-phys')
-                        runTest('run-sharded', '6.0', 'physical')
-                    }
-                }
                 stage('Sharded 7.0 physical') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -226,15 +184,6 @@ pipeline {
                         runTest('run-rs', '8.0', 'physical')
                     }
                 }
-                stage('Non-sharded 6.0 physical') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-			prepareCluster('60-rs-phys')
-                        runTest('run-rs', '6.0', 'physical')
-                    }
-                }
                 stage('Non-sharded 7.0 physical') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -251,15 +200,6 @@ pipeline {
                     steps {
 			prepareCluster('80-single-phys')
                         runTest('run-single', '8.0', 'physical')
-                    }
-                }
-                stage('Single-node 6.0 physical') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
-                    }
-                    steps {
-			prepareCluster('60-single-phys')
-                        runTest('run-single', '6.0', 'physical')
                     }
                 }
                 stage('Single-node 7.0 physical') {

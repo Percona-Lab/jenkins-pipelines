@@ -599,6 +599,26 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+/*                stage('Debian Trixie(13)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("debian:trixie", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:trixie", "--build_deb=1 --with_zenfs=1")
+                            }
+                        }
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }*/
                 stage('Ubuntu Focal(20.04) ARM') {
                     when {
                         expression { env.FIPSMODE == 'NO' }
@@ -697,6 +717,26 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+/*                stage('Debian Trixie(13) ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        installCli("rpm")
+                        unstash 'properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("debian:trixie", "--build_deb=1 --with_zenfs=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:trixie", "--build_deb=1 --with_zenfs=1")
+                            }
+                        }
+
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }*/
                 stage('Oracle Linux 8 binary tarball') {
                     when {
                         expression { env.FIPSMODE == 'NO' }

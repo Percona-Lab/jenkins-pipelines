@@ -369,6 +369,14 @@ pipeline {
                 sync2ProdAutoBuild(params.CLOUD, PBM_REPO, COMPONENT)
             }
         }
+        stage('Push Tarballs to TESTING download area') {
+            when {
+                expression { return params.BUILD_PACKAGES == 'true' }
+            }
+            steps {
+                uploadTarballToDownloadsTesting(params.CLOUD, "pbm", "${VERSION}")
+            }
+        }
         stage('Build docker containers for PerconaLab') {
             when {
                 allOf {
