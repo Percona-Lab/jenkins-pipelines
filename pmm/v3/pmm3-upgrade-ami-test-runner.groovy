@@ -62,7 +62,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH, SSH_KEY) {
 }
 
 def versionsList = pmmVersion('v3-ami')
-// def versionsListParameter = versionsList.collect { k, v -> "${v} - ${k}" }
+def versionsListParameter = versionsList.collect { k, v -> "${v} - ${k}" }
 def amiVersions = versionsList.values()
 def versions = versionsList.keySet()
 def upgradeAmiVersion = amiVersions[1]
@@ -153,6 +153,7 @@ pipeline {
             steps {
                 script {
                     println versionsList
+                    println versionsListParameter
                     currentBuild.description = "Upgrade AMI PMM from ${env.CLIENT_VERSION} (AMI tag: ${env.AMI_TAG}) to ${env.PMM_SERVER_LATEST}."
                 }
                 git poll: false,
