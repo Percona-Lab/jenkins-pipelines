@@ -7,17 +7,17 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget \$(echo ${GIT_BUILD_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BUILD_BRANCH}/pgpool2/pgpool2_builder.sh -O pgpool2_builder.sh
-        wget \$(echo ${GIT_BUILD_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BUILD_BRANCH}/versions.sh -O versions.sh
-        wget \$(echo ${GIT_BUILD_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BUILD_BRANCH}/install-deps.sh -O install-deps.sh
-        wget \$(echo ${GIT_BUILD_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BUILD_BRANCH}/common-functions.sh -O common-functions.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/pgpool2/pgpool2_builder.sh -O pgpool2_builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/versions.sh -O versions.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/install-deps.sh -O install-deps.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/common-functions.sh -O common-functions.sh
         pwd -P
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
             bash -x ./pgpool2_builder.sh --builddir=\${build_dir}/test --install_deps=1
-	    bash -x ./pgpool2_builder.sh --builddir=\${build_dir}/test --branch=\${BRANCH} --repo=\${GIT_REPO} --pp_branch=\${BUILD_BRANCH} --pp_repo=\${GIT_BUILD_REPO} --rpm_release=\${RPM_RELEASE} --deb_release=\${DEB_RELEASE} --pg_release=\${PG_RELEASE} $STAGE_PARAM"
+	    bash -x ./pgpool2_builder.sh --builddir=\${build_dir}/test $STAGE_PARAM"
     """
 }
 
@@ -39,44 +39,19 @@ pipeline {
              description: 'Cloud infra for build',
              name: 'CLOUD' )
         string(
-            defaultValue: '4.4.2',
-            description: 'General version of the product',
-            name: 'VERSION'
-         )
-        string(
-            defaultValue: 'https://git.postgresql.org/git/pgpool2.git',
-            description: 'pgpool2 repo',
+            defaultValue: 'https://github.com/percona/postgres-packaging.git',
+            description: 'URL for packaging repository',
             name: 'GIT_REPO'
          )
         string(
-            defaultValue: 'V4_4_STABLE',
-            description: 'Branch for pgpool2 repo',
-            name: 'BRANCH'
+            defaultValue: '17.6',
+            description: 'Tag/Branch for pgpool2 packaging repository',
+            name: 'GIT_BRANCH'
          )
         string(
-            defaultValue: 'https://github.com/percona/postgres-packaging.git',
-            description: 'Build pgpool2 repo',
-            name: 'GIT_BUILD_REPO'
-         )
-        string(
-            defaultValue: 'main',
-            description: 'Branch for build repo',
-            name: 'BUILD_BRANCH'
-         )
-        string(
-            defaultValue: '1',
-            description: 'rpm release number',
-            name: 'RPM_RELEASE'
-         )
-        string(
-            defaultValue: '1',
-            description: 'deb release number',
-            name: 'DEB_RELEASE'
-         )
-        string(
-            defaultValue: '16.1',
-            description: 'PPG major version to test',
-            name: 'PG_RELEASE'
+            defaultValue: '17.6',
+            description: 'PPG repo name',
+            name: 'PPG_REPO'
          )
         choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
@@ -91,7 +66,7 @@ pipeline {
     stages {
         stage('Create pgpool2 source tarball') {
             steps {
-                slackNotify("", "#00FF00", "[${JOB_NAME}]: starting build for ${BUILD_BRANCH} - [${BUILD_URL}]")
+                slackNotify("", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 buildStage("oraclelinux:8", "--get_sources=1")
                 sh '''
@@ -362,21 +337,21 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(params.CLOUD, "ppg-${PG_RELEASE}", COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, "ppg-${PPG_REPO}", COMPONENT)
             }
         }
 
     }
     post {
         success {
-            slackNotify("", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BUILD_BRANCH} - [${BUILD_URL}]")
+            slackNotify("", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${GIT_BRANCH} - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built on ${BUILD_BRANCH}"
+                currentBuild.description = "Built on ${GIT_BRANCH}"
             }
             deleteDir()
         }
         failure {
-            slackNotify("", "#FF0000", "[${JOB_NAME}]: build failed for ${BUILD_BRANCH} - [${BUILD_URL}]")
+            slackNotify("", "#FF0000", "[${JOB_NAME}]: build failed for ${GIT_BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         always {

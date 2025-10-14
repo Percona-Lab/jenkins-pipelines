@@ -18,7 +18,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./ppg-server-ha_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./ppg-server-ha_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${PPG_REPO} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./ppg-server-ha_builder.sh --builddir=\${build_dir}/test ${STAGE_PARAM}"
     """
 }
 
@@ -41,22 +41,14 @@ pipeline {
              name: 'CLOUD' )
         string(
             defaultValue: 'https://github.com/percona/postgres-packaging.git',
-            description: 'URL for ppg-server-ha repository',
+            description: 'URL for packaging repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '14.4',
-            description: 'Tag/Branch for ppg-server-ha repository',
+            defaultValue: '17.6',
+            description: 'Tag/Branch for ppg-server-ha packaging repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '1',
-            description: 'RPM release value',
-            name: 'RPM_RELEASE')
-        string(
-            defaultValue: '1',
-            description: 'DEB release value',
-            name: 'DEB_RELEASE')
-        string(
-            defaultValue: 'ppg-14.4',
+            defaultValue: 'ppg-17.6',
             description: 'PPG repo name',
             name: 'PPG_REPO')
         choice(

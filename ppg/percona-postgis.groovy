@@ -17,7 +17,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./postgis_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./postgis_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --postgis_gitrepo=${POSTGIS_GITREPO} --postgis_branch=${POSTGIS_BRANCH} --postgis_ver=${POSTGIS_VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./postgis_builder.sh --builddir=\${build_dir}/test ${STAGE_PARAM}"
     """
 }
 
@@ -40,36 +40,16 @@ pipeline {
              name: 'CLOUD' )
         string(
             defaultValue: 'https://github.com/percona/postgres-packaging.git',
-            description: 'URL for postgis packaging repository',
+            description: 'URL for packaging repository',
             name: 'GIT_REPO')
         string(
-            defaultValue: '15.4',
+            defaultValue: '17.6',
             description: 'Tag/Branch for postgis packaging repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: 'https://github.com/postgis/postgis.git',
-            description: 'URL for postgis repository',
-            name: 'POSTGIS_GITREPO')
-        string(
-            defaultValue: 'stable-3.3',
-            description: 'Tag/Branch for postgis repository',
-            name: 'POSTGIS_BRANCH')  
-        string(
-            defaultValue: '3.3',
-            description: 'POSTGIS release value',
-            name: 'POSTGIS_VERSION')  
-        string(
-            defaultValue: '1',
-            description: 'RPM release value',
-            name: 'RPM_RELEASE')
-        string(
-            defaultValue: '1',
-            description: 'DEB release value',
-            name: 'DEB_RELEASE')
-        string(
-            defaultValue: 'ppg-15.4',
-            description: 'POSTGIS repo name',
-            name: 'POSTGIS_REPO')
+            defaultValue: 'ppg-17.6',
+            description: 'PPG repo name',
+            name: 'PPG_REPO')
         choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
@@ -354,7 +334,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(params.CLOUD, POSTGIS_REPO, COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, PPG_REPO, COMPONENT)
             }
         }
 
