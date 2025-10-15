@@ -28,8 +28,12 @@ def check_ttl_expiration(
         ttl_hours = int(ttl_hours_str)
     except ValueError:
         logger.warning(
-            f"Invalid TTL tags for {instance['InstanceId']}: "
-            f"creation-time={creation_time_str}, ttl={ttl_hours_str}"
+            "Invalid TTL tags",
+            extra={
+                "instance_id": instance["InstanceId"],
+                "creation_time": creation_time_str,
+                "ttl_hours": ttl_hours_str,
+            },
         )
         return None
 

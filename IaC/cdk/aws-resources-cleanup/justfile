@@ -155,12 +155,12 @@ info:
 # Run unit tests
 test:
     @echo "Running unit tests..."
-    PYTHONPATH=lambda:$$PYTHONPATH uv run --with pytest --with pytest-cov pytest tests/ -v --cov=aws_resource_cleanup
+    PYTHONPATH=lambda:$$PYTHONPATH uv run --python 3.13 --with pytest --with pytest-cov --with 'aws-lambda-powertools[tracer]' --with boto3 --with botocore pytest tests/ -v --cov=aws_resource_cleanup
 
 # Run unit tests with detailed coverage report
 test-coverage:
     @echo "Running unit tests with coverage report..."
-    PYTHONPATH=lambda:$$PYTHONPATH uv run --with pytest --with pytest-cov pytest tests/ -v --cov=aws_resource_cleanup --cov-report=term-missing
+    PYTHONPATH=lambda:$$PYTHONPATH uv run --python 3.13 --with pytest --with pytest-cov --with 'aws-lambda-powertools[tracer]' --with boto3 --with botocore pytest tests/ -v --cov=aws_resource_cleanup --cov-report=term-missing
 
 # Run linting
 lint:

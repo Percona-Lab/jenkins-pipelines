@@ -1,8 +1,11 @@
-"""OpenShift cluster destruction orchestration with reconciliation loop."""
+"""OpenShift cluster destruction orchestration.
 
-import time
+Single-pass cleanup with dependency order enforcement.
+EventBridge schedule (every 15 minutes) handles retries naturally.
+"""
+
 import boto3
-from ..models.config import DRY_RUN, OPENSHIFT_MAX_RETRIES
+from botocore.exceptions import ClientError
 from ..utils import get_logger
 from .compute import delete_load_balancers
 from .network import (
@@ -22,64 +25,112 @@ from .storage import cleanup_s3_state
 logger = get_logger()
 
 
-def destroy_openshift_cluster(cluster_name: str, infra_id: str, region: str):
-    """Main orchestration function for OpenShift cluster cleanup with reconciliation."""
+def destroy_openshift_cluster(cluster_name: str, infra_id: str, region: str) -> bool:
+    """
+    Single-pass OpenShift cluster cleanup.
+
+    Deletes resources in dependency order. If resources still have dependencies,
+    exits gracefully and relies on next EventBridge schedule (15min) to retry.
+
+    Returns:
+        True if VPC successfully deleted (cleanup complete)
+        False if resources remain (will retry on next schedule)
+    """
     logger.info(
-        f"Starting OpenShift cluster cleanup: {cluster_name} "
-        f"(infra: {infra_id}) in {region}"
+        "Starting OpenShift cluster cleanup",
+        extra={
+            "cluster_name": cluster_name,
+            "infra_id": infra_id,
+            "cluster_type": "openshift",
+            "region": region,
+        },
     )
 
-    for attempt in range(1, OPENSHIFT_MAX_RETRIES + 1):
-        logger.info(f"Cleanup attempt {attempt}/{OPENSHIFT_MAX_RETRIES}")
+    try:
+        ec2 = boto3.client("ec2", region_name=region)
 
-        try:
-            ec2 = boto3.client("ec2", region_name=region)
+        # Check if VPC still exists
+        vpcs = ec2.describe_vpcs(
+            Filters=[
+                {
+                    "Name": "tag:kubernetes.io/cluster/" + infra_id,
+                    "Values": ["owned"],
+                }
+            ]
+        )["Vpcs"]
 
-            # Check if VPC still exists
-            vpcs = ec2.describe_vpcs(
-                Filters=[
-                    {
-                        "Name": "tag:kubernetes.io/cluster/" + infra_id,
-                        "Values": ["owned"],
-                    }
-                ]
-            )["Vpcs"]
+        if not vpcs:
+            logger.info(
+                "VPC not found - cleanup complete",
+                extra={"cluster_name": cluster_name, "infra_id": infra_id},
+            )
+            # Clean up Route53 and S3 when VPC is gone
+            cleanup_route53_records(cluster_name, region)
+            cleanup_s3_state(cluster_name, region)
+            return True
 
-            if not vpcs:
-                logger.info("VPC not found, cleanup may be complete")
-                break
+        vpc_id = vpcs[0]["VpcId"]
+        logger.info(
+            "Found VPC, proceeding with cleanup",
+            extra={"cluster_name": cluster_name, "vpc_id": vpc_id},
+        )
 
-            vpc_id = vpcs[0]["VpcId"]
+        # Delete resources in dependency order
+        # Each function handles its own DependencyViolation errors gracefully
+        delete_load_balancers(infra_id, region)
+        delete_nat_gateways(infra_id, region)
+        release_elastic_ips(infra_id, region)
+        cleanup_network_interfaces(vpc_id, region)
+        delete_vpc_endpoints(vpc_id, region)
+        delete_security_groups(vpc_id, region)
+        delete_subnets(vpc_id, region)
+        delete_route_tables(vpc_id, region)
+        delete_internet_gateway(vpc_id, region)
 
-            # Delete resources in dependency order
-            delete_load_balancers(infra_id, region)
-            if not DRY_RUN:
-                time.sleep(10)
+        # Try to delete VPC - if it fails due to dependencies, we'll retry on next run
+        vpc_deleted = delete_vpc(vpc_id, region)
 
-            delete_nat_gateways(infra_id, region)
-            if not DRY_RUN:
-                time.sleep(10)
+        if vpc_deleted:
+            logger.info(
+                "Successfully deleted VPC",
+                extra={"cluster_name": cluster_name, "vpc_id": vpc_id},
+            )
+            # Clean up Route53 and S3 when VPC is successfully deleted
+            cleanup_route53_records(cluster_name, region)
+            cleanup_s3_state(cluster_name, region)
+            return True
+        else:
+            logger.info(
+                "VPC still has dependencies, will retry on next schedule",
+                extra={
+                    "cluster_name": cluster_name,
+                    "vpc_id": vpc_id,
+                    "retry_interval_minutes": 15,
+                },
+            )
+            return False
 
-            release_elastic_ips(infra_id, region)
-            cleanup_network_interfaces(vpc_id, region)
-            delete_vpc_endpoints(vpc_id, region)
-            delete_security_groups(vpc_id, region)
-            delete_subnets(vpc_id, region)
-            delete_route_tables(vpc_id, region)
-            delete_internet_gateway(vpc_id, region)
-            delete_vpc(vpc_id, region)
-
-            # On final attempt, also clean up Route53 and S3
-            if attempt == OPENSHIFT_MAX_RETRIES:
-                cleanup_route53_records(cluster_name, region)
-                cleanup_s3_state(cluster_name, region)
-
-        except Exception as e:
-            logger.error(f"Error in cleanup attempt {attempt}: {e}")
-
-        # Wait between attempts (except after last attempt)
-        if attempt < OPENSHIFT_MAX_RETRIES:
-            if not DRY_RUN:
-                time.sleep(15)
-
-    logger.info(f"Completed OpenShift cluster cleanup: {cluster_name}")
+    except ClientError as e:
+        error_code = e.response.get("Error", {}).get("Code", "")
+        if error_code == "DependencyViolation":
+            logger.info(
+                "Dependencies remain, will retry on next schedule",
+                extra={"cluster_name": cluster_name, "error_code": error_code},
+            )
+            return False
+        else:
+            logger.error(
+                "Error during OpenShift cleanup",
+                extra={
+                    "cluster_name": cluster_name,
+                    "error": str(e),
+                    "error_code": error_code,
+                },
+            )
+            raise
+    except Exception as e:
+        logger.error(
+            "Unexpected error during OpenShift cleanup",
+            extra={"cluster_name": cluster_name, "error": str(e)},
+        )
+        raise

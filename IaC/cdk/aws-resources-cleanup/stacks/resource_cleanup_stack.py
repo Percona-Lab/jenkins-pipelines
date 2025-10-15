@@ -10,6 +10,8 @@ from aws_cdk import (
     aws_events as events,
     aws_events_targets as targets,
     aws_logs as logs,
+    aws_cloudwatch as cloudwatch,
+    aws_cloudwatch_actions as cw_actions,
     CfnParameter,
     CfnOutput,
     Tags
@@ -94,15 +96,6 @@ class ResourceCleanupStack(Stack):
             type="String",
             default="cd.percona.com",
             description="[OPENSHIFT] Base domain for Route53 DNS record cleanup. Only records under this domain will be removed. Must match your OpenShift installation domain."
-        )
-
-        openshift_retries_param = CfnParameter(
-            self, "OpenShiftMaxRetries",
-            type="Number",
-            default=3,
-            min_value=1,
-            max_value=5,
-            description="[OPENSHIFT] Max cleanup retry attempts per cluster. Network resources have dependencies requiring multiple passes. Default 3 retries handles most cases."
         )
 
         volume_cleanup_param = CfnParameter(
@@ -271,7 +264,6 @@ class ResourceCleanupStack(Stack):
                 "EKS_SKIP_PATTERN": eks_skip_pattern_param.value_as_string,
                 "OPENSHIFT_CLEANUP_ENABLED": openshift_cleanup_param.value_as_string,
                 "OPENSHIFT_BASE_DOMAIN": openshift_domain_param.value_as_string,
-                "OPENSHIFT_MAX_RETRIES": openshift_retries_param.value_as_string,
                 "VOLUME_CLEANUP_ENABLED": volume_cleanup_param.value_as_string,
                 "TARGET_REGIONS": regions_param.value_as_string,
                 "LOG_LEVEL": log_level_param.value_as_string
@@ -289,7 +281,43 @@ class ResourceCleanupStack(Stack):
             enabled=True
         )
 
-        schedule_rule.add_target(targets.LambdaFunction(cleanup_lambda))
+        # Add target with retry policy for failed invocations
+        schedule_rule.add_target(targets.LambdaFunction(
+            cleanup_lambda,
+            retry_attempts=2,  # Retry failed invocations up to 2 times
+            max_event_age=Duration.hours(1)  # Discard events older than 1 hour
+        ))
+
+        # CloudWatch Alarms for monitoring and blast radius protection
+        lambda_errors_alarm = cloudwatch.Alarm(
+            self, "LambdaErrorsAlarm",
+            alarm_name="AWSResourceCleanup-LambdaErrors",
+            alarm_description="Alert when cleanup Lambda encounters errors",
+            metric=cleanup_lambda.metric_errors(
+                period=Duration.minutes(15),
+                statistic="Sum"
+            ),
+            threshold=1,
+            evaluation_periods=1,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
+        )
+        lambda_errors_alarm.add_alarm_action(cw_actions.SnsAction(sns_topic))
+
+        # Alarm for Lambda timeout (indicates potential performance issues)
+        lambda_timeout_alarm = cloudwatch.Alarm(
+            self, "LambdaTimeoutAlarm",
+            alarm_name="AWSResourceCleanup-LambdaTimeout",
+            alarm_description="Alert when cleanup Lambda approaches timeout (>8 minutes)",
+            metric=cleanup_lambda.metric_duration(
+                period=Duration.minutes(15),
+                statistic="Maximum"
+            ),
+            threshold=480000,  # 8 minutes in milliseconds (Lambda timeout is 10min)
+            evaluation_periods=1,
+            comparison_operator=cloudwatch.ComparisonOperator.GREATER_THAN_THRESHOLD,
+            treat_missing_data=cloudwatch.TreatMissingData.NOT_BREACHING
+        )
+        lambda_timeout_alarm.add_alarm_action(cw_actions.SnsAction(sns_topic))
 
         # Outputs
         CfnOutput(

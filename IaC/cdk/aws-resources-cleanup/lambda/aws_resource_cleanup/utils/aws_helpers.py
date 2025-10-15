@@ -43,8 +43,12 @@ def has_valid_billing_tag(
             return True
         else:
             logger.debug(
-                f"Billing tag expired: {expiration_timestamp} < {current_timestamp} "
-                f"(expired {current_timestamp - expiration_timestamp}s ago)"
+                "Billing tag expired",
+                extra={
+                    "expiration_timestamp": expiration_timestamp,
+                    "current_timestamp": current_timestamp,
+                    "expired_seconds_ago": current_timestamp - expiration_timestamp,
+                },
             )
             return False
     except ValueError:

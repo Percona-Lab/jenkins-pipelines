@@ -32,14 +32,28 @@ def is_volume_protected(
     if "do not remove" in name.lower():
         reason = "Name contains 'do not remove'"
         if volume_id:
-            logger.info(f"Volume {volume_id} protected: {reason} ({name})")
+            logger.info(
+                "Volume protected",
+                extra={
+                    "volume_id": volume_id,
+                    "volume_name": name,
+                    "protection_reason": reason,
+                },
+            )
         return True, reason
 
     # Legacy protection: PerconaKeep tag
     if "PerconaKeep" in tags_dict:
         reason = "Has PerconaKeep tag"
         if volume_id:
-            logger.info(f"Volume {volume_id} protected: {reason} ({name})")
+            logger.info(
+                "Volume protected",
+                extra={
+                    "volume_id": volume_id,
+                    "volume_name": name,
+                    "protection_reason": reason,
+                },
+            )
         return True, reason
 
     # Protection by persistent billing tag
@@ -47,14 +61,30 @@ def is_volume_protected(
     if billing_tag in PERSISTENT_TAGS:
         reason = f"Persistent billing tag '{billing_tag}'"
         if volume_id:
-            logger.info(f"Volume {volume_id} protected: {reason} ({name})")
+            logger.info(
+                "Volume protected",
+                extra={
+                    "volume_id": volume_id,
+                    "volume_name": name,
+                    "protection_reason": reason,
+                    "billing_tag": billing_tag,
+                },
+            )
         return True, reason
 
     # Protected if has valid billing tag (category or non-expired timestamp)
     if has_valid_billing_tag(tags_dict):
         reason = f"Valid billing tag '{billing_tag}'"
         if volume_id:
-            logger.info(f"Volume {volume_id} protected: {reason} ({name})")
+            logger.info(
+                "Volume protected",
+                extra={
+                    "volume_id": volume_id,
+                    "volume_name": name,
+                    "protection_reason": reason,
+                    "billing_tag": billing_tag,
+                },
+            )
         return True, reason
 
     return False, ""
@@ -85,7 +115,10 @@ def check_unattached_volume(
     # Calculate age
     create_time = volume.get("CreateTime")
     if not create_time:
-        logger.warning(f"Volume {volume['VolumeId']} has no CreateTime, skipping")
+        logger.warning(
+            "Volume missing CreateTime, skipping",
+            extra={"volume_id": volume["VolumeId"]},
+        )
         return None
 
     create_timestamp = int(create_time.timestamp())
@@ -128,7 +161,9 @@ def delete_volume(action: CleanupAction, region: str) -> bool:
         True if successful (or DRY_RUN), False otherwise
     """
     if not action.volume_id:
-        logger.error(f"Cannot delete volume: missing volume_id in action {action}")
+        logger.error(
+            "Cannot delete volume: missing volume_id", extra={"action": str(action)}
+        )
         return False
 
     try:
@@ -136,21 +171,30 @@ def delete_volume(action: CleanupAction, region: str) -> bool:
 
         if DRY_RUN:
             logger.info(
-                f"[DRY-RUN] Would DELETE volume {action.volume_id} in {region}: {action.reason}"
+                "Would DELETE volume",
+                extra={
+                    "dry_run": True,
+                    "volume_id": action.volume_id,
+                    "region": region,
+                    "reason": action.reason,
+                },
             )
             return True
 
         # Final safety check: verify volume is still available and not protected
         volumes = ec2.describe_volumes(VolumeIds=[action.volume_id])["Volumes"]
         if not volumes:
-            logger.warning(f"Volume {action.volume_id} not found, skipping deletion")
+            logger.warning(
+                "Volume not found, skipping deletion",
+                extra={"volume_id": action.volume_id},
+            )
             return False
 
         volume = volumes[0]
         if volume["State"] != "available":
             logger.warning(
-                f"Volume {action.volume_id} is no longer available "
-                f"(state: {volume['State']}), skipping deletion"
+                "Volume no longer available, skipping deletion",
+                extra={"volume_id": action.volume_id, "volume_state": volume["State"]},
             )
             return False
 
@@ -159,13 +203,21 @@ def delete_volume(action: CleanupAction, region: str) -> bool:
         is_protected_flag, _ = is_volume_protected(tags_dict)
         if is_protected_flag:
             logger.warning(
-                f"Volume {action.volume_id} is now protected, skipping deletion"
+                "Volume now protected, skipping deletion",
+                extra={"volume_id": action.volume_id},
             )
             return False
 
         # Delete volume
         ec2.delete_volume(VolumeId=action.volume_id)
-        logger.info(f"DELETE volume {action.volume_id} in {region}: {action.reason}")
+        logger.info(
+            "DELETE volume",
+            extra={
+                "volume_id": action.volume_id,
+                "region": region,
+                "reason": action.reason,
+            },
+        )
         return True
 
     except ClientError as e:
@@ -174,20 +226,38 @@ def delete_volume(action: CleanupAction, region: str) -> bool:
 
         if error_code == "InvalidVolume.NotFound":
             logger.warning(
-                f"Volume {action.volume_id} not found (already deleted?): {error_msg}"
+                "Volume not found (already deleted?)",
+                extra={
+                    "volume_id": action.volume_id,
+                    "error_code": error_code,
+                    "error_message": error_msg,
+                },
             )
             return False
         elif error_code == "VolumeInUse":
             logger.warning(
-                f"Volume {action.volume_id} is in use, cannot delete: {error_msg}"
+                "Volume in use, cannot delete",
+                extra={
+                    "volume_id": action.volume_id,
+                    "error_code": error_code,
+                    "error_message": error_msg,
+                },
             )
             return False
         else:
             logger.error(
-                f"Failed to delete volume {action.volume_id}: {error_code} - {error_msg}"
+                "Failed to delete volume",
+                extra={
+                    "volume_id": action.volume_id,
+                    "error_code": error_code,
+                    "error_message": error_msg,
+                },
             )
             return False
 
     except Exception as e:
-        logger.error(f"Unexpected error deleting volume {action.volume_id}: {e}")
+        logger.error(
+            "Unexpected error deleting volume",
+            extra={"volume_id": action.volume_id, "error": str(e)},
+        )
         return False

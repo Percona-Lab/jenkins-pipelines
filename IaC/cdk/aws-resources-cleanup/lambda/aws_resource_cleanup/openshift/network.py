@@ -22,16 +22,22 @@ def delete_nat_gateways(infra_id: str, region: str):
         for nat in nat_gws:
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would DELETE nat_gateway {nat['NatGatewayId']} for cluster {infra_id}"
+                    "Would DELETE nat_gateway",
+                    extra={
+                        "dry_run": True,
+                        "nat_gateway_id": nat["NatGatewayId"],
+                        "infra_id": infra_id,
+                    },
                 )
             else:
                 ec2.delete_nat_gateway(NatGatewayId=nat["NatGatewayId"])
                 logger.info(
-                    f"DELETE nat_gateway {nat['NatGatewayId']} for cluster {infra_id}"
+                    "DELETE nat_gateway",
+                    extra={"nat_gateway_id": nat["NatGatewayId"], "infra_id": infra_id},
                 )
 
     except Exception as e:
-        logger.error(f"Error deleting NAT gateways: {e}")
+        logger.error("Error deleting NAT gateways", extra={"error": str(e)})
 
 
 def release_elastic_ips(infra_id: str, region: str):
@@ -48,19 +54,28 @@ def release_elastic_ips(infra_id: str, region: str):
             if "AllocationId" in eip:
                 if DRY_RUN:
                     logger.info(
-                        f"[DRY-RUN] Would DELETE elastic_ip {eip['AllocationId']} for cluster {infra_id}"
+                        "Would DELETE elastic_ip",
+                        extra={
+                            "dry_run": True,
+                            "allocation_id": eip["AllocationId"],
+                            "infra_id": infra_id,
+                        },
                     )
                 else:
                     try:
                         ec2.release_address(AllocationId=eip["AllocationId"])
                         logger.info(
-                            f"DELETE elastic_ip {eip['AllocationId']} for cluster {infra_id}"
+                            "DELETE elastic_ip",
+                            extra={
+                                "allocation_id": eip["AllocationId"],
+                                "infra_id": infra_id,
+                            },
                         )
                     except ClientError:
                         pass  # May already be released
 
     except Exception as e:
-        logger.error(f"Error releasing EIPs: {e}")
+        logger.error("Error releasing EIPs", extra={"error": str(e)})
 
 
 def cleanup_network_interfaces(vpc_id: str, region: str):
@@ -77,7 +92,12 @@ def cleanup_network_interfaces(vpc_id: str, region: str):
         for eni in enis:
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would DELETE network_interface {eni['NetworkInterfaceId']} in vpc {vpc_id}"
+                    "Would DELETE network_interface",
+                    extra={
+                        "dry_run": True,
+                        "network_interface_id": eni["NetworkInterfaceId"],
+                        "vpc_id": vpc_id,
+                    },
                 )
             else:
                 try:
@@ -85,13 +105,17 @@ def cleanup_network_interfaces(vpc_id: str, region: str):
                         NetworkInterfaceId=eni["NetworkInterfaceId"]
                     )
                     logger.info(
-                        f"DELETE network_interface {eni['NetworkInterfaceId']} in vpc {vpc_id}"
+                        "DELETE network_interface",
+                        extra={
+                            "network_interface_id": eni["NetworkInterfaceId"],
+                            "vpc_id": vpc_id,
+                        },
                     )
                 except ClientError:
                     pass  # May already be deleted
 
     except Exception as e:
-        logger.error(f"Error cleaning up ENIs: {e}")
+        logger.error("Error cleaning up ENIs", extra={"error": str(e)})
 
 
 def delete_vpc_endpoints(vpc_id: str, region: str):
@@ -105,19 +129,28 @@ def delete_vpc_endpoints(vpc_id: str, region: str):
         for endpoint in endpoints:
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would DELETE vpc_endpoint {endpoint['VpcEndpointId']} in vpc {vpc_id}"
+                    "Would DELETE vpc_endpoint",
+                    extra={
+                        "dry_run": True,
+                        "vpc_endpoint_id": endpoint["VpcEndpointId"],
+                        "vpc_id": vpc_id,
+                    },
                 )
             else:
                 try:
                     ec2.delete_vpc_endpoints(VpcEndpointIds=[endpoint["VpcEndpointId"]])
                     logger.info(
-                        f"DELETE vpc_endpoint {endpoint['VpcEndpointId']} in vpc {vpc_id}"
+                        "DELETE vpc_endpoint",
+                        extra={
+                            "vpc_endpoint_id": endpoint["VpcEndpointId"],
+                            "vpc_id": vpc_id,
+                        },
                     )
                 except ClientError:
                     pass
 
     except Exception as e:
-        logger.error(f"Error deleting VPC endpoints: {e}")
+        logger.error("Error deleting VPC endpoints", extra={"error": str(e)})
 
 
 def delete_security_groups(vpc_id: str, region: str):
@@ -147,19 +180,25 @@ def delete_security_groups(vpc_id: str, region: str):
                 continue
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would DELETE security_group {sg['GroupId']} in vpc {vpc_id}"
+                    "Would DELETE security_group",
+                    extra={
+                        "dry_run": True,
+                        "security_group_id": sg["GroupId"],
+                        "vpc_id": vpc_id,
+                    },
                 )
             else:
                 try:
                     ec2.delete_security_group(GroupId=sg["GroupId"])
                     logger.info(
-                        f"DELETE security_group {sg['GroupId']} in vpc {vpc_id}"
+                        "DELETE security_group",
+                        extra={"security_group_id": sg["GroupId"], "vpc_id": vpc_id},
                     )
                 except ClientError:
                     pass
 
     except Exception as e:
-        logger.error(f"Error deleting security groups: {e}")
+        logger.error("Error deleting security groups", extra={"error": str(e)})
 
 
 def delete_subnets(vpc_id: str, region: str):
@@ -173,17 +212,25 @@ def delete_subnets(vpc_id: str, region: str):
         for subnet in subnets:
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would DELETE subnet {subnet['SubnetId']} in vpc {vpc_id}"
+                    "Would DELETE subnet",
+                    extra={
+                        "dry_run": True,
+                        "subnet_id": subnet["SubnetId"],
+                        "vpc_id": vpc_id,
+                    },
                 )
             else:
                 try:
                     ec2.delete_subnet(SubnetId=subnet["SubnetId"])
-                    logger.info(f"DELETE subnet {subnet['SubnetId']} in vpc {vpc_id}")
+                    logger.info(
+                        "DELETE subnet",
+                        extra={"subnet_id": subnet["SubnetId"], "vpc_id": vpc_id},
+                    )
                 except ClientError:
                     pass
 
     except Exception as e:
-        logger.error(f"Error deleting subnets: {e}")
+        logger.error("Error deleting subnets", extra={"error": str(e)})
 
 
 def delete_route_tables(vpc_id: str, region: str):
@@ -204,19 +251,25 @@ def delete_route_tables(vpc_id: str, region: str):
 
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would DELETE route_table {rt['RouteTableId']} in vpc {vpc_id}"
+                    "Would DELETE route_table",
+                    extra={
+                        "dry_run": True,
+                        "route_table_id": rt["RouteTableId"],
+                        "vpc_id": vpc_id,
+                    },
                 )
             else:
                 try:
                     ec2.delete_route_table(RouteTableId=rt["RouteTableId"])
                     logger.info(
-                        f"DELETE route_table {rt['RouteTableId']} in vpc {vpc_id}"
+                        "DELETE route_table",
+                        extra={"route_table_id": rt["RouteTableId"], "vpc_id": vpc_id},
                     )
                 except ClientError:
                     pass
 
     except Exception as e:
-        logger.error(f"Error deleting route tables: {e}")
+        logger.error("Error deleting route tables", extra={"error": str(e)})
 
 
 def delete_internet_gateway(vpc_id: str, region: str):
@@ -230,7 +283,12 @@ def delete_internet_gateway(vpc_id: str, region: str):
         for igw in igws:
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would DELETE internet_gateway {igw['InternetGatewayId']} in vpc {vpc_id}"
+                    "Would DELETE internet_gateway",
+                    extra={
+                        "dry_run": True,
+                        "internet_gateway_id": igw["InternetGatewayId"],
+                        "vpc_id": vpc_id,
+                    },
                 )
             else:
                 try:
@@ -241,27 +299,60 @@ def delete_internet_gateway(vpc_id: str, region: str):
                         InternetGatewayId=igw["InternetGatewayId"]
                     )
                     logger.info(
-                        f"DELETE internet_gateway {igw['InternetGatewayId']} in vpc {vpc_id}"
+                        "DELETE internet_gateway",
+                        extra={
+                            "internet_gateway_id": igw["InternetGatewayId"],
+                            "vpc_id": vpc_id,
+                        },
                     )
                 except ClientError:
                     pass
 
     except Exception as e:
-        logger.error(f"Error deleting IGW: {e}")
+        logger.error("Error deleting IGW", extra={"error": str(e)})
 
 
-def delete_vpc(vpc_id: str, region: str):
-    """Delete VPC."""
+def delete_vpc(vpc_id: str, region: str) -> bool:
+    """
+    Delete VPC.
+
+    Returns:
+        True if VPC was deleted successfully
+        False if VPC still has dependencies
+    """
     try:
         ec2 = boto3.client("ec2", region_name=region)
         if DRY_RUN:
-            logger.info(f"[DRY-RUN] Would DELETE vpc {vpc_id} in {region}")
+            logger.info(
+                "Would DELETE vpc",
+                extra={"dry_run": True, "vpc_id": vpc_id, "region": region},
+            )
+            return True  # In DRY_RUN, assume success
         else:
             try:
                 ec2.delete_vpc(VpcId=vpc_id)
-                logger.info(f"DELETE vpc {vpc_id} in {region}")
-            except ClientError:
-                pass
+                logger.info("DELETE vpc", extra={"vpc_id": vpc_id, "region": region})
+                return True
+            except ClientError as e:
+                error_code = e.response.get("Error", {}).get("Code", "")
+                if error_code == "DependencyViolation":
+                    logger.info(
+                        "VPC still has dependencies, cannot delete yet",
+                        extra={"vpc_id": vpc_id, "error_code": error_code},
+                    )
+                    return False
+                else:
+                    # Other errors (permissions, etc.) should be logged
+                    logger.error(
+                        "Error deleting VPC",
+                        extra={
+                            "vpc_id": vpc_id,
+                            "error": str(e),
+                            "error_code": error_code,
+                        },
+                    )
+                    return False
 
     except Exception as e:
-        logger.error(f"Error deleting VPC: {e}")
+        logger.error("Unexpected error deleting VPC", extra={"error": str(e)})
+        return False

@@ -36,8 +36,14 @@ def cirrus_ci_add_iit_billing_tag(
             cirrus_task = tags_dict.get("CIRRUS_TASK_ID")
 
             logger.info(
-                f"Tagged {instance['InstanceId']} ({instance_name}) with 'iit-billing-tag: CirrusCI'. "
-                f"Repo: {cirrus_repo}, Task: {cirrus_task}"
+                "CirrusCI instance auto-tagged",
+                extra={
+                    "instance_id": instance["InstanceId"],
+                    "instance_name": instance_name,
+                    "billing_tag": "CirrusCI",
+                    "cirrus_repo": cirrus_repo,
+                    "cirrus_task": cirrus_task,
+                },
             )
         except ClientError as e:
             logger.error(
@@ -59,7 +65,15 @@ def is_protected(tags_dict: dict[str, str], instance_id: str = "") -> tuple[bool
     if billing_tag in PERSISTENT_TAGS:
         reason = f"Persistent billing tag '{billing_tag}'"
         if instance_id:
-            logger.info(f"Instance {instance_id} protected: {reason} ({name})")
+            logger.info(
+                "Instance protected",
+                extra={
+                    "instance_id": instance_id,
+                    "instance_name": name,
+                    "protection_reason": reason,
+                    "billing_tag": billing_tag,
+                },
+            )
         return True, reason
 
     # Protected if has valid billing tag (category or non-expired timestamp)
@@ -71,7 +85,15 @@ def is_protected(tags_dict: dict[str, str], instance_id: str = "") -> tuple[bool
         if not has_ttl:
             reason = f"Valid billing tag '{billing_tag}'"
             if instance_id:
-                logger.info(f"Instance {instance_id} protected: {reason} ({name})")
+                logger.info(
+                    "Instance protected",
+                    extra={
+                        "instance_id": instance_id,
+                        "instance_name": name,
+                        "protection_reason": reason,
+                        "billing_tag": billing_tag,
+                    },
+                )
             return True, reason
 
     return False, ""
@@ -85,11 +107,22 @@ def execute_cleanup_action(action: CleanupAction, region: str) -> bool:
         if action.action == "TERMINATE":
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would TERMINATE instance {action.instance_id} in {region}: {action.reason}"
+                    "Would TERMINATE instance",
+                    extra={
+                        "dry_run": True,
+                        "instance_id": action.instance_id,
+                        "region": region,
+                        "reason": action.reason,
+                    },
                 )
             else:
                 logger.info(
-                    f"TERMINATE instance {action.instance_id} in {region}: {action.reason}"
+                    "TERMINATE instance",
+                    extra={
+                        "instance_id": action.instance_id,
+                        "region": region,
+                        "reason": action.reason,
+                    },
                 )
                 ec2.terminate_instances(InstanceIds=[action.instance_id])
             return True
@@ -99,30 +132,55 @@ def execute_cleanup_action(action: CleanupAction, region: str) -> bool:
 
             if not action.cluster_name:
                 logger.error(
-                    f"Missing cluster_name for TERMINATE_CLUSTER action on {action.instance_id}"
+                    "Missing cluster_name for TERMINATE_CLUSTER action",
+                    extra={"instance_id": action.instance_id, "action": action.action},
                 )
                 return False
 
             if EKS_CLEANUP_ENABLED:
                 if DRY_RUN:
                     logger.info(
-                        f"[DRY-RUN] Would TERMINATE_CLUSTER eks {action.cluster_name} in {region}"
+                        "Would TERMINATE_CLUSTER eks",
+                        extra={
+                            "dry_run": True,
+                            "cluster_name": action.cluster_name,
+                            "cluster_type": "eks",
+                            "region": region,
+                        },
                     )
                     logger.info(
-                        f"[DRY-RUN] Would TERMINATE instance {action.instance_id} for cluster {action.cluster_name}"
+                        "Would TERMINATE instance for cluster",
+                        extra={
+                            "dry_run": True,
+                            "instance_id": action.instance_id,
+                            "cluster_name": action.cluster_name,
+                        },
                     )
                 else:
                     logger.info(
-                        f"TERMINATE_CLUSTER eks {action.cluster_name} in {region}"
+                        "TERMINATE_CLUSTER eks",
+                        extra={
+                            "cluster_name": action.cluster_name,
+                            "cluster_type": "eks",
+                            "region": region,
+                        },
                     )
                     delete_eks_cluster_stack(action.cluster_name, region)
                     logger.info(
-                        f"TERMINATE instance {action.instance_id} for cluster {action.cluster_name}"
+                        "TERMINATE instance for cluster",
+                        extra={
+                            "instance_id": action.instance_id,
+                            "cluster_name": action.cluster_name,
+                        },
                     )
                     ec2.terminate_instances(InstanceIds=[action.instance_id])
             else:
                 logger.info(
-                    f"EKS cleanup disabled, would only TERMINATE instance {action.instance_id}"
+                    "EKS cleanup disabled",
+                    extra={
+                        "instance_id": action.instance_id,
+                        "action": "TERMINATE_only",
+                    },
                 )
             return True
 
@@ -131,7 +189,8 @@ def execute_cleanup_action(action: CleanupAction, region: str) -> bool:
 
             if not action.cluster_name:
                 logger.error(
-                    f"Missing cluster_name for TERMINATE_OPENSHIFT_CLUSTER action on {action.instance_id}"
+                    "Missing cluster_name for TERMINATE_OPENSHIFT_CLUSTER action",
+                    extra={"instance_id": action.instance_id, "action": action.action},
                 )
                 return False
 
@@ -141,42 +200,86 @@ def execute_cleanup_action(action: CleanupAction, region: str) -> bool:
                 if infra_id:
                     if DRY_RUN:
                         logger.info(
-                            f"[DRY-RUN] Would TERMINATE_OPENSHIFT_CLUSTER {cluster_name} ({infra_id}) in {region}"
+                            "Would TERMINATE_OPENSHIFT_CLUSTER",
+                            extra={
+                                "dry_run": True,
+                                "cluster_name": cluster_name,
+                                "infra_id": infra_id,
+                                "cluster_type": "openshift",
+                                "region": region,
+                            },
                         )
                     else:
                         logger.info(
-                            f"TERMINATE_OPENSHIFT_CLUSTER {cluster_name} ({infra_id}) in {region}"
+                            "TERMINATE_OPENSHIFT_CLUSTER",
+                            extra={
+                                "cluster_name": cluster_name,
+                                "infra_id": infra_id,
+                                "cluster_type": "openshift",
+                                "region": region,
+                            },
                         )
                         destroy_openshift_cluster(cluster_name, infra_id, region)
                 if DRY_RUN:
                     logger.info(
-                        f"[DRY-RUN] Would TERMINATE instance {action.instance_id} for cluster {cluster_name}"
+                        "Would TERMINATE instance for cluster",
+                        extra={
+                            "dry_run": True,
+                            "instance_id": action.instance_id,
+                            "cluster_name": cluster_name,
+                        },
                     )
                 else:
                     logger.info(
-                        f"TERMINATE instance {action.instance_id} for cluster {cluster_name}"
+                        "TERMINATE instance for cluster",
+                        extra={
+                            "instance_id": action.instance_id,
+                            "cluster_name": cluster_name,
+                        },
                     )
                     ec2.terminate_instances(InstanceIds=[action.instance_id])
             else:
                 logger.info(
-                    f"OpenShift cleanup disabled, would only TERMINATE instance {action.instance_id}"
+                    "OpenShift cleanup disabled",
+                    extra={
+                        "instance_id": action.instance_id,
+                        "action": "TERMINATE_only",
+                    },
                 )
             return True
 
         elif action.action == "STOP":
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would STOP instance {action.instance_id} in {region}: {action.reason}"
+                    "Would STOP instance",
+                    extra={
+                        "dry_run": True,
+                        "instance_id": action.instance_id,
+                        "region": region,
+                        "reason": action.reason,
+                    },
                 )
             else:
                 logger.info(
-                    f"STOP instance {action.instance_id} in {region}: {action.reason}"
+                    "STOP instance",
+                    extra={
+                        "instance_id": action.instance_id,
+                        "region": region,
+                        "reason": action.reason,
+                    },
                 )
                 ec2.stop_instances(InstanceIds=[action.instance_id])
             return True
 
     except ClientError as e:
-        logger.error(f"Failed to execute {action.action} on {action.instance_id}: {e}")
+        logger.error(
+            "Failed to execute cleanup action",
+            extra={
+                "action": action.action,
+                "instance_id": action.instance_id,
+                "error": str(e),
+            },
+        )
         return False
 
     return False

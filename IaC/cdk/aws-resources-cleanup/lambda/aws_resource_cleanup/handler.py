@@ -7,6 +7,10 @@ import datetime
 import boto3
 from typing import Any
 
+from aws_lambda_powertools import Tracer, Metrics
+from aws_lambda_powertools.metrics import MetricUnit
+from aws_lambda_powertools.utilities.typing import LambdaContext
+
 from .models import CleanupAction
 from .models.config import (
     DRY_RUN,
@@ -28,6 +32,8 @@ from .ec2 import (
 )
 
 logger = get_logger()
+tracer = Tracer(service="aws-resource-cleanup")
+metrics = Metrics(namespace="Percona/ResourceCleanup", service="aws-resource-cleanup")
 
 
 def send_notification(actions: list[CleanupAction], region: str) -> None:
@@ -74,16 +80,20 @@ def send_notification(actions: list[CleanupAction], region: str) -> None:
             Message=message,
         )
 
-        logger.info(f"Sent SNS notification for {len(actions)} actions in {region}")
+        logger.info(
+            "Sent SNS notification",
+            extra={"actions_count": len(actions), "region": region},
+        )
 
     except Exception as e:
         logger.error(f"Failed to send SNS notification: {e}")
 
 
+@tracer.capture_method
 def cleanup_region(region: str) -> list[CleanupAction]:
     """Process cleanup for a single region."""
     start_time = time.time()
-    logger.info(f"Processing region: {region}")
+    logger.info("Processing region", extra={"region": region})
 
     ec2 = boto3.client("ec2", region_name=region)
     current_time = int(time.time())
@@ -130,13 +140,31 @@ def cleanup_region(region: str) -> list[CleanupAction]:
                     action.region = region
                     actions.append(action)
 
-        # Log instance scan summary
+        # Log instance scan summary and emit metrics
         logger.info(
-            f"Instance scan for {region}: {instance_scan_count} scanned, "
-            f"{len(actions)} actions, {instance_protected_count} protected"
+            "Instance scan complete",
+            extra={
+                "region": region,
+                "instances_scanned": instance_scan_count,
+                "actions_count": len(actions),
+                "instances_protected": instance_protected_count,
+                "protection_reasons": instance_protection_reasons,
+            },
         )
-        for reason, count in instance_protection_reasons.items():
-            logger.info(f"  - {reason}: {count}")
+
+        # Emit instance metrics with region dimension
+        metrics.add_dimension(name="Region", value=region)
+        metrics.add_metric(
+            name="InstancesScanned", unit=MetricUnit.Count, value=instance_scan_count
+        )
+        metrics.add_metric(
+            name="InstancesProtected",
+            unit=MetricUnit.Count,
+            value=instance_protected_count,
+        )
+        metrics.add_metric(
+            name="InstanceActions", unit=MetricUnit.Count, value=len(actions)
+        )
 
         # Execute instance actions
         for action in actions:
@@ -149,7 +177,7 @@ def cleanup_region(region: str) -> list[CleanupAction]:
         volume_protection_reasons: dict[str, int] = {}
 
         if not VOLUME_CLEANUP_ENABLED:
-            logger.info(f"Volume cleanup disabled for region: {region}")
+            logger.info("Volume cleanup disabled", extra={"region": region})
         else:
             try:
                 # Query all available (unattached) volumes
@@ -184,13 +212,34 @@ def cleanup_region(region: str) -> list[CleanupAction]:
                         volume_action.region = region
                         volume_actions.append(volume_action)
 
-                # Log volume scan summary
+                # Log volume scan summary and emit metrics
                 logger.info(
-                    f"Volume scan for {region}: {volume_scan_count} scanned, "
-                    f"{len(volume_actions)} actions, {volume_protected_count} protected"
+                    "Volume scan complete",
+                    extra={
+                        "region": region,
+                        "volumes_scanned": volume_scan_count,
+                        "actions_count": len(volume_actions),
+                        "volumes_protected": volume_protected_count,
+                        "protection_reasons": volume_protection_reasons,
+                    },
                 )
-                for reason, count in volume_protection_reasons.items():
-                    logger.info(f"  - {reason}: {count}")
+
+                # Emit volume metrics (region dimension already set)
+                metrics.add_metric(
+                    name="VolumesScanned",
+                    unit=MetricUnit.Count,
+                    value=volume_scan_count,
+                )
+                metrics.add_metric(
+                    name="VolumesProtected",
+                    unit=MetricUnit.Count,
+                    value=volume_protected_count,
+                )
+                metrics.add_metric(
+                    name="VolumeActions",
+                    unit=MetricUnit.Count,
+                    value=len(volume_actions),
+                )
 
                 # Execute volume deletions
                 for volume_action in volume_actions:
@@ -209,9 +258,15 @@ def cleanup_region(region: str) -> list[CleanupAction]:
         # Region completion with timing
         duration = time.time() - start_time
         logger.info(
-            f"Completed {region} in {duration:.1f}s: "
-            f"{instance_scan_count} instances ({len(actions)} actions), "
-            f"{volume_scan_count} volumes ({len(volume_actions)} actions)"
+            "Region cleanup complete",
+            extra={
+                "region": region,
+                "duration_seconds": round(duration, 1),
+                "instances_scanned": instance_scan_count,
+                "instance_actions": len(actions),
+                "volumes_scanned": volume_scan_count,
+                "volume_actions": len(volume_actions),
+            },
         )
 
     except Exception as e:
@@ -220,10 +275,13 @@ def cleanup_region(region: str) -> list[CleanupAction]:
     return actions + volume_actions if "volume_actions" in locals() else actions
 
 
-def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
+@logger.inject_lambda_context
+@tracer.capture_lambda_handler
+@metrics.log_metrics(capture_cold_start_metric=True)
+def lambda_handler(event: dict[str, Any], context: LambdaContext) -> dict[str, Any]:
     """Main Lambda handler."""
     start_time = time.time()
-    logger.info(f"Starting AWS resources cleanup (DRY_RUN={DRY_RUN})")
+    logger.info("Starting AWS resources cleanup", extra={"dry_run": DRY_RUN})
 
     try:
         ec2 = boto3.client("ec2")
@@ -235,10 +293,13 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
         if TARGET_REGIONS and TARGET_REGIONS.lower() != "all":
             target_list = [r.strip() for r in TARGET_REGIONS.split(",") if r.strip()]
             regions = [r for r in all_regions if r in target_list]
-            logger.info(f"Filtering to specific regions: {regions}")
+            logger.info(
+                "Filtering to specific regions",
+                extra={"regions": regions, "regions_count": len(regions)},
+            )
         else:
             regions = all_regions
-            logger.info(f"Processing all {len(regions)} regions")
+            logger.info("Processing all regions", extra={"regions_count": len(regions)})
 
         all_actions = []
 
@@ -257,20 +318,52 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
             if action.action == "DELETE_VOLUME":
                 volume_ages.append(action.days_overdue)
 
-        # Enhanced summary
-        logger.info(
-            f"Cleanup complete: {len(all_actions)} actions across "
-            f"{len(regions)} regions ({total_duration:.1f}s total)"
+        # Enhanced summary with volume statistics
+        summary_extra = {
+            "total_actions": len(all_actions),
+            "regions_count": len(regions),
+            "duration_seconds": round(total_duration, 1),
+            "actions_by_type": action_counts,
+        }
+
+        if volume_ages:
+            summary_extra["volume_age_stats"] = {
+                "min_days": round(min(volume_ages), 1),
+                "max_days": round(max(volume_ages), 1),
+                "avg_days": round(sum(volume_ages) / len(volume_ages), 1),
+            }
+
+        logger.info("Cleanup complete", extra=summary_extra)
+
+        # Emit summary metrics (no region dimension for totals)
+        metrics.add_metric(
+            name="TotalActions", unit=MetricUnit.Count, value=len(all_actions)
+        )
+        metrics.add_metric(
+            name="RegionsProcessed", unit=MetricUnit.Count, value=len(regions)
+        )
+        metrics.add_metric(
+            name="ExecutionDuration", unit=MetricUnit.Seconds, value=total_duration
         )
 
+        # Emit metrics per action type
         for action_type, count in action_counts.items():
-            logger.info(f"  {action_type}: {count}")
+            metrics.add_metric(
+                name=f"Actions_{action_type}", unit=MetricUnit.Count, value=count
+            )
 
-        # Volume age statistics
+        # Emit volume age statistics if available
         if volume_ages:
-            logger.info(
-                f"  Volume ages: {min(volume_ages):.1f}-{max(volume_ages):.1f} days "
-                f"(avg: {sum(volume_ages)/len(volume_ages):.1f} days)"
+            metrics.add_metric(
+                name="VolumeAge_Min", unit=MetricUnit.Count, value=min(volume_ages)
+            )
+            metrics.add_metric(
+                name="VolumeAge_Max", unit=MetricUnit.Count, value=max(volume_ages)
+            )
+            metrics.add_metric(
+                name="VolumeAge_Avg",
+                unit=MetricUnit.Count,
+                value=sum(volume_ages) / len(volume_ages),
             )
 
         return {

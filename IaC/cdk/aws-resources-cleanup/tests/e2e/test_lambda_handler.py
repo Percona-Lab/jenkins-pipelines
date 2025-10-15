@@ -17,6 +17,21 @@ from aws_resource_cleanup.handler import lambda_handler, cleanup_region
 from aws_resource_cleanup.models import CleanupAction
 
 
+@pytest.fixture
+def mock_lambda_context():
+    """Create a mock Lambda context object."""
+    context = Mock()
+    context.function_name = "test-function"
+    context.function_version = "$LATEST"
+    context.invoked_function_arn = "arn:aws:lambda:us-east-1:123456789012:function:test-function"
+    context.memory_limit_in_mb = 128
+    context.aws_request_id = "test-request-id"
+    context.log_group_name = "/aws/lambda/test-function"
+    context.log_stream_name = "2024/01/01/[$LATEST]test"
+    context.get_remaining_time_in_millis = Mock(return_value=300000)
+    return context
+
+
 @pytest.mark.e2e
 @pytest.mark.aws
 class TestLambdaHandlerEntryPoint:
@@ -25,7 +40,7 @@ class TestLambdaHandlerEntryPoint:
     @patch("aws_resource_cleanup.handler.cleanup_region")
     @patch("aws_resource_cleanup.handler.boto3.client")
     def test_lambda_handler_processes_multiple_regions(
-        self, mock_boto_client, mock_cleanup_region
+        self, mock_boto_client, mock_cleanup_region, mock_lambda_context
     ):
         """
         GIVEN multiple AWS regions
@@ -61,7 +76,7 @@ class TestLambdaHandlerEntryPoint:
         )
         mock_cleanup_region.side_effect = [[action1], [action2], []]
 
-        result = lambda_handler({}, None)
+        result = lambda_handler({}, mock_lambda_context)
 
         assert result["statusCode"] == 200
         body = json.loads(result["body"])
@@ -79,7 +94,7 @@ class TestLambdaHandlerEntryPoint:
     @patch("aws_resource_cleanup.handler.cleanup_region")
     @patch("aws_resource_cleanup.handler.boto3.client")
     def test_lambda_handler_no_actions_across_all_regions(
-        self, mock_boto_client, mock_cleanup_region
+        self, mock_boto_client, mock_cleanup_region, mock_lambda_context
     ):
         """
         GIVEN regions with no cleanup actions needed
@@ -97,7 +112,7 @@ class TestLambdaHandlerEntryPoint:
 
         mock_cleanup_region.return_value = []
 
-        result = lambda_handler({}, None)
+        result = lambda_handler({}, mock_lambda_context)
 
         assert result["statusCode"] == 200
         body = json.loads(result["body"])
@@ -109,7 +124,7 @@ class TestLambdaHandlerEntryPoint:
     @patch("aws_resource_cleanup.handler.boto3.client")
     @patch("aws_resource_cleanup.handler.DRY_RUN", True)
     def test_lambda_handler_includes_dry_run_flag(
-        self, mock_boto_client, mock_cleanup_region
+        self, mock_boto_client, mock_cleanup_region, mock_lambda_context
     ):
         """
         GIVEN DRY_RUN mode enabled
@@ -121,7 +136,7 @@ class TestLambdaHandlerEntryPoint:
         mock_ec2.describe_regions.return_value = {"Regions": [{"RegionName": "us-east-1"}]}
         mock_cleanup_region.return_value = []
 
-        result = lambda_handler({}, None)
+        result = lambda_handler({}, mock_lambda_context)
 
         body = json.loads(result["body"])
         assert body["dry_run"] is True
@@ -129,7 +144,7 @@ class TestLambdaHandlerEntryPoint:
     @patch("aws_resource_cleanup.handler.cleanup_region")
     @patch("aws_resource_cleanup.handler.boto3.client")
     def test_lambda_handler_aggregates_actions_correctly(
-        self, mock_boto_client, mock_cleanup_region
+        self, mock_boto_client, mock_cleanup_region, mock_lambda_context
     ):
         """
         GIVEN multiple regions with various action types
@@ -155,7 +170,7 @@ class TestLambdaHandlerEntryPoint:
         ]
         mock_cleanup_region.side_effect = [region1_actions, region2_actions]
 
-        result = lambda_handler({}, None)
+        result = lambda_handler({}, mock_lambda_context)
 
         body = json.loads(result["body"])
         assert body["total_actions"] == 5
@@ -164,7 +179,7 @@ class TestLambdaHandlerEntryPoint:
         assert body["by_action"]["TERMINATE_CLUSTER"] == 1
 
     @patch("aws_resource_cleanup.handler.boto3.client")
-    def test_lambda_handler_handles_describe_regions_failure(self, mock_boto_client):
+    def test_lambda_handler_handles_describe_regions_failure(self, mock_boto_client, mock_lambda_context):
         """
         GIVEN describe_regions API call fails
         WHEN lambda_handler is invoked
@@ -178,7 +193,7 @@ class TestLambdaHandlerEntryPoint:
         )
 
         with pytest.raises(ClientError):
-            lambda_handler({}, None)
+            lambda_handler({}, mock_lambda_context)
 
 
 @pytest.mark.e2e
@@ -189,7 +204,7 @@ class TestPartialFailureScenarios:
     @patch("aws_resource_cleanup.handler.cleanup_region")
     @patch("aws_resource_cleanup.handler.boto3.client")
     def test_lambda_handler_continues_after_region_failure(
-        self, mock_boto_client, mock_cleanup_region
+        self, mock_boto_client, mock_cleanup_region, mock_lambda_context
     ):
         """
         GIVEN one region fails but others succeed
@@ -215,7 +230,7 @@ class TestPartialFailureScenarios:
             [action],
         ]
 
-        result = lambda_handler({}, None)
+        result = lambda_handler({}, mock_lambda_context)
 
         # Should succeed with actions from regions 1 and 3
         assert result["statusCode"] == 200
@@ -233,7 +248,7 @@ class TestEndToEndIntegrationFlow:
     @patch("aws_resource_cleanup.handler.send_notification")
     @patch("aws_resource_cleanup.handler.boto3.client")
     def test_end_to_end_cleanup_flow_with_expired_ttl(
-        self, mock_boto_client, mock_send_notification, mock_execute_action
+        self, mock_boto_client, mock_send_notification, mock_execute_action, mock_lambda_context
     ):
         """
         GIVEN Lambda invocation with instances having expired TTL
@@ -286,7 +301,7 @@ class TestEndToEndIntegrationFlow:
         mock_execute_action.return_value = True
 
         # Execute Lambda
-        result = lambda_handler({}, None)
+        result = lambda_handler({}, mock_lambda_context)
 
         # Verify response
         assert result["statusCode"] == 200
@@ -308,7 +323,7 @@ class TestEndToEndIntegrationFlow:
     @patch("aws_resource_cleanup.handler.send_notification")
     @patch("aws_resource_cleanup.handler.boto3.client")
     def test_end_to_end_flow_with_protected_and_actionable_instances(
-        self, mock_boto_client, mock_send_notification, mock_execute_action
+        self, mock_boto_client, mock_send_notification, mock_execute_action, mock_lambda_context
     ):
         """
         GIVEN mix of protected and actionable instances
@@ -362,7 +377,7 @@ class TestEndToEndIntegrationFlow:
 
         mock_execute_action.return_value = True
 
-        result = lambda_handler({}, None)
+        result = lambda_handler({}, mock_lambda_context)
 
         assert result["statusCode"] == 200
         body = json.loads(result["body"])
@@ -376,7 +391,7 @@ class TestEndToEndIntegrationFlow:
     @patch("aws_resource_cleanup.handler.send_notification")
     @patch("aws_resource_cleanup.handler.boto3.client")
     def test_end_to_end_flow_no_instances_in_region(
-        self, mock_boto_client, mock_send_notification, mock_execute_action
+        self, mock_boto_client, mock_send_notification, mock_execute_action, mock_lambda_context
     ):
         """
         GIVEN region with no instances
@@ -399,7 +414,7 @@ class TestEndToEndIntegrationFlow:
 
         mock_ec2_regional.describe_instances.return_value = {"Reservations": []}
 
-        result = lambda_handler({}, None)
+        result = lambda_handler({}, mock_lambda_context)
 
         assert result["statusCode"] == 200
         body = json.loads(result["body"])
@@ -417,7 +432,7 @@ class TestLambdaEventHandling:
     @patch("aws_resource_cleanup.handler.cleanup_region")
     @patch("aws_resource_cleanup.handler.boto3.client")
     def test_lambda_handler_accepts_empty_event(
-        self, mock_boto_client, mock_cleanup_region
+        self, mock_boto_client, mock_cleanup_region, mock_lambda_context
     ):
         """
         GIVEN empty Lambda event
@@ -429,14 +444,14 @@ class TestLambdaEventHandling:
         mock_ec2.describe_regions.return_value = {"Regions": [{"RegionName": "us-east-1"}]}
         mock_cleanup_region.return_value = []
 
-        result = lambda_handler({}, None)
+        result = lambda_handler({}, mock_lambda_context)
 
         assert result["statusCode"] == 200
 
     @patch("aws_resource_cleanup.handler.cleanup_region")
     @patch("aws_resource_cleanup.handler.boto3.client")
     def test_lambda_handler_accepts_none_context(
-        self, mock_boto_client, mock_cleanup_region
+        self, mock_boto_client, mock_cleanup_region, mock_lambda_context
     ):
         """
         GIVEN None as Lambda context
@@ -448,6 +463,6 @@ class TestLambdaEventHandling:
         mock_ec2.describe_regions.return_value = {"Regions": [{"RegionName": "us-east-1"}]}
         mock_cleanup_region.return_value = []
 
-        result = lambda_handler({}, None)
+        result = lambda_handler({}, mock_lambda_context)
 
         assert result["statusCode"] == 200

@@ -19,7 +19,6 @@ OPENSHIFT_CLEANUP_ENABLED = (
     os.environ.get("OPENSHIFT_CLEANUP_ENABLED", "true").lower() == "true"
 )
 OPENSHIFT_BASE_DOMAIN = os.environ.get("OPENSHIFT_BASE_DOMAIN", "cd.percona.com")
-OPENSHIFT_MAX_RETRIES = int(os.environ.get("OPENSHIFT_MAX_RETRIES", "3"))
 
 # Volume cleanup configuration
 VOLUME_CLEANUP_ENABLED = (
@@ -60,6 +59,5 @@ class Config:
         self.eks_skip_pattern = EKS_SKIP_PATTERN
         self.openshift_cleanup_enabled = OPENSHIFT_CLEANUP_ENABLED
         self.openshift_base_domain = OPENSHIFT_BASE_DOMAIN
-        self.openshift_max_retries = OPENSHIFT_MAX_RETRIES
         self.persistent_tags = PERSISTENT_TAGS
         self.volume_cleanup_enabled = VOLUME_CLEANUP_ENABLED
