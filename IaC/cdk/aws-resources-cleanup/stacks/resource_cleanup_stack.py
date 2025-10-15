@@ -95,7 +95,7 @@ class ResourceCleanupStack(Stack):
             display_name="AWS Resource Cleanup Notifications"
         )
 
-        Tags.of(sns_topic).add("iit-billing-tag", "resource-cleanup")
+        Tags.of(sns_topic).add("iit-billing-tag", "removeUntaggedEc2")
 
         # IAM Role for Lambda
         lambda_role = iam.Role(
@@ -109,7 +109,7 @@ class ResourceCleanupStack(Stack):
             ]
         )
 
-        Tags.of(lambda_role).add("iit-billing-tag", "resource-cleanup")
+        Tags.of(lambda_role).add("iit-billing-tag", "removeUntaggedEc2")
 
         # IAM Policy for Lambda
         lambda_role.add_to_policy(iam.PolicyStatement(
@@ -193,14 +193,14 @@ class ResourceCleanupStack(Stack):
             }
         )
 
-        Tags.of(cleanup_lambda).add("iit-billing-tag", "resource-cleanup")
+        Tags.of(cleanup_lambda).add("iit-billing-tag", "removeUntaggedEc2")
 
-        # EventBridge Rule (hourly schedule)
+        # EventBridge Rule (15 minute schedule - matching legacy LambdaEC2Cleanup behavior)
         schedule_rule = events.Rule(
             self, "CleanupScheduleRule",
             rule_name="AWSResourceCleanupSchedule",
-            description="Executes hourly for comprehensive AWS resource cleanup",
-            schedule=events.Schedule.rate(Duration.hours(1)),
+            description="Executes every 15 minutes for comprehensive AWS resource cleanup",
+            schedule=events.Schedule.rate(Duration.minutes(15)),
             enabled=True
         )
 
