@@ -444,4 +444,164 @@ class TestCleanupRegion:
         actions = cleanup_region("us-east-1")
 
         assert actions == []
-\n\n# ---- Additional unit tests for edge cases and helpers ----\nfrom unittest.mock import Mock, patch, MagicMock\n\n\n@patch("aws_resource_cleanup.ec2.instances.boto3.client")\ndef test_unknown_action_returns_false(mock_boto_client):\n    from aws_resource_cleanup.models import CleanupAction\n    from aws_resource_cleanup.ec2.instances import execute_cleanup_action\n\n    action = CleanupAction(\n        instance_id="i-unknown",\n        region="us-east-1",\n        name="test-instance",\n        action="PAUSE",\n        reason="Invalid",\n        days_overdue=0.0,\n    )\n\n    result = execute_cleanup_action(action, "us-east-1")\n    assert result is False\n    ec2 = mock_boto_client.return_value\n    ec2.terminate_instances.assert_not_called()\n    ec2.stop_instances.assert_not_called()\n\n\n@patch("aws_resource_cleanup.ec2.instances.boto3.client")\n@patch("aws_resource_cleanup.models.config.OPENSHIFT_CLEANUP_ENABLED", False)\n@patch("aws_resource_cleanup.ec2.instances.DRY_RUN", False)\ndef test_terminate_openshift_cleanup_disabled_returns_true_no_calls(mock_boto_client):\n    from aws_resource_cleanup.models import CleanupAction\n    from aws_resource_cleanup.ec2.instances import execute_cleanup_action\n\n    action = CleanupAction(\n        instance_id="i-openshift-disabled",\n        region="us-east-2",\n        name="openshift-master",\n        action="TERMINATE_OPENSHIFT_CLUSTER",\n        reason="TTL expired",\n        days_overdue=1.0,\n        cluster_name="test-openshift",\n    )\n\n    result = execute_cleanup_action(action, "us-east-2")\n    assert result is True\n    ec2 = mock_boto_client.return_value\n    ec2.terminate_instances.assert_not_called()\n\n\n@patch("aws_resource_cleanup.ec2.instances.destroy_openshift_cluster")\n@patch("aws_resource_cleanup.ec2.instances.detect_openshift_infra_id")\n@patch("aws_resource_cleanup.ec2.instances.boto3.client")\n@patch("aws_resource_cleanup.ec2.instances.DRY_RUN", False)\n@patch("aws_resource_cleanup.models.config.OPENSHIFT_CLEANUP_ENABLED", True)\ndef test_terminate_openshift_infra_missing_still_terminates_instance(\n    mock_boto_client, mock_detect_infra, mock_destroy_cluster\n):\n    from aws_resource_cleanup.models import CleanupAction\n    from aws_resource_cleanup.ec2.instances import execute_cleanup_action\n\n    mock_detect_infra.return_value = None\n    action = CleanupAction(\n        instance_id="i-openshift-novpc",\n        region="us-east-2",\n        name="openshift-master",\n        action="TERMINATE_OPENSHIFT_CLUSTER",\n        reason="TTL expired",\n        days_overdue=2.0,\n        billing_tag="openshift",\n        cluster_name="test-openshift",\n    )\n\n    result = execute_cleanup_action(action, "us-east-2")\n    assert result is True\n    mock_detect_infra.assert_called_once_with("test-openshift", "us-east-2")\n    mock_destroy_cluster.assert_not_called()\n    ec2 = mock_boto_client.return_value\n    ec2.terminate_instances.assert_called_once_with(InstanceIds=["i-openshift-novpc"])\n\n\n@patch("aws_resource_cleanup.ec2.instances.boto3.resource")\ndef test_cirrus_ci_adds_billing_tag_when_missing(mock_boto_resource):\n    from aws_resource_cleanup.ec2.instances import cirrus_ci_add_iit_billing_tag\n\n    mock_ec2_resource = MagicMock()\n    mock_instance = MagicMock()\n    mock_ec2_resource.Instance.return_value = mock_instance\n    mock_boto_resource.return_value = mock_ec2_resource\n\n    instance = {"InstanceId": "i-ccc123", "Placement": {"AvailabilityZone": "us-east-1a"}}\n    tags_dict = {"CIRRUS_CI": "true", "Name": "ci-runner"}\n\n    cirrus_ci_add_iit_billing_tag(instance, tags_dict)\n\n    mock_boto_resource.assert_called_once_with("ec2", region_name="us-east-1")\n    mock_ec2_resource.Instance.assert_called_once_with("i-ccc123")\n    mock_instance.create_tags.assert_called_once()\n    assert {"Key": "iit-billing-tag", "Value": "CirrusCI"} in \\n        mock_instance.create_tags.call_args.kwargs["Tags"]\n\n\n@patch("aws_resource_cleanup.ec2.instances.boto3.resource")\ndef test_cirrus_ci_noop_if_tag_already_present(mock_boto_resource):\n    from aws_resource_cleanup.ec2.instances import cirrus_ci_add_iit_billing_tag\n\n    instance = {"InstanceId": "i-ccc456", "Placement": {"AvailabilityZone": "us-east-1a"}}\n    tags_dict = {"CIRRUS_CI": "true", "iit-billing-tag": "CirrusCI"}\n\n    cirrus_ci_add_iit_billing_tag(instance, tags_dict)\n\n    mock_boto_resource.assert_not_called()\n\n\n@patch("aws_resource_cleanup.handler.boto3.client")\ndef test_send_notification_publishes_when_topic_set(mock_boto_client):\n    from aws_resource_cleanup.handler import send_notification\n    from aws_resource_cleanup.models import CleanupAction\n    import aws_resource_cleanup.handler as handler_mod\n\n    mock_sns = Mock()\n    mock_boto_client.return_value = mock_sns\n\n    actions = [\n        CleanupAction(\n            instance_id="i-1",\n            region="us-east-1",\n            name="one",\n            action="TERMINATE",\n            reason="test",\n            days_overdue=1.2,\n            billing_tag="x",\n        )\n    ]\n\n    original_topic = handler_mod.SNS_TOPIC_ARN\n    try:\n        handler_mod.SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:123456789012:Topic"\n        send_notification(actions, "us-east-1")\n    finally:\n        handler_mod.SNS_TOPIC_ARN = original_topic\n\n    assert mock_sns.publish.called\n    kwargs = mock_sns.publish.call_args.kwargs\n    assert len(kwargs["Subject"]) <= 100\n    assert "Action:" in kwargs["Message"]\n\n\n@patch("aws_resource_cleanup.handler.boto3.client")\ndef test_send_notification_skips_when_no_topic(mock_boto_client):\n    from aws_resource_cleanup.handler import send_notification\n    import aws_resource_cleanup.handler as handler_mod\n\n    actions = []\n    original_topic = handler_mod.SNS_TOPIC_ARN\n    try:\n        handler_mod.SNS_TOPIC_ARN = ""\n        send_notification(actions, "us-east-1")\n    finally:\n        handler_mod.SNS_TOPIC_ARN = original_topic\n\n    mock_boto_client.assert_not_called()\n
+
+
+# ---- Additional unit tests for edge cases and helpers ----
+from unittest.mock import Mock, patch, MagicMock
+
+
+@patch("aws_resource_cleanup.ec2.instances.boto3.client")
+def test_unknown_action_returns_false(mock_boto_client):
+    from aws_resource_cleanup.models import CleanupAction
+    from aws_resource_cleanup.ec2.instances import execute_cleanup_action
+
+    action = CleanupAction(
+        instance_id="i-unknown",
+        region="us-east-1",
+        name="test-instance",
+        action="PAUSE",
+        reason="Invalid",
+        days_overdue=0.0,
+    )
+
+    result = execute_cleanup_action(action, "us-east-1")
+    assert result is False
+    ec2 = mock_boto_client.return_value
+    ec2.terminate_instances.assert_not_called()
+    ec2.stop_instances.assert_not_called()
+
+
+@patch("aws_resource_cleanup.ec2.instances.boto3.client")
+@patch("aws_resource_cleanup.models.config.OPENSHIFT_CLEANUP_ENABLED", False)
+@patch("aws_resource_cleanup.ec2.instances.DRY_RUN", False)
+def test_terminate_openshift_cleanup_disabled_returns_true_no_calls(mock_boto_client):
+    from aws_resource_cleanup.models import CleanupAction
+    from aws_resource_cleanup.ec2.instances import execute_cleanup_action
+
+    action = CleanupAction(
+        instance_id="i-openshift-disabled",
+        region="us-east-2",
+        name="openshift-master",
+        action="TERMINATE_OPENSHIFT_CLUSTER",
+        reason="TTL expired",
+        days_overdue=1.0,
+        cluster_name="test-openshift",
+    )
+
+    result = execute_cleanup_action(action, "us-east-2")
+    assert result is True
+    ec2 = mock_boto_client.return_value
+    ec2.terminate_instances.assert_not_called()
+
+
+@patch("aws_resource_cleanup.ec2.instances.destroy_openshift_cluster")
+@patch("aws_resource_cleanup.ec2.instances.detect_openshift_infra_id")
+@patch("aws_resource_cleanup.ec2.instances.boto3.client")
+@patch("aws_resource_cleanup.ec2.instances.DRY_RUN", False)
+@patch("aws_resource_cleanup.models.config.OPENSHIFT_CLEANUP_ENABLED", True)
+def test_terminate_openshift_infra_missing_still_terminates_instance(
+    mock_boto_client, mock_detect_infra, mock_destroy_cluster
+):
+    from aws_resource_cleanup.models import CleanupAction
+    from aws_resource_cleanup.ec2.instances import execute_cleanup_action
+
+    mock_detect_infra.return_value = None
+    action = CleanupAction(
+        instance_id="i-openshift-novpc",
+        region="us-east-2",
+        name="openshift-master",
+        action="TERMINATE_OPENSHIFT_CLUSTER",
+        reason="TTL expired",
+        days_overdue=2.0,
+        billing_tag="openshift",
+        cluster_name="test-openshift",
+    )
+
+    result = execute_cleanup_action(action, "us-east-2")
+    assert result is True
+    mock_detect_infra.assert_called_once_with("test-openshift", "us-east-2")
+    mock_destroy_cluster.assert_not_called()
+    ec2 = mock_boto_client.return_value
+    ec2.terminate_instances.assert_called_once_with(InstanceIds=["i-openshift-novpc"])
+
+
+@patch("aws_resource_cleanup.ec2.instances.boto3.resource")
+def test_cirrus_ci_adds_billing_tag_when_missing(mock_boto_resource):
+    from aws_resource_cleanup.ec2.instances import cirrus_ci_add_iit_billing_tag
+
+    mock_ec2_resource = MagicMock()
+    mock_instance = MagicMock()
+    mock_ec2_resource.Instance.return_value = mock_instance
+    mock_boto_resource.return_value = mock_ec2_resource
+
+    instance = {"InstanceId": "i-ccc123", "Placement": {"AvailabilityZone": "us-east-1a"}}
+    tags_dict = {"CIRRUS_CI": "true", "Name": "ci-runner"}
+
+    cirrus_ci_add_iit_billing_tag(instance, tags_dict)
+
+    mock_boto_resource.assert_called_once_with("ec2", region_name="us-east-1")
+    mock_ec2_resource.Instance.assert_called_once_with("i-ccc123")
+    mock_instance.create_tags.assert_called_once()
+    assert {"Key": "iit-billing-tag", "Value": "CirrusCI"} in         mock_instance.create_tags.call_args.kwargs["Tags"]
+
+
+@patch("aws_resource_cleanup.ec2.instances.boto3.resource")
+def test_cirrus_ci_noop_if_tag_already_present(mock_boto_resource):
+    from aws_resource_cleanup.ec2.instances import cirrus_ci_add_iit_billing_tag
+
+    instance = {"InstanceId": "i-ccc456", "Placement": {"AvailabilityZone": "us-east-1a"}}
+    tags_dict = {"CIRRUS_CI": "true", "iit-billing-tag": "CirrusCI"}
+
+    cirrus_ci_add_iit_billing_tag(instance, tags_dict)
+
+    mock_boto_resource.assert_not_called()
+
+
+@patch("aws_resource_cleanup.handler.boto3.client")
+def test_send_notification_publishes_when_topic_set(mock_boto_client):
+    from aws_resource_cleanup.handler import send_notification
+    from aws_resource_cleanup.models import CleanupAction
+    import aws_resource_cleanup.handler as handler_mod
+
+    mock_sns = Mock()
+    mock_boto_client.return_value = mock_sns
+
+    actions = [
+        CleanupAction(
+            instance_id="i-1",
+            region="us-east-1",
+            name="one",
+            action="TERMINATE",
+            reason="test",
+            days_overdue=1.2,
+            billing_tag="x",
+        )
+    ]
+
+    original_topic = handler_mod.SNS_TOPIC_ARN
+    try:
+        handler_mod.SNS_TOPIC_ARN = "arn:aws:sns:us-east-1:123456789012:Topic"
+        send_notification(actions, "us-east-1")
+    finally:
+        handler_mod.SNS_TOPIC_ARN = original_topic
+
+    assert mock_sns.publish.called
+    kwargs = mock_sns.publish.call_args.kwargs
+    assert len(kwargs["Subject"]) <= 100
+    assert "Action:" in kwargs["Message"]
+
+
+@patch("aws_resource_cleanup.handler.boto3.client")
+def test_send_notification_skips_when_no_topic(mock_boto_client):
+    from aws_resource_cleanup.handler import send_notification
+    import aws_resource_cleanup.handler as handler_mod
+
+    actions = []
+    original_topic = handler_mod.SNS_TOPIC_ARN
+    try:
+        handler_mod.SNS_TOPIC_ARN = ""
+        send_notification(actions, "us-east-1")
+    finally:
+        handler_mod.SNS_TOPIC_ARN = original_topic
+
+    mock_boto_client.assert_not_called()

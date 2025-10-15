@@ -570,4 +570,54 @@ class TestUntaggedPolicy:
             assert action.action == "TERMINATE"
         else:
             assert action is None
-\n\n# ---- Additional policy edge-case unit tests ----\nimport datetime\n\n\ndef test_stop_policy_exact_threshold_creates_stop_action(instance_builder, current_time, tags_dict_from_instance):\n    from aws_resource_cleanup.ec2.policies import check_stop_after_days\n\n    launch_time = datetime.datetime.fromtimestamp(current_time - 7 * 86400, tz=datetime.timezone.utc)\n    instance = (\n        instance_builder.with_state("running")\n        .with_launch_time(launch_time)\n        .with_stop_after_days(7)\n        .with_billing_tag("pmm-staging")\n        .build()\n    )\n    tags_dict = tags_dict_from_instance(instance)\n    action = check_stop_after_days(instance, tags_dict, current_time)\n    assert action is not None and action.action == "STOP"\n\n\n\ndef test_untagged_without_launch_time_returns_none(instance_builder, current_time, tags_dict_from_instance):\n    from aws_resource_cleanup.ec2.policies import check_untagged\n\n    instance = instance_builder.with_name("no-launch").build()\n    tags_dict = tags_dict_from_instance(instance)\n    assert check_untagged(instance, tags_dict, current_time) is None\n\n\n\ndef test_non_numeric_billing_tag_is_valid_so_untagged_is_none(instance_builder, current_time, tags_dict_from_instance):\n    from aws_resource_cleanup.ec2.policies import check_untagged\n\n    launch_time = datetime.datetime.fromtimestamp(current_time - 3600, tz=datetime.timezone.utc)\n    instance = instance_builder.with_launch_time(launch_time).with_billing_tag("invalid-format-123").build()\n    tags_dict = tags_dict_from_instance(instance)\n    assert check_untagged(instance, tags_dict, current_time) is None\n
+
+
+# ---- Additional policy edge-case unit tests ----
+import datetime
+
+
+def test_stop_policy_exact_threshold_creates_stop_action(
+    instance_builder, current_time, tags_dict_from_instance
+):
+    from aws_resource_cleanup.ec2.policies import check_stop_after_days
+
+    launch_time = datetime.datetime.fromtimestamp(
+        current_time - 7 * 86400, tz=datetime.timezone.utc
+    )
+    instance = (
+        instance_builder.with_state("running")
+        .with_launch_time(launch_time)
+        .with_stop_after_days(7)
+        .with_billing_tag("pmm-staging")
+        .build()
+    )
+    tags_dict = tags_dict_from_instance(instance)
+    action = check_stop_after_days(instance, tags_dict, current_time)
+    assert action is not None and action.action == "STOP"
+
+
+def test_untagged_without_launch_time_returns_none(
+    instance_builder, current_time, tags_dict_from_instance
+):
+    from aws_resource_cleanup.ec2.policies import check_untagged
+
+    instance = instance_builder.with_name("no-launch").build()
+    tags_dict = tags_dict_from_instance(instance)
+    assert check_untagged(instance, tags_dict, current_time) is None
+
+
+def test_non_numeric_billing_tag_is_valid_so_untagged_is_none(
+    instance_builder, current_time, tags_dict_from_instance
+):
+    from aws_resource_cleanup.ec2.policies import check_untagged
+
+    launch_time = datetime.datetime.fromtimestamp(
+        current_time - 3600, tz=datetime.timezone.utc
+    )
+    instance = (
+        instance_builder.with_launch_time(launch_time)
+        .with_billing_tag("invalid-format-123")
+        .build()
+    )
+    tags_dict = tags_dict_from_instance(instance)
+    assert check_untagged(instance, tags_dict, current_time) is None
