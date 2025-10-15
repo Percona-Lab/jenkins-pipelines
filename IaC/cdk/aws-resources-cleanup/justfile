@@ -1,0 +1,243 @@
+# AWS Resources Cleanup - CDK Deployment Automation
+# Usage: just <command>
+
+# Default AWS profile and region
+profile := env_var_or_default("AWS_PROFILE", "percona-dev-admin")
+region := env_var_or_default("AWS_REGION", "us-east-2")
+
+# Default recipe - show available commands
+default:
+    @echo "AWS Resources Cleanup - CDK Deployment"
+    @echo ""
+    @echo "Quick Start:"
+    @echo "  just install          Install dependencies"
+    @echo "  just deploy           Deploy in DRY_RUN mode (safe)"
+    @echo "  just logs             Tail CloudWatch logs"
+    @echo "  just invoke-aws       Test Lambda execution"
+    @echo ""
+    @echo "Deployment:"
+    @echo "  just deploy           Deploy in DRY_RUN mode (default)"
+    @echo "  just deploy-live      Deploy in LIVE mode (destructive!)"
+    @echo "  just diff             Preview infrastructure changes"
+    @echo "  just synth            Generate CloudFormation template"
+    @echo "  just destroy          Destroy the entire stack"
+    @echo ""
+    @echo "Monitoring:"
+    @echo "  just logs             Tail CloudWatch logs (follow)"
+    @echo "  just logs-recent      Show logs from last hour"
+    @echo "  just invoke-aws       Manually invoke Lambda"
+    @echo "  just info             Show Lambda configuration"
+    @echo "  just outputs          Show stack outputs"
+    @echo ""
+    @echo "Maintenance:"
+    @echo "  just update-code      Fast Lambda code update (no CDK)"
+    @echo "  just clean            Clean build artifacts"
+    @echo "  just validate         Validate CloudFormation template"
+    @echo ""
+    @echo "Run 'just --list' for all commands"
+
+# Install dependencies
+install:
+    @echo "Installing CDK and Lambda dependencies..."
+    uv pip install -r requirements.txt
+    @echo "Installing Lambda dependencies..."
+    cd lambda && uv pip install -r aws_resource_cleanup/requirements.txt
+
+# Bootstrap CDK (first time only)
+bootstrap:
+    @echo "Bootstrapping CDK in {{region}} with profile {{profile}}..."
+    uv run cdk bootstrap aws://$(aws sts get-caller-identity --profile {{profile}} --query Account --output text)/{{region}} \
+        --profile {{profile}} \
+        --region {{region}}
+
+# Synthesize CloudFormation template
+synth:
+    @echo "Synthesizing CloudFormation template..."
+    uv run cdk synth --profile {{profile}} --region {{region}}
+
+# Deploy in DRY_RUN mode (default, safe)
+deploy:
+    @echo "Deploying in DRY_RUN mode (safe)..."
+    uv run cdk deploy \
+        --profile {{profile}} \
+        --region {{region}} \
+        --parameters DryRunMode=true \
+        --parameters UntaggedThresholdMinutes=30 \
+        --parameters EKSSkipPattern="pe-.*" \
+        --parameters OpenShiftCleanupEnabled=true \
+        --parameters OpenShiftBaseDomain=cd.percona.com \
+        --parameters OpenShiftMaxRetries=3 \
+        --require-approval never
+
+# Deploy in LIVE mode (destructive, requires confirmation)
+deploy-live:
+    @echo "⚠️  WARNING: Deploying in LIVE mode (will delete resources!)"
+    @echo "Press Ctrl+C to cancel, or Enter to continue..."
+    @read _
+    uv run cdk deploy \
+        --profile {{profile}} \
+        --region {{region}} \
+        --parameters DryRunMode=false \
+        --parameters UntaggedThresholdMinutes=30 \
+        --parameters EKSSkipPattern="pe-.*" \
+        --parameters OpenShiftCleanupEnabled=true \
+        --parameters OpenShiftBaseDomain=cd.percona.com \
+        --parameters OpenShiftMaxRetries=3 \
+        --require-approval never
+
+# Deploy with custom parameters
+deploy-custom DRY_RUN="true" THRESHOLD="30" EMAIL="":
+    @echo "Deploying with custom parameters..."
+    uv run cdk deploy \
+        --profile {{profile}} \
+        --region {{region}} \
+        --parameters DryRunMode={{DRY_RUN}} \
+        --parameters UntaggedThresholdMinutes={{THRESHOLD}} \
+        --parameters NotificationEmail={{EMAIL}} \
+        --parameters EKSSkipPattern="pe-.*" \
+        --parameters OpenShiftCleanupEnabled=true \
+        --parameters OpenShiftBaseDomain=cd.percona.com \
+        --parameters OpenShiftMaxRetries=3
+
+# Destroy the stack (cleanup)
+destroy:
+    @echo "⚠️  WARNING: This will destroy the entire stack!"
+    @echo "Press Ctrl+C to cancel, or Enter to continue..."
+    @read _
+    uv run cdk destroy --profile {{profile}} --region {{region}} --force
+
+# Diff against deployed stack
+diff:
+    @echo "Comparing local changes with deployed stack..."
+    uv run cdk diff --profile {{profile}} --region {{region}}
+
+# Tail CloudWatch logs
+logs:
+    @echo "Tailing CloudWatch logs for Lambda..."
+    aws logs tail /aws/lambda/LambdaAWSResourceCleanup \
+        --follow \
+        --format short \
+        --profile {{profile}} \
+        --region {{region}}
+
+# Tail recent logs (last hour)
+logs-recent:
+    @echo "Showing logs from last hour..."
+    aws logs tail /aws/lambda/LambdaAWSResourceCleanup \
+        --since 1h \
+        --format short \
+        --profile {{profile}} \
+        --region {{region}}
+
+# Invoke Lambda manually (AWS)
+invoke-aws:
+    @echo "Invoking Lambda in AWS..."
+    aws lambda invoke \
+        --function-name LambdaAWSResourceCleanup \
+        --profile {{profile}} \
+        --region {{region}} \
+        --log-type Tail \
+        /tmp/lambda-response.json
+    @echo "\nResponse:"
+    @cat /tmp/lambda-response.json | jq '.'
+    @rm /tmp/lambda-response.json
+
+# Get Lambda function info
+info:
+    @echo "Lambda function information:"
+    aws lambda get-function \
+        --function-name LambdaAWSResourceCleanup \
+        --profile {{profile}} \
+        --region {{region}} \
+        --query 'Configuration.[FunctionName,Runtime,MemorySize,Timeout,LastModified,Environment.Variables]' \
+        --output table
+
+# Run unit tests
+test:
+    @echo "Running unit tests..."
+    cd lambda && uv run --with pytest --with pytest-cov pytest -v --cov=aws_resource_cleanup
+
+# Run linting
+lint:
+    @echo "Running linters..."
+    uv run --with ruff ruff check lambda/aws_resource_cleanup/
+    uv run --with black black --check lambda/aws_resource_cleanup/
+    uv run --with mypy mypy lambda/aws_resource_cleanup/
+
+# Format code
+format:
+    @echo "Formatting code..."
+    uv run --with black black lambda/aws_resource_cleanup/
+    uv run --with ruff ruff check --fix lambda/aws_resource_cleanup/
+
+# Clean build artifacts
+clean:
+    @echo "Cleaning build artifacts..."
+    rg -g '*.pyc' --files | xargs rm -f
+    rg -g '__pycache__' --files | xargs rm -rf
+    rm -rf cdk.out
+    rm -rf .pytest_cache
+    rm -rf lambda/aws_resource_cleanup.egg-info
+    rm -f /tmp/lambda-response.json
+
+# Full CI pipeline (lint, test, synth)
+ci: lint test synth
+    @echo "✓ CI pipeline completed successfully"
+
+# Watch for changes and auto-deploy
+watch:
+    @echo "Watching for changes (auto-deploy on save)..."
+    uv run cdk watch --profile {{profile}} --region {{region}}
+
+# Show stack outputs
+outputs:
+    @echo "Stack outputs:"
+    aws cloudformation describe-stacks \
+        --stack-name AWSResourcesCleanupStack \
+        --profile {{profile}} \
+        --region {{region}} \
+        --query 'Stacks[0].Outputs' \
+        --output table
+
+# List all Lambda functions
+list-lambdas:
+    @echo "All Lambda functions in {{region}}:"
+    aws lambda list-functions \
+        --profile {{profile}} \
+        --region {{region}} \
+        --query 'Functions[?starts_with(FunctionName, `Lambda`)].{Name:FunctionName,Runtime:Runtime,Size:CodeSize,Modified:LastModified}' \
+        --output table
+
+# Update Lambda code only (faster than full deploy)
+update-code:
+    @echo "Building Lambda package..."
+    cd lambda && zip -r /tmp/lambda-code.zip aws_resource_cleanup/
+    @echo "Updating Lambda function code..."
+    aws lambda update-function-code \
+        --function-name LambdaAWSResourceCleanup \
+        --zip-file fileb:///tmp/lambda-code.zip \
+        --profile {{profile}} \
+        --region {{region}}
+    @rm /tmp/lambda-code.zip
+    @echo "✓ Lambda code updated"
+
+# Update Lambda environment variables
+update-env DRY_RUN="true":
+    @echo "Updating Lambda environment variables..."
+    aws lambda update-function-configuration \
+        --function-name LambdaAWSResourceCleanup \
+        --environment "Variables={DRY_RUN={{DRY_RUN}}}" \
+        --profile {{profile}} \
+        --region {{region}}
+    @echo "✓ Environment updated to DRY_RUN={{DRY_RUN}}"
+
+# Validate CloudFormation template
+validate:
+    @echo "Validating CloudFormation template..."
+    uv run cdk synth --profile {{profile}} --region {{region}} > /tmp/template.yaml
+    aws cloudformation validate-template \
+        --template-body file:///tmp/template.yaml \
+        --profile {{profile}} \
+        --region {{region}}
+    @rm /tmp/template.yaml
+    @echo "✓ Template is valid"

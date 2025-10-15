@@ -1,0 +1,3 @@
+# AWS SDK (included in Lambda runtime, but specified for local development)
+boto3>=1.34.0
+botocore>=1.34.0
