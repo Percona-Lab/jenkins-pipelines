@@ -83,26 +83,33 @@ def execute_cleanup_action(action: CleanupAction, region: str) -> bool:
             return True
 
         elif action.action == "TERMINATE_CLUSTER":
+            from ..models.config import EKS_CLEANUP_ENABLED
+
             if not action.cluster_name:
                 logger.error(
                     f"Missing cluster_name for TERMINATE_CLUSTER action on {action.instance_id}"
                 )
                 return False
 
-            if DRY_RUN:
-                logger.info(
-                    f"[DRY-RUN] Would delete EKS cluster via CloudFormation: {action.cluster_name} in {region}"
-                )
-                logger.info(
-                    f"[DRY-RUN] Would terminate cluster instance {action.instance_id}"
-                )
+            if EKS_CLEANUP_ENABLED:
+                if DRY_RUN:
+                    logger.info(
+                        f"[DRY-RUN] Would delete EKS cluster via CloudFormation: {action.cluster_name} in {region}"
+                    )
+                    logger.info(
+                        f"[DRY-RUN] Would terminate cluster instance {action.instance_id}"
+                    )
+                else:
+                    logger.info(
+                        f"Deleting EKS cluster {action.cluster_name} via CloudFormation in {region}"
+                    )
+                    delete_eks_cluster_stack(action.cluster_name, region)
+                    logger.info(f"Terminating cluster instance {action.instance_id}")
+                    ec2.terminate_instances(InstanceIds=[action.instance_id])
             else:
                 logger.info(
-                    f"Deleting EKS cluster {action.cluster_name} via CloudFormation in {region}"
+                    f"EKS cleanup disabled, would only terminate instance {action.instance_id}"
                 )
-                delete_eks_cluster_stack(action.cluster_name, region)
-                logger.info(f"Terminating cluster instance {action.instance_id}")
-                ec2.terminate_instances(InstanceIds=[action.instance_id])
             return True
 
         elif action.action == "TERMINATE_OPENSHIFT_CLUSTER":

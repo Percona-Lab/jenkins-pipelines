@@ -1,4 +1,4 @@
-"""EC2 instance management and cleanup policies."""
+"""EC2 instance management, volume cleanup, and cleanup policies."""
 
 from .instances import (
     cirrus_ci_add_iit_billing_tag,
@@ -11,6 +11,11 @@ from .policies import (
     check_long_stopped,
     check_untagged,
 )
+from .volumes import (
+    check_unattached_volume,
+    delete_volume,
+    is_volume_protected,
+)
 
 __all__ = [
     "cirrus_ci_add_iit_billing_tag",
@@ -20,4 +25,7 @@ __all__ = [
     "check_stop_after_days",
     "check_long_stopped",
     "check_untagged",
+    "check_unattached_volume",
+    "delete_volume",
+    "is_volume_protected",
 ]

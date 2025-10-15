@@ -362,9 +362,7 @@ class TestCleanupRegion:
                             "InstanceId": "i-stopped-old",
                             "State": {"Name": "stopped"},
                             "LaunchTime": old_time,
-                            "Tags": [
-                                {"Key": "Name", "Value": "long-stopped-instance"}
-                            ],
+                            "Tags": [{"Key": "Name", "Value": "long-stopped-instance"}],
                         }
                     ]
                 }
@@ -448,10 +446,6 @@ class TestCleanupRegion:
         actions = cleanup_region("us-east-1")
 
         assert actions == []
-
-
-# ---- Additional unit tests for edge cases and helpers ----
-from unittest.mock import Mock, patch, MagicMock
 
 
 @pytest.mark.integration
@@ -548,7 +542,10 @@ def test_cirrus_ci_adds_billing_tag_when_missing(mock_boto_resource):
     mock_ec2_resource.Instance.return_value = mock_instance
     mock_boto_resource.return_value = mock_ec2_resource
 
-    instance = {"InstanceId": "i-ccc123", "Placement": {"AvailabilityZone": "us-east-1a"}}
+    instance = {
+        "InstanceId": "i-ccc123",
+        "Placement": {"AvailabilityZone": "us-east-1a"},
+    }
     tags_dict = {"CIRRUS_CI": "true", "Name": "ci-runner"}
 
     cirrus_ci_add_iit_billing_tag(instance, tags_dict)
@@ -556,7 +553,10 @@ def test_cirrus_ci_adds_billing_tag_when_missing(mock_boto_resource):
     mock_boto_resource.assert_called_once_with("ec2", region_name="us-east-1")
     mock_ec2_resource.Instance.assert_called_once_with("i-ccc123")
     mock_instance.create_tags.assert_called_once()
-    assert {"Key": "iit-billing-tag", "Value": "CirrusCI"} in         mock_instance.create_tags.call_args.kwargs["Tags"]
+    assert {
+        "Key": "iit-billing-tag",
+        "Value": "CirrusCI",
+    } in mock_instance.create_tags.call_args.kwargs["Tags"]
 
 
 @pytest.mark.integration
@@ -565,7 +565,10 @@ def test_cirrus_ci_adds_billing_tag_when_missing(mock_boto_resource):
 def test_cirrus_ci_noop_if_tag_already_present(mock_boto_resource):
     from aws_resource_cleanup.ec2.instances import cirrus_ci_add_iit_billing_tag
 
-    instance = {"InstanceId": "i-ccc456", "Placement": {"AvailabilityZone": "us-east-1a"}}
+    instance = {
+        "InstanceId": "i-ccc456",
+        "Placement": {"AvailabilityZone": "us-east-1a"},
+    }
     tags_dict = {"CIRRUS_CI": "true", "iit-billing-tag": "CirrusCI"}
 
     cirrus_ci_add_iit_billing_tag(instance, tags_dict)
@@ -625,3 +628,308 @@ def test_send_notification_skips_when_no_topic(mock_boto_client):
         handler_mod.SNS_TOPIC_ARN = original_topic
 
     mock_boto_client.assert_not_called()
+
+
+# ===== Policy Priority Integration Tests =====
+
+
+@pytest.mark.integration
+@pytest.mark.aws
+@pytest.mark.policies
+class TestPolicyPriorityInOrchestration:
+    """Test that cleanup_region respects policy priority order."""
+
+    @patch("aws_resource_cleanup.handler.execute_cleanup_action")
+    @patch("aws_resource_cleanup.handler.send_notification")
+    @patch("aws_resource_cleanup.handler.boto3.client")
+    def test_ttl_policy_takes_priority_over_untagged(
+        self, mock_boto_client, mock_send_notification, mock_execute
+    ):
+        """
+        GIVEN instance with expired TTL AND no billing tag (matches both TTL and untagged)
+        WHEN cleanup_region is called
+        THEN TTL policy should be applied (not untagged)
+        """
+        mock_ec2 = Mock()
+        mock_boto_client.return_value = mock_ec2
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        two_hours_ago = now - datetime.timedelta(hours=2)
+
+        # Instance with expired TTL (created 2 hours ago, TTL 1 hour) and no billing tag
+        mock_ec2.describe_instances.return_value = {
+            "Reservations": [
+                {
+                    "Instances": [
+                        {
+                            "InstanceId": "i-ttl-untagged",
+                            "State": {"Name": "running"},
+                            "LaunchTime": two_hours_ago,
+                            "Tags": [
+                                {"Key": "Name", "Value": "test-instance"},
+                                {
+                                    "Key": "creation-time",
+                                    "Value": str(int((two_hours_ago).timestamp())),
+                                },
+                                {"Key": "delete-cluster-after-hours", "Value": "1"},
+                                # No iit-billing-tag
+                            ],
+                        }
+                    ]
+                }
+            ]
+        }
+
+        mock_execute.return_value = True
+
+        actions = cleanup_region("us-east-1")
+
+        assert len(actions) == 1
+        action = actions[0]
+
+        # Should use TTL policy, not untagged
+        assert "TTL" in action.reason or "expired" in action.reason.lower()
+        assert "untagged" not in action.reason.lower()
+
+    @patch("aws_resource_cleanup.handler.execute_cleanup_action")
+    @patch("aws_resource_cleanup.handler.send_notification")
+    @patch("aws_resource_cleanup.handler.boto3.client")
+    def test_stop_after_days_takes_priority_over_long_stopped(
+        self, mock_boto_client, mock_send_notification, mock_execute
+    ):
+        """
+        GIVEN running instance with stop-after-days expired
+        WHEN cleanup_region is called
+        THEN STOP action should be created (not long-stopped which doesn't apply)
+        """
+        mock_ec2 = Mock()
+        mock_boto_client.return_value = mock_ec2
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        eight_days_ago = now - datetime.timedelta(days=8)
+
+        # Running instance for 8 days with stop-after-days=7
+        mock_ec2.describe_instances.return_value = {
+            "Reservations": [
+                {
+                    "Instances": [
+                        {
+                            "InstanceId": "i-stop-after",
+                            "State": {"Name": "running"},
+                            "LaunchTime": eight_days_ago,
+                            "Tags": [
+                                {"Key": "Name", "Value": "pmm-staging"},
+                                {"Key": "iit-billing-tag", "Value": "pmm-staging"},
+                                {"Key": "stop-after-days", "Value": "7"},
+                            ],
+                        }
+                    ]
+                }
+            ]
+        }
+
+        mock_execute.return_value = True
+
+        actions = cleanup_region("us-east-1")
+
+        assert len(actions) == 1
+        action = actions[0]
+
+        # Should be STOP action (not TERMINATE from long-stopped)
+        assert action.action == "STOP"
+        assert "stop" in action.reason.lower()
+
+    @patch("aws_resource_cleanup.handler.execute_cleanup_action")
+    @patch("aws_resource_cleanup.handler.send_notification")
+    @patch("aws_resource_cleanup.handler.boto3.client")
+    def test_long_stopped_takes_priority_over_untagged(
+        self, mock_boto_client, mock_send_notification, mock_execute
+    ):
+        """
+        GIVEN stopped instance for 35 days without billing tag
+        WHEN cleanup_region is called
+        THEN long-stopped policy should be applied (not untagged)
+        """
+        mock_ec2 = Mock()
+        mock_boto_client.return_value = mock_ec2
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        thirty_five_days_ago = now - datetime.timedelta(days=35)
+
+        # Stopped for 35 days, no billing tag
+        mock_ec2.describe_instances.return_value = {
+            "Reservations": [
+                {
+                    "Instances": [
+                        {
+                            "InstanceId": "i-long-stopped",
+                            "State": {"Name": "stopped"},
+                            "LaunchTime": thirty_five_days_ago,
+                            "Tags": [
+                                {"Key": "Name", "Value": "old-stopped"},
+                                # No billing tag
+                            ],
+                        }
+                    ]
+                }
+            ]
+        }
+
+        mock_execute.return_value = True
+
+        actions = cleanup_region("us-east-1")
+
+        assert len(actions) == 1
+        action = actions[0]
+
+        # Should use long-stopped policy
+        assert "stopped" in action.reason.lower()
+        assert "30 days" in action.reason or "long" in action.reason.lower()
+
+    @patch("aws_resource_cleanup.handler.execute_cleanup_action")
+    @patch("aws_resource_cleanup.handler.send_notification")
+    @patch("aws_resource_cleanup.handler.boto3.client")
+    def test_multiple_instances_with_different_policies(
+        self, mock_boto_client, mock_send_notification, mock_execute
+    ):
+        """
+        GIVEN multiple instances matching different policies
+        WHEN cleanup_region is called
+        THEN each instance should get correct policy based on priority
+        """
+        mock_ec2 = Mock()
+        mock_boto_client.return_value = mock_ec2
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+
+        # Three instances with different policy matches
+        mock_ec2.describe_instances.return_value = {
+            "Reservations": [
+                {
+                    "Instances": [
+                        # Instance 1: TTL expired
+                        {
+                            "InstanceId": "i-ttl",
+                            "State": {"Name": "running"},
+                            "LaunchTime": now - datetime.timedelta(hours=2),
+                            "Tags": [
+                                {"Key": "Name", "Value": "ttl-instance"},
+                                {
+                                    "Key": "creation-time",
+                                    "Value": str(
+                                        int(
+                                            (
+                                                now - datetime.timedelta(hours=2)
+                                            ).timestamp()
+                                        )
+                                    ),
+                                },
+                                {"Key": "delete-cluster-after-hours", "Value": "1"},
+                                {"Key": "iit-billing-tag", "Value": "test"},
+                            ],
+                        },
+                        # Instance 2: Long stopped (no billing tag, stopped for 35 days)
+                        {
+                            "InstanceId": "i-stopped",
+                            "State": {"Name": "stopped"},
+                            "LaunchTime": now - datetime.timedelta(days=35),
+                            "Tags": [
+                                {"Key": "Name", "Value": "long-stopped"},
+                                # No billing tag - will trigger long-stopped policy
+                            ],
+                        },
+                        # Instance 3: Untagged
+                        {
+                            "InstanceId": "i-untagged",
+                            "State": {"Name": "running"},
+                            "LaunchTime": now - datetime.timedelta(hours=2),
+                            "Tags": [{"Key": "Name", "Value": "untagged"}],
+                        },
+                    ]
+                }
+            ]
+        }
+
+        mock_execute.return_value = True
+
+        actions = cleanup_region("us-east-1")
+
+        assert len(actions) == 3
+
+        # Verify each action has correct policy applied
+        actions_by_id = {action.instance_id: action for action in actions}
+
+        # TTL instance should have TTL reason
+        ttl_action = actions_by_id["i-ttl"]
+        assert "TTL" in ttl_action.reason or "expired" in ttl_action.reason.lower()
+
+        # Stopped instance should have long-stopped reason
+        stopped_action = actions_by_id["i-stopped"]
+        assert "stopped" in stopped_action.reason.lower()
+
+        # Untagged instance should have missing billing tag reason
+        untagged_action = actions_by_id["i-untagged"]
+        assert (
+            "missing" in untagged_action.reason.lower()
+            or "billing tag" in untagged_action.reason.lower()
+        )
+
+    @patch("aws_resource_cleanup.handler.execute_cleanup_action")
+    @patch("aws_resource_cleanup.handler.send_notification")
+    @patch("aws_resource_cleanup.handler.boto3.client")
+    def test_reordered_policies_would_fail_this_test(
+        self, mock_boto_client, mock_send_notification, mock_execute
+    ):
+        """
+        GIVEN instance matching both TTL and untagged policies
+        WHEN cleanup_region is called
+        THEN if policies were reordered, this test would catch it
+
+        This test documents that policy order matters and must be maintained.
+        """
+        mock_ec2 = Mock()
+        mock_boto_client.return_value = mock_ec2
+
+        now = datetime.datetime.now(datetime.timezone.utc)
+        two_hours_ago = now - datetime.timedelta(hours=2)
+
+        # Instance with expired TTL and no billing tag
+        mock_ec2.describe_instances.return_value = {
+            "Reservations": [
+                {
+                    "Instances": [
+                        {
+                            "InstanceId": "i-dual-match",
+                            "State": {"Name": "running"},
+                            "LaunchTime": two_hours_ago,
+                            "Tags": [
+                                {"Key": "Name", "Value": "test"},
+                                {
+                                    "Key": "creation-time",
+                                    "Value": str(int(two_hours_ago.timestamp())),
+                                },
+                                {"Key": "delete-cluster-after-hours", "Value": "1"},
+                                # No billing tag - matches untagged policy too
+                            ],
+                        }
+                    ]
+                }
+            ]
+        }
+
+        mock_execute.return_value = True
+
+        actions = cleanup_region("us-east-1")
+
+        # The action MUST be from TTL policy (first in priority)
+        # If someone reorders the policies in handler.py (lines 96-100),
+        # this test will fail, alerting them to the priority requirement
+        assert len(actions) == 1
+        action = actions[0]
+
+        # Explicit check: must NOT be untagged reason
+        assert "untagged" not in action.reason.lower(), (
+            "TTL policy should take priority over untagged policy. "
+            "If this fails, check that check_ttl_expiration is called "
+            "before check_untagged in handler.py cleanup_region()"
+        )

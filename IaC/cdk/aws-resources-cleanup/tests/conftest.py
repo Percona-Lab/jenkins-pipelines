@@ -13,6 +13,67 @@ import pytest
 from typing import Any, Callable
 
 
+class VolumeBuilder:
+    """Builder pattern for creating test EBS volumes.
+
+    This builder helps create test volume data structures with various
+    configurations without needing to mock AWS services.
+    """
+
+    def __init__(self):
+        self._volume = {
+            "VolumeId": "vol-test123456",
+            "State": "available",
+            "CreateTime": datetime.datetime.now(datetime.timezone.utc),
+            "Size": 10,
+            "VolumeType": "gp3",
+            "Tags": [],
+        }
+
+    def with_volume_id(self, volume_id: str) -> VolumeBuilder:
+        """Set volume ID."""
+        self._volume["VolumeId"] = volume_id
+        return self
+
+    def with_name(self, name: str) -> VolumeBuilder:
+        """Set Name tag."""
+        self._add_tag("Name", name)
+        return self
+
+    def with_state(self, state: str) -> VolumeBuilder:
+        """Set volume state (available, in-use, creating, deleting)."""
+        self._volume["State"] = state
+        return self
+
+    def with_create_time(self, create_time: datetime.datetime) -> VolumeBuilder:
+        """Set create time."""
+        self._volume["CreateTime"] = create_time
+        return self
+
+    def with_size(self, size_gb: int) -> VolumeBuilder:
+        """Set volume size in GB."""
+        self._volume["Size"] = size_gb
+        return self
+
+    def with_billing_tag(self, billing_tag: str) -> VolumeBuilder:
+        """Add iit-billing-tag."""
+        self._add_tag("iit-billing-tag", billing_tag)
+        return self
+
+    def with_tag(self, key: str, value: str) -> VolumeBuilder:
+        """Add custom tag."""
+        self._add_tag(key, value)
+        return self
+
+    def _add_tag(self, key: str, value: str):
+        """Internal method to add a tag."""
+        self._volume["Tags"].append({"Key": key, "Value": value})
+
+    def build(self) -> dict[str, Any]:
+        """Build and return the volume dictionary."""
+        return self._volume
+
+
 class InstanceBuilder:
     """Builder pattern for creating test EC2 instances.
 
@@ -109,6 +170,12 @@ class InstanceBuilder:
 def instance_builder():
     """Fixture that returns a new InstanceBuilder."""
     return InstanceBuilder()
+
+
+@pytest.fixture
+def volume_builder():
+    """Fixture that returns a new VolumeBuilder."""
+    return VolumeBuilder()
 
 
 @pytest.fixture

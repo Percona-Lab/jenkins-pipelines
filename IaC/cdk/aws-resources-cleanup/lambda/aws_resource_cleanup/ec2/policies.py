@@ -4,7 +4,7 @@ from __future__ import annotations
 import datetime
 from typing import Any
 from ..models import CleanupAction
-from ..models.config import UNTAGGED_THRESHOLD_MINUTES
+from ..models.config import UNTAGGED_THRESHOLD_MINUTES, STOPPED_THRESHOLD_DAYS
 from ..utils import extract_cluster_name, has_valid_billing_tag, get_logger
 
 logger = get_logger()
@@ -131,8 +131,9 @@ def check_long_stopped(
     instance: dict[str, Any], tags_dict: dict[str, str], current_time: int
 ) -> CleanupAction | None:
     """
-    Check if instance has been stopped for more than 30 days.
+    Check if instance has been stopped for more than the configured threshold.
     Stopped instances still incur EBS storage costs.
+    Uses configurable threshold from environment variable.
     """
     if instance["State"]["Name"] != "stopped":
         return None
@@ -143,8 +144,6 @@ def check_long_stopped(
 
     launch_timestamp = int(launch_time.timestamp())
     days_since_launch = (current_time - launch_timestamp) / 86400
-
-    STOPPED_THRESHOLD_DAYS = 30
 
     if days_since_launch > STOPPED_THRESHOLD_DAYS:
         name = tags_dict.get("Name", "N/A")

@@ -20,9 +20,10 @@ class ResourceCleanupStack(Stack):
     """
     CDK Stack for comprehensive AWS resource cleanup.
 
-    Manages EC2 instances, EKS clusters, and OpenShift infrastructure with:
+    Manages EC2 instances, EBS volumes, EKS clusters, and OpenShift infrastructure with:
     - TTL-based policies
     - Billing tag validation
+    - Unattached volume cleanup (available EBS volumes)
     - Cluster-aware cleanup (EKS CloudFormation, OpenShift VPC/ELB/Route53/S3)
     - Configurable dry-run mode
     """
@@ -55,6 +56,23 @@ class ResourceCleanupStack(Stack):
             description="Minutes to wait before terminating untagged instances (default: 30)"
         )
 
+        stopped_threshold_param = CfnParameter(
+            self, "StoppedThresholdDays",
+            type="Number",
+            default=30,
+            min_value=7,
+            max_value=180,
+            description="Days before terminating long-stopped instances (default: 30)"
+        )
+
+        eks_cleanup_param = CfnParameter(
+            self, "EKSCleanupEnabled",
+            type="String",
+            default="true",
+            allowed_values=["true", "false"],
+            description="Enable EKS cluster CloudFormation stack deletion"
+        )
+
         eks_skip_pattern_param = CfnParameter(
             self, "EKSSkipPattern",
             type="String",
@@ -84,6 +102,14 @@ class ResourceCleanupStack(Stack):
             min_value=1,
             max_value=5,
             description="Maximum reconciliation attempts for OpenShift cleanup"
+        )
+
+        volume_cleanup_param = CfnParameter(
+            self, "VolumeCleanupEnabled",
+            type="String",
+            default="true",
+            allowed_values=["true", "false"],
+            description="Enable EBS volume cleanup for unattached (available) volumes"
         )
 
         # SNS Topic for notifications
@@ -120,6 +146,8 @@ class ResourceCleanupStack(Stack):
                 "ec2:TerminateInstances",
                 "ec2:StopInstances",
                 "ec2:CreateTags",
+                "ec2:DescribeVolumes",
+                "ec2:DeleteVolume",
                 "eks:DescribeCluster",
                 "eks:ListClusters",
                 "cloudformation:DescribeStacks",
@@ -175,7 +203,7 @@ class ResourceCleanupStack(Stack):
         cleanup_lambda = lambda_.Function(
             self, "ResourceCleanupLambda",
             function_name="LambdaAWSResourceCleanup",
-            description="Comprehensive AWS resource cleanup: EC2, EKS, OpenShift (VPC, ELB, Route53, S3)",
+            description="Comprehensive AWS resource cleanup: EC2, EBS volumes, EKS, OpenShift (VPC, ELB, Route53, S3)",
             runtime=lambda_.Runtime.PYTHON_3_12,
             handler="aws_resource_cleanup.handler.lambda_handler",
             code=lambda_.Code.from_asset("lambda"),
@@ -186,10 +214,13 @@ class ResourceCleanupStack(Stack):
                 "DRY_RUN": dry_run_param.value_as_string,
                 "SNS_TOPIC_ARN": sns_topic.topic_arn,
                 "UNTAGGED_THRESHOLD_MINUTES": untagged_threshold_param.value_as_string,
+                "STOPPED_THRESHOLD_DAYS": stopped_threshold_param.value_as_string,
+                "EKS_CLEANUP_ENABLED": eks_cleanup_param.value_as_string,
                 "EKS_SKIP_PATTERN": eks_skip_pattern_param.value_as_string,
                 "OPENSHIFT_CLEANUP_ENABLED": openshift_cleanup_param.value_as_string,
                 "OPENSHIFT_BASE_DOMAIN": openshift_domain_param.value_as_string,
-                "OPENSHIFT_MAX_RETRIES": openshift_retries_param.value_as_string
+                "OPENSHIFT_MAX_RETRIES": openshift_retries_param.value_as_string,
+                "VOLUME_CLEANUP_ENABLED": volume_cleanup_param.value_as_string
             }
         )
 

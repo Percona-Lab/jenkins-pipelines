@@ -8,7 +8,7 @@ import boto3
 from typing import Any
 
 from .models import CleanupAction
-from .models.config import DRY_RUN, SNS_TOPIC_ARN
+from .models.config import DRY_RUN, SNS_TOPIC_ARN, VOLUME_CLEANUP_ENABLED
 from .utils import convert_tags_to_dict, get_logger
 from .ec2 import (
     cirrus_ci_add_iit_billing_tag,
@@ -18,6 +18,8 @@ from .ec2 import (
     check_stop_after_days,
     check_long_stopped,
     check_untagged,
+    check_unattached_volume,
+    delete_volume,
 )
 
 logger = get_logger()
@@ -41,7 +43,12 @@ def send_notification(actions: list[CleanupAction], region: str) -> None:
         ]
 
         for action in actions:
-            message_lines.append(f"Instance: {action.instance_id}")
+            # Handle volumes differently from instances
+            if action.resource_type == "volume":
+                message_lines.append(f"Volume: {action.volume_id}")
+            else:
+                message_lines.append(f"Instance: {action.instance_id}")
+
             message_lines.append(f"  Name: {action.name}")
             message_lines.append(f"  Action: {action.action}")
             message_lines.append(f"  Days Overdue: {action.days_overdue:.2f}")
@@ -104,20 +111,56 @@ def cleanup_region(region: str) -> list[CleanupAction]:
                     action.region = region
                     actions.append(action)
 
-        # Execute actions
+        # Execute instance actions
         for action in actions:
             execute_cleanup_action(action, region)
 
-        # Send notification
-        if actions:
-            send_notification(actions, region)
+        # Volume cleanup phase (after instance cleanup)
+        volume_actions = []
 
-        logger.info(f"Completed {region}: {len(actions)} actions")
+        if not VOLUME_CLEANUP_ENABLED:
+            logger.info(f"Volume cleanup disabled for region: {region}")
+        else:
+            logger.info(f"Starting volume cleanup for region: {region}")
+
+            try:
+                # Query all volumes with Name tag (matching legacy LambdaVolumeCleanup filter)
+                volumes_response = ec2.describe_volumes(
+                    Filters=[{"Name": "tag-key", "Values": ["Name"]}]
+                )
+
+                for volume in volumes_response["Volumes"]:
+                    tags_dict = convert_tags_to_dict(volume.get("Tags", []))
+
+                    # Check if volume should be deleted
+                    volume_action = check_unattached_volume(volume, tags_dict, current_time)
+
+                    if volume_action:
+                        volume_action.region = region
+                        volume_actions.append(volume_action)
+
+                # Execute volume deletions
+                for volume_action in volume_actions:
+                    delete_volume(volume_action, region)
+
+                logger.info(f"Completed volume cleanup for {region}: {len(volume_actions)} volumes")
+
+            except Exception as vol_error:
+                logger.error(f"Error during volume cleanup in {region}: {vol_error}")
+
+        # Combine all actions for notification
+        all_actions = actions + volume_actions
+
+        # Send notification
+        if all_actions:
+            send_notification(all_actions, region)
+
+        logger.info(f"Completed {region}: {len(all_actions)} total actions ({len(actions)} instances, {len(volume_actions)} volumes)")
 
     except Exception as e:
         logger.error(f"Error processing region {region}: {e}")
 
-    return actions
+    return actions + volume_actions if 'volume_actions' in locals() else actions
 
 
 def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:
