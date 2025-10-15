@@ -32,7 +32,6 @@ class TestVolumeDetection:
             .with_name("test-volume")
             .with_state("available")
             .with_create_time(create_time)
-            .with_billing_tag("test-billing")
             .build()
         )
         tags_dict = tags_dict_from_instance(volume)
@@ -43,7 +42,7 @@ class TestVolumeDetection:
         assert action.action == "DELETE_VOLUME"
         assert action.volume_id == "vol-test123456"
         assert action.name == "test-volume"
-        assert action.billing_tag == "test-billing"
+        assert action.billing_tag == "<MISSING>"
         assert action.resource_type == "volume"
         assert 0.9 < action.days_overdue < 1.1  # ~1 day old
 
