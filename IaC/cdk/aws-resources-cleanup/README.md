@@ -2,7 +2,7 @@
 
 Automated Lambda for EC2, EBS, EKS, and OpenShift cleanup across AWS regions.
 
-**Runtime**: Python 3.12 ARM64, 1024MB, 600s timeout
+**Runtime**: Python 3.13 ARM64, 1024MB, 600s timeout
 **Default**: DRY_RUN mode (logs only)
 **Concurrency**: 1 (prevents race conditions)
 

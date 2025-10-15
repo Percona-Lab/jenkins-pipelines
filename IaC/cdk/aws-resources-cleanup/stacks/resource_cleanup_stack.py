@@ -250,7 +250,7 @@ class ResourceCleanupStack(Stack):
             self, "ResourceCleanupLambda",
             function_name="LambdaAWSResourceCleanup",
             description="Comprehensive AWS resource cleanup: EC2, EBS volumes, EKS, OpenShift (VPC, ELB, Route53, S3)",
-            runtime=lambda_.Runtime.PYTHON_3_12,
+            runtime=lambda_.Runtime.PYTHON_3_13,
             architecture=lambda_.Architecture.ARM_64,
             handler="aws_resource_cleanup.handler.lambda_handler",
             code=lambda_.Code.from_asset("lambda"),
