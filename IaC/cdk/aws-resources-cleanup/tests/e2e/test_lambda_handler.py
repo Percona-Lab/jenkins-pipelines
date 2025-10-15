@@ -1,4 +1,4 @@
-"""Tests for Lambda handler entry point and integration flows.
+"""End-to-end tests for Lambda handler entry point and integration flows.
 
 Tests focus on:
 - lambda_handler() entry point (multi-region orchestration)
@@ -17,6 +17,8 @@ from aws_resource_cleanup.handler import lambda_handler, cleanup_region
 from aws_resource_cleanup.models import CleanupAction
 
 
+@pytest.mark.e2e
+@pytest.mark.aws
 class TestLambdaHandlerEntryPoint:
     """Test the main Lambda handler entry point."""
 
@@ -179,6 +181,8 @@ class TestLambdaHandlerEntryPoint:
             lambda_handler({}, None)
 
 
+@pytest.mark.e2e
+@pytest.mark.aws
 class TestPartialFailureScenarios:
     """Test error propagation and partial failure handling."""
 
@@ -219,6 +223,9 @@ class TestPartialFailureScenarios:
         assert body["total_actions"] == 2
 
 
+@pytest.mark.e2e
+@pytest.mark.aws
+@pytest.mark.smoke
 class TestEndToEndIntegrationFlow:
     """Integration tests with minimal mocking to verify complete flow."""
 
@@ -403,6 +410,7 @@ class TestEndToEndIntegrationFlow:
         mock_send_notification.assert_not_called()
 
 
+@pytest.mark.e2e
 class TestLambdaEventHandling:
     """Test Lambda event validation and edge cases."""
 

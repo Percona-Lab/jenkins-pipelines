@@ -8,6 +8,8 @@ from __future__ import annotations
 import pytest
 
 
+@pytest.mark.unit
+@pytest.mark.openshift
 class TestOpenShiftCleanupOrdering:
     """Test OpenShift cleanup dependency ordering logic."""
 
@@ -86,6 +88,8 @@ class TestOpenShiftCleanupOrdering:
         assert should_cleanup_dns_and_s3 is True
 
 
+@pytest.mark.unit
+@pytest.mark.openshift
 class TestOpenShiftCleanupConfiguration:
     """Test OpenShift cleanup configuration and settings."""
 
@@ -153,6 +157,8 @@ class TestOpenShiftCleanupConfiguration:
         assert OPENSHIFT_MAX_RETRIES == 3
 
 
+@pytest.mark.unit
+@pytest.mark.openshift
 class TestClusterDetectionLogic:
     """Test cluster identification and classification."""
 
@@ -226,6 +232,8 @@ class TestClusterDetectionLogic:
         assert has_cluster_tag is False
 
 
+@pytest.mark.unit
+@pytest.mark.openshift
 class TestOpenShiftActionDetermination:
     """Test OpenShift-specific action type determination."""
 
@@ -252,6 +260,8 @@ class TestOpenShiftActionDetermination:
         assert action_type != "TERMINATE_OPENSHIFT_CLUSTER"
 
 
+@pytest.mark.unit
+@pytest.mark.openshift
 class TestWaitTimesAndDelays:
     """Test delay logic in cleanup process."""
 
@@ -316,6 +326,8 @@ class TestWaitTimesAndDelays:
         assert isinstance(DRY_RUN, bool)
 
 
+@pytest.mark.unit
+@pytest.mark.openshift
 class TestVPCExistenceCheck:
     """Test VPC existence check logic in reconciliation loop."""
 
@@ -355,6 +367,8 @@ class TestVPCExistenceCheck:
         assert should_proceed_with_cleanup is True
 
 
+@pytest.mark.unit
+@pytest.mark.openshift
 class TestErrorHandlingInOrchestration:
     """Test error handling in OpenShift orchestration."""
 

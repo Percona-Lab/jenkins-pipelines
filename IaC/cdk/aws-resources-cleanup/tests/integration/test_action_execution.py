@@ -1,6 +1,6 @@
-"""Unit tests for handler orchestration and action execution.
+"""Integration tests for handler orchestration and action execution.
 
-Tests focus on the critical execution paths:
+Tests focus on the critical execution paths with AWS mocking:
 - Action execution (execute_cleanup_action)
 - Region cleanup orchestration (cleanup_region)
 - Error handling
@@ -17,6 +17,8 @@ from aws_resource_cleanup.ec2.instances import execute_cleanup_action
 from aws_resource_cleanup.handler import cleanup_region
 
 
+@pytest.mark.integration
+@pytest.mark.aws
 class TestExecuteCleanupAction:
     """Test action execution for all action types."""
 
@@ -329,6 +331,8 @@ class TestExecuteCleanupAction:
         assert result is False
 
 
+@pytest.mark.integration
+@pytest.mark.aws
 class TestCleanupRegion:
     """Test region cleanup orchestration."""
 
@@ -450,6 +454,8 @@ class TestCleanupRegion:
 from unittest.mock import Mock, patch, MagicMock
 
 
+@pytest.mark.integration
+@pytest.mark.aws
 @patch("aws_resource_cleanup.ec2.instances.boto3.client")
 def test_unknown_action_returns_false(mock_boto_client):
     from aws_resource_cleanup.models import CleanupAction
@@ -471,6 +477,9 @@ def test_unknown_action_returns_false(mock_boto_client):
     ec2.stop_instances.assert_not_called()
 
 
+@pytest.mark.integration
+@pytest.mark.aws
+@pytest.mark.openshift
 @patch("aws_resource_cleanup.ec2.instances.boto3.client")
 @patch("aws_resource_cleanup.models.config.OPENSHIFT_CLEANUP_ENABLED", False)
 @patch("aws_resource_cleanup.ec2.instances.DRY_RUN", False)
@@ -494,6 +503,9 @@ def test_terminate_openshift_cleanup_disabled_returns_true_no_calls(mock_boto_cl
     ec2.terminate_instances.assert_not_called()
 
 
+@pytest.mark.integration
+@pytest.mark.aws
+@pytest.mark.openshift
 @patch("aws_resource_cleanup.ec2.instances.destroy_openshift_cluster")
 @patch("aws_resource_cleanup.ec2.instances.detect_openshift_infra_id")
 @patch("aws_resource_cleanup.ec2.instances.boto3.client")
@@ -525,6 +537,8 @@ def test_terminate_openshift_infra_missing_still_terminates_instance(
     ec2.terminate_instances.assert_called_once_with(InstanceIds=["i-openshift-novpc"])
 
 
+@pytest.mark.integration
+@pytest.mark.aws
 @patch("aws_resource_cleanup.ec2.instances.boto3.resource")
 def test_cirrus_ci_adds_billing_tag_when_missing(mock_boto_resource):
     from aws_resource_cleanup.ec2.instances import cirrus_ci_add_iit_billing_tag
@@ -545,6 +559,8 @@ def test_cirrus_ci_adds_billing_tag_when_missing(mock_boto_resource):
     assert {"Key": "iit-billing-tag", "Value": "CirrusCI"} in         mock_instance.create_tags.call_args.kwargs["Tags"]
 
 
+@pytest.mark.integration
+@pytest.mark.aws
 @patch("aws_resource_cleanup.ec2.instances.boto3.resource")
 def test_cirrus_ci_noop_if_tag_already_present(mock_boto_resource):
     from aws_resource_cleanup.ec2.instances import cirrus_ci_add_iit_billing_tag
@@ -557,6 +573,8 @@ def test_cirrus_ci_noop_if_tag_already_present(mock_boto_resource):
     mock_boto_resource.assert_not_called()
 
 
+@pytest.mark.integration
+@pytest.mark.aws
 @patch("aws_resource_cleanup.handler.boto3.client")
 def test_send_notification_publishes_when_topic_set(mock_boto_client):
     from aws_resource_cleanup.handler import send_notification
@@ -591,6 +609,8 @@ def test_send_notification_publishes_when_topic_set(mock_boto_client):
     assert "Action:" in kwargs["Message"]
 
 
+@pytest.mark.integration
+@pytest.mark.aws
 @patch("aws_resource_cleanup.handler.boto3.client")
 def test_send_notification_skips_when_no_topic(mock_boto_client):
     from aws_resource_cleanup.handler import send_notification
