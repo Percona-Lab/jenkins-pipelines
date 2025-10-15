@@ -40,20 +40,15 @@ def has_valid_billing_tag(
 
         # If it's a valid future timestamp, check if it's expired
         if expiration_timestamp > current_timestamp:
-            logger.info(
-                f"Valid billing tag with expiration {expiration_timestamp} "
-                f"(expires in {expiration_timestamp - current_timestamp}s)"
-            )
             return True
         else:
-            logger.info(
+            logger.debug(
                 f"Billing tag expired: {expiration_timestamp} < {current_timestamp} "
                 f"(expired {current_timestamp - expiration_timestamp}s ago)"
             )
             return False
     except ValueError:
         # Not a timestamp, treat as category string (e.g., "pmm-staging", "CirrusCI")
-        logger.info(f"Valid billing tag category: {tag_value}")
         return True
 
 

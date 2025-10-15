@@ -9,6 +9,7 @@ from aws_cdk import (
     aws_sns_subscriptions as subscriptions,
     aws_events as events,
     aws_events_targets as targets,
+    aws_logs as logs,
     CfnParameter,
     CfnOutput,
     Tags
@@ -37,14 +38,14 @@ class ResourceCleanupStack(Stack):
             type="String",
             default="true",
             allowed_values=["true", "false"],
-            description="If true, Lambda will only log actions without terminating instances"
+            description="[SAFETY] Safe mode - logs all actions without executing them. Set to 'false' only when ready for actual resource deletion. Always test with 'true' first."
         )
 
         notification_email_param = CfnParameter(
             self, "NotificationEmail",
             type="String",
             default="",
-            description="Email address for cleanup notifications (optional, leave empty to skip SNS)"
+            description="[NOTIFICATIONS] Email address for cleanup action reports. Leave empty to disable SNS notifications. Subscribe to SNS topic manually after deployment."
         )
 
         untagged_threshold_param = CfnParameter(
@@ -53,7 +54,7 @@ class ResourceCleanupStack(Stack):
             default=30,
             min_value=10,
             max_value=1440,
-            description="Minutes to wait before terminating untagged instances (default: 30)"
+            description="[POLICY] Grace period in minutes before terminating instances without iit-billing-tag. Default 30 minutes. Range: 10-1440 minutes (24 hours max)."
         )
 
         stopped_threshold_param = CfnParameter(
@@ -62,7 +63,7 @@ class ResourceCleanupStack(Stack):
             default=30,
             min_value=7,
             max_value=180,
-            description="Days before terminating long-stopped instances (default: 30)"
+            description="[POLICY] Days a stopped instance can remain before termination. Default 30 days. Range: 7-180 days. Helps reduce costs from forgotten stopped instances."
         )
 
         eks_cleanup_param = CfnParameter(
@@ -70,14 +71,14 @@ class ResourceCleanupStack(Stack):
             type="String",
             default="true",
             allowed_values=["true", "false"],
-            description="Enable EKS cluster CloudFormation stack deletion"
+            description="[EKS] Enable full EKS cluster deletion via CloudFormation stack removal (eksctl-* stacks). When disabled, only terminates EC2 nodes."
         )
 
         eks_skip_pattern_param = CfnParameter(
             self, "EKSSkipPattern",
             type="String",
             default="pe-.*",
-            description="Regex pattern for EKS cluster names to skip from deletion"
+            description="[EKS] Regex pattern for cluster names to protect from deletion. Default 'pe-.*' protects production environment clusters. Use '(?!)' to disable protection."
         )
 
         openshift_cleanup_param = CfnParameter(
@@ -85,14 +86,14 @@ class ResourceCleanupStack(Stack):
             type="String",
             default="true",
             allowed_values=["true", "false"],
-            description="Enable advanced OpenShift cluster resource cleanup"
+            description="[OPENSHIFT] Enable comprehensive OpenShift cluster cleanup including VPC, load balancers, Route53 DNS, and S3 buckets. When disabled, only terminates EC2 nodes."
         )
 
         openshift_domain_param = CfnParameter(
             self, "OpenShiftBaseDomain",
             type="String",
             default="cd.percona.com",
-            description="Base domain for Route53 DNS cleanup"
+            description="[OPENSHIFT] Base domain for Route53 DNS record cleanup. Only records under this domain will be removed. Must match your OpenShift installation domain."
         )
 
         openshift_retries_param = CfnParameter(
@@ -101,7 +102,7 @@ class ResourceCleanupStack(Stack):
             default=3,
             min_value=1,
             max_value=5,
-            description="Maximum reconciliation attempts for OpenShift cleanup"
+            description="[OPENSHIFT] Max cleanup retry attempts per cluster. Network resources have dependencies requiring multiple passes. Default 3 retries handles most cases."
         )
 
         volume_cleanup_param = CfnParameter(
@@ -109,7 +110,39 @@ class ResourceCleanupStack(Stack):
             type="String",
             default="true",
             allowed_values=["true", "false"],
-            description="Enable EBS volume cleanup for unattached (available) volumes"
+            description="[VOLUMES] Enable cleanup of unattached (available) EBS volumes. Only deletes volumes without protection tags (PerconaKeep, valid billing tags, 'do not remove' in name)."
+        )
+
+        # Scheduling
+        schedule_rate_param = CfnParameter(
+            self, "ScheduleRateMinutes",
+            type="Number",
+            default=15,
+            description="[SCHEDULING] Execution frequency in minutes. Lambda scans all target regions at this interval. Recommended: 15 for normal use, 5 for aggressive cleanup, 60 for light monitoring."
+        )
+
+        # Advanced Cleanup
+        regions_param = CfnParameter(
+            self, "TargetRegions",
+            type="String",
+            default="all",
+            description="[REGION FILTER] Target AWS regions to scan. Use 'all' for all regions, or comma-separated list (e.g., 'us-east-1,us-west-2'). Reduces execution time when limiting to specific regions."
+        )
+
+        # Logging
+        log_retention_param = CfnParameter(
+            self, "LogRetentionDays",
+            type="Number",
+            default=30,
+            description="[LOGGING] CloudWatch log retention period in days. Valid options: 1, 3, 7, 14, 30, 60, 90, 120, 180. Affects storage costs - longer retention = higher costs."
+        )
+
+        log_level_param = CfnParameter(
+            self, "LogLevel",
+            type="String",
+            default="INFO",
+            allowed_values=["DEBUG", "INFO", "WARNING", "ERROR"],
+            description="[LOGGING] Log verbosity. DEBUG = detailed (all protection decisions), INFO = standard (actions + summaries), WARNING = issues only, ERROR = failures only."
         )
 
         # SNS Topic for notifications
@@ -199,17 +232,36 @@ class ResourceCleanupStack(Stack):
             resources=[sns_topic.topic_arn]
         ))
 
+        # Map log retention parameter to CDK enum
+        log_retention_mapping = {
+            1: logs.RetentionDays.ONE_DAY,
+            3: logs.RetentionDays.THREE_DAYS,
+            7: logs.RetentionDays.ONE_WEEK,
+            14: logs.RetentionDays.TWO_WEEKS,
+            30: logs.RetentionDays.ONE_MONTH,
+            60: logs.RetentionDays.TWO_MONTHS,
+            90: logs.RetentionDays.THREE_MONTHS,
+            120: logs.RetentionDays.FOUR_MONTHS,
+            180: logs.RetentionDays.SIX_MONTHS,
+        }
+
         # Lambda Function
         cleanup_lambda = lambda_.Function(
             self, "ResourceCleanupLambda",
             function_name="LambdaAWSResourceCleanup",
             description="Comprehensive AWS resource cleanup: EC2, EBS volumes, EKS, OpenShift (VPC, ELB, Route53, S3)",
             runtime=lambda_.Runtime.PYTHON_3_12,
+            architecture=lambda_.Architecture.ARM_64,
             handler="aws_resource_cleanup.handler.lambda_handler",
             code=lambda_.Code.from_asset("lambda"),
             role=lambda_role,
             timeout=Duration.seconds(600),
             memory_size=1024,
+            reserved_concurrent_executions=1,
+            log_retention=log_retention_mapping.get(
+                log_retention_param.value_as_number,
+                logs.RetentionDays.ONE_MONTH
+            ),
             environment={
                 "DRY_RUN": dry_run_param.value_as_string,
                 "SNS_TOPIC_ARN": sns_topic.topic_arn,
@@ -220,24 +272,33 @@ class ResourceCleanupStack(Stack):
                 "OPENSHIFT_CLEANUP_ENABLED": openshift_cleanup_param.value_as_string,
                 "OPENSHIFT_BASE_DOMAIN": openshift_domain_param.value_as_string,
                 "OPENSHIFT_MAX_RETRIES": openshift_retries_param.value_as_string,
-                "VOLUME_CLEANUP_ENABLED": volume_cleanup_param.value_as_string
+                "VOLUME_CLEANUP_ENABLED": volume_cleanup_param.value_as_string,
+                "TARGET_REGIONS": regions_param.value_as_string,
+                "LOG_LEVEL": log_level_param.value_as_string
             }
         )
 
         Tags.of(cleanup_lambda).add("iit-billing-tag", "removeUntaggedEc2")
 
-        # EventBridge Rule (15 minute schedule - matching legacy LambdaEC2Cleanup behavior)
+        # EventBridge Rule (configurable schedule)
         schedule_rule = events.Rule(
             self, "CleanupScheduleRule",
             rule_name="AWSResourceCleanupSchedule",
-            description="Executes every 15 minutes for comprehensive AWS resource cleanup",
-            schedule=events.Schedule.rate(Duration.minutes(15)),
+            description=f"Executes every {schedule_rate_param.value_as_number} minutes for comprehensive AWS resource cleanup",
+            schedule=events.Schedule.rate(Duration.minutes(schedule_rate_param.value_as_number)),
             enabled=True
         )
 
         schedule_rule.add_target(targets.LambdaFunction(cleanup_lambda))
 
         # Outputs
+        CfnOutput(
+            self, "LambdaFunctionName",
+            description="Name of the Lambda function",
+            value=cleanup_lambda.function_name,
+            export_name="AWSResourceCleanupLambdaName"
+        )
+
         CfnOutput(
             self, "LambdaFunctionArn",
             description="ARN of the Lambda function",

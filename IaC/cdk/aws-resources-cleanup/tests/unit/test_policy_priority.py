@@ -85,10 +85,12 @@ class TestPolicyPriority:
             protected=True
         )
         tags_dict = tags_dict_from_instance(instance)
-        
-        # Should be protected
-        assert is_protected(tags_dict) is True
-        
+
+        # Should be protected (is_protected returns tuple: (bool, str))
+        is_protected_flag, reason = is_protected(tags_dict)
+        assert is_protected_flag is True
+        assert reason != ""  # Should have a protection reason
+
         # In the handler, protected instances are skipped before policy checks
         # So policies wouldn't even be evaluated
 

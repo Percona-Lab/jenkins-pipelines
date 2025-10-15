@@ -66,22 +66,31 @@ class TestVolumeDetection:
 
         assert action is None
 
-    def test_volume_without_name_tag_returns_none(
+    def test_volume_without_name_tag_creates_delete_action(
         self, volume_builder, current_time, tags_dict_from_instance
     ):
         """
         GIVEN an available volume without Name tag
         WHEN check_unattached_volume is called
-        THEN None should be returned (legacy filter requirement)
+        THEN a DELETE_VOLUME action should be returned (untagged volumes are targets)
         """
-        volume = volume_builder.with_state("available").build()
+        create_time = datetime.datetime.fromtimestamp(
+            current_time - 86400,  # 1 day old
+            tz=datetime.timezone.utc
+        )
+        volume = volume_builder.with_state("available").with_create_time(create_time).build()
         # Manually remove Name tag if it was added
         volume["Tags"] = [tag for tag in volume.get("Tags", []) if tag["Key"] != "Name"]
         tags_dict = tags_dict_from_instance(volume)
 
         action = check_unattached_volume(volume, tags_dict, current_time)
 
-        assert action is None
+        assert action is not None
+        assert action.action == "DELETE_VOLUME"
+        assert action.volume_id == "vol-test123456"
+        assert action.name == "<UNTAGGED>"
+        assert action.billing_tag == "<MISSING>"
+        assert action.resource_type == "volume"
 
 
 @pytest.mark.unit
@@ -100,7 +109,9 @@ class TestVolumeProtection:
         volume = volume_builder.with_name("jenkins-data, do not remove").build()
         tags_dict = tags_dict_from_instance(volume)
 
-        assert is_volume_protected(tags_dict) is True
+        is_protected, reason = is_volume_protected(tags_dict, "vol-test123")
+        assert is_protected is True
+        assert "do not remove" in reason
 
     def test_volume_with_percona_keep_tag_is_protected(
         self, volume_builder, tags_dict_from_instance
@@ -118,7 +129,9 @@ class TestVolumeProtection:
         )
         tags_dict = tags_dict_from_instance(volume)
 
-        assert is_volume_protected(tags_dict) is True
+        is_protected, reason = is_volume_protected(tags_dict, "vol-test123")
+        assert is_protected is True
+        assert "PerconaKeep" in reason
 
     def test_volume_with_persistent_billing_tag_is_protected(
         self, volume_builder, tags_dict_from_instance
@@ -136,7 +149,9 @@ class TestVolumeProtection:
         )
         tags_dict = tags_dict_from_instance(volume)
 
-        assert is_volume_protected(tags_dict) is True
+        is_protected, reason = is_volume_protected(tags_dict, "vol-test123")
+        assert is_protected is True
+        assert "jenkins-dev-pmm" in reason
 
     def test_volume_with_valid_billing_tag_is_protected(
         self, volume_builder, tags_dict_from_instance
@@ -154,7 +169,9 @@ class TestVolumeProtection:
         )
         tags_dict = tags_dict_from_instance(volume)
 
-        assert is_volume_protected(tags_dict) is True
+        is_protected, reason = is_volume_protected(tags_dict, "vol-test123")
+        assert is_protected is True
+        assert "pmm-staging" in reason
 
     def test_unprotected_volume_returns_false(
         self, volume_builder, tags_dict_from_instance
@@ -171,7 +188,9 @@ class TestVolumeProtection:
         )
         tags_dict = tags_dict_from_instance(volume)
 
-        assert is_volume_protected(tags_dict) is False
+        is_protected, reason = is_volume_protected(tags_dict, "vol-test123")
+        assert is_protected is False
+        assert reason == ""
 
 
 @pytest.mark.unit

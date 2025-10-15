@@ -30,11 +30,13 @@ def delete_load_balancers(infra_id: str, region: str):
             ):
                 if DRY_RUN:
                     logger.info(
-                        f"[DRY-RUN] Would delete Classic ELB: {lb['LoadBalancerName']}"
+                        f"[DRY-RUN] Would DELETE load_balancer {lb['LoadBalancerName']} for cluster {infra_id}"
                     )
                 else:
                     elb.delete_load_balancer(LoadBalancerName=lb["LoadBalancerName"])
-                    logger.info(f"Deleted Classic ELB: {lb['LoadBalancerName']}")
+                    logger.info(
+                        f"DELETE load_balancer {lb['LoadBalancerName']} for cluster {infra_id}"
+                    )
 
         # Delete ALB/NLBs
         alb_nlbs = elbv2.describe_load_balancers().get("LoadBalancers", [])
@@ -44,11 +46,13 @@ def delete_load_balancers(infra_id: str, region: str):
             ):
                 if DRY_RUN:
                     logger.info(
-                        f"[DRY-RUN] Would delete ALB/NLB: {lb['LoadBalancerName']}"
+                        f"[DRY-RUN] Would DELETE load_balancer {lb['LoadBalancerName']} for cluster {infra_id}"
                     )
                 else:
                     elbv2.delete_load_balancer(LoadBalancerArn=lb["LoadBalancerArn"])
-                    logger.info(f"Deleted ALB/NLB: {lb['LoadBalancerName']}")
+                    logger.info(
+                        f"DELETE load_balancer {lb['LoadBalancerName']} for cluster {infra_id}"
+                    )
 
     except Exception as e:
         logger.error(f"Error deleting load balancers: {e}")

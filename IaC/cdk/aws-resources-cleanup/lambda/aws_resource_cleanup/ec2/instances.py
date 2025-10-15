@@ -45,13 +45,22 @@ def cirrus_ci_add_iit_billing_tag(
             )
 
 
-def is_protected(tags_dict: dict[str, str]) -> bool:
-    """Check if instance is protected from auto-deletion."""
+def is_protected(tags_dict: dict[str, str], instance_id: str = "") -> tuple[bool, str]:
+    """
+    Check if instance is protected from auto-deletion.
+
+    Returns:
+        Tuple of (is_protected, reason) where reason describes why it's protected
+    """
     billing_tag = tags_dict.get("iit-billing-tag", "")
+    name = tags_dict.get("Name", "<UNNAMED>")
 
     # Protected by persistent billing tag
     if billing_tag in PERSISTENT_TAGS:
-        return True
+        reason = f"Persistent billing tag '{billing_tag}'"
+        if instance_id:
+            logger.info(f"Instance {instance_id} protected: {reason} ({name})")
+        return True, reason
 
     # Protected if has valid billing tag (category or non-expired timestamp)
     if has_valid_billing_tag(tags_dict):
@@ -60,9 +69,12 @@ def is_protected(tags_dict: dict[str, str]) -> bool:
             "delete-cluster-after-hours" in tags_dict or "stop-after-days" in tags_dict
         )
         if not has_ttl:
-            return True
+            reason = f"Valid billing tag '{billing_tag}'"
+            if instance_id:
+                logger.info(f"Instance {instance_id} protected: {reason} ({name})")
+            return True, reason
 
-    return False
+    return False, ""
 
 
 def execute_cleanup_action(action: CleanupAction, region: str) -> bool:
@@ -73,11 +85,11 @@ def execute_cleanup_action(action: CleanupAction, region: str) -> bool:
         if action.action == "TERMINATE":
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would terminate {action.instance_id} in {region}: {action.reason}"
+                    f"[DRY-RUN] Would TERMINATE instance {action.instance_id} in {region}: {action.reason}"
                 )
             else:
                 logger.info(
-                    f"Terminating {action.instance_id} in {region}: {action.reason}"
+                    f"TERMINATE instance {action.instance_id} in {region}: {action.reason}"
                 )
                 ec2.terminate_instances(InstanceIds=[action.instance_id])
             return True
@@ -94,21 +106,23 @@ def execute_cleanup_action(action: CleanupAction, region: str) -> bool:
             if EKS_CLEANUP_ENABLED:
                 if DRY_RUN:
                     logger.info(
-                        f"[DRY-RUN] Would delete EKS cluster via CloudFormation: {action.cluster_name} in {region}"
+                        f"[DRY-RUN] Would TERMINATE_CLUSTER eks {action.cluster_name} in {region}"
                     )
                     logger.info(
-                        f"[DRY-RUN] Would terminate cluster instance {action.instance_id}"
+                        f"[DRY-RUN] Would TERMINATE instance {action.instance_id} for cluster {action.cluster_name}"
                     )
                 else:
                     logger.info(
-                        f"Deleting EKS cluster {action.cluster_name} via CloudFormation in {region}"
+                        f"TERMINATE_CLUSTER eks {action.cluster_name} in {region}"
                     )
                     delete_eks_cluster_stack(action.cluster_name, region)
-                    logger.info(f"Terminating cluster instance {action.instance_id}")
+                    logger.info(
+                        f"TERMINATE instance {action.instance_id} for cluster {action.cluster_name}"
+                    )
                     ec2.terminate_instances(InstanceIds=[action.instance_id])
             else:
                 logger.info(
-                    f"EKS cleanup disabled, would only terminate instance {action.instance_id}"
+                    f"EKS cleanup disabled, would only TERMINATE instance {action.instance_id}"
                 )
             return True
 
@@ -127,30 +141,36 @@ def execute_cleanup_action(action: CleanupAction, region: str) -> bool:
                 if infra_id:
                     if DRY_RUN:
                         logger.info(
-                            f"[DRY-RUN] Would destroy OpenShift cluster: {cluster_name} ({infra_id})"
+                            f"[DRY-RUN] Would TERMINATE_OPENSHIFT_CLUSTER {cluster_name} ({infra_id}) in {region}"
                         )
                     else:
+                        logger.info(
+                            f"TERMINATE_OPENSHIFT_CLUSTER {cluster_name} ({infra_id}) in {region}"
+                        )
                         destroy_openshift_cluster(cluster_name, infra_id, region)
                 if DRY_RUN:
                     logger.info(
-                        f"[DRY-RUN] Would terminate OpenShift instance {action.instance_id}"
+                        f"[DRY-RUN] Would TERMINATE instance {action.instance_id} for cluster {cluster_name}"
                     )
                 else:
+                    logger.info(
+                        f"TERMINATE instance {action.instance_id} for cluster {cluster_name}"
+                    )
                     ec2.terminate_instances(InstanceIds=[action.instance_id])
             else:
                 logger.info(
-                    f"OpenShift cleanup disabled, would only terminate instance {action.instance_id}"
+                    f"OpenShift cleanup disabled, would only TERMINATE instance {action.instance_id}"
                 )
             return True
 
         elif action.action == "STOP":
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would stop {action.instance_id} in {region}: {action.reason}"
+                    f"[DRY-RUN] Would STOP instance {action.instance_id} in {region}: {action.reason}"
                 )
             else:
                 logger.info(
-                    f"Stopping {action.instance_id} in {region}: {action.reason}"
+                    f"STOP instance {action.instance_id} in {region}: {action.reason}"
                 )
                 ec2.stop_instances(InstanceIds=[action.instance_id])
             return True

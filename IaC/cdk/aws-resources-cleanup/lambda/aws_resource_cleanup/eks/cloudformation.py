@@ -142,16 +142,17 @@ def delete_eks_cluster_stack(cluster_name: str, region: str) -> bool:
         if stack_status == "DELETE_FAILED":
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would retry deletion of failed stack {stack_name}"
+                    f"[DRY-RUN] Would DELETE cloudformation_stack {stack_name} (retry after cleanup) in {region}"
                 )
             else:
                 logger.info(
-                    f"Stack {stack_name} previously failed deletion, "
-                    f"attempting cleanup and retry"
+                    f"Stack {stack_name} previously failed deletion, attempting cleanup and retry"
                 )
                 cleanup_failed_stack_resources(stack_name, region)
                 cfn.delete_stack(StackName=stack_name)
-                logger.info(f"Retrying deletion of stack {stack_name} after cleanup")
+                logger.info(
+                    f"DELETE cloudformation_stack {stack_name} (retrying after cleanup) in {region}"
+                )
             return True
 
         # Handle already deleting
@@ -162,17 +163,12 @@ def delete_eks_cluster_stack(cluster_name: str, region: str) -> bool:
         # Initiate deletion for new stacks
         if DRY_RUN:
             logger.info(
-                f"[DRY-RUN] Would delete CloudFormation stack {stack_name} "
-                f"for EKS cluster {cluster_name} in {region}"
+                f"[DRY-RUN] Would DELETE cloudformation_stack {stack_name} for cluster {cluster_name} in {region}"
             )
         else:
-            logger.info(
-                f"Deleting CloudFormation stack {stack_name} "
-                f"for EKS cluster {cluster_name} in {region}"
-            )
             cfn.delete_stack(StackName=stack_name)
             logger.info(
-                f"Successfully initiated deletion of stack {stack_name} for cluster {cluster_name}"
+                f"DELETE cloudformation_stack {stack_name} for cluster {cluster_name} in {region}"
             )
         return True
 

@@ -11,9 +11,7 @@ UNTAGGED_THRESHOLD_MINUTES = int(os.environ.get("UNTAGGED_THRESHOLD_MINUTES", "3
 STOPPED_THRESHOLD_DAYS = int(os.environ.get("STOPPED_THRESHOLD_DAYS", "30"))
 
 # EKS cleanup configuration
-EKS_CLEANUP_ENABLED = (
-    os.environ.get("EKS_CLEANUP_ENABLED", "true").lower() == "true"
-)
+EKS_CLEANUP_ENABLED = os.environ.get("EKS_CLEANUP_ENABLED", "true").lower() == "true"
 EKS_SKIP_PATTERN = os.environ.get("EKS_SKIP_PATTERN", "pe-.*")
 
 # OpenShift cleanup configuration
@@ -27,6 +25,12 @@ OPENSHIFT_MAX_RETRIES = int(os.environ.get("OPENSHIFT_MAX_RETRIES", "3"))
 VOLUME_CLEANUP_ENABLED = (
     os.environ.get("VOLUME_CLEANUP_ENABLED", "true").lower() == "true"
 )
+
+# Region filtering
+TARGET_REGIONS = os.environ.get("TARGET_REGIONS", "all")
+
+# Logging configuration
+LOG_LEVEL = os.environ.get("LOG_LEVEL", "INFO").upper()
 
 # Persistent billing tags (never auto-delete)
 PERSISTENT_TAGS = {

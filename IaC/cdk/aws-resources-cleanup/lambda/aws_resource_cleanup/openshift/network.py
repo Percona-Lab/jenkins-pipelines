@@ -22,11 +22,13 @@ def delete_nat_gateways(infra_id: str, region: str):
         for nat in nat_gws:
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would delete NAT Gateway: {nat['NatGatewayId']}"
+                    f"[DRY-RUN] Would DELETE nat_gateway {nat['NatGatewayId']} for cluster {infra_id}"
                 )
             else:
                 ec2.delete_nat_gateway(NatGatewayId=nat["NatGatewayId"])
-                logger.info(f"Deleted NAT Gateway: {nat['NatGatewayId']}")
+                logger.info(
+                    f"DELETE nat_gateway {nat['NatGatewayId']} for cluster {infra_id}"
+                )
 
     except Exception as e:
         logger.error(f"Error deleting NAT gateways: {e}")
@@ -45,11 +47,15 @@ def release_elastic_ips(infra_id: str, region: str):
         for eip in eips:
             if "AllocationId" in eip:
                 if DRY_RUN:
-                    logger.info(f"[DRY-RUN] Would release EIP: {eip['AllocationId']}")
+                    logger.info(
+                        f"[DRY-RUN] Would DELETE elastic_ip {eip['AllocationId']} for cluster {infra_id}"
+                    )
                 else:
                     try:
                         ec2.release_address(AllocationId=eip["AllocationId"])
-                        logger.info(f"Released EIP: {eip['AllocationId']}")
+                        logger.info(
+                            f"DELETE elastic_ip {eip['AllocationId']} for cluster {infra_id}"
+                        )
                     except ClientError:
                         pass  # May already be released
 
@@ -70,13 +76,17 @@ def cleanup_network_interfaces(vpc_id: str, region: str):
 
         for eni in enis:
             if DRY_RUN:
-                logger.info(f"[DRY-RUN] Would delete ENI: {eni['NetworkInterfaceId']}")
+                logger.info(
+                    f"[DRY-RUN] Would DELETE network_interface {eni['NetworkInterfaceId']} in vpc {vpc_id}"
+                )
             else:
                 try:
                     ec2.delete_network_interface(
                         NetworkInterfaceId=eni["NetworkInterfaceId"]
                     )
-                    logger.info(f"Deleted ENI: {eni['NetworkInterfaceId']}")
+                    logger.info(
+                        f"DELETE network_interface {eni['NetworkInterfaceId']} in vpc {vpc_id}"
+                    )
                 except ClientError:
                     pass  # May already be deleted
 
@@ -95,12 +105,14 @@ def delete_vpc_endpoints(vpc_id: str, region: str):
         for endpoint in endpoints:
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would delete VPC endpoint: {endpoint['VpcEndpointId']}"
+                    f"[DRY-RUN] Would DELETE vpc_endpoint {endpoint['VpcEndpointId']} in vpc {vpc_id}"
                 )
             else:
                 try:
                     ec2.delete_vpc_endpoints(VpcEndpointIds=[endpoint["VpcEndpointId"]])
-                    logger.info(f"Deleted VPC endpoint: {endpoint['VpcEndpointId']}")
+                    logger.info(
+                        f"DELETE vpc_endpoint {endpoint['VpcEndpointId']} in vpc {vpc_id}"
+                    )
                 except ClientError:
                     pass
 
@@ -134,11 +146,15 @@ def delete_security_groups(vpc_id: str, region: str):
             if sg["GroupName"] == "default":
                 continue
             if DRY_RUN:
-                logger.info(f"[DRY-RUN] Would delete SG: {sg['GroupId']}")
+                logger.info(
+                    f"[DRY-RUN] Would DELETE security_group {sg['GroupId']} in vpc {vpc_id}"
+                )
             else:
                 try:
                     ec2.delete_security_group(GroupId=sg["GroupId"])
-                    logger.info(f"Deleted SG: {sg['GroupId']}")
+                    logger.info(
+                        f"DELETE security_group {sg['GroupId']} in vpc {vpc_id}"
+                    )
                 except ClientError:
                     pass
 
@@ -156,11 +172,13 @@ def delete_subnets(vpc_id: str, region: str):
 
         for subnet in subnets:
             if DRY_RUN:
-                logger.info(f"[DRY-RUN] Would delete subnet: {subnet['SubnetId']}")
+                logger.info(
+                    f"[DRY-RUN] Would DELETE subnet {subnet['SubnetId']} in vpc {vpc_id}"
+                )
             else:
                 try:
                     ec2.delete_subnet(SubnetId=subnet["SubnetId"])
-                    logger.info(f"Deleted subnet: {subnet['SubnetId']}")
+                    logger.info(f"DELETE subnet {subnet['SubnetId']} in vpc {vpc_id}")
                 except ClientError:
                     pass
 
@@ -185,11 +203,15 @@ def delete_route_tables(vpc_id: str, region: str):
                 continue
 
             if DRY_RUN:
-                logger.info(f"[DRY-RUN] Would delete route table: {rt['RouteTableId']}")
+                logger.info(
+                    f"[DRY-RUN] Would DELETE route_table {rt['RouteTableId']} in vpc {vpc_id}"
+                )
             else:
                 try:
                     ec2.delete_route_table(RouteTableId=rt["RouteTableId"])
-                    logger.info(f"Deleted route table: {rt['RouteTableId']}")
+                    logger.info(
+                        f"DELETE route_table {rt['RouteTableId']} in vpc {vpc_id}"
+                    )
                 except ClientError:
                     pass
 
@@ -208,7 +230,7 @@ def delete_internet_gateway(vpc_id: str, region: str):
         for igw in igws:
             if DRY_RUN:
                 logger.info(
-                    f"[DRY-RUN] Would detach/delete IGW: {igw['InternetGatewayId']}"
+                    f"[DRY-RUN] Would DELETE internet_gateway {igw['InternetGatewayId']} in vpc {vpc_id}"
                 )
             else:
                 try:
@@ -218,7 +240,9 @@ def delete_internet_gateway(vpc_id: str, region: str):
                     ec2.delete_internet_gateway(
                         InternetGatewayId=igw["InternetGatewayId"]
                     )
-                    logger.info(f"Deleted IGW: {igw['InternetGatewayId']}")
+                    logger.info(
+                        f"DELETE internet_gateway {igw['InternetGatewayId']} in vpc {vpc_id}"
+                    )
                 except ClientError:
                     pass
 
@@ -231,11 +255,11 @@ def delete_vpc(vpc_id: str, region: str):
     try:
         ec2 = boto3.client("ec2", region_name=region)
         if DRY_RUN:
-            logger.info(f"[DRY-RUN] Would delete VPC: {vpc_id}")
+            logger.info(f"[DRY-RUN] Would DELETE vpc {vpc_id} in {region}")
         else:
             try:
                 ec2.delete_vpc(VpcId=vpc_id)
-                logger.info(f"Deleted VPC: {vpc_id}")
+                logger.info(f"DELETE vpc {vpc_id} in {region}")
             except ClientError:
                 pass
 

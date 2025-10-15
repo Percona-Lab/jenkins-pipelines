@@ -11,7 +11,9 @@ from ..utils import convert_tags_to_dict, has_valid_billing_tag, get_logger
 logger = get_logger()
 
 
-def is_volume_protected(tags_dict: dict[str, str]) -> bool:
+def is_volume_protected(
+    tags_dict: dict[str, str], volume_id: str = ""
+) -> tuple[bool, str]:
     """
     Check if volume is protected from auto-deletion.
 
@@ -20,31 +22,42 @@ def is_volume_protected(tags_dict: dict[str, str]) -> bool:
     2. Has "PerconaKeep" tag
     3. Has persistent billing tag (jenkins-*, pmm-dev)
     4. Has valid billing tag (category or non-expired timestamp)
+
+    Returns:
+        Tuple of (is_protected, reason) where reason describes why it's protected
     """
-    name = tags_dict.get("Name", "")
+    name = tags_dict.get("Name", "<UNTAGGED>")
 
     # Legacy protection: "do not remove" in Name tag
     if "do not remove" in name.lower():
-        logger.info(f"Volume protected: Name contains 'do not remove' ({name})")
-        return True
+        reason = "Name contains 'do not remove'"
+        if volume_id:
+            logger.info(f"Volume {volume_id} protected: {reason} ({name})")
+        return True, reason
 
     # Legacy protection: PerconaKeep tag
     if "PerconaKeep" in tags_dict:
-        logger.info(f"Volume protected: Has PerconaKeep tag ({name})")
-        return True
+        reason = "Has PerconaKeep tag"
+        if volume_id:
+            logger.info(f"Volume {volume_id} protected: {reason} ({name})")
+        return True, reason
 
     # Protection by persistent billing tag
     billing_tag = tags_dict.get("iit-billing-tag", "")
     if billing_tag in PERSISTENT_TAGS:
-        logger.info(f"Volume protected: Persistent billing tag '{billing_tag}' ({name})")
-        return True
+        reason = f"Persistent billing tag '{billing_tag}'"
+        if volume_id:
+            logger.info(f"Volume {volume_id} protected: {reason} ({name})")
+        return True, reason
 
     # Protected if has valid billing tag (category or non-expired timestamp)
     if has_valid_billing_tag(tags_dict):
-        logger.info(f"Volume protected: Has valid billing tag '{billing_tag}' ({name})")
-        return True
+        reason = f"Valid billing tag '{billing_tag}'"
+        if volume_id:
+            logger.info(f"Volume {volume_id} protected: {reason} ({name})")
+        return True, reason
 
-    return False
+    return False, ""
 
 
 def check_unattached_volume(
@@ -53,21 +66,20 @@ def check_unattached_volume(
     """
     Check if volume is unattached and eligible for deletion.
 
-    Port of legacy LambdaVolumeCleanup.yml logic:
+    Updated logic to include untagged volumes:
     - Must be in "available" state (unattached)
-    - Must have Name tag (filter: tag:Name exists)
-    - Must not be protected
+    - Must not be protected (by tags, Name, billing tags, etc.)
+    - Untagged volumes are candidates for deletion
     """
     # Must be available (unattached)
     if volume["State"] != "available":
         return None
 
-    # Must have Name tag (legacy filter requirement)
-    if "Name" not in tags_dict:
-        return None
+    volume_id = volume["VolumeId"]
 
-    # Check protection
-    if is_volume_protected(tags_dict):
+    # Check protection (includes Name tag, PerconaKeep, billing tags)
+    is_protected_flag, _ = is_volume_protected(tags_dict, volume_id)
+    if is_protected_flag:
         return None
 
     # Calculate age
@@ -80,9 +92,8 @@ def check_unattached_volume(
     age_seconds = current_time - create_timestamp
     age_days = age_seconds / 86400
 
-    name = tags_dict.get("Name", "N/A")
+    name = tags_dict.get("Name", "<UNTAGGED>")
     billing_tag = tags_dict.get("iit-billing-tag", "<MISSING>")
-    volume_id = volume["VolumeId"]
     size_gb = volume.get("Size", 0)
     volume_type = volume.get("VolumeType", "unknown")
 
@@ -125,8 +136,7 @@ def delete_volume(action: CleanupAction, region: str) -> bool:
 
         if DRY_RUN:
             logger.info(
-                f"[DRY-RUN] Would delete volume {action.volume_id} "
-                f"({action.name}, {action.reason})"
+                f"[DRY-RUN] Would DELETE volume {action.volume_id} in {region}: {action.reason}"
             )
             return True
 
@@ -146,7 +156,8 @@ def delete_volume(action: CleanupAction, region: str) -> bool:
 
         # Re-check protection (safety)
         tags_dict = convert_tags_to_dict(volume.get("Tags", []))
-        if is_volume_protected(tags_dict):
+        is_protected_flag, _ = is_volume_protected(tags_dict)
+        if is_protected_flag:
             logger.warning(
                 f"Volume {action.volume_id} is now protected, skipping deletion"
             )
@@ -154,10 +165,7 @@ def delete_volume(action: CleanupAction, region: str) -> bool:
 
         # Delete volume
         ec2.delete_volume(VolumeId=action.volume_id)
-        logger.info(
-            f"Successfully deleted volume {action.volume_id} "
-            f"({action.name}, {action.reason})"
-        )
+        logger.info(f"DELETE volume {action.volume_id} in {region}: {action.reason}")
         return True
 
     except ClientError as e:

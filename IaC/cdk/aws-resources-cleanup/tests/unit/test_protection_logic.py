@@ -27,8 +27,10 @@ class TestBasicProtection:
             billing_tag="jenkins-dev-pmm"
         )
         tags_dict = tags_dict_from_instance(instance)
-        
-        assert is_protected(tags_dict) is True
+
+        is_protected_flag, reason = is_protected(tags_dict, "i-test123")
+        assert is_protected_flag is True
+        assert "jenkins-dev-pmm" in reason
 
     def test_instance_with_valid_billing_tag_is_protected(
         self, make_instance, tags_dict_from_instance
@@ -40,8 +42,10 @@ class TestBasicProtection:
         """
         instance = make_instance(billing_tag="pmm-staging")
         tags_dict = tags_dict_from_instance(instance)
-        
-        assert is_protected(tags_dict) is True
+
+        is_protected_flag, reason = is_protected(tags_dict, "i-test123")
+        assert is_protected_flag is True
+        assert "pmm-staging" in reason
 
     def test_untagged_instance_is_not_protected(
         self, make_instance, tags_dict_from_instance
@@ -53,8 +57,10 @@ class TestBasicProtection:
         """
         instance = make_instance(name="untagged")
         tags_dict = tags_dict_from_instance(instance)
-        
-        assert is_protected(tags_dict) is False
+
+        is_protected_flag, reason = is_protected(tags_dict, "i-test123")
+        assert is_protected_flag is False
+        assert reason == ""
 
     def test_instance_with_invalid_billing_tag_not_protected(
         self, make_instance, tags_dict_from_instance
@@ -68,11 +74,11 @@ class TestBasicProtection:
         expired_timestamp = "1000000"  # Very old timestamp
         instance = make_instance(billing_tag=expired_timestamp)
         tags_dict = tags_dict_from_instance(instance)
-        
+
         # Note: is_protected uses has_valid_billing_tag which checks timestamps
         # An expired timestamp should not protect the instance
-        result = is_protected(tags_dict)
-        assert result is False
+        is_protected_flag, reason = is_protected(tags_dict, "i-test123")
+        assert is_protected_flag is False
 
 
 @pytest.mark.unit
@@ -106,8 +112,10 @@ class TestPersistentTags:
         """
         instance = make_instance(billing_tag=persistent_tag)
         tags_dict = tags_dict_from_instance(instance)
-        
-        assert is_protected(tags_dict) is True
+
+        is_protected_flag, reason = is_protected(tags_dict, "i-test123")
+        assert is_protected_flag is True
+        assert persistent_tag in reason
 
 
 @pytest.mark.unit
@@ -129,8 +137,9 @@ class TestProtectionOverrides:
             ttl_hours=1
         )
         tags_dict = tags_dict_from_instance(instance)
-        
-        assert is_protected(tags_dict) is False
+
+        is_protected_flag, reason = is_protected(tags_dict, "i-test123")
+        assert is_protected_flag is False
 
     def test_instance_with_billing_tag_and_stop_policy_not_protected(
         self, make_instance, tags_dict_from_instance
@@ -145,5 +154,6 @@ class TestProtectionOverrides:
             stop_after_days=7
         )
         tags_dict = tags_dict_from_instance(instance)
-        
-        assert is_protected(tags_dict) is False
+
+        is_protected_flag, reason = is_protected(tags_dict, "i-test123")
+        assert is_protected_flag is False

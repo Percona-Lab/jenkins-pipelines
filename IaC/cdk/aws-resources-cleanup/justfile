@@ -5,6 +5,11 @@
 profile := env_var_or_default("AWS_PROFILE", "percona-dev-admin")
 region := env_var_or_default("AWS_REGION", "us-east-2")
 
+# Lambda function name from CDK stack outputs (dynamically retrieved)
+# This ensures justfile always uses the function name defined in the CDK stack
+# Falls back to "LambdaAWSResourceCleanup" if stack doesn't exist yet
+lambda_function := `aws cloudformation describe-stacks --stack-name AWSResourcesCleanupStack --profile percona-dev-admin --region us-east-2 --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionName'].OutputValue | [0]" --output text 2>/dev/null || echo "LambdaAWSResourceCleanup"`
+
 # Default recipe - show available commands
 default:
     @echo "AWS Resources Cleanup - CDK Deployment"
@@ -28,6 +33,7 @@ default:
     @echo "  just invoke-aws       Manually invoke Lambda"
     @echo "  just info             Show Lambda configuration"
     @echo "  just outputs          Show stack outputs"
+    @echo "  just params           Show stack parameters"
     @echo ""
     @echo "Testing & Quality:"
     @echo "  just test             Run unit tests"
@@ -70,12 +76,6 @@ deploy:
     uv run cdk deploy \
         --profile {{profile}} \
         --region {{region}} \
-        --parameters DryRunMode=true \
-        --parameters UntaggedThresholdMinutes=30 \
-        --parameters EKSSkipPattern="pe-.*" \
-        --parameters OpenShiftCleanupEnabled=true \
-        --parameters OpenShiftBaseDomain=cd.percona.com \
-        --parameters OpenShiftMaxRetries=3 \
         --require-approval never
 
 # Deploy in LIVE mode (destructive, requires confirmation)
@@ -87,11 +87,6 @@ deploy-live:
         --profile {{profile}} \
         --region {{region}} \
         --parameters DryRunMode=false \
-        --parameters UntaggedThresholdMinutes=30 \
-        --parameters EKSSkipPattern="pe-.*" \
-        --parameters OpenShiftCleanupEnabled=true \
-        --parameters OpenShiftBaseDomain=cd.percona.com \
-        --parameters OpenShiftMaxRetries=3 \
         --require-approval never
 
 # Deploy with custom parameters
@@ -102,11 +97,7 @@ deploy-custom DRY_RUN="true" THRESHOLD="30" EMAIL="":
         --region {{region}} \
         --parameters DryRunMode={{DRY_RUN}} \
         --parameters UntaggedThresholdMinutes={{THRESHOLD}} \
-        --parameters NotificationEmail={{EMAIL}} \
-        --parameters EKSSkipPattern="pe-.*" \
-        --parameters OpenShiftCleanupEnabled=true \
-        --parameters OpenShiftBaseDomain=cd.percona.com \
-        --parameters OpenShiftMaxRetries=3
+        --parameters NotificationEmail={{EMAIL}}
 
 # Destroy the stack (cleanup)
 destroy:
@@ -123,7 +114,7 @@ diff:
 # Tail CloudWatch logs
 logs:
     @echo "Tailing CloudWatch logs for Lambda..."
-    aws logs tail /aws/lambda/LambdaAWSResourceCleanup \
+    aws logs tail /aws/lambda/{{lambda_function}} \
         --follow \
         --format short \
         --profile {{profile}} \
@@ -132,7 +123,7 @@ logs:
 # Tail recent logs (last hour)
 logs-recent:
     @echo "Showing logs from last hour..."
-    aws logs tail /aws/lambda/LambdaAWSResourceCleanup \
+    aws logs tail /aws/lambda/{{lambda_function}} \
         --since 1h \
         --format short \
         --profile {{profile}} \
@@ -142,7 +133,7 @@ logs-recent:
 invoke-aws:
     @echo "Invoking Lambda in AWS..."
     aws lambda invoke \
-        --function-name LambdaAWSResourceCleanup \
+        --function-name {{lambda_function}} \
         --profile {{profile}} \
         --region {{region}} \
         --log-type Tail \
@@ -155,10 +146,10 @@ invoke-aws:
 info:
     @echo "Lambda function information:"
     aws lambda get-function \
-        --function-name LambdaAWSResourceCleanup \
+        --function-name {{lambda_function}} \
         --profile {{profile}} \
         --region {{region}} \
-        --query 'Configuration.[FunctionName,Runtime,MemorySize,Timeout,LastModified,Environment.Variables]' \
+        --query 'Configuration.{Name:FunctionName,Runtime:Runtime,Memory:MemorySize,Timeout:Timeout,Modified:LastModified,Architecture:Architectures[0]}' \
         --output table
 
 # Run unit tests
@@ -214,6 +205,16 @@ outputs:
         --query 'Stacks[0].Outputs' \
         --output table
 
+# Show stack parameters
+params:
+    @echo "Stack parameters:"
+    aws cloudformation describe-stacks \
+        --stack-name AWSResourcesCleanupStack \
+        --profile {{profile}} \
+        --region {{region}} \
+        --query 'Stacks[0].Parameters' \
+        --output table
+
 # List all Lambda functions
 list-lambdas:
     @echo "All Lambda functions in {{region}}:"
@@ -229,7 +230,7 @@ update-code:
     cd lambda && zip -r /tmp/lambda-code.zip aws_resource_cleanup/
     @echo "Updating Lambda function code..."
     aws lambda update-function-code \
-        --function-name LambdaAWSResourceCleanup \
+        --function-name {{lambda_function}} \
         --zip-file fileb:///tmp/lambda-code.zip \
         --profile {{profile}} \
         --region {{region}}
@@ -240,7 +241,7 @@ update-code:
 update-env DRY_RUN="true":
     @echo "Updating Lambda environment variables..."
     aws lambda update-function-configuration \
-        --function-name LambdaAWSResourceCleanup \
+        --function-name {{lambda_function}} \
         --environment "Variables={DRY_RUN={{DRY_RUN}}}" \
         --profile {{profile}} \
         --region {{region}}
