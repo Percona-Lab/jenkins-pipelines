@@ -31,6 +31,8 @@ default:
     @echo ""
     @echo "Maintenance:"
     @echo "  just update-code      Fast Lambda code update (no CDK)"
+    @echo "  just upgrade          Upgrade all dependencies"
+    @echo "  just versions         Show installed versions"
     @echo "  just clean            Clean build artifacts"
     @echo "  just validate         Validate CloudFormation template"
     @echo ""
@@ -241,3 +243,19 @@ validate:
         --region {{region}}
     @rm /tmp/template.yaml
     @echo "✓ Template is valid"
+
+# Upgrade all dependencies
+upgrade:
+    @echo "Upgrading CDK and Python dependencies..."
+    uv pip install --upgrade aws-cdk-lib constructs boto3
+    @echo "Upgrading dev tools..."
+    uv pip install --upgrade pytest pytest-cov moto ruff black mypy
+    @echo "✓ All dependencies upgraded"
+    @echo "Run 'just synth' to verify CDK works"
+
+# Show versions
+versions:
+    @echo "CDK version:"
+    @uv run cdk --version
+    @echo "\nPython packages:"
+    @uv pip list | grep -E "(aws-cdk-lib|constructs|boto3|pytest|ruff|black|mypy)"
