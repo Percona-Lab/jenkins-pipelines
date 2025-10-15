@@ -29,6 +29,13 @@ default:
     @echo "  just info             Show Lambda configuration"
     @echo "  just outputs          Show stack outputs"
     @echo ""
+    @echo "Testing & Quality:"
+    @echo "  just test             Run unit tests"
+    @echo "  just test-coverage    Run tests with detailed coverage"
+    @echo "  just lint             Run linters"
+    @echo "  just format           Format code"
+    @echo "  just ci               Full CI pipeline (lint + test + synth)"
+    @echo ""
     @echo "Maintenance:"
     @echo "  just update-code      Fast Lambda code update (no CDK)"
     @echo "  just upgrade          Upgrade all dependencies"
@@ -157,7 +164,12 @@ info:
 # Run unit tests
 test:
     @echo "Running unit tests..."
-    cd lambda && uv run --with pytest --with pytest-cov pytest -v --cov=aws_resource_cleanup
+    PYTHONPATH=lambda:$$PYTHONPATH uv run --with pytest --with pytest-cov pytest tests/ -v --cov=aws_resource_cleanup
+
+# Run unit tests with detailed coverage report
+test-coverage:
+    @echo "Running unit tests with coverage report..."
+    PYTHONPATH=lambda:$$PYTHONPATH uv run --with pytest --with pytest-cov pytest tests/ -v --cov=aws_resource_cleanup --cov-report=term-missing
 
 # Run linting
 lint:
@@ -179,6 +191,7 @@ clean:
     rg -g '__pycache__' --files | xargs rm -rf
     rm -rf cdk.out
     rm -rf .pytest_cache
+    rm -rf tests/.pytest_cache
     rm -rf lambda/aws_resource_cleanup.egg-info
     rm -f /tmp/lambda-response.json
 
