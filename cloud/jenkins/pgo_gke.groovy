@@ -47,6 +47,7 @@ void initParams() {
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
         currentBuild.description = "$PLATFORM_VER-$GKE_RELEASE_CHANNEL " + "$IMAGE_POSTGRESQL".split(":")[1] + " $cw"
     }
+    echo "DB_TAG is $DB_TAG"
 }
 
 void prepareSources() {
