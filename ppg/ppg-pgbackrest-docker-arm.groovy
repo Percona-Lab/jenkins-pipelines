@@ -34,8 +34,8 @@ pipeline {
                 sh """
                     git clone https://github.com/percona/percona-docker
                     cd percona-docker/percona-pgbackrest
-                    sed -E "s/ENV PG_VERSION (.+)/ENV PG_VERSION ${params.PPG_VERSION}/" -i Dockerfile
-                    sed -E "s/ENV PPG_REPO (.+)/ENV PPG_REPO ${params.PPG_REPO}/" -i Dockerfile
+                    sed -E "s/ARG PG_VERSION=(.+)/ARG PG_VERSION=${params.PPG_VERSION}/" -i Dockerfile
+                    sed -E "s/ARG PPG_REPO=(.+)/ARG PPG_REPO=${params.PPG_REPO}/" -i Dockerfile
                     docker build . -t percona-pgbackrest
                     """
             }
