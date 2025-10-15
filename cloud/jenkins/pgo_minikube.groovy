@@ -29,7 +29,6 @@ void initParams() {
         if ("$PLATFORM_VER".toLowerCase() == "max") {
             PLATFORM_VER = getParam("PLATFORM_VER", "MINIKUBE_${PLATFORM_VER}")
         }
-        DB_TAG = sh(script: "[[ $IMAGE_POSTGRESQL ]] && echo $IMAGE_POSTGRESQL | awk -F':' '{tag=\$2; sub(/-postgres\$/, \"\", tag); sub(/-[0-9]+\$/, \"\", tag); print tag}' || echo main-ppg17", , returnStdout: true).trim()
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
     }
@@ -39,6 +38,7 @@ void initParams() {
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
         currentBuild.description = "$PLATFORM_VER " + "$IMAGE_POSTGRESQL".split(":")[1] + " $cw"
     }
+    env.DB_TAG = sh(script: "[[ $IMAGE_POSTGRESQL ]] && echo $IMAGE_POSTGRESQL | awk -F':' '{tag=\$2; sub(/-postgres\$/, \"\", tag); sub(/-[0-9]+\$/, \"\", tag); print tag}' || echo main-ppg17", , returnStdout: true).trim()
     echo "DB_TAG is $DB_TAG"
 }
 
@@ -271,9 +271,6 @@ PLATFORM_VER=$PLATFORM_VER"""
 }
 
 pipeline {
-    environment {
-        DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{tag=\$2; sub(/-postgres\$/, \"\", tag); sub(/-[0-9]+\$/, \"\", tag); print tag}' || echo main-ppg17", , returnStdout: true).trim()
-    }
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-minikube.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
