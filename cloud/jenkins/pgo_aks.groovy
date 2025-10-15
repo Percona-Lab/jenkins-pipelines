@@ -243,7 +243,7 @@ void runTest(Integer TEST_ID) {
                     export PG_VER=$PG_VER
                     if [[ "$IMAGE_POSTGRESQL" ]]; then
                         export IMAGE_POSTGRESQL=$IMAGE_POSTGRESQL
-                        export PG_VER=\$(echo \$IMAGE_POSTGRESQL | sed -E 's/.*:(.*ppg)?([0-9]+).*/\2/')
+                        export PG_VER=\$(echo \$IMAGE_POSTGRESQL | sed -E 's/.*:(.*ppg)?([0-9]+).*/\\2/')
                     fi
                     export IMAGE_PGBOUNCER=$IMAGE_PGBOUNCER
                     export IMAGE_BACKREST=$IMAGE_BACKREST
