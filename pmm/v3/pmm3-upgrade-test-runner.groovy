@@ -31,9 +31,8 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     }
 }
 
-def versionsList = pmmVersion('v3')
+def versionsList = pmmVersion('v3')[-5..-1]
 def latestVersion = versionsList.last()
-def clientRepoAvailableVersions = versionsList[-5..-1]
 
 pipeline {
     agent {
@@ -136,11 +135,6 @@ pipeline {
                 script {
                     println versionsList
                     println CLIENT_VERSION.trim()
-                    println clientRepoAvailableVersions
-                    println clientRepoAvailableVersions.contains(CLIENT_VERSION.trim())
-//                     if (!clientRepoAvailableVersions.contains(CLIENT_VERSION.trim())) {
-//                         env.CLIENT_VERSION = "https://downloads.percona.com/downloads/pmm3/${CLIENT_VERSION}/binary/tarball/pmm-client-${CLIENT_VERSION}-x86_64.tar.gz"
-//                     }
                     println CLIENT_VERSION
                     env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
                     currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
