@@ -32,6 +32,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
 }
 
 def versionsList = pmmVersion('v3')[-5..-1]
+def oldestVersion = versionsList.first()
 def latestVersion = versionsList.last()
 
 pipeline {
@@ -89,7 +90,7 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
-            defaultValue: 'percona/pmm-server:3.0.0',
+            defaultValue: "percona/pmm-server:$oldestVersion",
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
         string(
@@ -97,7 +98,7 @@ pipeline {
             description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
             name: 'DOCKER_TAG_UPGRADE')
         string(
-            defaultValue: '3.0.0',
+            defaultValue: "$oldestVersion",
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
