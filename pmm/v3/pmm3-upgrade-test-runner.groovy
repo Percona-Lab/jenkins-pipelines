@@ -121,10 +121,6 @@ pipeline {
             choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"],
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
-        string(
-            defaultValue: 'admin',
-            description: "Password for PMM Server ",
-            name: 'ADMIN_PASSWORD')
     }
     options {
         skipDefaultCheckout()
@@ -137,7 +133,7 @@ pipeline {
                     println versionsList
                     println CLIENT_VERSION.trim()
                     println CLIENT_VERSION
-                    env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
+                    env.ADMIN_PASSWORD = 'admin'
                     currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
                 git poll: false,
