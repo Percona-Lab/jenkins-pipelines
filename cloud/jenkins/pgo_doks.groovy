@@ -55,8 +55,9 @@ void prepareSources() {
         git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git source
     """
 
-    initParams()
+}
 
+void createHash() {
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
     PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_UPGRADE | md5sum | cut -d' ' -f1", returnStdout: true).trim()
     CLUSTER_NAME = ("jenkins-" + JOB_NAME.replaceAll('_', '-') + "-" + GIT_SHORT_COMMIT).toLowerCase().trim()
@@ -376,6 +377,8 @@ pipeline {
                 script { deleteDir() }
                 prepareSources()
                 prepareAgent()
+                initParams()
+                createHash()
             }
         }
         stage('Docker Build and Push') {
