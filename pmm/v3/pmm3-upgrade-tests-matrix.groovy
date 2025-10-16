@@ -75,9 +75,6 @@ pipeline {
     options {
         disableConcurrentBuilds()
     }
-    triggers {
-        cron('0 1 * * *')
-    }
     stages {
         stage('UI tests Upgrade Matrix') {
             steps {
