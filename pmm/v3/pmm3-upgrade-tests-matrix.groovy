@@ -25,7 +25,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_SERVER_LATEST, PMM_QA_GIT_BRA
 
 // 3.0.0, 3.1.0, 3.2.0, 3.3.0, 3.3.1, 3.4.0, 3.4.1, 3.5.0
     for (pmmVersion in pmmVersions) {
-        if(pmmVersion == latestVersion) {
+        if(pmmVersion == pmmVersions.last()) {
             results.put(
                 "Run matrix upgrade tests from version: \"$pmmVersion\"",
                 generateStage(PMM_UI_GIT_BRANCH, "perconalab/pmm-server:${pmmVersion}-rc", 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH)
