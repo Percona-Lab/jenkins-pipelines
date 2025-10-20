@@ -55,11 +55,13 @@ pipeline {
                 sh """
                   echo ${params.TARBALL} | sed -E 's/(.+mongodb-)([0-9].[0-9])(.+)/\\2/' > VERSION
                 """
-                script {
-                    def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()
-                    def os = pdmdbOperatingSystems("${PSMDB_VER}")
-                    os.removeAll { it.contains('-arm') }
-                    moleculeParallelTest(os, moleculeDir)
+                withCredentials([string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
+                    script {
+                        def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()
+                        def os = pdmdbOperatingSystems("${PSMDB_VER}")
+                        os.removeAll { it.contains('-arm') }
+                        moleculeParallelTest(os, moleculeDir)
+                    }
                 }
             }
         }
