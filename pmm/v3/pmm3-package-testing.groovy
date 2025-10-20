@@ -175,7 +175,6 @@ pipeline {
                 }
             }
         }
-/*
         stage('Execute X64 Package Tests') {
             parallel {
                 stage('Oracle Linux 8 - X64') {
@@ -260,7 +259,6 @@ pipeline {
                 }
             }
         }
-*/
         stage('Execute ARM 64 Package Tests') {
             parallel {
                 stage('Oracle Linux 8 - ARM64') {
