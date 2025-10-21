@@ -1,0 +1,84 @@
+# CDK
+cdk.out/
+.cdk.staging/
+cdk.context.json
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Virtual environments
+venv/
+ENV/
+env/
+.venv
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Lambda artifacts
+*.zip
+/tmp/
+
+# Lambda dependencies (installed at build time)
+lambda/*.dist-info/
+lambda/bin/
+lambda/boto3/
+lambda/boto3-*.dist-info/
+lambda/botocore/
+lambda/botocore-*.dist-info/
+lambda/aws_lambda_powertools/
+lambda/aws_lambda_powertools-*.dist-info/
+lambda/aws_xray_sdk/
+lambda/aws_xray_sdk-*.dist-info/
+lambda/s3transfer/
+lambda/s3transfer-*.dist-info/
+lambda/jmespath/
+lambda/jmespath-*.dist-info/
+lambda/dateutil/
+lambda/python_dateutil-*.dist-info/
+lambda/urllib3/
+lambda/urllib3-*.dist-info/
+lambda/six.py
+lambda/six-*.dist-info/
+lambda/typing_extensions.py
+lambda/typing_extensions-*.dist-info/
+lambda/wrapt/
+lambda/wrapt-*.dist-info/
+lambda/.lock
+
+# Logs
+*.log
