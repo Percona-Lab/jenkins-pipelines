@@ -1,0 +1,21 @@
+# Root IaC Justfile - Routes to CDK projects
+# Usage: just <project> <command>
+
+# Default - show available projects
+default:
+    @echo "Available CDK projects:"
+    @echo "  aws-resources-cleanup    - Comprehensive AWS resource cleanup Lambda"
+    @echo ""
+    @echo "Usage from IaC/:"
+    @echo "  just aws-resources-cleanup              Show project help"
+    @echo "  just aws-resources-cleanup <command>    Run project command"
+    @echo ""
+    @echo "Common commands:"
+    @echo "  just aws-resources-cleanup deploy       Deploy in DRY_RUN mode"
+    @echo "  just aws-resources-cleanup logs         Tail CloudWatch logs"
+    @echo "  just aws-resources-cleanup invoke-aws   Test Lambda execution"
+    @echo "  just aws-resources-cleanup update-code  Fast Lambda code update"
+
+# AWS Resources Cleanup
+aws-resources-cleanup *ARGS:
+    @cd cdk/aws-resources-cleanup && just {{ARGS}}
