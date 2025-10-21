@@ -37,8 +37,8 @@ pipeline {
                     echo \$MIN_VER
                     git clone https://github.com/percona/percona-docker
                     cd percona-docker/percona-distribution-postgresql-\$MAJ_VER
-                    sed -E "s/ENV PPG_VERSION (.+)/ENV PPG_VERSION ${params.PPG_VERSION}/" -i Dockerfile.aarch64
-                    sed -E "s/ENV PPG_REPO (.+)/ENV PPG_REPO ${params.PPG_REPO}/" -i Dockerfile.aarch64
+                    sed -E "s/ARG PPG_VERSION (.+)/ARG PPG_VERSION ${params.PPG_VERSION}/" -i Dockerfile.aarch64
+                    sed -E "s/ARG PPG_REPO (.+)/ARG PPG_REPO ${params.PPG_REPO}/" -i Dockerfile.aarch64
                     sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile.aarch64
                     sed -E "s/ENV PPG_MINOR_VERSION (.+)/ENV PPG_MINOR_VERSION \$MIN_VER/" -i Dockerfile.aarch64
                     docker build . -t percona-distribution-postgresql -f Dockerfile.aarch64
