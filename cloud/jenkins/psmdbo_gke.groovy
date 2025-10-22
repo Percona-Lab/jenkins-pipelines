@@ -7,6 +7,7 @@ release_versions="source/e2e-tests/release_versions"
 void prepareNode() {
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    gkeLib = load("cloud/common/gke-functions.groovy")
     sh """
         # sudo is needed for better node recovery after compilation failure
         # if building failed on compilation stage directory will have files owned by docker user
@@ -17,7 +18,6 @@ void prepareNode() {
         git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mongodb-operator source
     """
 
-    gkeLib = load("cloud/common/gke-functions.groovy")
 
     if ("$PILLAR_VERSION" != "none") {
         echo "=========================[ Getting parameters for release test ]========================="
