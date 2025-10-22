@@ -17,7 +17,7 @@ void prepareNode() {
         git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mongodb-operator source
     """
 
-    gkeLib = load("${WORKSPACE}/cloud/common/gke-functions.groovy")
+    gkeLib = load("cloud/common/gke-functions.groovy")
 
     if ("$PILLAR_VERSION" != "none") {
         echo "=========================[ Getting parameters for release test ]========================="
