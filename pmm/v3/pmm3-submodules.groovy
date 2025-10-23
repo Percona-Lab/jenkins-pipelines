@@ -79,6 +79,9 @@ pipeline {
                     pip3 install --user --upgrade launchable~=1.0 || true
                     launchable verify || true
 
+                    echo "$(pwd)"
+                    echo "$(git status)" || true
+
                     launchable record build --name "pmm3-submodules-${PMM_VERSION}-${SHORTENED_COMMIT}"
                 '''
                 }
