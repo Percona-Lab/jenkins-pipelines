@@ -68,19 +68,19 @@ pipeline {
                     ${PATH_TO_SCRIPTS}/build-submodules
                 '''
                 }
-                withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
-                sh '''
-                    set -o errexit
-                    export LAUNCHABLE_TOKEN=${LAUNCHABLE_TOKEN}
-
-                    pip3 install --user --upgrade launchable~=1.0
-                    launchable verify || true
-                '''
-                }
                 script {
                     env.PMM_VERSION = sh(returnStdout: true, script: "cat VERSION").trim()
                     env.FB_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                     env.SHORTENED_COMMIT = env.FB_COMMIT.substring(0, 7)
+                }
+                withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
+                sh '''
+                    set -o errexit
+                    pip3 install --user --upgrade launchable~=1.0 || true
+                    launchable verify || true
+
+                    launchable record build --name "pmm3-submodules-${PMM_VERSION}-${SHORTENED_COMMIT}"
+                '''
                 }
                 stash includes: 'apiBranch', name: 'apiBranch'
                 stash includes: 'apiURL', name: 'apiURL'
