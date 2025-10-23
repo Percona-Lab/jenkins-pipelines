@@ -40,14 +40,42 @@ def cleanup_route53_records(cluster_name: str, region: str):
             ):
                 changes.append({"Action": "DELETE", "ResourceRecordSet": record})
 
+        # Log each DNS record being deleted
+        for change in changes:
+            record = change["ResourceRecordSet"]
+            if DRY_RUN:
+                logger.info(
+                    "Would DELETE route53_record",
+                    extra={
+                        "dry_run": True,
+                        "record_name": record["Name"].rstrip("."),
+                        "record_type": record["Type"],
+                        "cluster_name": cluster_name,
+                        "hosted_zone_id": zone_id,
+                    },
+                )
+            else:
+                logger.info(
+                    "DELETE route53_record",
+                    extra={
+                        "record_name": record["Name"].rstrip("."),
+                        "record_type": record["Type"],
+                        "cluster_name": cluster_name,
+                        "hosted_zone_id": zone_id,
+                    },
+                )
+
         if changes and not DRY_RUN:
             route53.change_resource_record_sets(
                 HostedZoneId=zone_id, ChangeBatch={"Changes": changes}
             )
-            logger.info(f"Deleted {len(changes)} Route53 records for {cluster_name}")
-        elif changes:
             logger.info(
-                f"[DRY-RUN] Would delete {len(changes)} Route53 records for {cluster_name}"
+                f"Deleted {len(changes)} Route53 records for {cluster_name}",
+                extra={
+                    "hosted_zone_id": zone_id,
+                    "records_deleted": len(changes),
+                    "cluster_name": cluster_name,
+                },
             )
 
     except Exception as e:

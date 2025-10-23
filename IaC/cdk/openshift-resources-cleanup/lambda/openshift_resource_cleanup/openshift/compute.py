@@ -30,12 +30,25 @@ def delete_load_balancers(infra_id: str, region: str):
             ):
                 if DRY_RUN:
                     logger.info(
-                        f"[DRY-RUN] Would DELETE load_balancer {lb['LoadBalancerName']} for cluster {infra_id}"
+                        "Would DELETE load_balancer",
+                        extra={
+                            "dry_run": True,
+                            "load_balancer_name": lb["LoadBalancerName"],
+                            "load_balancer_type": "classic",
+                            "vpc_id": vpc_id,
+                            "infra_id": infra_id,
+                        },
                     )
                 else:
                     elb.delete_load_balancer(LoadBalancerName=lb["LoadBalancerName"])
                     logger.info(
-                        f"DELETE load_balancer {lb['LoadBalancerName']} for cluster {infra_id}"
+                        "DELETE load_balancer",
+                        extra={
+                            "load_balancer_name": lb["LoadBalancerName"],
+                            "load_balancer_type": "classic",
+                            "vpc_id": vpc_id,
+                            "infra_id": infra_id,
+                        },
                     )
 
         # Delete ALB/NLBs
@@ -44,14 +57,30 @@ def delete_load_balancers(infra_id: str, region: str):
             if infra_id in lb["LoadBalancerName"] or (
                 vpc_id and lb.get("VpcId") == vpc_id
             ):
+                lb_type = lb.get("Type", "unknown")
                 if DRY_RUN:
                     logger.info(
-                        f"[DRY-RUN] Would DELETE load_balancer {lb['LoadBalancerName']} for cluster {infra_id}"
+                        "Would DELETE load_balancer",
+                        extra={
+                            "dry_run": True,
+                            "load_balancer_name": lb["LoadBalancerName"],
+                            "load_balancer_arn": lb["LoadBalancerArn"],
+                            "load_balancer_type": lb_type,
+                            "vpc_id": vpc_id,
+                            "infra_id": infra_id,
+                        },
                     )
                 else:
                     elbv2.delete_load_balancer(LoadBalancerArn=lb["LoadBalancerArn"])
                     logger.info(
-                        f"DELETE load_balancer {lb['LoadBalancerName']} for cluster {infra_id}"
+                        "DELETE load_balancer",
+                        extra={
+                            "load_balancer_name": lb["LoadBalancerName"],
+                            "load_balancer_arn": lb["LoadBalancerArn"],
+                            "load_balancer_type": lb_type,
+                            "vpc_id": vpc_id,
+                            "infra_id": infra_id,
+                        },
                     )
 
     except Exception as e:

@@ -23,15 +23,48 @@ def cleanup_s3_state(cluster_name: str, region: str):
             objects = s3.list_objects_v2(Bucket=bucket_name, Prefix=f"{cluster_name}/")
 
             if "Contents" in objects:
+                object_count = len(objects["Contents"])
                 if DRY_RUN:
                     logger.info(
-                        f"[DRY-RUN] Would delete {len(objects['Contents'])} "
-                        f"S3 objects for {cluster_name}"
+                        f"[DRY-RUN] Would delete {object_count} S3 objects for {cluster_name}",
+                        extra={
+                            "dry_run": True,
+                            "bucket_name": bucket_name,
+                            "prefix": f"{cluster_name}/",
+                            "object_count": object_count,
+                        },
                     )
+                    # Log each object that would be deleted
+                    for obj in objects["Contents"]:
+                        logger.info(
+                            "Would DELETE s3_object",
+                            extra={
+                                "dry_run": True,
+                                "bucket_name": bucket_name,
+                                "object_key": obj["Key"],
+                                "cluster_name": cluster_name,
+                            },
+                        )
                 else:
+                    # Delete and log each object
                     for obj in objects["Contents"]:
                         s3.delete_object(Bucket=bucket_name, Key=obj["Key"])
-                    logger.info(f"Deleted S3 state for {cluster_name}")
+                        logger.info(
+                            "DELETE s3_object",
+                            extra={
+                                "bucket_name": bucket_name,
+                                "object_key": obj["Key"],
+                                "cluster_name": cluster_name,
+                            },
+                        )
+                    logger.info(
+                        f"Deleted S3 state for {cluster_name}",
+                        extra={
+                            "bucket_name": bucket_name,
+                            "objects_deleted": object_count,
+                            "cluster_name": cluster_name,
+                        },
+                    )
         except ClientError as e:
             if "NoSuchBucket" in str(e):
                 logger.info(f"S3 bucket {bucket_name} does not exist")
