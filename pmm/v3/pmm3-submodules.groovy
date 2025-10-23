@@ -86,7 +86,7 @@ pipeline {
                     echo "$(pwd)"
                     echo "$(git submodule status)" || true
 
-                    launchable record build --name "pmm3-submodules-${PMM_VERSION}-${FB_COMMIT}"
+                    launchable record build --name "pmm3-submodules-${PMM_VERSION}-${FB_COMMIT}" --source submodules=./
                 '''
                 }
                 stash includes: 'apiBranch', name: 'apiBranch'
