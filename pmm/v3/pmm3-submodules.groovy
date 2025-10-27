@@ -79,14 +79,7 @@ pipeline {
                     pip3 install --user --upgrade launchable~=1.0 || true
                     launchable verify || true
 
-                    echo
-                    ls -la
-                    echo
-
-                    echo "$(pwd)"
-                    echo "$(git submodule status)" || true
-
-                    launchable record build --name "pmm3-submodules-${PMM_VERSION}-${FB_COMMIT}"
+                    launchable record build --name "${FB_COMMIT}" || true
                 '''
                 }
                 stash includes: 'apiBranch', name: 'apiBranch'
