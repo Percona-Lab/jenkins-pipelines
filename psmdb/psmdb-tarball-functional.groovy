@@ -24,6 +24,14 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
+        string(
+                name: 'SSH_USER',
+                description: 'User for debugging',
+                defaultValue: 'none')
+        string(
+                name: 'SSH_PUBKEY',
+                description: 'User ssh public key for debugging',
+                defaultValue: 'none')
     }
     options {
           withCredentials(moleculePbmJenkinsCreds())
