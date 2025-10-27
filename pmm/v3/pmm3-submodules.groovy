@@ -78,6 +78,7 @@ pipeline {
                     set -o errexit
                     pip3 install --user --upgrade launchable~=1.0 || true
                     launchable verify || true
+                    echo "$(git submodule status)" || true
 
                     launchable record build --name "${FB_COMMIT}" || true
                 '''
