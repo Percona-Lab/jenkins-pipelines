@@ -84,13 +84,28 @@ void prepareNode() {
     """
     downloadKubectl()
     sh """
-        curl -fsSL https://get.helm.sh/helm-v3.12.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-        if ! command -v az &>/dev/null; then
+    curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+    
+    if ! command -v az &>/dev/null; then
+        if [ "$JENKINS_AGENT" = "AWS" ]; then
             curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
             printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
             sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
+        else
+            echo "Installing Azure CLI for Hetzner instances..."
+            sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+            cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
+[azure-cli]
+name=Azure CLI
+baseurl=https://packages.microsoft.com/yumrepos/azure-cli
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc
+EOF
+            sudo dnf install azure-cli -y
         fi
-    """
+    fi
+"""
 
     echo "=========================[ Logging in the Kubernetes provider ]========================="
     withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
@@ -181,7 +196,7 @@ void initTests() {
         }
     }
 
-    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+    withCredentials([file(credentialsId: 'cloud-secret-file-psmdb', variable: 'CLOUD_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
         """
@@ -216,7 +231,7 @@ void createCluster(String CLUSTER_SUFFIX) {
         az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
             -g percona-operators \
             --subscription eng-cloud-dev \
-            --load-balancer-sku basic \
+            --load-balancer-sku standard \
             --enable-managed-identity \
             --node-count 3 \
             --node-vm-size Standard_B4ms \

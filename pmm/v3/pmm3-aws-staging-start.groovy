@@ -200,6 +200,7 @@ pipeline {
                             echo "${SSH_KEY}" >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
+                        sudo dnf clean all
                         sudo dnf -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo dnf repolist
