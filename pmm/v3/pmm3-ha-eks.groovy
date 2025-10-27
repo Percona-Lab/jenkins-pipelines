@@ -9,11 +9,6 @@ pipeline {
             choices: ['1.32', '1.31', '1.30', '1.29', '1.28'],
             description: 'Select Kubernetes cluster version'
         )
-        string(
-            name: 'HELM_CHART_BRANCH',
-            defaultValue: 'pmmha-v3',
-            description: 'Branch name for percona-helm-charts repository'
-        )
     }
 
      environment {
