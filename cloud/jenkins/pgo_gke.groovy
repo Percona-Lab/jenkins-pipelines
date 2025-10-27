@@ -1,19 +1,9 @@
+def gkeLib
+
 region='us-central1-c'
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
-
-String getParam(String paramName, String keyName = null) {
-    keyName = keyName ?: paramName
-
-    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
-    if ("$param") {
-        echo "$paramName=$param (from params file)"
-    } else {
-        error("$keyName not found in params file $release_versions")
-    }
-    return param
-}
 
 void initParams() {
     if ("$PILLAR_VERSION" != "none") {
@@ -21,17 +11,17 @@ void initParams() {
         GKE_RELEASE_CHANNEL = "stable"
         echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
 
-        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
-        IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: getParam("IMAGE_POSTGRESQL", "IMAGE_POSTGRESQL${PILLAR_VERSION}")
-        IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: getParam("IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${PILLAR_VERSION}")
-        IMAGE_BACKREST = IMAGE_BACKREST ?: getParam("IMAGE_BACKREST", "IMAGE_BACKREST${PILLAR_VERSION}")
-        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
-        IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: getParam("IMAGE_PMM3_CLIENT")
-        IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: getParam("IMAGE_PMM3_SERVER")
-        IMAGE_UPGRADE = IMAGE_UPGRADE ?: getParam("IMAGE_UPGRADE")
+        IMAGE_OPERATOR = IMAGE_OPERATOR ?: gkeLib.getParam(release_versions, "IMAGE_OPERATOR")
+        IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: gkeLib.getParam(release_versions, "IMAGE_POSTGRESQL", "IMAGE_POSTGRESQL${PILLAR_VERSION}")
+        IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: gkeLib.getParam(release_versions, "IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${PILLAR_VERSION}")
+        IMAGE_BACKREST = IMAGE_BACKREST ?: gkeLib.getParam(release_versions, "IMAGE_BACKREST", "IMAGE_BACKREST${PILLAR_VERSION}")
+        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: gkeLib.getParam(release_versions, "IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: gkeLib.getParam(release_versions, "IMAGE_PMM_SERVER")
+        IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: gkeLib.getParam(release_versions, "IMAGE_PMM3_CLIENT")
+        IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: gkeLib.getParam(release_versions, "IMAGE_PMM3_SERVER")
+        IMAGE_UPGRADE = IMAGE_UPGRADE ?: gkeLib.getParam(release_versions, "IMAGE_UPGRADE")
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
-            PLATFORM_VER = getParam("PLATFORM_VER", "GKE_${PLATFORM_VER}")
+            PLATFORM_VER = gkeLib.getParam(release_versions, "PLATFORM_VER", "GKE_${PLATFORM_VER}")
         }
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
@@ -50,6 +40,7 @@ void initParams() {
 
 void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
+    gkeLib = load("cloud/common/gke-lib.groovy")
     sh """
         git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
     """
@@ -63,63 +54,18 @@ void prepareSources() {
 
 void prepareAgent() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
-    sh """
-        sudo curl -sLo /usr/local/bin/kubectl https://dl.k8s.io/release/\$(curl -sL https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl && sudo chmod +x /usr/local/bin/kubectl
-        kubectl version --client --output=yaml
+    gkeLib.installCommonTools()
+    gkeLib.downloadKubectl()
+    gkeLib.installHelm()
+    gkeLib.installKrewAndKuttl()
+    gkeLib.installGcloudCLI()
 
-        curl -fsSL https://get.helm.sh/helm-v3.18.3-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-
-        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
-        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
-
-        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
-        ./krew-linux_amd64 install krew
-        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-
-        kubectl krew install assert
-
-        # v0.22.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
-        echo \$(kubectl kuttl --version) is installed
-
-        sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
-[google-cloud-cli]
-name=Google Cloud CLI
-baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-        sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
-    """
-
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
-            gcloud config set project $GCP_PROJECT
-        """
-    }
+    echo "=========================[ Logging in the Kubernetes provider ]========================="
+    gkeLib.gcloudAuth()
 }
 
 void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the operator Docker image ]========================="
-    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            if [[ "$IMAGE_OPERATOR" ]]; then
-                echo "SKIP: Build is not needed, operator image was set!"
-            else
-                cd source
-                sg docker -c "
-                    docker login -u '$USER' -p '$PASS'
-                    export IMAGE=perconalab/percona-postgresql-operator:$GIT_BRANCH
-                    make build-docker-image
-                    docker logout
-                "
-                sudo rm -rf build
-            fi
-        """
-    }
+    gkeLib.dockerBuildPush('percona-postgresql-operator', GIT_BRANCH, IMAGE_OPERATOR, 'make build-docker-image', false)
 }
 
 void initTests() {
@@ -200,44 +146,7 @@ void clusterRunner(String cluster) {
 
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
-
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-
-            maxRetries=15
-            exitCode=1
-
-            while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
-                gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                    --release-channel $GKE_RELEASE_CHANNEL \
-                    --zone $GKE_REGION \
-                    --cluster-version $PLATFORM_VER \
-                    --preemptible \
-                    --disk-size 30 \
-                    --machine-type n1-standard-4 \
-                    --num-nodes=4 \
-                    --min-nodes=4 \
-                    --max-nodes=6 \
-                    --network=jenkins-vpc \
-                    --subnetwork=jenkins-$CLUSTER_SUFFIX \
-                    --cluster-ipv4-cidr=/21 \
-                    --labels delete-cluster-after-hours=6 \
-                    --enable-ip-alias \
-                    --monitoring=NONE \
-                    --logging=NONE \
-                    --no-enable-managed-prometheus \
-                    --workload-pool=cloud-dev-112233.svc.id.goog \
-                    --quiet &&\
-                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
-                exitCode=\$?
-                if [[ \$exitCode == 0 ]]; then break; fi
-                (( maxRetries -- ))
-                sleep 1
-            done
-            if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
-        """
-    }
+    gkeLib.createGKECluster(CLUSTER_NAME, CLUSTER_SUFFIX, GKE_REGION, GKE_RELEASE_CHANNEL, PLATFORM_VER)
 }
 
 void runTest(Integer TEST_ID) {
@@ -299,16 +208,7 @@ void runTest(Integer TEST_ID) {
 }
 
 void pushArtifactFile(String FILE_NAME) {
-    echo "Push $FILE_NAME file to S3!"
-
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            touch $FILE_NAME
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
-            aws s3 ls \$S3_PATH/$FILE_NAME || :
-            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
-        """
-    }
+    gkeLib.pushArtifactFile(FILE_NAME, GIT_SHORT_COMMIT)
 }
 
 void makeReport() {
@@ -344,27 +244,22 @@ GKE_RELEASE_CHANNEL=$GKE_RELEASE_CHANNEL"""
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            gcloud container clusters delete --zone ${GKE_REGION} $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
-        """
-    }
+    gkeLib.shutdownCluster(CLUSTER_NAME, CLUSTER_SUFFIX, GKE_REGION, false)
 }
 
 pipeline {
     environment {
-        DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg17", , returnStdout: true).trim()
+        DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{print \$2}' | grep -oE '[A-Za-z0-9\\.]+-ppg[0-9]{2}' || echo main-ppg17", returnStdout: true).trim()
     }
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
-        choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'PILLAR_VERSION', choices: 'none\n12\n13\n14\n15\n16\n17', description: 'Implies release run.')
+        choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '13', '14', '15', '16', '17'], description: 'Implies release run.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'GKE kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
-        choice(name: 'GKE_RELEASE_CHANNEL', choices: 'rapid\nstable\nregular\nNone', description: 'GKE release channel. Will be forced to stable for release run.')
-        choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
+        choice(name: 'GKE_RELEASE_CHANNEL', choices: ['rapid', 'stable', 'regular', 'None'], description: 'GKE release channel. Will be forced to stable for release run.')
+        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
         string(name: 'PG_VER', defaultValue: '', description: 'PG version')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main')
         string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-postgres')
@@ -376,7 +271,7 @@ pipeline {
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_UPGRADE', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-upgrade')
         string(name: 'GKE_REGION', defaultValue: 'us-central1-c', description: 'GKE region to use for cluster')
-        choice(name: 'SKIP_TEST_WARNINGS', choices: 'false\ntrue', description: 'Skip test warnings that requires release documentation')
+        choice(name: 'SKIP_TEST_WARNINGS', choices: ['false', 'true'], description: 'Skip test warnings that requires release documentation')
     }
     agent {
         label 'docker'
@@ -457,7 +352,7 @@ pipeline {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
-            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            junit testResults: '*.xml', healthScaleFactor: 1.0
             archiveArtifacts '*.xml,*.txt'
 
             script {

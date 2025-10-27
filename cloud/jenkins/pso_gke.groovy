@@ -1,82 +1,19 @@
+def gkeLib
+
 tests=[]
 clusters=[]
 release_versions="source/e2e-tests/release_versions"
 
-String getParam(String paramName, String keyName = null) {
-    keyName = keyName ?: paramName
-
-    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
-    if ("$param") {
-        echo "$paramName=$param (from params file)"
-    } else {
-        error("$keyName not found in params file $release_versions")
-    }
-    return param
-}
-
-void downloadKubectl() {
-    sh """
-        KUBECTL_VERSION="\$(curl -L -s https://api.github.com/repos/kubernetes/kubernetes/releases/latest | jq -r .tag_name)"
-        for i in {1..5}; do
-          if [ -f /usr/local/bin/kubectl ]; then
-              break
-          fi
-          echo "Attempt \$i: downloading kubectl..."
-          sudo curl -s -L -o /usr/local/bin/kubectl "https://dl.k8s.io/release/\${KUBECTL_VERSION}/bin/linux/amd64/kubectl"
-          sudo curl -s -L -o /tmp/kubectl.sha256 "https://dl.k8s.io/release/\${KUBECTL_VERSION}/bin/linux/amd64/kubectl.sha256"
-
-          if echo "\$(cat /tmp/kubectl.sha256) /usr/local/bin/kubectl" | sha256sum --check --status; then
-            echo 'Download passed checksum'
-            sudo chmod +x /usr/local/bin/kubectl
-            kubectl version --client --output=yaml
-            break
-          else
-            echo 'Checksum failed, retrying...'
-            sudo rm -f /usr/local/bin/kubectl /tmp/kubectl.sha256
-            sleep 5
-          fi
-        done
-    """
-}
-
 void prepareAgent() {
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
-    sh """
-        sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.45.4/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
-        sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
-    """
-    downloadKubectl()
-    sh """
-        curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+    gkeLib.installCommonTools()
+    gkeLib.downloadKubectl()
+    gkeLib.installHelm()
+    gkeLib.installKrewAndKuttl()
+    gkeLib.installGcloudCLI()
 
-        curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
-        ./krew-linux_amd64 install krew
-        export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
-
-        kubectl krew install assert
-
-        # v0.22.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
-        echo \$(kubectl kuttl --version) is installed
-
-        sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
-[google-cloud-cli]
-name=Google Cloud CLI
-baseurl=https://packages.cloud.google.com/yum/repos/cloud-sdk-el7-x86_64
-enabled=1
-gpgcheck=1
-repo_gpgcheck=0
-gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
-EOF
-        sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
-    """
-
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
-            gcloud config set project $GCP_PROJECT
-        """
-    }
+    echo "=========================[ Logging in the Kubernetes provider ]========================="
+    gkeLib.gcloudAuth()
 }
 
 void initParams() {
@@ -85,17 +22,17 @@ void initParams() {
         GKE_RELEASE_CHANNEL = "stable"
         echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
 
-        IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
-        IMAGE_MYSQL = IMAGE_MYSQL ?: getParam("IMAGE_MYSQL", "IMAGE_MYSQL${PILLAR_VERSION}")
-        IMAGE_BACKUP = IMAGE_BACKUP ?: getParam("IMAGE_BACKUP", "IMAGE_BACKUP${PILLAR_VERSION}")
-        IMAGE_ROUTER = IMAGE_ROUTER ?: getParam("IMAGE_ROUTER", "IMAGE_ROUTER${PILLAR_VERSION}")
-        IMAGE_HAPROXY = IMAGE_HAPROXY ?: getParam("IMAGE_HAPROXY")
-        IMAGE_ORCHESTRATOR = IMAGE_ORCHESTRATOR ?: getParam("IMAGE_ORCHESTRATOR")
-        IMAGE_TOOLKIT = IMAGE_TOOLKIT ?: getParam("IMAGE_TOOLKIT")
-        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
+        IMAGE_OPERATOR = IMAGE_OPERATOR ?: gkeLib.getParam(release_versions, "IMAGE_OPERATOR")
+        IMAGE_MYSQL = IMAGE_MYSQL ?: gkeLib.getParam(release_versions, "IMAGE_MYSQL", "IMAGE_MYSQL${PILLAR_VERSION}")
+        IMAGE_BACKUP = IMAGE_BACKUP ?: gkeLib.getParam(release_versions, "IMAGE_BACKUP", "IMAGE_BACKUP${PILLAR_VERSION}")
+        IMAGE_ROUTER = IMAGE_ROUTER ?: gkeLib.getParam(release_versions, "IMAGE_ROUTER", "IMAGE_ROUTER${PILLAR_VERSION}")
+        IMAGE_HAPROXY = IMAGE_HAPROXY ?: gkeLib.getParam(release_versions, "IMAGE_HAPROXY")
+        IMAGE_ORCHESTRATOR = IMAGE_ORCHESTRATOR ?: gkeLib.getParam(release_versions, "IMAGE_ORCHESTRATOR")
+        IMAGE_TOOLKIT = IMAGE_TOOLKIT ?: gkeLib.getParam(release_versions, "IMAGE_TOOLKIT")
+        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: gkeLib.getParam(release_versions, "IMAGE_PMM_CLIENT")
+        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: gkeLib.getParam(release_versions, "IMAGE_PMM_SERVER")
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
-            PLATFORM_VER = getParam("PLATFORM_VER", "GKE_${PLATFORM_VER}")
+            PLATFORM_VER = gkeLib.getParam(release_versions, "PLATFORM_VER", "GKE_${PLATFORM_VER}")
         }
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
@@ -115,6 +52,8 @@ void initParams() {
 void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+
+    gkeLib = load("cloud/common/gke-lib.groovy")
     sh """
         git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
     """
@@ -127,23 +66,7 @@ void prepareSources() {
 }
 
 void dockerBuildPush() {
-    echo "=========================[ Building and Pushing the operator Docker image ]========================="
-    withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            if [[ "$IMAGE_OPERATOR" ]]; then
-                echo "SKIP: Build is not needed, operator image was set!"
-            else
-                cd source
-                sg docker -c "
-                    docker login -u '$USER' -p '$PASS'
-                    export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
-                    e2e-tests/build
-                    docker logout
-                "
-                sudo rm -rf build
-            fi
-        """
-    }
+    gkeLib.dockerBuildPush('percona-server-mysql-operator', GIT_BRANCH, IMAGE_OPERATOR, 'e2e-tests/build', false)
 }
 
 void initTests() {
@@ -222,55 +145,7 @@ void clusterRunner(String cluster) {
 
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
-
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            maxRetries=15
-            exitCode=1
-
-            while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
-                gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                    --release-channel $GKE_RELEASE_CHANNEL \
-                    --zone $GKE_REGION \
-                    --cluster-version $PLATFORM_VER \
-                    --preemptible \
-                    --disk-size 30 \
-                    --machine-type n1-standard-4 \
-                    --num-nodes=4 \
-                    --min-nodes=4 \
-                    --max-nodes=6 \
-                    --network=jenkins-vpc \
-                    --subnetwork=jenkins-$CLUSTER_SUFFIX \
-                    --cluster-ipv4-cidr=/21 \
-                    --labels delete-cluster-after-hours=6 \
-                    --enable-ip-alias \
-                    --monitoring=NONE \
-                    --logging=NONE \
-                    --no-enable-managed-prometheus \
-                    --workload-pool=cloud-dev-112233.svc.id.goog \
-                    --quiet &&\
-                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
-                exitCode=\$?
-                if [[ \$exitCode == 0 ]]; then break; fi
-                (( maxRetries -- ))
-                sleep 1
-            done
-            if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
-
-            CURRENT_TIME=\$(date --rfc-3339=seconds)
-            FUTURE_TIME=\$(date -d '6 hours' --rfc-3339=seconds)
-
-            # When using the STABLE release channel, auto-upgrade must be enabled for node pools, which means you cannot manually disable it,
-            # so we can't just use --no-enable-autoupgrade in the command above, so we need the following workaround.
-            gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                --zone ${GKE_REGION} \
-                --add-maintenance-exclusion-start "\$CURRENT_TIME" \
-                --add-maintenance-exclusion-end "\$FUTURE_TIME"
-
-            kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints,AGE:.metadata.creationTimestamp"
-        """
-    }
+    gkeLib.createGKECluster(CLUSTER_NAME, CLUSTER_SUFFIX, GKE_REGION, GKE_RELEASE_CHANNEL, PLATFORM_VER)
 }
 
 void runTest(Integer TEST_ID) {
@@ -327,16 +202,7 @@ void runTest(Integer TEST_ID) {
 }
 
 void pushArtifactFile(String FILE_NAME) {
-    echo "Push $FILE_NAME file to S3!"
-
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            touch $FILE_NAME
-            S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
-            aws s3 ls \$S3_PATH/$FILE_NAME || :
-            aws s3 cp --quiet $FILE_NAME \$S3_PATH/$FILE_NAME || :
-        """
-    }
+    gkeLib.pushArtifactFile(FILE_NAME, GIT_SHORT_COMMIT)
 }
 
 void makeReport() {
@@ -371,21 +237,7 @@ GKE_RELEASE_CHANNEL=$GKE_RELEASE_CHANNEL"""
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
-            done
-            kubectl get svc --all-namespaces || true
-            gcloud container clusters delete --zone ${GKE_REGION} $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
-        """
-    }
+    gkeLib.shutdownCluster(CLUSTER_NAME, CLUSTER_SUFFIX, GKE_REGION, true)
 }
 
 pipeline {
@@ -396,12 +248,12 @@ pipeline {
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
-        choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'PILLAR_VERSION', choices: 'none\n84\n80', description: 'Implies release run.')
+        choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '84', '80'], description: 'Implies release run.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mysql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'GKE kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
-        choice(name: 'GKE_RELEASE_CHANNEL', choices: 'rapid\nstable\nregular\nNone', description: 'GKE release channel. Will be forced to stable for release run.')
-        choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
+        choice(name: 'GKE_RELEASE_CHANNEL', choices: ['rapid', 'stable', 'regular', 'None'], description: 'GKE release channel. Will be forced to stable for release run.')
+        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main')
         string(name: 'IMAGE_MYSQL', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-psmysql8.0')
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-backup8.0')
@@ -412,7 +264,7 @@ pipeline {
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'GKE_REGION', defaultValue: 'us-central1-a', description: 'GKE region to use for cluster')
-        choice(name: 'JENKINS_AGENT', choices: ['Hetzner','AWS'],description: 'Cloud infra for build')
+        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
     agent {
         label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -493,7 +345,7 @@ pipeline {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
-            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            junit testResults: '*.xml', healthScaleFactor: 1.0
             archiveArtifacts '*.xml,*.txt'
 
             script {
