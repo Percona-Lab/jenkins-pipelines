@@ -418,8 +418,9 @@ pipeline {
             steps {
                 script { deleteDir() }
                 prepareSources()
-                prepareAgent()
+                //initParams on openshift should be before prepareAgent. Bc OC_VER and PLATFORM_VER are assigned in initParams and required for prepareAgent (oc install).
                 initParams()
+                prepareAgent()
                 createHash()
             }
         }
