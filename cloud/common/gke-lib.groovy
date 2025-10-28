@@ -105,7 +105,7 @@ void shutdownCluster(String CLUSTER_NAME, String CLUSTER_SUFFIX, String GKE_REGI
         if (cleanupResources) {
             sh """
                 export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-                
+
                 for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
                     kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
                     kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
@@ -117,7 +117,7 @@ void shutdownCluster(String CLUSTER_NAME, String CLUSTER_SUFFIX, String GKE_REGI
                 kubectl get svc --all-namespaces || true
             """
         }
-        
+
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             gcloud container clusters delete --zone ${GKE_REGION} $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
@@ -126,12 +126,12 @@ void shutdownCluster(String CLUSTER_NAME, String CLUSTER_SUFFIX, String GKE_REGI
 }
 
 void dockerBuildPush(String operatorName, String gitBranch, String imageOperator, String buildCommand = 'e2e-tests/build', boolean useBuildx = true) {
-    echo "=========================[ Building and Pushing the operator Docker image ]========================="
+    echo '=========================[ Building and Pushing the operator Docker image ]========================='
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        def buildxSetup = useBuildx ? "docker buildx create --use" : ""
+        def buildxSetup = useBuildx ? 'docker buildx create --use' : ''
         sh """
             if [[ "$imageOperator" ]]; then
-                echo "SKIP: Build is not needed, operator image was set!"
+                echo 'SKIP: Build is not needed, operator image was set!'
             else
                 cd source
                 sg docker -c "

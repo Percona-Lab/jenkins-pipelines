@@ -1,46 +1,47 @@
 def gkeLib
 
-region='us-central1-c'
-tests=[]
-clusters=[]
-release_versions="source/e2e-tests/release_versions"
+region = 'us-central1-c'
+tests = []
+clusters = []
+release_versions = 'source/e2e-tests/release_versions'
 
 void initParams() {
-    if ("$PILLAR_VERSION" != "none") {
-        echo "=========================[ Getting parameters for release test ]========================="
-        GKE_RELEASE_CHANNEL = "stable"
-        echo "Forcing GKE_RELEASE_CHANNEL=stable, because it's a release run!"
+    if ("$PILLAR_VERSION" != 'none') {
+        echo '=========================[ Getting parameters for release test ]========================='
+        GKE_RELEASE_CHANNEL = 'stable'
+        echo 'Forcing GKE_RELEASE_CHANNEL=stable, because it\'s a release run!'
 
-        IMAGE_OPERATOR = IMAGE_OPERATOR ?: gkeLib.getParam(release_versions, "IMAGE_OPERATOR")
-        IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: gkeLib.getParam(release_versions, "IMAGE_POSTGRESQL", "IMAGE_POSTGRESQL${PILLAR_VERSION}")
-        IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: gkeLib.getParam(release_versions, "IMAGE_PGBOUNCER", "IMAGE_PGBOUNCER${PILLAR_VERSION}")
-        IMAGE_BACKREST = IMAGE_BACKREST ?: gkeLib.getParam(release_versions, "IMAGE_BACKREST", "IMAGE_BACKREST${PILLAR_VERSION}")
-        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: gkeLib.getParam(release_versions, "IMAGE_PMM_CLIENT")
-        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: gkeLib.getParam(release_versions, "IMAGE_PMM_SERVER")
-        IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: gkeLib.getParam(release_versions, "IMAGE_PMM3_CLIENT")
-        IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: gkeLib.getParam(release_versions, "IMAGE_PMM3_SERVER")
-        IMAGE_UPGRADE = IMAGE_UPGRADE ?: gkeLib.getParam(release_versions, "IMAGE_UPGRADE")
-        if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
-            PLATFORM_VER = gkeLib.getParam(release_versions, "PLATFORM_VER", "GKE_${PLATFORM_VER}")
+        IMAGE_OPERATOR = IMAGE_OPERATOR ?: gkeLib.getParam(release_versions, 'IMAGE_OPERATOR')
+        IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: gkeLib.getParam(release_versions, 'IMAGE_POSTGRESQL', "IMAGE_POSTGRESQL${PILLAR_VERSION}")
+        IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: gkeLib.getParam(release_versions, 'IMAGE_PGBOUNCER', "IMAGE_PGBOUNCER${PILLAR_VERSION}")
+        IMAGE_BACKREST = IMAGE_BACKREST ?: gkeLib.getParam(release_versions, 'IMAGE_BACKREST', "IMAGE_BACKREST${PILLAR_VERSION}")
+        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: gkeLib.getParam(release_versions, 'IMAGE_PMM_CLIENT')
+        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: gkeLib.getParam(release_versions, 'IMAGE_PMM_SERVER')
+        IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: gkeLib.getParam(release_versions, 'IMAGE_PMM3_CLIENT')
+        IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: gkeLib.getParam(release_versions, 'IMAGE_PMM3_SERVER')
+        IMAGE_UPGRADE = IMAGE_UPGRADE ?: gkeLib.getParam(release_versions, 'IMAGE_UPGRADE')
+        if ("$PLATFORM_VER".toLowerCase() == 'min' || "$PLATFORM_VER".toLowerCase() == 'max') {
+            PLATFORM_VER = gkeLib.getParam(release_versions, 'PLATFORM_VER', "GKE_${PLATFORM_VER}")
         }
     } else {
-        echo "=========================[ Not a release run. Using job params only! ]========================="
+        echo '=========================[ Not a release run. Using job params only! ]========================='
     }
 
-    if ("$PLATFORM_VER" == "latest") {
+    if ("$PLATFORM_VER" == 'latest') {
         PLATFORM_VER = sh(script: "gcloud container get-server-config --region=${GKE_REGION} --flatten=channels --filter='channels.channel=$GKE_RELEASE_CHANNEL' --format='value(channels.validVersions)' | cut -d- -f1", returnStdout: true).trim()
     }
 
     if ("$IMAGE_POSTGRESQL") {
-        cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
-        currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
-        currentBuild.description = "$PLATFORM_VER-$GKE_RELEASE_CHANNEL " + "$IMAGE_POSTGRESQL".split(":")[1] + " $cw"
+        cw = ("$CLUSTER_WIDE" == 'YES') ? 'CW' : 'NON-CW'
+        currentBuild.displayName = '#' + currentBuild.number + " $GIT_BRANCH"
+        currentBuild.description = "$PLATFORM_VER-$GKE_RELEASE_CHANNEL " + "$IMAGE_POSTGRESQL".split(':')[1] + " $cw"
     }
 }
 
 void prepareSources() {
-    echo "=========================[ Cloning the sources ]========================="
-    gkeLib = load("cloud/common/gke-lib.groovy")
+    echo '=========================[ Cloning the sources ]========================='
+    git branch: 'gke-cloud-lib', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    gkeLib = load('cloud/common/gke-lib.groovy')
     sh """
         git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
     """
@@ -53,14 +54,14 @@ void prepareSources() {
 }
 
 void prepareAgent() {
-    echo "=========================[ Installing tools on the Jenkins executor ]========================="
+    echo '=========================[ Installing tools on the Jenkins executor ]========================='
     gkeLib.installCommonTools()
     gkeLib.downloadKubectl()
     gkeLib.installHelm()
     gkeLib.installKrewAndKuttl()
     gkeLib.installGcloudCLI()
 
-    echo "=========================[ Logging in the Kubernetes provider ]========================="
+    echo '=========================[ Logging in the Kubernetes provider ]========================='
     gkeLib.gcloudAuth()
 }
 
@@ -69,9 +70,9 @@ void dockerBuildPush() {
 }
 
 void initTests() {
-    echo "=========================[ Initializing the tests ]========================="
+    echo '=========================[ Initializing the tests ]========================='
 
-    echo "Populating tests into the tests array!"
+    echo 'Populating tests into the tests array!'
     def testList = "$TEST_LIST"
     def suiteFileName = "source/e2e-tests/$TEST_SUITE"
 
@@ -86,24 +87,24 @@ void initTests() {
 
     def records = readCSV file: suiteFileName
 
-    for (int i=0; i<records.size(); i++) {
-        tests.add(["name": records[i][0], "cluster": "NA", "result": "skipped", "time": "0"])
+    for (int i = 0; i < records.size(); i++) {
+        tests.add(['name': records[i][0], 'cluster': 'NA', 'result': 'skipped', 'time': '0'])
     }
 
-    echo "Marking passed tests in the tests map!"
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        if ("$IGNORE_PREVIOUS_RUN" == "NO") {
+    echo 'Marking passed tests in the tests map!'
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        if ("$IGNORE_PREVIOUS_RUN" == 'NO') {
             sh """
                 aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
             """
 
-            for (int i=0; i<tests.size(); i++) {
-                def testName = tests[i]["name"]
-                def file="$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
+            for (int i = 0; i < tests.size(); i++) {
+                def testName = tests[i]['name']
+                def file = "$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH"
                 def retFileExists = sh(script: "aws s3api head-object --bucket percona-jenkins-artifactory --key $JOB_NAME/$GIT_SHORT_COMMIT/$file >/dev/null 2>&1", returnStatus: true)
 
                 if (retFileExists == 0) {
-                    tests[i]["result"] = "passed"
+                    tests[i]['result'] = 'passed'
                 }
             }
         } else {
@@ -125,12 +126,12 @@ void initTests() {
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated=0
+    def clusterCreated = 0
 
-    for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "skipped") {
-            tests[i]["result"] = "failure"
-            tests[i]["cluster"] = cluster
+    for (int i = 0; i < tests.size(); i++) {
+        if (tests[i]['result'] == 'skipped') {
+            tests[i]['result'] = 'failure'
+            tests[i]['cluster'] = cluster
             if (clusterCreated == 0) {
                 createCluster(cluster)
                 clusterCreated++
@@ -151,14 +152,14 @@ void createCluster(String CLUSTER_SUFFIX) {
 
 void runTest(Integer TEST_ID) {
     def retryCount = 0
-    def testName = tests[TEST_ID]["name"]
-    def clusterSuffix = tests[TEST_ID]["cluster"]
+    def testName = tests[TEST_ID]['name']
+    def clusterSuffix = tests[TEST_ID]['cluster']
 
     waitUntil {
         def timeStart = new Date().getTime()
         try {
             echo "The $testName test was started on cluster $CLUSTER_NAME-$clusterSuffix !"
-            tests[TEST_ID]["result"] = "failure"
+            tests[TEST_ID]['result'] = 'failure'
 
             timeout(time: 90, unit: 'MINUTES') {
                 sh """
@@ -186,7 +187,7 @@ void runTest(Integer TEST_ID) {
                 """
             }
             pushArtifactFile("$GIT_BRANCH-$GIT_SHORT_COMMIT-$testName-$PLATFORM_VER-$DB_TAG-CW_$CLUSTER_WIDE-$PARAMS_HASH")
-            tests[TEST_ID]["result"] = "passed"
+            tests[TEST_ID]['result'] = 'passed'
             return true
         }
         catch (exc) {
@@ -201,7 +202,7 @@ void runTest(Integer TEST_ID) {
         finally {
             def timeStop = new Date().getTime()
             def durationSec = (timeStop - timeStart) / 1000
-            tests[TEST_ID]["time"] = durationSec
+            tests[TEST_ID]['time'] = durationSec
             echo "The $testName test was finished!"
         }
     }
@@ -212,14 +213,14 @@ void pushArtifactFile(String FILE_NAME) {
 }
 
 void makeReport() {
-    echo "=========================[ Generating Test Report ]========================="
+    echo '=========================[ Generating Test Report ]========================='
     testsReport = "<testsuite name=\"$JOB_NAME\">\n"
     for (int i = 0; i < tests.size(); i ++) {
-        testsReport += '<testcase name="' + tests[i]["name"] + '" time="' + tests[i]["time"] + '"><'+ tests[i]["result"] +'/></testcase>\n'
+        testsReport += '<testcase name="' + tests[i]['name'] + '" time="' + tests[i]['time'] + '"><'+ tests[i]['result'] +'/></testcase>\n'
     }
     testsReport += '</testsuite>\n'
 
-    echo "=========================[ Generating Parameters Report ]========================="
+    echo '=========================[ Generating Parameters Report ]========================='
     pipelineParameters = """
 testsuite name=$JOB_NAME
 PG_VER=${PG_VER ?: 'e2e_defaults'}
@@ -235,7 +236,7 @@ IMAGE_UPGRADE=${IMAGE_UPGRADE ?: 'e2e_defaults'}
 PLATFORM_VER=$PLATFORM_VER
 GKE_RELEASE_CHANNEL=$GKE_RELEASE_CHANNEL"""
 
-    writeFile file: "TestsReport.xml", text: testsReport
+    writeFile file: 'TestsReport.xml', text: testsReport
     writeFile file: 'PipelineParameters.txt', text: pipelineParameters
 
     addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
@@ -362,10 +363,10 @@ pipeline {
 
                 clusters.each { shutdownCluster(it) }
             }
-            sh """
+            sh '''
                 sudo docker system prune --volumes -af
                 sudo rm -rf *
-            """
+            '''
             deleteDir()
         }
     }
