@@ -1,0 +1,14 @@
+- job:
+    name: hetzner-ps8.0-autobuild-RELEASE-test
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/grishma123-eng/jenkins-pipelines.git
+            branches:
+            - 'QA-hetzner-minitest'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ps/jenkins/percona-server-for-mysql-8.0.groovy
