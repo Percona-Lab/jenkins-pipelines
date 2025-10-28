@@ -420,7 +420,7 @@ parameters {
                 }
             }
         }
- /*       stage('Create PS source tarball') {
+        stage('Create PS source tarball') {
             agent {
                label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
             }
@@ -453,7 +453,7 @@ parameters {
                 uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
-        stage('Build PS generic source packages') {
+   /*     stage('Build PS generic source packages') {
             parallel {
                 stage('Build PS generic source rpm') {
                     agent {
