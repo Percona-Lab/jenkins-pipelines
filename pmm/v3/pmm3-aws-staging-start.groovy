@@ -200,6 +200,25 @@ pipeline {
                             echo "${SSH_KEY}" >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
+                        # Wait for systemd dnf-makecache.service to complete on fresh instances
+                        # This prevents race conditions during initial boot when the service
+                        # is building package metadata cache
+                        echo "Waiting for instance boot DNF services to complete..."
+                        timeout 300 bash -c '
+                            # Wait for any dnf/yum processes to complete
+                            # Note: Using pgrep instead of systemctl is-active to avoid issues
+                            # with systemctl reporting incorrect status in nested bash contexts
+                            while pgrep -x dnf >/dev/null || pgrep -x yum >/dev/null; do
+                                PIDS=$(pgrep -x dnf yum 2>/dev/null | tr '"'"'\n'"'"' '"'"' '"'"' || echo none)
+                                echo "DNF/YUM processes still running (PID: ${PIDS})..."
+                                sleep 5
+                            done
+
+                            echo "All boot DNF services completed"
+                        ' || {
+                            echo "WARNING: Timeout waiting for boot services (continuing anyway)"
+                        }
+
                         sudo dnf clean all
                         sudo dnf makecache
                         sudo dnf -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm

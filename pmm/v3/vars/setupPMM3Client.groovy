@@ -4,6 +4,34 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             set -o errexit
             set -o xtrace
             export PATH="$PATH:/usr/sbin:/sbin"
+
+            # Function to retry dnf commands to handle transient failures
+            retry_dnf() {
+                local cmd="$1"
+                local max_attempts=3
+                local attempt=1
+
+                while [ $attempt -le $max_attempts ]; do
+                    echo "Attempt $attempt of $max_attempts: $cmd"
+
+                    if eval "$cmd"; then
+                        echo "Success on attempt $attempt"
+                        return 0
+                    fi
+
+                    echo "Failed attempt $attempt, cleaning cache..."
+                    sudo dnf clean all
+
+                    if [ $attempt -lt $max_attempts ]; then
+                        sleep 10
+                    fi
+
+                    attempt=$((attempt + 1))
+                done
+
+                echo "All $max_attempts attempts failed"
+                return 1
+            }
             test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
             export IP=$(curl -4 -s ifconfig.me)
             export PMM_DIR=${WORKSPACE}/${PMM_VERSION}
@@ -20,20 +48,25 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             fi
 
             if ! command -v percona-release > /dev/null; then
-                sudo dnf -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
+                # Initial cleanup
                 sudo dnf clean all
+
+                # Install with retry to handle transient failures
+                retry_dnf "sudo dnf -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm"
+                sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
+
                 sudo dnf makecache
             fi
 
             if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
                 sudo percona-release enable-only pmm3-client experimental
-                sudo dnf -y install pmm-client
+                retry_dnf "sudo dnf -y install pmm-client"
             elif [ "${CLIENT_VERSION}" = pmm3-rc ]; then
                 sudo percona-release enable-only pmm3-client testing
-                sudo dnf -y install pmm-client
+                retry_dnf "sudo dnf -y install pmm-client"
             elif [ "${CLIENT_VERSION}" = pmm3-latest ]; then
                 sudo percona-release enable-only pmm3-client experimental
-                sudo dnf -y install pmm-client
+                retry_dnf "sudo dnf -y install pmm-client"
             elif [[ "${CLIENT_VERSION}" = 3* ]]; then
                 if [ "${ENABLE_TESTING_REPO}" = yes ]; then
                     sudo percona-release enable-only pmm3-client testing
@@ -44,7 +77,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 fi
 
                 export FULL_CLIENT_VERSION=$(dnf list pmm-client --showduplicates | grep -w "${CLIENT_VERSION}" | awk '{print $2}')
-                sudo dnf -y install "pmm-client-${FULL_CLIENT_VERSION}"
+                retry_dnf "sudo dnf -y install \"pmm-client-${FULL_CLIENT_VERSION}\""
                 sleep 10
             else
                 if [[ "${CLIENT_VERSION}" = http* ]]; then
