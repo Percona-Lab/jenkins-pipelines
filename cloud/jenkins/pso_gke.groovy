@@ -349,9 +349,9 @@ pipeline {
             archiveArtifacts '*.xml,*.txt'
 
             script {
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
-                }
+                // if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
+                //     slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                // }
 
                 clusters.each { shutdownCluster(it) }
             }

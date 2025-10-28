@@ -136,7 +136,7 @@ void dockerBuildPush(String operatorName, String gitBranch, String imageOperator
                 cd source
                 sg docker -c "
                     ${buildxSetup}
-                    docker login -u '\$USER' -p '\$PASS'
+                    echo '\$PASS' | docker login -u '\$USER' --password-stdin
                     export IMAGE=perconalab/${operatorName}:${gitBranch}
                     ${buildCommand}
                     docker logout
