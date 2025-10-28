@@ -201,6 +201,7 @@ pipeline {
                         fi
 
                         sudo dnf clean all
+                        sudo dnf makecache
                         sudo dnf -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                         sudo dnf repolist
