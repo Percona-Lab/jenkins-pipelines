@@ -7,14 +7,13 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
 
             # Function to retry dnf commands to handle transient failures
             retry_dnf() {
-                local cmd="$1"
                 local max_attempts=3
                 local attempt=1
 
                 while [ $attempt -le $max_attempts ]; do
-                    echo "Attempt $attempt of $max_attempts: $cmd"
+                    echo "Attempt $attempt of $max_attempts: $*"
 
-                    if eval "$cmd"; then
+                    if "$@"; then
                         echo "Success on attempt $attempt"
                         return 0
                     fi
@@ -42,7 +41,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 echo "Exiting..."
                 exit 1
             fi
-            
+
             if [ "${SETUP_TYPE}" = compose_setup ]; then
                 export IP=192.168.0.1
             fi
@@ -52,7 +51,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 sudo dnf clean all
 
                 # Install with retry to handle transient failures
-                retry_dnf "sudo dnf -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm"
+                retry_dnf sudo dnf -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                 sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
 
                 sudo dnf makecache
@@ -60,13 +59,13 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
 
             if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
                 sudo percona-release enable-only pmm3-client experimental
-                retry_dnf "sudo dnf -y install pmm-client"
+                retry_dnf sudo dnf -y install pmm-client
             elif [ "${CLIENT_VERSION}" = pmm3-rc ]; then
                 sudo percona-release enable-only pmm3-client testing
-                retry_dnf "sudo dnf -y install pmm-client"
+                retry_dnf sudo dnf -y install pmm-client
             elif [ "${CLIENT_VERSION}" = pmm3-latest ]; then
                 sudo percona-release enable-only pmm3-client experimental
-                retry_dnf "sudo dnf -y install pmm-client"
+                retry_dnf sudo dnf -y install pmm-client
             elif [[ "${CLIENT_VERSION}" = 3* ]]; then
                 if [ "${ENABLE_TESTING_REPO}" = yes ]; then
                     sudo percona-release enable-only pmm3-client testing
@@ -77,7 +76,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 fi
 
                 export FULL_CLIENT_VERSION=$(dnf list pmm-client --showduplicates | grep -w "${CLIENT_VERSION}" | awk '{print $2}')
-                retry_dnf "sudo dnf -y install \"pmm-client-${FULL_CLIENT_VERSION}\""
+                retry_dnf sudo dnf -y install "pmm-client-${FULL_CLIENT_VERSION}"
                 sleep 10
             else
                 if [[ "${CLIENT_VERSION}" = http* ]]; then
