@@ -11,4 +11,4 @@
             - 'QA-hetzner-minitest'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ps/jenkins/percona-server-for-mysql-8.0.groovy
+      script-path: ps/jenkins/percona-server-for-mysql-8.0-test.groovy
