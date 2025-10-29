@@ -34,15 +34,9 @@ void initParams() {
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        OC_VER="4.15.25"
         PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", returnStdout: true).trim()
-    } else {
-        if ("$PLATFORM_VER" <= "4.15.25") {
-            OC_VER="$PLATFORM_VER"
-        } else {
-            OC_VER="4.15.25"
-        }
     }
+    OC_VER="$PLATFORM_VER"
     echo "OC_VER=$OC_VER"
 
     if ("$IMAGE_MYSQL") {
@@ -458,7 +452,7 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -468,7 +462,7 @@ pipeline {
                 }
                 stage('cluster2') {
                     agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -478,7 +472,7 @@ pipeline {
                 }
                 stage('cluster3') {
                     agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -488,7 +482,7 @@ pipeline {
                 }
                 stage('cluster4') {
                     agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -498,7 +492,7 @@ pipeline {
                 }
                 stage('cluster5') {
                     agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
