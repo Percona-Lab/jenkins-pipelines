@@ -420,7 +420,7 @@ parameters {
                 }
             }
         }
-   /*     stage('Create PS source tarball') {
+        stage('Create PS source tarball') {
             agent {
                label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
             }
@@ -445,14 +445,15 @@ parameters {
                    cat awsUploadPath
                 '''
                 script {
-                    AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
+                    echo "hello"
+      //              AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
                 stash includes: 'test/percona-server-8.0.properties', name: 'properties'
-                pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
+          //      pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+            //    uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
-        } */
+        } 
    /*     stage('Build PS generic source packages') {
             parallel {
                 stage('Build PS generic source rpm') {
