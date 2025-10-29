@@ -40,7 +40,8 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH, SSH_KEY) {
   env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
   env.SERVER_IP = amiStagingJob.buildVariables.PUBLIC_IP
   env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
-  env.ADMIN_PASSWORD = amiStagingJob.buildVariables.INSTANCE_ID
+  env.ADMIN_PASSWORD = "admin"
+//   env.ADMIN_PASSWORD = amiStagingJob.buildVariables.INSTANCE_ID
   env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
   env.VM_NAME = amiStagingJob.buildVariables.INSTANCE_ID
   env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${AMI_INSTANCE_IP}"
