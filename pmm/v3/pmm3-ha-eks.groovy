@@ -103,6 +103,7 @@ EOF
                         IAM_ARNS=(
                             "arn:aws:iam::119175775298:role/AWSReservedSSO_AdministratorAccess_5922b1e9e802dfa5"
                             "arn:aws:iam::119175775298:user/atymchuk"
+                            "arn:aws:iam::119175775298:user/michael.okoko"
                         )
 
                         # Loop through ARNs and create identity mappings
