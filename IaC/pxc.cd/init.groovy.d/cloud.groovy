@@ -23,27 +23,29 @@ netMap['us-west-1b'] = 'subnet-01d9a7d6b4722eb43'
 netMap['us-west-1c'] = 'subnet-0550c1d2ffd688021'
 
 imageMap = [:]
-imageMap['micro-amazon']     = 'ami-098023750985977ad'
+imageMap['micro-amazon']     = 'ami-00142eb1747a493d9'
 imageMap['min-bionic-x64']   = 'ami-0a0da33f8cf70309a'
 imageMap['min-focal-x64']    = 'ami-081a3b9eded47f0f3'
-imageMap['min-jammy-x64']    = 'ami-014d05e6b24240371'
+imageMap['min-jammy-x64']    = 'ami-0cd000a60536dcba5'
 imageMap['min-noble-x64']    = 'ami-08012c0a9ee8e21c4'
 imageMap['min-centos-6-x32'] = 'ami-67e3cd22'
 imageMap['min-centos-6-x64'] = 'ami-0d282a216ae4c0c42'
 imageMap['min-centos-7-x64'] = 'ami-0bcd12d19d926f8e9'
 imageMap['min-centos-8-x64'] = 'ami-04adf3fcbc8a45c54'
-imageMap['min-ol-8-x64']     = 'ami-0ec007654a879ba5e'
-imageMap['min-ol-9-x64']     = 'ami-0bf91ca60fd852846'
+imageMap['min-ol-8-x64']     = 'ami-0b6e88c5e659e62f1'
+imageMap['min-ol-9-x64']     = 'ami-062ffc53eeaf428fc'
 imageMap['min-stretch-x64']  = 'ami-048ad764ec185067c'
 imageMap['min-xenial-x64']   = 'ami-0454207e5367abf01'
 imageMap['min-buster-x64']   = 'ami-0809b44a732f37188'
-imageMap['docker']           = 'ami-098023750985977ad'
+imageMap['docker']           = 'ami-00142eb1747a493d9'
 imageMap['docker-32gb']      = imageMap['docker']
 imageMap['min-bullseye-x64'] = 'ami-0bf166b48bbe2bf7c'
-imageMap['min-bookworm-x64'] = 'ami-02ee139f24936eba5'
-imageMap['min-al2023-x64']   = 'ami-01eb4eefd88522422'
+imageMap['min-bookworm-x64'] = 'ami-07933a20b2bfa7ba5'
+imageMap['min-al2023-x64']   = 'ami-00142eb1747a493d9'
+imageMap['min-trixie-x64']   = 'ami-07d66fa11c7e97a8f'
+imageMap['min-rhel-10-x64']  = 'ami-0a5229853eaaa29c1'
 
-imageMap['min-al2023-aarch64'] = 'ami-0288dbce011958818'
+imageMap['min-al2023-aarch64'] = 'ami-00772aa7c934ce477'
 
 imageMap['ramdisk-centos-6-x64'] = imageMap['min-centos-6-x64']
 imageMap['ramdisk-centos-7-x64'] = imageMap['min-centos-7-x64']
@@ -90,6 +92,8 @@ userMap['min-buster-x64']    = 'admin'
 userMap['min-xenial-x64']    = 'ubuntu'
 userMap['min-bullseye-x64']  = 'admin'
 userMap['min-bookworm-x64']  = 'admin'
+userMap['min-trixie-x64']    = 'admin'
+userMap['min-rhel-10-x64']   = 'ec2-user'
 userMap['min-al2023-x64']    = 'ec2-user'
 userMap['min-al2023-aarch64'] = 'ec2-user'
 
@@ -132,11 +136,12 @@ initMap['docker'] = '''
         echo try again
     done
 
-    sudo amazon-linux-extras install epel -y
-    sudo amazon-linux-extras install java-openjdk11 -y || :
-    sudo yum -y install java-11-openjdk tzdata-java || :
-    sudo yum -y install git docker p7zip
-    sudo yum -y remove awscli
+    sudo yum -y install java-17-amazon-corretto tzdata-java cronie unzip || :
+    sudo yum -y install git docker
+    sudo yum -y remove awscli || :
+
+    sudo systemctl enable crond
+    sudo systemctl start crond
 
     if ! $(aws --version | grep -q 'aws-cli/2'); then
         sudo rm -rf /tmp/aws* || true
@@ -146,9 +151,11 @@ initMap['docker'] = '''
             echo try again
         done
 
-        7za -o/tmp x /tmp/awscliv2.zip
-        cd /tmp/aws && sudo ./install
+        cd /tmp && unzip -q awscliv2.zip
+        sudo /tmp/aws/install
     fi
+
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
 
@@ -222,12 +229,6 @@ initMap['rpmMap'] = '''
             sudo curl https://jenkins.percona.com/downloads/cent6/centos6-scl-rh-eol.repo --output /etc/yum.repos.d/CentOS-SCLo-scl-rh.repo
         fi
     fi
-    if [[ $SYSREL -eq 2 ]]; then
-        sudo amazon-linux-extras install epel -y
-        sudo amazon-linux-extras install java-openjdk11 -y || :
-
-        PKGLIST="p7zip"
-    fi
     if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
         sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
         sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
@@ -236,7 +237,16 @@ initMap['rpmMap'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-11-openjdk tzdata-java git ${PKGLIST} || :
+
+    if [[ ${RHVER} -le 7 ]]; then
+        # CentOS 6/7 - Java 11
+        sudo yum -y install java-11-openjdk tzdata-java git ${PKGLIST} || :
+    else
+        # CentOS 8, OL-8/9 - Java 17
+        sudo yum -y install java-17-amazon-corretto-headless || :
+        sudo yum -y install java-17-openjdk-headless || :
+        sudo yum -y install git tzdata-java || :
+    fi
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     # CentOS 6 x32 workarounds
     if [[ ${ARCH} != "x86_64" ]]; then
@@ -314,7 +324,11 @@ initMap['debMap'] = '''
             sudo mount ${DEVICE} /mnt
         fi
     fi
+    sudo sed -i 's|http://cdn-aws.deb.debian.org/debian stretch|http://archive.debian.org/debian stretch|g' /etc/apt/sources.list
+    sudo sed -i 's|http://security.debian.org/debian-security stretch|http://archive.debian.org/debian-security stretch|g' /etc/apt/sources.list
+    sudo sed -i '/stretch-updates/d' /etc/apt/sources.list
     sudo sed -i '/buster-backports/ s/cdn-aws.deb.debian.org/archive.debian.org/' /etc/apt/sources.list
+    sudo sed -i '/bullseye-backports/ s/cdn-aws.deb.debian.org/archive.debian.org/' /etc/apt/sources.list
     until sudo DEBIAN_FRONTEND=noninteractive apt-get update; do
         sleep 1
         echo try again
@@ -324,12 +338,14 @@ initMap['debMap'] = '''
         echo try again
     done
     DEB_VER=$(lsb_release -sc)
-    if [[ ${DEB_VER} == "bookworm" ]]; then
+    if [[ ${DEB_VER} == "trixie" ]]; then
+        JAVA_VER="openjdk-21-jre-headless"
+    elif [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "jammy" ]] || [[ ${DEB_VER} == "noble" ]] || [[ ${DEB_VER} == "focal" ]] || [[ ${DEB_VER} == "bionic" ]] || [[ ${DEB_VER} == "xenial" ]]; then
         JAVA_VER="openjdk-17-jre-headless"
     else
         JAVA_VER="openjdk-11-jre-headless"
     fi
-    if [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "buster" ]]; then
+    if [[ ${DEB_VER} == "trixie" ]] || [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "buster" ]]; then
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
@@ -356,7 +372,9 @@ initMap['debMapRamdisk'] = '''
         echo try again
     done
     DEB_VER=$(lsb_release -sc)
-    if [[ ${DEB_VER} == "bookworm" ]]; then
+    if [[ ${DEB_VER} == "trixie" ]]; then
+        JAVA_VER="openjdk-21-jre-headless"
+    elif [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "jammy" ]] || [[ ${DEB_VER} == "noble" ]] || [[ ${DEB_VER} == "focal" ]] || [[ ${DEB_VER} == "bionic" ]] || [[ ${DEB_VER} == "xenial" ]]; then
         JAVA_VER="openjdk-17-jre-headless"
     else
         JAVA_VER="openjdk-11-jre-headless"
@@ -386,6 +404,7 @@ initMap['min-buster-x64']   = initMap['debMap']
 initMap['min-bionic-x64']   = initMap['debMap']
 initMap['min-bullseye-x64'] = initMap['debMap']
 initMap['min-bookworm-x64'] = initMap['debMap']
+initMap['min-trixie-x64']   = initMap['debMap']
 initMap['min-focal-x64']    = initMap['debMap']
 initMap['min-jammy-x64']    = initMap['debMap']
 initMap['min-noble-x64']    = initMap['debMap']
@@ -457,7 +476,7 @@ initMap['min-al2023-x64'] = '''
         echo try again
     done
 
-    sudo yum -y install java-11-amazon-corretto-headless || :
+    sudo yum -y install java-17-amazon-corretto-headless || :
     sudo yum -y install git docker p7zip
     sudo yum -y remove awscli
 
@@ -497,6 +516,32 @@ initMap['min-al2023-x64'] = '''
 '''
 initMap['min-al2023-aarch64'] = initMap['min-al2023-x64']
 
+initMap['min-rhel-10-x64'] = '''
+    set -o xtrace
+    RHVER=$(rpm --eval %rhel)
+    if ! mountpoint -q /mnt; then
+        for DEVICE_NAME in $(lsblk -ndpbo NAME,SIZE | sort -n -r | awk '{print $1}'); do
+            if ! grep -qs "${DEVICE_NAME}" /proc/mounts; then
+                DEVICE="${DEVICE_NAME}"
+                break
+            fi
+        done
+        if [ -n "${DEVICE}" ]; then
+            sudo mkfs.ext2 ${DEVICE}
+            sudo mount ${DEVICE} /mnt
+        fi
+    fi
+
+    until sudo yum makecache; do
+        sleep 1
+        echo try again
+    done
+    sudo yum -y install java-21-openjdk-headless tzdata-java || :
+    sudo yum -y install awscli2 || :
+    sudo yum -y install git || :
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
+'''
+
 capMap = [:]
 capMap['c5.2xlarge'] = '40'
 capMap['c5.4xlarge'] = '80'
@@ -526,6 +571,8 @@ typeMap['min-stretch-x64']   = typeMap['min-centos-7-x64']
 typeMap['min-xenial-x64']    = typeMap['min-centos-7-x64']
 typeMap['min-bullseye-x64']  = typeMap['min-centos-7-x64']
 typeMap['min-bookworm-x64']  = typeMap['min-centos-7-x64']
+typeMap['min-trixie-x64']    = typeMap['docker-32gb']
+typeMap['min-rhel-10-x64']   = typeMap['docker-32gb']
 typeMap['min-al2023-x64']    = 'c5.2xlarge'
 typeMap['min-al2023-aarch64'] = 'm6gd.4xlarge'
 
@@ -564,6 +611,8 @@ execMap['min-stretch-x64'] = '1'
 execMap['min-xenial-x64'] = '1'
 execMap['min-bullseye-x64'] = '1'
 execMap['min-bookworm-x64'] = '1'
+execMap['min-trixie-x64'] = '1'
+execMap['min-rhel-10-x64'] = '1'
 execMap['min-al2023-x64']    = '1'
 execMap['min-al2023-aarch64'] = '1'
 
@@ -585,7 +634,7 @@ execMap['ramdisk-bookworm-x64'] = execMap['docker-32gb']
 execMap['performance-centos-6-x64']   = execMap['docker-32gb']
 
 devMap = [:]
-devMap['docker']            = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker']            = '/dev/xvda=:20:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['docker-32gb']       = devMap['docker']
 devMap['micro-amazon']      = devMap['docker']
 devMap['min-bionic-x64']    = '/dev/sda1=:12:true:gp2,/dev/sdd=:80:true:gp2'
@@ -602,6 +651,8 @@ devMap['min-stretch-x64']   = 'xvda=:8:true:gp2,xvdd=:80:true:gp2'
 devMap['min-buster-x64']    = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-bullseye-x64']  = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-bookworm-x64']  = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-trixie-x64']    = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-rhel-10-x64']   = '/dev/sda1=:12:true:gp3,/dev/sdd=:80:true:gp3'
 devMap['min-xenial-x64']    = devMap['min-bionic-x64']
 devMap['min-centos-6-x32']  = '/dev/sda=:12:true:gp2,/dev/sdd=:80:true:gp2'
 devMap['min-al2023-x64']    = '/dev/xvda=:12:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -644,6 +695,8 @@ labelMap['min-buster-x64']    = 'min-buster-x64'
 labelMap['min-xenial-x64']    = 'min-xenial-x64'
 labelMap['min-bullseye-x64']  = 'min-bullseye-x64'
 labelMap['min-bookworm-x64']  = 'min-bookworm-x64'
+labelMap['min-trixie-x64']    = 'min-trixie-x64'
+labelMap['min-rhel-10-x64']   = 'min-rhel-10-x64'
 labelMap['min-al2023-x64']    = 'min-al2023-x64'
 labelMap['min-al2023-aarch64'] = 'min-al2023-aarch64 docker-32gb-aarch64'
 
@@ -687,6 +740,8 @@ maxUseMap['min-buster-x64']    = maxUseMap['singleUse']
 maxUseMap['min-xenial-x64']    = maxUseMap['singleUse']
 maxUseMap['min-bullseye-x64']  = maxUseMap['singleUse']
 maxUseMap['min-bookworm-x64']  = maxUseMap['singleUse']
+maxUseMap['min-trixie-x64']    = maxUseMap['singleUse']
+maxUseMap['min-rhel-10-x64']   = maxUseMap['singleUse']
 maxUseMap['min-al2023-x64']    = maxUseMap['singleUse']
 maxUseMap['min-al2023-aarch64'] = maxUseMap['singleUse']
 
@@ -727,6 +782,8 @@ jvmoptsMap['min-buster-x64']    = jvmoptsMap['docker']
 jvmoptsMap['min-xenial-x64']    = jvmoptsMap['docker']
 jvmoptsMap['min-bullseye-x64']  = jvmoptsMap['docker']
 jvmoptsMap['min-bookworm-x64']  = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
+jvmoptsMap['min-trixie-x64']    = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
+jvmoptsMap['min-rhel-10-x64']   = jvmoptsMap['docker']
 jvmoptsMap['min-al2023-x64']    = '-Xmx512m -Xms512m'
 jvmoptsMap['min-al2023-aarch64'] = '-Xmx512m -Xms512m'
 
@@ -824,10 +881,12 @@ String region = 'us-west-1'
             getTemplate('min-centos-8-x64', "${region}${it}"),
             getTemplate('min-ol-8-x64',     "${region}${it}"),
             getTemplate('min-ol-9-x64',     "${region}${it}"),
+            getTemplate('min-rhel-10-x64',  "${region}${it}"),
             // getTemplate('min-stretch-x64',  "${region}${it}"),
             getTemplate('min-buster-x64',   "${region}${it}"),
             getTemplate('min-bullseye-x64', "${region}${it}"),
             getTemplate('min-bookworm-x64', "${region}${it}"),
+            getTemplate('min-trixie-x64',   "${region}${it}"),
             // getTemplate('min-xenial-x64',   "${region}${it}"),
             getTemplate('min-bionic-x64',   "${region}${it}"),
             getTemplate('min-focal-x64',    "${region}${it}"),

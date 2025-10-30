@@ -16,18 +16,22 @@ pipeline {
                 'debian-12',
                 'rocky-9',
                 'ubuntu-jammy',
+                'rhel-10',
+                'debian-13',
                 'debian-12-arm64',
                 'rocky-9-arm64',
                 'ubuntu-jammy-arm64'
+                'rhel-10-arm64',
+                'debian-13-arm64',
             ]
         )
         string(
-            defaultValue: '17.6',
+            defaultValue: '18.0',
             description: 'TAG of the docker to test. For example, 16, 16.1, 16.1-multi.',
             name: 'DOCKER_TAG'
         )
         string(
-            defaultValue: '17.6',
+            defaultValue: '18.0',
             description: 'Docker PG version to test, including both major and minor version. For example, 15.4.',
             name: 'SERVER_VERSION'
         )

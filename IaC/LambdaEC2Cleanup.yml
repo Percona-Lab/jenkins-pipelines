@@ -1,0 +1,190 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: "Terminate untagged EC2 instances running for more than 10 minutes"
+Resources:
+
+  RoleEC2Cleanup:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: "Allow"
+            Principal:
+              Service:
+                - "lambda.amazonaws.com"
+                - "ec2.amazonaws.com"
+                - "logs.amazonaws.com"
+            Action:
+              - "sts:AssumeRole"
+      Path: "/"
+      RoleName: RoleEC2Cleanup
+      Tags:
+        - Key: iit-billing-tag
+          Value: removeUntaggedEc2
+
+  PolicyEC2Cleanup:
+    Type: AWS::IAM::Policy
+    Properties:
+      Roles:
+        - !Ref RoleEC2Cleanup
+      PolicyName: PolicyEC2Cleanup
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+            Resource: !Sub 'arn:aws:logs:*:${AWS::AccountId}:log-group:/aws/lambda/LambdaEC2Cleanup:*'
+          - Effect: Allow
+            Action:
+              - sts:DecodeAuthorizationMessage
+            Resource: '*'
+          - Effect: Allow
+            Action:
+              - ec2:DescribeRegions
+              - ec2:DescribeInstances
+              - ec2:TerminateInstances
+              - ec2:CreateTags
+            Resource: '*'
+
+  LambdaEC2Cleanup:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: LambdaEC2Cleanup
+      Description: Terminates EC2 instances without iit-billing-tag running for more than 10 minutes, and tags CirrusCI instances
+      Runtime: python3.12
+      Handler: index.lambda_handler
+      MemorySize: 128
+      Timeout: 60
+      Code:
+        ZipFile: |
+          import logging
+          import datetime
+          import boto3
+          from botocore.exceptions import ClientError
+
+          # Set logging level to INFO
+          logger = logging.getLogger()
+          logger.setLevel("INFO")
+
+          def convert_tags_to_dict(tags):
+              return {tag['Key']: tag['Value'] for tag in tags} if tags else {}
+
+          def is_instance_to_terminate(instance):
+              # Check if the instance has 'iit-billing-tag'
+              has_iit_billing_tag = False
+              if instance.tags is not None:
+                  for tag in instance.tags:
+                      if tag['Key'] == 'iit-billing-tag':
+                          has_iit_billing_tag = True
+                          break
+
+              # Calculate the running time of the instance
+              current_time = datetime.datetime.now(datetime.timezone.utc)
+              launch_time = instance.launch_time
+              running_time = current_time - launch_time
+
+              # Terminate instances without 'iit-billing-tag' running for more than 10 minutes
+              if not has_iit_billing_tag and running_time.total_seconds() > 600:
+                  return True
+              return False
+
+          def cirrus_ci_add_iit_billing_tag(instance):
+              # Convert tags to a dictionary for easier access
+              tags_dict = convert_tags_to_dict(instance.tags)
+
+              # Check if the instance has 'CIRRUS_CI' tag set to 'true' and 'iit-billing-tag' is not set
+              has_cirrus_ci_tag = tags_dict.get('CIRRUS_CI', '').lower() == 'true'
+              has_iit_billing_tag = 'iit-billing-tag' in tags_dict
+
+              # Extract additional tag values
+              instance_name = tags_dict.get('Name')
+              cirrus_repo_full_name = tags_dict.get('CIRRUS_REPO_FULL_NAME')
+              cirrus_task_id = tags_dict.get('CIRRUS_TASK_ID')
+
+              # If 'CIRRUS_CI' tag is set to 'true' and 'iit-billing-tag' is not set, add 'iit-billing-tag' set to 'CirrusCI'
+              if has_cirrus_ci_tag and not has_iit_billing_tag:
+                  try:
+                      instance.create_tags(Tags=[{'Key': 'iit-billing-tag', 'Value': 'CirrusCI'}])
+                      logging.info(
+                          f"Instance {instance.id} ({instance_name}) tagged with 'iit-billing-tag: CirrusCI'. "
+                          f"CIRRUS_REPO_FULL_NAME: {cirrus_repo_full_name}, CIRRUS_TASK_ID: {cirrus_task_id}"
+                      )
+                  except ClientError as e:
+                      logging.error(f"Error tagging instance {instance.id}: {e}")
+
+          def terminate_instances_in_region(region):
+              ec2 = boto3.resource('ec2', region_name=region)
+              instances = ec2.instances.filter(Filters=[{'Name': 'instance-state-name', 'Values': ['running']}])
+              terminated_instances = []
+
+              for instance in instances:
+                  cirrus_ci_add_iit_billing_tag(instance)
+                  if is_instance_to_terminate(instance):
+                      try:
+                          # Get instance details before termination
+                          tags_dict = convert_tags_to_dict(instance.tags)
+                          instance_name = tags_dict.get('Name', 'N/A')
+                          ssh_key_name = instance.key_name if instance.key_name else 'N/A'
+
+                          logger.info(f"Trying to terminate {instance.id} in {region}")
+                          response = instance.terminate()
+                          logger.info(f"Terminate response for {instance.id}: {response}")
+                          terminated_instances.append({
+                              'InstanceId': instance.id,
+                              'AvailabilityZone': instance.placement['AvailabilityZone'],
+                              'SSHKeyName': ssh_key_name,
+                              'NameTag': instance_name
+                          })
+                      except ClientError as e:
+                          logger.error(f"Failed to terminate {instance.id}: {e}")
+                          error_code = e.response['Error']['Code']
+                          error_message = e.response['Error']['Message']
+                          logger.error(f"Error Code: {error_code}")
+                          logger.error(f"Error Message: {error_message}")
+                          logger.error(f"RequestId: {e.response.get('ResponseMetadata', {}).get('RequestId')}")
+              return terminated_instances
+
+          def lambda_handler(event, context):
+              regions = [region['RegionName'] for region in boto3.client('ec2').describe_regions()['Regions']]
+              terminated_instances_all_regions = []
+
+              for region in regions:
+                  terminated_instances_region = terminate_instances_in_region(region)
+                  terminated_instances_all_regions.extend(terminated_instances_region)
+
+              if terminated_instances_all_regions:
+                  logger.info("Terminated instances:")
+                  for instance_info in terminated_instances_all_regions:
+                      logger.info(f"- Instance ID: {instance_info['InstanceId']}, SSH Key: {instance_info['SSHKeyName']}, Name Tag: {instance_info['NameTag']}, Availability Zone: {instance_info['AvailabilityZone']}")
+              else:
+                  logger.info("No instances were terminated.")
+      Role: !GetAtt RoleEC2Cleanup.Arn
+      Tags:
+        - Key: iit-billing-tag
+          Value: removeUntaggedEc2
+
+  EventEC2Cleanup:
+    Type: AWS::Events::Rule
+    Properties:
+      Description: "Executes every 15 minutes to cleanup untagged EC2 instances"
+      Name: EventEC2Cleanup
+      ScheduleExpression: "rate(15 minutes)"
+      State: "ENABLED"
+      Targets:
+        - Arn: !GetAtt LambdaEC2Cleanup.Arn
+          Id: LambdaEC2Cleanup
+
+  PermissionForEventsToInvokeLambda:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaEC2Cleanup
+      Action: "lambda:InvokeFunction"
+      Principal: "events.amazonaws.com"
+      SourceArn: !GetAtt EventEC2Cleanup.Arn
+
+  # Note: CloudWatch LogGroup is created automatically by Lambda on first invocation
+  # Explicit creation removed to avoid IAM permission requirements

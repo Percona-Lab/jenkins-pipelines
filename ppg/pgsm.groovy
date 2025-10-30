@@ -34,7 +34,7 @@ pipeline {
             name: 'PGSM_BRANCH'
         )
         string(
-            defaultValue: 'ppg-17.6',
+            defaultValue: 'ppg-18.0',
             description: 'Server PG version for test, including major and minor version, e.g ppg-16.2, ppg-15.5',
             name: 'VERSION'
         )

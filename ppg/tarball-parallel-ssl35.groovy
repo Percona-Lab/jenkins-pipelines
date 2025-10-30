@@ -25,7 +25,7 @@ pipeline {
             name: 'SSL_VERSION',
             description: 'SSL version to use',
             choices: [
-                '3'
+                '3.5'
             ]
         )
         string(
@@ -81,7 +81,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTestPPG(ppgOperatingSystemsSSL3(), env.MOLECULE_DIR)
+                    moleculeParallelTestPPG(ppgOperatingSystemsSSL35(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -89,7 +89,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroyPPG(ppgOperatingSystemsSSL3(), env.MOLECULE_DIR)
+              moleculeParallelPostDestroyPPG(ppgOperatingSystemsSSL35(), env.MOLECULE_DIR)
               sendSlackNotification(env.VERSION)
          }
       }
