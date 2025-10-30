@@ -21,7 +21,7 @@ pipeline {
         stage('Write Cluster Config') {
             steps {
                 sh '''
-                    cat > ClusterConfig.yaml <<EOF
+                    cat > cluster-config.yaml <<EOF
 apiVersion: eksctl.io/v1alpha5
 kind: ClusterConfig
 
