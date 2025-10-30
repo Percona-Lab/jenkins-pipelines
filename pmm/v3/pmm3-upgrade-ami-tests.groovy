@@ -89,17 +89,11 @@ pipeline {
     options {
         timeout(time: 300, unit: 'MINUTES')
     }
-//     triggers {
-//         cron('0 3 * * *')
-//     }
     stages {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
-                    def jobs = generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion)
-                    for (job in jobs.values()) {
-                        job()
-                    }
+                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion)
                 }
             }
         }
