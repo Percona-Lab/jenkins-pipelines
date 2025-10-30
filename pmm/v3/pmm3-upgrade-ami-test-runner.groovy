@@ -65,7 +65,7 @@ def versionsList = pmmVersion('v3-ami')
 def versionsListParameter = versionsList.collect { k, v -> "${k} - ${v}" }
 def amiVersions = versionsList.values()[-5..-1]
 def versions = versionsList.keySet().toList()[-5..-1]
-def upgradeAmiVersion = amiVersions[1]
+def upgradeAmiVersion = amiVersions[0]
 def latestVersion = versions[versions.size() - 1]
 def upgradeVersion = versions[versions.size() - 2]
 
@@ -120,7 +120,7 @@ pipeline {
             description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
             name: 'DOCKER_TAG_UPGRADE')
         string(
-            defaultValue: versions[1],
+            defaultValue: versions[0],
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
