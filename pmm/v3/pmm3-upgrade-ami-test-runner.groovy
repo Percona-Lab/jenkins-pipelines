@@ -185,13 +185,13 @@ pipeline {
             }
         }
         stage('Setup Dependencies and PMM Client') {
-            parallel {
-                stage('Setup PMM Client') {
-                    steps {
-                        setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', env.ADMIN_PASSWORD, 'no')
-                    }
-                }
-                stage('Setup dependencies') {
+//             parallel {
+//                 stage('Setup PMM Client') {
+//                     steps {
+//                         setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', env.ADMIN_PASSWORD, 'no')
+//                     }
+//                 }
+//                 stage('Setup dependencies') {
                     steps {
                         sh '''
                             npm ci
@@ -203,8 +203,8 @@ pipeline {
                             ansible-galaxy collection install ansible.utils
                         '''
                     }
-                }
-            }
+//                 }
+//             }
         }
         stage('Setup Databases for PMM-Server') {
             steps {
