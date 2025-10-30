@@ -391,11 +391,11 @@ pipeline {
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
-//             script {
-//                 amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
-//                     string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
-//                 ]
-//             }
+            script {
+                amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
+                    string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
+                ]
+            }
         }
         failure {
             archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
