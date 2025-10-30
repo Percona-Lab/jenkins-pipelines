@@ -97,14 +97,23 @@ EOF
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        eksctl create cluster -f cluster-config.yaml --timeout=40m --verbose=4
+                        eksctl create cluster -f ClusterConfig.yaml --timeout=40m --verbose=4
 
-                        eksctl create iamidentitymapping \
-                            --cluster "${CLUSTER_NAME}" \
-                            --region "${REGION}" \
-                            --arn arn:aws:iam::119175775298:role/AWSReservedSSO_AdministratorAccess_5922b1e9e802dfa5 \
-                            --username admin \
-                            --group system:masters
+                        # Define IAM ARNs to grant admin access
+                        IAM_ARNS=(
+                            "arn:aws:iam::119175775298:role/AWSReservedSSO_AdministratorAccess_5922b1e9e802dfa5"
+                            "arn:aws:iam::119175775298:user/atymchuk"
+                        )
+
+                        # Loop through ARNs and create identity mappings
+                        for ARN in "${IAM_ARNS[@]}"; do
+                            eksctl create iamidentitymapping \
+                                --cluster "${CLUSTER_NAME}" \
+                                --region "${REGION}" \
+                                --arn "$ARN" \
+                                --username admin \
+                                --group system:masters
+                        done
                     '''
                 }
             }
