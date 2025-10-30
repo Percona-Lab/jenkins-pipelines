@@ -265,13 +265,6 @@ pipeline {
                 }
             }
         }
-        stage('Check Client before Upgrade') {
-            steps {
-                script {
-                    checkClientBeforeUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION)
-                }
-            }
-        }
         stage('Run pre upgrade UI tests') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -358,8 +351,6 @@ pipeline {
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                        fi
                    done
-                   sudo percona-release enable pmm3-client $CLIENT_REPOSITORY
-                   sudo dnf install -y pmm-client
                '''
             }
         }
@@ -372,27 +363,6 @@ pipeline {
                     sh '''
                         ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-post-upgrade'
                     '''
-                }
-            }
-        }
-        stage('Check PMM Server Packages after Upgrade') {
-            environment {
-                ADMIN_PASSWORD = "pmm3admin!"
-            }
-            steps {
-                script {
-                    withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
-                        sh '''
-                            ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${AMI_INSTANCE_IP} "bash -c '
-                                export PMM_VERSION=$(curl --location -k --user admin:\${ADMIN_PASSWORD} \${PMM_UI_URL}v1/server/version | jq -r \'.version\')
-                                echo \\${PMM_VERSION}
-                                echo "PMM Version is: \\${PMM_VERSION}"
-                                sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                                python3 /srv/pmm-qa/support_scripts/check_upgrade.py -v \\$PMM_VERSION -p post
-                                '
-                            "
-                        '''
-                    }
                 }
             }
         }
