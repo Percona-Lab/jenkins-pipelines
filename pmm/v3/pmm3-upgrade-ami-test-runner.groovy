@@ -186,8 +186,10 @@ pipeline {
         }
         stage('Temporary change PMM Server password') {
             steps {
-                def code = sh(returnStdout: true, script: 'curl -ks -u "admin:${ADMIN_PASSWORD}" -o /dev/null -w "%{http_code}" "$PMM_URL/v1/users/me"').trim()
-                println("Response code is: ${code}")
+                script {
+                    def code = sh(returnStdout: true, script: 'curl -ks -u "admin:${ADMIN_PASSWORD}" -o /dev/null -w "%{http_code}" "$PMM_URL/v1/users/me"').trim()
+                    println("Response code is: ${code}")
+                }
             }
         }
         stage('Setup Dependencies and PMM Client') {
