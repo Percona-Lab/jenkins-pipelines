@@ -70,22 +70,24 @@ EOF
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        echo "Checking existing clusters with prefix 'pmm-ha-test-'"
-                        EXISTING_CLUSTERS=$(aws eks list-clusters --region "${REGION}" --query "clusters[?starts_with(@, 'pmm-ha-test-')]" --output text)
-                        EXISTING_COUNT=$(echo "$EXISTING_CLUSTERS" | wc -w)
+                        set +x
 
-                        echo "Found $EXISTING_COUNT existing clusters:"
-                        echo "$EXISTING_CLUSTERS" | tr '\t' '\n'
+                        EXISTING_CLUSTERS=$(aws eks list-clusters --region "${REGION}" \
+                            --query "clusters[?starts_with(@, 'pmm-ha-test-')]" --output text)
+
+                        if [ -z "$EXISTING_CLUSTERS" ]; then
+                            EXISTING_COUNT=0
+                        else
+                            EXISTING_COUNT=$(echo "$EXISTING_CLUSTERS" | wc -w)
+                            echo "$EXISTING_CLUSTERS" | tr '\\t' '\\n'
+                        fi
 
                         if [ "$EXISTING_COUNT" -ge 5 ]; then
-                            echo ""
-                            echo "ERROR: Maximum limit of 5 test clusters reached!"
-                            echo "Please delete one of the existing clusters before creating a new one."
+                            echo "ERROR: Maximum limit of 5 test clusters reached."
                             exit 1
                         fi
 
-                        echo ""
-                        echo "Proceeding with cluster creation (${EXISTING_COUNT}/5 slots used)"
+                        echo "Existing clusters: $EXISTING_COUNT / 5"
                     '''
                 }
             }
@@ -95,16 +97,11 @@ EOF
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        echo "Creating EKS cluster: ${CLUSTER_NAME}"
-                        echo "Kubernetes version: ${K8S_VERSION}"
-                        echo "Region: ${REGION}"
-
                         eksctl create cluster -f ClusterConfig.yaml --timeout=40m --verbose=4
 
-                        echo "Creating IAM identity mapping for SSO admin access..."
                         eksctl create iamidentitymapping \
-                            --cluster ${CLUSTER_NAME} \
-                            --region ${REGION} \
+                            --cluster "${CLUSTER_NAME}" \
+                            --region "${REGION}" \
                             --arn arn:aws:iam::119175775298:role/AWSReservedSSO_AdministratorAccess_5922b1e9e802dfa5 \
                             --username admin \
                             --group system:masters
@@ -117,14 +114,13 @@ EOF
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        echo "Exporting kubeconfig for cluster: ${CLUSTER_NAME}"
                         mkdir -p kubeconfig
+
                         aws eks update-kubeconfig \
                             --name "${CLUSTER_NAME}" \
                             --region "${REGION}" \
                             --kubeconfig "${KUBECONFIG}"
 
-                        echo "Verifying cluster access..."
                         kubectl cluster-info
                         kubectl get nodes
                     '''
@@ -136,14 +132,6 @@ EOF
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        echo "Waiting for all nodes to be ready..."
-                        kubectl wait --for=condition=Ready nodes --all --timeout=300s
-
-                        echo "Checking EBS CSI driver status..."
-                        kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-ebs-csi-driver
-                        kubectl wait --for=condition=Ready pods -n kube-system -l app.kubernetes.io/name=aws-ebs-csi-driver --timeout=300s
-
-                        echo "Configuring storage classes..."
                         kubectl patch storageclass gp2 -p '{"metadata": {"annotations":{"storageclass.kubernetes.io/is-default-class":"false"}}}'
 
                         cat <<EOF | kubectl apply -f -
@@ -162,7 +150,6 @@ volumeBindingMode: WaitForFirstConsumer
 allowVolumeExpansion: true
 EOF
 
-                        echo "Verifying storage classes..."
                         kubectl get storageclass
                     '''
                 }
@@ -173,10 +160,9 @@ EOF
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        echo "Installing AWS Node Termination Handler..."
                         helm repo add eks https://aws.github.io/eks-charts
                         helm repo update
-                        
+
                         helm upgrade --install aws-node-termination-handler \
                             eks/aws-node-termination-handler \
                             --namespace kube-system \
@@ -184,9 +170,7 @@ EOF
                             --set enableScheduledEventDraining=true \
                             --wait
 
-                        echo "Verifying Node Termination Handler deployment..."
                         kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-node-termination-handler
-                        kubectl wait --for=condition=Ready pods -n kube-system -l app.kubernetes.io/name=aws-node-termination-handler --timeout=180s
                     '''
                 }
             }
@@ -196,23 +180,23 @@ EOF
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        echo "=========================================="
-                        echo "EKS CLUSTER CREATED SUCCESSFULLY"
-                        echo "=========================================="
-                        echo "Cluster Name: ${CLUSTER_NAME}"
-                        echo "K8s Version: ${K8S_VERSION}"
-                        echo "Region: ${REGION}"
-                        echo "Build Number: ${BUILD_NUMBER}"
+                        set +x
+
+                        echo "EKS Cluster Summary"
+                        echo "-------------------"
+                        echo "Name:    ${CLUSTER_NAME}"
+                        echo "Version: ${K8S_VERSION}"
+                        echo "Region:  ${REGION}"
+                        echo "Build:   ${BUILD_NUMBER}"
                         echo ""
-                        echo "Nodes:"
+
                         kubectl get nodes -o wide
                         echo ""
-                        echo "Storage Classes:"
                         kubectl get storageclass
                         echo ""
-                        echo "To use this cluster, download the kubeconfig artifact"
-                        echo "and set: export KUBECONFIG=/path/to/kubeconfig/config"
-                        echo "=========================================="
+
+                        echo "To access this cluster, run:"
+                        echo "aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}"
                     '''
                 }
             }
@@ -228,21 +212,21 @@ EOF
 
     post {
         success {
-            echo "Cluster ${CLUSTER_NAME} created successfully!"
-            echo "Download the kubeconfig artifact to access the cluster"
+            echo "Cluster ${CLUSTER_NAME} created successfully."
+            echo "Download the kubeconfig artifact to access the cluster."
         }
         failure {
-            echo "Pipeline failed! Attempting cleanup..."
-            withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
-                                  credentialsId: 'pmm-staging-slave',
-                                  accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                                  secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                 sh '''
-                    if eksctl get cluster --region "${REGION}" --name "${CLUSTER_NAME}" >/dev/null 2>&1; then
-                        echo "Cluster exists, initiating deletion..."
-                        eksctl delete cluster --region "${REGION}" --name "${CLUSTER_NAME}" --disable-nodegroup-eviction --wait
-                    else
-                        echo "Cluster does not exist or already deleted"
+                    if eksctl get cluster \
+                        --region "${REGION}" \
+                        --name "${CLUSTER_NAME}" >/dev/null 2>&1
+                    then
+                        eksctl delete cluster \
+                            --region "${REGION}" \
+                            --name "${CLUSTER_NAME}" \
+                            --disable-nodegroup-eviction \
+                            --wait
                     fi
                 '''
             }
