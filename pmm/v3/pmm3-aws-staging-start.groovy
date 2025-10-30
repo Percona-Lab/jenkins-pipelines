@@ -203,7 +203,6 @@ pipeline {
                         curl -O https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                         sudo dnf -y install ./percona-release-latest.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
-                        sudo dnf install ansible -y
                     '''
                 }
             }
