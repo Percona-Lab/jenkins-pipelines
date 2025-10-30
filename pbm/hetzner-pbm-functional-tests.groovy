@@ -43,10 +43,12 @@ pipeline {
                         steps {
                             withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN'),
                             string(credentialsId: 'KMS_ID', variable: 'KMS_ID'),
-                            file(credentialsId: 'PBM-AWS-S3', variable: 'PBM_AWS_S3_YML'),
-                            file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'),
-                            file(credentialsId: 'PBM-GCS-HMAC-S3', variable: 'PBM_GCS_HMAC_S3_YML'),
-                            file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML')]) {
+                            file(credentialsId: 'PBM-AWS-S3-EU', variable: 'PBM_AWS_S3_YML'),
+                            file(credentialsId: 'PBM-GCS-S3-EU', variable: 'PBM_GCS_S3_YML'),
+                            file(credentialsId: 'PBM-GCS-HMAC-S3-EU', variable: 'PBM_GCS_HMAC_S3_YML'),
+                            file(credentialsId: 'PBM-MINIO-S3-EU', variable: 'PBM_MINIO_S3_YML'),
+                            file(credentialsId: 'PBM-AZURE-EU', variable: 'PBM_AZURE_YML'),
+                            file(credentialsId: 'PBM-OSS-EU', variable: 'PBM_OSS_YML')]) {
                                 sh """
                                     docker kill \$(docker ps -a -q) || true
                                     docker rm \$(docker ps -a -q) || true
@@ -71,6 +73,8 @@ pipeline {
                                     cp $PBM_GCS_S3_YML ./conf/pbm/gcs.yaml
                                     cp $PBM_GCS_HMAC_S3_YML ./conf/pbm/gcs_hmac.yaml
                                     cp $PBM_AZURE_YML ./conf/pbm/azure.yaml
+                                    cp $PBM_MINIO_S3_YML ./conf/pbm/aws_minio.yaml
+                                    cp $PBM_OSS_YML ./conf/pbm/oss.yaml
                                     if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
                                     docker-compose build
                                     docker-compose up -d
