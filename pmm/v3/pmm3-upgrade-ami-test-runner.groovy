@@ -184,6 +184,12 @@ pipeline {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
             }
         }
+        stage('Temporary change PMM Server password') {
+            steps {
+                def code = sh(returnStdout: true, script: 'curl -ks -u "admin:${ADMIN_PASSWORD}" -o /dev/null -w "%{http_code}" "$PMM_URL/v1/users/me"').trim()
+                println("Response code is: ${code}")
+            }
+        }
         stage('Setup Dependencies and PMM Client') {
 //             parallel {
 //                 stage('Setup PMM Client') {
@@ -391,11 +397,11 @@ pipeline {
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
-//             script {
-//                 amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
-//                     string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
-//                 ]
-//             }
+            script {
+                amiStagingStopJob = build job: 'pmm3-ami-staging-stop', parameters: [
+                    string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID),
+                ]
+            }
         }
         failure {
             archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
