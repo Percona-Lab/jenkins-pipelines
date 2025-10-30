@@ -200,12 +200,9 @@ pipeline {
                             echo "${SSH_KEY}" >> /home/ec2-user/.ssh/authorized_keys
                         fi
 
-                        sudo dnf clean all
-                        sudo dnf makecache
-                        sudo dnf -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                        curl -O https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                        sudo dnf -y install ./percona-release-latest.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
-                        sudo dnf repolist
-                        sudo dnf install ansible sysbench mysql -y
                     '''
                 }
             }
