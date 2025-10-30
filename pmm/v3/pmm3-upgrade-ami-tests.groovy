@@ -29,7 +29,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
     }
     println upgradeVersions;
     println versionsList.keySet().last();
-    println versionsList.keySet()[versionsList.keySet().size() - 2];
+    println versionsList.keySet()[versionsList.keySet().size() - 1];
     def iterator = 0;
 
     for (version in upgradeVersions) {
@@ -40,8 +40,8 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
             results.put("Upgrade AMI PMM from ${version} (AMI tag: ${upgradeVersion}) to repo: experimental.", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'experimental', versionsList.keySet().last(), PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, iterator++))
         } else {
             if(CLIENT_REPOSITORY != 'experimental') {
-                latestVersion = versionsList.keySet()[versionsList.keySet().size() - 2]
-                if(version == versionsList.keySet()[versionsList.keySet().size() - 2]) {
+                latestVersion = versionsList.keySet()[versionsList.keySet().size() - 1]
+                if(version == versionsList.keySet()[versionsList.keySet().size() - 1]) {
                     continue;
                 }
             }
