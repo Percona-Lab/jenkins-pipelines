@@ -1211,38 +1211,35 @@ parameters {
                     echo "Executing MINITESTS as VALID VALUES FOR PS8_RELEASE_VERSION:${PS_VERSION_SHORT}"
                     echo "Checking for the Github Repo VERSIONS file changes..."
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
-                    sh """
-                        set -x
+                    sh '''#!/bin/bash
+                        set -e -x
                         git clone https://jenkins-pxc-cd:$TOKEN@github.com/Percona-QA/package-testing.git
                         cd package-testing
                         git config user.name "jenkins-pxc-cd"
                         git config user.email "it+jenkins-pxc-cd@percona.com"
-                        git checkout testing-branch 
+                        git checkout testing-branch
                         echo "${PS_VERSION_SHORT} is the VALUE!!@!"
                         export RELEASE_VER_VAL="${PS_VERSION_SHORT}"
-                        if [[ "\$RELEASE_VER_VAL" =~ ^PS8[0-9]{1}\$ ]]; then
-                            echo "\$RELEASE_VER_VAL is a valid version"
-                            OLD_REV=\$(cat VERSIONS | grep ${PS_VERSION_SHORT}_REV | cut -d '=' -f2- )
-                            echo "OLD_REV is : \${OLD_REV}"
-                            OLD_VER=\$(cat VERSIONS | grep ${PS_VERSION_SHORT}_VER | cut -d '=' -f2- )
-                            echo "OLD_VER is : \${OLD_VER}"
-                            sed -i s/${PS_VERSION_SHORT}_REV=\$OLD_REV/${PS_VERSION_SHORT}_REV='"'${PS_REVISION}'"'/g VERSIONS
-                            sed -i s/${PS_VERSION_SHORT}_VER=\$OLD_VER/${PS_VERSION_SHORT}_VER='"'${PS_RELEASE}'"'/g VERSIONS
-                            echo 
-
+                        # Use bash regex check
+                        if [[ "$RELEASE_VER_VAL" =~ ^PS8[0-9]{1}$ ]]; then
+                            echo "$RELEASE_VER_VAL is a valid version"
+                            OLD_REV=$(grep ${PS_VERSION_SHORT}_REV VERSIONS | cut -d '=' -f2-)
+                            OLD_VER=$(grep ${PS_VERSION_SHORT}_VER VERSIONS | cut -d '=' -f2-)
+                            sed -i s/${PS_VERSION_SHORT}_REV=$OLD_REV/${PS_VERSION_SHORT}_REV='"'${PS_REVISION}'"'/g VERSIONS
+                            sed -i s/${PS_VERSION_SHORT}_VER=$OLD_VER/${PS_VERSION_SHORT}_VER='"'${PS_RELEASE}'"'/g VERSIONS
                         else
-                            echo "INVALID PS8_RELEASE_VERSION VALUE: ${PS_VERSION_SHORT}"
+                            echo "INVALID PS8_RELEASE_VERSION VALUE: $RELEASE_VER_VAL"
                         fi
                         git diff
-                        if [[ -z \$(git diff) ]]; then
+                        if [[ -z $(git diff) ]]; then
                             echo "No changes"
                         else
                             echo "There are changes"
                             git add -A
-                        git commit -m "Autocommit: add ${PS_REVISION} and ${PS_RELEASE} for ${PS_VERSION_SHORT} package testing VERSIONS file."
+                            git commit -m "Autocommit: add ${PS_REVISION} and ${PS_RELEASE} for ${PS_VERSION_SHORT} package testing VERSIONS file."
                             git push
                         fi
-                    """
+                        '''
                     }
                     parallel(
                         "Start Minitests for PS": {
