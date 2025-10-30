@@ -205,7 +205,7 @@ EOF
         stage('Archive kubeconfig') {
             steps {
                 archiveArtifacts artifacts: 'kubeconfig/config', fingerprint: true
-                archiveArtifacts artifacts: 'ClusterConfig.yaml', fingerprint: true
+                archiveArtifacts artifacts: 'cluster-config.yaml', fingerprint: true
             }
         }
     }
