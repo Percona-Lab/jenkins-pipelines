@@ -97,7 +97,7 @@ EOF
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        eksctl create cluster -f ClusterConfig.yaml --timeout=40m --verbose=4
+                        eksctl create cluster -f cluster-config.yaml --timeout=40m --verbose=4
 
                         eksctl create iamidentitymapping \
                             --cluster "${CLUSTER_NAME}" \
