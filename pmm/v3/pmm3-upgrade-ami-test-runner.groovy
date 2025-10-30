@@ -178,7 +178,6 @@ pipeline {
                 runAMIStagingStart(AMI_TAG, PMM_QA_GIT_BRANCH, SSH_KEY)
             }
         }
-
         stage('PMM Server sanity check') {
             steps {
                 sh 'timeout 100 bash -c \'while [[ "$(curl -k -s -o /dev/null -w \'\'%{http_code}\'\' \${PMM_URL}/ping)" != "200" ]]; do sleep 5; done\' || false'
@@ -194,28 +193,6 @@ pipeline {
                     }
                 }
             }
-        }
-        stage('Setup Dependencies and PMM Client') {
-//             parallel {
-//                 stage('Setup PMM Client') {
-//                     steps {
-//                         setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', env.ADMIN_PASSWORD, 'no')
-//                     }
-//                 }
-//                 stage('Setup dependencies') {
-                    steps {
-                        sh '''
-                            npm ci
-                            npx playwright install
-                            envsubst < env.list > env.generated.list
-                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                            export PWD=$(pwd)
-                            export CHROMIUM_PATH=/usr/bin/chromium
-                            ansible-galaxy collection install ansible.utils
-                        '''
-                    }
-//                 }
-//             }
         }
         stage('Setup Databases for PMM-Server') {
             steps {
@@ -245,6 +222,19 @@ pipeline {
         stage('Sleep') {
             steps {
                 sleep 60
+            }
+        }
+        stage('Setup Dependencies and PMM Client') {
+            steps {
+                sh '''
+                    npm ci
+                    npx playwright install
+                    envsubst < env.list > env.generated.list
+                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                    export PWD=$(pwd)
+                    export CHROMIUM_PATH=/usr/bin/chromium
+                    ansible-galaxy collection install ansible.utils
+                '''
             }
         }
         stage('Check PMM Server Packages before Upgrade') {
