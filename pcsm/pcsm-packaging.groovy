@@ -3,7 +3,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "plm/install"
+def moleculeDir = "pcsm/install"
 
 pipeline {
   agent {
@@ -14,7 +14,7 @@ pipeline {
   }
   parameters {
       string(
-          name: 'plm_version',
+          name: 'pcsm_version',
           description: 'Release branch version (e.g. 1.0.0)',
           defaultValue: '1.0.0')
       choice(
@@ -28,7 +28,7 @@ pipeline {
       )
       choice(
           name: 'psmdb_version',
-          description: 'Version of PSMDB PLM will interact with',
+          description: 'Version of PSMDB PCSM will interact with',
           choices: [
               '6.0',
               '7.0',
@@ -70,7 +70,7 @@ pipeline {
                 script {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'MONGO_REPO_TOKEN')]) {
                         try {
-                            moleculeParallelTest(plmOperatingSystems(), moleculeDir)
+                            moleculeParallelTest(pcsmOperatingSystems(), moleculeDir)
                         } catch (e) {
                             echo "Converge stage failed"
                             throw e
@@ -82,14 +82,14 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PLM with PSMDB Version(${psmdb_version}) finished succesfully - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PCSM with PSMDB Version(${psmdb_version}) finished succesfully - [${BUILD_URL}]")
         }
         failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PLM with PSMDB Version(${psmdb_version}) failed - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PCSM with PSMDB Version(${psmdb_version}) failed - [${BUILD_URL}]")
         }
         always {
             script {
-                moleculeParallelPostDestroy(plmOperatingSystems(), moleculeDir)
+                moleculeParallelPostDestroy(pcsmOperatingSystems(), moleculeDir)
             }
         }
     }
