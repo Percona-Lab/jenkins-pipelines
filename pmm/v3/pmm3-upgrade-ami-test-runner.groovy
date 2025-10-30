@@ -189,6 +189,9 @@ pipeline {
                 script {
                     def code = sh(returnStdout: true, script: 'curl -ks -u "admin:${ADMIN_PASSWORD}" -o /dev/null -w "%{http_code}" "$PMM_URL/v1/users/me"').trim()
                     println("Response code is: ${code}")
+                    if (code != '200') {
+                        env.ADMIN_PASSWORD = 'admin'
+                    }
                 }
             }
         }
