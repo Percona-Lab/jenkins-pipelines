@@ -18,7 +18,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./ppg-server_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./ppg-server_builder.sh --builddir=\${build_dir}/test ${STAGE_PARAM}"
+            bash -x ./ppg-server_builder.sh --builddir=\${build_dir}/test --nightly=1 ${STAGE_PARAM}"
     """
 }
 
