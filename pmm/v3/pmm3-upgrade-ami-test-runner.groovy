@@ -226,7 +226,7 @@ pipeline {
                         --pmm-server-ip=\${SERVER_IP} \
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
-                         --database ps --database pgsql --database psmdb
+                         --database ps --database pdpgsql --database psmdb
                     popd
                 '''
             }
