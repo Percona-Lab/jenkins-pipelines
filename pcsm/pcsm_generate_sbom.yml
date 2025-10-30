@@ -1,14 +1,15 @@
 - job:
-    name: hetzner-plm-functional-tests
+    name: hetzner-pcsm_generate_sbom
     project-type: pipeline
     description: |
-      Do not edit this job through the web!
+        Do not edit this job through the web!
     pipeline-scm:
       scm:
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-              - 'hetzner'
+            - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: plm/plm-functional-tests.groovy
+      script-path: pcsm/pcsm_generate_sbom.groovy
+

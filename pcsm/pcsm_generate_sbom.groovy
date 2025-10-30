@@ -11,7 +11,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
       sh """
         echo "Starting Build Stage"
         set -o xtrace
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/packaging/plm_sbom/plm_generate_sbom.sh -O plm_generate_sbom.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/packaging/pcsm_sbom/pcsm_generate_sbom.sh -O pcsm_generate_sbom.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
@@ -20,14 +20,14 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             cd \${build_dir}
             ls -laR
             uname -a
-            bash -x ./plm_generate_sbom.sh --builddir=\${build_dir} --plm_version=${PLM_VERSION} --repo_type=${REPO_TYPE} --git_repo=${GIT_REPO} --git_branch=${GIT_BRANCH} ${STAGE_PARAM}"
+            bash -x ./pcsm_generate_sbom.sh --builddir=\${build_dir} --pcsm_version=${PCSM_VERSION} --repo_type=${REPO_TYPE} --git_repo=${GIT_REPO} --git_branch=${GIT_BRANCH} ${STAGE_PARAM}"
             curl -fsSL https://raw.githubusercontent.com/EvgeniyPatlan/sbom_verifier/main/install_sbom_verifier.sh | bash
-            bash sbom_verifier.sh plm_sbom/*.json
+            bash sbom_verifier.sh pcsm_sbom/*.json
     """
     }
 }
 
-void uploadPLMSBOMToTestingDownloadServer(String productName, String packageVersion, String SBOMType) {
+void uploadPCSMSBOMToTestingDownloadServer(String productName, String packageVersion, String SBOMType) {
 
     script {
         try {
@@ -59,16 +59,16 @@ pipeline {
              description: 'Cloud infra for build',
              name: 'CLOUD' )
         string(
-            defaultValue: 'https://github.com/percona/percona-link-mongodb.git',
-            description: 'URL for plm_sbom repository',
+            defaultValue: 'https://github.com/percona/percona-clustersync-mongodb.git',
+            description: 'URL for pcsm_sbom repository',
             name: 'GIT_REPO')
         string(
             defaultValue: '0.5.0',
-            description: 'Version of Percona Link MongoDB',
-            name: 'PLM_VERSION')
+            description: 'Version of Percona ClusterSync for MongoDB',
+            name: 'PCSM_VERSION')
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for percona-link-mongodb repository',
+            description: 'Tag/Branch for percona-clustersync-mongodb repository',
             name: 'GIT_BRANCH')
 	choice(
             choices: 'laboratory\ntesting\nexperimental\nrelease',
@@ -103,7 +103,7 @@ pipeline {
 
         stage('Generate SBOM') {
             parallel {
-                stage('Generate PLM SBOM OL/8 AMD') {
+                stage('Generate PCSM SBOM OL/8 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
@@ -111,19 +111,19 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 echo "Ran stash includes"
                                 buildStage("oraclelinux:8", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
-                stage('Generate PLM SBOM OL/8 ARM') {
+                stage('Generate PCSM SBOM OL/8 ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -131,18 +131,18 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("oraclelinux:8", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
-                stage('Generate PLM SBOM OL/9 AMD') {
+                stage('Generate PCSM SBOM OL/9 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
@@ -150,18 +150,18 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("oraclelinux:9", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
-                stage('Generate PLM SBOM OL/9 ARM') {
+                stage('Generate PCSM SBOM OL/9 ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -169,18 +169,18 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("oraclelinux:9", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
-                stage('Generate PLM SBOM AL 2023 AMD') {
+                stage('Generate PCSM SBOM AL 2023 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
@@ -188,18 +188,18 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("amazonlinux:2023", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
-                stage('Generate PLM SBOM AL 2023 ARM') {
+                stage('Generate PCSM SBOM AL 2023 ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -207,18 +207,18 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("amazonlinux:2023", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
-/*                stage('Generate PLM SBOM OL/10 AMD') {
+/*                stage('Generate PCSM SBOM OL/10 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
@@ -226,18 +226,18 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("oraclelinux:10", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
-                stage('Generate PLM SBOM OL/10 ARM') {
+                stage('Generate PCSM SBOM OL/10 ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -245,18 +245,18 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("oraclelinux:10", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 } */
-                stage('Generate PLM SBOM Jammy AMD') {
+                stage('Generate PCSM SBOM Jammy AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
@@ -264,18 +264,18 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("ubuntu:jammy", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
-                stage('Generate PLM SBOM Jammy ARM') {
+                stage('Generate PCSM SBOM Jammy ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -283,18 +283,18 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("ubuntu:jammy", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
-                stage('Generate PLM SBOM Noble AMD') {
+                stage('Generate PCSM SBOM Noble AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
@@ -302,18 +302,18 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("ubuntu:noble", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
-                stage('Generate PLM SBOM Noble ARM') {
+                stage('Generate PCSM SBOM Noble ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -321,18 +321,18 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("ubuntu:noble", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
-                stage('Generate PLM SBOM Bullseye AMD') {
+                stage('Generate PCSM SBOM Bullseye AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
@@ -340,18 +340,18 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("debian:bullseye", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
-                stage('Generate PLM SBOM Bullseye ARM') {
+                stage('Generate PCSM SBOM Bullseye ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -359,18 +359,18 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("debian:bullseye", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
-                stage('Generate PLM SBOM Bookworm AMD') {
+                stage('Generate PCSM SBOM Bookworm AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
                     }
@@ -378,18 +378,18 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("debian:bookworm", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
-                stage('Generate PLM SBOM Bookworm ARM') {
+                stage('Generate PCSM SBOM Bookworm ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -397,14 +397,14 @@ pipeline {
                         cleanUpWS()
                         script {
                                 unstash 'timestamp'
-                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PLM_SBOM/${PLM_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PCSM_SBOM/${PCSM_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH} > uploadPath-${PLM_VERSION}
-                                        cat uploadPath-${PLM_VERSION}
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PCSM_VERSION}
+                                        cat uploadPath-${PCSM_VERSION}
                                 """
-                                stash includes: "uploadPath-${PLM_VERSION}", name: "uploadPath-${PLM_VERSION}"
+                                stash includes: "uploadPath-${PCSM_VERSION}", name: "uploadPath-${PCSM_VERSION}"
                                 buildStage("debian:bookworm", "")
-                                pushArtifactFolder(params.CLOUD, "plm_sbom/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -416,13 +416,13 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        uploadSBOMfromAWS(params.CLOUD, "plm_sbom/", AWS_STASH_PATH, "json", "${PLM_VERSION}")
+                        uploadSBOMfromAWS(params.CLOUD, "pcsm_sbom/", AWS_STASH_PATH, "json", "${PCSM_VERSION}")
                     }
                 }
                 stage('Push SBOMS to TESTING downloads area') {
                     steps {
                         cleanUpWS()
-                        uploadPLMSBOMToTestingDownloadServer("plm_sbom", "${PLM_VERSION}", "json")
+                        uploadPCSMSBOMToTestingDownloadServer("pcsm_sbom", "${PCSM_VERSION}", "json")
                     }
                 }
     }

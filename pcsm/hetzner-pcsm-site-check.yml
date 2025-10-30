@@ -1,5 +1,5 @@
 - job:
-    name: hetzner-plm-autobuild-RELEASE
+    name: hetzner-pcsm-site-check
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,5 +11,4 @@
             - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: plm/percona-link-mongodb.groovy
-
+      script-path: pcsm/hetzner-pcsm-site-check.groovy

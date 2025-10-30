@@ -1,8 +1,9 @@
 - job:
-    name: hetzner-plm-site-check
+    name: hetzner-pcsm-autobuild
     project-type: pipeline
     description: |
         Do not edit this job through the web!
+        Check PCSM repo for new release branches to build packages
     pipeline-scm:
       scm:
         - git:
@@ -11,4 +12,6 @@
             - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: plm/hetzner-plm-site-check.groovy
+      script-path: pcsm/get-pcsm-branches.groovy
+    triggers:
+      - timed: "H/15 * * * *"
