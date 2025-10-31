@@ -400,26 +400,6 @@ parameters {
         timestamps ()
     }
     stages {
-        stage('Preparation') {
-            steps {
-                script {
-                    env.DOCKER_ACC= 'perconalab'
-                    env.PS_RELEASE = sh(script: "echo ${BRANCH} | sed 's/release-//g'", returnStdout: true).trim()
-                    echo "PS_RELEASE: ${env.PS_RELEASE}"
-                    env.PS_VERSION_SHORT_KEY = "${env.PS_RELEASE}".split('\\.')[0..1].join('.')
-                    echo "PS_VERSION_SHORT_KEY: ${env.PS_VERSION_SHORT_KEY}"
-                    env.PS_VERSION_SHORT = "PS${env.PS_VERSION_SHORT_KEY.replace('.', '')}"
-                    echo "PS_VERSION_SHORT: ${env.PS_VERSION_SHORT}"
-                    if (env.PS_VERSION_SHORT == 'PS84') {
-                        product_to_test = 'ps_84'
-                    } 
-                    else {
-                        product_to_test = 'ps_80'
-                    }
-                    echo "Product to test is: ${product_to_test}"
-                }
-            }
-        }
         stage('Create PS source tarball') {
             agent {
                label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
