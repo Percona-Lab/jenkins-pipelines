@@ -355,6 +355,20 @@ def action_to_test = 'install'
 def check_warnings = 'yes'
 def install_mysql_shell = 'no'
 
+def BRANCH_NAME = env.BRANCH ?: "release-8.0.43-34"
+def PS_RELEASE = BRANCH_NAME.replaceAll("release-", "")
+def PS_VERSION_SHORT_KEY = PS_RELEASE.tokenize('.')[0..1].join('.')
+def PS_VERSION_SHORT = "PS${PS_VERSION_SHORT_KEY.replace('.', '')}"
+def DOCKER_ACC = "perconalab"
+def product_to_test = (PS_VERSION_SHORT == 'PS84') ? 'ps_84' : 'ps_80'
+
+// Export to env so post-block can access them
+env.PS_RELEASE = PS_RELEASE
+env.PS_VERSION_SHORT_KEY = PS_VERSION_SHORT_KEY
+env.PS_VERSION_SHORT = PS_VERSION_SHORT
+env.DOCKER_ACC = DOCKER_ACC
+env.product_to_test = product_to_test
+
 pipeline {
     agent {
         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
