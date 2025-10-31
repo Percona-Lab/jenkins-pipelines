@@ -1,7 +1,7 @@
 /* groovylint-disable DuplicateStringLiteral, GStringExpressionWithinString, LineLength */
-library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
+library changelog: false, identifier: 'lib@QA-hetzner-minitest', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/grishma123-eng/jenkins-pipelines.git'
 ]) _
 
 import groovy.transform.Field
@@ -152,7 +152,7 @@ def installDependencies(def nodeName) {
             echo "Unexpected node name: ${nodeName}"
         }
     } catch (Exception e) {
-        slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: Server Provision for Mini Package Testing for ${nodeName} at ${BRANCH}  FAILED !!")
+      //  slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: Server Provision for Mini Package Testing for ${nodeName} at ${BRANCH}  FAILED !!")
     }
 
 }
@@ -355,6 +355,23 @@ def action_to_test = 'install'
 def check_warnings = 'yes'
 def install_mysql_shell = 'no'
 
+// --- Minimal Preparation logic moved out to reduce pipeline size ---
+def BRANCH_NAME = env.BRANCH ?: "release-8.0.43-34"
+def PS_RELEASE = BRANCH_NAME.replaceAll("release-", "")
+def PS_VERSION_SHORT_KEY = PS_RELEASE.tokenize('.')[0..1].join('.')
+def PS_VERSION_SHORT = "PS${PS_VERSION_SHORT_KEY.replace('.', '')}"
+def DOCKER_ACC = "perconalab"
+
+// ✅ just assign, don’t redeclare with def
+product_to_test = (PS_VERSION_SHORT == 'PS84') ? 'ps_84' : 'ps_80'
+
+// Export to env so post-block can access them
+env.PS_RELEASE = PS_RELEASE
+env.PS_VERSION_SHORT_KEY = PS_VERSION_SHORT_KEY
+env.PS_VERSION_SHORT = PS_VERSION_SHORT
+env.DOCKER_ACC = DOCKER_ACC
+env.product_to_test = product_to_test
+
 pipeline {
     agent {
         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -400,32 +417,12 @@ parameters {
         timestamps ()
     }
     stages {
-        stage('Preparation') {
-            steps {
-                script {
-                    env.DOCKER_ACC= 'perconalab'
-                    env.PS_RELEASE = sh(script: "echo ${BRANCH} | sed 's/release-//g'", returnStdout: true).trim()
-                    echo "PS_RELEASE: ${env.PS_RELEASE}"
-                    env.PS_VERSION_SHORT_KEY = "${env.PS_RELEASE}".split('\\.')[0..1].join('.')
-                    echo "PS_VERSION_SHORT_KEY: ${env.PS_VERSION_SHORT_KEY}"
-                    env.PS_VERSION_SHORT = "PS${env.PS_VERSION_SHORT_KEY.replace('.', '')}"
-                    echo "PS_VERSION_SHORT: ${env.PS_VERSION_SHORT}"
-                    if (env.PS_VERSION_SHORT == 'PS84') {
-                        product_to_test = 'ps_84'
-                    } 
-                    else {
-                        product_to_test = 'ps_80'
-                    }
-                    echo "Product to test is: ${product_to_test}"
-                }
-            }
-        }
         stage('Create PS source tarball') {
             agent {
                label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
             }
             steps {
-                slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
+             //   slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: starting build for ${BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 installCli("deb")
                 script {
@@ -445,15 +442,16 @@ parameters {
                    cat awsUploadPath
                 '''
                 script {
-                    AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
+                    echo "hello"
+      //              AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
                 stash includes: 'test/percona-server-8.0.properties', name: 'properties'
-                pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
+          //      pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+            //    uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
-        }
-        stage('Build PS generic source packages') {
+        } 
+   /*     stage('Build PS generic source packages') {
             parallel {
                 stage('Build PS generic source rpm') {
                     agent {
@@ -775,7 +773,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }*/
-                stage('Ubuntu Focal(20.04) ARM') {
+          /*      stage('Ubuntu Focal(20.04) ARM') {
                     when {
                         expression { env.FIPSMODE == 'NO' }
                     }
@@ -893,7 +891,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }*/
-                stage('Oracle Linux 8 binary tarball') {
+     /*           stage('Oracle Linux 8 binary tarball') {
                     when {
                         expression { env.FIPSMODE == 'NO' }
                     }
@@ -1177,15 +1175,15 @@ parameters {
                           wait: false
                 }
             }
-        }
-    }
+        } */
+    } 
     post {
         success {
             script {
                 if (env.FIPSMODE == 'YES') {
-                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO -> build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+                 //   slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO -> build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
                 } else {
-                    slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
+               //     slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${BRANCH} - [${BUILD_URL}]")
                 }
             }
             unstash 'properties'
@@ -1210,45 +1208,42 @@ parameters {
                     echo "Executing MINITESTS as VALID VALUES FOR PS8_RELEASE_VERSION:${PS_VERSION_SHORT}"
                     echo "Checking for the Github Repo VERSIONS file changes..."
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
-                    sh """
-                        set -x
+                    sh '''#!/bin/bash
+                        set -e -x
                         git clone https://jenkins-pxc-cd:$TOKEN@github.com/Percona-QA/package-testing.git
                         cd package-testing
                         git config user.name "jenkins-pxc-cd"
                         git config user.email "it+jenkins-pxc-cd@percona.com"
-                        git checkout testing-branch 
+                        git checkout testing-branch
                         echo "${PS_VERSION_SHORT} is the VALUE!!@!"
                         export RELEASE_VER_VAL="${PS_VERSION_SHORT}"
-                        if [[ "\$RELEASE_VER_VAL" =~ ^PS8[0-9]{1}\$ ]]; then
-                            echo "\$RELEASE_VER_VAL is a valid version"
-                            OLD_REV=\$(cat VERSIONS | grep ${PS_VERSION_SHORT}_REV | cut -d '=' -f2- )
-                            echo "OLD_REV is : \${OLD_REV}"
-                            OLD_VER=\$(cat VERSIONS | grep ${PS_VERSION_SHORT}_VER | cut -d '=' -f2- )
-                            echo "OLD_VER is : \${OLD_VER}"
-                            sed -i s/${PS_VERSION_SHORT}_REV=\$OLD_REV/${PS_VERSION_SHORT}_REV='"'${PS_REVISION}'"'/g VERSIONS
-                            sed -i s/${PS_VERSION_SHORT}_VER=\$OLD_VER/${PS_VERSION_SHORT}_VER='"'${PS_RELEASE}'"'/g VERSIONS
-                            echo 
-
+                        # Use bash regex check
+                        if [[ "$RELEASE_VER_VAL" =~ ^PS8[0-9]{1}$ ]]; then
+                            echo "$RELEASE_VER_VAL is a valid version"
+                            OLD_REV=$(grep ${PS_VERSION_SHORT}_REV VERSIONS | cut -d '=' -f2-)
+                            OLD_VER=$(grep ${PS_VERSION_SHORT}_VER VERSIONS | cut -d '=' -f2-)
+                            sed -i s/${PS_VERSION_SHORT}_REV=$OLD_REV/${PS_VERSION_SHORT}_REV='"'${PS_REVISION}'"'/g VERSIONS
+                            sed -i s/${PS_VERSION_SHORT}_VER=$OLD_VER/${PS_VERSION_SHORT}_VER='"'${PS_RELEASE}'"'/g VERSIONS
                         else
-                            echo "INVALID PS8_RELEASE_VERSION VALUE: ${PS_VERSION_SHORT}"
+                            echo "INVALID PS8_RELEASE_VERSION VALUE: $RELEASE_VER_VAL"
                         fi
                         git diff
-                        if [[ -z \$(git diff) ]]; then
+                        if [[ -z $(git diff) ]]; then
                             echo "No changes"
                         else
                             echo "There are changes"
                             git add -A
-                        git commit -m "Autocommit: add ${PS_REVISION} and ${PS_RELEASE} for ${PS_VERSION_SHORT} package testing VERSIONS file."
+                            git commit -m "Autocommit: add ${PS_REVISION} and ${PS_RELEASE} for ${PS_VERSION_SHORT} package testing VERSIONS file."
                             git push
                         fi
-                    """
+                        '''
                     }
                     parallel(
                         "Start Minitests for PS": {
                              try {
                                 package_tests_ps80(minitestNodes)
                                 echo "Minitests completed successfully. Triggering next stages."
-                                slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: minitest sucessfully run for ${BRANCH} - [${BUILD_URL}]")
+                             //   slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: minitest sucessfully run for ${BRANCH} - [${BUILD_URL}]")
                                 echo "TRIGGERING THE PACKAGE TESTING JOB!!!"
                                 build job: 'ps-package-testing-molecule', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: "${product_to_test}"),string(name: 'install_repo', value: "testing"),string(name: 'action_to_test', value: "install"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
                                 echo "Trigger PMM_PS Github Actions Workflow"
@@ -1261,7 +1256,7 @@ parameters {
                                     -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
                                     """ 
                                     }
-                                slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: PMM sucessfully run for ${BRANCH} - [${BUILD_URL}]")
+                            //    slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: PMM sucessfully run for ${BRANCH} - [${BUILD_URL}]")
                             } catch (err) {
                                     echo " Minitests block failed: ${err}"
                                     currentBuild.result = 'FAILURE'
@@ -1282,12 +1277,12 @@ parameters {
                 }    
                     else{
                             error "Skipping MINITESTS and Other Triggers as invalid RELEASE VERSION FOR THIS JOB"
-                            slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: Skipping MINITESTS and Other Triggers as invalid RELEASE VERSION FOR THIS JOB ${BRANCH} - [${BUILD_URL}]")
+                           // slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: Skipping MINITESTS and Other Triggers as invalid RELEASE VERSION FOR THIS JOB ${BRANCH} - [${BUILD_URL}]")
                         }
                          deleteDir()
             }
            
-            slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: Triggering Builds for Package Testing for ${BRANCH} - [${BUILD_URL}]")
+           // slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: Triggering Builds for Package Testing for ${BRANCH} - [${BUILD_URL}]")
             deleteDir()
         }
         failure {
