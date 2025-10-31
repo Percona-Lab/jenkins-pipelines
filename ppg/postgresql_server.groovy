@@ -5,6 +5,7 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
+        set -x
         set -o xtrace
         mkdir test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/postgres/ppg_builder.sh -O ppg-server_builder.sh
