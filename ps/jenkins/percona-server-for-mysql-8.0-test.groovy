@@ -355,12 +355,15 @@ def action_to_test = 'install'
 def check_warnings = 'yes'
 def install_mysql_shell = 'no'
 
+// --- Minimal Preparation logic moved out to reduce pipeline size ---
 def BRANCH_NAME = env.BRANCH ?: "release-8.0.43-34"
 def PS_RELEASE = BRANCH_NAME.replaceAll("release-", "")
 def PS_VERSION_SHORT_KEY = PS_RELEASE.tokenize('.')[0..1].join('.')
 def PS_VERSION_SHORT = "PS${PS_VERSION_SHORT_KEY.replace('.', '')}"
 def DOCKER_ACC = "perconalab"
-def product_to_test = (PS_VERSION_SHORT == 'PS84') ? 'ps_84' : 'ps_80'
+
+// ✅ just assign, don’t redeclare with def
+product_to_test = (PS_VERSION_SHORT == 'PS84') ? 'ps_84' : 'ps_80'
 
 // Export to env so post-block can access them
 env.PS_RELEASE = PS_RELEASE
