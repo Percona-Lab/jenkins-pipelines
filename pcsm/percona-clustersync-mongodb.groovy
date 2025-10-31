@@ -7,15 +7,15 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
         mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/packaging/scripts/percona-link-mongodb_builder.sh -O percona-link-mongodb_builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/packaging/scripts/percona-clustersync-mongodb_builder.sh -O percona-clustersync-mongodb_builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./percona-link-mongodb_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./percona-link-mongodb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RELEASE} --deb_release=${RELEASE} ${STAGE_PARAM}"
+            bash -x ./percona-clustersync-mongodb_builder.sh --builddir=\${build_dir}/test --install_deps=1
+            bash -x ./percona-clustersync-mongodb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RELEASE} --deb_release=${RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -37,12 +37,12 @@ pipeline {
              description: 'Cloud infra for build',
              name: 'CLOUD' )
         string(
-            defaultValue: 'https://github.com/percona/percona-link-mongodb.git',
-            description: 'URL for percona-link-mongodb repository',
+            defaultValue: 'https://github.com/percona/percona-clustersync-mongodb.git',
+            description: 'URL for percona-clustersync-mongodb repository',
             name: 'GIT_REPO')
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for percona-link-mongodb repository',
+            description: 'Tag/Branch for percona-clustersync-mongodb repository',
             name: 'GIT_BRANCH')
         string(
             defaultValue: '1',
@@ -53,7 +53,7 @@ pipeline {
             description: 'VERSION value',
             name: 'VERSION')
         string(
-            defaultValue: 'plm',
+            defaultValue: 'pcsm',
             description: 'PTA repo name',
             name: 'PTA_REPO')
         choice(
@@ -68,7 +68,7 @@ pipeline {
         timestamps ()
     }
     stages {
-        stage('Create Percona Link for MongoDB source tarball') {
+        stage('Create Percona ClusterSync for MongoDB source tarball') {
             agent {
                 label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
             }
@@ -77,11 +77,11 @@ pipeline {
                 cleanUpWS()
                 buildStage("oraclelinux:8", "--get_sources=1")
                 sh '''
-                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-link-mongodb.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
+                   REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-clustersync-mongodb.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
                    echo ${REPO_UPLOAD_PATH} > uploadPath
                    echo ${AWS_STASH_PATH} > awsUploadPath
-                   cat test/percona-link-mongodb.properties
+                   cat test/percona-clustersync-mongodb.properties
                    cat uploadPath
                 '''
                 script {
@@ -92,9 +92,9 @@ pipeline {
                 uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
-        stage('Build Percona Link for MongoDB generic source packages') {
+        stage('Build Percona ClusterSync for MongoDB generic source packages') {
             parallel {
-                stage('Build Percona Link for MongoDB generic source rpm') {
+                stage('Build Percona ClusterSync for MongoDB generic source rpm') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -107,7 +107,7 @@ pipeline {
                         uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Build Percona Link for MongoDB generic source deb') {
+                stage('Build Percona ClusterSync for MongoDB generic source deb') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -122,7 +122,7 @@ pipeline {
                 }
             }  //parallel
         } // stage
-        stage('Build Percona Link for MongoDB RPMs/DEBs/Binary tarballs') {
+        stage('Build Percona ClusterSync for MongoDB RPMs/DEBs/Binary tarballs') {
             parallel {
                 stage('Oracle Linux 8') {
                     agent {
@@ -362,7 +362,7 @@ pipeline {
         }
         stage('Push Tarballs to TESTING download area') {
             steps {
-                uploadTarballToDownloadsTesting(params.CLOUD, "plm", "${VERSION}")
+                uploadTarballToDownloadsTesting(params.CLOUD, "pcsm", "${VERSION}")
             }
         }
 

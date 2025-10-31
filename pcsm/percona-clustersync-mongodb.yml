@@ -1,9 +1,8 @@
 - job:
-    name: hetzner-plm-autobuild
+    name: hetzner-pcsm-autobuild-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!
-        Check PLM repo for new release branches to build packages
     pipeline-scm:
       scm:
         - git:
@@ -12,6 +11,5 @@
             - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: plm/get-plm-branches.groovy
-    triggers:
-      - timed: "H/15 * * * *"
+      script-path: pcsm/percona-clustersync-mongodb.groovy
+

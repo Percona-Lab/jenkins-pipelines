@@ -28,7 +28,7 @@ pipeline {
     }
     parameters {
         choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
-        string(name: 'PLM_BRANCH', defaultValue: 'main', description: 'PLM branch')
+        string(name: 'PCSM_BRANCH', defaultValue: 'main', description: 'PCSM branch')
         string(name: 'GO_VER', defaultValue: 'latest', description: 'GOLANG docker image for building PBM from sources')
         choice(name: 'ARCH', choices: ['x86','arm'], description: 'Ec2 instance type for running tests')
         string(name: 'PSMDB_TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
@@ -39,7 +39,7 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                    currentBuild.displayName = "${params.PLM_BRANCH}"
+                    currentBuild.displayName = "${params.PCSM_BRANCH}"
                 }
             }
         }
@@ -78,7 +78,7 @@ pipeline {
                                 }
 
                                 sh """
-                                    cd psmdb-testing/plm-pytest
+                                    cd psmdb-testing/pcsm-pytest
                                     docker-compose build --no-cache
                                     docker-compose up -d
                                     if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
@@ -88,7 +88,7 @@ pipeline {
                                         docker-compose run test pytest -v -s \$JENKINS_FLAG --junitxml=junit.xml || true
                                     fi
                                     docker-compose down -v --remove-orphans
-                                    curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PLM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PLM branch": "${PLM_BRANCH}","PSMDB docker image": "${MONGODB_IMAGE}","Instance": "${params.INSTANCE}"}};type=application/json' -i || true
+                                    curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PCSM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PCSM branch": "${PCSM_BRANCH}","PSMDB docker image": "${MONGODB_IMAGE}","Instance": "${params.INSTANCE}"}};type=application/json' -i || true
                                 """
                             }
                         }
@@ -110,13 +110,13 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PLM ${PLM_BRANCH} - all tests passed")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PCSM ${PCSM_BRANCH} - all tests passed")
         }
         unstable {
-            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: PLM ${PLM_BRANCH} - some tests failed [${BUILD_URL}testReport/]")
+            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: PCSM ${PCSM_BRANCH} - some tests failed [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: PLM ${PLM_BRANCH} - unexpected failure [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: PCSM ${PCSM_BRANCH} - unexpected failure [${BUILD_URL}]")
         }
     }
 }

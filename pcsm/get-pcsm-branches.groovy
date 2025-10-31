@@ -13,8 +13,8 @@ pipeline {
             description: 'Cloud infra for build',
             name: 'CLOUD')
         string(
-            defaultValue: 'https://github.com/percona/percona-link-mongodb.git',
-            description: 'URL for percona-link-mongodb repository',
+            defaultValue: 'https://github.com/percona/percona-clustersync-mongodb.git',
+            description: 'URL for percona-clustersync-mongodb repository',
             name: 'GIT_REPO')
     }
     options {
@@ -32,7 +32,7 @@ pipeline {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: S3_STASH, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                         sh """
                             EC=0
-                            AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 ls s3://percona-jenkins-artifactory/percona-link-mongodb/branch_commit_id.properties ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120 || EC=\$?
+                            AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 ls s3://percona-jenkins-artifactory/percona-clustersync-mongodb/branch_commit_id.properties ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120 || EC=\$?
 
                             if [ \${EC} = 1 ]; then
                                 LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release\\* | tail -1)
@@ -42,10 +42,10 @@ pipeline {
                                 echo "BRANCH_NAME=\${BRANCH_NAME}" > branch_commit_id.properties
                                 echo "COMMIT_ID=\${COMMIT_ID}" >> branch_commit_id.properties
 
-                                AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp branch_commit_id.properties s3://percona-jenkins-artifactory/percona-link-mongodb/ ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
+                                AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp branch_commit_id.properties s3://percona-jenkins-artifactory/percona-clustersync-mongodb/ ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
                                 echo "START_NEW_BUILD=NO" > startBuild
                             else
-                                AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp s3://percona-jenkins-artifactory/percona-link-mongodb/branch_commit_id.properties . ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
+                                AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp s3://percona-jenkins-artifactory/percona-clustersync-mongodb/branch_commit_id.properties . ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
                                 source branch_commit_id.properties
 
                                 LATEST_RELEASE_BRANCH=\$(git -c 'versionsort.suffix=-' ls-remote --heads --sort='v:refname' ${GIT_REPO} release\\* | tail -1)
@@ -60,7 +60,7 @@ pipeline {
 
                                 echo "BRANCH_NAME=\${LATEST_BRANCH_NAME}" > branch_commit_id.properties
                                 echo "COMMIT_ID=\${LATEST_COMMIT_ID}" >> branch_commit_id.properties
-                                AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp branch_commit_id.properties s3://percona-jenkins-artifactory/percona-link-mongodb/ ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
+                                AWS_RETRY_MODE=standard AWS_MAX_ATTEMPTS=10 aws s3 cp branch_commit_id.properties s3://percona-jenkins-artifactory/percona-clustersync-mongodb/ ${S3_ENDPOINT} --cli-connect-timeout 60 --cli-read-timeout 120
                             fi
                         """
                     }
@@ -82,7 +82,7 @@ pipeline {
                     """
                 }
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: new changes for branch ${BRANCH_NAME}[commit id: ${COMMIT_ID}] were detected, build will be started soon")
-                build job: 'hetzner-plm-autobuild-RELEASE', parameters: [string(name: 'CLOUD', value: CLOUD), string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'VERSION', value: VERSION), string(name: 'COMPONENT', value: 'testing')]
+                build job: 'hetzner-pcsm-autobuild-RELEASE', parameters: [string(name: 'CLOUD', value: CLOUD), string(name: 'GIT_BRANCH', value: BRANCH_NAME), string(name: 'VERSION', value: VERSION), string(name: 'COMPONENT', value: 'testing')]
             }
         }
         stage('Build skipped') {

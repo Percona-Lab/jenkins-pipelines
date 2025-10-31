@@ -13,8 +13,8 @@ pipeline {
     parameters {
         string(
             defaultValue: '0.6.0',
-            description: 'PLM Version for tests',
-            name: 'PLM_VERSION')
+            description: 'PCSM Version for tests',
+            name: 'PCSM_VERSION')
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',
@@ -24,7 +24,7 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                    currentBuild.displayName = "${params.PLM_VERSION}"
+                    currentBuild.displayName = "${params.PCSM_VERSION}"
                 }
             }
         }
@@ -39,7 +39,7 @@ pipeline {
                 script {
                     sh """
                         cd site_checks
-                        docker run --env PLM_VERSION=${params.PLM_VERSION} --rm -v `pwd`:/tmp -w /tmp python bash -c 'pip3 install requests pytest setuptools && pytest -s --junitxml=junit.xml test_plm.py || [ \$? = 1 ] '
+                        docker run --env PCSM_VERSION=${params.PCSM_VERSION} --rm -v `pwd`:/tmp -w /tmp python bash -c 'pip3 install requests pytest setuptools && pytest -s --junitxml=junit.xml test_pcsm.py || [ \$? = 1 ] '
                     """
                 }
             }
@@ -47,13 +47,13 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: checking packages on the main site for PLM ${PLM_VERSION} - ok [${BUILD_URL}testReport/]")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: checking packages on the main site for PCSM ${PCSM_VERSION} - ok [${BUILD_URL}testReport/]")
         }
         unstable {
-            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: checking packages on the main site for PLM ${PLM_VERSION} - some links are broken [${BUILD_URL}testReport/]")
+            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: checking packages on the main site for PCSM ${PCSM_VERSION} - some links are broken [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: checking packages on the main site for PLM ${PLM_VERSION} - failed [${BUILD_URL}]" )
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: checking packages on the main site for PCSM ${PCSM_VERSION} - failed [${BUILD_URL}]" )
         }
         always {
             script {
