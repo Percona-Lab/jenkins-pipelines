@@ -103,7 +103,11 @@ pipeline {
                 node(env.VM_NAME){
                     sh '''
                         if [[ ${OVA_VERSION} = 3* ]]; then
-                            wget -nv -O pmm-server.ova  https://downloads.percona.com/downloads/pmm3/${OVA_VERSION}/ova/PMM3-Server-${OVA_VERSION}-1.ova
+                            if [ "$(printf '%s\n' "3.0.0" "$v" | sort -V | head -n1)" = "3.0.0" ] && [ "$v" != "3.0.0" ]; then
+                                wget -nv -O pmm-server.ova  https://downloads.percona.com/downloads/pmm3/${OVA_VERSION}/ova/pmm-server-${OVA_VERSION}.ova
+                            else
+                                wget -nv -O pmm-server.ova  https://downloads.percona.com/downloads/pmm3/${OVA_VERSION}/ova/PMM3-Server-${OVA_VERSION}-1.ova
+                            fi
                         else
                             wget -nv -O pmm-server.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION}
                         fi
