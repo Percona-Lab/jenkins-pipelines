@@ -46,7 +46,7 @@ void runOVFStagingStart(SERVER_VERSION, PMM_QA_GIT_BRANCH) {
     env.PMM_UI_URL = "https://${SERVER_IP}/"
     withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
     sh """
-        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${SERVER_IP} 'bash -c "
+        ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no root@${SERVER_IP} 'bash -c "
             sudo docker network create --driver=bridge pmm-qa || true
             echo \\"PMM_DEBUG=1\\" >> /home/admin/.config/systemd/user/pmm-server.env
             echo \\"PMM_ENABLE_TELEMETRY=0\\" >> /home/admin/.config/systemd/user/pmm-server.env
