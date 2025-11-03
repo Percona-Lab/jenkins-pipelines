@@ -57,7 +57,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
                 latestUpgradeVersion = versionsList.keySet()[versionsList.keySet().size() - 2]
             }
 
-            if(upgradeVersion != versionsList.last()) {
+            if(upgradeVersion != versionsList.keySet().toList().last()) {
                 results.put("Upgrade AMI PMM from ${version} (AMI tag: ${upgradeVersion}) to repo: testing.", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, upgradeDockerTag, version, CLIENT_REPOSITORY, latestUpgradeVersion, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, iterator++))
             }
 
