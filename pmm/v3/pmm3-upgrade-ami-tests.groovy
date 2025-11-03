@@ -46,7 +46,15 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
                 }
             }
 
-            results.put("Upgrade AMI PMM from ${version} (AMI tag: ${upgradeVersion}) to repo: testing.", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, "perconalab/pmm-server:${latestVersion}-rc", version, 'testing', versionsList.keySet()[versionsList.keySet().size() - 2], PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, iterator++))
+            def upgradeDockerTag;
+
+            if(CLIENT_REPOSITORY == 'experimental') {
+                upgradeDockerTag = 'perconalab/pmm-server:3-dev-latest'
+            } else if (CLIENT_REPOSITORY == 'testing') {
+                upgradeDockerTag = "perconalab/pmm-server:${latestVersion}-rc"
+            }
+
+            results.put("Upgrade AMI PMM from ${version} (AMI tag: ${upgradeVersion}) to repo: testing.", generateStage(PMM_UI_GIT_BRANCH, upgradeVersion, upgradeDockerTag, version, CLIENT_REPOSITORY, versionsList.keySet()[versionsList.keySet().size() - 2], PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, iterator++))
         }
     }
 
