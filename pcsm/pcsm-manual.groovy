@@ -3,7 +3,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "plm-functional/manual"
+def moleculeDir = "pcsm-functional/manual"
 
 pipeline {
     agent {
@@ -16,7 +16,7 @@ pipeline {
     }
     parameters {
         choice(name: 'PSMDB',description: 'PSMDB used for testing',choices: ['6', '7','8'])
-        string(name: 'PLM_BRANCH',description: 'PLM Branch for testing',defaultValue: 'main')
+        string(name: 'PCSM_BRANCH',description: 'PCSM Branch for testing',defaultValue: 'main')
         string(name: 'GO_VERSION',description: 'Version of Golang used',defaultValue: '1.24.1')
         choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['t2.micro','i3.large','i3en.large','i3.xlarge','i3en.xlarge'])
         string(name: 'TIMEOUT',description: 'Timeout for the job',defaultValue: '3600')
