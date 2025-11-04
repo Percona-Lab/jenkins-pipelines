@@ -15,7 +15,7 @@ def call(String CLOUD_NAME, String FOLDER_NAME, String AWS_STASH_PATH) {
                 if [ `find . -name '*.src.rpm' | wc -l` -gt 0 ]; then
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                         mkdir -p \${path_to_build}/source/redhat
-                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
+                    scp -v -o StrictHostKeyChecking=no -i ${KEY_PATH} \
                         `find . -name '*.src.rpm'` \
                         ${USER}@repo.ci.percona.com:\${path_to_build}/source/redhat/
                 fi
