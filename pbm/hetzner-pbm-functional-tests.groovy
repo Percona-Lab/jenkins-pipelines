@@ -11,13 +11,13 @@ pipeline {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
-        string(name: 'PBM_BRANCH', defaultValue: 'main', description: 'PBM branch')
+        string(name: 'PBM_BRANCH', defaultValue: 'dev', description: 'PBM branch')
         string(name: 'PSMDB', defaultValue: 'percona/percona-server-mongodb', description: 'PSMDB docker image')
         string(name: 'GO_VER', defaultValue: 'bookworm', description: 'GOLANG docker image for building PBM from sources')
         choice(name: 'instance', choices: ['docker-x64','docker-aarch64'], description: 'Instance type for running tests')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
-        string(name: 'PYTEST_PARAMS', defaultValue: '', description: 'Extra args passed to pytest')
-        booleanParam(name: 'ADD_JENKINS_MARKED_TESTS', defaultValue: false, description: 'Include tests with jenkins marker')
+        string(name: 'PYTEST_PARAMS', defaultValue: '-m "not skip"', description: 'Extra args passed to pytest, like -k something')
+        booleanParam(name: 'ADD_JENKINS_MARKED_TESTS', defaultValue: true, description: 'Include tests with jenkins marker')
     }
     stages {
         stage('Set build name'){
@@ -34,8 +34,8 @@ pipeline {
                 }
                 axes {
                     axis {
-                        name 'TEST'
-                        values 'logical', 'physical', 'incremental', 'external', 'load'
+                        name 'SHARD'
+                        values '0','1','2','3','4','5','6','7','8','9'
                     }
                 }
                 stages {
@@ -78,12 +78,7 @@ pipeline {
                                     if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
                                     docker-compose build
                                     docker-compose up -d
-                                    if [ -n "${params.PYTEST_PARAMS}" ]; then
-                                        FULL_EXPR="${TEST} and ${params.PYTEST_PARAMS}"
-                                    else
-                                        FULL_EXPR="${TEST}"
-                                    fi
-                                    KMS_ID="${KMS_ID}" docker-compose run test pytest -s --junitxml=junit.xml \$JENKINS_FLAG -k "\$FULL_EXPR" || true
+                                    KMS_ID="${KMS_ID}" docker-compose run test pytest -s --junitxml=junit.xml --shard-id=${SHARD} --num-shards=10 \$JENKINS_FLAG ${params.PYTEST_PARAMS} || true
                                     docker-compose down -v --remove-orphans
                                     curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PBM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PBM branch": "${PBM_BRANCH}","PSMDB docker image": "${PSMDB}","instance": "${instance}"}};type=application/json' -i || true
                                 """

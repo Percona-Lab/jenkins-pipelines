@@ -15,8 +15,8 @@ pipeline {
         string(name: 'GO_VER', defaultValue: 'bookworm', description: 'GOLANG docker image for building PBM from sources')
         choice(name: 'instance', choices: ['docker-x64','docker-aarch64'], description: 'Instance type for running tests')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
-        string(name: 'PYTEST_PARAMS', defaultValue: '', description: 'Extra args passed to pytest')
-        booleanParam(name: 'ADD_JENKINS_MARKED_TESTS', defaultValue: false, description: 'Include tests with jenkins marker')
+        string(name: 'PYTEST_PARAMS', defaultValue: '-m "not skip"', description: 'Extra args passed to pytest, like -k something')
+        booleanParam(name: 'ADD_JENKINS_MARKED_TESTS', defaultValue: true, description: 'Include tests with jenkins marker')
     }
     stages {
         stage('Set build name'){
@@ -33,12 +33,12 @@ pipeline {
                 }
                 axes {
                     axis {
-                        name 'TEST'
-                        values 'logical', 'physical', 'incremental', 'external', 'load'
+                        name 'SHARD'
+                        values '0','1','2','3','4','5','6','7','8','9'
                     }
                     axis {
                         name 'PSMDB'
-                        values '6.0', '7.0', '8.0'
+                        values '7.0', '8.0'
                     }
                 }
                 stages {
@@ -78,12 +78,7 @@ pipeline {
                                     if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
                                     PSMDB=perconalab/percona-server-mongodb:${PSMDB} docker-compose build --no-cache
                                     docker-compose up -d
-                                    if [ -n "${params.PYTEST_PARAMS}" ]; then
-                                        FULL_EXPR="${TEST} and ${params.PYTEST_PARAMS}"
-                                    else
-                                        FULL_EXPR="${TEST}"
-                                    fi
-                                    KMS_ID="${KMS_ID}" docker-compose run test pytest -s --junitxml=junit.xml \$JENKINS_FLAG -k "\$FULL_EXPR" || true
+                                    KMS_ID="${KMS_ID}" docker-compose run test pytest -s --junitxml=junit.xml --shard-id=${SHARD} --num-shards=10 \$JENKINS_FLAG ${params.PYTEST_PARAMS} || true
                                     docker-compose down -v --remove-orphans
                                     curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PBM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PBM branch": "${PBM_BRANCH}","PSMDB docker image": "percona/percona-server-mongodb:${PSMDB}","instance": "${instance}"}};type=application/json' -i || true
                                 """
