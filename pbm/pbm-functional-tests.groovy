@@ -32,8 +32,8 @@ pipeline {
                 }
                 axes {
                     axis {
-                        name 'TEST'
-                        values 'logical', 'physical', 'incremental', 'external', 'load'
+                        name 'SHARD'
+                        values '0','1','2','3','4','5','6','7','8','9'
                     }
                 }
                 stages {
@@ -61,7 +61,7 @@ pipeline {
                                     cd pbm-functional/pytest
                                     docker-compose build
                                     docker-compose up -d
-                                    docker-compose run test pytest -s --junitxml=junit.xml -k ${TEST} || true
+                                    docker-compose run test pytest -s --junitxml=junit.xml --shard-id=${SHARD} --num-shards=10 -m 'not skip' || true
                                     docker-compose down -v --remove-orphans
                                     curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PBM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PBM branch": "${PBM_BRANCH}","PSMDB docker image": "${PSMDB}","instance": "${instance}"}};type=application/json' -i || true
                                 """
