@@ -176,7 +176,7 @@ def runPlaybook(def nodeName) {
             def playbook_path = "package-testing/playbooks/${playbook}"
             sh '''
                 set -xe
-                git clone --depth 1 https://github.com/Percona-QA/package-testing
+                git clone --depth 1 https://github.com/grishma123-eng/package-testing
             '''
             def exitCode = sh(
                 script: """
