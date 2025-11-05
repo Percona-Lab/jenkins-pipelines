@@ -304,7 +304,7 @@ def docker_test() {
                                 export PATH=${PATH}:~/.local/bin
                                 sudo yum install -y python3 python3-pip
                                 rm -rf package-testing
-                                git clone https://github.com/Percona-QA/package-testing.git --depth 1
+                                git clone https://github.com/grishma123-eng/package-testing.git --depth 1
                                 cd package-testing/docker-image-tests/ps
                                 pip3 install --user -r requirements.txt
                                 export PS_VERSION="${PS_RELEASE}-amd64"
