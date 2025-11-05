@@ -197,7 +197,7 @@ EOF
                         echo ""
 
                         echo "To access this cluster, run:"
-                        echo "aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}"
+                        echo "aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION} --role-arn arn:aws:iam::119175775298:role/EKSAdminRole"
                     '''
                 }
             }
