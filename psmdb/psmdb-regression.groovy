@@ -18,7 +18,6 @@ pipeline {
         string(name: 'release', defaultValue: '1', description: 'Release for build tag (psm_release) to build image from sources')
         choice(name: 'toolchain_version', choices: ['v4','v3'], description: 'Toolchain version: v3 for PSMDB 5.0/6.0 contains GCC 8.5.0 and Python 3.8.19; v4 for PSMDB 7.0/8.0 contains GCC 11.3.0 and Python 3.10.14')
         choice(name: 'build_platform', choices: ['bazel','scons'], description: 'Build platform bazel or scons')
-        booleanParam(name: 'build_pro_version',defaultValue: true, description: 'Build PSMDB pro version')
         string(name: 'tag', defaultValue: '8.0.4', description: 'Docker image tag to push/pull to/from registry, should be defined manually')
         string(name: 'parallelexecutors', defaultValue: '1', description: 'Number of parallel executors')
         string(name: 'testsuites', defaultValue: 'core,unittests,dbtest', description: 'Comma-separated list of testuites')
@@ -77,10 +76,6 @@ pipeline {
                              --build-arg toolchain_version=${params.toolchain_version} \
                              --build-arg build_platform=${params.build_platform} \
                              --build-arg OS=${params.OS}"
-
-                         if [ "${params.build_pro_version}" = "true" ]; then
-                             build_args="\${build_args} --build-arg pro=true"
-                         fi
                          DOCKER_BUILDKIT=1 docker build . --target jstests -t public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag} \${build_args}
                          docker push public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag}
                      """
@@ -226,10 +221,6 @@ pipeline {
                                                         --build-arg toolchain_version=${params.toolchain_version} \
                                                         --build-arg build_platform=${params.build_platform} \
                                                         --build-arg OS=${params.OS}"
-
-                                            if [ "${params.build_pro_version}" = "true" ]; then
-                                                 build_args="\${build_args} --build-arg pro=true"
-                                            fi
                                             DOCKER_BUILDKIT=1 docker build . --target unittests -t unittests \${build_args}
                                         """  
                                         def suites = []
@@ -309,10 +300,6 @@ pipeline {
                                                         --build-arg toolchain_version=${params.toolchain_version} \
                                                         --build-arg build_platform=${params.build_platform} \
                                                         --build-arg OS=${params.OS}"
-
-                                            if [ "${params.build_pro_version}" = "true" ]; then
-                                                 build_args="\${build_args} --build-arg pro=true"
-                                            fi
                                             DOCKER_BUILDKIT=1 docker build . --target benchmarks -t benchmarks \${build_args}
                                         """
                                         def suites = []
@@ -389,10 +376,6 @@ pipeline {
                                                         --build-arg toolchain_version=${params.toolchain_version} \
                                                         --build-arg build_platform=${params.build_platform} \
                                                         --build-arg OS=${params.OS}"
-
-                                            if [ "${params.build_pro_version}" = "true" ]; then
-                                                 build_args="\${build_args} --build-arg pro=true"
-                                            fi
                                             DOCKER_BUILDKIT=1 docker build . --target integrationtests -t integrationtests \${build_args}
                                         """
                                         def suites = []
