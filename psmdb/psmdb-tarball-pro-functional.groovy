@@ -4,7 +4,7 @@ library changelog: false, identifier: "lib@PSMDB-1776", retriever: modernSCM([
 ])
 
 def moleculeDir = "psmdb-tarball/psmdb-tarball-pro"
-def psmdb_default_os_list = ["al2023","rhel8","rhel9","ubuntu-jammy-pro","ubuntu-noble-pro"]
+def psmdb_default_os_list = ["debian-12"]
 def psmdb_7_os_list = ["debian-12"]
 
 pipeline {
