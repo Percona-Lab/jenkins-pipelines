@@ -80,7 +80,7 @@ pipeline {
     post {
         always {
             junit testResults: "**/*-report.xml", keepLongStdio: true
-            moleculeParallelPostDestroy(psmdb_default_os_list, moleculeDir)
+//            moleculeParallelPostDestroy(psmdb_default_os_list, moleculeDir)
         }
     }
 }
