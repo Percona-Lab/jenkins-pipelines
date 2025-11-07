@@ -1245,7 +1245,23 @@ parameters {
                                 echo "Minitests completed successfully. Triggering next stages."
                              //   slackNotify("${SLACKNOTIFY}", "#FF0000", "[${JOB_NAME}]: minitest sucessfully run for ${BRANCH} - [${BUILD_URL}]")
                                 echo "TRIGGERING THE PACKAGE TESTING JOB!!!"
-                                build job: 'ps-package-testing-molecule', propagate: false, wait: false, parameters: [string(name: 'product_to_test', value: "${product_to_test}"),string(name: 'install_repo', value: "testing"),string(name: 'action_to_test', value: "install"),string(name: 'check_warnings', value: "yes"),string(name: 'install_mysql_shell', value: "no")]
+                                withCredentials([string(credentialsId: 'JNKPERCONA_PS80_TOKEN', variable: 'TOKEN')]) {
+                                    def jenkinsServerUrl = 'https://ps80.cd.percona.com'
+                                    def jobName = 'ps-package-testing-molecule'
+                                    def response = sh(script: """
+                                        curl -X POST \\
+                                        -u ${TOKEN} \\
+                                        "${jenkinsServer4Url}/job/${jobName}/buildWithParameters" \\
+                                        --data-urlencode "product_to_test=${product_to_test}" \\
+                                        --data-urlencode "install_repo=testing" \\
+                                        --data-urlencode "action_to_test=install" \\
+                                        --data-urlencode "check_warnings=yes" \\
+                                        --data-urlencode "install_mysql_shell=no"
+                                    """, returnStdout: true).trim()
+                                    echo "PS job triggered on ${jenkinsServerUrl}/job/${jobName}"
+                                    echo "Response: ${response}"  
+                                    }          
+        
                                 echo "Trigger PMM_PS Github Actions Workflow"
                                 withCredentials([string(credentialsId: 'Github_Integration', variable: 'Github_Integration')]) {
                                     sh """
