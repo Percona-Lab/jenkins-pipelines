@@ -1251,7 +1251,7 @@ parameters {
                                     def response = sh(script: """
                                         curl -X POST \\
                                         -u ${TOKEN} \\
-                                        "${jenkinsServer4Url}/job/${jobName}/buildWithParameters" \\
+                                        "${jenkinsServerUrl}/job/${jobName}/buildWithParameters" \\
                                         --data-urlencode "product_to_test=${product_to_test}" \\
                                         --data-urlencode "install_repo=testing" \\
                                         --data-urlencode "action_to_test=install" \\
