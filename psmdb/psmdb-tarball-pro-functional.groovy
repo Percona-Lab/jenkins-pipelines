@@ -1,6 +1,6 @@
 library changelog: false, identifier: "lib@master", retriever: modernSCM([
-        $class: 'GitSCMSource',
-        remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
 def moleculeDir = "psmdb-tarball/psmdb-tarball-pro"
