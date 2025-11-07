@@ -49,7 +49,7 @@ pipeline {
             name: 'GIT_BRANCH'
          )
         string(
-            defaultValue: '17.6',
+            defaultValue: 'ppg-17.6',
             description: 'PPG repo name',
             name: 'PPG_REPO'
          )
@@ -337,7 +337,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(params.CLOUD, "ppg-${PPG_REPO}", COMPONENT)
+                sync2ProdAutoBuild(params.CLOUD, PPG_REPO, COMPONENT)
             }
         }
 
