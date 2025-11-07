@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
-    $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+library changelog: false, identifier: "lib@PSMDB-1776", retriever: modernSCM([
+        $class: 'GitSCMSource',
+        remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
 def moleculeDir = "psmdb-tarball/psmdb-tarball-pro"
@@ -17,18 +17,26 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: '6.0.20-17',
-            description: 'PSMDB version for tests',
-            name: 'PSMDB_VERSION'
+                defaultValue: '6.0.20-17',
+                description: 'PSMDB version for tests',
+                name: 'PSMDB_VERSION'
         )
         string(
-            defaultValue: 'main',
-            description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH'
+                defaultValue: 'main',
+                description: 'Branch for testing repository',
+                name: 'TESTING_BRANCH'
         )
+        string(
+                name: 'SSH_USER',
+                description: 'User for debugging',
+                defaultValue: 'none')
+        string(
+                name: 'SSH_PUBKEY',
+                description: 'User ssh public key for debugging',
+                defaultValue: 'none')
     }
     options {
-          withCredentials(moleculePbmJenkinsCreds())
+        withCredentials(moleculePbmJenkinsCreds())
     }
     stages {
         stage('Set build name'){
@@ -60,14 +68,15 @@ pipeline {
             }
         }
         stage('Test') {
-          steps {
-            withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
-             script {
-                moleculeParallelTest(psmdb_default_os_list, moleculeDir)
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME'),
+                                 string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
+                    script {
+                        moleculeParallelTest(psmdb_default_os_list, moleculeDir)
+                    }
+                }
             }
-          }
         }
-      }
     }
     post {
         always {
