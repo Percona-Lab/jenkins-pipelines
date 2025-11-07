@@ -64,7 +64,7 @@ pipeline {
         choice(
             name: 'PG_RELEASE',
             description: 'PPG major version to test',
-            choices: ['11', '12', '13', '14', '15', '16', '17']
+            choices: ['11', '12', '13', '14', '15', '16', '17', '18']
         )
         string(
             defaultValue: 'ppg-16.1',
