@@ -17,14 +17,14 @@ pipeline {
     }
     parameters {
         string(
-                defaultValue: '6.0.20-17',
-                description: 'PSMDB version for tests',
-                name: 'PSMDB_VERSION'
+            defaultValue: '6.0.20-17',
+            description: 'PSMDB version for tests',
+            name: 'PSMDB_VERSION'
         )
         string(
-                defaultValue: 'main',
-                description: 'Branch for testing repository',
-                name: 'TESTING_BRANCH'
+            defaultValue: 'main',
+            description: 'Branch for testing repository',
+            name: 'TESTING_BRANCH'
         )
     }
     options {
