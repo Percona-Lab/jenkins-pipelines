@@ -136,10 +136,6 @@ pipeline {
             description: 'PMM Client (X64) tarball link or FB-code',
             name: 'TARBALL')
         string(
-            defaultValue: '',
-            description: 'PMM Client (ARM64) tarball link or FB-code',
-            name: 'TARBALL_ARM')
-        string(
             defaultValue: 'pmm3admin!',
             description: 'Password for pmm server admin user',
             name: 'ADMIN_PASSWORD')
@@ -155,9 +151,6 @@ pipeline {
     options {
         skipDefaultCheckout()
         timeout(time: 90, unit: 'MINUTES')
-    }
-    triggers {
-        cron('0 2 * * *')
     }
     stages {
         stage('Setup Server Instance') {
@@ -175,83 +168,83 @@ pipeline {
                 }
             }
         }
-        stage('Execute ARM 64 Package Tests') {
+        stage('Execute AMD 64 Package Tests') {
             parallel {
-                stage('Oracle Linux 8 - ARM64') {
+                stage('Oracle Linux 8 - AMD64') {
                     agent {
-                        label 'min-ol-8-arm64'
+                        label 'min-ol-8-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Oracle Linux 9 - ARM64') {
+                stage('Oracle Linux 9 - AMD64') {
                     agent {
-                        label 'min-ol-9-arm64'
+                        label 'min-ol--x64'
                     }
                     steps{
                         setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Almalinux 10 - ARM64') {
+                stage('Almalinux 10 - AMD64') {
                     when {
                         expression {
                             !(env.TESTS ?: '').contains('upgrade')
                         }
                     }
                     agent {
-                        label 'min-alma-10-arm64'
+                        label 'min-alma-10-x64'
                     }
                     environment {
                         PS_REPOSITORY='testing'
                     }
                     steps{
                         setup_rhel_10_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Ubuntu 22.04 Jammy - ARM64') {
+                stage('Ubuntu 22.04 Jammy - AMD64') {
                     agent {
-                        label 'min-jammy-arm64'
+                        label 'min-jammy-x64'
                     }
                     steps{
                         setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Ubuntu 24.04 Noble - ARM64') {
+                stage('Ubuntu 24.04 Noble - AMD64') {
                     agent {
-                        label 'min-noble-arm64'
+                        label 'min-noble-x64'
                     }
                     steps {
                         setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Debian 11 Bullseye - ARM64') {
+                stage('Debian 11 Bullseye - AMD64') {
                     agent {
-                        label 'min-bullseye-arm64'
+                        label 'min-bullseye-x64'
                     }
                     steps{
                         setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Debian 12 Bookworm - ARM64') {
+                stage('Debian 12 Bookworm - AMD64') {
                     agent {
-                        label 'min-bookworm-arm64'
+                        label 'min-bookworm-x64'
                     }
                     steps{
                         setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
 /*
-                stage('Debian 13 Trixie - ARM64') {
+                stage('Debian 13 Trixie - AMD64') {
                     agent {
-                        label 'min-trixie-arm64'
+                        label 'min-trixie-x64'
                     }
                     steps{
                         setup_debian_trixie_package_tests()
