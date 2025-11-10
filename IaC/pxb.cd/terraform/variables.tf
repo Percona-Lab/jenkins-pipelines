@@ -33,18 +33,18 @@ variable "key_name" {
   default     = "jenkins-master"
 }
 
-data "aws_ami" "amazon-linux-2" {
+data "aws_ami" "amazon-linux-2023" {
   most_recent = true
   owners      = ["amazon"]
 
   filter {
     name   = "name"
-    values = ["amzn2-ami-hvm-*-x86_64-gp2"]
+    values = ["al2023-ami-minimal-*-kernel-6.1-x86_64"]
   }
 }
 
 data "template_file" "master_user_data" {
-  template = "${file("master_user_data.sh")}"
+  template = file("master_user_data.sh")
 
   vars = {
     JHostName             = "${var.hostname}"

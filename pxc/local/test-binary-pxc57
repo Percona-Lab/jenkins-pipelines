@@ -40,7 +40,7 @@ if [ -f /usr/bin/yum ]; then
     fi
 elif [ -f /usr/bin/apt-get ]; then
     OS_NAME="$(lsb_release -sc)"
-    if [[ ${OS_NAME} == "jammy" ]] || [[ ${OS_NAME} == "bullseye" ]] || [[ ${OS_NAME} == "bookworm" ]]; then
+    if [[ ${OS_NAME} == "jammy" ]] || [[ ${OS_NAME} == "noble" ]] || [[ ${OS_NAME} == "bullseye" ]] || [[ ${OS_NAME} == "bookworm" ]]; then
         sudo ln -sf /usr/bin/python3 /usr/bin/python
     fi
 fi
@@ -73,8 +73,7 @@ if [[ $MTR_ARGS == *"--big-test"* ]] || [[ $MTR_ARGS == *"--only-big-test"* ]]; 
     TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 2))
 fi
 
-WITH_ASAN=$(echo "${WITH_ASAN}" | tr '[:upper:]' '[:lower:]')
-if [[ $WITH_ASAN == "yes" ]]; then
+if [[ "${ANALYZER_OPTS}" = *WITH_ASAN=ON* ]]; then
     MTR_ARGS+=" --sanitize "
 fi
 
@@ -84,6 +83,8 @@ status=0
 if [[ "${DEFAULT_TESTING}" != "no" ]]; then
     if [[ "${ANALYZER_OPTS}" == *WITH_VALGRIND=ON* ]]; then
         MYSQLD_ENV="${ADD_TO_LD_PRELOAD:-}${EATMYDATA}"
+        MTR_ARGS+=" --valgrind --valgrind-clients --valgrind-option=--leak-check=full --valgrind-option=--show-leak-kinds=all"
+        TESTCASE_TIMEOUT=$((TESTCASE_TIMEOUT * 2))
     else
         MYSQLD_ENV="${ADD_TO_LD_PRELOAD:-}${JEMALLOC}:${EATMYDATA}"
     fi

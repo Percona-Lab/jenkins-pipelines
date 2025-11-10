@@ -19,7 +19,6 @@
     - timed: 'H/15 * * * *'
     dsl: |
         import jenkins.model.Jenkins
-        import hudson.plugins.ec2.AmazonEC2Cloud
         import hudson.plugins.ec2.SlaveTemplate
         import hudson.plugins.ec2.SpotConfiguration
 
@@ -66,8 +65,12 @@
         // Get the Jenkins instance
         def jenkins = Jenkins.instance
 
-        // Find all AmazonEC2Cloud instances in Jenkins
-        def ec2Clouds = jenkins.clouds.findAll { it instanceof AmazonEC2Cloud }
+        // Find all EC2Cloud instances in Jenkins (works with both old and new plugin versions)
+        // Check by class name to avoid ClassNotFoundException in sandbox
+        def ec2Clouds = jenkins.clouds.findAll { cloud ->
+            def className = cloud.class.name
+            className == 'hudson.plugins.ec2.EC2Cloud' || className == 'hudson.plugins.ec2.AmazonEC2Cloud'
+        }
 
         // Create a map to store data
         def cloudData = [:]
@@ -76,7 +79,11 @@
         def priceChanges = false
 
         // Multiline output
-        def dbgOutput = ""
+        def dbgOutput = "Found ${ec2Clouds.size()} EC2 cloud(s)\n"
+        if (ec2Clouds.size() > 0) {
+            dbgOutput += "Using EC2 plugin class: ${ec2Clouds[0].class.name}\n"
+        }
+        dbgOutput += "\n"
 
         // Iterate through each AmazonEC2Cloud instance
         ec2Clouds.each { cloud ->
@@ -221,23 +228,29 @@
                     }
                 }
             }
-            // Remove the existing cloud with the same name
-            def cloudsToRemove = []
-            jenkins.clouds.each {
-                if (it.hasProperty('cloudName') && it['cloudName'] == cloud.getDisplayName()) {
-                    cloudsToRemove.add(it)
-                }
-            }
-            // Remove the clouds outside prev iteration: fixes java.util.NoSuchElementException
-            //  if only 1 cloud is configured
-            cloudsToRemove.each {
-                jenkins.clouds.remove(it)
-            }
-
-            // Add the updated cloud configuration
-            jenkins.clouds.add(cloud)
         }
-        jenkins.save()
+
+        // Only update Jenkins clouds if there were actual price changes
+        if (priceChanges) {
+            ec2Clouds.each { cloud ->
+                // Remove the existing cloud with the same name
+                def cloudsToRemove = []
+                jenkins.clouds.each {
+                    if (it.hasProperty('cloudName') && it['cloudName'] == cloud.getDisplayName()) {
+                        cloudsToRemove.add(it)
+                    }
+                }
+                // Remove the clouds outside prev iteration: fixes java.util.NoSuchElementException
+                //  if only 1 cloud is configured
+                cloudsToRemove.each {
+                    jenkins.clouds.remove(it)
+                }
+
+                // Add the updated cloud configuration
+                jenkins.clouds.add(cloud)
+            }
+            jenkins.save()
+        }
 
         // Print output
         println dbgOutput
