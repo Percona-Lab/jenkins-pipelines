@@ -106,7 +106,7 @@ def call(String type='dev-latest') {
       return v3.groupBy { v -> v.tokenize('.')[0..1].join('.') }
                .values()
                .collect { group -> group.max { it.tokenize('.')[2] as int } }
-               .sort(false) { v -> v.tokenize('.').collect { it as int } }
+               .collect { it as int } }
     case 'v3-ami':
       return v3Versions
   }
