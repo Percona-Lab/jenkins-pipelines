@@ -103,11 +103,13 @@ def call(String type='dev-latest') {
     case 'v3':
       return v3
     case 'v3-one-minor':
-      return v3.inject([:]) { acc, v ->
-        def p = v.tokenize('.')
-        acc["${p[0]}.${p[1]}"] = v
-        acc
-        }.values()*.toString()
+      return v3.groupBy { v -> v.split(/\./)[0..1].join('.') }
+               .collect { k, group -> group.max { it.split(/\./)[2] as int } }
+               .sort { a, b ->
+                 def ai = a.split(/\./).collect { it as int }
+                 def bi = b.split(/\./).collect { it as int }
+                 (ai[0] <=> bi[0]) ?: (ai[1] <=> bi[1]) ?: (ai[2] <=> bi[2])
+               }
     case 'v3-ami':
       return v3Versions
   }
