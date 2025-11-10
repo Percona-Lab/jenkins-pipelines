@@ -181,7 +181,7 @@ pipeline {
                 }
                 stage('Oracle Linux 9 - AMD64') {
                     agent {
-                        label 'min-ol--x64'
+                        label 'min-ol-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
