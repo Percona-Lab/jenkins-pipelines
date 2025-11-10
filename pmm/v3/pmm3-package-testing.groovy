@@ -196,11 +196,6 @@ pipeline {
                     }
                 }
                 stage('Almalinux 10 - ARM64') {
-                    when {
-                        expression {
-                            !(env.TESTS ?: '').contains('upgrade')
-                        }
-                    }
                     agent {
                         label 'min-alma-10-arm64'
                     }
