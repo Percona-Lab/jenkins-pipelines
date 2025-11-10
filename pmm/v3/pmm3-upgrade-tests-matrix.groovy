@@ -1,13 +1,13 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@3.4.0-peter-upgrade', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-def pmmVersions = pmmVersion('v3')[0..-2]
+def pmmVersions = pmmVersion('v3-one-minor')[0..-2]
 // .groupBy { it.tokenize('.')[0..1].join('.') }
 //                                          .collect { k, v -> v.max { it.tokenize('.').collect { it as int } } }
 //                                          .sort { it.tokenize('.').collect { it as int } }
-def latestVersion = pmmVersion('v3').last()
+def latestVersion = pmmVersion('v3-one-minor').last()
 
 void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion) {
     upgradeJob = build job: 'pmm3-upgrade-tests', parameters: [

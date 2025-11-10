@@ -102,6 +102,12 @@ def call(String type='dev-latest') {
       return dbaasVersions
     case 'v3':
       return v3
+    case 'v3-one-minor':
+      return v3.inject([:]) { acc, v ->
+        def p = v.tokenize('.')
+        acc["${p[0]}.${p[1]}"] = v
+        acc
+        }.values()*.toString()
     case 'v3-ami':
       return v3Versions
   }
