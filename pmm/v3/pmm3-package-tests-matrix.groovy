@@ -36,7 +36,7 @@ void runStaging(String DOCKER_VERSION, CLIENTS) {
 }
 
 void runPackageTest(String GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, TESTS, INSTALL_REPO, TARBALL, METRICS_MODE, CLIENTS) {
-    packageTestJob = build job: 'pmm3-package-testing-arm', parameters: [
+    packageTestJob = build job: 'pmm3-package-testing', parameters: [
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'PMM_VERSION', value: PMM_VERSION),
