@@ -81,7 +81,7 @@ pipeline {
                 def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()
                 def os = pdmdbOperatingSystems("${PSMDB_VER}")
                 os.removeAll { it.contains('-arm') }
-                moleculeParallelPostDestroy(os, moleculeDir)
+//                moleculeParallelPostDestroy(os, moleculeDir)
             }
         }
     }
