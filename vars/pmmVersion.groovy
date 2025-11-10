@@ -102,11 +102,6 @@ def call(String type='dev-latest') {
       return dbaasVersions
     case 'v3':
       return v3
-    case 'v3-one-minor':
-      return v3.groupBy { v -> v.tokenize('.')[0..1].join('.') }
-               .values()
-               .collect { group -> group.max { it.tokenize('.')[2] as int } }
-               .collect { it as int } }
     case 'v3-ami':
       return v3Versions
   }
