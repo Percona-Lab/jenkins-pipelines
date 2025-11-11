@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@PMM-7-fix-upgrade', retriever: modern
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
+library changelog: false, identifier: 'v3lib@PMM-7-fix-upgrade', retriever: modernSCM(
   scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
   libraryPath: 'pmm/v3/'
 )
