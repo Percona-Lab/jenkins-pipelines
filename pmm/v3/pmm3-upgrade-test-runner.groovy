@@ -207,7 +207,7 @@ pipeline {
                         -e WATCHTOWER_HTTP_API_UPDATE=1 \
                         --volume /var/run/docker.sock:/var/run/docker.sock \
                         --name watchtower \
-                        percona/watchtower:latest
+                        perconalab/watchtower:dev-latest
 
                     sleep 10
                     export DOCKER_TAG_UPGRADE=\${DOCKER_TAG_UPGRADE}
