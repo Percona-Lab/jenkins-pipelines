@@ -86,7 +86,8 @@ pipeline {
             steps {
                 withCredentials([
                     usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME'),
-                    usernamePassword(credentialsId: 'OIDC_ACCESS', passwordVariable: 'OIDC_CLIENT_SECRET', usernameVariable: 'OIDC_CLIENT_ID')]) {
+                    usernamePassword(credentialsId: 'OIDC_ACCESS', passwordVariable: 'OIDC_CLIENT_SECRET', usernameVariable: 'OIDC_CLIENT_ID'),
+                    string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
                     script {
                         moleculeParallelTest(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION,GATED_BUILD), moleculeDir)
                     }
