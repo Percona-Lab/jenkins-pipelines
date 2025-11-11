@@ -93,8 +93,6 @@ pipeline {
                 }
             }
         }
-    }
-    stages {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
