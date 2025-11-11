@@ -254,7 +254,7 @@ pipeline {
                     python pmm-framework.py --verbose \
                         --client-version=\${CLIENT_VERSION} \
                         --pmm-server-password=\${ADMIN_PASSWORD} \
-                        --database ps --database psmdb --database pdpgsql --database external --database pxc --database psmdb,SETUP_TYPE=pss --database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql
+                        --database ps --database psmdb --database pdpgsql --database external --database pxc --database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql
                     popd
                 '''
             }
