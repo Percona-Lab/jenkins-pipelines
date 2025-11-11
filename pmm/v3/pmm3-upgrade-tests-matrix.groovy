@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@3.4.0-peter-upgrade', retriever: mode
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-def pmmVersions = pmmVersion('v3')[0..-2]
+def pmmVersions = pmmVersion('v3').subList(Math.max(0, list.size() - 5), list.size());
 def latestVersion = pmmVersion('v3').last()
 
 void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion) {
