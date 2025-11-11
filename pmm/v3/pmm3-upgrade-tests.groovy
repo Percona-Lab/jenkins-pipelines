@@ -86,6 +86,15 @@ pipeline {
         cron('0 3 * * *')
     }
     stages {
+        stage('Prepare') {
+            steps {
+                script {
+                    currentBuild.description = "Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
+                }
+            }
+        }
+    }
+    stages {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
