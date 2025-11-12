@@ -1179,7 +1179,6 @@ parameters {
     } 
 }
     post {
-
     success {
         script {
             if (env.FIPSMODE == 'YES') {
@@ -1191,7 +1190,7 @@ parameters {
             unstash 'properties'
 
             // ✅ Call external shared function
-            MinitestPostSuccess(
+            MinitestPostSucess(
                 product_to_test: product_to_test,
                 PS_RELEASE: PS_RELEASE,
                 PS_VERSION_SHORT: PS_VERSION_SHORT,
