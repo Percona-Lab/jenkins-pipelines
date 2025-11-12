@@ -33,6 +33,15 @@ pipeline {
             description: 'PG version for test',
             name: 'VERSION'
         )
+        choice(
+            name: 'IO_METHOD',
+            description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
+            choices: [
+                'worker',
+                'sync',
+                'io_uring'
+            ]
+        )
         string(
             defaultValue: 'https://downloads.percona.com/downloads/TESTING/pg_tarballs-17.6/percona-postgresql-17.6-ssl3-linux-x86_64.tar.gz',
             description: 'URL for tarball.',
