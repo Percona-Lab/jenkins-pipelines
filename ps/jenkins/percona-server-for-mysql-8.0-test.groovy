@@ -1197,7 +1197,9 @@ parameters {
                     minitestNodes: minitestNodes,
                     SLACKNOTIFY: SLACKNOTIFY,
                     BRANCH: BRANCH,
-                    DOCKER_ACC: DOCKER_ACC
+                    DOCKER_ACC: DOCKER_ACC,
+                    packageTestsClosure: { nodes -> package_tests_ps80(nodes) },
+                    dockerTestClosure: { -> docker_test() }
                 )
             }
         }

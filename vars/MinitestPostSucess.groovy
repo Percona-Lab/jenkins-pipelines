@@ -7,6 +7,8 @@ def call(Map args = [:]) {
     def SLACKNOTIFY      = args.get('SLACKNOTIFY', '')
     def BRANCH           = args.get('BRANCH', '')
     def DOCKER_ACC       = args.get('DOCKER_ACC', '')
+    def packageTestsClosure = args.get('packageTestsClosure', null)
+    def dockerTestClosure = args.get('dockerTestClosure', null)
 
     echo "Starting post-success logic..."
     echo "PS_RELEASE: ${PS_RELEASE}"
@@ -67,59 +69,63 @@ def call(Map args = [:]) {
             """
         }
 
-        parallel(
-            "Start Minitests for PS": {
-                try {
-                    package_tests_ps80(minitestNodes)
-                    echo "Minitests completed successfully. Triggering next stages."
+        if (packageTestsClosure && dockerTestClosure) {
+            parallel(
+                "Start Minitests for PS": {
+                    try {
+                        packageTestsClosure(minitestNodes)
+                        echo "Minitests completed successfully. Triggering next stages."
 
-                    // Trigger PS package-testing job on another Jenkins
-                    withCredentials([string(credentialsId: 'JNKPERCONA_PS80_TOKEN', variable: 'TOKEN')]) {
-                        def jenkinsServerUrl = 'https://ps80.cd.percona.com'
-                        def jobName = 'ps-package-testing-molecule'
-                        def response = sh(script: """
-                            curl -X POST \\
-                            -u ${TOKEN} \\
-                            "${jenkinsServerUrl}/job/${jobName}/buildWithParameters" \\
-                            --data-urlencode "product_to_test=${product_to_test}" \\
-                            --data-urlencode "install_repo=testing" \\
-                            --data-urlencode "action_to_test=install" \\
-                            --data-urlencode "check_warnings=yes" \\
-                            --data-urlencode "install_mysql_shell=no"
-                        """, returnStdout: true).trim()
-                        echo "PS job triggered on ${jenkinsServerUrl}/job/${jobName}"
-                        echo "Response: ${response}"
+                        // Trigger PS package-testing job on another Jenkins
+                        withCredentials([string(credentialsId: 'JNKPERCONA_PS80_TOKEN', variable: 'TOKEN')]) {
+                            def jenkinsServerUrl = 'https://ps80.cd.percona.com'
+                            def jobName = 'ps-package-testing-molecule'
+                            def response = sh(script: """
+                                curl -X POST \\
+                                -u ${TOKEN} \\
+                                "${jenkinsServerUrl}/job/${jobName}/buildWithParameters" \\
+                                --data-urlencode "product_to_test=${product_to_test}" \\
+                                --data-urlencode "install_repo=testing" \\
+                                --data-urlencode "action_to_test=install" \\
+                                --data-urlencode "check_warnings=yes" \\
+                                --data-urlencode "install_mysql_shell=no"
+                            """, returnStdout: true).trim()
+                            echo "PS job triggered on ${jenkinsServerUrl}/job/${jobName}"
+                            echo "Response: ${response}"
+                        }
+
+                        // Trigger GitHub workflow
+                        echo "Trigger PMM_PS GitHub Actions Workflow"
+                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
+                            sh """
+                                curl -i -v -X POST \
+                                -H "Accept: application/vnd.github.v3+json" \
+                                -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PS.yaml/dispatches" \
+                                -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
+                            """
+                        }
+
+                    } catch (err) {
+                        echo " Minitests block failed: ${err}"
+                        currentBuild.result = 'FAILURE'
+                        throw err
                     }
-
-                    // Trigger GitHub workflow
-                    echo "Trigger PMM_PS GitHub Actions Workflow"
-                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
-                        sh """
-                            curl -i -v -X POST \
-                            -H "Accept: application/vnd.github.v3+json" \
-                            -H "Authorization: token ${GITHUB_API_TOKEN}" \
-                            "https://api.github.com/repos/Percona-Lab/qa-integration/actions/workflows/PMM_PS.yaml/dispatches" \
-                            -d '{"ref":"main","inputs":{"ps_version":"${PS_RELEASE}"}}'
-                        """
+                },
+                "Start Docker job": {
+                    try {
+                        dockerTestClosure()
+                        echo "Docker images run successfully."
+                    } catch (err) {
+                        echo " Docker test block failed: ${err}"
+                        currentBuild.result = 'FAILURE'
+                        throw err
                     }
-
-                } catch (err) {
-                    echo " Minitests block failed: ${err}"
-                    currentBuild.result = 'FAILURE'
-                    throw err
                 }
-            },
-            "Start Docker job": {
-                try {
-                    docker_test()
-                    echo "Docker images run successfully."
-                } catch (err) {
-                    echo " Docker test block failed: ${err}"
-                    currentBuild.result = 'FAILURE'
-                    throw err
-                }
-            }
-        )
+            )
+        } else {
+            error "packageTestsClosure and dockerTestClosure must be provided"
+        }
 
     } else {
         error "Skipping MINITESTS — invalid RELEASE VERSION FOR THIS JOB"
