@@ -15,9 +15,9 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'https://downloads.percona.com/downloads/percona-server-mongodb-4.2/percona-server-mongodb-4.2.15-16/binary/tarball/percona-server-mongodb-4.2.15-16-x86_64.glibc2.17-minimal.tar.gz',
-            description: 'URL/S3 link for tarball to upgrade/downgrade from',
-            name: 'TARBALL'
+            defaultValue: '7.0.24-13',
+            description: 'PSMDB version for tests',
+            name: 'PSMDB_VERSION'
         )
         string(
             defaultValue: 'main',
