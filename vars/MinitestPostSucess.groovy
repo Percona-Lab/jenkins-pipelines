@@ -9,11 +9,19 @@ def call(Map args = [:]) {
     def DOCKER_ACC       = args.get('DOCKER_ACC', '')
 
     echo "Starting post-success logic..."
-    echo "Revision: ${env.PS_REVISION}"
     echo "PS_RELEASE: ${PS_RELEASE}"
     echo "PS_VERSION_SHORT_KEY: ${PS_VERSION_SHORT_KEY}"
     echo "PS_VERSION_SHORT: ${PS_VERSION_SHORT}"
     echo "Docker Account: ${DOCKER_ACC}"
+
+    // Extract PS_REVISION from properties file
+    def PS_REVISION = ''
+    if (fileExists('test/percona-server-8.0.properties')) {
+        PS_REVISION = sh(returnStdout: true, script: "grep REVISION test/percona-server-8.0.properties | awk -F '=' '{ print\$2 }'").trim()
+        echo "Revision is: ${PS_REVISION}"
+    } else {
+        error "Properties file not found: test/percona-server-8.0.properties"
+    }
 
     if (product_to_test == 'PS80') {
         echo "Running PS80-specific steps"
