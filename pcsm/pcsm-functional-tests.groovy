@@ -26,6 +26,9 @@ pipeline {
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
+    options {
+        skipDefaultCheckout()
+    }
     parameters {
         choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         string(name: 'PCSM_BRANCH', defaultValue: 'main', description: 'PCSM branch')
@@ -50,8 +53,12 @@ pipeline {
                 }
                 axes {
                     axis {
-                        name 'MONGODB_IMAGE'
-                        values 'percona/percona-server-mongodb:6.0', 'percona/percona-server-mongodb:7.0', 'percona/percona-server-mongodb:8.0'
+                        name 'SHARD'
+                        values '0','1','2','3','4'
+                    }
+                    axis {
+                        name 'PSMDB'
+                        values '6.0', '7.0', '8.0'
                     }
                 }
                 stages {
@@ -63,14 +70,12 @@ pipeline {
                                     docker rm \$(docker ps -a -q) || true
                                     docker rmi -f \$(docker images -q | uniq) || true
                                     sudo rm -rf ./*
-                                    if [ ! -f "/usr/local/bin/docker-compose" ] ; then
-                                        if [ ${params.INSTANCE} = "docker-64gb-aarch64" ]; then
-                                            sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-aarch64 -o /usr/local/bin/docker-compose
-                                        else
-                                            sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
-                                        fi
-                                        sudo chmod +x /usr/local/bin/docker-compose
+                                    if [ ${params.ARCH} = "arm" ]; then
+                                        sudo curl -SL https://github.com/docker/compose/releases/download/v2.40.3/docker-compose-linux-aarch64 -o /usr/local/bin/docker-compose
+                                    else
+                                        sudo curl -SL https://github.com/docker/compose/releases/download/v2.40.3/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
                                     fi
+                                    sudo chmod +x /usr/local/bin/docker-compose
                                 """
 
                                 dir('psmdb-testing') {
@@ -79,16 +84,16 @@ pipeline {
 
                                 sh """
                                     cd psmdb-testing/pcsm-pytest
-                                    docker-compose build --no-cache
+                                    MONGODB_IMAGE=perconalab/percona-server-mongodb:${PSMDB} docker-compose build --no-cache
                                     docker-compose up -d
                                     if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
                                     if [ -n "${params.TEST_FILTER}" ]; then
-                                        docker-compose run test pytest -v -s \$JENKINS_FLAG -k "${params.TEST_FILTER}" --junitxml=junit.xml || true
+                                        docker-compose run test pytest -v -s \$JENKINS_FLAG -k "${params.TEST_FILTER}" --shard-id=${SHARD} --num-shards=5 --junitxml=junit.xml || true
                                     else
-                                        docker-compose run test pytest -v -s \$JENKINS_FLAG --junitxml=junit.xml || true
+                                        docker-compose run test pytest -v -s \$JENKINS_FLAG --shard-id=${SHARD} --num-shards=5 --junitxml=junit.xml || true
                                     fi
                                     docker-compose down -v --remove-orphans
-                                    curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PCSM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PCSM branch": "${PCSM_BRANCH}","PSMDB docker image": "${MONGODB_IMAGE}","Instance": "${params.INSTANCE}"}};type=application/json' -i || true
+                                    curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PCSM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PCSM branch": "${PCSM_BRANCH}","PSMDB docker image": "perconalab/percona-server-mongodb:${PSMDB}"}};type=application/json' -i || true
                                 """
                             }
                         }
@@ -106,17 +111,6 @@ pipeline {
                     }
                 }
             }
-        }
-    }
-    post {
-        success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PCSM ${PCSM_BRANCH} - all tests passed")
-        }
-        unstable {
-            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: PCSM ${PCSM_BRANCH} - some tests failed [${BUILD_URL}testReport/]")
-        }
-        failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: PCSM ${PCSM_BRANCH} - unexpected failure [${BUILD_URL}]")
         }
     }
 }
