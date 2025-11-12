@@ -1176,47 +1176,47 @@ parameters {
                 }
             }
         } */
-    } 
-}
+    }
     post {
-    success {
-        script {
-            if (env.FIPSMODE == 'YES') {
-                // slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO -> build finished successfully for ${BRANCH} - [${BUILD_URL}]")
-            } else {
-                // slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build finished successfully for ${BRANCH} - [${BUILD_URL}]")
-            }
+        success {
+            script {
+                if (env.FIPSMODE == 'YES') {
+                    // slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: PRO -> build finished successfully for ${BRANCH} - [${BUILD_URL}]")
+                } else {
+                    // slackNotify("${SLACKNOTIFY}", "#00FF00", "[${JOB_NAME}]: build finished successfully for ${BRANCH} - [${BUILD_URL}]")
+                }
 
-            unstash 'properties'
+                unstash 'properties'
 
-            // ✅ Call external shared function
-            MinitestPostSucess(
-                product_to_test: product_to_test,
-                PS_RELEASE: PS_RELEASE,
-                PS_VERSION_SHORT: PS_VERSION_SHORT,
-                PS_VERSION_SHORT_KEY: PS_VERSION_SHORT_KEY,
-                minitestNodes: minitestNodes,
-                SLACKNOTIFY: SLACKNOTIFY,
-                BRANCH: BRANCH,
-                DOCKER_ACC: DOCKER_ACC
-            )
-        }
-    }
-
-    failure {
-        deleteDir()
-    }
-
-    always {
-        sh 'sudo rm -rf ./*'
-        script {
-            if (env.FIPSMODE == 'YES') {
-                currentBuild.description = "Pro -> Build on ${BRANCH}"
-            } else {
-                currentBuild.description = "Build on ${BRANCH}"
+                // ✅ Call external shared function
+                MinitestPostSucess(
+                    product_to_test: product_to_test,
+                    PS_RELEASE: PS_RELEASE,
+                    PS_VERSION_SHORT: PS_VERSION_SHORT,
+                    PS_VERSION_SHORT_KEY: PS_VERSION_SHORT_KEY,
+                    minitestNodes: minitestNodes,
+                    SLACKNOTIFY: SLACKNOTIFY,
+                    BRANCH: BRANCH,
+                    DOCKER_ACC: DOCKER_ACC
+                )
             }
         }
-        deleteDir()
+
+        failure {
+            deleteDir()
+        }
+
+        always {
+            sh 'sudo rm -rf ./*'
+            script {
+                if (env.FIPSMODE == 'YES') {
+                    currentBuild.description = "Pro -> Build on ${BRANCH}"
+                } else {
+                    currentBuild.description = "Build on ${BRANCH}"
+                }
+            }
+            deleteDir()
+        }
     }
 }
 
