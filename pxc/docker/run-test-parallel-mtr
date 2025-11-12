@@ -14,7 +14,7 @@ if [[ ${CI_FS_MTR} == 'yes' ]]; then
 fi
 
 docker run --rm --shm-size=${DOCKER_SHM_SIZE} \
-    --tmpfs /dev/shm:rw,exec,size=${DOCKER_SHM_SIZE} \
+    --tmpfs /dev/shm:rw,exec,size=${DOCKER_SHM_SIZE},mode=1777 \
     --security-opt seccomp=unconfined \
     --sysctl net.ipv6.conf.lo.disable_ipv6=0 \
     --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxc \
