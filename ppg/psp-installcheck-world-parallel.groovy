@@ -55,6 +55,15 @@ pipeline {
                 'installcheck-world'
             ]
         )
+        choice(
+            name: 'IO_METHOD',
+            description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
+            choices: [
+                'worker',
+                'sync',
+                'io_uring'
+            ]
+        )
         string(
             defaultValue: 'yes',
             description: 'Destroy VM after tests',
