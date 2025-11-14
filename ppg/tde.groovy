@@ -24,17 +24,17 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'https://github.com/percona/postgres',
-            description: 'PSP repo that we want to test, we could also use forked developer repo here.',
-            name: 'PSP_REPO'
+            defaultValue: 'https://github.com/percona/pg_tde.git',
+            description: 'pg_tde repo that we want to test, we could also use forked developer repo here.',
+            name: 'TDE_REPO'
         )
         string(
-            defaultValue: 'TDE_REL_18_STABLE',
-            description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE',
-            name: 'PSP_BRANCH'
+            defaultValue: 'release-2.1',
+            description: 'TDE repo version/branch/tag to use; e.g main, release-2.1',
+            name: 'TDE_BRANCH'
         )
         string(
-            defaultValue: 'ppg-18.0',
+            defaultValue: 'ppg-18.1',
             description: 'Server PG version for test, including major and minor version, e.g ppg-17.4, ppg-17.3',
             name: 'VERSION'
         )
