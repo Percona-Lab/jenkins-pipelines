@@ -455,7 +455,7 @@ parameters {
             //    uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
         } 
-    /*    stage('Build PS generic source packages') {
+        stage('Build PS generic source packages') {
             parallel {
                 stage('Build PS generic source rpm') {
                     agent {
@@ -757,7 +757,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
-             /*  stage('Debian Trixie(13)') {
+          /*     stage('Debian Trixie(13)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -777,7 +777,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 } */
-            /*    stage('Ubuntu Focal(20.04) ARM') {
+                stage('Ubuntu Focal(20.04) ARM') {
                     when {
                         expression { env.FIPSMODE == 'NO' }
                     }
@@ -875,7 +875,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
-            /*    stage('Debian Trixie(13) ARM') {
+        /*       stage('Debian Trixie(13) ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -895,7 +895,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 } */
-         /*       stage('Oracle Linux 8 binary tarball') {
+                stage('Oracle Linux 8 binary tarball') {
                     when {
                         expression { env.FIPSMODE == 'NO' }
                     }
@@ -1179,7 +1179,7 @@ parameters {
                           wait: false
                 }
             }
-        } */
+        }
     }
     post {
         success {
