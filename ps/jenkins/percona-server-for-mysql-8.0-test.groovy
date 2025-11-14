@@ -243,6 +243,8 @@ def docker_test() {
                             cd package-testing/docker-image-tests/ps-arm
                             pip3 install --user -r requirements.txt
                             export PS_VERSION="${PS_RELEASE}-arm64"
+                            export PS_REVISION="${PS_REVISION}"
+                            export DOCKER_ACC="${DOCKER_ACC}"
                             echo "printing variables: \$DOCKER_ACC , \$PS_VERSION , \$PS_REVISION "
                             ./run.sh
                         '''
@@ -308,7 +310,9 @@ def docker_test() {
                                 cd package-testing/docker-image-tests/ps
                                 pip3 install --user -r requirements.txt
                                 export PS_VERSION="${PS_RELEASE}-amd64"
-                                echo "printing variables: \$DOCKER_ACC , \$PS_VERSION ,\$PS_REVISION "
+                                export PS_REVISION="${PS_REVISION}"
+                                export DOCKER_ACC="${DOCKER_ACC}"
+                                echo "printing variables: \$DOCKER_ACC , \$PS_VERSION , \$PS_REVISION "
                                 ./run.sh
                             ''' 
                         }
@@ -1187,6 +1191,16 @@ parameters {
                 }
 
                 unstash 'properties'
+
+                // Extract PS_REVISION from properties file
+                def PS_REVISION = ''
+                if (fileExists('test/percona-server-8.0.properties')) {
+                    PS_REVISION = sh(returnStdout: true, script: "grep REVISION test/percona-server-8.0.properties | awk -F '=' '{ print\$2 }'").trim()
+                    echo "PS_REVISION extracted: ${PS_REVISION}"
+                    env.PS_REVISION = PS_REVISION
+                } else {
+                    error "Properties file not found: test/percona-server-8.0.properties"
+                }
 
                 // ✅ Call external shared function
                 MinitestPostSucess(
