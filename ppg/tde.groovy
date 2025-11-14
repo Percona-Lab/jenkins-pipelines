@@ -38,6 +38,15 @@ pipeline {
             description: 'Server PG version for test, including major and minor version, e.g ppg-17.4, ppg-17.3',
             name: 'VERSION'
         )
+        choice(
+            name: 'IO_METHOD',
+            description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
+            choices: [
+                'worker',
+                'sync',
+                'io_uring'
+            ]
+        )
         string(
             defaultValue: 'main',
             description: 'Branch for ppg-testing testing repository',

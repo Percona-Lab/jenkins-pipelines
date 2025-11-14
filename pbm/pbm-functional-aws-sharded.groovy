@@ -19,7 +19,7 @@ pipeline {
         choice(name: 'PSMDB',description: 'PSMDB for testing',choices: ['psmdb-70','psmdb-60','psmdb-50','psmdb-80'])
         choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['i3.large','i3en.large','t2.micro','i3.xlarge','i3en.xlarge'])
         choice(name: 'BACKUP_TYPE',description: 'Backup type',choices: ['physical','logical'])        
-        choice(name: 'STORAGE',description: 'Storage for PBM',choices: ['aws','aws-minio','gcp','gcp-hmac','azure'])
+        choice(name: 'STORAGE',description: 'Storage for PBM',choices: ['aws','aws-minio','gcp','gcp-hmac','azure','oss'])
         string(name: 'TIMEOUT',description: 'Timeout for backup/restore',defaultValue: '3600')
         string(name: 'SIZE',description: 'Data size for test collection',defaultValue: '1000')
         string(name: 'EXISTING_BACKUP',description: 'If defined, the tests will skip backup process, but backup must exist on the remote storage',defaultValue: 'no')
@@ -73,7 +73,12 @@ pipeline {
         }
         stage ('Create infrastructure') {
             steps {
-                withCredentials([file(credentialsId: 'PBM-AWS-S3', variable: 'PBM_AWS_S3_YML'),file(credentialsId: 'PBM-MINIO-S3', variable: 'PBM_MINIO_S3_YML'),file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'), file(credentialsId: 'PBM-GCS-HMAC-S3', variable: 'PBM_GCS_HMAC_S3_YML'), file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML')]) {
+                withCredentials([file(credentialsId: 'PBM-AWS-S3', variable: 'PBM_AWS_S3_YML'),
+                file(credentialsId: 'PBM-MINIO-S3', variable: 'PBM_MINIO_S3_YML'),
+                file(credentialsId: 'PBM-GCS-S3', variable: 'PBM_GCS_S3_YML'),
+                file(credentialsId: 'PBM-GCS-HMAC-S3', variable: 'PBM_GCS_HMAC_S3_YML'),
+                file(credentialsId: 'PBM-AZURE', variable: 'PBM_AZURE_YML'),
+                file(credentialsId: 'PBM-OSS', variable: 'PBM_OSS_YML')]) {
                     script{
                         sh """
                             cp $PBM_AWS_S3_YML /tmp/pbm-agent-storage-aws.yaml
@@ -81,6 +86,7 @@ pipeline {
                             cp $PBM_GCS_S3_YML /tmp/pbm-agent-storage-gcp.conf
                             cp $PBM_GCS_HMAC_S3_YML /tmp/pbm-agent-storage-gcp-hmac.conf
                             cp $PBM_AZURE_YML /tmp/pbm-agent-storage-azure.conf
+                            cp $PBM_OSS_YML /tmp/pbm-agent-storage-oss.yaml
                         """
                         moleculeExecuteActionWithScenario(moleculeDir, "converge", env.SCENARIO)
                     }
@@ -111,6 +117,7 @@ pipeline {
                     rm -f /tmp/pbm-agent-storage-gcp.conf
                     rm -f /tmp/pbm-agent-storage-gcp-hmac.conf
                     rm -f /tmp/pbm-agent-storage-azure.conf
+                    rm -f /tmp/pbm-agent-storage-oss.yaml
                 """
                 moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.SCENARIO)
             }
