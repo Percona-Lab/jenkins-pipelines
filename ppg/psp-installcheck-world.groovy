@@ -15,12 +15,12 @@ pipeline {
             choices: ppgOperatingSystemsALL()
         )
         string(
-            defaultValue: '18.0',
+            defaultValue: '18.1',
             description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3',
             name: 'VERSION'
         )
         string(
-            defaultValue: '18.0.1',
+            defaultValue: '18.1.1',
             description: 'Server PG version for test, including major and minor version, e.g 17.6.1',
             name: 'PERCONA_SERVER_VERSION'
         )
@@ -30,7 +30,7 @@ pipeline {
             name: 'PSP_REPO'
         )
         string(
-            defaultValue: 'TDE_REL_18_STABLE',
+            defaultValue: 'PSP_REL_18_STABLE',
             description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE',
             name: 'PSP_BRANCH'
         )
@@ -47,6 +47,15 @@ pipeline {
                 'check-tde',
                 'check-all',
                 'installcheck-world'
+            ]
+        )
+        choice(
+            name: 'IO_METHOD',
+            description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
+            choices: [
+                'worker',
+                'sync',
+                'io_uring'
             ]
         )
         string(

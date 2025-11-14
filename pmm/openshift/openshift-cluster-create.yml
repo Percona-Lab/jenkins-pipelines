@@ -208,3 +208,5 @@
           - build-discarder:
                 days-to-keep: 30
                 num-to-keep: 100
+          - copyartifact:
+                projects: openshift-helm-tests

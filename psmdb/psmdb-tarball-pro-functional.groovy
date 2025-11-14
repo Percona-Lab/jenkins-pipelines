@@ -28,7 +28,7 @@ pipeline {
         )
     }
     options {
-          withCredentials(moleculePbmJenkinsCreds())
+        withCredentials(moleculePbmJenkinsCreds())
     }
     stages {
         stage('Set build name'){
@@ -60,14 +60,15 @@ pipeline {
             }
         }
         stage('Test') {
-          steps {
-            withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
-             script {
-                moleculeParallelTest(psmdb_default_os_list, moleculeDir)
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME'),
+                                 string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
+                    script {
+                        moleculeParallelTest(psmdb_default_os_list, moleculeDir)
+                    }
+                }
             }
-          }
         }
-      }
     }
     post {
         always {

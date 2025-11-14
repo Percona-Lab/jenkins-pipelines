@@ -344,10 +344,14 @@ pipeline {
 
                     env.SCAN_REPORT_URL = ""
                     if (imageScan.result == 'SUCCESS') {
-                        copyArtifacts filter: 'report.html', projectName: 'pmm3-image-scanning'
-                        sh 'mv report.html report-${VERSION}-rc.html'
-                        archiveArtifacts "report-${VERSION}-rc.html"
-                        env.SCAN_REPORT_URL = "CVE Scan Report: ${BUILD_URL}artifact/report-${VERSION}-rc.html"
+                        // Copy both Snyk and Trivy HTML reports
+                        copyArtifacts filter: '*-report.html', projectName: 'pmm3-image-scanning'
+                        sh '''
+                            mv snyk-report.html snyk-report-${VERSION}-rc.html
+                            mv trivy-report.html trivy-report-${VERSION}-rc.html
+                        '''
+                        archiveArtifacts artifacts: "*-report-${VERSION}-rc.html"
+                        env.SCAN_REPORT_URL = "CVE Scan Reports: ${BUILD_URL}artifact/"
                     }
                 }
             }
