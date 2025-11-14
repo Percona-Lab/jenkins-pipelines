@@ -16,6 +16,10 @@ def call(operatingSystems, moleculeDir) {
                   export MOLECULE_RHEL8_FIPS_AMI=ami-0eaff9f89a47b28e6
                   export MOLECULE_RHEL9_AMI=ami-0357fd8270bb3203e
                   export MOLECULE_RHEL9_ARM_AMI=ami-0c106e78a676dfa32
+                  export MOLECULE_ROCKY8_AMI=ami-04310224db1f2a278
+                  export MOLECULE_ROCKY8_ARM_AMI=ami-0609c28e227a5ba40
+                  export MOLECULE_ROCKY9_AMI=ami-0fadb4bc4d6071e9e
+                  export MOLECULE_ROCKY9_ARM_AMI=ami-0e1cdd57350503889
                   export MOLECULE_UFOCAL_AMI=ami-0a15226b1f7f23580
                   export MOLECULE_UFOCAL_ARM_AMI=ami-0aca42cb579fcb3ba
                   export MOLECULE_UFOCAL_PRO_AMI=ami-0e0a93493e27b76c9
