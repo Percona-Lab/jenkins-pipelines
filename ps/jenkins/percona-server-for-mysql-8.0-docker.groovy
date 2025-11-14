@@ -275,8 +275,8 @@ parameters {
                                 fi
                             fi
                             if [ ${ORGANIZATION} != "percona" ]; then
-                                sudo docker build -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64 --platform="linux/amd64" .
-                                sudo docker build -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64 --platform="linux/arm64" .
+                                sudo docker build --provenance=false -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64 --platform="linux/amd64" .
+                                sudo docker build --provenance=false -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64 --platform="linux/arm64" .
                                 sudo docker tag perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64 perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}
                             else
                                 sudo docker pull perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64
