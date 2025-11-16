@@ -57,7 +57,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
           else
               wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
           fi
-          grep "percona-server-server" ps_builder.sh
+          ls -la
           export build_dir=\$(pwd -P)
           if [ "$DOCKER_OS" = "none" ]; then
               set -o xtrace
