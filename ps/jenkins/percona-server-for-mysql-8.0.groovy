@@ -345,6 +345,7 @@ parameters {
         } // stage
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             parallel {
+/*
                 stage('Oracle Linux 8') {
                     when {
                        //  expression { env.FIPSMODE == 'NO' }
@@ -385,6 +386,7 @@ parameters {
                         }
                     }
                 }
+*/
                 stage('Oracle Linux 9') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -425,6 +427,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
+/*
                 stage('Oracle Linux 10') {
                     when {
                         expression { false }
@@ -982,6 +985,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
+*/
             }
         }
         stage('Upload packages and tarballs from S3') {
