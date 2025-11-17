@@ -184,7 +184,7 @@ def runPlaybook(def nodeName) {
                     export install_repo="\${install_repo}"
                     export client_to_test="ps80"
                     export check_warning="\${check_warnings}"
-                    export install_mysql_shell="${install_mysql_shell}"
+                    export install_mysql_shell="${env.INSTALL_MYSQL_SHELL}"
                     ansible-playbook \
                         --connection=local \
                         --inventory 127.0.0.1, \
@@ -357,7 +357,7 @@ def product_to_test = ''
 def install_repo = 'testing'
 def action_to_test = 'install'
 def check_warnings = 'yes'
-def install_mysql_shell = params.install_mysql_shell ?: 'no'
+def install_mysql_shell = 'no'
 
 // --- Minimal Preparation logic moved out to reduce pipeline size ---
 def BRANCH_NAME = env.BRANCH ?: "release-8.0.43-34"
@@ -379,6 +379,9 @@ env.product_to_test = product_to_test
 pipeline {
     agent {
         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+    }
+    environment {
+        INSTALL_MYSQL_SHELL = "${params.install_mysql_shell ?: 'no'}"
     }
 parameters {
     choice(
