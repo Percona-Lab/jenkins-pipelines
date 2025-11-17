@@ -458,7 +458,7 @@ parameters {
             //    uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
         } 
- /*       stage('Build PS generic source packages') {
+        stage('Build PS generic source packages') {
             parallel {
                 stage('Build PS generic source rpm') {
                     agent {
@@ -782,7 +782,7 @@ parameters {
                     }
                 } 
                 */
-           /*     stage('Ubuntu Focal(20.04) ARM') {
+                stage('Ubuntu Focal(20.04) ARM') {
                     when {
                         expression { env.FIPSMODE == 'NO' }
                     }
@@ -902,7 +902,7 @@ parameters {
                     }
                 } 
                 */
-           /*     stage('Oracle Linux 8 binary tarball') {
+                stage('Oracle Linux 8 binary tarball') {
                     when {
                         expression { env.FIPSMODE == 'NO' }
                     }
@@ -1186,7 +1186,7 @@ parameters {
                           wait: false
                 }
             }
-        } */
+        } 
     } 
     post {
         success {
