@@ -162,7 +162,7 @@ pipeline {
                                                     sh """ 
                                                         echo "start suite ${suiteName}"
                                                         docker run -v `pwd`/test_results:/work -w /work --rm -i ${image} bash -c 'rm -rf *'
-                                                        docker run --ulimit memlock=-1 -v `pwd`/test_results:/work --rm ${image} bash -c "${script} && python buildscripts/resmoke.py run --suite ${suite} ${params.resmoke_params} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
+                                                        docker run --ulimit memlock=-1 --ulimit nofile=64000:64000 -v `pwd`/test_results:/work --rm ${image} bash -c "${script} && python buildscripts/resmoke.py run --suite ${suite} ${params.resmoke_params} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
                                                         docker run -v `pwd`/test_results:/work -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
                                                         echo "finish suite ${suiteName}"
                                                     """
@@ -171,7 +171,7 @@ pipeline {
                                                     sh """
                                                         echo "start suite ${suiteName}" 
                                                         docker run -v `pwd`/test_results:/work -w /work --rm -i ${image} bash -c 'rm -rf *'
-                                                        docker run --ulimit memlock=-1 -v `pwd`/test_results:/work --rm ${image} bash -c "python buildscripts/resmoke.py run --suite $suite ${params.resmoke_params} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
+                                                        docker run --ulimit memlock=-1 --ulimit nofile=64000:64000 -v `pwd`/test_results:/work --rm ${image} bash -c "python buildscripts/resmoke.py run --suite $suite ${params.resmoke_params} --reportFile=/work/resmoke_${suiteName}_s.json > /work/resmoke_${suiteName}_s.log 2>&1" || true
                                                         docker run -v `pwd`/test_results:/work -w /work --rm  ${image} bash -c 'python /opt/percona-server-mongodb/resmoke2junit.py && chmod -R 777 /work'
                                                         echo "finish suite ${suiteName}"
                                                     """
