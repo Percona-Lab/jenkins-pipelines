@@ -47,13 +47,13 @@ pipeline {
                 }
         }
     }
-    
-}
-
     post {
         always {
             sh '''
+                cat /mnt/jenkins/workspace/pxb-docker-tests/backup_tests/backup_log
                 echo Finish: \$(date -u "+%s")
             '''
         }
     }
+}
+
