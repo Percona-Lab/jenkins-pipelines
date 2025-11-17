@@ -9,7 +9,7 @@ def call(String version = 'default', String newVersion = null, String gatedBuild
 //        (~/(p.mdb-)?8(\.)?0.*/): ['debian-12', 'rhel8', 'rhel8-arm', 'rhel9', 'rhel9-arm', 'ubuntu-jammy', 'ubuntu-jammy-arm', 'ubuntu-noble', 'ubuntu-noble-arm', 'al2023', 'al2023-arm'],
         (~/(p.mdb-)?7(\.)?0.*/): ['rhel9'],
         (~/(p.mdb-)?8(\.)?0.*/): ['rhel9'],
-        'default': ['rhel8']
+        'default': ['rhel9']
     ]
 
     def versionValues = (switchValues.find { key, value -> version ==~ key }?.value ?: switchValues['default']).collect()
