@@ -57,7 +57,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
           else
               wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -O ps_builder.sh || curl \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${BRANCH}/build-ps/percona-server-8.0_builder.sh -o ps_builder.sh
           fi
-          grep "percona-server-server" ps_builder.sh
+          ls -la
           export build_dir=\$(pwd -P)
           if [ "$DOCKER_OS" = "none" ]; then
               set -o xtrace
@@ -310,9 +310,9 @@ parameters {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
+                                buildStage("oraclelinux:8", "--build_src_rpm=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("centos:7", "--build_src_rpm=1")
+                                buildStage("oraclelinux:8", "--build_src_rpm=1")
                             }
                         }
 
@@ -347,7 +347,7 @@ parameters {
             parallel {
                 stage('Oracle Linux 8') {
                     when {
-                        expression { env.FIPSMODE == 'NO' }
+                       expression { env.FIPSMODE == 'NO' }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -464,9 +464,6 @@ parameters {
                     }
                 }
                 stage('Amazon Linux 2023') {
-                    when {
-                        expression { env.FIPSMODE == 'YES' }
-                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -483,9 +480,6 @@ parameters {
                     }
                 }
                 stage('Amazon Linux 2023 ARM') {
-                    when {
-                        expression { env.FIPSMODE == 'YES' }
-                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -599,7 +593,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
-/*                stage('Debian Trixie(13)') {
+                stage('Debian Trixie(13)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -618,7 +612,7 @@ parameters {
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
-                }*/
+                }
                 stage('Ubuntu Focal(20.04) ARM') {
                     when {
                         expression { env.FIPSMODE == 'NO' }
@@ -717,7 +711,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
-/*                stage('Debian Trixie(13) ARM') {
+                stage('Debian Trixie(13) ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -736,7 +730,7 @@ parameters {
 
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
-                }*/
+                }
                 stage('Oracle Linux 8 binary tarball') {
                     when {
                         expression { env.FIPSMODE == 'NO' }
