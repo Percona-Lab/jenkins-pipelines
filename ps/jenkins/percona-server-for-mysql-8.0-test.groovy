@@ -176,7 +176,7 @@ def runPlaybook(def nodeName) {
             def playbook_path = "package-testing/playbooks/${playbook}"
             sh '''
                 set -xe
-                git clone --depth 1 https://github.com/Grishma123-eng/package-testing
+                git clone --depth 1 https://github.com/Percona-QA/package-testing
             '''
             def exitCode = sh(
                 script: """
@@ -239,7 +239,7 @@ def docker_test() {
                             export PATH=${PATH}:~/.local/bin
                             sudo yum install -y python3 python3-pip
                             rm -rf package-testing
-                            git clone https://github.com/Grishma123-eng/package-testing.git --depth 1
+                            git clone https://github.com/Percona-QA/package-testing.git --depth 1
                             cd package-testing/docker-image-tests/ps-arm
                             pip3 install --user -r requirements.txt
                             export PS_VERSION="${PS_RELEASE}-arm64"
@@ -306,7 +306,7 @@ def docker_test() {
                                 export PATH=${PATH}:~/.local/bin
                                 sudo yum install -y python3 python3-pip
                                 rm -rf package-testing
-                                git clone https://github.com/Grishma123-eng/package-testing.git --depth 1
+                                git clone https://github.com/Percona-QA/package-testing.git --depth 1
                                 cd package-testing/docker-image-tests/ps
                                 pip3 install --user -r requirements.txt
                                 export PS_VERSION="${PS_RELEASE}-amd64"
