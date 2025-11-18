@@ -15,7 +15,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: '7.0.24-13',
+            defaultValue: '7.0.24',
             description: 'PSMDB version for tests',
             name: 'PSMDB_VERSION'
         )
@@ -60,13 +60,9 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh """
-                  echo ${params.TARBALL} | sed -E 's/(.+mongodb-)([0-9].[0-9])(.+)/\\2/' > VERSION
-                """
                 withCredentials([string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
                     script {
-                        def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()
-                        def os = pdmdbOperatingSystems("${PSMDB_VER}")
+                        def os = pdmdbOperatingSystems("${PSMDB_VERSION}")
                         os.removeAll { it.contains('-arm') }
                         moleculeParallelTest(os, moleculeDir)
                     }
