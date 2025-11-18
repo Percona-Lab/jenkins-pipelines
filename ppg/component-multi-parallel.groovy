@@ -17,7 +17,7 @@ pipeline {
             choices: repoList()
         )
         string(
-            defaultValue: 'ppg-18.0',
+            defaultValue: 'ppg-18.1',
             description: 'PPG version for test',
             name: 'VERSION'
          )
@@ -26,7 +26,7 @@ pipeline {
             description: 'Base branch for ppg-testing repo',
             name: 'TESTING_BRANCH')
         string(
-            defaultValue: '2.3.0',
+            defaultValue: '2.3.1',
             description: 'PGSM version',
             name: 'PGSM_VERSION')
         string(
@@ -34,7 +34,7 @@ pipeline {
             description: 'pgpool version',
             name: 'PGPOOL_VERSION')
         string(
-            defaultValue: '3.5.3',
+            defaultValue: '3.5.4',
             description: 'postgis version',
             name: 'POSTGIS_VERSION')
         string(
@@ -42,7 +42,7 @@ pipeline {
             description: ' version',
             name: 'PGAUDIT_VERSION')
         string(
-            defaultValue: 'ver_1.5.2',
+            defaultValue: 'ver_1.5.3',
             description: 'PG_REPACK version',
             name: 'PG_REPACK_VERSION')
         string(
@@ -50,7 +50,7 @@ pipeline {
             description: 'Patroni version',
             name: 'PATRONI_VERSION')
         string(
-            defaultValue: 'release/2.56.0',
+            defaultValue: 'release/2.57.0',
             description: 'pgbackrest version',
             name: 'PGBACKREST_VERSION')
         string(
@@ -62,7 +62,7 @@ pipeline {
             description: 'pgbadger version',
             name: 'PGBADGER_VERSION')
         string(
-            defaultValue: 'pgbouncer_1_24_1',
+            defaultValue: 'pgbouncer_1_25_0',
             description: 'pgbouncer version',
             name: 'PGBOUNCER_VERSION')
         string(

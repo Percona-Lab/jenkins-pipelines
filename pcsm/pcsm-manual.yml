@@ -1,5 +1,5 @@
 - job:
-    name: plm-manual
+    name: pcsm-manual
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pml/plm-manual.groovy
+      script-path: pcsm/pcsm-manual.groovy

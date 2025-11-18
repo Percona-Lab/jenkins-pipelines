@@ -36,12 +36,12 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'ppg-17.5',
+            defaultValue: 'ppg-17.6',
             description: 'From this version PPG will be updated',
             name: 'FROM_VERSION'
         )
         string(
-            defaultValue: 'ppg-17.6',
+            defaultValue: 'ppg-17.7',
             description: 'To this version PPG will be updated',
             name: 'VERSION'
         )
