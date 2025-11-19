@@ -130,9 +130,6 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    println versionsList
-                    println CLIENT_VERSION.trim()
-                    println CLIENT_VERSION
                     env.ADMIN_PASSWORD = 'admin'
                     currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
