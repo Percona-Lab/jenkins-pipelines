@@ -1,4 +1,4 @@
-library changelog: false, identifier: "lib@PSMDB-1849", retriever: modernSCM([
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
@@ -24,8 +24,8 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '4.4.8',
-            description: 'PSMDB Version for tests',
+            defaultValue: '8.0.12',
+            description: 'PSMDB Version for tests e.g. 8.0.12, no hyphens.',
             name: 'PSMDB_VERSION'
         )
         choice( 
