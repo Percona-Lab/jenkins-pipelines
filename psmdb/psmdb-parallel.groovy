@@ -37,14 +37,6 @@ pipeline {
             ]
         )
         choice(
-            name: 'GATED_BUILD',
-            description: 'Test private repo?',
-            choices: [
-                'false',
-                'true'
-            ]
-        )
-        choice(
             name: 'PREL_VERSION',
             description: 'Percona release version',
             choices: [
@@ -89,7 +81,7 @@ pipeline {
                     usernamePassword(credentialsId: 'OIDC_ACCESS', passwordVariable: 'OIDC_CLIENT_SECRET', usernameVariable: 'OIDC_CLIENT_ID'),
                     string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
                     script {
-                        moleculeParallelTest(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION,GATED_BUILD), moleculeDir)
+                        moleculeParallelTest(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION), moleculeDir)
                     }
                 }
             }

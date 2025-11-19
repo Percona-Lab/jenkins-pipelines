@@ -15,9 +15,9 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'https://downloads.percona.com/downloads/percona-server-mongodb-4.2/percona-server-mongodb-4.2.15-16/binary/tarball/percona-server-mongodb-4.2.15-16-x86_64.glibc2.17-minimal.tar.gz',
-            description: 'URL/S3 link for tarball to upgrade/downgrade from',
-            name: 'TARBALL'
+                defaultValue: '7.0.24',
+                description: 'PSMDB version for tests',
+                name: 'PSMDB_VERSION'
         )
         string(
             defaultValue: 'main',
@@ -52,13 +52,9 @@ pipeline {
         }
         stage('Test') {
             steps {
-                sh """
-                  echo ${params.TARBALL} | sed -E 's/(.+mongodb-)([0-9].[0-9])(.+)/\\2/' > VERSION
-                """
                 withCredentials([string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
                     script {
-                        def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()
-                        def os = pdmdbOperatingSystems("${PSMDB_VER}")
+                        def os = pdmdbOperatingSystems("${PSMDB_VERSION}")
                         os.removeAll { it.contains('-arm') }
                         moleculeParallelTest(os, moleculeDir)
                     }
