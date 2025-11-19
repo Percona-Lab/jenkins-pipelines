@@ -359,11 +359,13 @@ pipeline {
                         }
             }
         }
-#    post {
-#        always {
-#            deleteBuildInstances()
-#            echo "Pipeline completed."
-#        }
-#    }
-#}
+/*
+    post {
+        always {
+            deleteBuildInstances()
+            echo "Pipeline completed."
+        }
+    }
+}
 
+/*
