@@ -22,6 +22,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             if ! command -v percona-release > /dev/null; then
                 curl -O https://repo.percona.com/yum/percona-release-latest.noarch.rpm
                 sudo dnf -y install ./percona-release-latest.noarch.rpm
+                rm -f percona-release-latest.noarch.rpm
                 sudo dnf clean all
                 sudo dnf makecache
             fi
