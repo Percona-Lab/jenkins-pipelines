@@ -25,12 +25,18 @@ void installTools() {
     gkeLib.installGcloudCLI()
 }
 
-void initParams() {
+void initParamsEarly() {
     if ("$PILLAR_VERSION" != 'none') {
-        echo '=========================[ Getting parameters for release test ]========================='
+        echo '=========================[ Release run detected ]========================='
         GKE_RELEASE_CHANNEL = 'stable'
         echo 'Forcing GKE_RELEASE_CHANNEL=stable, because it\'s a release run!'
+    }
+}
 
+void initParamsLate() {
+    if ("$PILLAR_VERSION" != 'none') {
+        echo '=========================[ Getting parameters for release test ]========================='
+        
         IMAGE_OPERATOR = IMAGE_OPERATOR ?: gkeLib.getParam(release_versions, 'IMAGE_OPERATOR')
         IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: gkeLib.getParam(release_versions, 'IMAGE_POSTGRESQL', "IMAGE_POSTGRESQL${PILLAR_VERSION}")
         IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: gkeLib.getParam(release_versions, 'IMAGE_PGBOUNCER', "IMAGE_PGBOUNCER${PILLAR_VERSION}")
@@ -258,10 +264,11 @@ pipeline {
                 script { 
                     deleteDir()
                     loadLibrary()
-                    initParams()
+                    initParamsEarly()
+                    prepareSources()
+                    initParamsLate()
                     installTools()
                     gkeLib.gcloudAuth()
-                    prepareSources()
                 }
             }
         }

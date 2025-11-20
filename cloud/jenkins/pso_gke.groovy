@@ -24,12 +24,18 @@ void installTools() {
     gkeLib.installGcloudCLI()
 }
 
-void initParams() {
+void initParamsEarly() {
     if ("$PILLAR_VERSION" != 'none') {
-        echo '=========================[ Getting parameters for release test ]========================='
+        echo '=========================[ Release run detected ]========================='
         GKE_RELEASE_CHANNEL = 'stable'
         echo 'Forcing GKE_RELEASE_CHANNEL=stable, because it\'s a release run!'
+    }
+}
 
+void initParamsLate() {
+    if ("$PILLAR_VERSION" != 'none') {
+        echo '=========================[ Getting parameters ]========================='
+        
         IMAGE_OPERATOR = IMAGE_OPERATOR ?: gkeLib.getParam(release_versions, 'IMAGE_OPERATOR')
         IMAGE_MYSQL = IMAGE_MYSQL ?: gkeLib.getParam(release_versions, 'IMAGE_MYSQL', "IMAGE_MYSQL${PILLAR_VERSION}")
         IMAGE_BACKUP = IMAGE_BACKUP ?: gkeLib.getParam(release_versions, 'IMAGE_BACKUP', "IMAGE_BACKUP${PILLAR_VERSION}")
@@ -250,10 +256,11 @@ pipeline {
                 script { 
                     deleteDir()
                     loadLibrary()
-                    initParams()
+                    initParamsEarly()
+                    prepareSources()
+                    initParamsLate()
                     installTools()
                     gkeLib.gcloudAuth()
-                    prepareSources()
                 }
             }
         }
