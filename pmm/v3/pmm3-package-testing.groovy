@@ -91,7 +91,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for package-testing repository',
             name: 'GIT_BRANCH',
             trim: true)

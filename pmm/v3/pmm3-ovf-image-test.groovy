@@ -78,7 +78,7 @@ pipeline {
             description: 'Use this OVA Setup as PMM-client',
             name: 'SETUP_CLIENT')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
     }
@@ -102,7 +102,7 @@ pipeline {
                     '''
                     script {
                         env.PUBLIC_IP = sh(
-                            returnStdout: true, 
+                            returnStdout: true,
                             script: 'curl -s http://169.254.169.254/metadata/v1/interfaces/public/0/ipv4/address'
                         ).trim()
                     }
