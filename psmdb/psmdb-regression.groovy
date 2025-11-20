@@ -54,8 +54,13 @@ pipeline {
                      sh """
                          sudo mkdir -p /usr/libexec/docker/cli-plugins
                          LATEST=\$(curl -s https://api.github.com/repos/docker/buildx/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\\1/')
-                         sudo curl -L "https://github.com/docker/buildx/releases/download/v\${LATEST}/buildx-v\${LATEST}.linux-amd64" \\
+                         if [[ ${params.instance} =~ "aarch64" ]]; then
+                             sudo curl -L "https://github.com/docker/buildx/releases/download/v\${LATEST}/buildx-v\${LATEST}.linux-arm64" \\
                                             -o /usr/libexec/docker/cli-plugins/docker-buildx
+                         else
+                             sudo curl -L "https://github.com/docker/buildx/releases/download/v\${LATEST}/buildx-v\${LATEST}.linux-amd64" \\
+                                            -o /usr/libexec/docker/cli-plugins/docker-buildx
+                         fi
                          sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                          sudo systemctl restart docker
                          rm -rf *
@@ -204,8 +209,13 @@ pipeline {
                                     sh """
                                         sudo mkdir -p /usr/libexec/docker/cli-plugins
                                         LATEST=\$(curl -s https://api.github.com/repos/docker/buildx/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\\1/')
-                                        sudo curl -L "https://github.com/docker/buildx/releases/download/v\${LATEST}/buildx-v\${LATEST}.linux-amd64" \\
-                                            -o /usr/libexec/docker/cli-plugins/docker-buildx
+                                        if [[ ${params.instance} =~ "aarch64" ]]; then
+                                            sudo curl -L "https://github.com/docker/buildx/releases/download/v\${LATEST}/buildx-v\${LATEST}.linux-arm64" \\
+                                                -o /usr/libexec/docker/cli-plugins/docker-buildx
+                                        else
+                                            sudo curl -L "https://github.com/docker/buildx/releases/download/v\${LATEST}/buildx-v\${LATEST}.linux-amd64" \\
+                                                -o /usr/libexec/docker/cli-plugins/docker-buildx
+                                        fi
                                         sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                                         echo -e '{\n  "experimental": true,\n  "ipv6": true,\n  "fixed-cidr-v6": "2001:db8:1::/64"\n}' | sudo tee /etc/docker/daemon.json
                                         sudo systemctl restart docker
@@ -283,8 +293,13 @@ pipeline {
                                     sh """
                                         sudo mkdir -p /usr/libexec/docker/cli-plugins
                                         LATEST=\$(curl -s https://api.github.com/repos/docker/buildx/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\\1/')
-                                        sudo curl -L "https://github.com/docker/buildx/releases/download/v\${LATEST}/buildx-v\${LATEST}.linux-amd64" \\
-                                            -o /usr/libexec/docker/cli-plugins/docker-buildx
+                                        if [[ ${params.instance} =~ "aarch64" ]]; then
+                                            sudo curl -L "https://github.com/docker/buildx/releases/download/v\${LATEST}/buildx-v\${LATEST}.linux-arm64" \\
+                                                -o /usr/libexec/docker/cli-plugins/docker-buildx
+                                        else
+                                            sudo curl -L "https://github.com/docker/buildx/releases/download/v\${LATEST}/buildx-v\${LATEST}.linux-amd64" \\
+                                                -o /usr/libexec/docker/cli-plugins/docker-buildx
+                                        fi
                                         sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                                         echo -e '{\n  "experimental": true,\n  "ipv6": true,\n  "fixed-cidr-v6": "2001:db8:1::/64"\n}' | sudo tee /etc/docker/daemon.json
                                         sudo systemctl restart docker
@@ -359,8 +374,13 @@ pipeline {
                                     sh """
                                         sudo mkdir -p /usr/libexec/docker/cli-plugins
                                         LATEST=\$(curl -s https://api.github.com/repos/docker/buildx/releases/latest | grep '"tag_name":' | sed -E 's/.*"v([^"]+)".*/\\1/')
-                                        sudo curl -L "https://github.com/docker/buildx/releases/download/v\${LATEST}/buildx-v\${LATEST}.linux-amd64" \\
-                                            -o /usr/libexec/docker/cli-plugins/docker-buildx
+                                        if [[ ${params.instance} =~ "aarch64" ]]; then
+                                            sudo curl -L "https://github.com/docker/buildx/releases/download/v\${LATEST}/buildx-v\${LATEST}.linux-arm64" \\
+                                                -o /usr/libexec/docker/cli-plugins/docker-buildx
+                                        else
+                                            sudo curl -L "https://github.com/docker/buildx/releases/download/v\${LATEST}/buildx-v\${LATEST}.linux-amd64" \\
+                                                -o /usr/libexec/docker/cli-plugins/docker-buildx
+                                        fi
                                         sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                                         echo -e '{\n  "experimental": true,\n  "ipv6": true,\n  "fixed-cidr-v6": "2001:db8:1::/64"\n}' | sudo tee /etc/docker/daemon.json
                                         sudo systemctl restart docker
