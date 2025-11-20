@@ -43,7 +43,7 @@ void installCommonTools(String yqVersion = 'v4.48.1', String jqVersion = 'jq-1.7
     """
 }
 
-void installHelm(String helmVersion = 'v3.19.0') {
+void installHelm(String helmVersion = 'v3.19.2') {
     sh """
         curl -fsSL https://get.helm.sh/helm-${helmVersion}-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
     """

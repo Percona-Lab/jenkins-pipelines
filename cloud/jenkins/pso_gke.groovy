@@ -4,19 +4,25 @@ tests = []
 clusters = []
 release_versions = 'source/e2e-tests/release_versions'
 
-void prepareAgent() {
+void loadLibrary() {
+    git branch: 'gke-cloud-lib', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    gkeLib = load('cloud/common/gke-lib.groovy')
+}
+
+void prepareParallelAgent() {
+    loadLibrary()
+    initParams()
+    installTools()
+    gkeLib.gcloudAuth()
+}
+
+void installTools() {
     echo '=========================[ Installing tools on the Jenkins executor ]========================='
     gkeLib.installCommonTools()
     gkeLib.installKubectl()
     gkeLib.installHelm()
     gkeLib.installKrewAndKuttl()
     gkeLib.installGcloudCLI()
-
-    echo '=========================[ Logging in the Kubernetes provider ]========================='
-    gkeLib.gcloudAuth()
-
-    echo '=========================[ Initializing parameters on this agent ]========================='
-    initParams()
 }
 
 void initParams() {
@@ -54,14 +60,9 @@ void initParams() {
 
 void prepareSources() {
     echo '=========================[ Cloning the sources ]========================='
-    git branch: 'gke-cloud-lib', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-    gkeLib = load('cloud/common/gke-lib.groovy')
-
     sh """
         git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
     """
-
-    initParams()
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
     PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MYSQL-$IMAGE_BACKUP-$IMAGE_ROUTER-$IMAGE_HAPROXY-$IMAGE_ORCHESTRATOR-$IMAGE_TOOLKIT-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
@@ -247,9 +248,14 @@ pipeline {
     stages {
         stage('Prepare Node') {
             steps {
-                script { deleteDir() }
-                prepareAgent()
-                prepareSources()
+                script { 
+                    deleteDir()
+                    loadLibrary()
+                    initParams()
+                    installTools()
+                    gkeLib.gcloudAuth()
+                    prepareSources()
+                }
             }
         }
         stage('Docker Build and Push') {
@@ -270,7 +276,7 @@ pipeline {
                 stage('cluster1') {
                     agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker' }
                     steps {
-                        prepareAgent()
+                        prepareParallelAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster1')
                     }
@@ -278,7 +284,7 @@ pipeline {
                 stage('cluster2') {
                     agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker' }
                     steps {
-                        prepareAgent()
+                        prepareParallelAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster2')
                     }
@@ -286,7 +292,7 @@ pipeline {
                 stage('cluster3') {
                     agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker' }
                     steps {
-                        prepareAgent()
+                        prepareParallelAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster3')
                     }
@@ -294,7 +300,7 @@ pipeline {
                 stage('cluster4') {
                     agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker' }
                     steps {
-                        prepareAgent()
+                        prepareParallelAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster4')
                     }
@@ -302,7 +308,7 @@ pipeline {
                 stage('cluster5') {
                     agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker' }
                     steps {
-                        prepareAgent()
+                        prepareParallelAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster5')
                     }
