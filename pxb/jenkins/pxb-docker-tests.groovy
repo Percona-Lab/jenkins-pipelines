@@ -43,7 +43,9 @@ pipeline {
 
                     sh """ cd backup_tests/
                         chmod +x docker_backup_tests.sh
-                        ./docker_backup_tests.sh ${repo_name} ${repo_type} ${server} 9.1 """
+                        ./docker_backup_tests.sh ${repo_name} ${repo_type} ${server}"""
+
+                        
                 }
         }
     }
