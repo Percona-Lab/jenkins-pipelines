@@ -1,4 +1,4 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@PSMDB-1849", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
@@ -24,6 +24,14 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
+        string(
+                name: 'SSH_USER',
+                description: 'User for debugging',
+                defaultValue: 'none')
+        string(
+                name: 'SSH_PUBKEY',
+                description: 'User ssh public key for debugging',
+                defaultValue: 'none')
     }
     options {
           withCredentials(moleculePbmJenkinsCreds())
