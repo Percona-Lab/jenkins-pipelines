@@ -11,7 +11,6 @@ void loadLibrary() {
 
 void prepareParallelAgent() {
     loadLibrary()
-    initParams()
     installTools()
     gkeLib.gcloudAuth()
 }
