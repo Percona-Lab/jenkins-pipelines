@@ -5,38 +5,24 @@ tests = []
 clusters = []
 release_versions = 'source/e2e-tests/release_versions'
 
-void loadLibrary() {
+void prepareMainNode() {
+    echo '=========================[ Loading library ]========================='
     git branch: 'gke-cloud-lib', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     gkeLib = load('cloud/common/gke-lib.groovy')
-}
-
-void prepareParallelAgent() {
-    loadLibrary()
-    installTools()
-    gkeLib.gcloudAuth()
-}
-
-void installTools() {
-    echo '=========================[ Installing tools on the Jenkins executor ]========================='
-    gkeLib.installCommonTools()
-    gkeLib.installKubectl()
-    gkeLib.installHelm()
-    gkeLib.installKrewAndKuttl()
-    gkeLib.installGcloudCLI()
-}
-
-void initParamsEarly() {
+    
+    echo '=========================[ Checking release parameters ]========================='
     if ("$PILLAR_VERSION" != 'none') {
-        echo '=========================[ Release run detected ]========================='
         GKE_RELEASE_CHANNEL = 'stable'
         echo 'Forcing GKE_RELEASE_CHANNEL=stable, because it\'s a release run!'
     }
-}
-
-void initParamsLate() {
+    
+    echo '=========================[ Cloning operator source code ]========================='
+    sh """
+        git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
+    """
+    
+    echo '=========================[ Reading release versions and setting parameters ]========================='
     if ("$PILLAR_VERSION" != 'none') {
-        echo '=========================[ Getting parameters for release test ]========================='
-        
         IMAGE_OPERATOR = IMAGE_OPERATOR ?: gkeLib.getParam(release_versions, 'IMAGE_OPERATOR')
         IMAGE_POSTGRESQL = IMAGE_POSTGRESQL ?: gkeLib.getParam(release_versions, 'IMAGE_POSTGRESQL', "IMAGE_POSTGRESQL${PILLAR_VERSION}")
         IMAGE_PGBOUNCER = IMAGE_PGBOUNCER ?: gkeLib.getParam(release_versions, 'IMAGE_PGBOUNCER', "IMAGE_PGBOUNCER${PILLAR_VERSION}")
@@ -49,30 +35,47 @@ void initParamsLate() {
         if ("$PLATFORM_VER".toLowerCase() == 'min' || "$PLATFORM_VER".toLowerCase() == 'max') {
             PLATFORM_VER = gkeLib.getParam(release_versions, 'PLATFORM_VER', "GKE_${PLATFORM_VER}")
         }
-    } else {
-        echo '=========================[ Not a release run. Using job params only! ]========================='
     }
-
+    
+    echo '=========================[ Installing tools on the Jenkins executor ]========================='
+    gkeLib.installCommonTools()
+    gkeLib.installKubectl()
+    gkeLib.installHelm()
+    gkeLib.installKrewAndKuttl()
+    gkeLib.installGcloudCLI()
+    
+    echo '=========================[ Logging in the Kubernetes provider ]========================='
+    gkeLib.gcloudAuth()
+    
     if ("$PLATFORM_VER" == 'latest') {
         PLATFORM_VER = sh(script: "gcloud container get-server-config --region=${GKE_REGION} --flatten=channels --filter='channels.channel=$GKE_RELEASE_CHANNEL' --format='value(channels.validVersions)' | cut -d- -f1", returnStdout: true).trim()
     }
-
+    
     if ("$IMAGE_POSTGRESQL") {
         cw = ("$CLUSTER_WIDE" == 'YES') ? 'CW' : 'NON-CW'
         currentBuild.displayName = '#' + currentBuild.number + " $GIT_BRANCH"
         currentBuild.description = "$PLATFORM_VER-$GKE_RELEASE_CHANNEL " + "$IMAGE_POSTGRESQL".split(':')[1] + " $cw"
     }
-}
-
-void prepareSources() {
-    echo '=========================[ Cloning the sources ]========================='
-    sh """
-        git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
-    """
-
+    
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
     PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$GKE_RELEASE_CHANNEL-$PLATFORM_VER-$CLUSTER_WIDE-$PG_VER-$IMAGE_OPERATOR-$IMAGE_POSTGRESQL-$IMAGE_PGBOUNCER-$IMAGE_BACKREST-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_UPGRADE | md5sum | cut -d' ' -f1", returnStdout: true).trim()
     CLUSTER_NAME = sh(script: "echo jenkins-$JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+}
+
+void prepareParallelAgent() {
+    echo '=========================[ Loading library on parallel agent ]========================='
+    git branch: 'gke-cloud-lib', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    gkeLib = load('cloud/common/gke-lib.groovy')
+    
+    echo '=========================[ Installing tools on parallel agent ]========================='
+    gkeLib.installCommonTools()
+    gkeLib.installKubectl()
+    gkeLib.installHelm()
+    gkeLib.installKrewAndKuttl()
+    gkeLib.installGcloudCLI()
+    
+    echo '=========================[ Logging in to GCP on parallel agent ]========================='
+    gkeLib.gcloudAuth()
 }
 
 void dockerBuildPush() {
@@ -263,12 +266,7 @@ pipeline {
             steps {
                 script { 
                     deleteDir()
-                    loadLibrary()
-                    initParamsEarly()
-                    prepareSources()
-                    initParamsLate()
-                    installTools()
-                    gkeLib.gcloudAuth()
+                    prepareMainNode()
                 }
             }
         }
