@@ -63,6 +63,9 @@ void prepareNode() {
         sudo yum install -y percona-xtrabackup-80 | true
     """
 
+    installAzureCLI()
+    azureAuth()
+
     if ("$PLATFORM_VER" == "latest") {
         withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
             USED_PLATFORM_VER = sh(script: "aws eks describe-addon-versions --query 'addons[].addonVersions[].compatibilities[].clusterVersion' --output json | jq -r 'flatten | unique | sort | reverse | .[0]'", , returnStdout: true).trim()
@@ -372,6 +375,25 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
             aws cloudformation list-stacks --region ${EKS_REGION} | jq '.StackSummaries[] | select(.StackName | startswith("'eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster'"))' || true
         """
     }
+}
+
+void azureAuth() {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+        sh '''
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
+            az account set -s "$AZURE_SUBSCRIPTION_ID"
+        '''
+    }
+}
+
+void installAzureCLI() {
+    sh """
+        if ! command -v az &>/dev/null; then
+            curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+            printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+            sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
+        fi
+    """
 }
 
 pipeline {
