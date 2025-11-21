@@ -128,7 +128,7 @@ pipeline {
             name: 'SERVER_IP'
         )
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for qa-integration repository',
             name: 'PMM_QA_GIT_BRANCH'
         )
