@@ -21,12 +21,12 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
-        env.PMM_UI_URL = "http://${SERVER_IP}/"
+        env.PMM_UI_URL = "https://${SERVER_IP}/"
     }
     else
     {
         env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${VM_IP}"
-        env.PMM_UI_URL = "http://${VM_IP}/"
+        env.PMM_UI_URL = "https://${VM_IP}/"
     }
 }
 
@@ -133,6 +133,9 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
     } else if ( NODE_TYPE == 'sharded-psmdb' ) {
         env.VM_CLIENT_IP_PSMDB_SHARDED = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_PSMDB_SHARDED = stagingJob.buildVariables.VM_NAME
+    } else if ( NODE_TYPE == 'valkey-node' ) {
+        env.VM_CLIENT_IP_VALKEY = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_VALKEY = stagingJob.buildVariables.VM_NAME
     } else {
         env.VM_CLIENT_IP_MONGO = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_MONGO = stagingJob.buildVariables.VM_NAME
@@ -371,7 +374,7 @@ pipeline {
                 }
                 stage('ps single and mongo pss client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,QUERY_SOURCE=slowlog --database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,QUERY_SOURCE=slowlog,MY_ROCKS=true --database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('pdpgsql, pgsql and pdpgsql patroni client') {
@@ -387,6 +390,11 @@ pipeline {
                 stage('extra pxc client') {
                     steps {
                         runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pxc', 'yes', env.VM_IP, 'extra-pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                    }
+                }
+                stage('valkey client') {
+                    steps {
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database valkey', 'yes', env.VM_IP, 'valkey-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
             }
@@ -459,17 +467,22 @@ pipeline {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_EXTRA_PXC, env.PMM_QA_GIT_BRANCH)
                     }
                 }
+                stage('Check Agent Status on valkey node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_VALKEY, env.PMM_QA_GIT_BRANCH)
+                    }
+                }
             }
         }
         stage('Run UI Tests') {
             options {
-                timeout(time: 150, unit: "MINUTES")
+                timeout(time: 300, unit: "MINUTES")
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                        sed -i 's+https://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
                     """
                 }
             }
@@ -495,29 +508,26 @@ pipeline {
                         string(name: 'DESTROY_REASON', value: 'testing-complete'),
                     ]
                 }
-                if(env.VM_NAME && env.SERVER_TYPE == "docker")
-                {
+                if(env.VM_NAME && env.SERVER_TYPE == "docker") {
                     destroyStaging(VM_NAME)
                 }
-                if(env.VM_CLIENT_NAME_MYSQL)
-                {
+                if(env.VM_CLIENT_NAME_MYSQL) {
                     destroyStaging(VM_CLIENT_NAME_MYSQL)
                 }
-                if(env.VM_CLIENT_NAME_MONGO)
-                {
+                if(env.VM_CLIENT_NAME_MONGO) {
                     destroyStaging(VM_CLIENT_NAME_MONGO)
                 }
-                if(env.VM_CLIENT_NAME_PXC)
-                {
+                if(env.VM_CLIENT_NAME_PXC) {
                     destroyStaging(VM_CLIENT_NAME_PXC)
                 }
-                if(env.VM_CLIENT_NAME_PGSQL)
-                {
+                if(env.VM_CLIENT_NAME_PGSQL) {
                     destroyStaging(VM_CLIENT_NAME_PGSQL)
                 }
-                if(env.VM_CLIENT_NAME_PGSQL)
-                {
+                if(env.VM_CLIENT_NAME_PGSQL) {
                     destroyStaging(VM_CLIENT_NAME_PS_GR)
+                }
+                if(env.VM_CLIENT_NAME_VALKEY) {
+                    destroyStaging(VM_CLIENT_NAME_VALKEY)
                 }
             }
             sh '''

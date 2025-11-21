@@ -21,12 +21,12 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
-        env.PMM_UI_URL = "http://${SERVER_IP}/"
+        env.PMM_UI_URL = "https://${SERVER_IP}/"
     }
     else
     {
         env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${VM_IP}"
-        env.PMM_UI_URL = "http://${VM_IP}/"
+        env.PMM_UI_URL = "https://${VM_IP}/"
     }
 }
 
@@ -263,7 +263,7 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        sed -i 's+https://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@gssapi-nightly'
                     """
                 }
