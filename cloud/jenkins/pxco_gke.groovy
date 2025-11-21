@@ -1,4 +1,4 @@
-def gkeLib
+def utils
 
 tests = []
 clusters = []
@@ -7,7 +7,7 @@ release_versions = 'source/e2e-tests/release_versions'
 void prepareNode() {
     echo '=========================[ Cloning the sources ]========================='
     git branch: 'gke-cloud-lib', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-    gkeLib = load('cloud/common/gke-lib.groovy')
+    utils = load('cloud/common/utils.groovy')
     sh """
         # sudo is needed for better node recovery after compilation failure
         # if building failed on compilation stage directory will have files owned by docker user
@@ -23,28 +23,29 @@ void prepareNode() {
         GKE_RELEASE_CHANNEL = 'stable'
         echo 'Forcing GKE_RELEASE_CHANNEL=stable, because it\'s a release run!'
 
-        IMAGE_OPERATOR = IMAGE_OPERATOR ?: gkeLib.getParam(release_versions, 'IMAGE_OPERATOR')
-        IMAGE_PXC = IMAGE_PXC ?: gkeLib.getParam(release_versions, 'IMAGE_PXC', "IMAGE_PXC${PILLAR_VERSION}")
-        IMAGE_PROXY = IMAGE_PROXY ?: gkeLib.getParam(release_versions, 'IMAGE_PROXY')
-        IMAGE_HAPROXY = IMAGE_HAPROXY ?: gkeLib.getParam(release_versions, 'IMAGE_HAPROXY')
-        IMAGE_BACKUP = IMAGE_BACKUP ?: gkeLib.getParam(release_versions, 'IMAGE_BACKUP', "IMAGE_BACKUP${PILLAR_VERSION}")
-        IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: gkeLib.getParam(release_versions, 'IMAGE_LOGCOLLECTOR')
-        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: gkeLib.getParam(release_versions, 'IMAGE_PMM_CLIENT')
-        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: gkeLib.getParam(release_versions, 'IMAGE_PMM_SERVER')
-        IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: gkeLib.getParam(release_versions, 'IMAGE_PMM3_CLIENT')
-        IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: gkeLib.getParam(release_versions, 'IMAGE_PMM3_SERVER')
+        IMAGE_OPERATOR = IMAGE_OPERATOR ?: utils.getParam(release_versions, 'IMAGE_OPERATOR')
+        IMAGE_PXC = IMAGE_PXC ?: utils.getParam(release_versions, 'IMAGE_PXC', "IMAGE_PXC${PILLAR_VERSION}")
+        IMAGE_PROXY = IMAGE_PROXY ?: utils.getParam(release_versions, 'IMAGE_PROXY')
+        IMAGE_HAPROXY = IMAGE_HAPROXY ?: utils.getParam(release_versions, 'IMAGE_HAPROXY')
+        IMAGE_BACKUP = IMAGE_BACKUP ?: utils.getParam(release_versions, 'IMAGE_BACKUP', "IMAGE_BACKUP${PILLAR_VERSION}")
+        IMAGE_LOGCOLLECTOR = IMAGE_LOGCOLLECTOR ?: utils.getParam(release_versions, 'IMAGE_LOGCOLLECTOR')
+        IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: utils.getParam(release_versions, 'IMAGE_PMM_CLIENT')
+        IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: utils.getParam(release_versions, 'IMAGE_PMM_SERVER')
+        IMAGE_PMM3_CLIENT = IMAGE_PMM3_CLIENT ?: utils.getParam(release_versions, 'IMAGE_PMM3_CLIENT')
+        IMAGE_PMM3_SERVER = IMAGE_PMM3_SERVER ?: utils.getParam(release_versions, 'IMAGE_PMM3_SERVER')
         if ("$PLATFORM_VER".toLowerCase() == 'min' || "$PLATFORM_VER".toLowerCase() == 'max') {
-            PLATFORM_VER = gkeLib.getParam(release_versions, 'PLATFORM_VER', "GKE_${PLATFORM_VER}")
+            PLATFORM_VER = utils.getParam(release_versions, 'PLATFORM_VER', "GKE_${PLATFORM_VER}")
         }
     } else {
         echo '=========================[ Not a release run. Using job params only! ]========================='
     }
 
     echo '=========================[ Installing tools on the Jenkins executor ]========================='
-    gkeLib.installCommonTools()
-    gkeLib.installKubectl()
-    gkeLib.installHelm()
-    gkeLib.installGcloudCLI()
+    utils.installCommonTools()
+    utils.installKubectl()
+    utils.installHelm()
+    utils.installGcloudCLI()
+    utils.installAzureCLI(JENKINS_AGENT)
 
     sh """
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
@@ -53,7 +54,8 @@ void prepareNode() {
     """
 
     echo '=========================[ Logging in the Kubernetes provider ]========================='
-    gkeLib.gcloudAuth()
+    utils.gcloudAuth()
+    utils.azureAuth()
 
     if ("$PLATFORM_VER" == 'latest') {
         PLATFORM_VER = sh(script: "gcloud container get-server-config --region=${GKE_REGION} --flatten=channels --filter='channels.channel=RAPID' --format='value(channels.validVersions)' | cut -d- -f1", returnStdout: true).trim()
@@ -71,11 +73,11 @@ void prepareNode() {
 }
 
 void dockerBuildPush() {
-    gkeLib.dockerBuildPush('percona-xtradb-cluster-operator', GIT_BRANCH, IMAGE_OPERATOR)
+    utils.dockerBuildPush('percona-xtradb-cluster-operator', GIT_BRANCH, IMAGE_OPERATOR)
 }
 
 void initTests() {
-    gkeLib.initTests(tests, [
+    utils.initTests(tests, [
         testList: "$TEST_LIST",
         testSuite: "$TEST_SUITE",
         gitShortCommit: GIT_SHORT_COMMIT,
@@ -112,7 +114,7 @@ void clusterRunner(String cluster) {
 }
 
 void createCluster(String clusterSuffix) {
-    gkeLib.createGKECluster(CLUSTER_NAME, clusterSuffix, GKE_REGION, GKE_RELEASE_CHANNEL, PLATFORM_VER)
+    utils.createGKECluster(CLUSTER_NAME, clusterSuffix, GKE_REGION, GKE_RELEASE_CHANNEL, PLATFORM_VER)
     clusters.add(clusterSuffix)
 }
 
@@ -171,7 +173,7 @@ void runTest(Integer testId) {
 }
 
 void pushArtifactFile(String fileName) {
-    gkeLib.pushArtifactFile(fileName, GIT_SHORT_COMMIT)
+    utils.pushArtifactFile(fileName, GIT_SHORT_COMMIT)
 }
 
 void makeReport() {
@@ -207,7 +209,7 @@ GKE_RELEASE_CHANNEL=$GKE_RELEASE_CHANNEL"""
 }
 
 void shutdownCluster(String clusterSuffix) {
-    gkeLib.shutdownCluster(CLUSTER_NAME, clusterSuffix, GKE_REGION, true)
+    utils.shutdownCluster(CLUSTER_NAME, clusterSuffix, GKE_REGION, true)
 }
 
 pipeline {
