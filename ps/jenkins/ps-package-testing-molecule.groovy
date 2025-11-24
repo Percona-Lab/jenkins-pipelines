@@ -30,6 +30,8 @@ def ps80PackageTesting() {
         'ubuntu-focal-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm'
+        'amazon-linux-2023'
+        'amazon-linux-2023-arm'
     ]
 }
 
