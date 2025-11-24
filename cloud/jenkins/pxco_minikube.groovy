@@ -58,6 +58,9 @@ void prepareNode() {
         sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
     """
 
+    installAzureCLI()
+    azureAuth()
+
     if ("$IMAGE_PXC") {
         release = ("$PILLAR_VERSION" != "none") ? "RELEASE-" : ""
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
@@ -248,6 +251,25 @@ PLATFORM_VER=$PLATFORM_VER"""
     addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
         text: "<pre>${pipelineParameters}</pre>"
     )
+}
+
+void azureAuth() {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+        sh '''
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
+            az account set -s "$AZURE_SUBSCRIPTION_ID"
+        '''
+    }
+}
+
+void installAzureCLI() {
+    sh """
+        if ! command -v az &>/dev/null; then
+            curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+            printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+            sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
+        fi
+    """
 }
 
 pipeline {

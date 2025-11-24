@@ -14,28 +14,26 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     if (PMM_VERSION == '3-dev-latest') {
         sh '''
             GET_PMM_CLIENT_VERSION=$(wget -q https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION -O -)
-            sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
-            python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py ${GET_PMM_CLIENT_VERSION}
+            sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
+            python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${GET_PMM_CLIENT_VERSION}
         '''
     } else if (PMM_VERSION == 'pmm3-rc') {
         sh '''
             GET_PMM_CLIENT_VERSION=$(wget -q "https://registry.hub.docker.com/v2/repositories/perconalab/pmm-client/tags?page_size=25&name=rc" -O - | jq -r .results[].name  | grep 3.*.*-rc$ | sort -V | tail -n1)
-            sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
-            python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py ${GET_PMM_CLIENT_VERSION}
+            sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
+            python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${GET_PMM_CLIENT_VERSION}
         '''
     } else {
         sh '''
-            sudo chmod 755 /srv/pmm-qa/pmm-tests/check_client_upgrade.py
-            python3 /srv/pmm-qa/pmm-tests/check_client_upgrade.py ${PMM_VERSION}
+            sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
+            python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${PMM_VERSION}
         '''
     }
 }
 
-def latestVersion = pmmVersion()
-def versionsList = pmmVersion('list')
-def getMinorVersion(VERSION) {
-    return VERSION.split("\\.")[1].toInteger()
-}
+def versionsList = pmmVersion('v3')[-5..-1]
+def oldestVersion = versionsList.first()
+def latestVersion = versionsList.last()
 
 pipeline {
     agent {
@@ -45,6 +43,9 @@ pipeline {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
         REMOTE_AWS_MYSQL_PASSWORD=credentials('pmm-dev-remote-password')
         REMOTE_AWS_MYSQL57_HOST=credentials('pmm-dev-mysql57-remote-host')
+        PMM_QA_MYSQL_RDS_8_4_HOST=credentials('PMM_QA_MYSQL_RDS_8_4_HOST')
+        PMM_QA_MYSQL_RDS_8_4_USER=credentials('PMM_QA_MYSQL_RDS_8_4_USER')
+        PMM_QA_MYSQL_RDS_8_4_PASSWORD=credentials('PMM_QA_MYSQL_RDS_8_4_PASSWORD')
         REMOTE_MYSQL_HOST=credentials('mysql-remote-host')
         REMOTE_MYSQL_USER=credentials('mysql-remote-user')
         REMOTE_MYSQL_PASSWORD=credentials('mysql-remote-password')
@@ -73,14 +74,23 @@ pipeline {
         MAILOSAUR_SERVER_ID=credentials('MAILOSAUR_SERVER_ID')
         MAILOSAUR_SMTP_PASSWORD=credentials('MAILOSAUR_SMTP_PASSWORD')
         ZEPHYR_PMM_API_KEY=credentials('ZEPHYR_PMM_API_KEY')
+        PMM_QA_AURORA3_MYSQL_USER='pmm'
+        PMM_QA_AURORA3_MYSQL_HOST=credentials('PMM_QA_AURORA3_MYSQL_HOST')
+        PMM_QA_AURORA3_MYSQL_PASSWORD=credentials('PMM_QA_AURORA3_MYSQL_PASSWORD')
+        PMM_QA_RDS_PGSQL16_HOST=credentials('PMM_QA_RDS_PGSQL16_HOST')
+        PMM_QA_RDS_PGSQL16_USER=credentials('PMM_QA_RDS_PGSQL16_USER')
+        PMM_QA_RDS_PGSQL16_PASSWORD=credentials('PMM_QA_RDS_PGSQL16_PASSWORD')
+        PMM_QA_RDS_PGSQL17_HOST=credentials('PMM_QA_RDS_PGSQL17_HOST')
+        PMM_QA_RDS_PGSQL17_USER=credentials('PMM_QA_RDS_PGSQL17_USER')
+        PMM_QA_RDS_PGSQL17_PASSWORD=credentials('PMM_QA_RDS_PGSQL17_PASSWORD')
     }
     parameters {
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
-            defaultValue: 'percona/pmm-server:3.0.0',
+            defaultValue: "percona/pmm-server:$oldestVersion",
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
         string(
@@ -88,11 +98,11 @@ pipeline {
             description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
             name: 'DOCKER_TAG_UPGRADE')
         string(
-            defaultValue: '3.0.0',
+            defaultValue: "$oldestVersion",
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         string(
-            defaultValue: '3.1.0',
+            defaultValue: latestVersion,
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         choice(
@@ -100,37 +110,17 @@ pipeline {
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(
             choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"],
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
-        string(
-            defaultValue: '8.0',
-            description: "Percona Server for MySQL version",
-            name: 'PS_VERSION')
-        string(
-            defaultValue: '17',
-            description: "Which version of PostgreSQL",
-            name: 'PGSQL_VERSION')
-        string(
-            defaultValue: '17',
-            description: "Which version of Percona Distribution for PostgreSQL",
-            name: 'PDPGSQL_VERSION')
-        string(
-            defaultValue: '8.0',
-            description: "Which version of Percona Server for MongoDB",
-            name: 'PSMDB_VERSION')
-        string(
-            defaultValue: 'admin',
-            description: "Password for PMM Server ",
-            name: 'ADMIN_PASSWORD')
     }
     options {
         skipDefaultCheckout()
@@ -140,7 +130,7 @@ pipeline {
         stage('Prepare') {
             steps {
                 script {
-                    env.ADMIN_PASSWORD = params.ADMIN_PASSWORD
+                    env.ADMIN_PASSWORD = 'admin'
                     currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
                 git poll: false,
@@ -166,15 +156,15 @@ pipeline {
                     } else if (env.UPGRADE_FLAG == "EXTERNAL SERVICES") {
                         env.PRE_UPGRADE_FLAG = "@pre-external-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-external-upgrade"
-                        env.PMM_CLIENTS = "--database external --database ps --database pdpgsql --database psmdb --database pxc"
+                        env.PMM_CLIENTS = "--database external --database ps=8.4 --database pdpgsql --database psmdb --database pxc"
                     } else if (env.UPGRADE_FLAG == "MONGO BACKUP") {
                         env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
-                        env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss"
+                        env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss,COMPOSE_PROFILES=extra"
                     } else if (env.UPGRADE_FLAG == "CUSTOM PASSWORD") {
                         env.PRE_UPGRADE_FLAG = "@pre-custom-password-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-custom-password-upgrade"
-                        env.PMM_CLIENTS = "--database ps --database pgsql --database psmdb"
+                        env.PMM_CLIENTS = "--database ps=8.4 --database pgsql --database psmdb"
                     } else if (env.UPGRADE_FLAG == "CUSTOM DASHBOARDS") {
                         env.PRE_UPGRADE_FLAG = "@pre-dashboards-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-dashboards-upgrade"
@@ -182,7 +172,7 @@ pipeline {
                     } else if (env.UPGRADE_FLAG == "ANNOTATIONS-PROMETHEUS") {
                         env.PRE_UPGRADE_FLAG = "@pre-annotations-prometheus-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-annotations-prometheus-upgrade"
-                        env.PMM_CLIENTS = "--database ps --database pgsql --database psmdb"
+                        env.PMM_CLIENTS = "--database ps=8.4 --database pgsql --database psmdb"
                     } else if (env.UPGRADE_FLAG == "ADVISORS-ALERTING") {
                         env.PRE_UPGRADE_FLAG = "@pre-advisors-alerting-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-advisors-alerting-upgrade"
@@ -190,7 +180,7 @@ pipeline {
                     } else if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
                         env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade"
-                        env.PMM_CLIENTS = "--database pgsql --database ps --database psmdb"
+                        env.PMM_CLIENTS = "--database pgsql --database ps=8.4 --database psmdb"
                     }
                 }
             }
@@ -214,7 +204,7 @@ pipeline {
                         -e WATCHTOWER_HTTP_API_UPDATE=1 \
                         --volume /var/run/docker.sock:/var/run/docker.sock \
                         --name watchtower \
-                        perconalab/watchtower:latest
+                        perconalab/watchtower:dev-latest
 
                     sleep 10
                     export DOCKER_TAG_UPGRADE=\${DOCKER_TAG_UPGRADE}
@@ -278,6 +268,7 @@ pipeline {
                             sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                             export PWD=$(pwd)
                             export CHROMIUM_PATH=/usr/bin/chromium
+                            ansible-galaxy collection install ansible.utils
                         '''
                     }
                 }
@@ -296,6 +287,8 @@ pipeline {
                     . virtenv/bin/activate
                     pip install --upgrade pip
                     pip install -r requirements.txt
+                    pip install netaddr
+                    pip install setuptools
 
                     python pmm-framework.py --verbose \
                         --client-version=\${CLIENT_VERSION} \
@@ -328,7 +321,7 @@ pipeline {
                             docker cp pmm-custom-queries/postgresql/. $pgsqlContainerName:/usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
                             echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
                             sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
-                            docker exec $psContainerName pkill -f mysqld_exporter
+                            docker exec -u root $psContainerName pkill -f mysqld_exporter
                             docker exec $pgsqlContainerName pkill -f postgres_exporter
                             docker exec $pgsqlContainerName pmm-admin list
                             docker exec $psContainerName pmm-admin list
@@ -357,8 +350,8 @@ pipeline {
                 script {
                     sh '''
                         export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
-                        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p pre
+                        sudo chmod 755 /srv/pmm-qa/support_scripts/check_upgrade.py
+                        python3 /srv/pmm-qa/support_scripts/check_upgrade.py -v \$PMM_VERSION -p pre
                     '''
                 }
             }
@@ -427,11 +420,11 @@ pipeline {
                                 docker exec \$i kill \$pgsql_process_id
                                 docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                             elif [[ \$i == *"ps_"* ]]; then
-                                docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                                docker exec \$i apt install -y pmm-client
+                                docker exec -u root \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                docker exec -u root \$i microdnf install -y pmm-client
                                 ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
-                                docker exec \$i kill \$ps_process_id
-                                docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                docker exec -u root \$i kill \$ps_process_id
+                                docker exec -u root -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                             elif [[ \$i == *"external_pmm"* ]]; then
                                 docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
                                 docker exec \$i apt install -y pmm-client
@@ -460,8 +453,8 @@ pipeline {
                 script {
                     sh '''
                         export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
-                        sudo chmod 755 /srv/pmm-qa/pmm-tests/check_upgrade.py
-                        python3 /srv/pmm-qa/pmm-tests/check_upgrade.py -v \$PMM_VERSION -p post
+                        sudo chmod 755 /srv/pmm-qa/support_scripts/check_upgrade.py
+                        python3 /srv/pmm-qa/support_scripts/check_upgrade.py -v \$PMM_VERSION -p post
                     '''
                 }
             }
