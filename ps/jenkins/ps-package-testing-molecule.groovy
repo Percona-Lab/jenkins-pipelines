@@ -215,13 +215,13 @@ properties([
             name: 'install_repo'
         ),
         string(
-            defaultValue: 'https://github.com/Percona-QA/package-testing.git',
+            defaultValue: 'https://github.com/kaushikpuneet07/package-testing.git',
             description: 'repo name',
             name: 'git_repo',
             trim: false
         ),
         string(
-            defaultValue: 'master',
+            defaultValue: 'maj_up_80_84',
             description: 'Branch name',
             name: 'git_branch',
             trim: false
