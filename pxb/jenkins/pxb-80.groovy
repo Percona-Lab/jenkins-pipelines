@@ -618,6 +618,42 @@ pipeline {
                         }
                     }
                 }
+                stage('Debian Trixie(13)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("debian:trixie", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:trixie", "--build_deb=1")
+                            }
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
+                    }
+                }
+                stage('Debian Trixie(13) ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("debian:trixie", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:trixie", "--build_deb=1")
+                            }
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        }
+                    }
+                }
                 stage('Oracle Linux 8 tarball') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'

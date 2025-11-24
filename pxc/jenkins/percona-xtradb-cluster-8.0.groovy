@@ -544,6 +544,48 @@ pipeline {
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+                stage('Debian Trixie(13)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-80.properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("debian:trixie", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:trixie", "--build_deb=1")
+                            }
+                        }
+
+                        stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
+                stage('Debian Trixie(13) ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-80.properties'
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        script {
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("debian:trixie", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:trixie", "--build_deb=1")
+                            }
+                        }
+
+                        stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                    }
+                }
                 stage('Centos 8 tarball') {
                     when {
                         expression { env.FIPSMODE == 'NO' }
