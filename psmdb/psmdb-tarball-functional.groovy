@@ -41,7 +41,7 @@ pipeline {
             steps {
                 script {
                     currentBuild.displayName = "${env.BUILD_NUMBER}"
-                    currentBuild.description = "${env.TARBALL}"                    
+                    currentBuild.description = "${env.PSMDB_VERSION}"
                 }
             }
         }
