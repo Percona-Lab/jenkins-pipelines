@@ -394,6 +394,48 @@ pipeline {
                         }
                     }
                 }
+				stage('Generate PG SBOM Trixie AMD') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                    }
+                    steps {
+                        cleanUpWS()
+                        script {
+                                unstash 'timestamp'
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                sh """
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
+                                        cat uploadPath-${PG_VERSION}
+                                """
+                                stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
+                                buildStage("debian:trixie", "")
+                                pushArtifactFolder(params.CLOUD, "pg_sbom/", AWS_STASH_PATH)
+                                uploadSBOMfromAWS(params.CLOUD, "pg_sbom/", AWS_STASH_PATH, "json", "${PG_VERSION}")
+                                uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
+                        }
+                    }
+                }
+				stage('Generate PG SBOM Trixie ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        cleanUpWS()
+                        script {
+                                unstash 'timestamp'
+                                AWS_STASH_PATH="/srv/UPLOAD/${REPO_TYPE}/BUILDS/PG_SBOM/${PG_VERSION}/${TIMESTAMP}"
+                                sh """
+                                        echo ${AWS_STASH_PATH} > uploadPath-${PG_VERSION}
+                                        cat uploadPath-${PG_VERSION}
+                                """
+                                stash includes: "uploadPath-${PG_VERSION}", name: "uploadPath-${PG_VERSION}"
+                                buildStage("debian:trixie", "")
+                                pushArtifactFolder(params.CLOUD, "pg_sbom/", AWS_STASH_PATH)
+                                uploadSBOMfromAWS(params.CLOUD, "pg_sbom/", AWS_STASH_PATH, "json", "${PG_VERSION}")
+                                uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
+                        }
+                    }
+                }
             }  //parallel
         } // stage
 

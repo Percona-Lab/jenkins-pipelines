@@ -46,9 +46,8 @@ pipeline {
             steps {
                 script {
                     def version = params.PSMDB_VERSION + '-' + params.PSMDB_RELEASE
-                    build job: 'hetzner-psmdb-integration', parameters: [string(name: 'TEST_VERSION', value: "main"), string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "release"), string(name: 'PMM_IMAGE', value: "percona/pmm-server:2") ]
-                    build job: 'hetzner-psmdb-integration', parameters: [string(name: 'TEST_VERSION', value: "v3"), string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "release"), string(name: 'PMM_IMAGE', value: "percona/pmm-server:latest") ]
-                    build job: 'hetzner-psmdb-integration', parameters: [string(name: 'TEST_VERSION', value: "v3"), string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "experimental"), string(name: 'PMM_IMAGE', value: "perconalab/pmm-server:3-dev-latest") ]
+                    build job: 'hetzner-psmdb-integration', parameters: [string(name: 'TEST_VERSION', value: "main"), string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "release"), string(name: 'PMM_IMAGE', value: "percona/pmm-server:latest") ]
+                    build job: 'hetzner-psmdb-integration', parameters: [string(name: 'TEST_VERSION', value: "main"), string(name: 'PSMDB_VERSION', value: version), string(name: 'PBM_VERSION', value: "latest" ), string(name: 'PMM_VERSION', value: "latest"), string(name: 'PMM_REPO', value: "experimental"), string(name: 'PMM_IMAGE', value: "perconalab/pmm-server:3-dev-latest") ]
                 }
             }
         }

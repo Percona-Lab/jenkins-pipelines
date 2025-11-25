@@ -4,37 +4,21 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 ]) _
 
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
-    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
-        sh """
+    sh """
+        set -o xtrace
+        ls -laR ./
+        rm -rf test/*
+        mkdir -p test
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-packaging/scripts/psmdb_builder.sh -O psmdb_builder.sh
+        pwd -P
+        ls -laR
+        export build_dir=\$(pwd -P)
+        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
-            ls -laR ./
-            rm -rf test/*
-            mkdir -p test
-            if [ \${FULL_FEATURED} = "yes" ]; then
-                PRO_BRANCH="v7.0"
-                curl -H "Authorization: token ${TOKEN}" https://api.github.com/user
-                curl -L -H "Authorization: Bearer \${TOKEN}" \
-                     -H "Accept: application/vnd.github.v3.raw" \
-                     -o psmdb_builder.sh \
-                     "https://api.github.com/repos/percona/mongo-build-scripts/contents/scripts/psmdb_builder.sh?ref=\${PRO_BRANCH}"
-            else
-                wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-packaging/scripts/psmdb_builder.sh -O psmdb_builder.sh
-            fi
-            pwd -P
-            ls -laR
-            export build_dir=\$(pwd -P)
-            docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
-                set -o xtrace
-                cd \${build_dir}
-                bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
-                if [ \${FULL_FEATURED} = "yes" ]; then
-                    git clone --depth 1 --branch \${PRO_BRANCH} https://x-access-token:${TOKEN}@github.com/percona/mongo-build-scripts.git percona-packaging
-                    mv -f \${build_dir}/percona-packaging \${build_dir}/test/.
-                    ls -la \${build_dir}/percona-packaging
-                fi
-                bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
-        """
-    }
+            cd \${build_dir}
+            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
+            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
+    """
 }
 
 void cleanUpWS() {
@@ -63,7 +47,7 @@ pipeline {
             description: 'Tag/Branch for percona-server-mongodb repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '7.0.0',
+            defaultValue: '7.0.26',
             description: 'PSMDB release value',
             name: 'PSMDB_VERSION')
         string(
@@ -71,7 +55,7 @@ pipeline {
             description: 'PSMDB release value',
             name: 'PSMDB_RELEASE')
         string(
-            defaultValue: '100.7.3',
+            defaultValue: '100.13.0',
             description: 'https://docs.mongodb.com/database-tools/installation/',
             name: 'MONGO_TOOLS_TAG')
         string(
@@ -129,11 +113,7 @@ pipeline {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
                 cleanUpWS()
                 script {
-                    if (env.FULL_FEATURED == 'yes') {
-                        buildStage("oraclelinux:8", "--get_sources=1 --full_featured=1")
-                    } else {
-                        buildStage("oraclelinux:8", "--get_sources=1")
-                    }
+                    buildStage("oraclelinux:8", "--get_sources=1")
                 }
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/percona-server-mongodb-70.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
@@ -165,11 +145,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("oraclelinux:8", "--build_src_rpm=1 --full_featured=1")
-                            } else {
-                                buildStage("oraclelinux:8", "--build_src_rpm=1")
-                            }
+                            buildStage("oraclelinux:8", "--build_src_rpm=1")
                         }
 
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
@@ -184,11 +160,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("ubuntu:jammy", "--build_src_deb=1 --full_featured=1")
-                            } else {
-                                buildStage("ubuntu:jammy", "--build_src_deb=1")
-                            }
+                            buildStage("ubuntu:jammy", "--build_src_deb=1")
                         }
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
@@ -209,11 +181,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("oraclelinux:8", "--build_rpm=1 --full_featured=1")
-                            } else {
-                                buildStage("oraclelinux:8", "--build_rpm=1")
-                            }
+                            buildStage("oraclelinux:8", "--build_rpm=1")
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
@@ -226,11 +194,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("oraclelinux:8", "--build_rpm=1 --full_featured=1")
-                            } else {
-                                buildStage("oraclelinux:8", "--build_rpm=1")
-                            }
+                            buildStage("oraclelinux:8", "--build_rpm=1")
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
@@ -243,11 +207,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("oraclelinux:9", "--build_rpm=1 --full_featured=1")
-                            } else {
-                                buildStage("oraclelinux:9", "--build_rpm=1")
-                            }
+                            buildStage("oraclelinux:9", "--build_rpm=1")
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
@@ -260,11 +220,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("oraclelinux:9", "--build_rpm=1 --full_featured=1")
-                            } else {
-                                buildStage("oraclelinux:9", "--build_rpm=1")
-                            }
+                            buildStage("oraclelinux:9", "--build_rpm=1")
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
@@ -277,11 +233,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("amazonlinux:2023", "--build_rpm=1 --full_featured=1")
-                            } else {
-                                buildStage("amazonlinux:2023", "--build_rpm=1")
-                            }
+                            buildStage("amazonlinux:2023", "--build_rpm=1")
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
@@ -294,11 +246,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("amazonlinux:2023", "--build_rpm=1 --full_featured=1")
-                            } else {
-                                buildStage("amazonlinux:2023", "--build_rpm=1")
-                            }
+                            buildStage("amazonlinux:2023", "--build_rpm=1")
                         }
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
@@ -311,11 +259,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("ubuntu:jammy", "--build_deb=1 --full_featured=1")
-                            } else {
-                                buildStage("ubuntu:jammy", "--build_deb=1")
-                            }
+                            buildStage("ubuntu:jammy", "--build_deb=1")
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
@@ -328,11 +272,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("ubuntu:jammy", "--build_deb=1 --full_featured=1")
-                            } else {
-                                buildStage("ubuntu:jammy", "--build_deb=1")
-                            }
+                            buildStage("ubuntu:jammy", "--build_deb=1")
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
@@ -345,11 +285,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("ubuntu:noble", "--build_deb=1 --full_featured=1")
-                            } else {
-                                buildStage("ubuntu:noble", "--build_deb=1")
-                            }
+                            buildStage("ubuntu:noble", "--build_deb=1")
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
@@ -362,11 +298,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("ubuntu:noble", "--build_deb=1 --full_featured=1")
-                            } else {
-                                buildStage("ubuntu:noble", "--build_deb=1")
-                            }
+                            buildStage("ubuntu:noble", "--build_deb=1")
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
@@ -379,11 +311,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("debian:bullseye", "--build_deb=1 --full_featured=1")
-                            } else {
-                                buildStage("debian:bullseye", "--build_deb=1")
-                            }
+                            buildStage("debian:bullseye", "--build_deb=1")
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
@@ -396,11 +324,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("debian:bookworm", "--build_deb=1 --full_featured=1")
-                            } else {
-                                buildStage("debian:bookworm", "--build_deb=1")
-                            }
+                            buildStage("debian:bookworm", "--build_deb=1")
                         }
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
@@ -413,11 +337,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("oraclelinux:8", "--build_tarball=1 --full_featured=1")
-                            } else {
-                                buildStage("oraclelinux:8", "--build_tarball=1")
-                            }
+                            buildStage("oraclelinux:8", "--build_tarball=1")
                             pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
@@ -430,11 +350,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("oraclelinux:9", "--build_tarball=1 --full_featured=1")
-                            } else {
-                                buildStage("oraclelinux:9", "--build_tarball=1")
-                            }
+                            buildStage("oraclelinux:9", "--build_tarball=1")
                             pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
@@ -447,11 +363,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("amazonlinux:2023", "--build_tarball=1 --full_featured=1")
-                            } else {
-                                buildStage("amazonlinux:2023", "--build_tarball=1")
-                            }
+                            buildStage("amazonlinux:2023", "--build_tarball=1")
                             pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
@@ -464,11 +376,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("ubuntu:jammy", "--build_tarball=1 --full_featured=1")
-                            } else {
-                                buildStage("ubuntu:jammy", "--build_tarball=1")
-                            }
+                            buildStage("ubuntu:jammy", "--build_tarball=1")
                             pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
@@ -481,27 +389,22 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("ubuntu:noble", "--build_tarball=1 --full_featured=1")
-                            } else {
-                                buildStage("ubuntu:noble", "--build_tarball=1")
-                            }
+                            buildStage("ubuntu:noble", "--build_tarball=1")
                             pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
                 }
                 stage('Debian Bullseye(11) binary tarball(glibc2.31)') {
-                    when {
-                        expression { env.FULL_FEATURED != 'yes' }
-                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
                     }
                     steps {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        buildStage("debian:bullseye", "--build_tarball=1")
-                        pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                        script {
+                            buildStage("debian:bullseye", "--build_tarball=1")
+                            pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
+                        }
                     }
                 }
                 stage('Debian Bookworm(12) binary tarball(glibc2.36)') {
@@ -512,11 +415,7 @@ pipeline {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
-                            if (env.FULL_FEATURED == 'yes') {
-                                buildStage("debian:bookworm", "--build_tarball=1 --full_featured=1")
-                            } else {
-                                buildStage("debian:bookworm", "--build_tarball=1")
-                            }
+                            buildStage("debian:bookworm", "--build_tarball=1")
                             pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
