@@ -169,19 +169,19 @@ pipeline {
 
         stage('Docker Binary Version Checks') {
             steps {
-                try {
-                    docker_test()
-                    echo "DOCKER images run successfully."
-                }   catch (err) {
-                    echo "Docker test block failed: ${err}"
-                    currentBuild.result = 'FAILURE'
-                    throw err
+                script {
+                    try {
+                        docker_test()
+                        echo "DOCKER images run successfully."
+                    }   catch (err) {
+                        echo "Docker test block failed: ${err}"
+                        currentBuild.result = 'FAILURE'
+                        throw err
+                    }
                 }
             }
-
         }
-
-
+        
         stage('Docker Backup Tests') {
                 steps {
                     git branch: '${PACKAGE_TESTING_REPO_BRANCH}', url: '${PACKAGE_TESTING_REPO_URL}'
