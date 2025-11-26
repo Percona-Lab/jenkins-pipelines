@@ -206,9 +206,8 @@ void doTests(String WORKER_ID, String SUITES, String STANDALONE_TESTS = '', bool
                 CI_FS_MTR=yes
             fi
 
-            MTR_ARGS="${MTR_ARGS} ${MTR_ARGS_EXTRA}"
-
             export MTR_STANDALONE_TESTS="${STANDALONE_TESTS}"
+            export MTR_STANDALONE_TESTS_PARALLEL="${MTR_STANDALONE_TESTS_PARALLEL}"
             export MTR_SUITES="${SUITES}"
 
             aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws
