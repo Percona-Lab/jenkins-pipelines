@@ -37,6 +37,10 @@ def generateStage(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIE
     }
 }
 
+def versionsList = pmmVersion('v3')[-5..-1]
+def oldestVersion = versionsList.first()
+def latestVersion = versionsList.last()
+
 pipeline {
     agent {
         label 'docker'
@@ -47,7 +51,7 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
-            defaultValue: 'percona/pmm-server:3.0.0',
+            defaultValue: "percona/pmm-server:$oldestVersion",
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
         string(
@@ -55,7 +59,7 @@ pipeline {
             description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
             name: 'DOCKER_TAG_UPGRADE')
         string(
-            defaultValue: '3.0.0',
+            defaultValue: "$oldestVersion",
             description: 'PMM Client Version to test for Upgrade',
             name: 'CLIENT_VERSION')
         choice(
@@ -63,15 +67,15 @@ pipeline {
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
         string(
-            defaultValue: '3.1.0',
+            defaultValue: "$latestVersion",
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
     }
@@ -82,6 +86,13 @@ pipeline {
         cron('0 3 * * *')
     }
     stages {
+        stage('Prepare') {
+            steps {
+                script {
+                    currentBuild.description = "Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
+                }
+            }
+        }
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
