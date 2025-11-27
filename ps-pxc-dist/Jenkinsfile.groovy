@@ -105,6 +105,11 @@ pipeline {
             description: "Skips refresh-downloads-area stage",
             name: 'SKIP_PRODUCTION_REFRESH'
         )
+        choice(
+            choices: 'YES\nNO',
+            description: 'Push amazonelinux 2023 packages by default',
+            name: 'PUSHAMAZONLINUX'
+        )
     }
     options {
         skipDefaultCheckout()
@@ -129,6 +134,7 @@ pipeline {
                             echo "COMPONENT=\${COMPONENT}" >> args_pipeline
                             echo "REMOVE_LOCKFILE=\${REMOVE_LOCKFILE}" >> args_pipeline
                             echo "REMOVE_BEFORE_PUSH=\${REMOVE_BEFORE_PUSH}" >> args_pipeline
+                            echo "PUSHAMAZONLINUX=\${PUSHAMAZONLINUX}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
                             rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
