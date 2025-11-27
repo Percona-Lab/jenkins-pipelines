@@ -254,6 +254,77 @@ properties([
         [
             $class: 'CascadeChoiceParameter',
             choiceType: 'PT_SINGLE_SELECT',
+            description: 'from',
+            name: 'major_upgrade_from_product',
+            referencedParameters: 'action_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (action_to_test == "major_upgrade") {
+                        
+                            if (product_to_test == "ps_80") {
+                                return ["ps_57"]
+                            }
+                            else if (product_to_test == "ps_84") {
+                                return ["ps_57", "ps_80"]
+                            }
+                            else {
+                                return ["NA"]
+                            }
+                        }
+                        else {
+                            return ["NA"]
+                        }
+                    '''
+                ]
+            ]
+        ],
+        choice(
+            choices: ['testing', 'main', 'experimental'],
+            description: 'major upgrade from repo',
+            name: 'major_upgrade_from_repo'
+        ),
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'from',
+            name: 'major_upgrade_to_product',
+            referencedParameters: 'action_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (action_to_test == "major_upgrade") {
+                            if (product_to_test == "ps_80") {
+                                return ["ps_80"]
+                            }
+                            else if (product_to_test == "ps_84") {
+                                return ["ps_84"]
+                            }
+                            else {
+                                return ["NA"]
+                            }
+                        }
+                        else {
+                            return ["NA"]
+                        }
+                    '''
+                ]
+            ]
+        ],
+        choice(
+            choices: ['testing', 'main', 'experimental'],
+            description: 'major upgrade to repo',
+            name: 'major_upgrade_to_repo'
+        ),
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
             description: 'EOL version or Normal (only available for ps_57)',
             name: 'EOL',
             referencedParameters: 'product_to_test',
