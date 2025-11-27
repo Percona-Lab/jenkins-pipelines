@@ -1,8 +1,8 @@
 
 
-library changelog: false, identifier: "lib@maj_up_80_84", retriever: modernSCM([
+library changelog: false, identifier: "lib@master", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
 
@@ -217,13 +217,13 @@ properties([
             name: 'install_repo'
         ),
         string(
-            defaultValue: 'https://github.com/kaushikpuneet07/package-testing.git',
+            defaultValue: 'https://github.com/Percona-QA/package-testing.git',
             description: 'repo name',
             name: 'git_repo',
             trim: false
         ),
         string(
-            defaultValue: 'maj_up_80_84',
+            defaultValue: 'master',
             description: 'Branch name',
             name: 'git_branch',
             trim: false
@@ -361,13 +361,11 @@ pipeline {
                         }
             }
         }
-/*
     post {
         always {
             deleteBuildInstances()
             echo "Pipeline completed."
         }
     }
-*/
 }
 
