@@ -107,8 +107,13 @@ pipeline {
         )
         choice(
             choices: 'YES\nNO',
-            description: 'Push amazonelinux 2023 packages',
+            description: 'Push amazonlinux 2023 packages',
             name: 'PUSHAMAZONLINUX'
+        )
+        choice(
+            choices: 'YES\nNO',
+            description: 'Push trixie packages',
+            name: 'PUSHTRIXIE'
         )
         choice(
             choices: 'NO\nYES',
@@ -141,6 +146,7 @@ pipeline {
                             echo "REMOVE_BEFORE_PUSH=\${REMOVE_BEFORE_PUSH}" >> args_pipeline
                             echo "PUSHAMAZONLINUX=\${PUSHAMAZONLINUX}" >> args_pipeline
                             echo "PUSHFOCAL=\${PUSHFOCAL}" >> args_pipeline
+                            echo "PUSHTRIXIE=\${PUSHTRIXIE}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
                             rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
@@ -173,6 +179,8 @@ pipeline {
                             echo "COMPONENT=\${COMPONENT}" >> args_pipeline
                             echo "REMOVE_LOCKFILE=\${REMOVE_LOCKFILE}" >> args_pipeline
                             echo "REMOVE_BEFORE_PUSH=\${REMOVE_BEFORE_PUSH}" >> args_pipeline
+                            echo "PUSHFOCAL=\${PUSHFOCAL}" >> args_pipeline
+                            echo "PUSHTRIXIE=\${PUSHTRIXIE}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
                             rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \

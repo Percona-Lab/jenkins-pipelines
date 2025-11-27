@@ -45,10 +45,14 @@ for REPOPATH in $REPOPATH_TMP; do
         echo "<*> reprepro binary is $(which reprepro)"
         pushd /srv/UPLOAD/$dir/binary/debian
         echo "Looking for Debian build directories..."
-        if [[ "${PUSHFOCAL}" == "YES" ]]; then
+        if [[ "${PUSHFOCAL}" == "YES" ]] && [[ "${PUSHTRIXIE}" == "YES" ]]; then
             CODENAMES=$(ls -1)
-        else
+        elif [[ "${PUSHFOCAL}" == "YES" ]]; then
+            CODENAMES=$(ls -1 | grep -v trixie)
+        elif [[ "${PUSHTRIXIE}" == "YES" ]]; then
             CODENAMES=$(ls -1 | grep -v focal)
+        else
+            CODENAMES=$(ls -1 | grep -v focal | grep -v trixie)
         fi
         echo Distributions are: "${CODENAMES}"
         popd
