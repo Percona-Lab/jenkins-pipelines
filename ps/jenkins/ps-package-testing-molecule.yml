@@ -1,5 +1,5 @@
 - job:
-    name: ps-package-testing-molecule
+    name: ps-package-testing-molecule-test
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -12,7 +12,7 @@
             - git:
                 url: https://github.com/Percona-Lab/jenkins-pipelines.git
                 branches:
-                    - 'master'
+                    - 'ps-pt-upgrade-to-from-mods'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: ps/jenkins/ps-package-testing-molecule.groovy
