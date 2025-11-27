@@ -107,12 +107,12 @@ pipeline {
         )
         choice(
             choices: 'YES\nNO',
-            description: 'Push amazonelinux 2023 packages by default',
+            description: 'Push amazonelinux 2023 packages',
             name: 'PUSHAMAZONLINUX'
         )
         choice(
             choices: 'NO\nYES',
-            description: 'Don't push focal packages by default',
+            description: 'Push focal packages',
             name: 'PUSHFOCAL'
         )
     }
