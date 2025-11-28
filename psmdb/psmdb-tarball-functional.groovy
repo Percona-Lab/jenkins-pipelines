@@ -74,8 +74,7 @@ pipeline {
         always {
             junit testResults: "**/*-report.xml", keepLongStdio: true
             script {
-                def PSMDB_VER = sh(returnStdout: true, script: "cat VERSION").trim()
-                def os = pdmdbOperatingSystems("${PSMDB_VER}")
+                def os = pdmdbOperatingSystems("${PSMDB_VERSION}")
                 os.removeAll { it.contains('-arm') }
                 moleculeParallelPostDestroy(os, moleculeDir)
             }
