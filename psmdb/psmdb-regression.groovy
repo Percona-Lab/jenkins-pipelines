@@ -27,12 +27,11 @@ pipeline {
         booleanParam(name: 'unittests',defaultValue: true, description: 'Check if list of suites contains unittests')
         booleanParam(name: 'integrationtests',defaultValue: false, description: 'Check if list of suites contains integration tests')
         booleanParam(name: 'benchmarktests',defaultValue: false, description: 'Check if list of suites contains benchmark tests')
-        string(name: 'OS', defaultValue: 'debian:12', description: 'Base OS, can be changed to build the image for PBM tests')
+        string(name: 'OS', defaultValue: 'ubuntu:24.04', description: 'Base OS, can be changed to build the image for PBM tests')
         string(name: 'resmoke_params', defaultValue: '--excludeWithAnyTags=featureFlagColumnstoreIndexes,featureFlagUpdateOneWithoutShardKey,featureFlagGlobalIndexesShardingCatalog,featureFlagGlobalIndexes,featureFlagTelemetry,featureFlagAuditConfigClusterParameter,serverless,does_not_support_config_fuzzer,featureFlagDeprioritizeLowPriorityOperations,featureFlagSbeFull,featureFlagQueryStats,featureFlagTransitionToCatalogShard,requires_latch_analyzer', description: 'Extra params passed to resmoke.py')
     }
     options {
         withCredentials(moleculePbmJenkinsCreds())
-        disableConcurrentBuilds()
     }
     stages {
         stage('Set build name'){
@@ -87,6 +86,12 @@ pipeline {
                 }    
             }
             post {
+                success {
+                    slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PSMDB compilation for branch ${params.branch} on OS ${params.OS} finished succesfully, docker image: public.ecr.aws/e7j3v3n0/psmdb-build:${params.tag}")
+                }
+                failure {
+                    slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: PSMDB compilation for branch ${params.branch} on OS ${params.OS} failed - [${BUILD_URL}]")
+                }
                 always {
                     sh 'sudo rm -rf ./*'
                 }
@@ -455,11 +460,17 @@ pipeline {
         }
     }
     post {
-       always {
+        success {
+           slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Test resuts for branch ${params.branch} on OS ${params.OS} - [${BUILD_URL}testReport/(root)/]")
+        }
+        unstable {
+           slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: Test resuts for branch ${params.branch} on OS ${params.OS} - [${BUILD_URL}testReport/(root)/]")
+        }
+        always {
             sh '''
                 sudo rm -rf ./*
             '''
             deleteDir()
-       }
+        }
     }
 }
