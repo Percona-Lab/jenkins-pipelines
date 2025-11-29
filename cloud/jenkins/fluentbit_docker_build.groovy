@@ -1,9 +1,13 @@
 void build(String IMAGE_PREFIX){
-    sh """
-        cd ./source/
-        docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f fluentbit/Dockerfile fluentbit
-        docker tag perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} perconalab/fluentbit:${GIT_PD_BRANCH}-${IMAGE_PREFIX}
-    """
+     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
+        sh """
+            cd ./source/
+            docker login -u '${USER}' -p '${PASS}'
+            docker buildx create --use
+            docker buildx build --platform linux/amd64,linux/arm64 --progress plain -t perconalab/fluentbit:${GIT_PD_BRANCH}-${IMAGE_PREFIX} --push -f fluentbit/Dockerfile fluentbit
+            docker logout
+        """
+    }
 }
 void checkImageForDocker(String IMAGE_PREFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -19,6 +23,7 @@ void checkImageForDocker(String IMAGE_PREFIX){
         """
     }
 }
+
 void pushImageToDocker(String IMAGE_PREFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
         sh """
@@ -81,7 +86,7 @@ pipeline {
                 stash includes: "cloud/**", name: "cloud"
             }
         }
-        stage('Build fluentbit docker images') {
+        stage('Build and push fluentbit docker images') {
             steps {
                 sh '''
                     sudo rm -rf cloud
@@ -98,11 +103,11 @@ pipeline {
                 }
             }
         }
-        stage('Push Images to Docker registry') {
-            steps {
-                pushImageToDocker('logcollector')
-            }
-        }
+//        stage('Push Images to Docker registry') {
+//            steps {
+//                pushImageToDocker('logcollector')
+//            }
+//        }
        stage('Trivy Checks') {
             steps {
                 checkImageForDocker('logcollector')
