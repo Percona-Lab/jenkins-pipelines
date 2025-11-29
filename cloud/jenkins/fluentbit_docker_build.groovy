@@ -2,9 +2,10 @@ void checkImageForDocker(String IMAGE_SUFFIX){
     try {
              withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'SNYK_ID', variable: 'SNYK_ID')]) {
                 sh """
-                    IMAGE_TAG=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
+                    IMAGE_SUFFIX=${IMAGE_SUFFIX}
                     IMAGE_NAME="fluentbit"
-                    PATH_TO_DOCKERFILE="/source/build/fluentbit"
+                    IMAGE_TAG="\${GIT_PD_BRANCH}-\${IMAGE_SUFFIX}"
+                    PATH_TO_DOCKERFILE="source/fluentbit"
 
                     sg docker -c "
                         set -e
@@ -56,24 +57,6 @@ void build(String IMAGE_PREFIX){
     }
 }
 
-void pushImageToDocker(String IMAGE_PREFIX){
-     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
-        sh """
-            IMAGE_PREFIX=${IMAGE_PREFIX}
-            sg docker -c "
-                if [ ! -d ~/.docker/trust/private ]; then
-                    mkdir -p /home/ec2-user/.docker/trust/private
-                    cp "${docker_key}" ~/.docker/trust/private/
-                fi
-
-                docker login -u '${USER}' -p '${PASS}'
-                docker push perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX}
-                docker push perconalab/fluentbit:${GIT_PD_BRANCH}-${IMAGE_PREFIX}
-                docker logout
-            "
-        """
-    }
-}
 pipeline {
     parameters {
         string(
@@ -86,7 +69,7 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker'
+         label 'docker-x64'
     }
     environment {
         PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
@@ -136,7 +119,7 @@ pipeline {
         }
         stage('Snyk CVEs Checks') {
             steps {
-                checkImageForDocker('\$GIT_BRANCH')
+                checkImageForDocker('logcollector')
             }
         }
     }
