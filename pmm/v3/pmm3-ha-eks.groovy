@@ -54,13 +54,16 @@ managedNodeGroups:
     volumeSize: 80
     spot: true
     minSize: 2
-    maxSize: 5
+    maxSize: 10
     desiredCapacity: 3
     tags:
         iit-billing-tag: "pmm"
         nodegroup: "spot"
     labels:
         workload: "pmm-ha-test"
+    iam:
+      withAddonPolicies:
+        autoScaler: true
 EOF
                 '''
             }
@@ -172,6 +175,35 @@ EOF
                             --wait
 
                         kubectl get pods -n kube-system -l app.kubernetes.io/name=aws-node-termination-handler
+                    '''
+                }
+            }
+        }
+
+        stage('Install Cluster Autoscaler') {
+            steps {
+                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
+                    sh '''
+                        # Install Cluster Autoscaler
+                        kubectl apply -f https://raw.githubusercontent.com/kubernetes/autoscaler/master/cluster-autoscaler/cloudprovider/aws/examples/cluster-autoscaler-autodiscover.yaml
+
+                        # Prevent the autoscaler from being evicted
+                        kubectl -n kube-system annotate deployment.apps/cluster-autoscaler \
+                            cluster-autoscaler.kubernetes.io/safe-to-evict="false"
+
+                        # Set the correct autoscaler image version for the cluster
+                        kubectl -n kube-system set image deployment.apps/cluster-autoscaler \
+                            cluster-autoscaler=registry.k8s.io/autoscaling/cluster-autoscaler:v${K8S_VERSION}.0
+
+                        # Add cluster name to autoscaler command
+                        kubectl -n kube-system patch deployment cluster-autoscaler \
+                            -p '{"spec":{"template":{"spec":{"containers":[{"name":"cluster-autoscaler","command":["./cluster-autoscaler","--v=4","--stderrthreshold=info","--cloud-provider=aws","--skip-nodes-with-local-storage=false","--expander=least-waste","--node-group-auto-discovery=asg:tag=k8s.io/cluster-autoscaler/enabled,k8s.io/cluster-autoscaler/'"${CLUSTER_NAME}"'"]}]}}}}'
+
+                        # Wait for autoscaler to be ready
+                        kubectl -n kube-system rollout status deployment/cluster-autoscaler
+
+                        echo "Cluster Autoscaler installed successfully"
+                        kubectl get pods -n kube-system -l app=cluster-autoscaler
                     '''
                 }
             }
