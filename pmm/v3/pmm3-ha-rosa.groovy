@@ -24,10 +24,13 @@ pipeline {
             choices: ['m5.xlarge', 'm5.large', 'm5.2xlarge'],
             description: 'EC2 instance type for worker nodes'
         )
+        // PMM HA charts are not yet merged to percona/percona-helm-charts main branch.
+        // theTibi/PMM-14420 contains both pmm-ha and pmm-ha-dependencies charts.
+        // Once merged to percona main, update default to 'main' and swap repo priority.
         string(
             name: 'HELM_CHART_BRANCH',
-            defaultValue: 'main',
-            description: 'Branch from percona-helm-charts repository'
+            defaultValue: 'PMM-14420',
+            description: 'Branch of percona-helm-charts repo (theTibi/PMM-14420 has both pmm-ha and pmm-ha-dependencies)'
         )
         string(
             name: 'PMM_IMAGE_TAG',

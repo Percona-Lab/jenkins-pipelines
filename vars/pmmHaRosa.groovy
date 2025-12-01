@@ -722,7 +722,7 @@ def listClusters(Map config = [:]) {
  *
  * @param config Map containing:
  *   - namespace: Kubernetes namespace for PMM (optional, default: 'pmm')
- *   - chartBranch: percona-helm-charts branch (optional, default: 'main')
+ *   - chartBranch: percona-helm-charts branch (optional, default: 'PMM-14420' from theTibi fork)
  *   - imageTag: PMM server image tag (optional, default: 'dev-latest')
  *   - imageRepository: PMM image repository (optional, default: 'perconalab/pmm-server')
  *   - adminPassword: PMM admin password (optional, auto-generated if not provided)
@@ -738,7 +738,7 @@ def listClusters(Map config = [:]) {
 def installPmm(Map config = [:]) {
     def params = [
         namespace: 'pmm',
-        chartBranch: 'pmmha-v3',  // Branch with PMM HA charts
+        chartBranch: 'PMM-14420',  // Branch with PMM HA charts (theTibi fork or percona)
         imageTag: 'dev-latest',
         imageRepository: 'perconalab/pmm-server',
         storageClass: 'gp3-csi',
@@ -873,12 +873,23 @@ EOF
         echo 'WARNING: Docker Hub credentials not provided. Image pulls may be rate-limited.'
     }
 
-    // Clone percona-helm-charts
+    // Clone helm charts - try theTibi fork first (has PMM-14420), then percona repo
     def chartsDir = "${env.WORKSPACE}/percona-helm-charts"
+    def tibiRepo = 'https://github.com/theTibi/percona-helm-charts.git'
+    def perconaRepo = 'https://github.com/percona/percona-helm-charts.git'
+
     sh """
         rm -rf ${chartsDir}
-        git clone --depth 1 --branch ${params.chartBranch} \\
-            https://github.com/percona/percona-helm-charts.git ${chartsDir}
+        echo "Trying to clone branch ${params.chartBranch}..."
+
+        if git clone --depth 1 --branch ${params.chartBranch} ${tibiRepo} ${chartsDir} 2>/dev/null; then
+            echo "Found branch in: ${tibiRepo}"
+        elif git clone --depth 1 --branch ${params.chartBranch} ${perconaRepo} ${chartsDir} 2>/dev/null; then
+            echo "Found branch in: ${perconaRepo}"
+        else
+            echo "ERROR: Branch '${params.chartBranch}' not found in theTibi or percona helm chart repos"
+            exit 1
+        fi
     """
 
     // Install Helm if not available and add required repos
