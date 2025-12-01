@@ -392,14 +392,42 @@ def createCluster(Map config) {
 
     echo 'Waiting for cluster to be ready (this takes ~10-15 minutes)...'
 
+    // Poll for cluster to be ready (rosa doesn't have a wait command)
+    def maxAttempts = 60  // 30 minutes with 30s intervals
+    def attempt = 0
+    def clusterReady = false
+
+    while (!clusterReady && attempt < maxAttempts) {
+        attempt++
+        def status = sh(
+            script: """
+                export PATH="\$HOME/.local/bin:\$PATH"
+                export AWS_DEFAULT_REGION=${params.region}
+                rosa describe cluster -c ${fullClusterName} -o json | jq -r '.state'
+            """,
+            returnStdout: true
+        ).trim()
+
+        echo "Cluster status (attempt ${attempt}/${maxAttempts}): ${status}"
+
+        if (status == 'ready') {
+            clusterReady = true
+            echo 'Cluster is ready!'
+        } else if (status == 'error' || status == 'uninstalling') {
+            error "Cluster creation failed with status: ${status}"
+        } else {
+            sleep(30)
+        }
+    }
+
+    if (!clusterReady) {
+        error 'Timeout waiting for cluster to be ready'
+    }
+
+    // Verify cluster status
     sh """
         export PATH="\$HOME/.local/bin:\$PATH"
         export AWS_DEFAULT_REGION=${params.region}
-
-        # Wait for cluster to be ready
-        rosa wait --cluster=${fullClusterName} --timeout=30m
-
-        # Verify cluster status
         rosa describe cluster --cluster=${fullClusterName}
     """
 
