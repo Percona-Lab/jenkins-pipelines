@@ -107,7 +107,7 @@ pipeline {
                     string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
                 ]) {
                     script {
-                        env.CLUSTER_INFO = pmmHaRosa.createCluster([
+                        def clusterInfo = pmmHaRosa.createCluster([
                             clusterName: env.CLUSTER_NAME,
                             region: env.REGION,
                             openshiftVersion: params.OPENSHIFT_VERSION,
@@ -115,8 +115,8 @@ pipeline {
                             instanceType: params.INSTANCE_TYPE
                         ])
 
-                        echo "Cluster created: ${env.CLUSTER_INFO.clusterName}"
-                        echo "Cluster ID: ${env.CLUSTER_INFO.clusterId}"
+                        echo "Cluster created: ${clusterInfo.clusterName}"
+                        echo "Cluster ID: ${clusterInfo.clusterId}"
                     }
                 }
             }
