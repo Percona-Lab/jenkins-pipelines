@@ -190,14 +190,17 @@ pipeline {
                             return
                         }
 
-                        // Sort by creation time (newest first) and optionally skip newest
-                        clusters = clusters.toSorted { a, b -> b.createdAt <=> a.createdAt }
+                        // Sort by creation time (newest first)
+                        def sortedClusters = new ArrayList(clusters)
+                        Collections.sort(sortedClusters) { a, b -> b.createdAt <=> a.createdAt }
 
-                        if (params.SKIP_NEWEST && clusters.size() > 1) {
-                            def skipped = clusters[0]
+                        // Optionally skip newest cluster
+                        if (params.SKIP_NEWEST && sortedClusters.size() > 1) {
+                            def skipped = sortedClusters[0]
                             echo "Skipping newest cluster: ${skipped.name} (created: ${skipped.createdAt})"
-                            clusters = clusters.drop(1)
+                            sortedClusters = sortedClusters.subList(1, sortedClusters.size())
                         }
+                        clusters = sortedClusters
 
                         if (clusters.isEmpty()) {
                             echo 'No clusters to delete after applying filters.'
