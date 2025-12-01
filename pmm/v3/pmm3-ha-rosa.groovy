@@ -1,3 +1,8 @@
+library changelog: false, identifier: 'lib@feature/pmm-ha-rosa', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines'
+])
+
 pipeline {
     agent {
         label 'cli'
