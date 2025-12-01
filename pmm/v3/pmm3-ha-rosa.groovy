@@ -150,13 +150,24 @@ pipeline {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     script {
                         // Clone Helm charts repository
+                        // PMM HA charts (pmm-ha + pmm-ha-dependencies) are not yet in percona main.
+                        // Try theTibi fork first (has PMM-14420), then fall back to percona repo.
                         sh """
                             export PATH="\$HOME/.local/bin:\$PATH"
                             export KUBECONFIG="${env.KUBECONFIG}"
 
+                            TIBI_REPO="https://github.com/theTibi/percona-helm-charts.git"
+                            PERCONA_REPO="https://github.com/percona/percona-helm-charts.git"
+
                             rm -rf percona-helm-charts
-                            git clone --depth 1 --branch ${params.HELM_CHART_BRANCH} \\
-                                https://github.com/percona/percona-helm-charts.git
+                            if git clone --depth 1 --branch ${params.HELM_CHART_BRANCH} "\${TIBI_REPO}" percona-helm-charts 2>/dev/null; then
+                                echo "Found branch in: \${TIBI_REPO}"
+                            elif git clone --depth 1 --branch ${params.HELM_CHART_BRANCH} "\${PERCONA_REPO}" percona-helm-charts 2>/dev/null; then
+                                echo "Found branch in: \${PERCONA_REPO}"
+                            else
+                                echo "ERROR: Branch '${params.HELM_CHART_BRANCH}' not found in theTibi or percona helm chart repos"
+                                exit 1
+                            fi
 
                             # Verify chart exists
                             ls -la percona-helm-charts/charts/
