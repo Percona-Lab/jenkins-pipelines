@@ -589,15 +589,14 @@ def deleteCluster(Map config) {
         returnStdout: true
     ).trim()
 
-    // Delete the cluster
+    // Delete the cluster (non-blocking - deletion happens async in AWS)
     sh """
         export PATH="\$HOME/.local/bin:\$PATH"
         export AWS_DEFAULT_REGION=${region}
 
         rosa delete cluster \\
             --cluster=${params.clusterName} \\
-            --yes \\
-            --watch
+            --yes
     """
 
     // Clean up OIDC provider
