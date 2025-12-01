@@ -77,8 +77,8 @@ def installRosaCli(Map config = [:]) {
     sh '''
         export PATH="$HOME/.local/bin:$PATH"
 
-        # Check if rosa is already installed
-        if command -v rosa &>/dev/null; then
+        # Check if rosa is already installed and working
+        if command -v rosa &>/dev/null && rosa version &>/dev/null; then
             INSTALLED_VERSION=$(rosa version 2>/dev/null | head -1 || echo "unknown")
             echo "ROSA CLI already installed: $INSTALLED_VERSION"
             exit 0
@@ -87,9 +87,25 @@ def installRosaCli(Map config = [:]) {
         # Create local bin directory
         mkdir -p $HOME/.local/bin
 
-        # Download ROSA CLI
-        echo "Downloading ROSA CLI..."
-        curl -sSL https://mirror.openshift.com/pub/openshift-v4/clients/rosa/latest/rosa-linux.tar.gz -o /tmp/rosa.tar.gz
+        # Detect architecture
+        ARCH=$(uname -m)
+        case $ARCH in
+            x86_64|amd64)
+                ROSA_ARCH="linux"
+                ;;
+            aarch64|arm64)
+                ROSA_ARCH="linux-arm64"
+                ;;
+            *)
+                echo "ERROR: Unsupported architecture: $ARCH"
+                exit 1
+                ;;
+        esac
+
+        # Download ROSA CLI for detected architecture
+        echo "Downloading ROSA CLI for ${ROSA_ARCH}..."
+        ROSA_URL="https://mirror.openshift.com/pub/openshift-v4/clients/rosa/latest/rosa-${ROSA_ARCH}.tar.gz"
+        curl -sSL "$ROSA_URL" -o /tmp/rosa.tar.gz
 
         # Extract and install
         tar -xzf /tmp/rosa.tar.gz -C $HOME/.local/bin rosa
@@ -128,8 +144,8 @@ def installOcCli(Map config = [:]) {
     sh """
         export PATH="\$HOME/.local/bin:\$PATH"
 
-        # Check if oc is already installed
-        if command -v oc &>/dev/null; then
+        # Check if oc is already installed and working
+        if command -v oc &>/dev/null && oc version --client &>/dev/null; then
             INSTALLED_VERSION=\$(oc version --client 2>/dev/null | head -1 || echo "unknown")
             echo "OpenShift CLI already installed: \$INSTALLED_VERSION"
             exit 0
@@ -138,9 +154,25 @@ def installOcCli(Map config = [:]) {
         # Create local bin directory
         mkdir -p \$HOME/.local/bin
 
-        # Download OC CLI
-        echo "Downloading OpenShift CLI..."
-        curl -sSL "https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-${version}/openshift-client-linux.tar.gz" -o /tmp/oc.tar.gz
+        # Detect architecture
+        ARCH=\$(uname -m)
+        case \$ARCH in
+            x86_64|amd64)
+                OC_ARCH="linux"
+                ;;
+            aarch64|arm64)
+                OC_ARCH="linux-arm64"
+                ;;
+            *)
+                echo "ERROR: Unsupported architecture: \$ARCH"
+                exit 1
+                ;;
+        esac
+
+        # Download OC CLI for detected architecture
+        echo "Downloading OpenShift CLI for \${OC_ARCH}..."
+        OC_URL="https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-${version}/openshift-client-\${OC_ARCH}.tar.gz"
+        curl -sSL "\$OC_URL" -o /tmp/oc.tar.gz
 
         # Extract and install
         tar -xzf /tmp/oc.tar.gz -C \$HOME/.local/bin oc kubectl
