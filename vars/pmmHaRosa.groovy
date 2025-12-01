@@ -813,24 +813,30 @@ EOF
         echo "Pre-created pmm-secret with admin passwords"
     """
 
-    // Create Docker Hub pull secret to avoid rate limiting
-    // The hub.docker.com credential must be passed via config.dockerHubCredentialsId
+    // Add Docker Hub credentials to the global OpenShift pull secret
+    // This is the proper way to avoid rate limiting cluster-wide in OpenShift
+    // Reference: https://access.redhat.com/solutions/6159832
     if (config.dockerHubUser && config.dockerHubPassword) {
         sh """
             export PATH="\$HOME/.local/bin:\$PATH"
 
-            # Create Docker Hub pull secret
-            oc create secret docker-registry dockerhub-pull-secret \\
-                --docker-server=https://index.docker.io/v1/ \\
-                --docker-username='${config.dockerHubUser}' \\
-                --docker-password='${config.dockerHubPassword}' \\
-                --namespace ${params.namespace} 2>/dev/null || true
+            # Extract existing global pull secret
+            oc get secret/pull-secret -n openshift-config \\
+                --template='{{index .data ".dockerconfigjson" | base64decode}}' > /tmp/pull-secret.json
 
-            # Link the pull secret to default and other service accounts
-            oc secrets link default dockerhub-pull-secret --for=pull -n ${params.namespace} || true
-            oc secrets link pmm-service-account dockerhub-pull-secret --for=pull -n ${params.namespace} 2>/dev/null || true
+            # Add Docker Hub credentials using oc registry login
+            oc registry login --registry="docker.io" \\
+                --auth-basic="${config.dockerHubUser}:${config.dockerHubPassword}" \\
+                --to=/tmp/pull-secret.json
 
-            echo "Docker Hub pull secret created and linked to service accounts"
+            # Update the global pull secret
+            oc set data secret/pull-secret -n openshift-config \\
+                --from-file=.dockerconfigjson=/tmp/pull-secret.json
+
+            # Clean up
+            rm -f /tmp/pull-secret.json
+
+            echo "Docker Hub credentials added to global OpenShift pull secret"
         """
     } else {
         echo 'WARNING: Docker Hub credentials not provided. Image pulls may be rate-limited.'
