@@ -190,17 +190,15 @@ pipeline {
                             return
                         }
 
-                        // Sort by creation time (newest first)
-                        def sortedClusters = new ArrayList(clusters)
-                        Collections.sort(sortedClusters) { a, b -> b.createdAt <=> a.createdAt }
+                        // Sort by creation time (newest first) using Groovy's sort in place
+                        clusters.sort { a, b -> b.createdAt <=> a.createdAt }
 
                         // Optionally skip newest cluster
-                        if (params.SKIP_NEWEST && sortedClusters.size() > 1) {
-                            def skipped = sortedClusters[0]
+                        if (params.SKIP_NEWEST && clusters.size() > 1) {
+                            def skipped = clusters[0]
                             echo "Skipping newest cluster: ${skipped.name} (created: ${skipped.createdAt})"
-                            sortedClusters = sortedClusters.subList(1, sortedClusters.size())
+                            clusters = clusters.tail()
                         }
-                        clusters = sortedClusters
 
                         if (clusters.isEmpty()) {
                             echo 'No clusters to delete after applying filters.'
