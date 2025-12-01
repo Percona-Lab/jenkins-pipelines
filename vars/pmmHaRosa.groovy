@@ -281,9 +281,29 @@ def createCluster(Map config) {
     def fullClusterName = params.clusterName.startsWith(CLUSTER_PREFIX) ?
         params.clusterName : "${CLUSTER_PREFIX}${params.clusterName}"
 
+    // Resolve version if only major.minor is provided (e.g., 4.16 -> 4.16.52)
+    def resolvedVersion = params.openshiftVersion
+    if (params.openshiftVersion ==~ /^\d+\.\d+$/) {
+        echo "Resolving latest patch version for ${params.openshiftVersion}..."
+        resolvedVersion = sh(
+            script: """
+                export PATH="\$HOME/.local/bin:\$PATH"
+                rosa list versions --hosted-cp -o json 2>/dev/null | \
+                    jq -r '.[] | select(.raw_id | startswith("${params.openshiftVersion}.")) | .raw_id' | \
+                    head -1
+            """,
+            returnStdout: true
+        ).trim()
+
+        if (!resolvedVersion) {
+            error "Could not find a valid version for ${params.openshiftVersion}"
+        }
+        echo "Resolved version: ${resolvedVersion}"
+    }
+
     echo "Creating ROSA HCP cluster: ${fullClusterName}"
     echo "  Region: ${params.region}"
-    echo "  OpenShift Version: ${params.openshiftVersion}"
+    echo "  OpenShift Version: ${resolvedVersion}"
     echo "  Worker Replicas: ${params.replicas}"
     echo "  Instance Type: ${params.instanceType}"
 
@@ -294,7 +314,7 @@ def createCluster(Map config) {
         rosa create cluster \\
             --cluster-name=${fullClusterName} \\
             --region=${params.region} \\
-            --version=${params.openshiftVersion} \\
+            --version=${resolvedVersion} \\
             --replicas=${params.replicas} \\
             --compute-machine-type=${params.instanceType} \\
             --hosted-cp \\
