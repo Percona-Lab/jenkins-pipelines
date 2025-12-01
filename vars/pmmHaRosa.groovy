@@ -934,29 +934,30 @@ EOF
     """
 
     // Install pmm-ha
-    // Build helm command - only set image options if provided (empty means use chart defaults)
-    def helmCmd = """
-        export PATH="\$HOME/.local/bin:\$PATH"
-
-        helm upgrade --install pmm-ha ${chartsDir}/charts/pmm-ha \\
-            --namespace ${params.namespace} \\
-            --set secret.create=false \\
-            --set secret.name=pmm-secret \\
-            --set persistence.size=${params.pmmStorageSize} \\
-            --set persistence.storageClassName=${params.storageClass}"""
+    // Build helm args - only set image options if provided (empty means use chart defaults)
+    def helmArgs = [
+        "--namespace ${params.namespace}",
+        '--set secret.create=false',
+        '--set secret.name=pmm-secret',
+        "--set persistence.size=${params.pmmStorageSize}",
+        "--set persistence.storageClassName=${params.storageClass}"
+    ]
 
     // Only override image if explicitly provided (chart default has pmm-encryption-rotation)
     if (params.imageRepository?.trim()) {
-        helmCmd += " \\\\\n            --set image.repository=${params.imageRepository}"
+        helmArgs.add("--set image.repository=${params.imageRepository}")
     }
     if (params.imageTag?.trim()) {
-        helmCmd += " \\\\\n            --set image.tag=${params.imageTag}"
+        helmArgs.add("--set image.tag=${params.imageTag}")
     }
 
-    helmCmd += " \\\\\n            --wait --timeout 15m"
+    helmArgs.add('--wait --timeout 15m')
 
     echo 'Installing PMM HA...'
-    sh helmCmd
+    sh """
+        export PATH="\$HOME/.local/bin:\$PATH"
+        helm upgrade --install pmm-ha ${chartsDir}/charts/pmm-ha ${helmArgs.join(' ')}
+    """
 
     // Verify deployment
     sh '''
