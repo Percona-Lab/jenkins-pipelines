@@ -934,23 +934,32 @@ EOF
     """
 
     // Install pmm-ha
-    echo 'Installing PMM HA...'
-    sh """
+    // Build helm command - only set image options if provided (empty means use chart defaults)
+    def helmCmd = """
         export PATH="\$HOME/.local/bin:\$PATH"
 
         helm upgrade --install pmm-ha ${chartsDir}/charts/pmm-ha \\
             --namespace ${params.namespace} \\
-            --set image.repository=${params.imageRepository} \\
-            --set image.tag=${params.imageTag} \\
             --set secret.create=false \\
             --set secret.name=pmm-secret \\
             --set persistence.size=${params.pmmStorageSize} \\
-            --set persistence.storageClassName=${params.storageClass} \\
-            --wait --timeout 15m
-    """
+            --set persistence.storageClassName=${params.storageClass}"""
+
+    // Only override image if explicitly provided (chart default has pmm-encryption-rotation)
+    if (params.imageRepository?.trim()) {
+        helmCmd += " \\\\\n            --set image.repository=${params.imageRepository}"
+    }
+    if (params.imageTag?.trim()) {
+        helmCmd += " \\\\\n            --set image.tag=${params.imageTag}"
+    }
+
+    helmCmd += " \\\\\n            --wait --timeout 15m"
+
+    echo 'Installing PMM HA...'
+    sh helmCmd
 
     // Verify deployment
-    sh """
+    sh '''
         export PATH="\$HOME/.local/bin:\$PATH"
 
         echo "PMM HA pods:"
@@ -959,7 +968,7 @@ EOF
         echo ""
         echo "PMM HA services:"
         oc get svc -n ${params.namespace}
-    """
+    '''
 
     echo 'PMM HA installed successfully'
 
@@ -1012,7 +1021,7 @@ def createRoute(Map config) {
     echo "  Namespace: ${params.namespace}"
 
     // Create passthrough route (TLS termination at PMM)
-    sh """
+    sh '''
         export PATH="\$HOME/.local/bin:\$PATH"
 
         # Delete existing route if any
@@ -1027,15 +1036,15 @@ def createRoute(Map config) {
 
         # Verify route
         oc get route pmm-https -n ${params.namespace}
-    """
+    '''
 
     // Get the router's canonical hostname for Route53 CNAME
     def routerHost = sh(
-        script: """
+        script: '''
             export PATH="\$HOME/.local/bin:\$PATH"
             oc get route pmm-https -n ${params.namespace} -o jsonpath='{.status.ingress[0].routerCanonicalHostname}' || \\
             oc get service -n openshift-ingress router-default -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-        """,
+        ''',
         returnStdout: true
     ).trim()
 
@@ -1090,12 +1099,12 @@ def deleteRoute53Record(Map config) {
     def zoneId = params.zoneId
     if (!zoneId) {
         zoneId = sh(
-            script: """
+            script: '''
                 aws route53 list-hosted-zones-by-name \\
                     --dns-name ${params.zoneName} \\
                     --query "HostedZones[0].Id" \\
                     --output text | sed 's|/hostedzone/||'
-            """,
+            ''',
             returnStdout: true
         ).trim()
     }
@@ -1107,12 +1116,12 @@ def deleteRoute53Record(Map config) {
 
     // Get existing record
     def existingRecord = sh(
-        script: """
+        script: '''
             aws route53 list-resource-record-sets \\
                 --hosted-zone-id ${zoneId} \\
                 --query "ResourceRecordSets[?Name=='${params.domain}.']" \\
                 --output json
-        """,
+        ''',
         returnStdout: true
     ).trim()
 
@@ -1122,7 +1131,7 @@ def deleteRoute53Record(Map config) {
     }
 
     // Delete the record
-    sh """
+    sh '''
         # Get record details
         RECORD_TYPE=\$(echo '${existingRecord}' | jq -r '.[0].Type')
         RECORD_VALUE=\$(echo '${existingRecord}' | jq -r '.[0].ResourceRecords[0].Value // .[0].AliasTarget.DNSName')
@@ -1142,7 +1151,7 @@ EOF
             --change-batch file:///tmp/route53-delete.json || true
 
         rm -f /tmp/route53-delete.json
-    """
+    '''
 
     echo "Route53 record ${params.domain} deleted"
 }
@@ -1175,12 +1184,12 @@ def createRoute53Record(Map config) {
     def zoneId = params.zoneId
     if (!zoneId) {
         zoneId = sh(
-            script: """
+            script: '''
                 aws route53 list-hosted-zones-by-name \\
                     --dns-name ${params.zoneName} \\
                     --query "HostedZones[0].Id" \\
                     --output text | sed 's|/hostedzone/||'
-            """,
+            ''',
             returnStdout: true
         ).trim()
     }
@@ -1192,7 +1201,7 @@ def createRoute53Record(Map config) {
 
     echo "Creating Route53 CNAME record: ${params.domain} -> ${params.target}"
 
-    sh """
+    sh '''
         cat > /tmp/route53-change.json <<EOF
 {
     "Changes": [{
@@ -1212,7 +1221,7 @@ EOF
             --change-batch file:///tmp/route53-change.json
 
         rm -f /tmp/route53-change.json
-    """
+    '''
 
     echo 'Route53 record created successfully'
     return true

@@ -32,15 +32,18 @@ pipeline {
             defaultValue: 'PMM-14420',
             description: 'Branch of percona-helm-charts repo (theTibi/PMM-14420 has both pmm-ha and pmm-ha-dependencies)'
         )
+        // PMM HA requires pmm-encryption-rotation binary which is only in pmm-server-fb builds
+        // The chart default (perconalab/pmm-server-fb:PR-4078-fa6adbc) has this binary
+        // Leave empty to use chart default, or specify a pmm-server-fb tag
         string(
             name: 'PMM_IMAGE_TAG',
-            defaultValue: 'dev-latest',
-            description: 'PMM Server image tag'
+            defaultValue: '',
+            description: 'PMM Server image tag (leave empty for chart default which has pmm-encryption-rotation)'
         )
         string(
             name: 'PMM_IMAGE_REPOSITORY',
-            defaultValue: 'perconalab/pmm-server',
-            description: 'PMM Server image repository'
+            defaultValue: '',
+            description: 'PMM Server image repository (leave empty for chart default: perconalab/pmm-server-fb)'
         )
     }
 
