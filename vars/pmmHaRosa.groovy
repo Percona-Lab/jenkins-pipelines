@@ -796,21 +796,30 @@ EOF
 
     // Pre-create pmm-secret with all required passwords
     // This is done before helm install so the chart uses existing secret
+    // Keys are based on charts/pmm-ha/templates/secret.yaml and vmauth.yaml requirements
     sh """
         export PATH="\$HOME/.local/bin:\$PATH"
 
         # Delete existing secret if any
         oc delete secret pmm-secret -n ${params.namespace} 2>/dev/null || true
 
-        # Create pmm-secret with all required passwords
+        # Create pmm-secret with all required keys
+        # These match the keys expected by pmm-ha helm chart templates:
+        # - secret.yaml: PMM_ADMIN_PASSWORD, PMM_CLICKHOUSE_USER, PMM_CLICKHOUSE_PASSWORD,
+        #                VMAGENT_remoteWrite_basicAuth_username, VMAGENT_remoteWrite_basicAuth_password,
+        #                PG_PASSWORD, GF_PASSWORD
+        # - vmauth.yaml: VMAGENT_remoteWrite_basicAuth_username, VMAGENT_remoteWrite_basicAuth_password (uses b64dec)
+        # - clickhouse-cluster.yaml: PMM_CLICKHOUSE_USER (uses b64dec)
         oc create secret generic pmm-secret -n ${params.namespace} \\
             --from-literal=PMM_ADMIN_PASSWORD='${adminPassword}' \\
-            --from-literal=PG_ADMIN_PASSWORD='${adminPassword}' \\
-            --from-literal=CH_ADMIN_PASSWORD='${adminPassword}' \\
-            --from-literal=GRAFANA_ADMIN_PASSWORD='${adminPassword}' \\
-            --from-literal=VM_ADMIN_PASSWORD='${adminPassword}'
+            --from-literal=PMM_CLICKHOUSE_USER='clickhouse_pmm' \\
+            --from-literal=PMM_CLICKHOUSE_PASSWORD='${adminPassword}' \\
+            --from-literal=VMAGENT_remoteWrite_basicAuth_username='victoriametrics_pmm' \\
+            --from-literal=VMAGENT_remoteWrite_basicAuth_password='${adminPassword}' \\
+            --from-literal=PG_PASSWORD='${adminPassword}' \\
+            --from-literal=GF_PASSWORD='${adminPassword}'
 
-        echo "Pre-created pmm-secret with admin passwords"
+        echo "Pre-created pmm-secret with all required keys"
     """
 
     // Add Docker Hub credentials to the global OpenShift pull secret
