@@ -131,7 +131,8 @@ pipeline {
                     script {
                         def accessInfo = pmmHaRosa.configureAccess([
                             clusterName: env.CLUSTER_NAME,
-                            kubeconfigPath: env.KUBECONFIG
+                            kubeconfigPath: env.KUBECONFIG,
+                            region: env.REGION
                         ])
 
                         env.CLUSTER_ADMIN_PASSWORD = accessInfo.password

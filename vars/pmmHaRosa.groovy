@@ -491,6 +491,7 @@ def configureAccess(Map config) {
     }
 
     def kubeconfigPath = config.kubeconfigPath ?: "${env.WORKSPACE}/kubeconfig/config"
+    def region = config.region ?: DEFAULT_REGION
 
     echo "Configuring access to ROSA cluster: ${config.clusterName}"
 
@@ -498,6 +499,7 @@ def configureAccess(Map config) {
     def adminPassword = sh(
         script: """
             export PATH="\$HOME/.local/bin:\$PATH"
+            export AWS_DEFAULT_REGION=${region}
 
             # Create admin user (if not exists)
             rosa create admin --cluster=${config.clusterName} 2>&1 | tee /tmp/rosa-admin-output.txt
@@ -513,6 +515,7 @@ def configureAccess(Map config) {
     def apiUrl = sh(
         script: """
             export PATH="\$HOME/.local/bin:\$PATH"
+            export AWS_DEFAULT_REGION=${region}
             rosa describe cluster --cluster=${config.clusterName} -o json | jq -r '.api.url'
         """,
         returnStdout: true
