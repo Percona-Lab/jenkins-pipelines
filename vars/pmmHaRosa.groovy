@@ -501,8 +501,8 @@ def configureAccess(Map config) {
             export PATH="\$HOME/.local/bin:\$PATH"
             export AWS_DEFAULT_REGION=${region}
 
-            # Create admin user (if not exists)
-            rosa create admin --cluster=${config.clusterName} 2>&1 | tee /tmp/rosa-admin-output.txt
+            # Create admin user (if not exists) - save output to file, suppress stdout
+            rosa create admin --cluster=${config.clusterName} 2>&1 > /tmp/rosa-admin-output.txt
 
             # Extract password from output
             # ROSA outputs a line like: oc login <url> --username cluster-admin --password XXXXX-XXXXX-XXXXX-XXXXX
@@ -521,9 +521,9 @@ def configureAccess(Map config) {
         returnStdout: true
     ).trim()
 
-    // Wait for admin user to be ready
+    // Wait for admin user to be ready (ROSA needs ~90 seconds to propagate credentials)
     echo 'Waiting for admin user to be ready (up to 5 minutes)...'
-    sleep(time: 60, unit: 'SECONDS')
+    sleep(time: 90, unit: 'SECONDS')
 
     // Login with oc and save kubeconfig
     sh """
@@ -717,7 +717,7 @@ def listClusters(Map config = [:]) {
 def installPmm(Map config = [:]) {
     def params = [
         namespace: 'pmm',
-        chartBranch: 'main',
+        chartBranch: 'pmmha-v3',  // Branch with PMM HA charts
         imageTag: 'dev-latest',
         imageRepository: 'perconalab/pmm-server',
         storageClass: 'gp3-csi',
@@ -734,17 +734,83 @@ def installPmm(Map config = [:]) {
     def adminPassword = params.adminPassword ?: generatePassword()
 
     // Create namespace and configure SCC
+    // Note: ROSA HCP doesn't allow modifying default SCCs, so we create a custom one
     sh """
         export PATH="\$HOME/.local/bin:\$PATH"
 
         # Create namespace
         oc create namespace ${params.namespace} || true
 
-        # Grant SCC permissions for PMM pods
-        oc adm policy add-scc-to-user anyuid -z default -n ${params.namespace}
-        oc adm policy add-scc-to-user anyuid -z pmm -n ${params.namespace}
-        oc adm policy add-scc-to-user anyuid -z pmm-ha -n ${params.namespace}
-        oc adm policy add-scc-to-user privileged -z default -n ${params.namespace}
+        # Create custom SCC for PMM HA on ROSA HCP
+        # ROSA HCP blocks modifications to default SCCs (anyuid, restricted, etc.)
+        # We create a custom SCC with the required service accounts in the users list
+        cat <<'EOF' | oc apply -f -
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: pmm-anyuid
+allowHostDirVolumePlugin: false
+allowHostIPC: false
+allowHostNetwork: false
+allowHostPID: false
+allowHostPorts: false
+allowPrivilegeEscalation: true
+allowPrivilegedContainer: false
+allowedCapabilities: null
+defaultAddCapabilities: null
+fsGroup:
+  type: RunAsAny
+priority: 10
+readOnlyRootFilesystem: false
+requiredDropCapabilities:
+  - MKNOD
+runAsUser:
+  type: RunAsAny
+seLinuxContext:
+  type: MustRunAs
+supplementalGroups:
+  type: RunAsAny
+users:
+  - system:serviceaccount:${params.namespace}:default
+  - system:serviceaccount:${params.namespace}:pmm-service-account
+  - system:serviceaccount:${params.namespace}:pmm-ha-haproxy
+  - system:serviceaccount:${params.namespace}:pmm-ha-pg-db
+  - system:serviceaccount:${params.namespace}:pmm-ha-pmmdb
+  - system:serviceaccount:${params.namespace}:pmm-ha-vmagent
+  - system:serviceaccount:${params.namespace}:pmm-ha-dependencies-altinity-clickhouse-operator
+  - system:serviceaccount:${params.namespace}:pmm-ha-dependencies-pg-operator
+  - system:serviceaccount:${params.namespace}:pmm-ha-dependencies-victoria-metrics-operator
+volumes:
+  - configMap
+  - csi
+  - downwardAPI
+  - emptyDir
+  - ephemeral
+  - persistentVolumeClaim
+  - projected
+  - secret
+EOF
+
+        echo "Custom SCC 'pmm-anyuid' created for PMM HA workloads"
+    """
+
+    // Pre-create pmm-secret with all required passwords
+    // This is done before helm install so the chart uses existing secret
+    sh """
+        export PATH="\$HOME/.local/bin:\$PATH"
+
+        # Delete existing secret if any
+        oc delete secret pmm-secret -n ${params.namespace} 2>/dev/null || true
+
+        # Create pmm-secret with all required passwords
+        oc create secret generic pmm-secret -n ${params.namespace} \\
+            --from-literal=PMM_ADMIN_PASSWORD='${adminPassword}' \\
+            --from-literal=PG_ADMIN_PASSWORD='${adminPassword}' \\
+            --from-literal=CH_ADMIN_PASSWORD='${adminPassword}' \\
+            --from-literal=GRAFANA_ADMIN_PASSWORD='${adminPassword}' \\
+            --from-literal=VM_ADMIN_PASSWORD='${adminPassword}'
+
+        echo "Pre-created pmm-secret with admin passwords"
     """
 
     // Clone percona-helm-charts
@@ -755,7 +821,7 @@ def installPmm(Map config = [:]) {
             https://github.com/percona/percona-helm-charts.git ${chartsDir}
     """
 
-    // Install Helm if not available
+    // Install Helm if not available and add required repos
     sh '''
         export PATH="$HOME/.local/bin:$PATH"
         if ! command -v helm &>/dev/null; then
@@ -763,7 +829,22 @@ def installPmm(Map config = [:]) {
             curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
         fi
         helm version
+
+        # Add required helm repos for PMM HA dependencies
+        helm repo add percona https://percona.github.io/percona-helm-charts/ || true
+        helm repo add vm https://victoriametrics.github.io/helm-charts/ || true
+        helm repo add altinity https://docs.altinity.com/helm-charts/ || true
+        helm repo add haproxytech https://haproxytech.github.io/helm-charts/ || true
+        helm repo update
     '''
+
+    // Update chart dependencies (download sub-charts)
+    echo 'Updating chart dependencies...'
+    sh """
+        export PATH="\$HOME/.local/bin:\$PATH"
+        helm dependency update ${chartsDir}/charts/pmm-ha-dependencies
+        helm dependency update ${chartsDir}/charts/pmm-ha
+    """
 
     // Install pmm-ha-dependencies
     echo 'Installing PMM HA dependencies...'
@@ -788,7 +869,8 @@ def installPmm(Map config = [:]) {
             --namespace ${params.namespace} \\
             --set image.repository=${params.imageRepository} \\
             --set image.tag=${params.imageTag} \\
-            --set secret.pmm_password='${adminPassword}' \\
+            --set secret.create=false \\
+            --set secret.name=pmm-secret \\
             --set persistence.size=${params.pmmStorageSize} \\
             --set persistence.storageClassName=${params.storageClass} \\
             --wait --timeout 15m
