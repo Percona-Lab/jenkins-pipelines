@@ -306,25 +306,22 @@ def createCluster(Map config) {
     if (!oidcConfigId) {
         echo 'Looking up existing OIDC config...'
         oidcConfigId = sh(
-            script: '''
-                export PATH="$HOME/.local/bin:$PATH"
+            script: """
+                export PATH="\$HOME/.local/bin:\$PATH"
+                export AWS_DEFAULT_REGION=${params.region}
                 rosa list oidc-config -o json 2>/dev/null | jq -r '.[0].id // empty'
-            ''',
+            """,
             returnStdout: true
         ).trim()
 
         if (!oidcConfigId) {
             echo 'No OIDC config found. Creating one...'
-            sh """
-                export PATH="\$HOME/.local/bin:\$PATH"
-                export AWS_DEFAULT_REGION=${params.region}
-                rosa create oidc-config --mode=auto --yes
-            """
             oidcConfigId = sh(
-                script: '''
-                    export PATH="$HOME/.local/bin:$PATH"
-                    rosa list oidc-config -o json 2>/dev/null | jq -r '.[0].id'
-                ''',
+                script: """
+                    export PATH="\$HOME/.local/bin:\$PATH"
+                    export AWS_DEFAULT_REGION=${params.region}
+                    rosa create oidc-config --mode=auto --yes -o json | jq -r '.id'
+                """,
                 returnStdout: true
             ).trim()
         }
