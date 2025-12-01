@@ -286,23 +286,24 @@ To access via CLI:
         }
         failure {
             script {
-                echo 'Pipeline failed. Attempting cleanup...'
+                echo 'Pipeline failed. Cluster cleanup is DISABLED for debugging.'
+                echo "Cluster ${env.CLUSTER_NAME} may still be running - use cleanup job to delete."
 
-                // Try to delete the cluster if it was created
-                try {
-                    withCredentials([
-                        aws(credentialsId: 'pmm-staging-slave'),
-                        string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
-                    ]) {
-                        pmmHaRosa.login([token: env.ROSA_TOKEN])
-                        pmmHaRosa.deleteCluster([
-                            clusterName: env.CLUSTER_NAME
-                        ])
-                    }
-                } catch (Exception e) {
-                    echo "Cleanup failed: ${e.message}"
-                    echo 'Manual cleanup may be required.'
-                }
+            // NOTE: Cleanup disabled for debugging. Re-enable when pipeline is stable:
+            // try {
+            //     withCredentials([
+            //         aws(credentialsId: 'pmm-staging-slave'),
+            //         string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
+            //     ]) {
+            //         pmmHaRosa.login([token: env.ROSA_TOKEN])
+            //         pmmHaRosa.deleteCluster([
+            //             clusterName: env.CLUSTER_NAME
+            //         ])
+            //     }
+            // } catch (Exception e) {
+            //     echo "Cleanup failed: ${e.message}"
+            //     echo 'Manual cleanup may be required.'
+            // }
             }
         }
     }
