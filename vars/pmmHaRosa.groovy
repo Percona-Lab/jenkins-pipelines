@@ -777,6 +777,7 @@ users:
   - system:serviceaccount:${params.namespace}:pmm-ha-pg-db
   - system:serviceaccount:${params.namespace}:pmm-ha-pmmdb
   - system:serviceaccount:${params.namespace}:pmm-ha-vmagent
+  - system:serviceaccount:${params.namespace}:pmm-ha-secret-generator
   - system:serviceaccount:${params.namespace}:pmm-ha-dependencies-altinity-clickhouse-operator
   - system:serviceaccount:${params.namespace}:pmm-ha-dependencies-pg-operator
   - system:serviceaccount:${params.namespace}:pmm-ha-dependencies-victoria-metrics-operator
