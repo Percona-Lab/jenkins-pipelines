@@ -191,7 +191,7 @@ pipeline {
                         }
 
                         // Sort by creation time (newest first) and optionally skip newest
-                        clusters = clusters.sort { a, b -> b.createdAt <=> a.createdAt }
+                        clusters = clusters.toSorted { a, b -> b.createdAt <=> a.createdAt }
 
                         if (params.SKIP_NEWEST && clusters.size() > 1) {
                             def skipped = clusters[0]
