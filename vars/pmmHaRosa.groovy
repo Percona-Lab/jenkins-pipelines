@@ -43,17 +43,18 @@
 
 import groovy.json.JsonBuilder
 import groovy.json.JsonSlurper
+import groovy.transform.Field
 
 // ============================================================================
 // Configuration Constants
 // ============================================================================
 
-def CLUSTER_PREFIX = 'pmm-ha-rosa-'
-def DEFAULT_REGION = 'us-east-2'
-def DEFAULT_OPENSHIFT_VERSION = '4.16'
-def DEFAULT_INSTANCE_TYPE = 'm5.xlarge'
-def DEFAULT_REPLICAS = 3
-def MAX_CLUSTERS = 5
+@Field static final String CLUSTER_PREFIX = 'pmm-ha-rosa-'
+@Field static final String DEFAULT_REGION = 'us-east-2'
+@Field static final String DEFAULT_OPENSHIFT_VERSION = '4.16'
+@Field static final String DEFAULT_INSTANCE_TYPE = 'm5.xlarge'
+@Field static final int DEFAULT_REPLICAS = 3
+@Field static final int MAX_CLUSTERS = 5
 
 // ============================================================================
 // Tool Installation
