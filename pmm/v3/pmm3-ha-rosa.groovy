@@ -165,13 +165,18 @@ pipeline {
 
         stage('Install PMM HA') {
             steps {
-                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
+                withCredentials([
+                    aws(credentialsId: 'pmm-staging-slave'),
+                    usernamePassword(credentialsId: 'hub.docker.com', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASSWORD')
+                ]) {
                     script {
                         def pmmInfo = pmmHaRosa.installPmm([
                             namespace: env.PMM_NAMESPACE,
                             chartBranch: params.HELM_CHART_BRANCH,
                             imageTag: params.PMM_IMAGE_TAG,
-                            imageRepository: params.PMM_IMAGE_REPOSITORY
+                            imageRepository: params.PMM_IMAGE_REPOSITORY,
+                            dockerHubUser: env.DOCKERHUB_USER,
+                            dockerHubPassword: env.DOCKERHUB_PASSWORD
                         ])
 
                         env.PMM_ADMIN_PASSWORD = pmmInfo.adminPassword
