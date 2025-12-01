@@ -301,11 +301,41 @@ def createCluster(Map config) {
         echo "Resolved version: ${resolvedVersion}"
     }
 
+    // Get OIDC config ID (required for HCP)
+    def oidcConfigId = params.oidcConfigId
+    if (!oidcConfigId) {
+        echo 'Looking up existing OIDC config...'
+        oidcConfigId = sh(
+            script: '''
+                export PATH="$HOME/.local/bin:$PATH"
+                rosa list oidc-config -o json 2>/dev/null | jq -r '.[0].id // empty'
+            ''',
+            returnStdout: true
+        ).trim()
+
+        if (!oidcConfigId) {
+            echo 'No OIDC config found. Creating one...'
+            sh '''
+                export PATH="$HOME/.local/bin:$PATH"
+                rosa create oidc-config --mode=auto --yes
+            '''
+            oidcConfigId = sh(
+                script: '''
+                    export PATH="$HOME/.local/bin:$PATH"
+                    rosa list oidc-config -o json 2>/dev/null | jq -r '.[0].id'
+                ''',
+                returnStdout: true
+            ).trim()
+        }
+        echo "Using OIDC config ID: ${oidcConfigId}"
+    }
+
     echo "Creating ROSA HCP cluster: ${fullClusterName}"
     echo "  Region: ${params.region}"
     echo "  OpenShift Version: ${resolvedVersion}"
     echo "  Worker Replicas: ${params.replicas}"
     echo "  Instance Type: ${params.instanceType}"
+    echo "  OIDC Config ID: ${oidcConfigId}"
 
     // Build rosa create cluster command
     def createCmd = """
@@ -317,6 +347,7 @@ def createCluster(Map config) {
             --version=${resolvedVersion} \\
             --replicas=${params.replicas} \\
             --compute-machine-type=${params.instanceType} \\
+            --oidc-config-id=${oidcConfigId} \\
             --hosted-cp \\
             --sts \\
             --mode=auto \\
