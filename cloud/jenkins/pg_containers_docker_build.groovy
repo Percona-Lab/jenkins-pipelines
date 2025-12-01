@@ -1,6 +1,6 @@
 void buildUpgrade(String IMAGE_POSTFIX){
     sh """
-        PG_VER='17'
+        PG_VER='18'
         IMAGE_POSTFIX='upgrade'
         cd ./source/
         docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} --build-arg PGO_TAG=${GIT_PD_BRANCH} \
@@ -22,7 +22,7 @@ void checkImageForDocker(String IMAGE_SUFFIX){
                             snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
                                 --severity-threshold=high --json-file-output=\${IMAGE_SUFFIX}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
                     else
-                        for PG_VER in 17 16 15 14 13; do
+                        for PG_VER in 18 17 16 15 14 13; do
                                 PATH_TO_DOCKERFILE="source/percona-distribution-postgresql-\${PG_VER}"
                                 IMAGE_TAG="${GIT_PD_BRANCH}-ppg\${PG_VER}-\${IMAGE_SUFFIX}"
                                 if [ ${IMAGE_SUFFIX} = pgbackrest ]; then
@@ -49,7 +49,7 @@ void checkImageForDocker(String IMAGE_SUFFIX){
          echo "Executing post actions..."
          sh """
              IMAGE_SUFFIX=${IMAGE_SUFFIX}
-             for PG_VER in 17 16 15 14 13; do
+             for PG_VER in 18 17 16 15 14 13; do
                  if [ -f \${IMAGE_SUFFIX}-\${PG_VER}-report.json ]; then
                      snyk-to-html -i \${IMAGE_SUFFIX}-\${PG_VER}-report.json -o \${IMAGE_SUFFIX}-\${PG_VER}-report.html
                  fi
@@ -86,7 +86,7 @@ void pushUpgradeImageToDockerHub(String IMAGE_POSTFIX){
 void build(String IMAGE_POSTFIX){
     sh """
         cd ./source/
-        for PG_VER in 17 16 15 14 13; do
+        for PG_VER in 18 17 16 15 14 13; do
             if [ ${IMAGE_POSTFIX} = pgbouncer ]; then
                 docker build --no-cache --squash --build-arg PG_VERSION=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=${GIT_PD_BRANCH} \
                   -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}\${PG_VER} \
@@ -118,7 +118,7 @@ void pushImageToDockerHub(String IMAGE_POSTFIX){
                     IMAGE_NAME='percona-postgresql-operator'
                     docker login -u '${USER}' -p '${PASS}'
                     aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR
-                    for PG_VER in 17 16 15 14 13; do
+                    for PG_VER in 18 17 16 15 14 13; do
                         if [ \\${SOME_IMAGE_POSTFIX} = pgbouncer ] || [ \\${SOME_IMAGE_POSTFIX} = pgbackrest ]; then
                             docker push perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}
                             echo "perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}" >> list-of-images.txt
