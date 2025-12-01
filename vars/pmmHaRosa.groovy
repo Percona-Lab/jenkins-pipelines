@@ -200,6 +200,7 @@ def installOcCli(Map config = [:]) {
  *
  * @param config Map containing:
  *   - token: Red Hat offline token (required)
+ *   - region: AWS region (optional, default: 'us-east-2')
  *
  * @return boolean true if login successful
  */
@@ -208,11 +209,14 @@ def login(Map config) {
         error 'Red Hat offline token is required for ROSA login'
     }
 
+    def region = config.region ?: 'us-east-2'
+
     echo 'Logging into ROSA...'
 
     def result = sh(
         script: """
             export PATH="\$HOME/.local/bin:\$PATH"
+            export AWS_DEFAULT_REGION=${region}
             rosa login --token='${config.token}'
             rosa whoami
         """,

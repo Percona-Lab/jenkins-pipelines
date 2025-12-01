@@ -70,10 +70,14 @@ pipeline {
 
         stage('Login to ROSA') {
             steps {
-                withCredentials([string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')]) {
+                withCredentials([
+                    aws(credentialsId: 'pmm-staging-slave'),
+                    string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
+                ]) {
                     script {
                         pmmHaRosa.login([
-                            token: env.ROSA_TOKEN
+                            token: env.ROSA_TOKEN,
+                            region: env.REGION
                         ])
                     }
                 }
