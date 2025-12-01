@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@feature/pmm-ha-rosa', retriever: mode
 
 pipeline {
     agent {
-        label 'cli'
+        label 'agent-amd64-ol9'
     }
 
     parameters {

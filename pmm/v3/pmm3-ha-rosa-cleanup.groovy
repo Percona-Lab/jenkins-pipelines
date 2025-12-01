@@ -1,6 +1,11 @@
+library changelog: false, identifier: 'lib@feature/pmm-ha-rosa', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines'
+])
+
 pipeline {
     agent {
-        label 'cli'
+        label 'agent-amd64-ol9'
     }
 
     triggers {
