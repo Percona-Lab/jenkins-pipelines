@@ -191,9 +191,10 @@ pipeline {
                         }
 
                         // Sort by creation time (newest first)
-                        // Note: createdAt is ISO 8601 format which sorts correctly as strings
-                        // Use sortBy with negative comparison for descending order
-                        clusters = clusters.sort { -Date.parse("yyyy-MM-dd'T'HH:mm:ss'Z'", it.createdAt).time }
+                        // ISO 8601 dates sort correctly as strings (lexicographic order)
+                        // Sort ascending then reverse for descending (newest first)
+                        clusters = clusters.sort { a, b -> a.createdAt <=> b.createdAt }
+                        clusters = clusters.reverse()
 
                         echo 'Sorted clusters (newest first):'
                         clusters.each { c -> echo "  - ${c.name}: ${c.createdAt}" }
