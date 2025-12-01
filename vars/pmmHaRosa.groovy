@@ -337,9 +337,12 @@ def createCluster(Map config) {
 
     // Get subnet IDs - create VPC if not provided
     def subnetIds = params.subnetIds
+    def vpcCidr = params.machineCidr ?: '10.0.0.0/16'  // Default CIDR
     if (!subnetIds) {
         echo 'Creating VPC network stack for ROSA HCP...'
         def stackName = "${fullClusterName}-vpc"
+        def buildNum = (env.BUILD_NUMBER as int) % 250
+        vpcCidr = "10.${buildNum}.0.0/16"
 
         sh """
             export PATH="\$HOME/.local/bin:\$PATH"
@@ -349,7 +352,7 @@ def createCluster(Map config) {
                 --param Region=${params.region} \\
                 --param Name=${stackName} \\
                 --param AvailabilityZoneCount=1 \\
-                --param VpcCidr=10.${(env.BUILD_NUMBER as int) % 250}.0.0/16 \\
+                --param VpcCidr=${vpcCidr} \\
                 --mode=auto \\
                 --yes
         """
@@ -363,6 +366,7 @@ def createCluster(Map config) {
         ).trim()
 
         echo "Created VPC with subnets: ${subnetIds}"
+        echo "VPC CIDR: ${vpcCidr}"
     }
 
     // Build rosa create cluster command
@@ -377,6 +381,7 @@ def createCluster(Map config) {
             --compute-machine-type=${params.instanceType} \\
             --oidc-config-id=${oidcConfigId} \\
             --subnet-ids=${subnetIds} \\
+            --machine-cidr=${vpcCidr} \\
             --hosted-cp \\
             --sts \\
             --mode=auto \\
