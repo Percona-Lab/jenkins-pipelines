@@ -702,6 +702,9 @@ def listClusters(Map config = [:]) {
         ]
     }
 
+    // Sort by createdAt (newest first) - ISO 8601 format sorts correctly as strings
+    result.sort { a, b -> b.createdAt <=> a.createdAt }
+
     echo "Found ${result.size()} PMM HA ROSA cluster(s)"
     return result
 }

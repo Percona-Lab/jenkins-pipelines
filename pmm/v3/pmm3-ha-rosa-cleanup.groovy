@@ -190,13 +190,8 @@ pipeline {
                             return
                         }
 
-                        // Sort by creation time (newest first)
-                        // ISO 8601 dates sort correctly as strings (lexicographic order)
-                        // Use descending comparator directly (b <=> a for descending)
-                        def sortedList = clusters.toSorted { a, b -> b.createdAt <=> a.createdAt }
-                        clusters = sortedList
-
-                        echo 'Sorted clusters (newest first):'
+                        // listClusters already returns clusters sorted by createdAt (newest first)
+                        echo 'Clusters (newest first):'
                         clusters.each { c -> echo "  - ${c.name}: ${c.createdAt}" }
 
                         // Optionally skip newest cluster
