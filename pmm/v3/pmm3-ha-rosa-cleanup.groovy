@@ -15,18 +15,23 @@ pipeline {
     parameters {
         choice(
             name: 'ACTION',
-            choices: ['LIST_ONLY', 'DELETE_CLUSTER', 'DELETE_ALL'],
+            choices: ['LIST_ONLY', 'DELETE_CLUSTERS', 'DELETE_ALL'],
             description: '''
                 LIST_ONLY - list all PMM HA ROSA clusters<br/>
-                DELETE_CLUSTER - delete a specific cluster (requires CLUSTER_NAME)<br/>
+                DELETE_CLUSTERS - delete specific clusters (comma-separated list)<br/>
                 DELETE_ALL - delete all PMM HA ROSA clusters<br/><br/>
                 Note: Daily cron automatically deletes clusters older than 1 day.
             '''
         )
         string(
-            name: 'CLUSTER_NAME',
+            name: 'CLUSTER_NAMES',
             defaultValue: '',
-            description: 'Required only for DELETE_CLUSTER action'
+            description: 'Comma-separated list of cluster names to delete (e.g., pmm-ha-rosa-23,pmm-ha-rosa-24)'
+        )
+        booleanParam(
+            name: 'SKIP_NEWEST',
+            defaultValue: true,
+            description: 'Skip the most recently created cluster (useful when a new cluster is being created)'
         )
     }
 
@@ -78,12 +83,18 @@ pipeline {
                         echo "Manual run with ACTION=${params.ACTION}"
                     }
 
-                    if (env.ACTION == 'DELETE_CLUSTER' && !params.CLUSTER_NAME) {
-                        error('CLUSTER_NAME is required for DELETE_CLUSTER action.')
+                    if (env.ACTION == 'DELETE_CLUSTERS' && !params.CLUSTER_NAMES?.trim()) {
+                        error('CLUSTER_NAMES is required for DELETE_CLUSTERS action.')
                     }
 
-                    if (params.CLUSTER_NAME && !params.CLUSTER_NAME.startsWith(env.CLUSTER_PREFIX)) {
-                        error("Cluster name must start with ${env.CLUSTER_PREFIX}")
+                    // Validate cluster names if provided
+                    if (params.CLUSTER_NAMES?.trim()) {
+                        def names = params.CLUSTER_NAMES.split(',').collect { it.trim() }
+                        names.each { name ->
+                            if (!name.startsWith(env.CLUSTER_PREFIX)) {
+                                error("Cluster name '${name}' must start with ${env.CLUSTER_PREFIX}")
+                            }
+                        }
                     }
                 }
             }
@@ -122,31 +133,41 @@ pipeline {
             }
         }
 
-        stage('Delete Cluster') {
-            when { expression { env.ACTION == 'DELETE_CLUSTER' } }
+        stage('Delete Clusters') {
+            when { expression { env.ACTION == 'DELETE_CLUSTERS' } }
             steps {
                 withCredentials([
                     aws(credentialsId: 'pmm-staging-slave'),
                     string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
                 ]) {
                     script {
-                        echo "Deleting cluster: ${params.CLUSTER_NAME}"
+                        def clusterNames = params.CLUSTER_NAMES.split(',').collect { it.trim() }
+                        echo "Deleting ${clusterNames.size()} cluster(s): ${clusterNames.join(', ')}"
 
-                        // Delete Route53 record first
-                        try {
-                            pmmHaRosa.deleteRoute53Record([
-                                domain: "${params.CLUSTER_NAME}.${env.R53_ZONE_NAME}"
-                            ])
-                        } catch (Exception e) {
-                            echo "Warning: Could not delete Route53 record: ${e.message}"
+                        clusterNames.each { clusterName ->
+                            echo "Deleting cluster: ${clusterName}"
+
+                            // Delete Route53 record first
+                            try {
+                                pmmHaRosa.deleteRoute53Record([
+                                    domain: "${clusterName}.${env.R53_ZONE_NAME}"
+                                ])
+                            } catch (Exception e) {
+                                echo "Warning: Could not delete Route53 record for ${clusterName}: ${e.message}"
+                            }
+
+                            // Delete the ROSA cluster
+                            try {
+                                pmmHaRosa.deleteCluster([
+                                    clusterName: clusterName
+                                ])
+                                echo "Cluster ${clusterName} deletion initiated."
+                            } catch (Exception e) {
+                                echo "Error deleting ${clusterName}: ${e.message}"
+                            }
                         }
 
-                        // Delete the ROSA cluster
-                        pmmHaRosa.deleteCluster([
-                            clusterName: params.CLUSTER_NAME
-                        ])
-
-                        echo "Cluster ${params.CLUSTER_NAME} deleted successfully."
+                        echo 'All specified clusters deletion initiated.'
                     }
                 }
             }
@@ -166,6 +187,20 @@ pipeline {
 
                         if (clusters.isEmpty()) {
                             echo "No clusters found with prefix '${env.CLUSTER_PREFIX}'."
+                            return
+                        }
+
+                        // Sort by creation time (newest first) and optionally skip newest
+                        clusters = clusters.sort { a, b -> b.createdAt <=> a.createdAt }
+
+                        if (params.SKIP_NEWEST && clusters.size() > 1) {
+                            def skipped = clusters[0]
+                            echo "Skipping newest cluster: ${skipped.name} (created: ${skipped.createdAt})"
+                            clusters = clusters.drop(1)
+                        }
+
+                        if (clusters.isEmpty()) {
+                            echo 'No clusters to delete after applying filters.'
                             return
                         }
 
