@@ -343,6 +343,7 @@ def createCluster(Map config) {
 
         sh """
             export PATH="\$HOME/.local/bin:\$PATH"
+            export AWS_DEFAULT_REGION=${params.region}
 
             rosa create network rosa-quickstart-default-vpc \\
                 --param Region=${params.region} \\
