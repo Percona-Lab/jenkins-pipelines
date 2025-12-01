@@ -394,6 +394,7 @@ def createCluster(Map config) {
 
     sh """
         export PATH="\$HOME/.local/bin:\$PATH"
+        export AWS_DEFAULT_REGION=${params.region}
 
         # Wait for cluster to be ready
         rosa wait --cluster=${fullClusterName} --timeout=30m
@@ -406,6 +407,7 @@ def createCluster(Map config) {
     def clusterId = sh(
         script: """
             export PATH="\$HOME/.local/bin:\$PATH"
+            export AWS_DEFAULT_REGION=${params.region}
             rosa describe cluster --cluster=${fullClusterName} -o json | jq -r '.id'
         """,
         returnStdout: true
@@ -414,6 +416,7 @@ def createCluster(Map config) {
     def apiUrl = sh(
         script: """
             export PATH="\$HOME/.local/bin:\$PATH"
+            export AWS_DEFAULT_REGION=${params.region}
             rosa describe cluster --cluster=${fullClusterName} -o json | jq -r '.api.url'
         """,
         returnStdout: true
@@ -422,6 +425,7 @@ def createCluster(Map config) {
     def consoleUrl = sh(
         script: """
             export PATH="\$HOME/.local/bin:\$PATH"
+            export AWS_DEFAULT_REGION=${params.region}
             rosa describe cluster --cluster=${fullClusterName} -o json | jq -r '.console.url'
         """,
         returnStdout: true
@@ -541,12 +545,14 @@ def deleteCluster(Map config) {
         deleteOperatorRoles: true
     ] + config
 
+    def region = params.region ?: DEFAULT_REGION
     echo "Deleting ROSA cluster: ${params.clusterName}"
 
     // Get cluster ID before deletion (needed for OIDC/operator-roles cleanup)
     def clusterId = sh(
         script: """
             export PATH="\$HOME/.local/bin:\$PATH"
+            export AWS_DEFAULT_REGION=${region}
             rosa describe cluster --cluster=${params.clusterName} -o json 2>/dev/null | jq -r '.id' || echo ''
         """,
         returnStdout: true
@@ -555,6 +561,7 @@ def deleteCluster(Map config) {
     // Delete the cluster
     sh """
         export PATH="\$HOME/.local/bin:\$PATH"
+        export AWS_DEFAULT_REGION=${region}
 
         rosa delete cluster \\
             --cluster=${params.clusterName} \\
@@ -567,6 +574,7 @@ def deleteCluster(Map config) {
         echo "Cleaning up OIDC provider for cluster ID: ${clusterId}"
         sh """
             export PATH="\$HOME/.local/bin:\$PATH"
+            export AWS_DEFAULT_REGION=${region}
             rosa delete oidc-provider -c ${clusterId} --mode auto --yes || true
         """
     }
@@ -576,13 +584,13 @@ def deleteCluster(Map config) {
         echo "Cleaning up operator roles for cluster ID: ${clusterId}"
         sh """
             export PATH="\$HOME/.local/bin:\$PATH"
+            export AWS_DEFAULT_REGION=${region}
             rosa delete operator-roles -c ${clusterId} --mode auto --yes || true
         """
     }
 
     // Clean up VPC CloudFormation stack if it exists
     def vpcStackName = "${params.clusterName}-vpc"
-    def region = params.region ?: DEFAULT_REGION
     echo "Checking for VPC stack: ${vpcStackName}"
     sh """
         aws cloudformation delete-stack --stack-name ${vpcStackName} --region ${region} || true
