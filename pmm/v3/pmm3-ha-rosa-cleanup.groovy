@@ -190,14 +190,18 @@ pipeline {
                             return
                         }
 
-                        // Sort by creation time (newest first) using Groovy's sort in place
-                        clusters.sort { a, b -> b.createdAt <=> a.createdAt }
+                        // Sort by creation time (newest first)
+                        // Note: createdAt is ISO 8601 format which sorts correctly as strings
+                        clusters = clusters.sort { it.createdAt }.reverse()
+
+                        echo 'Sorted clusters (newest first):'
+                        clusters.each { c -> echo "  - ${c.name}: ${c.createdAt}" }
 
                         // Optionally skip newest cluster
                         if (params.SKIP_NEWEST && clusters.size() > 1) {
                             def skipped = clusters[0]
                             echo "Skipping newest cluster: ${skipped.name} (created: ${skipped.createdAt})"
-                            clusters = clusters.tail()
+                            clusters = clusters.drop(1)
                         }
 
                         if (clusters.isEmpty()) {
