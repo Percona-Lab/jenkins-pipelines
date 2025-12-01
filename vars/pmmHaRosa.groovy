@@ -348,7 +348,7 @@ def createCluster(Map config) {
                 --param Region=${params.region} \\
                 --param Name=${stackName} \\
                 --param AvailabilityZoneCount=1 \\
-                --param VpcCidr=10.${env.BUILD_NUMBER % 250}.0.0/16 \\
+                --param VpcCidr=10.${(env.BUILD_NUMBER as int) % 250}.0.0/16 \\
                 --mode=auto \\
                 --yes
         """
