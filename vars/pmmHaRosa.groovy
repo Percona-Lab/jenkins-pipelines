@@ -648,13 +648,30 @@ def deleteCluster(Map config) {
 def listClusters(Map config = [:]) {
     echo 'Listing ROSA clusters...'
 
+    // First verify ROSA CLI can reach the API
+    sh """
+        export PATH="\$HOME/.local/bin:\$PATH"
+        echo "Checking ROSA CLI connectivity..."
+        rosa whoami || echo "WARNING: rosa whoami failed"
+    """
+
     def clustersJson = sh(
         script: """
             export PATH="\$HOME/.local/bin:\$PATH"
-            rosa list clusters -o json 2>/dev/null || echo '[]'
+            # Run rosa list clusters and capture output
+            # Show stderr for debugging but still return valid JSON on failure
+            rosa list clusters -o json 2>&1 || echo '[]'
         """,
         returnStdout: true
     ).trim()
+
+    // Handle case where stderr was mixed in with output
+    // Find the first '[' which starts the JSON array
+    def jsonStart = clustersJson.indexOf('[')
+    if (jsonStart > 0) {
+        echo "Debug output before JSON: ${clustersJson.substring(0, jsonStart)}"
+        clustersJson = clustersJson.substring(jsonStart)
+    }
 
     def jsonSlurper = new JsonSlurper()
     def allClusters = jsonSlurper.parseText(clustersJson)
