@@ -648,16 +648,20 @@ def deleteCluster(Map config) {
 def listClusters(Map config = [:]) {
     echo 'Listing ROSA clusters...'
 
+    def region = config.region ?: 'us-east-2'
+
     // First verify ROSA CLI can reach the API
     sh """
         export PATH="\$HOME/.local/bin:\$PATH"
-        echo "Checking ROSA CLI connectivity..."
+        export AWS_DEFAULT_REGION=${region}
+        echo "Checking ROSA CLI connectivity (region: ${region})..."
         rosa whoami || echo "WARNING: rosa whoami failed"
     """
 
     def clustersJson = sh(
         script: """
             export PATH="\$HOME/.local/bin:\$PATH"
+            export AWS_DEFAULT_REGION=${region}
             # Run rosa list clusters and capture output
             # Show stderr for debugging but still return valid JSON on failure
             rosa list clusters -o json 2>&1 || echo '[]'
