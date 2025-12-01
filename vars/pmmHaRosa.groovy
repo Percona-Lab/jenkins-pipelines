@@ -335,6 +335,35 @@ def createCluster(Map config) {
     echo "  Instance Type: ${params.instanceType}"
     echo "  OIDC Config ID: ${oidcConfigId}"
 
+    // Get subnet IDs - create VPC if not provided
+    def subnetIds = params.subnetIds
+    if (!subnetIds) {
+        echo 'Creating VPC network stack for ROSA HCP...'
+        def stackName = "${fullClusterName}-vpc"
+
+        sh """
+            export PATH="\$HOME/.local/bin:\$PATH"
+
+            rosa create network rosa-quickstart-default-vpc \\
+                --param Region=${params.region} \\
+                --param Name=${stackName} \\
+                --param AvailabilityZoneCount=1 \\
+                --param VpcCidr=10.${env.BUILD_NUMBER % 250}.0.0/16 \\
+                --mode=auto \\
+                --yes
+        """
+
+        // Get subnet IDs from CloudFormation stack
+        subnetIds = sh(
+            script: """
+                aws cloudformation describe-stacks --stack-name ${stackName} --region ${params.region} --query "Stacks[0].Outputs[?OutputKey=='PrivateSubnets' || OutputKey=='PublicSubnets'].OutputValue" --output text | tr '\\t' ','
+            """,
+            returnStdout: true
+        ).trim()
+
+        echo "Created VPC with subnets: ${subnetIds}"
+    }
+
     // Build rosa create cluster command
     def createCmd = """
         export PATH="\$HOME/.local/bin:\$PATH"
@@ -346,16 +375,12 @@ def createCluster(Map config) {
             --replicas=${params.replicas} \\
             --compute-machine-type=${params.instanceType} \\
             --oidc-config-id=${oidcConfigId} \\
+            --subnet-ids=${subnetIds} \\
             --hosted-cp \\
             --sts \\
             --mode=auto \\
             --yes
     """
-
-    // Add subnet IDs if provided (for existing VPC)
-    if (params.subnetIds) {
-        createCmd = createCmd.replace('--yes', "--subnet-ids=${params.subnetIds} --yes")
-    }
 
     sh createCmd
 
@@ -548,6 +573,15 @@ def deleteCluster(Map config) {
             rosa delete operator-roles -c ${clusterId} --mode auto --yes || true
         """
     }
+
+    // Clean up VPC CloudFormation stack if it exists
+    def vpcStackName = "${params.clusterName}-vpc"
+    def region = params.region ?: DEFAULT_REGION
+    echo "Checking for VPC stack: ${vpcStackName}"
+    sh """
+        aws cloudformation delete-stack --stack-name ${vpcStackName} --region ${region} || true
+        echo "VPC stack deletion initiated (if it existed)"
+    """
 
     echo "ROSA cluster ${params.clusterName} deleted successfully"
 
