@@ -504,10 +504,10 @@ def configureAccess(Map config) {
             # Create admin user (if not exists)
             rosa create admin --cluster=${config.clusterName} 2>&1 | tee /tmp/rosa-admin-output.txt
 
-            # Extract password from output
+            # Extract password from output - rosa outputs: --password <password>
+            grep -oP '(?<=--password )[^\\s]+' /tmp/rosa-admin-output.txt || \\
             grep -oP '(?<=--password=)[^\\s]+' /tmp/rosa-admin-output.txt || \\
-            grep -oP '(?<=password is )\\S+' /tmp/rosa-admin-output.txt || \\
-            cat /tmp/rosa-admin-output.txt | grep -i password | tail -1 | awk '{print \$NF}'
+            cat /tmp/rosa-admin-output.txt | grep -E 'password [A-Za-z0-9-]+\$' | awk '{print \$NF}'
         """,
         returnStdout: true
     ).trim()
