@@ -539,6 +539,9 @@ pipeline {
                     }
                 }
                 stage('Debian Trixie(13)') {
+                    when {
+                        expression { env.FIPSMODE == 'YES' }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -560,6 +563,9 @@ pipeline {
                     }
                 }
                 stage('Debian Trixie(13) ARM') {
+                    when {
+                        expression { env.FIPSMODE == 'YES' }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
