@@ -53,21 +53,12 @@ pipeline {
                                     docker kill \$(docker ps -a -q) || true
                                     docker rm \$(docker ps -a -q) || true
                                     docker rmi -f \$(docker images -q | uniq) || true
+                                    docker system prune -f
                                     sudo rm -rf ./*
-
-                                    if [ ! -f "/usr/local/bin/docker-compose" ] ; then
-                                        if [ ${params.instance} = "docker-aarch64" ]; then
-                                            sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-aarch64 -o /usr/local/bin/docker-compose
-                                        else
-                                            sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
-                                        fi
-                                        sudo chmod +x /usr/local/bin/docker-compose
-                                    fi
-
                                     git clone https://github.com/Percona-QA/psmdb-testing
                                     cd psmdb-testing
                                     git checkout ${params.TESTING_BRANCH}
-
+                                    sudo apt install -y docker-compose-plugin
                                     cd pbm-functional/pytest
                                     cp $PBM_AWS_S3_YML ./conf/pbm/aws.yaml
                                     cp $PBM_GCS_S3_YML ./conf/pbm/gcs.yaml
@@ -76,10 +67,11 @@ pipeline {
                                     cp $PBM_MINIO_S3_YML ./conf/pbm/aws_minio.yaml
                                     cp $PBM_OSS_YML ./conf/pbm/oss.yaml
                                     if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
-                                    docker-compose build
-                                    docker-compose up -d
-                                    KMS_ID="${KMS_ID}" docker-compose run test pytest -s --junitxml=junit.xml --shard-id=${SHARD} --num-shards=10 \$JENKINS_FLAG ${params.PYTEST_PARAMS} || true
-                                    docker-compose down -v --remove-orphans
+                                    docker compose build easyrsa
+                                    docker compose build
+                                    docker compose up -d
+                                    KMS_ID="${KMS_ID}" docker compose run test pytest -s --junitxml=junit.xml --shard-id=${SHARD} --num-shards=10 \$JENKINS_FLAG ${params.PYTEST_PARAMS} || true
+                                    docker compose down -v --remove-orphans
                                     curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PBM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PBM branch": "${PBM_BRANCH}","PSMDB docker image": "${PSMDB}","instance": "${instance}"}};type=application/json' -i || true
                                 """
                                 }

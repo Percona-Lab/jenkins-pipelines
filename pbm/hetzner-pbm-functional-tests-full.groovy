@@ -57,14 +57,8 @@ pipeline {
                                     docker rm \$(docker ps -a -q) || true
                                     docker rmi -f \$(docker images -q | uniq) || true
                                     sudo rm -rf ./*
-                                    if [ ! -f "/usr/local/bin/docker-compose" ] ; then
-                                        if [ ${params.instance} = "docker-aarch64" ]; then
-                                            sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-aarch64 -o /usr/local/bin/docker-compose
-                                        else
-                                            sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
-                                        fi
-                                        sudo chmod +x /usr/local/bin/docker-compose
-                                    fi
+                                    docker system prune -f
+                                    sudo apt install -y docker-compose-plugin
                                 """ 
                                 git poll: false, branch: params.TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
                                 sh """
@@ -76,10 +70,11 @@ pipeline {
                                     cp $PBM_MINIO_S3_YML ./conf/pbm/aws_minio.yaml
                                     cp $PBM_OSS_YML ./conf/pbm/oss.yaml
                                     if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
-                                    PSMDB=perconalab/percona-server-mongodb:${PSMDB} docker-compose build --no-cache
-                                    docker-compose up -d
-                                    KMS_ID="${KMS_ID}" docker-compose run test pytest -s --junitxml=junit.xml --shard-id=${SHARD} --num-shards=10 \$JENKINS_FLAG ${params.PYTEST_PARAMS} || true
-                                    docker-compose down -v --remove-orphans
+                                    PSMDB=perconalab/percona-server-mongodb:${PSMDB} docker compose build easyrsa
+                                    PSMDB=perconalab/percona-server-mongodb:${PSMDB} docker compose build
+                                    docker compose up -d
+                                    KMS_ID="${KMS_ID}" docker compose run test pytest -s --junitxml=junit.xml --shard-id=${SHARD} --num-shards=10 \$JENKINS_FLAG ${params.PYTEST_PARAMS} || true
+                                    docker compose down -v --remove-orphans
                                     curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PBM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PBM branch": "${PBM_BRANCH}","PSMDB docker image": "percona/percona-server-mongodb:${PSMDB}","instance": "${instance}"}};type=application/json' -i || true
                                 """
                             }
