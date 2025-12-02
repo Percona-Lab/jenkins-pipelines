@@ -80,6 +80,16 @@ pipeline {
             defaultValue: '1',
             description: 'BIN release value',
             name: 'BIN_RELEASE')
+        booleanParam(
+            defaultValue: false,
+            description: "Skips packages for OL10",
+            name: 'SKIP_OL10'
+        )
+        booleanParam(
+            defaultValue: false,
+            description: "Skips packages for Debian 13",
+            name: 'SKIP_TRIXIE'
+        )
         choice(
             choices: 'NO\nYES',
             description: 'Enable fipsmode',
@@ -259,6 +269,9 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 10') {
+                    when {
+                        expression { !env.SKIP_OL10.toBoolean() }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -279,6 +292,9 @@ pipeline {
                     }
                 }
                 stage('Oracle Linux 10 ARM') {
+                    when {
+                        expression { !env.SKIP_OL10.toBoolean() }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -540,7 +556,7 @@ pipeline {
                 }
                 stage('Debian Trixie(13)') {
                     when {
-                        expression { env.FIPSMODE == 'YES' }
+                        expression { !env.SKIP_TRIXIE.toBoolean() }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -564,7 +580,7 @@ pipeline {
                 }
                 stage('Debian Trixie(13) ARM') {
                     when {
-                        expression { env.FIPSMODE == 'YES' }
+                        expression { !env.SKIP_TRIXIE.toBoolean() }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
