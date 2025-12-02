@@ -1,25 +1,27 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@ps84-inno', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 List all_nodes = [
     'ubuntu-noble',
-    'ubuntu-focal',
     'ubuntu-jammy',
     'debian-11',
     'debian-12',
+    'debian-13',
     'oracle-8',
     'oracle-9',
     'rhel-8',
     'rhel-9',
     'rhel-10',
+    'al-2023',
     'rhel-8-arm',
     'rhel-9-arm',
     'rhel-10-arm',
+    'al-2023-arm',
     'debian-11-arm',
     'debian-12-arm',
-    'ubuntu-focal-arm',
+    'debian-13-arm',
     'ubuntu-jammy-arm',
     'ubuntu-noble-arm'
 ]
@@ -62,21 +64,23 @@ pipeline {
             choices: [
                 'all',
                 'ubuntu-noble',
-                'ubuntu-focal',
                 'ubuntu-jammy',
                 'debian-11',
                 'debian-12',
+                'debian-13',
                 'oracle-8',
                 'oracle-9',
                 'rhel-8',
                 'rhel-9',
-                'rhel-10', 
+                'rhel-10',
+                'al-2023', 
                 'rhel-8-arm',
                 'rhel-9-arm',
                 'rhel-10-arm',
+                'al-2023-arm',
                 'debian-11-arm',
                 'debian-12-arm',
-                'ubuntu-focal-arm',
+                'debian-13-arm',
                 'ubuntu-jammy-arm',
                 'ubuntu-noble-arm'
             ],
@@ -183,18 +187,6 @@ pipeline {
                     }
                 }
 
-                stage("Ubuntu Focal") {
-                    when {
-                        expression {
-                            TEST_DISTS.contains("ubuntu-focal")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("ubuntu-focal")
-                    }
-                }
-
                 stage("Ubuntu Jammy") {
                     when {
                         expression {
@@ -228,18 +220,6 @@ pipeline {
 
                     steps {
                         runNodeBuild("ubuntu-jammy-arm")
-                    }
-                }
-
-                stage("Ubuntu Focal ARM") {
-                    when {
-                        expression {
-                            TEST_DISTS.contains("ubuntu-focal-arm")
-                        }
-                    }
-
-                    steps {
-                        runNodeBuild("ubuntu-focal-arm")
                     }
                 }
 
@@ -288,6 +268,30 @@ pipeline {
 
                     steps {
                         runNodeBuild("debian-12-arm")
+                    }
+                }
+
+                stage("Debian Trixie") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("debian-13")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("debian-13")
+                    }
+                }
+
+                stage("Debian Trixie-arm") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("debian-13-arm")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("debian-13-arm")
                     }
                 }
 
@@ -393,6 +397,33 @@ pipeline {
 
                     }
                 }
+
+                stage("AmazonLinux-2023") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("al-2023")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("al-2023")
+
+                    }
+                }
+
+                stage("AmazonLinux-2023-arm") {
+                    when {
+                        expression {
+                            TEST_DISTS.contains("al-2023-arm")
+                        }
+                    }
+
+                    steps {
+                        runNodeBuild("al-2023-arm")
+
+                    }
+                }  
+
             }
         }
     }
