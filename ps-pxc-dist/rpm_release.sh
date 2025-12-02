@@ -37,7 +37,11 @@ for REPOPATH in $REPOPATH_TMP; do
         cd /srv/UPLOAD/${dir}
         #
         # getting the list of RH systems
-        RHVERS=$(ls -1 binary/redhat)
+        if [[ "${PUSHAMAZONLINUX}" == "YES" ]]; then
+            RHVERS=$(ls -1 binary/redhat)
+        else
+            RHVERS=$(ls -1 binary/redhat | grep -v 2023)
+        fi
         #
         # source processing
         if [ -d /srv/UPLOAD/$dir/source/redhat ]; then

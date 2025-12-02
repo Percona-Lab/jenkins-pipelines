@@ -31,6 +31,10 @@ pipeline {
             choices: 'NO\nYES',
             description: 'PRO build',
             name: 'PROBUILD')
+        choice(
+            choices: 'NO\nYES',
+            description: 'Enable if focal packages have to be pushed',
+            name: 'PUSHFOCAL')
         booleanParam(name: 'SKIP_RPM_PUSH', defaultValue: false, description: 'Skip push to RPM repository')
         booleanParam(name: 'SKIP_DEB_PUSH', defaultValue: false, description: 'Skip push to DEB repository')
         booleanParam(name: 'SKIP_REPO_SYNC', defaultValue: false, description: 'Skip sync repos to production')
@@ -161,7 +165,11 @@ ENDSSH
                                     echo "<*> path to repo is "\${REPOPATH}
                                     echo "<*> reprepro binary is "\$(which reprepro)
                                     cd /srv/UPLOAD/${PATH_TO_BUILD}/binary/debian
-                                    CODENAMES=\$(ls -1)
+                                    if [ ${PUSHFOCAL} = YES ]; then
+                                        CODENAMES=\$(ls -1)
+                                    else
+                                        CODENAMES=\$(ls -1 | grep -v focal)
+                                    fi
                                     echo "<*> Distributions are: "\${CODENAMES}
                                     # -------------------------------------> source pushing, it's a bit specific
                                     if [[ ${REMOVE_LOCKFILE} = true ]]; then
