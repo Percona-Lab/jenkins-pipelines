@@ -45,24 +45,14 @@ pipeline {
                                     docker rm \$(docker ps -a -q) || true
                                     docker rmi -f \$(docker images -q | uniq) || true
                                     sudo rm -rf ./*
-                                    if [ ! -f "/usr/local/bin/docker-compose" ] ; then
-                                        if [ ${params.instance} = "docker-64gb-aarch64" ]; then
-                                            sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-aarch64 -o /usr/local/bin/docker-compose
-                                        else 
-                                            sudo curl -SL https://github.com/docker/compose/releases/download/v2.16.0/docker-compose-linux-x86_64 -o /usr/local/bin/docker-compose
-                                        fi
-                                        sudo chmod +x /usr/local/bin/docker-compose
-                                    fi
-
                                     git clone https://github.com/Percona-QA/psmdb-testing
                                     cd psmdb-testing
                                     git checkout ${params.TESTING_BRANCH}
-
                                     cd pbm-functional/pytest
-                                    docker-compose build
-                                    docker-compose up -d
-                                    docker-compose run test pytest -s --junitxml=junit.xml --shard-id=${SHARD} --num-shards=10 -m 'not skip' || true
-                                    docker-compose down -v --remove-orphans
+                                    docker compose build
+                                    docker compose up -d
+                                    docker compose run test pytest -s --junitxml=junit.xml --shard-id=${SHARD} --num-shards=10 -m 'not skip' || true
+                                    docker compose down -v --remove-orphans
                                     curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PBM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PBM branch": "${PBM_BRANCH}","PSMDB docker image": "${PSMDB}","instance": "${instance}"}};type=application/json' -i || true
                                 """
                                 }
