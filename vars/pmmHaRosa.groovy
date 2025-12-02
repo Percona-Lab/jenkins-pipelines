@@ -56,6 +56,11 @@ import groovy.transform.Field
 @Field static final int DEFAULT_REPLICAS = 3
 @Field static final int MAX_CLUSTERS = 5
 
+// ECR Pull-Through Cache configuration (avoids Docker Hub rate limits)
+@Field static final String AWS_ACCOUNT_ID = '119175775298'
+@Field static final String ECR_REGION = 'us-east-2'
+@Field static final String ECR_PREFIX = "${AWS_ACCOUNT_ID}.dkr.ecr.${ECR_REGION}.amazonaws.com/docker-hub"
+
 // ============================================================================
 // Tool Installation
 // ============================================================================
@@ -710,6 +715,67 @@ def listClusters(Map config = [:]) {
 }
 
 // ============================================================================
+// ECR Pull-Through Cache Configuration
+// ============================================================================
+
+/**
+ * Configures ECR pull-through cache access on ROSA cluster.
+ *
+ * ECR pull-through cache proxies Docker Hub images through AWS ECR, avoiding
+ * Docker Hub rate limits. The cache rule and Docker Hub credentials are
+ * pre-configured in AWS Secrets Manager.
+ *
+ * Prerequisites:
+ * - ECR pull-through cache rule created with prefix 'docker-hub'
+ * - Docker Hub credentials stored in Secrets Manager: ecr-pullthroughcache/docker-hub
+ *
+ * @param config Map containing:
+ *   - region: AWS region (optional, default: 'us-east-2')
+ *
+ * @return Map containing:
+ *   - ecrRegistry: ECR registry URL
+ *   - ecrPrefix: Full ECR prefix for image paths
+ */
+def configureEcrPullThrough(Map config = [:]) {
+    def region = config.region ?: ECR_REGION
+
+    echo 'Configuring ECR pull-through cache access...'
+    echo "  ECR Registry: ${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com"
+
+    // Get ECR authorization token and add to ROSA global pull secret
+    sh """
+        export PATH="\$HOME/.local/bin:\$PATH"
+
+        # Get ECR login token (valid for 12 hours)
+        ECR_TOKEN=\$(aws ecr get-login-password --region ${region})
+        ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com"
+
+        # Extract existing global pull secret
+        oc get secret/pull-secret -n openshift-config \\
+            --template='{{index .data ".dockerconfigjson" | base64decode}}' > /tmp/pull-secret.json
+
+        # Add ECR credentials using oc registry login
+        oc registry login --registry="\${ECR_REGISTRY}" \\
+            --auth-basic="AWS:\${ECR_TOKEN}" \\
+            --to=/tmp/pull-secret.json
+
+        # Update the global pull secret
+        oc set data secret/pull-secret -n openshift-config \\
+            --from-file=.dockerconfigjson=/tmp/pull-secret.json
+
+        # Clean up
+        rm -f /tmp/pull-secret.json
+
+        echo "ECR credentials added to global OpenShift pull secret"
+    """
+
+    return [
+        ecrRegistry: "${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com",
+        ecrPrefix: ECR_PREFIX
+    ]
+}
+
+// ============================================================================
 // PMM HA Installation
 // ============================================================================
 
@@ -718,6 +784,7 @@ def listClusters(Map config = [:]) {
  *
  * Deploys PMM in High Availability mode using the pmm-ha Helm chart.
  * This includes:
+ * - Configuring ECR pull-through cache (to avoid Docker Hub rate limits)
  * - Creating namespace with OpenShift SCC permissions
  * - Installing pmm-ha-dependencies (PostgreSQL, ClickHouse, VictoriaMetrics)
  * - Installing pmm-ha
@@ -731,6 +798,9 @@ def listClusters(Map config = [:]) {
  *   - storageClass: StorageClass to use (optional, default: 'gp3-csi')
  *   - dependenciesStorageSize: Storage size for dependencies PVCs (optional, default: '10Gi')
  *   - pmmStorageSize: Storage size for PMM PVC (optional, default: '10Gi')
+ *   - useEcr: Use ECR pull-through cache for Docker Hub images (optional, default: true)
+ *   - dockerHubUser: Docker Hub username (fallback if useEcr=false)
+ *   - dockerHubPassword: Docker Hub password (fallback if useEcr=false)
  *
  * @return Map containing:
  *   - namespace: Namespace where PMM is deployed
@@ -846,10 +916,16 @@ EOF
         echo "Pre-created pmm-secret with all required keys"
     """
 
-    // Add Docker Hub credentials to the global OpenShift pull secret
-    // This is the proper way to avoid rate limiting cluster-wide in OpenShift
-    // Reference: https://access.redhat.com/solutions/6159832
-    if (config.dockerHubUser && config.dockerHubPassword) {
+    // Configure ECR pull-through cache for Docker Hub images
+    // This avoids Docker Hub rate limits by proxying images through AWS ECR
+    def useEcr = params.useEcr != false  // Default to true
+    def ecrPrefix = ECR_PREFIX
+
+    if (useEcr) {
+        configureEcrPullThrough([region: params.region ?: ECR_REGION])
+        echo "Using ECR pull-through cache: ${ecrPrefix}"
+    } else if (config.dockerHubUser && config.dockerHubPassword) {
+        // Fallback to Docker Hub credentials if ECR is disabled
         sh """
             export PATH="\$HOME/.local/bin:\$PATH"
 
@@ -872,7 +948,7 @@ EOF
             echo "Docker Hub credentials added to global OpenShift pull secret"
         """
     } else {
-        echo 'WARNING: Docker Hub credentials not provided. Image pulls may be rate-limited.'
+        echo 'WARNING: Neither ECR nor Docker Hub credentials configured. Image pulls may be rate-limited.'
     }
 
     // Clone helm charts - try theTibi fork first (has PMM-14420), then percona repo
@@ -920,17 +996,35 @@ EOF
     """
 
     // Install pmm-ha-dependencies
+    // Build helm args for dependencies - includes ECR image overrides when using ECR
+    def depsHelmArgs = [
+        "--namespace ${params.namespace}",
+        "--set global.storageClass=${params.storageClass}",
+        "--set postgresql.primary.persistence.size=${params.dependenciesStorageSize}",
+        "--set clickhouse.persistence.size=${params.dependenciesStorageSize}",
+        "--set victoriametrics.server.persistentVolume.size=${params.dependenciesStorageSize}"
+    ]
+
+    // Add ECR image overrides for operators
+    if (useEcr) {
+        depsHelmArgs.addAll([
+            // PostgreSQL Operator
+            "--set pg-operator.operatorImageRepository=${ecrPrefix}/percona/percona-postgresql-operator",
+            // VictoriaMetrics Operator
+            "--set victoria-metrics-operator.image.repository=${ecrPrefix}/victoriametrics/operator",
+            '--set victoria-metrics-operator.image.tag=v0.56.4',
+            // ClickHouse Operator
+            "--set altinity-clickhouse-operator.operator.image.repository=${ecrPrefix}/altinity/clickhouse-operator",
+            "--set altinity-clickhouse-operator.metrics.image.repository=${ecrPrefix}/altinity/metrics-exporter"
+        ])
+    }
+
+    depsHelmArgs.add('--wait --timeout 15m')
+
     echo 'Installing PMM HA dependencies...'
     sh """
         export PATH="\$HOME/.local/bin:\$PATH"
-
-        helm upgrade --install pmm-ha-dependencies ${chartsDir}/charts/pmm-ha-dependencies \\
-            --namespace ${params.namespace} \\
-            --set global.storageClass=${params.storageClass} \\
-            --set postgresql.primary.persistence.size=${params.dependenciesStorageSize} \\
-            --set clickhouse.persistence.size=${params.dependenciesStorageSize} \\
-            --set victoriametrics.server.persistentVolume.size=${params.dependenciesStorageSize} \\
-            --wait --timeout 15m
+        helm upgrade --install pmm-ha-dependencies ${chartsDir}/charts/pmm-ha-dependencies ${depsHelmArgs.join(' ')}
     """
 
     // Install pmm-ha
@@ -945,10 +1039,36 @@ EOF
 
     // Only override image if explicitly provided (chart default has pmm-encryption-rotation)
     if (params.imageRepository?.trim()) {
-        helmArgs.add("--set image.repository=${params.imageRepository}")
+        def imageRepo = params.imageRepository
+        // Prepend ECR prefix if using ECR and not already an ECR path
+        if (useEcr && !imageRepo.startsWith(ecrPrefix)) {
+            imageRepo = "${ecrPrefix}/${imageRepo}"
+        }
+        helmArgs.add("--set image.repository=${imageRepo}")
     }
     if (params.imageTag?.trim()) {
         helmArgs.add("--set image.tag=${params.imageTag}")
+    }
+
+    // Add ECR image overrides for pmm-ha sub-charts
+    if (useEcr) {
+        helmArgs.addAll([
+            // ClickHouse images
+            "--set clickhouse.image.repository=${ecrPrefix}/altinity/clickhouse-server",
+            "--set clickhouse.keeper.image.repository=${ecrPrefix}/clickhouse/clickhouse-keeper",
+            // HAProxy images (note: alpine needs library/ prefix for official images)
+            "--set haproxy.image.repository=${ecrPrefix}/haproxytech/haproxy-alpine",
+            // pg-db sub-chart (PostgreSQL Percona)
+            "--set pg-db.image=${ecrPrefix}/percona/percona-distribution-postgresql:17.6-1",
+            "--set pg-db.proxy.pgBouncer.image=${ecrPrefix}/percona/percona-pgbouncer:1.24.1-1",
+            "--set pg-db.backups.pgbackrest.image=${ecrPrefix}/percona/percona-pgbackrest:2.56.0-1",
+            // VictoriaMetrics components (created by VM Operator)
+            "--set vmcluster.spec.vmselect.image=${ecrPrefix}/victoriametrics/vmselect:v1.110.0-cluster",
+            "--set vmcluster.spec.vminsert.image=${ecrPrefix}/victoriametrics/vminsert:v1.110.0-cluster",
+            "--set vmcluster.spec.vmstorage.image=${ecrPrefix}/victoriametrics/vmstorage:v1.110.0-cluster",
+            "--set vmauth.spec.image=${ecrPrefix}/victoriametrics/vmauth:v1.110.0",
+            "--set vmagent.spec.image=${ecrPrefix}/victoriametrics/vmagent:v1.110.0"
+        ])
     }
 
     helmArgs.add('--wait --timeout 15m')
@@ -1100,12 +1220,12 @@ def deleteRoute53Record(Map config) {
     def zoneId = params.zoneId
     if (!zoneId) {
         zoneId = sh(
-            script: '''
-                aws route53 list-hosted-zones-by-name \\
-                    --dns-name ${params.zoneName} \\
-                    --query "HostedZones[0].Id" \\
+            script: """
+                aws route53 list-hosted-zones-by-name \
+                    --dns-name ${params.zoneName} \
+                    --query "HostedZones[0].Id" \
                     --output text | sed 's|/hostedzone/||'
-            ''',
+            """,
             returnStdout: true
         ).trim()
     }
@@ -1117,12 +1237,12 @@ def deleteRoute53Record(Map config) {
 
     // Get existing record
     def existingRecord = sh(
-        script: '''
-            aws route53 list-resource-record-sets \\
-                --hosted-zone-id ${zoneId} \\
-                --query "ResourceRecordSets[?Name=='${params.domain}.']" \\
+        script: """
+            aws route53 list-resource-record-sets \
+                --hosted-zone-id ${zoneId} \
+                --query "ResourceRecordSets[?Name=='${params.domain}.']" \
                 --output json
-        ''',
+        """,
         returnStdout: true
     ).trim()
 
@@ -1131,28 +1251,26 @@ def deleteRoute53Record(Map config) {
         return
     }
 
-    // Delete the record
-    sh '''
-        # Get record details
-        RECORD_TYPE=\$(echo '${existingRecord}' | jq -r '.[0].Type')
-        RECORD_VALUE=\$(echo '${existingRecord}' | jq -r '.[0].ResourceRecords[0].Value // .[0].AliasTarget.DNSName')
+    // Delete the record using Groovy to build the JSON
+    def recordSet = new JsonSlurper().parseText(existingRecord)[0]
+    def changeBatch = new JsonBuilder([
+        Changes: [[
+            Action: 'DELETE',
+            ResourceRecordSet: recordSet
+        ]]
+    ]).toString()
 
-        # Create change batch for deletion
-        cat > /tmp/route53-delete.json <<EOF
-{
-    "Changes": [{
-        "Action": "DELETE",
-        "ResourceRecordSet": \$(echo '${existingRecord}' | jq '.[0]')
-    }]
-}
-EOF
+    sh """
+        cat > /tmp/route53-delete.json <<'ENDJSON'
+${changeBatch}
+ENDJSON
 
-        aws route53 change-resource-record-sets \\
-            --hosted-zone-id ${zoneId} \\
+        aws route53 change-resource-record-sets \
+            --hosted-zone-id ${zoneId} \
             --change-batch file:///tmp/route53-delete.json || true
 
         rm -f /tmp/route53-delete.json
-    '''
+    """
 
     echo "Route53 record ${params.domain} deleted"
 }
@@ -1185,12 +1303,12 @@ def createRoute53Record(Map config) {
     def zoneId = params.zoneId
     if (!zoneId) {
         zoneId = sh(
-            script: '''
-                aws route53 list-hosted-zones-by-name \\
-                    --dns-name ${params.zoneName} \\
-                    --query "HostedZones[0].Id" \\
+            script: """
+                aws route53 list-hosted-zones-by-name \
+                    --dns-name ${params.zoneName} \
+                    --query "HostedZones[0].Id" \
                     --output text | sed 's|/hostedzone/||'
-            ''',
+            """,
             returnStdout: true
         ).trim()
     }
@@ -1202,27 +1320,30 @@ def createRoute53Record(Map config) {
 
     echo "Creating Route53 CNAME record: ${params.domain} -> ${params.target}"
 
-    sh '''
-        cat > /tmp/route53-change.json <<EOF
-{
-    "Changes": [{
-        "Action": "UPSERT",
-        "ResourceRecordSet": {
-            "Name": "${params.domain}",
-            "Type": "CNAME",
-            "TTL": ${params.ttl},
-            "ResourceRecords": [{"Value": "${params.target}"}]
-        }
-    }]
-}
-EOF
+    // Build change batch JSON in Groovy to avoid shell interpolation issues
+    def changeBatch = new JsonBuilder([
+        Changes: [[
+            Action: 'UPSERT',
+            ResourceRecordSet: [
+                Name: params.domain,
+                Type: 'CNAME',
+                TTL: params.ttl,
+                ResourceRecords: [[Value: params.target]]
+            ]
+        ]]
+    ]).toString()
 
-        aws route53 change-resource-record-sets \\
-            --hosted-zone-id ${zoneId} \\
+    sh """
+        cat > /tmp/route53-change.json <<'ENDJSON'
+${changeBatch}
+ENDJSON
+
+        aws route53 change-resource-record-sets \
+            --hosted-zone-id ${zoneId} \
             --change-batch file:///tmp/route53-change.json
 
         rm -f /tmp/route53-change.json
-    '''
+    """
 
     echo 'Route53 record created successfully'
     return true
