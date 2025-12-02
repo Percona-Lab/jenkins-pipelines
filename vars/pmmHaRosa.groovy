@@ -59,7 +59,7 @@ import groovy.transform.Field
 // ECR Pull-Through Cache configuration (avoids Docker Hub rate limits)
 @Field static final String AWS_ACCOUNT_ID = '119175775298'
 @Field static final String ECR_REGION = 'us-east-2'
-@Field static final String ECR_PREFIX = "${AWS_ACCOUNT_ID}.dkr.ecr.${ECR_REGION}.amazonaws.com/docker-hub"
+@Field static final String ECR_PREFIX = '119175775298.dkr.ecr.us-east-2.amazonaws.com/docker-hub'
 
 // ============================================================================
 // Tool Installation
