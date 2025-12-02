@@ -26,7 +26,7 @@ pipeline {
                         string(name: 'version', value: params.PSMDB_VERSION), 
                         string(name: 'tag', value: params.PSMDB_BRANCH),
                         string(name: 'parallelexecutors', value: '2'),
-                        string(name: 'testsuites', value: 'core,unittests,dbtest,audit,oidc,telemetry,ldapauthz,replica_sets_fcbis_jscore_passthrough')                    
+                        string(name: 'testsuites', value: 'core,unittests,dbtest,audit,oidc,telemetry --jobs=1,ldapauthz||/etc/init.d/slapd start && /etc/init.d/saslauthd start,replica_sets_fcbis_jscore_passthrough')                    
                     ]
                 }
             }
