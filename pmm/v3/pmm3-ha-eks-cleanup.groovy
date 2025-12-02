@@ -10,12 +10,13 @@ pipeline {
     parameters {
         choice(
             name: 'ACTION',
-            choices: ['LIST_ONLY', 'DELETE_CLUSTER', 'DELETE_ALL'],
+            choices: ['LIST_ONLY', 'DELETE_OLD', 'DELETE_CLUSTER', 'DELETE_ALL'],
             description: '''
                 LIST_ONLY - list all test clusters<br/>
+                DELETE_OLD - delete clusters older than 24 hours<br/>
                 DELETE_CLUSTER - delete a specific cluster (requires CLUSTER_NAME)<br/>
                 DELETE_ALL - delete all test clusters<br/><br/>
-                Note: Daily cron automatically deletes clusters older than 1 day.
+                Note: Daily cron automatically runs DELETE_OLD.
             '''
         )
         string(name: 'CLUSTER_NAME', defaultValue: '', description: 'Required only for DELETE_CLUSTER')
@@ -26,8 +27,8 @@ pipeline {
     }
 
     environment {
-        REGION = "us-east-2"
-        CLUSTER_PREFIX = "pmm-ha-test-"
+        REGION = 'us-east-2'
+        CLUSTER_PREFIX = 'pmm-ha-test-'
     }
 
     stages {
@@ -36,14 +37,14 @@ pipeline {
                 script {
                     if (currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause')) {
                         env.ACTION = 'DELETE_OLD'
-                        echo "Triggered by cron - will delete clusters older than 1 day."
+                        echo 'Triggered by cron - will delete clusters older than 1 day.'
                     } else {
                         env.ACTION = params.ACTION
                         echo "Manual run with ACTION=${params.ACTION}"
                     }
 
                     if (env.ACTION == 'DELETE_CLUSTER' && !params.CLUSTER_NAME) {
-                        error("CLUSTER_NAME is required for DELETE_CLUSTER.")
+                        error('CLUSTER_NAME is required for DELETE_CLUSTER.')
                     }
                     if (params.CLUSTER_NAME && !params.CLUSTER_NAME.startsWith(env.CLUSTER_PREFIX)) {
                         error("Cluster name must start with ${env.CLUSTER_PREFIX}")
