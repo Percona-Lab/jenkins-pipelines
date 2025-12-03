@@ -1,5 +1,5 @@
 - job:
-    name: pbm-docker-nightly
+    name: hetzner-pbm-docker-nightly
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -8,9 +8,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+            - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: pbm/pbm-docker-nightly.groovy
-    triggers:
-      - timed: "0 0 * * *"
