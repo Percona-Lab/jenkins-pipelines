@@ -15,7 +15,7 @@ pipeline {
         choice(name: 'PSMDB_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PSMDB_VERSION', defaultValue: '6.0.2-1', description: 'PSMDB version')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
-        choice(name: 'DEBUG', choices: ['no','yes'], description: 'Additionally build debug image')
+        choice(name: 'DEBUG', choices: ['yes', 'no'], description: 'Additionally build debug image')
         choice(name: 'TESTS', choices: ['yes','no'], description: 'Run tests after building')
     }
     options {
@@ -120,8 +120,8 @@ pipeline {
                          docker tag percona-server-mongodb perconalab/percona-server-mongodb:\$MAJ_VER-amd64
                          docker push perconalab/percona-server-mongodb:\$MAJ_VER-amd64
                          if [ ${params.DEBUG} = "yes" ]; then
-                             docker tag percona-server-mongodb-debug perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-debug
-                             docker push perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-debug
+                             docker tag percona-server-mongodb-debug perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-debug-amd64
+                             docker push perconalab/percona-server-mongodb:${params.PSMDB_VERSION}-debug-amd64
                          fi
                      """
                 }
@@ -144,8 +144,8 @@ pipeline {
                          docker tag percona-server-mongodb percona/percona-server-mongodb:\$MAJ_VER-amd64
                          docker push percona/percona-server-mongodb:\$MAJ_VER-amd64
                          if [ ${params.DEBUG} = "yes" ]; then
-                             docker tag percona-server-mongodb-debug percona/percona-server-mongodb:${params.PSMDB_VERSION}-debug
-                             docker push percona/percona-server-mongodb:${params.PSMDB_VERSION}-debug
+                             docker tag percona-server-mongodb-debug percona/percona-server-mongodb:${params.PSMDB_VERSION}-debug-amd64
+                             docker push percona/percona-server-mongodb:${params.PSMDB_VERSION}-debug-amd64
                          fi
                      """
                 }
