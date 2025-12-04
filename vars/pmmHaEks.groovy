@@ -58,57 +58,77 @@ def validateRetentionDays(def retentionDays) {
 }
 
 /**
+ * Clone helm charts from theTibi or percona repo with fallthrough logic.
+ *
+ * Tries theTibi fork first (has PMM-14420 development), then percona repo.
+ * Only accepts a repo if it has both pmm-ha and pmm-ha-dependencies charts.
+ *
+ * @param chartBranch Branch name to clone
+ * @param targetDir   Directory to clone into (default: charts-repo)
+ * @return String name of repo source ('theTibi' or 'percona')
+ */
+def cloneHelmCharts(String chartBranch, String targetDir = 'charts-repo') {
+    def repoSource = sh(
+        script: """
+            set -e
+            TARGET_DIR="${targetDir}"
+            BRANCH="${chartBranch}"
+            rm -rf "\${TARGET_DIR}"
+
+            TIBI_REPO="https://github.com/theTibi/percona-helm-charts.git"
+            PERCONA_REPO="https://github.com/percona/percona-helm-charts.git"
+
+            # Helper to check if required charts exist
+            has_required_charts() {
+                [ -d "\${TARGET_DIR}/charts/pmm-ha" ] && [ -d "\${TARGET_DIR}/charts/pmm-ha-dependencies" ]
+            }
+
+            REPO_SOURCE=""
+
+            # Try theTibi fork first (has PMM-14420 development)
+            if git clone --depth 1 --branch "\${BRANCH}" "\${TIBI_REPO}" "\${TARGET_DIR}" 2>/dev/null; then
+                if has_required_charts; then
+                    REPO_SOURCE="theTibi"
+                else
+                    echo "Branch '\${BRANCH}' found in theTibi but missing required charts, trying percona..." >&2
+                    rm -rf "\${TARGET_DIR}"
+                fi
+            fi
+
+            # Try percona repo if theTibi didn't have branch or charts
+            if [ -z "\${REPO_SOURCE}" ]; then
+                if git clone --depth 1 --branch "\${BRANCH}" "\${PERCONA_REPO}" "\${TARGET_DIR}" 2>/dev/null; then
+                    if has_required_charts; then
+                        REPO_SOURCE="percona"
+                    else
+                        echo "ERROR: Branch '\${BRANCH}' found in percona but missing required charts" >&2
+                        ls -la "\${TARGET_DIR}/charts/" >&2 || true
+                        rm -rf "\${TARGET_DIR}"
+                        exit 1
+                    fi
+                else
+                    echo "ERROR: Branch '\${BRANCH}' not found in theTibi or percona helm chart repos" >&2
+                    exit 1
+                fi
+            fi
+
+            echo "\${REPO_SOURCE}"
+        """,
+        returnStdout: true
+    ).trim()
+
+    return repoSource
+}
+
+/**
  * Validate Helm chart branch exists and contains required charts.
  *
  * @param chartBranch Branch name to validate
  * @return String name of repo source ('theTibi' or 'percona')
  */
 def validateHelmChart(String chartBranch) {
-    def repoSource = sh(
-        script: """
-            set -e
-            rm -rf charts-repo-check
-
-            # Helper to check if required charts exist
-            has_required_charts() {
-                [ -d "charts-repo-check/charts/pmm-ha" ] && [ -d "charts-repo-check/charts/pmm-ha-dependencies" ]
-            }
-
-            REPO_SOURCE=""
-
-            # Try theTibi fork first (has PMM-14420 development)
-            if git clone --depth 1 --branch "${chartBranch}" "https://github.com/theTibi/percona-helm-charts.git" charts-repo-check 2>/dev/null; then
-                if has_required_charts; then
-                    REPO_SOURCE="theTibi"
-                else
-                    echo "Branch '${chartBranch}' found in theTibi but missing required charts, trying percona..." >&2
-                    rm -rf charts-repo-check
-                fi
-            fi
-
-            # Try percona repo if theTibi didn't have branch or charts
-            if [ -z "\$REPO_SOURCE" ]; then
-                if git clone --depth 1 --branch "${chartBranch}" "https://github.com/percona/percona-helm-charts.git" charts-repo-check 2>/dev/null; then
-                    if has_required_charts; then
-                        REPO_SOURCE="percona"
-                    else
-                        echo "ERROR: Branch '${chartBranch}' found in percona but missing required charts" >&2
-                        ls -la charts-repo-check/charts/ >&2 || true
-                        rm -rf charts-repo-check
-                        exit 1
-                    fi
-                else
-                    echo "ERROR: Branch '${chartBranch}' not found in theTibi or percona helm chart repos" >&2
-                    exit 1
-                fi
-            fi
-
-            rm -rf charts-repo-check
-            echo "\$REPO_SOURCE"
-        """,
-        returnStdout: true
-    ).trim()
-
+    def repoSource = cloneHelmCharts(chartBranch, 'charts-repo-check')
+    sh 'rm -rf charts-repo-check'
     echo "Helm charts validated: ${repoSource}/${chartBranch}"
     return repoSource
 }
@@ -449,32 +469,17 @@ def installPmm(Map config) {
     def imageTag = config.imageTag ?: ''
     def adminPassword = config.adminPassword ?: ''
 
+    // Clone helm charts using shared function
+    def repoSource = cloneHelmCharts(chartBranch)
+    writeFile file: '.chart-repo-source', text: repoSource
+    echo "Installing PMM HA from ${repoSource}/${chartBranch}"
+
     sh """
         set -euo pipefail
 
         PMM_NAMESPACE="${namespace}"
-        HELM_CHART_BRANCH="${chartBranch}"
         PMM_IMAGE_TAG="${imageTag}"
         PMM_ADMIN_PASSWORD_INPUT="${adminPassword}"
-
-        # Clean up and clone helm charts
-        # PMM HA charts (pmm-ha + pmm-ha-dependencies) are not yet in percona main.
-        # Try theTibi fork first (has PMM-14420), then percona repo.
-        # TODO: Swap priority once charts are merged to percona/percona-helm-charts main.
-        rm -rf charts-repo
-        TIBI_REPO="https://github.com/theTibi/percona-helm-charts.git"
-        PERCONA_REPO="https://github.com/percona/percona-helm-charts.git"
-
-        if git clone --depth 1 --branch "\${HELM_CHART_BRANCH}" "\${TIBI_REPO}" charts-repo 2>/dev/null; then
-            echo "Cloned from: \${TIBI_REPO}"
-            echo "theTibi" > .chart-repo-source
-        elif git clone --depth 1 --branch "\${HELM_CHART_BRANCH}" "\${PERCONA_REPO}" charts-repo 2>/dev/null; then
-            echo "Cloned from: \${PERCONA_REPO}"
-            echo "percona" > .chart-repo-source
-        else
-            echo "ERROR: Branch \${HELM_CHART_BRANCH} not found in either repository"
-            exit 1
-        fi
 
         # Add required Helm repos
         helm repo add percona https://percona.github.io/percona-helm-charts/ || true
