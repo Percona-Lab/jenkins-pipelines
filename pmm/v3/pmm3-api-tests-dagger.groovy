@@ -109,34 +109,75 @@ pipeline {
 
         stage('Prepare Dagger Engine') {
             steps {
-                // Smart cleanup: only remove unhealthy/stale engines, keep healthy ones
+                // Start engine manually and wait for it to be healthy
+                // This fixes "connecting to engine" hang issue
                 // See: https://github.com/dagger/dagger/issues/7599
                 sh '''
-                    echo "Checking Dagger engine status..."
+                    echo "Preparing Dagger engine..."
                     ENGINE_NAME="dagger-engine-v${DAGGER_VERSION}"
+                    ENGINE_IMAGE="registry.dagger.io/engine:v${DAGGER_VERSION}"
 
-                    # Check if engine is running and healthy
-                    ENGINE_STATUS=$(docker inspect --format='{{.State.Status}}' "${ENGINE_NAME}" 2>/dev/null || echo "not_found")
-                    echo "Engine status: ${ENGINE_STATUS}"
+                    # Always start fresh - remove any existing engine containers
+                    echo "Cleaning up any existing engine containers..."
+                    docker rm -f "${ENGINE_NAME}" 2>/dev/null || true
+                    docker ps -a --filter "name=dagger-engine" -q | xargs -r docker rm -f || true
 
-                    if [ "${ENGINE_STATUS}" = "running" ]; then
-                        echo "Healthy engine found, keeping it"
-                    else
-                        echo "Cleaning up unhealthy/stale engine containers..."
-                        docker rm -f "${ENGINE_NAME}" 2>/dev/null || true
+                    # Pre-pull the engine image
+                    echo "Pre-pulling Dagger engine image..."
+                    docker pull "${ENGINE_IMAGE}" || {
+                        echo "Warning: pre-pull failed, will retry during dagger call"
+                    }
 
-                        # Remove any crashed/exited/restarting engine containers
-                        docker ps -a --filter "name=dagger-engine" --filter "status=exited" -q | xargs -r docker rm -f || true
-                        docker ps -a --filter "name=dagger-engine" --filter "status=created" -q | xargs -r docker rm -f || true
-                        docker ps -a --filter "name=dagger-engine" --filter "status=restarting" -q | xargs -r docker rm -f || true
+                    # Start the engine container manually
+                    echo "Starting Dagger engine container..."
+                    docker run --name "${ENGINE_NAME}" \
+                        -d \
+                        --restart always \
+                        -v /var/lib/dagger \
+                        --privileged \
+                        "${ENGINE_IMAGE}" --debug
 
-                        # Pre-pull the engine image to avoid network issues during dagger call
-                        echo "Pre-pulling Dagger engine image..."
-                        docker pull registry.dagger.io/engine:v${DAGGER_VERSION} || echo "Warning: pre-pull failed, will retry during dagger call"
+                    # Wait for engine to be healthy (gRPC endpoint ready)
+                    echo "Waiting for engine to be ready..."
+                    MAX_WAIT=60
+                    WAIT_COUNT=0
+                    while [ $WAIT_COUNT -lt $MAX_WAIT ]; do
+                        # Check if engine is running
+                        ENGINE_STATUS=$(docker inspect --format='{{.State.Status}}' "${ENGINE_NAME}" 2>/dev/null || echo "not_found")
+                        if [ "${ENGINE_STATUS}" != "running" ]; then
+                            echo "Engine not running, status: ${ENGINE_STATUS}"
+                            docker logs "${ENGINE_NAME}" 2>&1 | tail -20 || true
+                            exit 1
+                        fi
+
+                        # Check if buildkit is ready by looking for the socket
+                        if docker exec "${ENGINE_NAME}" test -S /var/run/buildkit/buildkitd.sock 2>/dev/null; then
+                            echo "Engine is ready (buildkit socket exists)"
+                            break
+                        fi
+
+                        # Alternative: check logs for "running server" message
+                        if docker logs "${ENGINE_NAME}" 2>&1 | grep -q "running server"; then
+                            echo "Engine is ready (server running)"
+                            break
+                        fi
+
+                        echo "Waiting for engine... (${WAIT_COUNT}/${MAX_WAIT})"
+                        sleep 2
+                        WAIT_COUNT=$((WAIT_COUNT + 2))
+                    done
+
+                    if [ $WAIT_COUNT -ge $MAX_WAIT ]; then
+                        echo "ERROR: Engine did not become ready in ${MAX_WAIT} seconds"
+                        docker logs "${ENGINE_NAME}" 2>&1 | tail -50
+                        exit 1
                     fi
 
                     echo "Docker status:"
                     docker ps -a --filter "name=dagger" || true
+
+                    echo "Engine logs:"
+                    docker logs "${ENGINE_NAME}" 2>&1 | tail -20 || true
                 '''
             }
         }
