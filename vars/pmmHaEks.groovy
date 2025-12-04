@@ -283,37 +283,34 @@ def configureAccess(Map config) {
         CLUSTER_NAME="${clusterName}"
         REGION="${region}"
 
+        # Helper function to grant cluster admin access to a principal
+        grant_cluster_admin() {
+            local principal_arn="\$1"
+            aws eks create-access-entry \\
+                --cluster-name "\${CLUSTER_NAME}" \\
+                --region "\${REGION}" \\
+                --principal-arn "\${principal_arn}" || true
+
+            aws eks associate-access-policy \\
+                --cluster-name "\${CLUSTER_NAME}" \\
+                --region "\${REGION}" \\
+                --principal-arn "\${principal_arn}" \\
+                --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \\
+                --access-scope type=cluster || true
+        }
+
         ACCOUNT_ID=\$(aws sts get-caller-identity --query Account --output text)
         echo "AWS Account ID: \${ACCOUNT_ID}"
 
         # Add EKSAdminRole with cluster admin access
-        aws eks create-access-entry \\
-            --cluster-name "\${CLUSTER_NAME}" \\
-            --region "\${REGION}" \\
-            --principal-arn "arn:aws:iam::\${ACCOUNT_ID}:role/EKSAdminRole" || true
-
-        aws eks associate-access-policy \\
-            --cluster-name "\${CLUSTER_NAME}" \\
-            --region "\${REGION}" \\
-            --principal-arn "arn:aws:iam::\${ACCOUNT_ID}:role/EKSAdminRole" \\
-            --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \\
-            --access-scope type=cluster || true
+        echo "Adding EKSAdminRole..."
+        grant_cluster_admin "arn:aws:iam::\${ACCOUNT_ID}:role/EKSAdminRole"
 
         # Add IAM group members dynamically
         USERS=\$(aws iam get-group --group-name ${adminGroupName} --query 'Users[].Arn' --output text 2>/dev/null || echo "")
         for USER_ARN in \${USERS}; do
             echo "Adding access for \${USER_ARN}..."
-            aws eks create-access-entry \\
-                --cluster-name "\${CLUSTER_NAME}" \\
-                --region "\${REGION}" \\
-                --principal-arn "\${USER_ARN}" || true
-
-            aws eks associate-access-policy \\
-                --cluster-name "\${CLUSTER_NAME}" \\
-                --region "\${REGION}" \\
-                --principal-arn "\${USER_ARN}" \\
-                --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \\
-                --access-scope type=cluster || true
+            grant_cluster_admin "\${USER_ARN}"
         done
 
         # Add SSO AdministratorAccess role (discover dynamically)
@@ -323,17 +320,7 @@ def configureAccess(Map config) {
 
         if [ -n "\${SSO_ROLE_ARN}" ] && [ "\${SSO_ROLE_ARN}" != "None" ]; then
             echo "Adding SSO role: \${SSO_ROLE_ARN}"
-            aws eks create-access-entry \\
-                --cluster-name "\${CLUSTER_NAME}" \\
-                --region "\${REGION}" \\
-                --principal-arn "\${SSO_ROLE_ARN}" || true
-
-            aws eks associate-access-policy \\
-                --cluster-name "\${CLUSTER_NAME}" \\
-                --region "\${REGION}" \\
-                --principal-arn "\${SSO_ROLE_ARN}" \\
-                --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \\
-                --access-scope type=cluster || true
+            grant_cluster_admin "\${SSO_ROLE_ARN}"
         else
             echo "No SSO AdministratorAccess role found, skipping"
         fi
