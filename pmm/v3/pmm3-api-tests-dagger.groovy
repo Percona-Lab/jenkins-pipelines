@@ -108,21 +108,33 @@ pipeline {
 
         stage('Prepare Dagger Engine') {
             steps {
-                // Clean up stale Dagger engine containers to prevent connection issues
+                // Smart cleanup: only remove unhealthy/stale engines, keep healthy ones
                 // See: https://github.com/dagger/dagger/issues/7599
                 sh '''
-                    echo "Cleaning up stale Dagger engine containers..."
-                    docker rm -f dagger-engine-v${DAGGER_VERSION} 2>/dev/null || true
+                    echo "Checking Dagger engine status..."
+                    ENGINE_NAME="dagger-engine-v${DAGGER_VERSION}"
 
-                    # Remove any crashed/exited engine containers
-                    docker ps -a --filter "name=dagger-engine" --filter "status=exited" -q | xargs -r docker rm -f || true
-                    docker ps -a --filter "name=dagger-engine" --filter "status=created" -q | xargs -r docker rm -f || true
+                    # Check if engine is running and healthy
+                    ENGINE_STATUS=$(docker inspect --format='{{.State.Status}}' "${ENGINE_NAME}" 2>/dev/null || echo "not_found")
+                    echo "Engine status: ${ENGINE_STATUS}"
 
-                    # Prune dangling volumes that might cause issues
-                    docker volume prune -f 2>/dev/null || true
+                    if [ "${ENGINE_STATUS}" = "running" ]; then
+                        echo "Healthy engine found, keeping it"
+                    else
+                        echo "Cleaning up unhealthy/stale engine containers..."
+                        docker rm -f "${ENGINE_NAME}" 2>/dev/null || true
+
+                        # Remove any crashed/exited/restarting engine containers
+                        docker ps -a --filter "name=dagger-engine" --filter "status=exited" -q | xargs -r docker rm -f || true
+                        docker ps -a --filter "name=dagger-engine" --filter "status=created" -q | xargs -r docker rm -f || true
+                        docker ps -a --filter "name=dagger-engine" --filter "status=restarting" -q | xargs -r docker rm -f || true
+
+                        # Pre-pull the engine image to avoid network issues during dagger call
+                        echo "Pre-pulling Dagger engine image..."
+                        docker pull registry.dagger.io/engine:v${DAGGER_VERSION} || echo "Warning: pre-pull failed, will retry during dagger call"
+                    fi
 
                     echo "Docker status:"
-                    docker info | grep -E "(Server Version|Storage Driver|Cgroup)" || true
                     docker ps -a --filter "name=dagger" || true
                 '''
             }
