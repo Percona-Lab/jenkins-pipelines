@@ -59,7 +59,6 @@ pipeline {
         REGION = 'us-east-2'
         KUBECONFIG = "${WORKSPACE}/kubeconfig/config"
         PMM_NAMESPACE = 'pmm'
-        ACM_CERT_ARN = 'arn:aws:acm:us-east-2:119175775298:certificate/9bd3a0c8-8205-4092-8003-7304ca762143'
         R53_ZONE_NAME = 'cd.percona.com'
         PMM_DOMAIN = "${pmmHaEks.CLUSTER_PREFIX}${BUILD_NUMBER}.${R53_ZONE_NAME}"
     }
@@ -238,10 +237,18 @@ EOF
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     script {
+                        // Dynamically resolve ACM wildcard certificate for the zone
+                        def certArn = pmmHaEks.resolveAcmCertificate(env.R53_ZONE_NAME, env.REGION)
+
+                        if (!certArn) {
+                            error("No valid ACM wildcard certificate found for *.${env.R53_ZONE_NAME}")
+                        }
+                        echo "Resolved ACM certificate: ${certArn}"
+
                         pmmHaEks.createIngress(
                             namespace: env.PMM_NAMESPACE,
                             domain: env.PMM_DOMAIN,
-                            certArn: env.ACM_CERT_ARN,
+                            certArn: certArn,
                             r53ZoneName: env.R53_ZONE_NAME,
                             region: env.REGION
                         )

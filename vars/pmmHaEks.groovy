@@ -6,10 +6,11 @@
  * Sections:
  *   1. Constants
  *   2. Validation Helpers
- *   3. Credential Management
- *   4. EKS Cluster Setup
- *   5. PMM Installation
- *   6. Cluster Lifecycle (list, delete, cleanup)
+ *   3. AWS Resource Resolution
+ *   4. Credential Management
+ *   5. EKS Cluster Setup
+ *   6. PMM Installation
+ *   7. Cluster Lifecycle (list, delete, cleanup)
  *
  * Related:
  *   - Create pipeline: pmm/v3/pmm3-ha-eks.groovy
@@ -136,7 +137,39 @@ def resolveR53ZoneId(String zoneName, String region = 'us-east-2') {
 }
 
 // ============================================
-// 3. CREDENTIAL MANAGEMENT
+// 3. AWS RESOURCE RESOLUTION
+// ============================================
+
+/**
+ * Resolve ACM wildcard certificate ARN for a given zone.
+ *
+ * Finds the first ISSUED wildcard certificate (*.zoneName) in the specified region.
+ *
+ * @param zoneName Route53 zone name (e.g., cd.percona.com)
+ * @param region   AWS region (default: us-east-2)
+ * @return Certificate ARN or empty string if not found
+ */
+def resolveAcmCertificate(String zoneName, String region = 'us-east-2') {
+    def wildcardDomain = "*.${zoneName}"
+    def certArn = sh(
+        script: 'aws acm list-certificates --region "' + region + '" ' +
+                '--certificate-statuses ISSUED ' +
+                '--query "CertificateSummaryList[?DomainName==\\`' + wildcardDomain + '\\`].CertificateArn | [0]" ' +
+                '--output text',
+        returnStdout: true
+    ).trim()
+
+    if (certArn && certArn != 'None') {
+        echo "Resolved ACM certificate for ${wildcardDomain}: ${certArn}"
+        return certArn
+    }
+
+    echo "WARNING: No valid ACM wildcard certificate found for ${wildcardDomain}"
+    return ''
+}
+
+// ============================================
+// 4. CREDENTIAL MANAGEMENT
 // ============================================
 
 /**
@@ -211,7 +244,7 @@ kubectl access:
 }
 
 // ============================================
-// 4. EKS CLUSTER SETUP
+// 5. EKS CLUSTER SETUP
 // ============================================
 
 /**
@@ -382,7 +415,7 @@ EOF
 }
 
 // ============================================
-// 5. PMM INSTALLATION
+// 6. PMM INSTALLATION
 // ============================================
 
 /**
@@ -625,7 +658,7 @@ EOF
 }
 
 // ============================================
-// 6. CLUSTER LIFECYCLE
+// 7. CLUSTER LIFECYCLE
 // ============================================
 
 /**
