@@ -97,6 +97,10 @@ metadata:
     retention-days: "${VALIDATED_RETENTION_DAYS}"
     delete-after: "${DELETE_AFTER_EPOCH}"
 
+vpc:
+  nat:
+    gateway: Single  # Use single NAT gateway to conserve quota (5 per AZ limit)
+
 accessConfig:
   authenticationMode: API
 
