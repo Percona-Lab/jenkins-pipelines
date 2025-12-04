@@ -113,14 +113,14 @@ def validateHelmChart(String chartBranch) {
 def resolveR53ZoneId(String zoneName, String region = 'us-east-2') {
     def zoneId = sh(
         script: """
-            R53_ZONE_IDS=\$(aws route53 list-hosted-zones-by-name \\
+            R53_ZONE_ID=\$(aws route53 list-hosted-zones-by-name \\
                 --dns-name "${zoneName}" \\
                 --query 'HostedZones[?Config.PrivateZone==`false` && Name==`'"${zoneName}"'.`].Id' \\
                 --output text | sed 's|/hostedzone/||g')
 
-            zone_count=\$(echo "\${R53_ZONE_IDS}" | wc -w | tr -d ' ')
-            if [ "\${zone_count}" -eq 1 ] && [ -n "\${R53_ZONE_IDS}" ] && [ "\${R53_ZONE_IDS}" != "None" ]; then
-                echo "\${R53_ZONE_IDS}"
+            zone_count=\$(echo "\${R53_ZONE_ID}" | wc -w | tr -d ' ')
+            if [ "\${zone_count}" -eq 1 ] && [ -n "\${R53_ZONE_ID}" ] && [ "\${R53_ZONE_ID}" != "None" ]; then
+                echo "\${R53_ZONE_ID}"
             else
                 echo ""
             fi
