@@ -5,15 +5,17 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'docker-32gb'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
     }
     parameters {
-        string(name: 'PBM_REPO_CH', defaultValue: 'experimental', description: 'Percona-release repo')
-        string(name: 'PBM_VERSION', defaultValue: '2.0.2-1', description: 'PBM version')
-        string(name: 'TARGET_REPO', defaultValue: 'PerconaLab', description: 'Target repo for docker image, use DockerHub for release only')
+        choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
+        string(name: 'PBM_BRANCH_OR_COMMIT', defaultValue: 'dev', description: 'PBM branch or commit to build from')
+    }
+    triggers {
+        cron('0 0 * * *')
     }
     options {
         disableConcurrentBuilds()
@@ -22,7 +24,7 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                    currentBuild.displayName = "${params.PBM_REPO_CH}-nightly"
+                    currentBuild.displayName = "${params.PBM_BRANCH_OR_COMMIT}-nightly"
                 }
             }
         }
@@ -31,7 +33,7 @@ pipeline {
                 sh """
                     git clone https://github.com/percona/percona-docker
                     cd percona-docker/percona-backup-mongodb
-                    docker build . -t percona-backup-mongodb 
+                    docker build . -f Dockerfile.nightly --build-arg PBM_BRANCH_OR_COMMIT="${params.PBM_BRANCH_OR_COMMIT}" -t percona-backup-mongodb
                     """
             }
         }
@@ -43,9 +45,9 @@ pipeline {
                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
                     wget https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
                     curl https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/docker/trivyignore -o ".trivyignore"
-                        /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
+                    /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-high-junit.xml \
                                          --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-backup-mongodb
-               """
+                    """
             }
             post {
                 always {
@@ -54,9 +56,6 @@ pipeline {
             }
         }
         stage ('Push images to perconalab') {
-            when {
-                environment name: 'TARGET_REPO', value: 'PerconaLab'
-            }
             steps {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                      sh """
@@ -77,13 +76,13 @@ pipeline {
             deleteDir()
         }
         success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Building of PBM nightly repo ${PBM_REPO_CH} succeed")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Building of PBM nightly branch/commit ${params.PBM_BRANCH_OR_COMMIT} succeeded")
         }
         unstable {
-            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: Building of PBM nightly repo ${PBM_REPO_CH} unstable - [${BUILD_URL}testReport/]")
+            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: Building of PBM nightly branch/commit ${params.PBM_BRANCH_OR_COMMIT} unstable - [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: Building of PBM nightly repo ${PBM_REPO_CH} failed - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: Building of PBM nightly branch/commit ${params.PBM_BRANCH_OR_COMMIT} failed - [${BUILD_URL}]")
         }
     }
 }
