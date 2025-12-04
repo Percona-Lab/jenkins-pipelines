@@ -103,6 +103,10 @@ def validateHelmChart(String chartBranch) {
     return repoSource
 }
 
+// ============================================
+// 3. AWS RESOURCE RESOLUTION
+// ============================================
+
 /**
  * Resolve Route53 hosted zone ID from zone name.
  *
@@ -135,10 +139,6 @@ def resolveR53ZoneId(String zoneName, String region = 'us-east-2') {
     }
     return zoneId
 }
-
-// ============================================
-// 3. AWS RESOURCE RESOLUTION
-// ============================================
 
 /**
  * Resolve ACM wildcard certificate ARN for a given zone.
