@@ -28,6 +28,10 @@ pipeline {
         DAGGER_VERSION = '0.19.7'
         DAGGER_BIN = "${WORKSPACE}/.dagger/bin"
         PATH = "${DAGGER_BIN}:${PATH}"
+        // Use ECR-hosted engine image to avoid registry.dagger.io network issues
+        DAGGER_ENGINE_IMAGE = '119175775298.dkr.ecr.us-east-2.amazonaws.com/dagger/engine:v0.19.7'
+        // Tell Dagger CLI to use the pre-started engine container
+        _EXPERIMENTAL_DAGGER_RUNNER_HOST = 'docker-container://dagger-engine-v0.19.7'
     }
 
     parameters {
@@ -115,17 +119,22 @@ pipeline {
                 sh '''
                     echo "Preparing Dagger engine..."
                     ENGINE_NAME="dagger-engine-v${DAGGER_VERSION}"
-                    ENGINE_IMAGE="registry.dagger.io/engine:v${DAGGER_VERSION}"
+                    ENGINE_IMAGE="${DAGGER_ENGINE_IMAGE}"
 
                     # Always start fresh - remove any existing engine containers
                     echo "Cleaning up any existing engine containers..."
                     docker rm -f "${ENGINE_NAME}" 2>/dev/null || true
                     docker ps -a --filter "name=dagger-engine" -q | xargs -r docker rm -f || true
 
-                    # Pre-pull the engine image
-                    echo "Pre-pulling Dagger engine image..."
+                    # Login to ECR to pull the engine image
+                    echo "Logging in to ECR..."
+                    aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 119175775298.dkr.ecr.us-east-2.amazonaws.com
+
+                    # Pre-pull the engine image from ECR
+                    echo "Pre-pulling Dagger engine image from ECR..."
                     docker pull "${ENGINE_IMAGE}" || {
-                        echo "Warning: pre-pull failed, will retry during dagger call"
+                        echo "ERROR: Failed to pull engine image from ECR"
+                        exit 1
                     }
 
                     # Start the engine container manually
