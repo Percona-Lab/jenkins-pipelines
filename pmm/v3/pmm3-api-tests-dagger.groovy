@@ -84,10 +84,11 @@ pipeline {
                 // Clone jenkins-pipelines to get Dagger module
                 checkout scm
 
-                slackSend botUser: true,
-                          channel: '#pmm-notifications',
-                          color: '#0000FF',
-                          message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
+                // Slack disabled during POC development
+                // slackSend botUser: true,
+                //           channel: '#pmm-notifications',
+                //           color: '#0000FF',
+                //           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
 
                 script {
                     // Set envvars OWNER, OWNER_SLACK for notifications
@@ -208,18 +209,19 @@ pipeline {
             '''
         }
 
-        failure {
-            slackSend botUser: true,
-                      channel: '#pmm-notifications',
-                      color: '#FF0000',
-                      message: "[${JOB_NAME}]: build failed, URL: ${BUILD_URL}, owner: @${OWNER}"
-        }
+        // Slack disabled during POC development
+        // failure {
+        //     slackSend botUser: true,
+        //               channel: '#pmm-notifications',
+        //               color: '#FF0000',
+        //               message: "[${JOB_NAME}]: build failed, URL: ${BUILD_URL}, owner: @${OWNER}"
+        // }
 
-        success {
-            slackSend botUser: true,
-                      channel: '#pmm-notifications',
-                      color: '#00FF00',
-                      message: "[${JOB_NAME}]: build finished, URL: ${BUILD_URL}, owner: @${OWNER}"
-        }
+    // success {
+    //     slackSend botUser: true,
+    //               channel: '#pmm-notifications',
+    //               color: '#00FF00',
+    //               message: "[${JOB_NAME}]: build finished, URL: ${BUILD_URL}, owner: @${OWNER}"
+    // }
     }
 }
