@@ -28,8 +28,8 @@ pipeline {
         DAGGER_VERSION = '0.19.7'
         DAGGER_BIN = "${WORKSPACE}/.dagger/bin"
         PATH = "${DAGGER_BIN}:${PATH}"
-        // Use ECR-hosted engine image to avoid registry.dagger.io network issues
-        DAGGER_ENGINE_IMAGE = '119175775298.dkr.ecr.us-east-2.amazonaws.com/dagger/engine:v0.19.7'
+        // Use ECR-hosted engine image (AMD64) to avoid registry.dagger.io network issues
+        DAGGER_ENGINE_IMAGE = '119175775298.dkr.ecr.us-east-2.amazonaws.com/dagger/engine:v0.19.7-amd64'
         // Tell Dagger CLI to use the pre-started engine container
         _EXPERIMENTAL_DAGGER_RUNNER_HOST = 'docker-container://dagger-engine-v0.19.7'
     }
