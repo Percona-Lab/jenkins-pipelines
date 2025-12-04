@@ -69,32 +69,42 @@ def validateHelmChart(String chartBranch) {
             set -e
             rm -rf charts-repo-check
 
-            # Try theTibi fork first (has PMM-14420), then percona repo
+            # Helper to check if required charts exist
+            has_required_charts() {
+                [ -d "charts-repo-check/charts/pmm-ha" ] && [ -d "charts-repo-check/charts/pmm-ha-dependencies" ]
+            }
+
+            REPO_SOURCE=""
+
+            # Try theTibi fork first (has PMM-14420 development)
             if git clone --depth 1 --branch "${chartBranch}" "https://github.com/theTibi/percona-helm-charts.git" charts-repo-check 2>/dev/null; then
-                echo "theTibi"
-            elif git clone --depth 1 --branch "${chartBranch}" "https://github.com/percona/percona-helm-charts.git" charts-repo-check 2>/dev/null; then
-                echo "percona"
-            else
-                echo "ERROR: Branch '${chartBranch}' not found in theTibi or percona helm chart repos" >&2
-                exit 1
+                if has_required_charts; then
+                    REPO_SOURCE="theTibi"
+                else
+                    echo "Branch '${chartBranch}' found in theTibi but missing required charts, trying percona..." >&2
+                    rm -rf charts-repo-check
+                fi
             fi
 
-            # Check required charts exist
-            if [ ! -d "charts-repo-check/charts/pmm-ha" ]; then
-                echo "ERROR: pmm-ha chart not found in branch '${chartBranch}'" >&2
-                ls -la charts-repo-check/charts/ >&2 || true
-                rm -rf charts-repo-check
-                exit 1
-            fi
-
-            if [ ! -d "charts-repo-check/charts/pmm-ha-dependencies" ]; then
-                echo "ERROR: pmm-ha-dependencies chart not found in branch '${chartBranch}'" >&2
-                ls -la charts-repo-check/charts/ >&2 || true
-                rm -rf charts-repo-check
-                exit 1
+            # Try percona repo if theTibi didn't have branch or charts
+            if [ -z "\$REPO_SOURCE" ]; then
+                if git clone --depth 1 --branch "${chartBranch}" "https://github.com/percona/percona-helm-charts.git" charts-repo-check 2>/dev/null; then
+                    if has_required_charts; then
+                        REPO_SOURCE="percona"
+                    else
+                        echo "ERROR: Branch '${chartBranch}' found in percona but missing required charts" >&2
+                        ls -la charts-repo-check/charts/ >&2 || true
+                        rm -rf charts-repo-check
+                        exit 1
+                    fi
+                else
+                    echo "ERROR: Branch '${chartBranch}' not found in theTibi or percona helm chart repos" >&2
+                    exit 1
+                fi
             fi
 
             rm -rf charts-repo-check
+            echo "\$REPO_SOURCE"
         """,
         returnStdout: true
     ).trim()
