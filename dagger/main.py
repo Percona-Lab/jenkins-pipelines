@@ -254,6 +254,12 @@ class PmmApiTests:
                 -p 80:8080 -p 443:8443 \
                 -v ${PWD}/managed/testdata/checks:/srv/checks \
                 ${DOCKER_VERSION}
+
+        PMM Server requires /srv to be writable by UID 1000 (pmm user).
+        We handle this by:
+        1. Mounting checks to a temp location
+        2. Running as root to copy and fix permissions
+        3. Running the PMM entrypoint
         """
         container = dag.container()
 
@@ -277,9 +283,20 @@ class PmmApiTests:
                 "PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY",
                 "RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX"
             )
-            .with_directory("/srv/checks", checks_dir)
+            # Mount checks to temp location first
+            .with_directory("/tmp/checks", checks_dir)
             .with_exposed_port(8080)
             .with_exposed_port(8443)
+            # Custom entrypoint that fixes permissions then starts PMM
+            .with_entrypoint(["sh", "-c", """
+                # Run as root to set up /srv/checks and fix permissions
+                mkdir -p /srv/checks
+                cp -r /tmp/checks/* /srv/checks/ 2>/dev/null || true
+                chown -R 1000:0 /srv
+                chmod -R g+rwX /srv
+                # Now exec the original entrypoint as pmm user
+                exec su -s /bin/bash pmm -c '/opt/entrypoint.sh'
+            """])
             .as_service()
         )
 
