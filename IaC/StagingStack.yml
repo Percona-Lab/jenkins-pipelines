@@ -230,8 +230,23 @@ Resources:
         - !Ref SInstancesRole
       InstanceProfileName: !Join ["-", [!Ref SShortName, "slave"]]
 
+  AcmReadOnlyPolicy: # ACM read-only for PMM HA EKS pipeline
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Join ["-", [!Ref SShortName, "acm-readonly"]]
+      Description: ACM read-only access for PMM HA EKS pipeline certificate resolution
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Action:
+              - acm:ListCertificates
+              - acm:DescribeCertificate
+            Resource: "*"
+
   SInstancesUser: # create standalone user for PMM jenkins jobs
     Type: AWS::IAM::User
+    DependsOn: AcmReadOnlyPolicy
     Properties:
       UserName: !Join ["-", [!Ref SShortName, "slave"]]
       Path: /
@@ -239,6 +254,7 @@ Resources:
         - arn:aws:iam::aws:policy/AmazonEC2FullAccess
         - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess
         - arn:aws:iam::119175775298:policy/jenkins-artifactory
+        - !Ref AcmReadOnlyPolicy
       Policies:
         - PolicyName: EksAllAccess
           PolicyDocument:
