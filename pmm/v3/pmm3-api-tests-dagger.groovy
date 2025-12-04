@@ -106,6 +106,28 @@ pipeline {
             }
         }
 
+        stage('Prepare Dagger Engine') {
+            steps {
+                // Clean up stale Dagger engine containers to prevent connection issues
+                // See: https://github.com/dagger/dagger/issues/7599
+                sh '''
+                    echo "Cleaning up stale Dagger engine containers..."
+                    docker rm -f dagger-engine-v${DAGGER_VERSION} 2>/dev/null || true
+
+                    # Remove any crashed/exited engine containers
+                    docker ps -a --filter "name=dagger-engine" --filter "status=exited" -q | xargs -r docker rm -f || true
+                    docker ps -a --filter "name=dagger-engine" --filter "status=created" -q | xargs -r docker rm -f || true
+
+                    # Prune dangling volumes that might cause issues
+                    docker volume prune -f 2>/dev/null || true
+
+                    echo "Docker status:"
+                    docker info | grep -E "(Server Version|Storage Driver|Cgroup)" || true
+                    docker ps -a --filter "name=dagger" || true
+                '''
+            }
+        }
+
         stage('Run API Tests') {
             steps {
                 withCredentials([
@@ -165,6 +187,13 @@ pipeline {
                     archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
                 }
             }
+
+            // Clean up Dagger engine to free resources for next build
+            sh '''
+                echo "Cleaning up Dagger engine..."
+                docker rm -f dagger-engine-v${DAGGER_VERSION} 2>/dev/null || true
+                docker ps -a --filter "name=dagger-engine" -q | xargs -r docker rm -f || true
+            '''
         }
 
         failure {
