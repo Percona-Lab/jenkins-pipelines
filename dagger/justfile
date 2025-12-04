@@ -1,0 +1,66 @@
+# PMM API Tests - Dagger Module
+# Usage: just <recipe>
+
+# Default recipe - show available commands
+default:
+    @just --list
+
+# Run API tests with default parameters
+test:
+    dagger call run-tests
+
+# Run API tests and export JUnit results
+test-export:
+    dagger call run-tests export --path ./junit-results.xml
+
+# Run API tests against specific PMM version
+test-version version="perconalab/pmm-server:3-dev-latest":
+    dagger call run-tests --docker-version="{{version}}"
+
+# Run API tests against specific branch
+test-branch branch="v3":
+    dagger call run-tests --git-branch="{{branch}}"
+
+# Health check PMM server
+health version="perconalab/pmm-server:3-dev-latest":
+    dagger call health-check --docker-version="{{version}}"
+
+# Get PMM server logs
+logs version="perconalab/pmm-server:3-dev-latest":
+    dagger call get-logs --docker-version="{{version}}" export --path ./logs.zip
+
+# Run with debug output
+debug:
+    dagger call --debug run-tests
+
+# Lint Python code
+lint:
+    uv run ruff check main.py
+
+# Format Python code
+format:
+    uv run ruff format main.py
+
+# Lint and format
+check: lint format
+
+# Sync Python dependencies
+sync:
+    uv sync
+
+# Show Dagger module functions
+functions:
+    dagger functions
+
+# Install Dagger CLI (if not installed)
+install-dagger version="0.15.1":
+    curl -fsSL https://dl.dagger.io/dagger/install.sh | DAGGER_VERSION={{version}} sh
+
+# Run full CI pipeline (lint + test + export results)
+ci: check test-export
+    @echo "CI pipeline complete. Results in junit-results.xml"
+
+# Clean generated files
+clean:
+    rm -f junit-results.xml logs.zip test-output.json
+    rm -rf __pycache__ .ruff_cache

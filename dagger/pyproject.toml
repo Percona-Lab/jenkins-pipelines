@@ -1,0 +1,28 @@
+[project]
+name = "pmm-api-tests"
+version = "0.1.0"
+description = "Dagger module for PMM API tests - replaces pmm3-api-tests.groovy"
+requires-python = ">=3.10"
+license = {text = "Apache-2.0"}
+authors = [
+    {name = "Percona Platform Engineering", email = "platform-engineering@percona.com"}
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["."]
+only-include = ["main.py"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pmm_api_tests"]

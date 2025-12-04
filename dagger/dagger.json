@@ -1,0 +1,5 @@
+{
+  "name": "pmm-api-tests",
+  "sdk": "python",
+  "source": "."
+}
