@@ -635,12 +635,10 @@ EOF
  * @return List of cluster names sorted newest first, empty list if none found
  */
 def listClusters(String region = 'us-east-2') {
-    def clusterPrefix = 'pmm-ha-test-'
-
     def output = sh(
         script: """
             aws eks list-clusters --region ${region} --output json 2>/dev/null | \\
-                jq -r '.clusters[] | select(startswith("${clusterPrefix}"))' | \\
+                jq -r '.clusters[] | select(startswith("${CLUSTER_PREFIX}"))' | \\
                 while read cluster; do
                     CREATED=\$(aws eks describe-cluster --name "\$cluster" --region ${region} \\
                         --query 'cluster.createdAt' --output text 2>/dev/null)
@@ -778,7 +776,7 @@ def deleteAllClusters(Map config = [:]) {
     def clusterList = listClusters(region)
 
     if (!clusterList) {
-        echo "No clusters found with prefix 'pmm-ha-test-'."
+        echo "No clusters found with prefix '${CLUSTER_PREFIX}'."
         return
     }
 
@@ -847,20 +845,19 @@ def deleteAllClusters(Map config = [:]) {
  * Clean up orphaned VPCs and failed CloudFormation stacks.
  *
  * Finds:
- * - VPCs with eksctl-pmm-ha-test-* tags but no matching EKS cluster
+ * - VPCs tagged with purpose=pmm-ha-testing but no matching EKS cluster
  * - CloudFormation stacks in DELETE_FAILED or ROLLBACK_COMPLETE state
  *
  * @param region AWS region (default: us-east-2)
  */
 def cleanupOrphans(Map config = [:]) {
     def region = config.region ?: 'us-east-2'
-    def clusterPrefix = 'pmm-ha-test-'
 
     // Get list of active EKS clusters
     def activeClusters = sh(
         script: """
             aws eks list-clusters --region ${region} \\
-                --query "clusters[?starts_with(@, '${clusterPrefix}')]" \\
+                --query "clusters[?starts_with(@, '${CLUSTER_PREFIX}')]" \\
                 --output text 2>/dev/null || echo ''
         """,
         returnStdout: true
@@ -868,15 +865,14 @@ def cleanupOrphans(Map config = [:]) {
 
     echo "Active EKS clusters: ${activeClusters}"
 
-    // Find orphaned VPCs - VPCs created by eksctl but whose EKS cluster no longer exists.
-    // This happens when: cluster deleted via AWS console, eksctl delete failed midway, etc.
-    // We use eksctl delete cluster on orphaned VPCs because eksctl tracks resources via
-    // CloudFormation stacks - it will find and delete the orphaned stacks (VPC, nodegroup, etc.)
-    // even when the EKS cluster itself is gone.
+    // Find orphaned VPCs by tag (more reliable than name pattern matching).
+    // VPCs inherit tags from eksctl cluster config. When the EKS cluster is deleted
+    // via AWS console or eksctl fails midway, the VPC and CF stacks remain.
+    // We extract cluster name from the Name tag and use eksctl to clean up.
     def orphanedVpcs = sh(
         script: """
             aws ec2 describe-vpcs --region ${region} \\
-                --filters "Name=tag:Name,Values=eksctl-${clusterPrefix}*-cluster/VPC" \\
+                --filters "Name=tag:purpose,Values=pmm-ha-testing" \\
                 --query 'Vpcs[*].[VpcId,Tags[?Key==`Name`].Value|[0]]' \\
                 --output text 2>/dev/null || echo ''
         """,
@@ -888,8 +884,9 @@ def cleanupOrphans(Map config = [:]) {
             def parts = line.split('\t')
             if (parts.size() >= 2) {
                 def vpcId = parts[0]
-                def vpcName = parts[1]
-                def matcher = vpcName =~ /eksctl-(${clusterPrefix}\d+)-cluster/
+                def vpcName = parts[1] ?: ''
+                // Extract cluster name from VPC name (eksctl-pmm-ha-test-XX-cluster/VPC)
+                def matcher = vpcName =~ /eksctl-(${CLUSTER_PREFIX}\d+)-cluster/
                 if (matcher) {
                     def clusterName = matcher[0][1]
                     if (!activeClusters.contains(clusterName)) {
@@ -910,7 +907,7 @@ def cleanupOrphans(Map config = [:]) {
         script: """
             aws cloudformation list-stacks --region ${region} \\
                 --stack-status-filter DELETE_FAILED ROLLBACK_COMPLETE \\
-                --query "StackSummaries[?contains(StackName, '${clusterPrefix}')].StackName" \\
+                --query "StackSummaries[?contains(StackName, '${CLUSTER_PREFIX}')].StackName" \\
                 --output text 2>/dev/null || echo ''
         """,
         returnStdout: true
