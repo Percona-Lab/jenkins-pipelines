@@ -4,7 +4,6 @@ import os
 import math
 import logging
 import datetime
-import time
 import azure.functions as func
 from typing import List, Dict, Optional
 
@@ -14,6 +13,7 @@ from azure.mgmt.containerservice import ContainerServiceClient
 from azure.core.exceptions import ResourceNotFoundError, HttpResponseError
 
 DRY_RUN = os.getenv("DRY_RUN", "true").lower() == "true"
+DELETE_TIMEOUT = int(os.getenv("DELETE_TIMEOUT", "600"))  # 10 minutes default
 
 credential: Optional[DefaultAzureCredential] = None
 resource_groups_client: Optional[ResourceManagementClient] = None
@@ -91,37 +91,10 @@ def get_clusters_to_terminate() -> List[str]:
     return clusters_for_deletion
 
 
-def wait_for_cluster_delete(cluster_name: str, timeout: int = 300, sleep_time: int = 10):
-    """Poll until the AKS cluster disappears (or timeout)."""
-    attempts = timeout // sleep_time
-    for attempt in range(attempts):
-        rg_name = CLUSTER_RG_MAP.get(cluster_name)
-        if not rg_name:
-            logging.info("Cluster %s RG mapping missing; assuming deleted", cluster_name)
-            return
-        try:
-            _ = aks_client.managed_clusters.get(rg_name, cluster_name)
-            logging.info(
-                "Cluster %s still exists. Attempt %d/%d. Sleeping %ds.",
-                cluster_name, attempt + 1, attempts, sleep_time
-            )
-            time.sleep(sleep_time)
-        except ResourceNotFoundError:
-            logging.info("Cluster %s was successfully deleted.", cluster_name)
-            return
-        except HttpResponseError as e:
-            status = getattr(e, "status_code", None)
-            if status == 404 or "NotFound" in str(e) or "404" in str(e):
-                logging.info("Cluster %s was successfully deleted.", cluster_name)
-                return
-            logging.warning("Error checking cluster %s: %s", cluster_name, e)
-            time.sleep(sleep_time)
-    logging.error("Cluster %s was not deleted in %d seconds.", cluster_name, timeout)
-
-
-def delete_cluster(cluster_name: str):
+def terminate_cluster(cluster_name: str):
     """
     Resolve RG from CLUSTER_RG_MAP (or scan), then delete the AKS cluster.
+    Uses .result() to wait for deletion completion.
     """
     rg_name = CLUSTER_RG_MAP.get(cluster_name)
     if not rg_name:
@@ -143,9 +116,17 @@ def delete_cluster(cluster_name: str):
         logging.info("[DRY-RUN] Would delete cluster %s/%s", rg_name, cluster_name)
         return
 
-    aks_client.managed_clusters.begin_delete(rg_name, cluster_name)
-    wait_for_cluster_delete(cluster_name)
+    try:
+        logging.info("Starting deletion of cluster %s/%s", rg_name, cluster_name)
 
+        aks_client.managed_clusters.begin_delete(rg_name, cluster_name).result(timeout=DELETE_TIMEOUT)
+
+        logging.info("Cluster %s was successfully deleted", cluster_name)
+
+    except TimeoutError:
+        logging.error("Cluster %s deletion timed out after %d seconds", cluster_name, DELETE_TIMEOUT)
+    except Exception as e:
+        logging.error("Failed to delete cluster %s: %s", cluster_name, e)
 
 def main(mytimer: func.TimerRequest) -> None:
 
@@ -162,8 +143,8 @@ def main(mytimer: func.TimerRequest) -> None:
     resource_groups_client = ResourceManagementClient(credential, subscription_id)
     aks_client = ContainerServiceClient(credential, subscription_id)
 
-    logging.info("Searching for AKS clusters to remove.")
+    logging.info("Searching for AKS clusters to terminate.")
     clusters = get_clusters_to_terminate()
     for cluster in clusters:
         logging.info("Terminating %s", cluster)
-        delete_cluster(cluster)
+        terminate_cluster(cluster)
