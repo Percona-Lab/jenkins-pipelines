@@ -35,7 +35,7 @@ pipeline {
                     echo \$MAJ_VER
                     MIN_VER=\$(echo ${params.PCSM_VERSION} | awk -F "-" '{print \$1}')
                     echo \$MIN_VER
-                    git clone https://github.com/percona/percona-docker
+                    git clone -b pcsm_docker https://github.com/percona/percona-docker
                     cd percona-docker/percona-cluster-sync-mongodb
                     sed -E "s/ENV PCSM_VERSION (.+)/ENV PCSM_VERSION ${params.PCSM_VERSION}/" -i Dockerfile.aarch64
                     sed -E "s/ENV PCSM_REPO_CH (.+)/ENV PCSM_REPO_CH ${params.PCSM_REPO_CH}/" -i Dockerfile.aarch64
