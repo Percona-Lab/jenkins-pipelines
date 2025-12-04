@@ -36,10 +36,10 @@ pipeline {
                     MIN_VER=\$(echo ${params.PCSM_VERSION} | awk -F "-" '{print \$1}')
                     echo \$MIN_VER
                     git clone -b pcsm_docker https://github.com/percona/percona-docker
-                    cd percona-docker/percona-cluster-sync-mongodb
+                    cd percona-docker/percona-clustersync-mongodb
                     sed -E "s/ENV PCSM_VERSION (.+)/ENV PCSM_VERSION ${params.PCSM_VERSION}/" -i Dockerfile.aarch64
                     sed -E "s/ENV PCSM_REPO_CH (.+)/ENV PCSM_REPO_CH ${params.PCSM_REPO_CH}/" -i Dockerfile.aarch64
-                    docker build . -t percona-cluster-sync-mongodb -f Dockerfile.aarch64
+                    docker build . -t percona-clustersync-mongodb -f Dockerfile.aarch64
                     """
             }
         }
@@ -53,10 +53,10 @@ pipeline {
                     curl https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/docker/trivyignore -o ".trivyignore"
                     if [ ${params.PCSM_REPO_CH} = "release" ]; then
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-cluster-sync-mongodb
+                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-clustersync-mongodb
                     else
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-cluster-sync-mongodb
+                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-clustersync-mongodb
                     fi
                """
             }
@@ -76,41 +76,41 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PCSM_VERSION} | awk -F "." '{print \$1}')
                          MIN_VER=\$(echo ${params.PCSM_VERSION} | awk -F "-" '{print \$1}')
-                         docker tag percona-cluster-sync-mongodb perconalab/percona-cluster-sync-mongodb:\$MAJ_VER-arm64
-                         docker push perconalab/percona-cluster-sync-mongodb:\$MAJ_VER-arm64
-                         docker tag percona-cluster-sync-mongodb perconalab/percona-cluster-sync-mongodb:\$MIN_VER-arm64
-                         docker push perconalab/percona-cluster-sync-mongodb:\$MIN_VER-arm64
+                         docker tag percona-clustersync-mongodb perconalab/percona-clustersync-mongodb:\$MAJ_VER-arm64
+                         docker push perconalab/percona-clustersync-mongodb:\$MAJ_VER-arm64
+                         docker tag percona-clustersync-mongodb perconalab/percona-clustersync-mongodb:\$MIN_VER-arm64
+                         docker push perconalab/percona-clustersync-mongodb:\$MIN_VER-arm64
 
-                         docker manifest create perconalab/percona-cluster-sync-mongodb:\$MIN_VER \
-                            perconalab/percona-cluster-sync-mongodb:\$MIN_VER-amd64 \
-                            perconalab/percona-cluster-sync-mongodb:\$MIN_VER-arm64
-                         docker manifest annotate perconalab/percona-cluster-sync-mongodb:\$MIN_VER \
-                            perconalab/percona-cluster-sync-mongodb:\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-cluster-sync-mongodb:\$MIN_VER \
-                            perconalab/percona-cluster-sync-mongodb:\$MIN_VER-amd64 --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-cluster-sync-mongodb:\$MIN_VER
-                         docker manifest push perconalab/percona-cluster-sync-mongodb:\$MIN_VER
+                         docker manifest create perconalab/percona-clustersync-mongodb:\$MIN_VER \
+                            perconalab/percona-clustersync-mongodb:\$MIN_VER-amd64 \
+                            perconalab/percona-clustersync-mongodb:\$MIN_VER-arm64
+                         docker manifest annotate perconalab/percona-clustersync-mongodb:\$MIN_VER \
+                            perconalab/percona-clustersync-mongodb:\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-clustersync-mongodb:\$MIN_VER \
+                            perconalab/percona-clustersync-mongodb:\$MIN_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-clustersync-mongodb:\$MIN_VER
+                         docker manifest push perconalab/percona-clustersync-mongodb:\$MIN_VER
 
-                         docker manifest create perconalab/percona-cluster-sync-mongodb:\$MAJ_VER \
-                            perconalab/percona-cluster-sync-mongodb:\$MAJ_VER-amd64 \
-                            perconalab/percona-cluster-sync-mongodb:\$MAJ_VER-arm64
-                         docker manifest annotate perconalab/percona-cluster-sync-mongodb:\$MAJ_VER \
-                            perconalab/percona-cluster-sync-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-cluster-sync-mongodb:\$MAJ_VER \
-                            perconalab/percona-cluster-sync-mongodb:\$MAJ_VER-amd64 --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-cluster-sync-mongodb:\$MAJ_VER
-                         docker manifest push perconalab/percona-cluster-sync-mongodb:\$MAJ_VER
+                         docker manifest create perconalab/percona-clustersync-mongodb:\$MAJ_VER \
+                            perconalab/percona-clustersync-mongodb:\$MAJ_VER-amd64 \
+                            perconalab/percona-clustersync-mongodb:\$MAJ_VER-arm64
+                         docker manifest annotate perconalab/percona-clustersync-mongodb:\$MAJ_VER \
+                            perconalab/percona-clustersync-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-clustersync-mongodb:\$MAJ_VER \
+                            perconalab/percona-clustersync-mongodb:\$MAJ_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-clustersync-mongodb:\$MAJ_VER
+                         docker manifest push perconalab/percona-clustersync-mongodb:\$MAJ_VER
 
                          if [ ${params.LATEST} = "yes" ]; then
-                           docker manifest create perconalab/percona-cluster-sync-mongodb:latest \
-                              perconalab/percona-cluster-sync-mongodb:\$MAJ_VER-amd64 \
-                              perconalab/percona-cluster-sync-mongodb:\$MAJ_VER-arm64
-                           docker manifest annotate perconalab/percona-cluster-sync-mongodb:latest \
-                              perconalab/percona-cluster-sync-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                           docker manifest annotate perconalab/percona-cluster-sync-mongodb:latest \
-                              perconalab/percona-cluster-sync-mongodb:\$MAJ_VER-amd64 --os linux --arch amd64
-                           docker manifest inspect perconalab/percona-cluster-sync-mongodb:latest
-                           docker manifest push perconalab/percona-cluster-sync-mongodb:latest
+                           docker manifest create perconalab/percona-clustersync-mongodb:latest \
+                              perconalab/percona-clustersync-mongodb:\$MAJ_VER-amd64 \
+                              perconalab/percona-clustersync-mongodb:\$MAJ_VER-arm64
+                           docker manifest annotate perconalab/percona-clustersync-mongodb:latest \
+                              perconalab/percona-clustersync-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
+                           docker manifest annotate perconalab/percona-clustersync-mongodb:latest \
+                              perconalab/percona-clustersync-mongodb:\$MAJ_VER-amd64 --os linux --arch amd64
+                           docker manifest inspect perconalab/percona-clustersync-mongodb:latest
+                           docker manifest push perconalab/percona-clustersync-mongodb:latest
 			 fi
                      """
                 }
@@ -126,41 +126,41 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PCSM_VERSION} | awk -F "." '{print \$1}')
                          MIN_VER=\$(echo ${params.PCSM_VERSION} | awk -F "-" '{print \$1}')
-                         docker tag percona-cluster-sync-mongodb percona/percona-cluster-sync-mongodb:\$MAJ_VER-arm64
-                         docker push percona/percona-cluster-sync-mongodb:\$MAJ_VER-arm64
-                         docker tag percona-cluster-sync-mongodb percona/percona-cluster-sync-mongodb:\$MIN_VER-arm64
-                         docker push percona/percona-cluster-sync-mongodb:\$MIN_VER-arm64
+                         docker tag percona-clustersync-mongodb percona/percona-clustersync-mongodb:\$MAJ_VER-arm64
+                         docker push percona/percona-clustersync-mongodb:\$MAJ_VER-arm64
+                         docker tag percona-clustersync-mongodb percona/percona-clustersync-mongodb:\$MIN_VER-arm64
+                         docker push percona/percona-clustersync-mongodb:\$MIN_VER-arm64
 
-                         docker manifest create percona/percona-cluster-sync-mongodb:\$MIN_VER \
-                            percona/percona-cluster-sync-mongodb:\$MIN_VER-amd64 \
-                            percona/percona-cluster-sync-mongodb:\$MIN_VER-arm64
-                         docker manifest annotate percona/percona-cluster-sync-mongodb:\$MIN_VER \
-                            percona/percona-cluster-sync-mongodb:\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-cluster-sync-mongodb:\$MIN_VER \
-                            percona/percona-cluster-sync-mongodb:\$MIN_VER-amd64 --os linux --arch amd64
-                         docker manifest inspect percona/percona-cluster-sync-mongodb:\$MIN_VER
-                         docker manifest push percona/percona-cluster-sync-mongodb:\$MIN_VER
+                         docker manifest create percona/percona-clustersync-mongodb:\$MIN_VER \
+                            percona/percona-clustersync-mongodb:\$MIN_VER-amd64 \
+                            percona/percona-clustersync-mongodb:\$MIN_VER-arm64
+                         docker manifest annotate percona/percona-clustersync-mongodb:\$MIN_VER \
+                            percona/percona-clustersync-mongodb:\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate percona/percona-clustersync-mongodb:\$MIN_VER \
+                            percona/percona-clustersync-mongodb:\$MIN_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/percona-clustersync-mongodb:\$MIN_VER
+                         docker manifest push percona/percona-clustersync-mongodb:\$MIN_VER
 
-                         docker manifest create percona/percona-cluster-sync-mongodb:\$MAJ_VER \
-                            percona/percona-cluster-sync-mongodb:\$MAJ_VER-amd64 \
-                            percona/percona-cluster-sync-mongodb:\$MAJ_VER-arm64
-                         docker manifest annotate percona/percona-cluster-sync-mongodb:\$MAJ_VER \
-                            percona/percona-cluster-sync-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-cluster-sync-mongodb:\$MAJ_VER \
-                            percona/percona-cluster-sync-mongodb:\$MAJ_VER-amd64 --os linux --arch amd64
-                         docker manifest inspect percona/percona-cluster-sync-mongodb:\$MAJ_VER
-                         docker manifest push percona/percona-cluster-sync-mongodb:\$MAJ_VER
+                         docker manifest create percona/percona-clustersync-mongodb:\$MAJ_VER \
+                            percona/percona-clustersync-mongodb:\$MAJ_VER-amd64 \
+                            percona/percona-clustersync-mongodb:\$MAJ_VER-arm64
+                         docker manifest annotate percona/percona-clustersync-mongodb:\$MAJ_VER \
+                            percona/percona-clustersync-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate percona/percona-clustersync-mongodb:\$MAJ_VER \
+                            percona/percona-clustersync-mongodb:\$MAJ_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/percona-clustersync-mongodb:\$MAJ_VER
+                         docker manifest push percona/percona-clustersync-mongodb:\$MAJ_VER
 
                          if [ ${params.LATEST} = "yes" ]; then
-                           docker manifest create percona/percona-cluster-sync-mongodb:latest \
-                              percona/percona-cluster-sync-mongodb:\$MAJ_VER-amd64 \
-                              percona/percona-cluster-sync-mongodb:\$MAJ_VER-arm64
-                           docker manifest annotate percona/percona-cluster-sync-mongodb:latest \
-                              percona/percona-cluster-sync-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
-                           docker manifest annotate percona/percona-cluster-sync-mongodb:latest \
-                              percona/percona-cluster-sync-mongodb:\$MAJ_VER-amd64 --os linux --arch amd64
-                           docker manifest inspect percona/percona-cluster-sync-mongodb:latest
-                           docker manifest push percona/percona-cluster-sync-mongodb:latest
+                           docker manifest create percona/percona-clustersync-mongodb:latest \
+                              percona/percona-clustersync-mongodb:\$MAJ_VER-amd64 \
+                              percona/percona-clustersync-mongodb:\$MAJ_VER-arm64
+                           docker manifest annotate percona/percona-clustersync-mongodb:latest \
+                              percona/percona-clustersync-mongodb:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
+                           docker manifest annotate percona/percona-clustersync-mongodb:latest \
+                              percona/percona-clustersync-mongodb:\$MAJ_VER-amd64 --os linux --arch amd64
+                           docker manifest inspect percona/percona-clustersync-mongodb:latest
+                           docker manifest push percona/percona-clustersync-mongodb:latest
                          fi
                      """
                 }

@@ -35,10 +35,10 @@ pipeline {
                     MIN_VER=\$(echo ${params.PCSM_VERSION} | awk -F "-" '{print \$1}')
                     echo \$MIN_VER
                     git clone -b pcsm_docker https://github.com/percona/percona-docker
-                    cd percona-docker/percona-cluster-sync-mongodb
+                    cd percona-docker/percona-clustersync-mongodb
                     sed -E "s/ENV PCSM_VERSION (.+)/ENV PCSM_VERSION ${params.PCSM_VERSION}/" -i Dockerfile
                     sed -E "s/ENV PCSM_REPO_CH (.+)/ENV PCSM_REPO_CH ${params.PCSM_REPO_CH}/" -i Dockerfile
-                    docker build . -t percona-cluster-sync-mongodb 
+                    docker build . -t percona-clustersync-mongodb 
                     """
             }
         }
@@ -52,10 +52,10 @@ pipeline {
                     curl https://raw.githubusercontent.com/Percona-QA/psmdb-testing/main/docker/trivyignore -o ".trivyignore"
                     if [ ${params.PCSM_REPO_CH} = "release" ]; then
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-cluster-sync-mongodb
+                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-clustersync-mongodb
                     else
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-cluster-sync-mongodb
+                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-clustersync-mongodb
                     fi
                """
             }
@@ -75,10 +75,10 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PCSM_VERSION} | awk -F "." '{print \$1}')
                          MIN_VER=\$(echo ${params.PCSM_VERSION} | awk -F "-" '{print \$1}')
-                         docker tag percona-cluster-sync-mongodb perconalab/percona-cluster-sync-mongodb:\$MAJ_VER-amd64
-                         docker push perconalab/percona-cluster-sync-mongodb:\$MAJ_VER-amd64
-                         docker tag percona-cluster-sync-mongodb perconalab/percona-cluster-sync-mongodb:\$MIN_VER-amd64
-                         docker push perconalab/percona-cluster-sync-mongodb:\$MIN_VER-amd64
+                         docker tag percona-clustersync-mongodb perconalab/percona-clustersync-mongodb:\$MAJ_VER-amd64
+                         docker push perconalab/percona-clustersync-mongodb:\$MAJ_VER-amd64
+                         docker tag percona-clustersync-mongodb perconalab/percona-clustersync-mongodb:\$MIN_VER-amd64
+                         docker push perconalab/percona-clustersync-mongodb:\$MIN_VER-amd64
                      """
                 }
             }
@@ -93,10 +93,10 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PCSM_VERSION} | awk -F "." '{print \$1}')
                          MIN_VER=\$(echo ${params.PCSM_VERSION} | awk -F "-" '{print \$1}')
-                         docker tag percona-cluster-sync-mongodb percona/percona-cluster-sync-mongodb:\$MAJ_VER-amd64
-                         docker push percona/percona-cluster-sync-mongodb:\$MAJ_VER-amd64
-                         docker tag percona-cluster-sync-mongodb percona/percona-cluster-sync-mongodb:\$MIN_VER-amd64
-                         docker push percona/percona-cluster-sync-mongodb:\$MIN_VER-amd64
+                         docker tag percona-clustersync-mongodb percona/percona-clustersync-mongodb:\$MAJ_VER-amd64
+                         docker push percona/percona-clustersync-mongodb:\$MAJ_VER-amd64
+                         docker tag percona-clustersync-mongodb percona/percona-clustersync-mongodb:\$MIN_VER-amd64
+                         docker push percona/percona-clustersync-mongodb:\$MIN_VER-amd64
                      """
                 }
             }
