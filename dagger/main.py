@@ -287,17 +287,17 @@ class PmmApiTests:
             .with_directory("/tmp/checks", checks_dir)
             .with_exposed_port(8080)
             .with_exposed_port(8443)
-            # Custom entrypoint that fixes permissions then starts PMM
-            .with_entrypoint(["sh", "-c", """
+            # Use as_service with args to run setup + entrypoint as a single command
+            # This ensures the service process stays in foreground
+            .as_service(args=["sh", "-c", """
                 # Run as root to set up /srv/checks and fix permissions
                 mkdir -p /srv/checks
                 cp -r /tmp/checks/* /srv/checks/ 2>/dev/null || true
                 chown -R 1000:0 /srv
                 chmod -R g+rwX /srv
-                # Now exec the original entrypoint as pmm user
-                exec su -s /bin/bash pmm -c '/opt/entrypoint.sh'
+                # Exec the original entrypoint - must stay in foreground
+                exec /opt/entrypoint.sh
             """])
-            .as_service()
         )
 
     def _build_test_image(
