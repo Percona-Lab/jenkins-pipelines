@@ -179,13 +179,26 @@ def resolveAcmCertificate(String zoneName, String region = 'us-east-2') {
  * @return Map with pmm, pg, ch_user, ch, vm_user, vm passwords
  */
 def getCredentials(String namespace = 'pmm') {
+    // Single kubectl call with go-template to decode all secrets
+    def output = sh(
+        script: """
+            kubectl get secret pmm-secret -n ${namespace} -o go-template='pmm={{index .data "PMM_ADMIN_PASSWORD" | base64decode}}
+pg={{index .data "PG_PASSWORD" | base64decode}}
+ch_user={{index .data "PMM_CLICKHOUSE_USER" | base64decode}}
+ch={{index .data "PMM_CLICKHOUSE_PASSWORD" | base64decode}}
+vm_user={{index .data "VMAGENT_remoteWrite_basicAuth_username" | base64decode}}
+vm={{index .data "VMAGENT_remoteWrite_basicAuth_password" | base64decode}}'
+        """,
+        returnStdout: true
+    ).trim()
+
     def creds = [:]
-    creds.pmm = sh(script: "kubectl get secret pmm-secret -n ${namespace} -o jsonpath='{.data.PMM_ADMIN_PASSWORD}' | base64 --decode", returnStdout: true).trim()
-    creds.pg = sh(script: "kubectl get secret pmm-secret -n ${namespace} -o jsonpath='{.data.PG_PASSWORD}' | base64 --decode", returnStdout: true).trim()
-    creds.ch_user = sh(script: "kubectl get secret pmm-secret -n ${namespace} -o jsonpath='{.data.PMM_CLICKHOUSE_USER}' | base64 --decode", returnStdout: true).trim()
-    creds.ch = sh(script: "kubectl get secret pmm-secret -n ${namespace} -o jsonpath='{.data.PMM_CLICKHOUSE_PASSWORD}' | base64 --decode", returnStdout: true).trim()
-    creds.vm_user = sh(script: "kubectl get secret pmm-secret -n ${namespace} -o jsonpath='{.data.VMAGENT_remoteWrite_basicAuth_username}' | base64 --decode", returnStdout: true).trim()
-    creds.vm = sh(script: "kubectl get secret pmm-secret -n ${namespace} -o jsonpath='{.data.VMAGENT_remoteWrite_basicAuth_password}' | base64 --decode", returnStdout: true).trim()
+    output.split('\n').each { line ->
+        def parts = line.split('=', 2)
+        if (parts.size() == 2) {
+            creds[parts[0]] = parts[1]
+        }
+    }
     return creds
 }
 
