@@ -30,10 +30,7 @@ pipeline {
         stage ('Build image') {
             steps {
                 sh """
-                    MAJ_VER=\$(echo ${params.PCSM_VERSION} | awk -F "." '{print \$1}')
-                    echo \$MAJ_VER
                     MIN_VER=\$(echo ${params.PCSM_VERSION} | awk -F "-" '{print \$1}')
-                    echo \$MIN_VER
                     git clone -b pcsm_docker https://github.com/percona/percona-docker
                     cd percona-docker/percona-clustersync-mongodb
                     sed -E "s/ENV PCSM_VERSION (.+)/ENV PCSM_VERSION ${params.PCSM_VERSION}/" -i Dockerfile
@@ -73,10 +70,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                      sh """
                          docker login -u '${USER}' -p '${PASS}'
-                         MAJ_VER=\$(echo ${params.PCSM_VERSION} | awk -F "." '{print \$1}')
                          MIN_VER=\$(echo ${params.PCSM_VERSION} | awk -F "-" '{print \$1}')
-                         docker tag percona-clustersync-mongodb perconalab/percona-clustersync-mongodb:\$MAJ_VER-amd64
-                         docker push perconalab/percona-clustersync-mongodb:\$MAJ_VER-amd64
                          docker tag percona-clustersync-mongodb perconalab/percona-clustersync-mongodb:\$MIN_VER-amd64
                          docker push perconalab/percona-clustersync-mongodb:\$MIN_VER-amd64
                      """
@@ -91,10 +85,7 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
                      sh """
                          docker login -u '${USER}' -p '${PASS}'
-                         MAJ_VER=\$(echo ${params.PCSM_VERSION} | awk -F "." '{print \$1}')
                          MIN_VER=\$(echo ${params.PCSM_VERSION} | awk -F "-" '{print \$1}')
-                         docker tag percona-clustersync-mongodb percona/percona-clustersync-mongodb:\$MAJ_VER-amd64
-                         docker push percona/percona-clustersync-mongodb:\$MAJ_VER-amd64
                          docker tag percona-clustersync-mongodb percona/percona-clustersync-mongodb:\$MIN_VER-amd64
                          docker push percona/percona-clustersync-mongodb:\$MIN_VER-amd64
                      """
