@@ -283,13 +283,13 @@ class PmmApiTests:
                 "PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY",
                 "RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX"
             )
-            # Mount checks to temp location first
-            .with_directory("/tmp/checks", checks_dir)
+            # Mount checks to temp location first (owner=1000:1000 is critical!)
+            .with_directory("/tmp/checks", checks_dir, owner="1000:1000")
             .with_exposed_port(8080)
             .with_exposed_port(8443)
-            # Use as_service with args to run setup + entrypoint as a single command
-            # This ensures the service process stays in foreground
-            .as_service(args=["sh", "-c", """
+            # Set entrypoint to shell for running setup + PMM entrypoint
+            .with_entrypoint(["sh", "-c"])
+            .with_default_args(["""
                 # Run as root to set up /srv/checks and fix permissions
                 mkdir -p /srv/checks
                 cp -r /tmp/checks/* /srv/checks/ 2>/dev/null || true
@@ -298,6 +298,7 @@ class PmmApiTests:
                 # Exec the original entrypoint - must stay in foreground
                 exec /opt/entrypoint.sh
             """])
+            .as_service()
         )
 
     def _build_test_image(
@@ -313,3 +314,243 @@ class PmmApiTests:
             dag.container()
             .build(source)
         )
+
+    # ==================== Step-by-step test functions ====================
+
+    @function
+    async def step1_clone(
+        self,
+        git_url: str = "https://github.com/percona/pmm",
+        git_branch: str = "v3",
+    ) -> str:
+        """Step 1: Clone PMM repo and list files."""
+        source = dag.git(git_url).branch(git_branch).tree()
+        result = await (
+            dag.container()
+            .from_("alpine:latest")
+            .with_directory("/src", source)
+            .with_exec(["sh", "-c", "ls -la /src && ls -la /src/managed/testdata/checks"])
+            .stdout()
+        )
+        return result
+
+    @function
+    async def step2_pmm_start(
+        self,
+        docker_version: str = "perconalab/pmm-server:3-dev-latest",
+    ) -> str:
+        """Step 2: Start PMM server and verify it starts (simpler than health_check)."""
+        pmm_server = (
+            dag.container()
+            .from_(docker_version)
+            .with_env_variable("PMM_DEBUG", "1")
+            .with_exposed_port(8443)
+            .as_service()
+        )
+
+        result = await (
+            dag.container()
+            .from_("curlimages/curl:latest")
+            .with_service_binding("pmm-server", pmm_server)
+            .with_exec(["sh", "-c", """
+                echo "Testing PMM server connectivity..."
+                for i in 1 2 3 4 5 6 7 8 9 10; do
+                    if curl -skf https://pmm-server:8443/ping; then
+                        echo "PMM server is UP after $i attempts"
+                        exit 0
+                    fi
+                    echo "Attempt $i: waiting..."
+                    sleep 5
+                done
+                echo "PMM server did not respond"
+                exit 1
+            """])
+            .stdout()
+        )
+        return result
+
+    @function
+    async def step2b_pmm_custom_entrypoint(
+        self,
+        docker_version: str = "perconalab/pmm-server:3-dev-latest",
+    ) -> str:
+        """Step 2b: Test PMM with custom entrypoint (no mounts) to isolate issues."""
+        pmm_server = (
+            dag.container()
+            .from_(docker_version)
+            .with_env_variable("PMM_DEBUG", "1")
+            .with_exposed_port(8443)
+            .with_entrypoint(["sh", "-c"])
+            .with_default_args(["exec /opt/entrypoint.sh"])
+            .as_service()
+        )
+
+        result = await (
+            dag.container()
+            .from_("curlimages/curl:latest")
+            .with_service_binding("pmm-server", pmm_server)
+            .with_exec(["sh", "-c", """
+                echo "Testing PMM with custom entrypoint..."
+                for i in 1 2 3 4 5 6 7 8 9 10; do
+                    if curl -skf https://pmm-server:8443/ping; then
+                        echo "PMM server is UP after $i attempts"
+                        exit 0
+                    fi
+                    echo "Attempt $i: waiting..."
+                    sleep 5
+                done
+                echo "PMM server did not respond"
+                exit 1
+            """])
+            .stdout()
+        )
+        return result
+
+    @function
+    async def step2c_pmm_with_mount(
+        self,
+        git_url: str = "https://github.com/percona/pmm",
+        git_branch: str = "v3",
+        docker_version: str = "perconalab/pmm-server:3-dev-latest",
+    ) -> str:
+        """Step 2c: Test PMM with directory mount only (no entrypoint changes)."""
+        source = dag.git(git_url).branch(git_branch).tree()
+        checks_dir = source.directory("managed/testdata/checks")
+
+        pmm_server = (
+            dag.container()
+            .from_(docker_version)
+            .with_env_variable("PMM_DEBUG", "1")
+            .with_directory("/tmp/checks", checks_dir)
+            .with_exposed_port(8443)
+            .as_service()
+        )
+
+        result = await (
+            dag.container()
+            .from_("curlimages/curl:latest")
+            .with_service_binding("pmm-server", pmm_server)
+            .with_exec(["sh", "-c", """
+                echo "Testing PMM with directory mount..."
+                for i in 1 2 3 4 5 6 7 8 9 10; do
+                    if curl -skf https://pmm-server:8443/ping; then
+                        echo "PMM server is UP after $i attempts"
+                        exit 0
+                    fi
+                    echo "Attempt $i: waiting..."
+                    sleep 5
+                done
+                echo "PMM server did not respond"
+                exit 1
+            """])
+            .stdout()
+        )
+        return result
+
+    @function
+    async def step2d_pmm_mount_with_owner(
+        self,
+        git_url: str = "https://github.com/percona/pmm",
+        git_branch: str = "v3",
+        docker_version: str = "perconalab/pmm-server:3-dev-latest",
+    ) -> str:
+        """Step 2d: Test PMM with directory mount + owner set to 1000:1000."""
+        source = dag.git(git_url).branch(git_branch).tree()
+        checks_dir = source.directory("managed/testdata/checks")
+
+        pmm_server = (
+            dag.container()
+            .from_(docker_version)
+            .with_env_variable("PMM_DEBUG", "1")
+            .with_directory("/tmp/checks", checks_dir, owner="1000:1000")
+            .with_exposed_port(8443)
+            .as_service()
+        )
+
+        result = await (
+            dag.container()
+            .from_("curlimages/curl:latest")
+            .with_service_binding("pmm-server", pmm_server)
+            .with_exec(["sh", "-c", """
+                echo "Testing PMM with directory mount + owner..."
+                for i in 1 2 3 4 5 6 7 8 9 10; do
+                    if curl -skf https://pmm-server:8443/ping; then
+                        echo "PMM server is UP after $i attempts"
+                        exit 0
+                    fi
+                    echo "Attempt $i: waiting..."
+                    sleep 5
+                done
+                echo "PMM server did not respond"
+                exit 1
+            """])
+            .stdout()
+        )
+        return result
+
+    @function
+    async def step3_pmm_with_checks(
+        self,
+        git_url: str = "https://github.com/percona/pmm",
+        git_branch: str = "v3",
+        docker_version: str = "perconalab/pmm-server:3-dev-latest",
+    ) -> str:
+        """Step 3: Start PMM server with checks directory mounted."""
+        source = dag.git(git_url).branch(git_branch).tree()
+        checks_dir = source.directory("managed/testdata/checks")
+
+        pmm_server = (
+            dag.container()
+            .from_(docker_version)
+            .with_env_variable("PMM_DEBUG", "1")
+            .with_directory("/tmp/checks", checks_dir, owner="1000:1000")
+            .with_exposed_port(8443)
+            .with_entrypoint(["sh", "-c"])
+            .with_default_args(["""
+                mkdir -p /srv/checks
+                cp -r /tmp/checks/* /srv/checks/ 2>/dev/null || true
+                chown -R 1000:0 /srv
+                chmod -R g+rwX /srv
+                exec /opt/entrypoint.sh
+            """])
+            .as_service()
+        )
+
+        result = await (
+            dag.container()
+            .from_("curlimages/curl:latest")
+            .with_service_binding("pmm-server", pmm_server)
+            .with_exec(["sh", "-c", """
+                echo "Waiting for PMM server with checks..."
+                for i in $(seq 1 20); do
+                    if curl -skf https://pmm-server:8443/ping; then
+                        echo "PMM server ready after $i attempts"
+                        curl -sk https://pmm-server:8443/ping
+                        exit 0
+                    fi
+                    sleep 5
+                done
+                echo "PMM server failed to start"
+                exit 1
+            """])
+            .stdout()
+        )
+        return result
+
+    @function
+    async def step4_build_test_image(
+        self,
+        git_url: str = "https://github.com/percona/pmm",
+        git_branch: str = "v3",
+    ) -> str:
+        """Step 4: Build test image from PMM repo Dockerfile."""
+        source = dag.git(git_url).branch(git_branch).tree()
+
+        test_image = dag.container().build(source)
+
+        result = await (
+            test_image
+            .with_exec(["sh", "-c", "echo 'Test image built' && ls -la /go/src/github.com/percona/pmm/api-tests/"])
+            .stdout()
+        )
+        return result
