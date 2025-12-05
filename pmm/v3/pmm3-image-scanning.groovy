@@ -63,7 +63,7 @@ EOF
                     steps {
                         script {
                             sh """
-                                trivy image --severity HIGH,CRITICAL --format json -o trivy-report.json ${params.IMAGE}:${params.TAG}
+                                trivy image --severity HIGH,CRITICAL --format table -o trivy-report.txt ${params.IMAGE}:${params.TAG}
                                 trivy image --severity HIGH,CRITICAL --format template --template "@contrib/html.tpl" -o trivy-report.html ${params.IMAGE}:${params.TAG}
                             """
                             archiveArtifacts artifacts: 'trivy-report.*', allowEmptyArchive: true
