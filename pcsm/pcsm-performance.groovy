@@ -134,7 +134,7 @@ pipeline {
                     }
                     finally {
                         echo "Destroying AWS instances after timeout or manual abort"
-                        moleculeExecuteActionWithScenario(moleculeDir, "destroy", params.OPERATING_SYSTEM)
+//                        moleculeExecuteActionWithScenario(moleculeDir, "destroy", params.OPERATING_SYSTEM)
                     }
                 }
             }
