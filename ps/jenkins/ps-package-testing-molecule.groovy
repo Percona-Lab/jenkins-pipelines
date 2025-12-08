@@ -264,11 +264,13 @@ properties([
                     sandbox: true,
                     script: '''
                         if (action_to_test == "major_upgrade") {
-
                             if (product_to_test == "ps_80") {
-                                return ["ps_57"]
+                                return ["ps_80","ps_57", "ps_84"]
                             }
                             else if (product_to_test == "ps_84") {
+                                return ["ps_80","ps_84"]
+                            }
+                            else if (product_to_test == "ps_57") {
                                 return ["ps_57", "ps_80"]
                             }
                             else {
@@ -301,10 +303,13 @@ properties([
                     script: '''
                         if (action_to_test == "major_upgrade") {
                             if (product_to_test == "ps_80") {
-                                return ["ps_80"]
+                                return ["ps_80","ps_57", "ps_84"]
                             }
                             else if (product_to_test == "ps_84") {
-                                return ["ps_84"]
+                                return ["ps_80","ps_84"]
+                            }
+                            else if (product_to_test == "ps_57") {
+                                return ["ps_57", "ps_80"]
                             }
                             else {
                                 return ["NA"]
