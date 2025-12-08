@@ -256,7 +256,7 @@ properties([
             choiceType: 'PT_SINGLE_SELECT',
             description: 'from',
             name: 'major_upgrade_from_product',
-            referencedParameters: 'action_to_test',
+            referencedParameters: 'action_to_test,product_to_test',
             script: [
                 $class: 'GroovyScript',
                 script: [
@@ -292,7 +292,7 @@ properties([
             choiceType: 'PT_SINGLE_SELECT',
             description: 'from',
             name: 'major_upgrade_to_product',
-            referencedParameters: 'action_to_test',
+            referencedParameters: 'action_to_test,product_to_test',
             script: [
                 $class: 'GroovyScript',
                 script: [
