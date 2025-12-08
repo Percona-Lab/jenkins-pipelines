@@ -405,6 +405,7 @@ pipeline {
                                     sh """
                                         echo PLAYBOOK_VAR="ps_major_upgrade" > .env.ENV_VARS
                                     """
+                                }
                                 else {
                                     sh """
                                         echo PLAYBOOK_VAR="${product_to_test}_${action_to_test}" > .env.ENV_VARS
