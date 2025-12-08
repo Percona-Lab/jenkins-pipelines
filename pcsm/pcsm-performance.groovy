@@ -3,7 +3,6 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "pcsm-functional/sharded"
 def stageFailed = false
 
 pipeline {
@@ -12,7 +11,8 @@ pipeline {
     }
     parameters {
         choice(name: 'OPERATING_SYSTEM',description: 'Operating System you want to test on',choices: ['ubuntu24', 'redhat8'])
-        choice(name: 'PSMDB',description: 'PSMDB used for testing',choices: ['6', '7','8'])
+        choice(name: 'PSMDB',description: 'PSMDB version used for testing',choices: ['6', '7','8'])
+        choice(name: 'CLUSTER_TYPE',description: 'Type of cluster',choices: ['sharded','replicaset'])
         string(name: 'PCSM_BRANCH',description: 'PCSM Branch for testing',defaultValue: 'main')
         string(name: 'TESTING_BRANCH',description: 'Branch for testing repository',defaultValue: 'main')
         string(name: 'GO_VERSION',description: 'Version of Golang used',defaultValue: '1.24.1')
@@ -37,6 +37,9 @@ pipeline {
         withCredentials(moleculePbmJenkinsCreds())
         disableConcurrentBuilds()
     }
+
+    def moleculeDir = "pcsm-functional/${params.PCSM_BRANCH}"
+
     stages {
         stage('Set build name'){
             steps {
@@ -134,7 +137,7 @@ pipeline {
                     }
                     finally {
                         echo "Destroying AWS instances after timeout or manual abort"
-//                        moleculeExecuteActionWithScenario(moleculeDir, "destroy", params.OPERATING_SYSTEM)
+                        moleculeExecuteActionWithScenario(moleculeDir, "destroy", params.OPERATING_SYSTEM)
                     }
                 }
             }
