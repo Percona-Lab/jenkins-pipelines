@@ -239,10 +239,10 @@ properties([
                     sandbox: true,
                     script: '''
                         if (product_to_test == "ps_57") {
-                            return ["install", "upgrade", "major_upgrade_from", "kmip", "kms"]
+                            return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
                         else if (product_to_test == "ps_80" || product_to_test == "ps_84") {
-                            return ["install", "upgrade", "major_upgrade_to", "kmip", "kms"]
+                            return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
                         else {
                             return ["install", "upgrade", "kmip", "kms"]
@@ -401,6 +401,10 @@ pipeline {
                                         echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
                                     """
                                 } 
+                                else if (action_to_test == 'major_upgrade')     {
+                                    sh """
+                                        echo PLAYBOOK_VAR="ps_major_upgrade" > .env.ENV_VARS
+                                    """
                                 else {
                                     sh """
                                         echo PLAYBOOK_VAR="${product_to_test}_${action_to_test}" > .env.ENV_VARS
