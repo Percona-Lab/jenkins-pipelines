@@ -3,7 +3,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def moleculeDir = "pcsm-functional/sharded"
+def moleculeDir = "pcsm-functional/replicaset"
 def stageFailed = false
 
 pipeline {
