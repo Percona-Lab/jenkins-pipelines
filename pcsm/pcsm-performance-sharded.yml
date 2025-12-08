@@ -11,4 +11,4 @@
               - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: pcsm/pcsm-performance.groovy
+      script-path: pcsm/pcsm-performance_replicaset.groovy

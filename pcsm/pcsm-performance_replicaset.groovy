@@ -3,6 +3,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
         remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
+def moleculeDir = "pcsm-functional/sharded"
 def stageFailed = false
 
 pipeline {
@@ -11,8 +12,7 @@ pipeline {
     }
     parameters {
         choice(name: 'OPERATING_SYSTEM',description: 'Operating System you want to test on',choices: ['ubuntu24', 'redhat8'])
-        choice(name: 'PSMDB',description: 'PSMDB version used for testing',choices: ['6', '7','8'])
-        choice(name: 'CLUSTER_TYPE',description: 'Type of cluster',choices: ['sharded','replicaset'])
+        choice(name: 'PSMDB',description: 'PSMDB used for testing',choices: ['6', '7','8'])
         string(name: 'PCSM_BRANCH',description: 'PCSM Branch for testing',defaultValue: 'main')
         string(name: 'TESTING_BRANCH',description: 'Branch for testing repository',defaultValue: 'main')
         string(name: 'GO_VERSION',description: 'Version of Golang used',defaultValue: '1.24.1')
@@ -37,9 +37,6 @@ pipeline {
         withCredentials(moleculePbmJenkinsCreds())
         disableConcurrentBuilds()
     }
-
-    def moleculeDir = "pcsm-functional/${params.PCSM_BRANCH}"
-
     stages {
         stage('Set build name'){
             steps {
@@ -105,7 +102,7 @@ pipeline {
                 script{
                     moleculeExecuteActionWithScenario(moleculeDir, "verify", params.OPERATING_SYSTEM)
                     withCredentials([string(credentialsId: 'olexandr_zephyr_token', variable: 'ZEPHYR_TOKEN')]) {
-                        sh 'REPORT_FILE=$(find . -name report.xml | head -n1) && [ -f "$REPORT_FILE" ] || { echo "report.xml not found. Skipping Zephyr upload."; exit 0; } && echo "Uploading $REPORT_FILE to Zephyr..." && curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer $ZEPHYR_TOKEN" -F "file=@$REPORT_FILE;type=application/xml" -F "testCycle={\\"name\\":\\"${JOB_NAME}-${BUILD_NUMBER}\\",\\"customFields\\":{\\"PCSM branch\\":\\"${PCSM_BRANCH}\\",\\"Instance Type\\":\\"${INSTANCE_TYPE}\\",\\"Operating System\\":\\"${OPERATING_SYSTEM}\\",\\"PSMDB Version\\":\\"${PSMDB}\\",\\"Datasize(Mb)\\":\\"${DATASIZE}\\",\\"Number of Collections\\":\\"${COLLECTIONS}\\"}};type=application/json" "https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PML" -i || true'
+                        sh 'REPORT_FILE=$(find . -name report.xml | head -n1) && [ -f "$REPORT_FILE" ] || { echo "report.xml not found. Skipping Zephyr upload."; exit 0; } && echo "Uploading $REPORT_FILE to Zephyr..." && curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer $ZEPHYR_TOKEN" -F "file=@$REPORT_FILE;type=application/xml" -F "testCycle={\\"name\\":\\"${JOB_NAME}-${BUILD_NUMBER}\\",\\"customFields\\":{\\"PCSM branch\\":\\"${PCSM_BRANCH}\\",\\"Instance Type\\":\\"${INSTANCE_TYPE}\\",\\"Operating System\\":\\"${OPERATING_SYSTEM}\\",\\"PSMDB Version\\":\\"${PSMDB}\\",\\"Datasize(Mb)\\":\\"${DATASIZE}\\",\\"Number of Collections\\":\\"${COLLECTIONS}\\"}};type=application/json" "https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PCSM" -i || true'
 
                     }
                 }
