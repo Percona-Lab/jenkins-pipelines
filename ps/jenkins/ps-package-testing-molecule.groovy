@@ -264,7 +264,7 @@ properties([
                     sandbox: true,
                     script: '''
                         if (action_to_test == "major_upgrade") {
-                        
+
                             if (product_to_test == "ps_80") {
                                 return ["ps_57"]
                             }
@@ -369,6 +369,10 @@ pipeline {
         check_warnings = "${params.check_warnings}"
         install_mysql_shell = "${params.install_mysql_shell}"
         EOL="${params.EOL}"
+        major_upgrade_from_product = "${params.major_upgrade_from_product}"
+        major_upgrade_from_repo = "${params.major_upgrade_from_repo}"
+        major_upgrade_to_product = "${params.major_upgrade_to_product}"
+        major_upgrade_to_repo = "${params.major_upgrade_to_repo}"
     }
     options {
         withCredentials(moleculePdpsJenkinsCreds())
