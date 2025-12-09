@@ -79,9 +79,25 @@ jenkins-pipelines/
 
 ## Jenkins CLI
 
-**Instances:** `pmm`, `ps80`, `psmdb`, `pxc`, `pxb`, `rel`, `pg`, `cloud`
+### Instances
 
-**Base URLs:** `https://<instance>.cd.percona.com`
+| Instance | URL | Products Hosted |
+|----------|-----|-----------------|
+| pmm | https://pmm.cd.percona.com | PMM, telemetry agent |
+| psmdb | https://psmdb.cd.percona.com | PSMDB, PBM, PCSM, PDMDB |
+| ps80 | https://ps80.cd.percona.com | PS, PDPS, ProxySQL |
+| pxc | https://pxc.cd.percona.com | PXC, PDPXC, PT |
+| pxb | https://pxb.cd.percona.com | XtraBackup |
+| pg | https://pg.cd.percona.com | PostgreSQL testing |
+| rel | https://rel.cd.percona.com | Releases, PPG builds |
+| cloud | https://cloud.cd.percona.com | K8s operators |
+
+**Notes:**
+- `psmdb` hosts MongoDB ecosystem: PSMDB + PBM + PCSM + PDMDB (~209 jobs)
+- `ps80` hosts MySQL ecosystem: PS + PDPS + ProxySQL + perf tests (~137 jobs)
+- `pxc` hosts Galera ecosystem: PXC + PDPXC + some PXB/PT jobs (~213 jobs)
+- `rel` is the main release instance (~291 jobs)
+- `pg` and `pxb` are dedicated single-product instances
 
 ### Using jenkins CLI (recommended)
 ```bash
