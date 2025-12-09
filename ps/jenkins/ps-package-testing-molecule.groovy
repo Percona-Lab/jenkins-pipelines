@@ -41,6 +41,8 @@ def ps84PackageTesting() {
         'debian-11-arm',
         'debian-12',
         'debian-12-arm',
+        'debian-13',
+        'debian-13-arm',
         'oracle-8',
         'oracle-9',
         'rhel-9',
@@ -50,8 +52,6 @@ def ps84PackageTesting() {
         'rhel-10-arm',
         'ubuntu-jammy',
         'ubuntu-jammy-arm',
-        'ubuntu-focal',
-        'ubuntu-focal-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm'
     ]
