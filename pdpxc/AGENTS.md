@@ -2,6 +2,24 @@
 
 Extends: [../AGENTS.md](../AGENTS.md)
 
+## TL;DR
+
+**What**: Percona Distribution for PXC - Galera clustering, HAProxy, PRM, upgrade validation
+**Where**: Jenkins `pxc` | `https://pxc.cd.percona.com` | Jobs: `pdpxc-*`
+**Key Helpers**: `moleculeExecuteActionWithScenario()`, `moleculeParallelPostDestroy()`
+**Watch Out**: Depends on PXC artifacts; includes HAProxy and operator integration
+
+## Quick Reference
+
+| Key | Value |
+|-----|-------|
+| Jenkins Instance | `pxc` |
+| URL | https://pxc.cd.percona.com |
+| Job Patterns | `pdpxc-*`, `pdpxc-parallel`, `pdpxc-upgrade*` |
+| Default Credential | `pxc-staging` |
+| AWS Region | `us-east-2` |
+| Groovy Files | ~10 |
+
 ## Scope
 
 Percona Distribution for Percona XtraDB Cluster (PDPXC) CI/CD pipelines. Includes distribution package testing for Galera-based MySQL clustering, HAProxy load balancing, Percona Replication Manager integration, multi-version setup, upgrade validation, and PXC Operator integration testing.

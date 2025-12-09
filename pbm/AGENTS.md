@@ -2,86 +2,146 @@
 
 Extends: [../AGENTS.md](../AGENTS.md)
 
+## TL;DR
+
+**What**: Percona Backup for MongoDB - builds, package testing, backup/restore on RS/sharded clusters
+**Where**: Jenkins `psmdb` | `https://psmdb.cd.percona.com` | Jobs: `pbm*`
+**Key Helpers**: `moleculeExecuteActionWithScenario()`, `moleculePbmJenkinsCreds()`, `pbmVersion()`
+**Watch Out**: Creates EC2 + S3 resources - always cleanup; coordinate version params with PSMDB
+
+## Quick Reference
+
+| Key | Value |
+|-----|-------|
+| Jenkins Instance | `psmdb` |
+| URL | https://psmdb.cd.percona.com |
+| Job Patterns | `pbm-*`, `pbm-functional-*`, `pbm-docker*` |
+| Default Credential | `pbm-staging` or `psmdb-staging` (AWS) |
+| AWS Region | `us-east-2` |
+| Groovy Files | 19 |
+
 ## Scope
 
 Percona Backup for MongoDB (PBM) pipelines: agent builds, package testing, functional backup/restore on replica sets and sharded clusters, Molecule scenarios, and PBM-PSMDB integration.
 
 ## Key Files
 
-- `pbm-build.groovy` - PBM build pipeline
-- `pbm-package-testing.groovy` - Package testing
-- `pbm-molecule.groovy` - Molecule scenarios (install, upgrade, functional)
+| File | Purpose |
+|------|---------|
+| `jenkins/percona-mongodb-backup.groovy` | PBM build |
+| `jenkins/percona-mongodb-backup-aarch64.groovy` | ARM64 build |
+| `pbm-functional-tests.groovy` | Functional tests |
+| `pbm-functional-tests-full.groovy` | Full test suite |
+| `pbm-e2e-tests.groovy` | E2E testing |
+| `pbm-docker.groovy` | Docker image builds |
+| `pbm-pkg-upgrade.groovy` | Package upgrade testing |
 
-## Product-Specific Patterns
+## Key Jenkins Jobs
 
-### Backup testing
+| Job Name | Purpose |
+|----------|---------|
+| `pbm-build` | Build PBM packages |
+| `pbm-package-testing` | Package validation |
+| `pbm-functional-aws-rs` | AWS replica set tests |
+| `pbm-functional-aws-sharded` | AWS sharded tests |
+| `pbm-e2e-tests` | End-to-end testing |
 
-Ensure coverage for:
-- Logical & physical backups
-- Point-in-time recovery (PITR)
-- Selective collection restore
-- Multiple storage backends (S3-compatible, filesystem)
+## Backup Coverage
 
-### MongoDB topology support
+| Backup Type | Topology |
+|-------------|----------|
+| Logical | Standalone, RS, Sharded |
+| Physical | RS, Sharded |
+| PITR | RS, Sharded |
+| Selective | RS |
 
-Pipelines must exercise:
-- Standalone nodes
-- Replica sets
-- Sharded clusters with config servers
+## Storage Backends
 
-### Molecule credentials
+- S3-compatible (AWS S3, MinIO)
+- Filesystem (local, NFS)
+- GCS (Google Cloud Storage)
+- Azure Blob
 
-```groovy
-// PBM-specific molecule credentials
+## Molecule
+
+```bash
+# PBM-specific credentials
 moleculePbmJenkinsCreds()
+
+# Run Molecule scenarios
+cd molecule/pbm && molecule test -s aws-sharded
+
+# Helpers
+moleculeExecuteActionWithScenario(params)
+moleculeParallelPostDestroy()
+pbmVersion()
 ```
+
+## MongoDB Topologies
+
+| Topology | Tested In |
+|----------|-----------|
+| Standalone | `pbm-functional-standalone` |
+| Replica Set | `pbm-functional-aws-rs` |
+| Sharded | `pbm-functional-aws-sharded` |
+
+## Common Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---------|-----------|-----|
+| Missing `moleculePbmJenkinsCreds()` | SSH auth fails | Add before Molecule steps |
+| S3 bucket not cleaned | Costs accumulate | Delete in `post.always` |
+| PSMDB version mismatch | Incompatible versions | Align `PBM_BRANCH` with `PSMDB_BRANCH` |
+| Skipping sharded tests | Incomplete coverage | Include in test matrix |
 
 ## Agent Workflow
 
-1. **Fetch job definitions:** `~/bin/jenkins job psmdb config pbm-package-testing --yaml` to inspect parameters such as `PBM_BRANCH`, `PSMDB_BRANCH`, `LAYOUT`, `STORAGE`.
-2. **Respect topology matrices:** When adding or removing scenarios, update both Molecule configs and Jenkins parameters (`TOPOLOGY`, `STORAGE_BACKEND`).
-3. **Use helpers:** Call `moleculeExecuteActionWithScenario`, `runMoleculeCommandParallel*`, `pbmVersion`, and `installMolecule` functions from `vars/`.
-4. **Cleanup resources:** Molecule scenarios create EC2 instances and S3 buckets; wrap them with `try/finally` and `moleculeParallelPostDestroy`.
-5. **Coordinate with PSMDB:** PBM pipelines share credentials and artifacts with `psmdb` jobs - keep version parameters aligned.
+1. **Check live config**: `~/bin/jenkins params psmdb/pbm-functional-aws-rs`
+2. **Credentials**: Use `moleculePbmJenkinsCreds()` for Molecule
+3. **Topology coverage**: Test RS AND sharded clusters
+4. **Storage backends**: Test S3 and filesystem minimum
+5. **Cleanup**: Delete S3 buckets + EC2 instances in `post`
 
-## Validation & Testing
+## PR Review Checklist
 
-- **Groovy lint:** `groovy -e "new GroovyShell().parse(new File('pbm/pbm-build.groovy'))"`
-- **Molecule smoke:** `cd molecule/pbm && molecule test -s aws-sharded`
-- **PBM CLI tests:** Run `pbm backup` / `pbm restore` locally in Docker containers for quick sanity checks before editing Jenkins steps.
-- **Jenkins dry-run:** Trigger `pbm-functional-aws-rs` or `pbm-functional-aws-sharded` with limited OS list for validation.
+- [ ] `buildDiscarder(logRotator(...))` in options
+- [ ] `deleteDir()` in `post.always`
+- [ ] `moleculePbmJenkinsCreds()` present
+- [ ] S3 bucket cleanup
+- [ ] RS and sharded topology coverage
+- [ ] PSMDB version alignment
 
-## Credentials & Parameters
+## Change Impact
 
-- **Credentials:** `pbm-staging` or `psmdb-staging` AWS creds, `moleculePbmJenkinsCreds()` for Molecule SSH keys. Always guard with `withCredentials`.
-- **Key parameters:** `PBM_BRANCH`, `PSMDB_BRANCH`, `LAYOUT_TYPE`, `STORAGE_BACKEND`, `ENABLE_PITR`.
-- **Storage buckets:** Reuse existing staged buckets; never hardcode S3 keys.
+| Change | Impact | Notify |
+|--------|--------|--------|
+| Storage backends | Test coverage | QA |
+| PBM version params | PSMDB tests | MongoDB team |
+| S3 paths | Backup locations | Ops team |
 
-# Jenkins
+## Validation
 
-Instance: `psmdb` | URL: `https://psmdb.cd.percona.com`
-
-## CLI
 ```bash
-~/bin/jenkins job psmdb list | grep pbm             # All PBM jobs
-~/bin/jenkins params psmdb/<job>                    # Parameters
-~/bin/jenkins build psmdb/<job> -p KEY=val          # Build
+# Groovy lint
+groovy -e "new GroovyShell().parse(new File('pbm/pbm-functional-tests.groovy'))"
+
+# Molecule smoke
+cd molecule/pbm && molecule test -s aws-sharded
+
+# Local PBM test
+docker run -it percona/pbm:latest pbm --help
 ```
 
-## API
+## Jenkins CLI
+
 ```bash
-# Auth: API token from Jenkins → User → Configure → API Token
-curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("pbm"))'
+~/bin/jenkins job psmdb list | grep pbm       # All PBM jobs
+~/bin/jenkins params psmdb/pbm-functional-aws-rs  # Parameters
+~/bin/jenkins build psmdb/pbm-build -p KEY=val    # Build
 ```
 
-## Job Patterns
-`pbm-*`, `pbm-functional-*`, `pbm-docker*`
+## Related
 
-## Credentials
-`pbm-staging` or `psmdb-staging` (AWS), `moleculePbmJenkinsCreds()` (SSH). Always use `withCredentials`.
-
-## Related Jobs
-
-- `pbm-build` - Build artifacts
-- `pbm-package-testing` - Package validation
-- `psmdb-*` pipelines for server compatibility testing
+- `psmdb/AGENTS.md` - MongoDB server (PBM depends on PSMDB)
+- `pdmdb/AGENTS.md` - Distribution packaging
+- `vars/AGENTS.md` - Shared helpers (pbmVersion, moleculePbm*)

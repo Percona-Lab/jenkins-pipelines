@@ -2,6 +2,23 @@
 
 Extends: [../AGENTS.md](../AGENTS.md)
 
+## TL;DR
+
+**What**: Telemetry agent RPM/DEB builds, package validation, multi-distro testing
+**Where**: Jenkins `pmm` | `https://pmm.cd.percona.com` | Jobs: `percona-telemetry-agent*`
+**Key Note**: Cross-platform builds (x86_64, aarch64)
+**Watch Out**: Recent distro additions (Debian 13, Ubuntu 24.04, Rocky 9)
+
+## Quick Reference
+
+| Key | Value |
+|-----|-------|
+| Jenkins Instance | `pmm` |
+| URL | https://pmm.cd.percona.com |
+| Job Patterns | `percona-telemetry-agent*` |
+| Architectures | x86_64, aarch64 |
+| Groovy Files | ~3 |
+
 ## Scope
 
 Percona Telemetry Agent CI/CD pipelines. Includes Linux package builds (RPM/DEB) for the telemetry collection agent, multi-distribution testing, and package validation. The telemetry agent collects usage metrics and diagnostic data for Percona products.

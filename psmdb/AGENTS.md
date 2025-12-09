@@ -2,58 +2,107 @@
 
 Extends: [../AGENTS.md](../AGENTS.md)
 
+## TL;DR
+
+**What**: PSMDB builds (6.0-8.0), package testing, replica/sharding validation, PBM integration
+**Where**: Jenkins `psmdb` | `https://psmdb.cd.percona.com` | Jobs: `psmdb*`, `pbm*`, `pdmdb*`
+**Key Helpers**: `moleculeExecuteActionWithScenario()`, `pbmVersion()`, `moleculePbmJenkinsCreds()`
+**Watch Out**: Artifact naming consumed by PBM - coordinate changes; always destroy Molecule clusters
+
+## Quick Reference
+
+| Key | Value |
+|-----|-------|
+| Jenkins Instance | `psmdb` |
+| URL | https://psmdb.cd.percona.com |
+| Job Patterns | `psmdb*`, `pbm*`, `pcsm*`, `pdmdb*` |
+| Default Credential | `psmdb-staging` (AWS) |
+| AWS Region | `us-east-2` |
+| Groovy Files | 46 |
+
 ## Scope
 
 Percona Server for MongoDB (PSMDB) pipelines: server builds, package testing, replica set & sharding validation, encryption/FIPS coverage, backup/restore flows, and PBM integration.
 
 ## Key Files
 
-- `psmdb-build.groovy` - PSMDB build pipeline
-- `psmdb-package-testing.groovy` - Package testing
-- `psmdb-molecule.groovy` - Molecule-based scenarios
+| File | Purpose |
+|------|---------|
+| `jenkins/percona-server-for-mongodb-8.0.groovy` | PSMDB 8.0 build |
+| `jenkins/percona-server-for-mongodb-7.0.groovy` | PSMDB 7.0 build |
+| `jenkins/percona-server-for-mongodb-6.0.groovy` | PSMDB 6.0 build |
+| `psmdb-parallel.groovy` | Parallel package testing |
+| `psmdb-upgrade.groovy` | Upgrade path validation |
+| `psmdb-docker.groovy` | Docker image builds |
+| `psmdb-fips.groovy` | FIPS/encryption testing |
+| `psmdb-tarball.groovy` | Tarball distribution |
 
-## Product-Specific Patterns
+**ARM64 builds**: `jenkins/percona-server-for-mongodb-*-aarch64.groovy`
 
-### MongoDB version matrix
+## Key Jenkins Jobs
 
-Actively maintained PSMDB versions:
-- 6.0
-- 7.0
-- 8.0
+| Job Name | Purpose |
+|----------|---------|
+| `psmdb-build` | Build packages (triggers downstream) |
+| `psmdb-package-testing` | Test packages across distros |
+| `psmdb-parallel` | Parallel multi-distro testing |
+| `psmdb-molecule-*` | Molecule scenario execution |
+| `psmdb-upgrade-*` | Upgrade path validation |
 
-### Replication/sharding testing
+## Version Matrix
 
-Molecule scenarios validate:
-- Replica sets (with/without encryption)
-- Sharded clusters w/ config servers
-- PITR & PBM restore workflows
+| Version | Status | ARM64 |
+|---------|--------|-------|
+| 8.0 | Active | Yes |
+| 7.0 | Active | Yes |
+| 6.0 | Maintenance | Yes |
+| 5.0 | Legacy | Yes |
+
+## Common Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---------|-----------|-----|
+| Changing artifact names | Breaks PBM jobs | Coordinate with PBM team |
+| Skipping `moleculeParallelPostDestroy()` | Leaves EC2/Molecule running | Always in `post.always` |
+| Hardcoding version | Breaks multi-version matrix | Use `PSMDB_VERSION` param |
+| Missing `moleculePbmJenkinsCreds()` | PBM tests fail auth | Add when using PBM |
 
 ## Agent Workflow
 
-1. **Pull live config:** `~/bin/jenkins job psmdb config psmdb-build --yaml` before editing to capture parameters such as `PSMDB_BRANCH`, `PSMDB_VERSION`, `PBM_BRANCH`.
-2. **Share logic:** Use helpers like `moleculeExecuteActionWithScenario`, `moleculeParallelPostDestroy`, `pbmVersion`, and `installMolecule*` from `vars/`.
-3. **PBM integration:** When pipelines interact with PBM, keep credentials in sync with `pbm/AGENTS.md` and ensure `moleculePbmJenkinsCreds()` is applied.
-4. **Encryption/FIPS:** Jobs toggling FIPS or KMIP must propagate flags to both build and test stages; keep parameter names consistent (`ENABLE_FIPS`, `KMS_CONFIG`).
-5. **Cleanup clusters:** Always destroy Molecule environments and delete any `kubeconfig`/`aws` temp files in `post`.
+1. **Check live config**: `~/bin/jenkins params psmdb/psmdb-build`
+2. **Search helpers**: `rg "molecule" vars/` before writing custom logic
+3. **PBM integration**: Keep credentials synced with `pbm/AGENTS.md`
+4. **Cleanup**: Always `moleculeParallelPostDestroy()` + `deleteDir()` in `post`
 
-## Validation & Testing
+## PR Review Checklist
 
-- **Groovy lint:** `groovy -e "new GroovyShell().parse(new File('psmdb/psmdb-build.groovy'))"`
-- **Python helpers:** `python3 -m py_compile resources/pmm/do_remove_droplets.py` (shared cleanup script)
-- **Molecule smoke:** `cd molecule/psmdb && molecule test -s ubuntu-jammy`
-- **PBM end-to-end:** Trigger `pbm-pkg-upgrade` or `pbm-functional-*` jobs after major backup-related updates.
+- [ ] `buildDiscarder(logRotator(...))` in options
+- [ ] `deleteDir()` in `post.always`
+- [ ] `withCredentials()` for all secrets
+- [ ] Version matrix updated if adding version
+- [ ] Molecule cleanup in `post` blocks
+- [ ] No hardcoded artifact paths
 
-## Credentials & Parameters
+## Change Impact
 
-- **Credentials:** `psmdb-staging` (AWS), `pbm-staging` (when using PBM), `aws-jenkins` (SSH). Wrap with `withCredentials`.
-- **Key parameters:** `PSMDB_BRANCH`, `PSMDB_TAG`, `PBM_BRANCH`, `LAYOUT_TYPE`, `ENCRYPTION`, `SCENARIO`.
-- **Artifacts:** Tarball & package naming (`percona-server-mongodb-<ver>`) is consumed by PBM - do not change without coordination.
+| Change | Impact | Notify |
+|--------|--------|--------|
+| Artifact naming | Breaks PBM, PDMDB | PBM team, Distribution team |
+| Parameter removal | Breaks downstream | RelEng |
+| Version matrix | Platform updates | QA |
 
-# Jenkins
+## Validation
 
-Instance: `psmdb` | URL: `https://psmdb.cd.percona.com`
+```bash
+# Groovy lint
+groovy -e "new GroovyShell().parse(new File('psmdb/psmdb-parallel.groovy'))"
 
-## CLI
+# Molecule smoke
+cd molecule/psmdb && molecule test -s ubuntu-jammy
+```
+
+## Jenkins CLI
+
 ```bash
 ~/bin/jenkins job psmdb list                        # All jobs
 ~/bin/jenkins job psmdb list | grep 'psmdb[678]0'   # By version
@@ -61,20 +110,8 @@ Instance: `psmdb` | URL: `https://psmdb.cd.percona.com`
 ~/bin/jenkins build psmdb/<job> -p KEY=val          # Build
 ```
 
-## API
-```bash
-# Auth: API token from Jenkins → User → Configure → API Token
-curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name'
-```
+## Related
 
-## Job Patterns
-`psmdb*`, `pbm*`, `pcsm*`, `pdmdb*`
-
-## Credentials
-`psmdb-staging` (AWS), `pbm-staging` (PBM), `aws-jenkins` (SSH). Always use `withCredentials`.
-
-## Related Jobs
-
-- `psmdb-build` - Build artifacts
-- `psmdb-package-testing` - Package validation
-- PBM (Percona Backup for MongoDB) integration tests
+- `pbm/AGENTS.md` - Backup integration
+- `pdmdb/AGENTS.md` - Distribution packaging
+- `vars/AGENTS.md` - Shared helpers (moleculeExecute*, pbmVersion)

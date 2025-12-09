@@ -2,6 +2,24 @@
 
 Extends: [../AGENTS.md](../AGENTS.md)
 
+## TL;DR
+
+**What**: Percona Distribution for PS - package testing, orchestrator, Perl DBD-MySQL, upgrade validation
+**Where**: Jenkins `ps80` | `https://ps80.cd.percona.com` | Jobs: `pdps-*`
+**Key Helpers**: `moleculePdpsJenkinsCreds()`, `moleculeExecuteActionWithScenario()`
+**Watch Out**: Depends on PS artifacts; includes orchestrator HA testing
+
+## Quick Reference
+
+| Key | Value |
+|-----|-------|
+| Jenkins Instance | `ps80` |
+| URL | https://ps80.cd.percona.com |
+| Job Patterns | `pdps-*`, `pdps-parallel`, `pdps-upgrade*` |
+| Default Credential | `moleculePdpsJenkinsCreds()` |
+| AWS Region | `us-east-2` |
+| Groovy Files | ~10 |
+
 ## Scope
 
 Percona Distribution for Percona Server (PDPS) CI/CD pipelines. Includes distribution package testing for Percona Server MySQL, orchestrator components, Perl DBD-MySQL integration, multi-version setup, upgrade validation, and comprehensive distribution testing across Linux platforms.

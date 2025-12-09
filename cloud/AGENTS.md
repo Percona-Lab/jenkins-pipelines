@@ -2,105 +2,138 @@
 
 Extends: [../AGENTS.md](../AGENTS.md)
 
+## TL;DR
+
+**What**: K8s operator testing (PGO, PXCO, PSMDBO), EKS/OpenShift/GKE cluster lifecycle, orphaned resource cleanup
+**Where**: Jenkins `cloud` | `https://cloud.cd.percona.com` | Jobs: `*-operator-*`, `pgo_*`, `pxco_*`
+**Critical**: Clusters cost ~$200/day - ALWAYS cleanup in `post` blocks
+**Key Helpers**: `eksctlCreateCluster()`, `openshiftClusterDestroy()`, `withCredentials([aws(...)])`
+
+## Quick Reference
+
+| Key | Value |
+|-----|-------|
+| Jenkins Instance | `cloud` |
+| URL | https://cloud.cd.percona.com |
+| Job Patterns | `*-operator-*`, `pgo_*`, `pxco_*`, `psmdbo_*` |
+| Default Region | `us-east-2` |
+| Groovy Files | 45+ |
+
 ## Scope
 
 Cloud and Kubernetes operator pipelines: EKS/OpenShift cluster provisioning, operator testing (PG, PXC, PSMDB), multi-cloud infrastructure management, and orphaned resource cleanup.
 
 ## Key Files
 
-- `pgo_v1_operator_eks.groovy` - PostgreSQL Operator on EKS
-- `psmdbo_openshift.groovy` - MongoDB Operator on OpenShift
-- `pxc_operator_eks.groovy` - PXC Operator on EKS
-- AWS Lambda functions for cluster cleanup
+| File | Purpose |
+|------|---------|
+| `jenkins/pgo_eks.groovy` | PostgreSQL Operator on EKS |
+| `jenkins/pxco_eks.groovy` | PXC Operator on EKS |
+| `jenkins/psmdbo_eks.groovy` | MongoDB Operator on EKS |
+| `jenkins/pgo_openshift.groovy` | PGO on OpenShift |
+| `jenkins/weekly_pgo.groovy` | Weekly PGO tests |
+| `aws-functions/orphaned_eks_clusters.py` | EKS cleanup |
+| `aws-functions/orphaned_openshift_instances.py` | OpenShift cleanup |
 
-## Product-Specific Patterns
+## Key Jenkins Jobs
 
-### Kubernetes Platforms
+| Job Name | Purpose |
+|----------|---------|
+| `pgo_eks` | PostgreSQL Operator on EKS |
+| `pxco_eks` | PXC Operator on EKS |
+| `psmdbo_eks` | MongoDB Operator on EKS |
+| `*_openshift` | OpenShift variants |
+| `*_gke` | GKE variants |
 
-Supported platforms:
-- **AWS EKS** - Primary Kubernetes platform
-- **OpenShift (ROSA)** - Red Hat OpenShift on AWS
-- **GKE/AKS** - Secondary platforms for specific tests
+## Platform Matrix
 
-### Operator Testing Matrix
+| Platform | Primary Use | Cost |
+|----------|-------------|------|
+| EKS | Main K8s testing | ~$200/day |
+| OpenShift (ROSA) | Enterprise testing | ~$300/day |
+| GKE | Secondary testing | ~$150/day |
+| Minikube | Local testing | Free |
+
+## AWS Details
 
 ```groovy
-// Operator versions tested
-operators: ['pgo', 'pxc', 'psmdb']
-platforms: ['eks', 'openshift', 'gke']
-versions: ['1.x', '2.x']  // Operator versions
+// EKS cluster lifecycle
+environment {
+    AWS_DEFAULT_REGION = 'us-east-2'
+    CLUSTER_NAME = "test-${BUILD_NUMBER}"
+}
+
+// Always cleanup!
+post {
+    always {
+        sh "eksctl delete cluster --name ${CLUSTER_NAME} --region us-east-2"
+        deleteDir()
+    }
+}
 ```
 
-### Cluster Lifecycle
+## Common Pitfalls
 
-```groovy
-// EKS cluster provisioning
-eksctlCreateCluster(params)
-// ... run tests ...
-eksctlDeleteCluster(params)  // Always cleanup
-
-// OpenShift cluster provisioning
-openshiftClusterCreate(params)
-// ... run tests ...
-openshiftClusterDestroy(params)
-```
+| Mistake | Why Wrong | Fix |
+|---------|-----------|-----|
+| No cluster cleanup | $200+/day leaked | Always in `post.always` |
+| Wrong credential wrapper | Multi-cloud auth fails | `withAWS` vs `withGCP` |
+| Missing timeout | Jobs hang forever | Add `timeout(time: 2, unit: 'HOURS')` |
+| Hardcoded cluster names | Name collisions | Use `${BUILD_NUMBER}` suffix |
 
 ## Agent Workflow
 
-1. **Inspect cluster jobs:** `~/bin/jenkins job cloud config pgo_v1_operator_eks --yaml` to understand cluster parameters, operator versions, and test suites.
-2. **Cluster cleanup is critical:** Always ensure clusters are destroyed in `post` blocks. Use `orphaned_eks_clusters.py` and `orphaned_openshift_instances.py` for leak detection.
-3. **Cost awareness:** EKS/OpenShift clusters are expensive. Use `spot` instances where possible and set appropriate timeouts.
-4. **Multi-cloud credentials:** Different clouds require different credential wrappers (`withAWS`, `withGCP`, `withAzure`).
-5. **Operator version matrix:** Test new operator releases against multiple K8s versions before promoting.
+1. **Check cluster params**: `~/bin/jenkins params cloud/pgo_eks`
+2. **Credential wrapping**: Different per cloud (`withAWS`, `withGCP`)
+3. **Cost awareness**: Use spot instances, set timeouts
+4. **Cleanup**: `eksctlDeleteCluster()` or `openshiftClusterDestroy()` in `post`
 
-## Validation & Testing
+## PR Review Checklist
 
-- **Groovy lint:** `groovy -e "new GroovyShell().parse(new File('cloud/pgo_v1_operator_eks.groovy'))"`
-- **Python helpers:** `python3 -m py_compile cloud/aws/orphaned_eks_clusters.py`
-- **Local K8s:** Use minikube or kind for local testing before pushing to cloud clusters.
-- **Cost check:** Review AWS Cost Explorer after major test runs to catch resource leaks.
+- [ ] Cluster cleanup in `post.always`
+- [ ] `timeout()` wrapper on cluster operations
+- [ ] Correct credential wrapper for target cloud
+- [ ] No hardcoded cluster names
+- [ ] Resource tagging for cleanup automation
 
-## Credentials & Parameters
+## Change Impact
 
-- **Credentials:**
-  - `aws-jenkins` - AWS access for EKS
-  - `openshift-*` - OpenShift cluster credentials
-  - `gcp-*`, `azure-*` - Multi-cloud access
-- **Key parameters:** `CLUSTER_NAME`, `K8S_VERSION`, `OPERATOR_VERSION`, `PLATFORM`, `REGION`.
-- **Cleanup:** Set `CLEANUP=true` as default; only disable for debugging.
-
-# Jenkins
-
-Instance: `cloud` | URL: `https://cloud.cd.percona.com`
-
-## CLI
-```bash
-~/bin/jenkins job cloud list                        # All jobs
-~/bin/jenkins job cloud list | grep operator        # Operator jobs
-~/bin/jenkins params cloud/<job>                    # Parameters
-~/bin/jenkins build cloud/<job> -p KEY=val          # Build
-```
-
-## API
-```bash
-# Auth: API token from Jenkins → User → Configure → API Token
-curl -su "USER:TOKEN" "https://cloud.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("operator"))'
-```
-
-## Job Patterns
-`*-operator-*`, `pgo_*`, `pxco_*`, `psmdbo_*`, `eks-*`, `openshift-*`
-
-## Credentials
-`aws-jenkins` (AWS/EKS), `openshift-*` (OpenShift), `gcp-*`, `azure-*` (multi-cloud). Always use `withCredentials`.
+| Change | Impact | Notify |
+|--------|--------|--------|
+| Cluster defaults | Cost changes | Platform team |
+| Operator version | Test matrix | Operator teams |
+| Cleanup logic | Cost optimization | All teams |
 
 ## Orphaned Resource Cleanup
 
-Lambda functions in `cloud/aws/` detect and clean up orphaned resources:
-- `orphaned_eks_clusters.py` - Find EKS clusters without recent activity
-- `orphaned_openshift_instances.py` - Find OpenShift instances to terminate
+Lambda functions in `aws-functions/`:
+- `orphaned_eks_clusters.py` - Find/delete stale EKS clusters
+- `orphaned_openshift_instances.py` - OpenShift instance cleanup
+- `orphaned_cloudformation.py` - Stale CloudFormation stacks
+- `orphaned_vpcs.py` - Remove orphaned VPCs
+- `orphaned_oidc.py` - OIDC provider cleanup
 
-## Related Jobs
+## Validation
 
-- Operator-specific jobs (pgo, pxc, psmdb)
-- PMM HA on EKS (`pmm3-ha-eks`) - in pmm/v3/
-- Infrastructure cleanup jobs
+```bash
+# Groovy lint
+groovy -e "new GroovyShell().parse(new File('cloud/jenkins/pgo_eks.groovy'))"
+
+# Python helpers
+python3 -m py_compile cloud/aws-functions/orphaned_eks_clusters.py
+```
+
+## Jenkins CLI
+
+```bash
+~/bin/jenkins job cloud list                     # All jobs
+~/bin/jenkins job cloud list | grep operator     # Operator jobs
+~/bin/jenkins params cloud/<job>                 # Parameters
+~/bin/jenkins build cloud/<job> -p KEY=val       # Build
+```
+
+## Related
+
+- `pmm/v3/AGENTS.md` - PMM HA on EKS (in Hetzner branch)
+- `IaC/` - CloudFormation for Jenkins infrastructure
+- `vars/AGENTS.md` - Shared helpers (eksctl*, openshift*)

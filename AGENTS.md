@@ -49,10 +49,10 @@ Jenkins pipeline definitions and shared libraries for Percona's CI/CD infrastruc
 
 ```
 jenkins-pipelines/
-├── pmm/                 # PMM pipelines (50+ jobs) - See pmm/AGENTS.md
-│   ├── v3/              # PMM v3 specific (HA/EKS, AMI/OVF, upgrades) - See pmm/v3/AGENTS.md
+├── pmm/                 # PMM pipelines (50+ jobs)
+│   ├── v3/              # PMM v3 specific (HA/EKS, AMI/OVF, upgrades)
 │   └── openshift/       # OpenShift deployments
-├── ppg/                 # Percona Distribution for PostgreSQL (69 files) - See ppg/AGENTS.md
+├── ppg/                 # Percona Distribution for PostgreSQL (69 files, 65 using library)
 ├── ps/                  # Percona Server MySQL - See ps/AGENTS.md
 ├── pxc/                 # Percona XtraDB Cluster - See pxc/AGENTS.md
 ├── psmdb/               # Percona Server MongoDB - See psmdb/AGENTS.md
@@ -63,12 +63,12 @@ jenkins-pipelines/
 ├── pdpxc/               # Distribution: XtraDB Cluster - See pdpxc/AGENTS.md
 ├── proxysql/            # ProxySQL (2.x) - See proxysql/AGENTS.md
 ├── prel/                # Percona Release tool - See prel/AGENTS.md
-├── pcsm/                # Percona Cloud Service Manager - See pcsm/AGENTS.md
+├── pcsm/                # Percona Cloud Service Manager
 ├── percona-telemetry-agent/  # Telemetry Agent - See percona-telemetry-agent/AGENTS.md
 ├── cloud/               # Cloud/operator pipelines - See cloud/AGENTS.md
-├── vars/                # Shared library functions (~70 helpers) - See vars/AGENTS.md
+├── vars/                # Shared library functions (~100 helpers) - See vars/AGENTS.md
 ├── resources/           # Python scripts for pipelines
-├── IaC/                 # Infrastructure as Code - See IaC/AGENTS.md
+├── IaC/                 # Infrastructure as Code
 │   └── *.cd/            # Product-specific CloudFormation (pmm.cd, ps80.cd, psmdb.cd, pg.cd, etc.)
 └── docs/                # Documentation
 ```
@@ -265,6 +265,54 @@ stage('Tests') {
 // 2. Call via helper
 def result = runPython('your_script', '--arg value')
 ```
+
+## AWS Infrastructure
+
+### Regions
+| Region | Primary Use |
+|--------|-------------|
+| `us-east-1` | Some legacy workloads |
+| `us-east-2` | Primary region for most builds and testing |
+| `us-west-2` | Secondary region for some cloud tests |
+| `eu-west-1` | EU-based testing |
+
+**Default**: Most pipelines use `us-east-2` unless explicitly configured otherwise.
+
+### Services Used
+- **EC2**: Build agents, spot instances for cost optimization
+- **S3**: Artifact storage, build cache, package repositories
+- **EKS**: Kubernetes operator testing
+- **ECR**: Container image storage
+- **Lambda**: Cleanup automation (orphaned resources)
+- **CloudFormation**: Jenkins master infrastructure (in `IaC/`)
+- **Route53**: DNS for test environments
+
+### Common AWS Patterns
+
+```groovy
+// Set region explicitly
+environment {
+    AWS_DEFAULT_REGION = 'us-east-2'
+}
+
+// S3 artifact upload
+sh "aws s3 cp artifact.tar.gz s3://bucket-name/path/ --region us-east-2"
+
+// EC2 spot instance (via helper)
+launchSpotInstance(
+    instanceType: 'm5.large',
+    spotPrice: '0.10'
+)
+
+// EKS cluster operations
+sh "eksctl create cluster --name \${CLUSTER_NAME} --region us-east-2"
+```
+
+### Cost Considerations
+- **Spot instances**: Use for non-critical builds (70% cost savings)
+- **EKS clusters**: ~$200/day if left running - ALWAYS cleanup in `post` blocks
+- **S3 lifecycle**: Artifacts auto-expire after 90 days in most buckets
+- **Resource tagging**: Tag all resources with `owner`, `purpose`, `expiry` for cleanup automation
 
 ## Security & Secrets
 

@@ -2,6 +2,24 @@
 
 Extends: [../AGENTS.md](../AGENTS.md)
 
+## TL;DR
+
+**What**: Percona Distribution for MongoDB - package testing, multi-version setup, upgrade validation
+**Where**: Jenkins `psmdb` | `https://psmdb.cd.percona.com` | Jobs: `pdmdb-*`
+**Key Helpers**: `moleculePbmJenkinsCreds()`, `moleculeExecuteActionWithScenario()`
+**Watch Out**: Depends on PSMDB artifacts; follow release automation contracts
+
+## Quick Reference
+
+| Key | Value |
+|-----|-------|
+| Jenkins Instance | `psmdb` |
+| URL | https://psmdb.cd.percona.com |
+| Job Patterns | `pdmdb-*`, `pdmdb-parallel`, `pdmdb-upgrade*` |
+| Default Credential | `moleculePbmJenkinsCreds()` |
+| AWS Region | `us-east-2` |
+| Groovy Files | ~5 |
+
 ## Scope
 
 Percona Distribution for MongoDB (PDMDB) CI/CD pipelines. Includes distribution package testing, multi-version setup, upgrade validation, and integration testing across multiple Linux distributions.

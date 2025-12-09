@@ -2,6 +2,23 @@
 
 Extends: [../AGENTS.md](../AGENTS.md)
 
+## TL;DR
+
+**What**: percona-release package - repository configuration and management tool
+**Where**: Jenkins `rel` | `https://rel.cd.percona.com` | Jobs: `prel-*`
+**Key Note**: Foundational package - changes affect ALL Percona products
+**Watch Out**: Test across all distros; impacts all product installations
+
+## Quick Reference
+
+| Key | Value |
+|-----|-------|
+| Jenkins Instance | `rel` |
+| URL | https://rel.cd.percona.com |
+| Job Patterns | `prel-*`, `prel-parallel` |
+| Groovy Files | ~3 |
+| Scope | All Percona products |
+
 ## Scope
 
 Percona Release tool CI/CD pipelines. Includes percona-release package testing, parallel distribution validation, and documentation generation. The percona-release package provides repository configuration and management for all Percona products.

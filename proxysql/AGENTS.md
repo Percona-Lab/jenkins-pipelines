@@ -2,6 +2,24 @@
 
 Extends: [../AGENTS.md](../AGENTS.md)
 
+## TL;DR
+
+**What**: ProxySQL 2.x builds, QA testing, connection pooling/query routing validation
+**Where**: Jenkins `ps80` | `https://ps80.cd.percona.com` | Jobs: `*proxysql*`
+**Key Helpers**: `moleculepxcJenkinsCreds()` (uses PXC credentials)
+**Watch Out**: C++/Go native builds (not Docker-based); works with PS and PXC
+
+## Quick Reference
+
+| Key | Value |
+|-----|-------|
+| Jenkins Instance | `ps80` |
+| URL | https://ps80.cd.percona.com |
+| Job Patterns | `*proxysql*`, `qa-proxysql2-*` |
+| Default Credential | `moleculepxcJenkinsCreds()` |
+| Build Type | Native C++/Go |
+| Groovy Files | ~5 |
+
 ## Scope
 
 ProxySQL CI/CD pipelines for MySQL proxy layer testing and builds. Includes ProxySQL 2.x QA testing, source tarball generation, binary builds, and comprehensive test suite validation across multiple Linux distributions. ProxySQL provides connection pooling, query routing, and high availability for MySQL/Percona Server deployments.

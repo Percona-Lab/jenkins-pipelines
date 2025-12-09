@@ -2,80 +2,113 @@
 
 Extends: [../AGENTS.md](../AGENTS.md)
 
+## TL;DR
+
+**What**: Percona XtraDB Cluster builds (5.7, 8.0), Galera testing, package validation, multi-node clusters
+**Where**: Jenkins `pxc` | `https://pxc.cd.percona.com` | Jobs: `pxc*`, `proxysql*`
+**Key Helpers**: `moleculeExecuteActionWithScenario()`, `moleculeParallelPostDestroy()`
+**Watch Out**: Galera wsrep settings must be consistent; always cleanup multi-node clusters
+
+## Quick Reference
+
+| Key | Value |
+|-----|-------|
+| Jenkins Instance | `pxc` |
+| URL | https://pxc.cd.percona.com |
+| Job Patterns | `pxc*`, `proxysql*`, `pdpxc*` |
+| Default Credential | `pxc-staging` (AWS) |
+| AWS Region | `us-east-2` |
+| Groovy Files | 24 |
+
 ## Scope
 
 Percona XtraDB Cluster (PXC) CI/CD pipelines: Galera cluster builds, package testing across distros/architectures, Molecule multi-node tests, and upgrade/compatibility validation.
 
 ## Key Files
 
-- `pxc80-build.groovy` - PXC 8.0 build pipeline
-- `pxc80-package-testing.groovy` - Package validation
-- `pxc-molecule.groovy` - Molecule-based multi-node testing
+| File | Purpose |
+|------|---------|
+| `jenkins/percona-xtradb-cluster-8.0.groovy` | PXC 8.0 build |
+| `jenkins/percona-xtradb-cluster-5.7.groovy` | PXC 5.7 build |
+| `jenkins/pxc-package-testing.groovy` | Package validation |
+| `jenkins/pxc-package-testing-parallel.groovy` | Parallel distro testing |
+| `jenkins/pxc80-pipeline.groovy` | PXC 8.0 CI pipeline |
+| `jenkins/proxysql-package-testing.groovy` | ProxySQL testing |
+| `pxc-site-check.groovy` | Site validation |
 
-## Product-Specific Patterns
+**ARM64 builds**: `jenkins/percona-xtradb-cluster-8.0-arm.groovy`
 
-### Molecule testing
+## Key Jenkins Jobs
 
-```groovy
-// Execute molecule scenarios
-moleculeExecuteActionWithScenario(params)
-moleculeParallelPostDestroy()
-```
+| Job Name | Purpose |
+|----------|---------|
+| `pxc80-build` | Build PXC 8.0 packages |
+| `pxc-package-testing` | Test packages across distros |
+| `pxc80-pipeline` | Full CI pipeline |
+| `proxysql-package-testing` | ProxySQL integration |
+| `qa-pxc80-pipeline` | QA test suite |
 
-### Distribution matrix
+## Version Matrix
 
-PXC testing spans:
-- RHEL/Oracle Linux 8 & 9
-- Debian 11/12
-- Ubuntu 20.04/22.04/24.04
-- ARM64 jobs for selected platforms
+| Version | Status | ARM64 |
+|---------|--------|-------|
+| 8.0 | Active | Yes |
+| 5.7 | Maintenance | No |
+| 5.6 | Legacy | No |
+
+## Common Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---------|-----------|-----|
+| Inconsistent wsrep settings | Galera cluster won't form | Keep wsrep_* params aligned |
+| Skipping multi-node cleanup | Leaves 3-node cluster running | `moleculeParallelPostDestroy()` |
+| Wrong `pxc_strict_mode` | SST/IST failures | Match build/test settings |
+| Forgetting ProxySQL tests | Breaks load balancer validation | Include in test matrix |
 
 ## Agent Workflow
 
-1. **Understand the scenario:** `~/bin/jenkins job pxc info pxc80-package-testing` (or the job you touch) to capture parameters like `PXC_VERSION`, `PXCLUSTER_SIZE`, `OS_MATRIX`.
-2. **Keep Galera requirements:** Ensure `wsrep` + SST settings remain consistent; reuse shared snippets from `vars/galera*` helpers when possible.
-3. **Molecule hygiene:** Always pair `moleculeExecuteActionWithScenario` with `moleculeParallelPostDestroy` in `post` blocks; do not leave clusters running.
-4. **Upgrade jobs:** When editing upgrade flows (`57to80`, etc.), update both the Groovy pipeline and the YAML job definitions to keep parameter defaults aligned.
-5. **Performance tuning:** Keep `innodb_buffer_pool_size`, `wsrep_provider_options`, and `pxc_strict_mode` overrides in sync between build/test jobs.
+1. **Check live config**: `~/bin/jenkins params pxc/pxc80-build`
+2. **Galera settings**: Keep `wsrep_provider_options` consistent
+3. **Multi-node tests**: Always 3-node minimum for split-brain testing
+4. **Cleanup**: `moleculeParallelPostDestroy()` + `deleteDir()` in `post`
 
-## Validation & Testing
+## PR Review Checklist
 
-- **Groovy lint:** `groovy -e "new GroovyShell().parse(new File('pxc/pxc80-package-testing.groovy'))"`
-- **Molecule smoke (local):** `cd percona-qa/molecule/pxc && molecule test -s ubuntu-jammy`
-- **Galera functional test:** Use `pxc-site-check.groovy` or `qa-*` jobs for verifying replication/IST/SST flows.
-- **Jenkins dry-run:** Trigger `pxc80-build` in staging with `DRY_RUN=true` plus a limited distro list before pushing major matrix updates.
+- [ ] `buildDiscarder(logRotator(...))` in options
+- [ ] `deleteDir()` in `post.always`
+- [ ] Galera wsrep settings consistent
+- [ ] Multi-node cluster cleanup
+- [ ] ProxySQL tests included if applicable
 
-## Credentials & Parameters
+## Change Impact
 
-- **Credentials:** `pxc-staging` (AWS), `aws-jenkins` (SSH). Always wrap with `withCredentials`.
-- **Key parameters:** `PXC_BRANCH`, `GALERA_REV`, `MTR_SUITE`, `MATRIX`. Do not rename or remove; extend via additional parameters.
-- **Artifacts:** Builds are consumed by PS/PXB jobs - keep artifact naming (`percona-xtradb-cluster-<ver>-<os>.tar.gz`) stable.
+| Change | Impact | Notify |
+|--------|--------|--------|
+| Galera params | SST/IST behavior | QA team |
+| Package naming | Breaks PDPXC | Distribution team |
+| Version matrix | Platform updates | QA |
 
-# Jenkins
+## Validation
 
-Instance: `pxc` | URL: `https://pxc.cd.percona.com`
-
-## CLI
 ```bash
-~/bin/jenkins job pxc list                          # All jobs
-~/bin/jenkins job pxc list | grep 'pxc80'           # PXC 8.0 jobs
-~/bin/jenkins params pxc/<job>                      # Parameters
+# Groovy lint
+groovy -e "new GroovyShell().parse(new File('pxc/jenkins/pxc80-pipeline.groovy'))"
+
+# Molecule smoke
+cd molecule/pxc && molecule test -s ubuntu-jammy
 ```
 
-## API
+## Jenkins CLI
+
 ```bash
-# Auth: API token from Jenkins → User → Configure → API Token
-curl -su "USER:TOKEN" "https://pxc.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name'
+~/bin/jenkins job pxc list                    # All jobs
+~/bin/jenkins job pxc list | grep pxc80       # PXC 8.0 jobs
+~/bin/jenkins params pxc/<job>                # Parameters
+~/bin/jenkins build pxc/<job> -p KEY=val      # Build
 ```
 
-## Job Patterns
-`pxc80-*`, `pxc57-*`, `pxc-*-testing`
+## Related
 
-## Credentials
-`pxc-staging` (AWS), `aws-jenkins` (SSH). Always use `withCredentials`.
-
-## Related Jobs
-
-- `pxc80-build` - Build artifacts
-- `pxc80-package-testing` - Package validation
-- Molecule scenarios in `percona-qa` repository (invoked via shared library)
+- `pdpxc/AGENTS.md` - Distribution packaging
+- `proxysql/AGENTS.md` - ProxySQL pipelines
+- `vars/AGENTS.md` - Shared helpers
