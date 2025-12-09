@@ -94,13 +94,8 @@ pipeline {
                             fi
                             sed -i "s/ENV XTRABACKUP_VERSION.*/ENV XTRABACKUP_VERSION ${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.1/g" Dockerfile
-                            if [ \${MYSQL_VERSION_MINOR} = "0" ]; then
-                                sed -i "s/pxb-80 testing/pxb-80 ${COMPONENT}/g" Dockerfile
-                                sed -i "s/ps-80;/ps-80 ${COMPONENT};/g" Dockerfile
-                            else
-                                sed -i "s/pxb-84-lts testing/pxb-84-lts ${COMPONENT}/g" Dockerfile
-                                sed -i "s/ps-84-lts release/ps-84-lts ${COMPONENT}/g" Dockerfile
-                            fi
+                            sed -i "s/ARG PXB_REPO=release/ARG PXB_REPO=${COMPONENT}/g" Dockerfile
+                            sed -i "s/ARG PS_REPO=release/ARG PS_REPO=${COMPONENT}/g" Dockerfile
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker build --provenance=false --no-cache -t perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}-amd64 --platform "linux/amd64" .
                                 sudo docker build --provenance=false --no-cache -t perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}-arm64 --platform="linux/arm64" .
