@@ -78,10 +78,10 @@ jenkins-pipelines/ (Hetzner Branch)
 | rel | https://rel.cd.percona.com | Releases, PPG, Hetzner builds |
 
 **Notes:**
-- `psmdb` hosts MongoDB ecosystem: PSMDB + PBM + PCSM + PDMDB (~209 jobs)
-- `ps80` hosts MySQL ecosystem: PS + PDPS + ProxySQL + perf tests (~137 jobs)
-- `pxc` hosts Galera ecosystem: PXC + PDPXC + some PXB/PT jobs (~213 jobs)
-- `rel` is the main release instance with most Hetzner builds (~291 jobs, 88 hetzner)
+- `psmdb` hosts MongoDB ecosystem: PSMDB + PBM + PCSM + PDMDB
+- `ps80` hosts MySQL ecosystem: PS + PDPS + ProxySQL + perf tests
+- `pxc` hosts Galera ecosystem: PXC + PDPXC + some PXB/PT jobs
+- `rel` is the main release instance with most Hetzner builds
 - `pg` and `pxb` are dedicated single-product instances
 
 ## CLI
