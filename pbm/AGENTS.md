@@ -57,22 +57,29 @@ moleculePbmJenkinsCreds()
 - **Key parameters:** `PBM_BRANCH`, `PSMDB_BRANCH`, `LAYOUT_TYPE`, `STORAGE_BACKEND`, `ENABLE_PITR`.
 - **Storage buckets:** Reuse existing staged buckets; never hardcode S3 keys.
 
-## Jenkins CLI
+# Jenkins
 
 Instance: `psmdb` | URL: `https://psmdb.cd.percona.com`
 
+## CLI
 ```bash
-# jenkins CLI
 ~/bin/jenkins job psmdb list | grep pbm             # All PBM jobs
 ~/bin/jenkins job psmdb list | grep 'hetzner-pbm'   # Hetzner PBM
 ~/bin/jenkins params psmdb/<job>                    # Parameters
 ~/bin/jenkins build psmdb/<job> -p KEY=val          # Build
+```
 
-# curl (see root AGENTS.md for auth)
+## API
+```bash
+# Auth: API token from Jenkins → User → Configure → API Token
 curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("pbm"))'
 ```
 
-Job patterns: `hetzner-pbm-docker*`, `hetzner-pbm-functional*`, `hetzner-pbm-e2e*`
+## Job Patterns
+`hetzner-pbm-docker*`, `hetzner-pbm-functional*`, `hetzner-pbm-e2e*`
+
+## Credentials
+`pbm-staging` or `psmdb-staging` (AWS), `moleculePbmJenkinsCreds()` (SSH). Always use `withCredentials`.
 
 ## Job Inventory
 

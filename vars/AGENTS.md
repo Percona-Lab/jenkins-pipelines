@@ -85,10 +85,11 @@ def call(String arg1, String arg2 = 'default') {
    ```
 3. Exercise new helpers across at least one PMM/PXC/PS pipeline before merging.
 
-## Jenkins CLI
+# Jenkins
 
-The shared library is loaded via `@Library('jenkins-pipelines@hetzner')`. To find which jobs use a helper:
+The shared library is loaded via `@Library('jenkins-pipelines@hetzner')`.
 
+## CLI
 ```bash
 # Search for helper usage across all pipelines
 rg -l 'helperName(' --glob '*.groovy'
@@ -100,6 +101,11 @@ rg -n 'def call' vars/helperName.groovy
 ls vars/*.groovy | xargs -I{} basename {} .groovy
 ```
 
-## Credentials
+## Library
+```groovy
+@Library('jenkins-pipelines@hetzner') _  // Hetzner branch
+@Library('jenkins-pipelines@master') _   // Legacy jobs
+```
 
-Helpers may assume the caller already wrapped steps with `withCredentials`. Do not reference Jenkins credential IDs directly inside `vars/` unless the helper exists solely to model that credential (e.g., `moleculePbmJenkinsCreds()`).
+## Credentials
+Helpers assume the caller wrapped steps with `withCredentials`. Do not reference Jenkins credential IDs directly inside `vars/` unless the helper exists solely to model that credential (e.g., `moleculePbmJenkinsCreds()`).

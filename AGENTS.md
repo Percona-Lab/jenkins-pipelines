@@ -63,43 +63,50 @@ jenkins-pipelines/ (Hetzner Branch)
 
 **Auto-discovery:** Agents read the nearest AGENTS.md in the directory tree.
 
-## Jenkins CLI
+# Jenkins
 
-**Instances:** `pmm`, `ps80`, `psmdb`, `pxc`, `pxb`, `rel`, `pg`
+## Instances
 
-**Base URLs:** `https://<instance>.cd.percona.com` (e.g., `https://psmdb.cd.percona.com`)
+| Instance | URL | Products |
+|----------|-----|----------|
+| pmm | https://pmm.cd.percona.com | PMM v2/v3 |
+| psmdb | https://psmdb.cd.percona.com | MongoDB, PBM, PCSM |
+| pg | https://pg.cd.percona.com | PostgreSQL |
+| rel | https://rel.cd.percona.com | Release builds |
+| ps80 | https://ps80.cd.percona.com | Percona Server |
+| pxc | https://pxc.cd.percona.com | XtraDB Cluster |
+| pxb | https://pxb.cd.percona.com | XtraBackup |
 
-### Using jenkins CLI (recommended)
+## CLI
 ```bash
 ~/bin/jenkins job <inst> list                     # List all jobs
 ~/bin/jenkins job <inst> list | grep hetzner      # Filter Hetzner jobs
 ~/bin/jenkins params <inst>/<job>                 # Show parameters
 ~/bin/jenkins build <inst>/<job> -p KEY=val       # Trigger build
 ~/bin/jenkins logs <inst>/<job> -f                # Follow logs
+~/bin/jenkins job <inst> config <job> --yaml      # Export config
 ```
 
-### Using curl (API)
+## API
 ```bash
 # Auth: API token from Jenkins → User → Configure → API Token
-# Config: ~/.config/jenkins-cli/config.json (if using jenkins CLI)
+# Config: ~/.config/jenkins-cli/config.json
 
-# List jobs (note: URL-encode brackets as %5B %5D)
+# List jobs (URL-encode brackets as %5B %5D)
 curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name'
 
 # Filter Hetzner jobs
 curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("hetzner"))'
 
-# Get job config (XML)
+# Get job config
 curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/job/JOB_NAME/config.xml"
 
-# Get job parameters
-curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/job/JOB_NAME/api/json?tree=property%5BparameterDefinitions%5Bname,defaultParameterValue%5Bvalue%5D%5D%5D"
-
-# Trigger build (POST)
+# Trigger build
 curl -su "USER:TOKEN" -X POST "https://psmdb.cd.percona.com/job/JOB_NAME/buildWithParameters?KEY=val"
 ```
 
-### Hetzner Job Patterns
+## Job Patterns
+
 | Pattern | Instance | Description |
 |---------|----------|-------------|
 | `hetzner-*-RELEASE` | rel | Release builds |
@@ -110,138 +117,71 @@ curl -su "USER:TOKEN" -X POST "https://psmdb.cd.percona.com/job/JOB_NAME/buildWi
 | `hetzner-pcsm*` | psmdb | ClusterSync |
 | `hetzner-pg*`, `hetzner-ppg*` | rel, pg | PostgreSQL |
 
-## Validation & Testing
+## Agent Labels
 
-### Groovy Syntax Check
+| Label | Use Case |
+|-------|----------|
+| `docker-x64-min` | x64 builds (Hetzner) |
+| `docker-aarch64` | ARM64 builds (Hetzner) |
+| `cli-hetzner` | Long-lived CLI agent |
+
+```groovy
+// Conditional label based on CLOUD parameter
+agent { label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker' }
+```
+
+## Credentials
+
+Always use `withCredentials()`:
+```groovy
+withCredentials([aws(credentialsId: 'pmm-staging-slave', ...)]) {
+    sh 'aws s3 ls'
+}
+```
+
+Common credentials: `pmm-staging-slave`, `psmdb-staging`, `pbm-staging`, `aws-jenkins`
+
+## Library
+
+```groovy
+@Library('jenkins-pipelines@hetzner') _  // Hetzner branch
+@Library('jenkins-pipelines@master') _   // Legacy jobs
+```
+
+---
+
+## Validation
+
 ```bash
+# Groovy syntax
 groovy -e "new GroovyShell().parse(new File('path/to/file.groovy'))"
-```
 
-### Python Validation
-```bash
+# Python
 python3 -m py_compile resources/pmm/script.py
-```
 
-### Config Diff
-```bash
-~/bin/jenkins job <instance> config <job-name> --yaml > jobs/<job>.yaml
+# Config diff
+~/bin/jenkins job <inst> config <job> --yaml > jobs/<job>.yaml
 ```
 
 ## Shared Library (`vars/`)
 
-70+ helper functions. Always prefer existing helpers over reimplementation.
+70+ helpers. Always prefer existing helpers over reimplementation.
 
-Common helpers:
-- `pmmVersion()`, `installDocker()`, `moleculeExecute()`
-- `cleanUpWS()`, `pushArtifactFolder()`, `runPython()`
-- `ppgScenarios()`, `buildStage()`, `withCredentials()`
+Common: `pmmVersion()`, `installDocker()`, `moleculeExecute()`, `cleanUpWS()`, `pushArtifactFolder()`, `runPython()`
 
-See [vars/AGENTS.md](vars/AGENTS.md) for complete list.
-
-## Agent Labels
-
-### Hetzner Cloud Labels
-- `docker-x64-min` – x64 builds (Hetzner)
-- `docker-aarch64` – ARM64 builds (Hetzner)
-- `cli-hetzner` – Long-lived CLI agent (Hetzner)
-
-### Conditional Labels
-```groovy
-// Many jobs use CLOUD parameter for provider selection
-agent {
-    label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
-}
-```
+See [vars/AGENTS.md](vars/AGENTS.md).
 
 ## Hetzner Branch Differences
 
-### Architecture Support
-- **ARM64**: 27 additional ARM jobs in ppg/ (*-arm.groovy)
-- **Multi-arch**: PCSM, Docker images support both x64 and ARM64
+**Added:** ARM64 support (ppg, pcsm), Hetzner Cloud integration, ProxySQL 3.x, dual cloud selection
 
-### Cloud Infrastructure
-- **Hetzner Cloud**: Primary infrastructure
-- **AWS**: Secondary/legacy support via CLOUD parameter
-- **Storage**: Hetzner Object Storage (not AWS S3)
-
-### Removed Features
-- ❌ EKS high-availability testing
-- ❌ OpenShift cluster provisioning
-- ❌ `openshiftCluster.*` helpers (removed from vars/)
-
-### Added Features
-- ✅ ARM64 architecture support (ppg, pcsm)
-- ✅ Hetzner Cloud integration (10 htz.cloud.groovy files)
-- ✅ ProxySQL 3.x support
-- ✅ Dual cloud provider selection
-
-## Credentials
-
-Wrap all credential access:
-```groovy
-withCredentials([aws(...)]) {
-    // Access AWS resources
-}
-```
-
-Never hardcode secrets. Clean workspaces in `post { always { deleteDir() } }`.
+**Removed:** EKS HA testing, OpenShift provisioning, `openshiftCluster.*` helpers
 
 ## Boundaries
 
-### Always Do
-- Use `withCredentials()` wrappers
-- Clean up infrastructure in `post` blocks
-- Follow existing patterns
-- Validate locally before pushing
+**Always:** Use `withCredentials()`, cleanup in `post` blocks, follow existing patterns
 
-### Ask First
-- Creating shared library functions
-- Modifying IaC stacks
-- Changes affecting multiple products
-- Adding credentials or IAM policies
+**Ask first:** New shared library functions, IaC changes, multi-product changes
 
-### Never Do
-- Hardcode credentials
-- Remove existing parameters (breaking changes)
-- Switch to scripted pipelines
-- Delete resources without tracing dependencies
-
-## Parameters
-
-Treat job parameters as API contracts:
-- Extend via additional parameters
-- Never rename or remove existing parameters
-- Downstream automation depends on stable interfaces
-
-## Library Version
-
-```groovy
-// Hetzner branch uses separate library for new jobs
-@Library('jenkins-pipelines@hetzner') _
-
-// Legacy jobs may still use master
-@Library('jenkins-pipelines@master') _
-```
-
-## Jenkins Instances (Hetzner-Documented)
-
-This branch documents components with active Hetzner development:
-
-| Instance | URL | Primary Products | AGENTS.md |
-|----------|-----|------------------|-----------|
-| PMM | pmm.cd.percona.com | PMM v2/v3, AMI, OVF | pmm/, pmm/v3/ |
-| PG | pg.cd.percona.com | PostgreSQL (27 ARM64 files) | ppg/ |
-| PSMDB | psmdb.cd.percona.com | MongoDB, PBM, PCSM | psmdb/, pbm/, pcsm/ |
-| REL | rel.cd.percona.com | Release builds, Docker images | (cross-product) |
-
-### Instances Without Hetzner AGENTS.md
-
-These components have active development on master branch (no EKS/OpenShift removal):
-- `ps80.cd.percona.com` – Percona Server MySQL (ps/)
-- `pxc.cd.percona.com` – XtraDB Cluster, ProxySQL (pxc/, proxysql/)
-- `pxb.cd.percona.com` – XtraBackup (pxb/)
-- Distribution products: pdmdb/, pdps/, pdpxc/
-- Other: prel/, percona-telemetry-agent/, cloud/
-
-See master branch for AGENTS.md documentation of these components.
+**Never:** Hardcode credentials, remove parameters, switch to scripted pipelines
 

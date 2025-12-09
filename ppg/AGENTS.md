@@ -255,24 +255,32 @@ DESTROY_ENV: 'yes'/'no'
 GIT_REPO, GIT_BRANCH, PLATFORM, SCENARIO, etc.
 ```
 
-## Jenkins CLI
+# Jenkins
 
 Instances: `pg`, `rel` | URLs: `https://pg.cd.percona.com`, `https://rel.cd.percona.com`
 
+## CLI
 ```bash
-# jenkins CLI
 ~/bin/jenkins job rel list | grep 'hetzner-pg'      # PostgreSQL extensions
 ~/bin/jenkins job rel list | grep 'hetzner-ppg'     # PPG distribution
 ~/bin/jenkins job rel list | grep 'hetzner-.*-arm'  # ARM64 builds
 ~/bin/jenkins params rel/<job>                      # Parameters
+```
 
-# curl (see root AGENTS.md for auth)
+## API
+```bash
+# Auth: API token from Jenkins → User → Configure → API Token
 curl -su "USER:TOKEN" "https://rel.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("hetzner-pg"))'
 ```
 
-Job patterns: `hetzner-pg_*` (extensions), `hetzner-ppg-*` (distribution), `hetzner-*-arm*` (ARM64)
+## Job Patterns
+`hetzner-pg_*` (extensions), `hetzner-ppg-*` (distribution), `hetzner-*-arm*` (ARM64)
 
-Agent labels: `docker-x64-min` (x64), `docker-aarch64` (ARM64)
+## Agent Labels
+`docker-x64-min` (x64), `docker-aarch64` (ARM64)
+
+## Credentials
+`moleculeDistributionJenkinsCreds()`. Always use `withCredentials`.
 
 ## Job Inventory
 

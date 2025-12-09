@@ -144,23 +144,30 @@ pmm-admin status
   - `ENABLE_TESTING` – Test execution toggle
   - `CLEANUP` – Resource cleanup toggle
 
-## Jenkins CLI
+# Jenkins
 
 Instance: `pmm` | URL: `https://pmm.cd.percona.com`
 
+## CLI
 ```bash
-# jenkins CLI
 ~/bin/jenkins job pmm list | grep pmm3              # All v3 jobs
 ~/bin/jenkins job pmm list | grep 'pmm3-ami'        # AMI builds/tests
 ~/bin/jenkins job pmm list | grep 'pmm3-ovf'        # OVF builds/tests
 ~/bin/jenkins params pmm/pmm3-ami                   # Parameters
 ~/bin/jenkins build pmm/pmm3-ami -p PMM_BRANCH=main # Build
+```
 
-# curl (see root AGENTS.md for auth)
+## API
+```bash
+# Auth: API token from Jenkins → User → Configure → API Token
 curl -su "USER:TOKEN" "https://pmm.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(startswith("pmm3"))'
 ```
 
-Job patterns: `pmm3-ami*`, `pmm3-ovf*`, `pmm3-client*`, `pmm3-*-upgrade*`, `pmm3-ui*`
+## Job Patterns
+`pmm3-ami*`, `pmm3-ovf*`, `pmm3-client*`, `pmm3-*-upgrade*`, `pmm3-ui*`
+
+## Credentials
+`pmm-aws` (AMI), `pmm-staging-slave` (staging), `aws-jenkins` (server), `hub.docker.com` (Docker). Always use `withCredentials`.
 
 ## Job Inventory
 

@@ -49,22 +49,29 @@ Molecule scenarios validate:
 - **Key parameters:** `PSMDB_BRANCH`, `PSMDB_TAG`, `PBM_BRANCH`, `LAYOUT_TYPE`, `ENCRYPTION`, `SCENARIO`.
 - **Artifacts:** Tarball & package naming (`percona-server-mongodb-<ver>`) is consumed by PBM—do not change without coordination.
 
-## Jenkins CLI
+# Jenkins
 
 Instance: `psmdb` | URL: `https://psmdb.cd.percona.com`
 
+## CLI
 ```bash
-# jenkins CLI
 ~/bin/jenkins job psmdb list | grep hetzner         # Hetzner jobs
 ~/bin/jenkins job psmdb list | grep 'psmdb[678]0'   # By version
 ~/bin/jenkins params psmdb/<job>                    # Parameters
 ~/bin/jenkins build psmdb/<job> -p KEY=val          # Build
+```
 
-# curl (see root AGENTS.md for auth)
+## API
+```bash
+# Auth: API token from Jenkins → User → Configure → API Token
 curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("hetzner"))'
 ```
 
-Job patterns: `hetzner-psmdb*`, `hetzner-pbm*`, `hetzner-pcsm*`
+## Job Patterns
+`hetzner-psmdb*`, `hetzner-pbm*`, `hetzner-pcsm*`
+
+## Credentials
+`psmdb-staging` (AWS), `pbm-staging` (PBM), `aws-jenkins` (SSH). Always use `withCredentials`.
 
 ## Job Inventory
 

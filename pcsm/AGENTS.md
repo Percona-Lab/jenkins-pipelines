@@ -55,22 +55,29 @@ groovy -e "new GroovyShell().parse(new File('pcsm/pcsm-docker-arm.groovy'))"
 - **Credentials:** `moleculePbmJenkinsCreds()`
 - **Key parameters:** `VERSION`, `BRANCH`, `PLATFORMS`, `PERFORMANCE_PROFILE`
 
-## Jenkins CLI
+# Jenkins
 
 Instance: `psmdb` | URL: `https://psmdb.cd.percona.com`
 
+## CLI
 ```bash
-# jenkins CLI
 ~/bin/jenkins job psmdb list | grep pcsm            # All PCSM jobs
 ~/bin/jenkins job psmdb list | grep 'hetzner-pcsm'  # Hetzner prefix
 ~/bin/jenkins params psmdb/<job>                    # Parameters
 ~/bin/jenkins build psmdb/<job> -p VERSION=1.0.0    # Build
+```
 
-# curl (see root AGENTS.md for auth)
+## API
+```bash
+# Auth: API token from Jenkins → User → Configure → API Token
 curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("pcsm"))'
 ```
 
-Job patterns: `hetzner-pcsm-docker*`, `hetzner-pcsm-functional*`
+## Job Patterns
+`hetzner-pcsm-docker*`, `hetzner-pcsm-functional*`
+
+## Credentials
+`moleculePbmJenkinsCreds()`. Always use `withCredentials`.
 
 ## Related Jobs
 
