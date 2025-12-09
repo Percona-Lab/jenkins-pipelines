@@ -64,14 +64,23 @@ python3 -m py_compile resources/pmm/do_remove_droplets.py
 - **Common parameters:** `PMM_BRANCH`, `PMM_VERSION`, `PMM_TAG`, `PMM_UI_REF`, `INFRA_BRANCH`
 - **Secrets handling:** Never echo AWS keys, kubeconfigs, or SSH keys
 
-## Jenkins Instance
+## Jenkins CLI
 
-PMM jobs run on: `pmm.cd.percona.com`
+Instance: `pmm` | URL: `https://pmm.cd.percona.com`
 
 ```bash
-~/bin/jenkins job pmm list
-~/bin/jenkins job pmm params pmm3-ami
+# jenkins CLI
+~/bin/jenkins job pmm list | grep pmm3              # PMM v3 jobs
+~/bin/jenkins job pmm list | grep pmm2              # PMM v2 jobs (legacy)
+~/bin/jenkins params pmm/<job>                      # Parameters
+~/bin/jenkins build pmm/<job> -p KEY=val            # Build
+~/bin/jenkins logs pmm/<job> -f                     # Follow logs
+
+# curl (see root AGENTS.md for auth)
+curl -su "USER:TOKEN" "https://pmm.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("pmm3"))'
 ```
+
+Job patterns: `pmm3-ami*`, `pmm3-ovf*`, `pmm3-client*`, `pmm3-*-tests`
 
 ## Job Inventory
 

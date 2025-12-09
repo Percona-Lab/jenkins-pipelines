@@ -92,6 +92,22 @@ groovy -e "new GroovyShell().parse(new File('IaC/pmm.cd/init.groovy.d/htz.cloud.
 - Per-product IAM users/roles in each `.cd/` directory
 - Hetzner API credentials for htz.cloud.groovy integration
 
+## Jenkins CLI
+
+IaC manages Jenkins infrastructure. Use these to inspect running configurations:
+
+```bash
+# jenkins CLI
+~/bin/jenkins list-instances                       # All instances
+~/bin/jenkins admin <inst> info                    # System info
+
+# curl (see root AGENTS.md for auth)
+curl -su "USER:TOKEN" "https://pmm.cd.percona.com/api/json" | jq '.nodeDescription'
+
+# Find Hetzner cloud configs
+ls IaC/*.cd/init.groovy.d/htz.cloud.groovy         # All Hetzner configs
+```
+
 ## Hetzner Branch Specifics
 
 ### Additional Files:

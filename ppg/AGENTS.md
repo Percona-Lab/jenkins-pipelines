@@ -255,25 +255,24 @@ DESTROY_ENV: 'yes'/'no'
 GIT_REPO, GIT_BRANCH, PLATFORM, SCENARIO, etc.
 ```
 
-## Jenkins Instance
+## Jenkins CLI
 
-PPG jobs run on: `pg.cd.percona.com`
+Instances: `pg`, `rel` | URLs: `https://pg.cd.percona.com`, `https://rel.cd.percona.com`
 
 ```bash
-# List all PPG jobs (includes ARM variants)
-~/bin/jenkins job pg list | grep ppg
+# jenkins CLI
+~/bin/jenkins job rel list | grep 'hetzner-pg'      # PostgreSQL extensions
+~/bin/jenkins job rel list | grep 'hetzner-ppg'     # PPG distribution
+~/bin/jenkins job rel list | grep 'hetzner-.*-arm'  # ARM64 builds
+~/bin/jenkins params rel/<job>                      # Parameters
 
-# ARM-specific jobs
-~/bin/jenkins job pg list | grep -- '-arm'
-
-# Get job parameters
-~/bin/jenkins job pg params ppg-server-arm
+# curl (see root AGENTS.md for auth)
+curl -su "USER:TOKEN" "https://rel.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("hetzner-pg"))'
 ```
 
-Agent labels (Hetzner):
-- `docker-x64-min` – x64 builds (Hetzner)
-- `docker-aarch64` – ARM64 builds (Hetzner)
-- Conditional based on `CLOUD` parameter
+Job patterns: `hetzner-pg_*` (extensions), `hetzner-ppg-*` (distribution), `hetzner-*-arm*` (ARM64)
+
+Agent labels: `docker-x64-min` (x64), `docker-aarch64` (ARM64)
 
 ## Job Inventory
 

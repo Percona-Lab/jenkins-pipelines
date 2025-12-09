@@ -34,7 +34,7 @@ chmod +x ~/bin/jenkins
 
 ## Project Overview
 
-Jenkins pipeline definitions and shared libraries for Percona's CI/CD infrastructure on Hetzner Cloud. Contains 100+ pipeline definitions across 15+ products with ARM64 architecture support and dual-cloud capability (Hetzner + AWS).
+Jenkins pipeline definitions and shared libraries for Percona's CI/CD infrastructure on Hetzner Cloud. 15+ products with ARM64 architecture support and dual-cloud capability (Hetzner + AWS).
 
 **Tech Stack:** Groovy (Jenkins Declarative Pipelines), Python, Bash, AWS CloudFormation.
 
@@ -63,26 +63,52 @@ jenkins-pipelines/ (Hetzner Branch)
 
 **Auto-discovery:** Agents read the nearest AGENTS.md in the directory tree.
 
-## Jenkins CLI & Common Commands
+## Jenkins CLI
 
-### Core Operations
+**Instances:** `pmm`, `ps80`, `psmdb`, `pxc`, `pxb`, `rel`, `pg`
 
+**Base URLs:** `https://<instance>.cd.percona.com` (e.g., `https://psmdb.cd.percona.com`)
+
+### Using jenkins CLI (recommended)
 ```bash
-# List jobs
-~/bin/jenkins job <instance> list
-
-# Get job details
-~/bin/jenkins job <instance> info <job-name>
-~/bin/jenkins job <instance> params <job-name>
-
-# Export config
-~/bin/jenkins job <instance> config <job-name> --yaml
-
-# Update job
-~/bin/jenkins job <instance> update <job-name> --config job.yaml
+~/bin/jenkins job <inst> list                     # List all jobs
+~/bin/jenkins job <inst> list | grep hetzner      # Filter Hetzner jobs
+~/bin/jenkins params <inst>/<job>                 # Show parameters
+~/bin/jenkins build <inst>/<job> -p KEY=val       # Trigger build
+~/bin/jenkins logs <inst>/<job> -f                # Follow logs
 ```
 
-**Instances:** `pmm`, `ps80`, `psmdb`, `pxc`, `pxb`, `pt`, `ps57`, `ps56`, `ps3`, `fb`, `cloud`, `rel`, `pg`
+### Using curl (API)
+```bash
+# Auth: API token from Jenkins → User → Configure → API Token
+# Config: ~/.config/jenkins-cli/config.json (if using jenkins CLI)
+
+# List jobs (note: URL-encode brackets as %5B %5D)
+curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name'
+
+# Filter Hetzner jobs
+curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("hetzner"))'
+
+# Get job config (XML)
+curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/job/JOB_NAME/config.xml"
+
+# Get job parameters
+curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/job/JOB_NAME/api/json?tree=property%5BparameterDefinitions%5Bname,defaultParameterValue%5Bvalue%5D%5D%5D"
+
+# Trigger build (POST)
+curl -su "USER:TOKEN" -X POST "https://psmdb.cd.percona.com/job/JOB_NAME/buildWithParameters?KEY=val"
+```
+
+### Hetzner Job Patterns
+| Pattern | Instance | Description |
+|---------|----------|-------------|
+| `hetzner-*-RELEASE` | rel | Release builds |
+| `hetzner-*-docker*` | rel, psmdb | Docker images (x64/arm) |
+| `hetzner-*-arm*` | rel | ARM64 builds |
+| `hetzner-psmdb*` | psmdb | MongoDB |
+| `hetzner-pbm*` | psmdb | PBM backup |
+| `hetzner-pcsm*` | psmdb | ClusterSync |
+| `hetzner-pg*`, `hetzner-ppg*` | rel, pg | PostgreSQL |
 
 ## Validation & Testing
 
@@ -206,6 +232,7 @@ This branch documents components with active Hetzner development:
 | PMM | pmm.cd.percona.com | PMM v2/v3, AMI, OVF | pmm/, pmm/v3/ |
 | PG | pg.cd.percona.com | PostgreSQL (27 ARM64 files) | ppg/ |
 | PSMDB | psmdb.cd.percona.com | MongoDB, PBM, PCSM | psmdb/, pbm/, pcsm/ |
+| REL | rel.cd.percona.com | Release builds, Docker images | (cross-product) |
 
 ### Instances Without Hetzner AGENTS.md
 
@@ -217,3 +244,4 @@ These components have active development on master branch (no EKS/OpenShift remo
 - Other: prel/, percona-telemetry-agent/, cloud/
 
 See master branch for AGENTS.md documentation of these components.
+
