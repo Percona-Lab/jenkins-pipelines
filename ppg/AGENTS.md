@@ -275,6 +275,103 @@ Agent labels (Hetzner):
 - `docker-aarch64` – ARM64 builds (Hetzner)
 - Conditional based on `CLOUD` parameter
 
+## Job Inventory
+
+**Total PG Jobs:** 66 | **Groovy Files:** 107 | **Coverage:** 62%
+
+### Key Insight: ARM64 Files Without Jobs
+
+27 ARM64 groovy files exist in this branch but have NO corresponding Jenkins jobs deployed yet:
+
+| x64 Job | ARM64 File (No Job) | Extension |
+|---------|---------------------|-----------|
+| etcd | `etcd-arm.groovy` | HA component |
+| haproxy | `haproxy-arm.groovy` | Load balancer |
+| llvm | `llvm-arm.groovy` | JIT support |
+| patroni | `patroni-arm.groovy` | HA manager |
+| percona-postgis | `percona-postgis-arm.groovy` | Geospatial |
+| pg_cron | `pg_cron-arm.groovy` | Scheduler |
+| pg_gather | `pg_gather-arm.groovy` | Diagnostics |
+| pg_stat_monitor | `pg_stat_monitor-autobuild-arm.groovy` | Query monitor |
+| pg_tarballs | `pg_tarballs-arm.groovy` | Tarballs |
+| pg_tde | `pg_tde-arm.groovy` | Encryption |
+| pgaudit | `pgaudit-arm.groovy` | Audit |
+| pgaudit_set_user | `pgaudit_set_user-arm.groovy` | Audit ext |
+| pgbackrest | `pgbackrest-arm.groovy` | Backup |
+| pgbadger | `pgbadger-arm.groovy` | Logs |
+| pgbouncer | `pgbouncer-arm.groovy` | Pooler |
+| pgpool | `pgpool-arm.groovy` | Pooling |
+| pgvector | `pgvector-arm.groovy` | Vectors |
+| postgresql-ivee | `postgresql-ivee-arm.groovy` | Validation |
+| postgresql-common | `postgresql_common_arm.groovy` | Utils |
+| ppg-docker | `ppg-docker-arm.groovy` | Docker |
+| ppg-pgbackrest-docker | `ppg-pgbackrest-docker-arm.groovy` | Docker |
+| ppg-pgbouncer-docker | `ppg-pgbouncer-docker-arm.groovy` | Docker |
+| ppg-server | `ppg-server-arm.groovy` | Server |
+| ppg-server-ha | `ppg-server-ha-arm.groovy` | HA pkg |
+| pysyncobj | `pysyncobj-arm.groovy` | HA sync |
+| timescaledb | `timescaledb-arm.groovy` | Time-series |
+| wal2json | `wal2json-arm.groovy` | CDC |
+
+**Status:** These files are Hetzner-ready but jobs need to be created on pg.cd.percona.com
+
+### Core Jobs (Mapped)
+
+| Job | File | Description |
+|-----|------|-------------|
+| ppg | `ppg.groovy` | Installation testing |
+| ppg-parallel | `ppg-parallel.groovy` | Parallel install test |
+| ppg-upgrade | `ppg-upgrade.groovy` | Upgrade validation |
+| ppg-upgrade-parallel | `ppg-upgrade-parallel.groovy` | Parallel upgrade |
+| ppg-multi | `ppg-multi.groovy` | Multi-version |
+| ppg-multi-parallel | `ppg-multi-parallel.groovy` | Parallel multi |
+| component | `component.groovy` | Component test |
+| component-generic | `component-generic.groovy` | Generic component |
+| docker | `docker.groovy` | Docker builds |
+| docker-parallel | `docker-parallel.groovy` | Parallel Docker |
+| tarball | `tarball.groovy` | Tarball builds |
+| tarball-parallel-ssl1 | `tarball-parallel-ssl1.groovy` | SSL 1.x |
+| tarball-parallel-ssl3 | `tarball-parallel-ssl3.groovy` | SSL 3.x |
+| tde | `tde.groovy` | TDE testing |
+| tde-parallel | `tde-parallel.groovy` | Parallel TDE |
+| pgsm | `pgsm.groovy` | pg_stat_monitor |
+| pgsm-parallel | `pgsm-parallel.groovy` | Parallel pgsm |
+
+### Extension Jobs (Mapped)
+
+| Job | File | Extension |
+|-----|------|-----------|
+| pg_stat_monitor-autobuild | `pg_stat_monitor-autobuild.groovy` | Query monitor |
+| pgvector | `pgvector.groovy` | Vector search |
+| pg_tde | `pg_tde.groovy` | Encryption |
+| patroni | `patroni.groovy` | HA manager |
+| pgbackrest | `pgbackrest.groovy` | Backup |
+| pgbouncer | `pgbouncer.groovy` | Connection pooler |
+| pgpool2-build | `pgpool2-build.groovy` | Pooling |
+| pgaudit | `pgaudit.groovy` | Audit |
+| percona-postgis | `percona-postgis.groovy` | Geospatial |
+| etcd | `etcd.groovy` | HA component |
+| haproxy | `haproxy.groovy` | Load balancer |
+
+### Hetzner-Only Jobs
+
+| Job Pattern | Description |
+|-------------|-------------|
+| `hetzner-*-RELEASE` | Release builds for Hetzner infra |
+| `hetzner-pg_*-RELEASE` | Extension releases |
+| `hetzner-ppg-*` | Distribution releases |
+
+### Orphaned Files (No Job)
+
+Files with no corresponding Jenkins job (beyond ARM64):
+- `pg_tde_nightly.groovy` - Nightly TDE
+- `pg_tde_arm_nightly.groovy` - ARM64 nightly TDE
+- `postgresql_server_nightly.groovy` - Server nightly
+- `pg_tarballs_17_nightly.groovy` - PG17 nightly
+- `ppg_release.groovy` - Release orchestration
+- `ppg-controller-trigger.groovy` - Trigger automation
+- `pg_generate_sbom.groovy` - SBOM generation
+
 ## Related Jobs
 
 ### Multi-Architecture Coordination

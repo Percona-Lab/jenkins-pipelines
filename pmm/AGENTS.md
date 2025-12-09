@@ -73,6 +73,68 @@ PMM jobs run on: `pmm.cd.percona.com`
 ~/bin/jenkins job pmm params pmm3-ami
 ```
 
+## Job Inventory
+
+**Total Jobs:** 74 | **Groovy Files:** 83 | **Coverage:** 90%
+
+### PMM v2 Jobs (Legacy)
+
+| Job | File | Description |
+|-----|------|-------------|
+| pmm2-ami | `pmm2-ami.groovy` | Build PMM v2 AMI |
+| pmm2-ami-staging-start | `pmm2-ami-staging-start.groovy` | Start AMI staging |
+| pmm2-ami-staging-stop | `pmm2-ami-staging-stop.groovy` | Stop AMI staging |
+| pmm2-ami-test | `pmm2-ami-test.groovy` | Validate AMI |
+| pmm2-ami-upgrade-tests | `pmm2-ami-upgrade-tests.groovy` | AMI upgrade validation |
+| pmm2-ovf | `pmm2-ovf.groovy` | Build OVF image |
+| pmm2-ovf-staging-start | `pmm2-ovf-staging-start.groovy` | Start OVF staging |
+| pmm2-ovf-staging-stop | `pmm2-ovf-staging-stop.groovy` | Stop OVF staging |
+| pmm2-client-autobuild | `pmm2-client-autobuild.groovy` | Generic client build |
+| pmm2-client-autobuild-amd | `pmm2-client-autobuild-amd.groovy` | AMD64 client |
+| pmm2-client-autobuild-arm | `pmm2-client-autobuild-arm.groovy` | ARM64 client |
+| pmm2-server-autobuild | `pmm2-server-autobuild.groovy` | Server Docker build |
+| pmm2-ui-tests | `pmm2-ui-tests.groovy` | Selenium UI tests |
+| pmm2-api-tests | `pmm2-api-tests.groovy` | API endpoint tests |
+| pmm2-cli-tests | `pmm2-cli-tests.groovy` | pmm-admin CLI tests |
+| pmm2-package-testing | `pmm2-package-testing.groovy` | Package validation |
+| pmm2-e2e-master | `pmm2-e2e-master.groovy` | E2E test orchestrator |
+| pmm2-release | `pmm2-release.groovy` | Release pipeline |
+| pmm2-release-candidate | `pmm2-release-candidate.groovy` | RC build |
+
+### PMM v3 Jobs (Active)
+
+See [v3/AGENTS.md](v3/AGENTS.md) for complete v3 job mappings. Summary:
+
+| Category | Jobs | Key Files |
+|----------|------|-----------|
+| AMI Builds | 6 | `v3/pmm3-ami*.groovy` |
+| OVF Builds | 6 | `v3/pmm3-ovf*.groovy` |
+| Client Builds | 3 | `v3/pmm3-client-autobuild*.groovy` |
+| Server/Components | 2 | `v3/pmm3-server-autobuild.groovy`, `v3/pmm3-watchtower-autobuild.groovy` |
+| Testing (UI/API/CLI) | 8 | `v3/pmm3-ui-tests*.groovy`, `v3/pmm3-api-tests.groovy` |
+| Package Testing | 4 | `v3/pmm3-package-testing*.groovy` |
+| Upgrade Testing | 4 | `v3/pmm3-upgrade-tests*.groovy` |
+| Release | 4 | `v3/pmm3-release*.groovy` |
+| Submodules | 3 | `v3/pmm3-submodules*.groovy` |
+
+### Infrastructure Jobs
+
+| Job | File | Description |
+|-----|------|-------------|
+| aws-staging-start | `aws-staging-start.groovy` | Start AWS staging |
+| aws-staging-stop | `aws-staging-stop.groovy` | Stop AWS staging |
+| aws-staging-stop-robot | `aws-staging-stop-robot.groovy` | Auto cleanup |
+| rpm-build | `infrastructure/rpm-build.groovy` | RPM packaging |
+| rpm-build-3 | `infrastructure/rpm-build-3.groovy` | RPM v3 packaging |
+
+### Jobs Without Source Files (Jenkins-Only)
+
+These jobs exist in Jenkins but have no corresponding groovy file:
+- `pmm3-ha-eks*` - EKS HA testing (removed from Hetzner branch)
+- `openshift-cluster-*` - OpenShift provisioning (removed from Hetzner)
+- `spot-price-auto-updater` - Infrastructure admin
+- `test-*` - Development/test jobs
+
 ## Related Jobs
 
 - `pmm2-ui-tests` – UI testing

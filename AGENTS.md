@@ -45,24 +45,18 @@ jenkins-pipelines/ (Hetzner Branch)
 ├── pmm/                 # PMM pipelines - See pmm/AGENTS.md
 │   └── v3/              # PMM v3 (AMI/OVF, no EKS/OpenShift) - See pmm/v3/AGENTS.md
 ├── ppg/                 # PostgreSQL (138+ files, ARM64 support) - See ppg/AGENTS.md
-├── ps/                  # Percona Server MySQL - See ps/AGENTS.md
-├── pxc/                 # XtraDB Cluster - See pxc/AGENTS.md
 ├── psmdb/               # Percona Server MongoDB - See psmdb/AGENTS.md
-├── pxb/                 # XtraBackup - See pxb/AGENTS.md
 ├── pbm/                 # Backup MongoDB - See pbm/AGENTS.md
-├── pdmdb/               # Distribution: MongoDB - See pdmdb/AGENTS.md
-├── pdps/                # Distribution: Percona Server - See pdps/AGENTS.md
-├── pdpxc/               # Distribution: XtraDB Cluster - See pdpxc/AGENTS.md
-├── proxysql/            # ProxySQL (2.x + 3.x) - See proxysql/AGENTS.md
-├── prel/                # Percona Release - See prel/AGENTS.md
 ├── pcsm/                # Cloud Service Manager (ARM64 support) - See pcsm/AGENTS.md
-├── percona-telemetry-agent/  # Telemetry - See percona-telemetry-agent/AGENTS.md
-├── cloud/               # Cloud/operator pipelines - See cloud/AGENTS.md
 ├── vars/                # Shared library (~70 helpers) - See vars/AGENTS.md
-├── resources/           # Python scripts
 ├── IaC/                 # Infrastructure (Hetzner integration) - See IaC/AGENTS.md
 │   └── *.cd/            # CloudFormation + htz.cloud.groovy files
+├── resources/           # Python scripts
 └── docs/                # Documentation
+
+# Components without AGENTS.md in hetzner branch (see master branch):
+# ps/, pxc/, pxb/, pdmdb/, pdps/, pdpxc/, proxysql/, prel/,
+# percona-telemetry-agent/, cloud/
 ```
 
 **Navigation:** Each AGENTS.md contains product-specific patterns and workflows. Start here, then drill into subdirectories. Nested AGENTS.md files extend parents.
@@ -202,3 +196,24 @@ Treat job parameters as API contracts:
 // Legacy jobs may still use master
 @Library('jenkins-pipelines@master') _
 ```
+
+## Jenkins Instances (Hetzner-Documented)
+
+This branch documents components with active Hetzner development:
+
+| Instance | URL | Primary Products | AGENTS.md |
+|----------|-----|------------------|-----------|
+| PMM | pmm.cd.percona.com | PMM v2/v3, AMI, OVF | pmm/, pmm/v3/ |
+| PG | pg.cd.percona.com | PostgreSQL (27 ARM64 files) | ppg/ |
+| PSMDB | psmdb.cd.percona.com | MongoDB, PBM, PCSM | psmdb/, pbm/, pcsm/ |
+
+### Instances Without Hetzner AGENTS.md
+
+These components have active development on master branch (no EKS/OpenShift removal):
+- `ps80.cd.percona.com` – Percona Server MySQL (ps/)
+- `pxc.cd.percona.com` – XtraDB Cluster, ProxySQL (pxc/, proxysql/)
+- `pxb.cd.percona.com` – XtraBackup (pxb/)
+- Distribution products: pdmdb/, pdps/, pdpxc/
+- Other: prel/, percona-telemetry-agent/, cloud/
+
+See master branch for AGENTS.md documentation of these components.

@@ -152,6 +152,109 @@ PMM v3 jobs run on: `pmm.cd.percona.com`
 ~/bin/jenkins job pmm list | grep pmm3
 ```
 
+## Job Inventory
+
+**Total v3 Jobs:** 40 | **Groovy Files:** 38 | **Coverage:** 95%
+
+### Complete Job-to-File Mapping
+
+#### AMI Jobs (6 jobs, 6 files)
+
+| Job | File | Status | Key Parameters |
+|-----|------|--------|----------------|
+| pmm3-ami | `pmm3-ami.groovy` | Active | PMM_BRANCH, PMM_SERVER_IMAGE, RELEASE_CANDIDATE |
+| pmm3-ami-staging-start | `pmm3-ami-staging-start.groovy` | Active | DOCKER_VERSION, CLIENT_VERSION, DAYS |
+| pmm3-ami-staging-stop | `pmm3-ami-staging-stop.groovy` | Active | INSTANCE_ID, TERMINATE |
+| pmm3-ami-test | `pmm3-ami-test.groovy` | Active | AMI_ID, INSTANCE_TYPE, AWS_REGION |
+| pmm3-ami-upgrade-tests | `pmm3-ami-upgrade-tests.groovy` | Failed | PMM_VERSION, UPGRADE_FROM |
+| pmm3-ami-upgrade-tests-matrix | `pmm3-ami-upgrade-tests-matrix.groovy` | Failed | Matrix parameters |
+
+#### OVF Jobs (6 jobs, 6 files)
+
+| Job | File | Status | Key Parameters |
+|-----|------|--------|----------------|
+| pmm3-ovf | `pmm3-ovf.groovy` | Active | PMM_BRANCH, OVF_VERSION |
+| pmm3-ovf-staging-start | `pmm3-ovf-staging-start.groovy` | Active | DOCKER_VERSION |
+| pmm3-ovf-staging-stop | `pmm3-ovf-staging-stop.groovy` | Active | OVF_PATH, CLEANUP |
+| pmm3-ovf-image-test | `pmm3-ovf-image-test.groovy` | Active | OVF_ID, TEST_SUITE |
+| pmm3-ovf-upgrade-tests | `pmm3-ovf-upgrade-tests.groovy` | Failed | UPGRADE_FROM, OVF_VERSION |
+| pmm3-ovf-upgrade-tests-matrix | `pmm3-ovf-upgrade-tests-matrix.groovy` | Failed | Matrix parameters |
+
+#### Client Builds (3 jobs, 3 files)
+
+| Job | File | Status | Key Parameters |
+|-----|------|--------|----------------|
+| pmm3-client-autobuild | `pmm3-client-autobuild.groovy` | Failed | GIT_BRANCH, BUILD_TYPE |
+| pmm3-client-autobuild-amd | `pmm3-client-autobuild-amd.groovy` | Failed | GIT_BRANCH, CLIENT_VERSION |
+| pmm3-client-autobuild-arm | `pmm3-client-autobuild-arm.groovy` | Aborted | GIT_BRANCH, CLIENT_VERSION |
+
+#### Server & Components (2 jobs, 2 files)
+
+| Job | File | Status | Key Parameters |
+|-----|------|--------|----------------|
+| pmm3-server-autobuild | `pmm3-server-autobuild.groovy` | Active | PMM_BRANCH, DOCKER_TAG |
+| pmm3-watchtower-autobuild | `pmm3-watchtower-autobuild.groovy` | Active | WATCHTOWER_BRANCH, VERSION |
+
+#### Testing Suites (8 jobs, 8 files)
+
+| Job | File | Status | Key Parameters |
+|-----|------|--------|----------------|
+| pmm3-ui-tests | `pmm3-ui-tests.groovy` | Active | GIT_BRANCH, DOCKER_VERSION, TAG |
+| pmm3-ui-tests-matrix | `pmm3-ui-tests-matrix.groovy` | Active | Matrix parameters |
+| pmm3-ui-tests-nightly | `pmm3-ui-tests-nightly.groovy` | Failed | GIT_BRANCH, DOCKER_VERSION |
+| pmm3-api-tests | `pmm3-api-tests.groovy` | Active | DOCKER_VERSION, TEST_SUITE |
+| pmm3-cli-tests | `pmm3-cli-tests.groovy` | Active | DOCKER_VERSION, CLI_VERSION |
+| pmm3-testsuite | `pmm3-testsuite.groovy` | Active | DOCKER_VERSION |
+| pmm3-migration-tests | `pmm3-migration-tests.groovy` | Active | FROM_VERSION, TO_VERSION |
+| pmm3-release-tests | `pmm3-release-tests.groovy` | Active | PMM_VERSION |
+
+#### Package Testing (4 jobs, 2 files)
+
+| Job | File | Status | Key Parameters |
+|-----|------|--------|----------------|
+| pmm3-package-testing | `pmm3-package-testing.groovy` | Failed | GIT_BRANCH, PMM_VERSION, TESTS |
+| pmm3-package-tests-matrix | `pmm3-package-tests-matrix.groovy` | Failed | Matrix parameters |
+| pmm3-package-testing-arm | (no file) | Failed | ARM64 variant |
+| pmm3-package-testing-arm-matrix | (no file) | Active | ARM64 matrix |
+
+#### Upgrade Testing (4 jobs, 2 files)
+
+| Job | File | Status | Key Parameters |
+|-----|------|--------|----------------|
+| pmm3-upgrade-tests | `pmm3-upgrade-tests.groovy` | Failed | PMM_VERSION, UPGRADE_FROM |
+| pmm3-upgrade-tests-matrix | `pmm3-upgrade-tests-matrix.groovy` | Failed | Matrix parameters |
+| pmm3-upgrade-ovf-test-runner | (no file) | Failed | OVF upgrade runner |
+| pmm3-upgrade-ami-test-runner | (no file) | Failed | AMI upgrade runner |
+
+#### Release & Submodules (6 jobs, 6 files)
+
+| Job | File | Status | Key Parameters |
+|-----|------|--------|----------------|
+| pmm3-release | `pmm3-release.groovy` | Failed | PMM_VERSION, BRANCH |
+| pmm3-release-candidate | `pmm3-release-candidate.groovy` | Active | PMM_VERSION, RC_NUMBER |
+| pmm3-submodules | `pmm3-submodules.groovy` | Active | GIT_BRANCH, UPDATE_DEPTH |
+| pmm3-submodules-rewind | `pmm3-submodules-rewind.groovy` | Yellow | GIT_BRANCH |
+| pmm3-rewind-submodules-fb | `pmm3-rewind-submodules-fb.groovy` | Yellow | FEATURE_BRANCH |
+| pmm3-image-scanning | `pmm3-image-scanning.groovy` | Active | DOCKER_IMAGE, SCAN_TYPE |
+
+#### AWS Staging (2 jobs, 2 files)
+
+| Job | File | Status | Key Parameters |
+|-----|------|--------|----------------|
+| pmm3-aws-staging-start | `pmm3-aws-staging-start.groovy` | Active | DOCKER_VERSION, CLIENT_VERSION |
+| pmm3-aws-staging-start-old | `pmm3-aws-staging-start-old.groovy` | Active | Legacy staging (Hetzner) |
+
+### Jobs Without Source Files (Jenkins-Only)
+
+These jobs exist in Jenkins but were removed from Hetzner branch:
+- `pmm3-ha-eks` - EKS HA cluster testing
+- `pmm3-ha-eks-test` - EKS HA validation
+- `pmm3-ha-eks-cleanup` - EKS cleanup (disabled)
+- `pmm3-ha-rosa-test` - ROSA cluster testing
+- `pmm3-openshift-helm-tests` - OpenShift Helm
+- `pmm3-ui-tests-nightly-gssapi` - GSSAPI auth tests
+- `pmm3-update-labels` - Jenkins admin job
+
 ## Related Jobs
 
 - `pmm2-*` – PMM 2.x jobs (upgrade source)
