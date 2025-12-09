@@ -67,15 +67,22 @@ jenkins-pipelines/ (Hetzner Branch)
 
 ## Instances
 
-| Instance | URL | Products |
-|----------|-----|----------|
-| pmm | https://pmm.cd.percona.com | PMM v2/v3 |
-| psmdb | https://psmdb.cd.percona.com | MongoDB, PBM, PCSM |
-| pg | https://pg.cd.percona.com | PostgreSQL |
-| rel | https://rel.cd.percona.com | Release builds |
-| ps80 | https://ps80.cd.percona.com | Percona Server |
-| pxc | https://pxc.cd.percona.com | XtraDB Cluster |
+| Instance | URL | Products Hosted |
+|----------|-----|-----------------|
+| pmm | https://pmm.cd.percona.com | PMM, telemetry agent |
+| psmdb | https://psmdb.cd.percona.com | PSMDB, PBM, PCSM, PDMDB |
+| ps80 | https://ps80.cd.percona.com | PS, PDPS, ProxySQL |
+| pxc | https://pxc.cd.percona.com | PXC, PDPXC, PT |
 | pxb | https://pxb.cd.percona.com | XtraBackup |
+| pg | https://pg.cd.percona.com | PostgreSQL testing |
+| rel | https://rel.cd.percona.com | Releases, PPG, Hetzner builds |
+
+**Notes:**
+- `psmdb` hosts MongoDB ecosystem: PSMDB + PBM + PCSM + PDMDB (~209 jobs)
+- `ps80` hosts MySQL ecosystem: PS + PDPS + ProxySQL + perf tests (~137 jobs)
+- `pxc` hosts Galera ecosystem: PXC + PDPXC + some PXB/PT jobs (~213 jobs)
+- `rel` is the main release instance with most Hetzner builds (~291 jobs, 88 hetzner)
+- `pg` and `pxb` are dedicated single-product instances
 
 ## CLI
 ```bash
