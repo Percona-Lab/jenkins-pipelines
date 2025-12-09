@@ -49,21 +49,28 @@ Always test against:
 - **Key parameters:** `PXB_BRANCH`, `MYSQL_VERSION`, `TARGET_OS`, `PXB_BUILD_TYPE`. Treat them as API contracts for downstream jobs.
 - **Artifacts:** Store build artifacts in existing S3 paths; avoid introducing new buckets without coordination.
 
-## Jenkins CLI
+# Jenkins
 
 Instance: `pxb` | URL: `https://pxb.cd.percona.com`
 
+## CLI
 ```bash
-# jenkins CLI
 ~/bin/jenkins job pxb list                          # All jobs
 ~/bin/jenkins job pxb list | grep 'pxb80'           # PXB 8.0 jobs
 ~/bin/jenkins params pxb/<job>                      # Parameters
+```
 
-# curl (see root AGENTS.md for auth)
+## API
+```bash
+# Auth: API token from Jenkins → User → Configure → API Token
 curl -su "USER:TOKEN" "https://pxb.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name'
 ```
 
-Job patterns: `pxb80-*`, `pxb24-*`, `pxb-*-testing`
+## Job Patterns
+`pxb80-*`, `pxb24-*`, `pxb-*-testing`
+
+## Credentials
+`pxb-staging` (AWS). Always use `withCredentials`.
 
 ## Related Jobs
 

@@ -99,10 +99,11 @@ library identifier: 'lib@feature-branch'
 3. Test in isolation before integrating
 4. Update this AGENTS.md if adding a major new category
 
-## Jenkins CLI
+# Jenkins
 
-The shared library is loaded via `@Library('jenkins-pipelines@master')`. To find which jobs use a helper:
+The shared library is loaded via `@Library('jenkins-pipelines@master')`.
 
+## CLI
 ```bash
 # Search for helper usage across all pipelines
 rg -l 'helperName(' --glob '*.groovy'
@@ -113,3 +114,12 @@ rg -n 'def call' vars/helperName.groovy
 # List all helper functions
 ls vars/*.groovy | xargs -I{} basename {} .groovy
 ```
+
+## Library
+```groovy
+@Library('jenkins-pipelines@master') _   // Production
+@Library('jenkins-pipelines@feature') _  // Development/testing
+```
+
+## Credentials
+Helpers assume the caller wrapped steps with `withCredentials`. Do not reference Jenkins credential IDs directly inside `vars/` unless the helper exists solely to model that credential (e.g., `moleculePbmJenkinsCreds()`).

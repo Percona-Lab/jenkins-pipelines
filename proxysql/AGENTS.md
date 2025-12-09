@@ -88,20 +88,27 @@ bash jenkins/test-proxysql --suite qa
   - `BUILD_TYPE` – Build configuration (debug/release)
   - `RUN_TESTS` – Boolean to control test execution
 
-## Jenkins CLI
+# Jenkins
 
 Instance: `ps80` | URL: `https://ps80.cd.percona.com`
 
+## CLI
 ```bash
-# jenkins CLI
 ~/bin/jenkins job ps80 list | grep proxysql         # All ProxySQL jobs
 ~/bin/jenkins params ps80/<job>                     # Parameters
+```
 
-# curl (see root AGENTS.md for auth)
+## API
+```bash
+# Auth: API token from Jenkins → User → Configure → API Token
 curl -su "USER:TOKEN" "https://ps80.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("proxysql"))'
 ```
 
-Job patterns: `*proxysql*`, `qa-proxysql2-*`
+## Job Patterns
+`*proxysql*`, `qa-proxysql2-*`
+
+## Credentials
+`moleculepxcJenkinsCreds()` (AWS/SSH). Always use `withCredentials`.
 
 ## Related Jobs
 

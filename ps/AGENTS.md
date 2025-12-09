@@ -52,21 +52,28 @@ Keep debug/release toggles, plugin lists, and sanitizer flags aligned with downs
 - **Key parameters:** `PS_BRANCH`, `MYSQL_VERSION`, `MTR_SUITE`, `BUILD_TYPE`, `ENABLE_ASAN`. Treat them as contracts for release automation.
 - **Repositories:** Package publishing paths (apt/yum) are shared with release engineering; verify changes with releng before editing.
 
-## Jenkins CLI
+# Jenkins
 
 Instance: `ps80` | URL: `https://ps80.cd.percona.com`
 
+## CLI
 ```bash
-# jenkins CLI
 ~/bin/jenkins job ps80 list                         # All jobs
 ~/bin/jenkins job ps80 list | grep 'ps8'            # PS 8.x jobs
 ~/bin/jenkins params ps80/<job>                     # Parameters
+```
 
-# curl (see root AGENTS.md for auth)
+## API
+```bash
+# Auth: API token from Jenkins → User → Configure → API Token
 curl -su "USER:TOKEN" "https://ps80.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name'
 ```
 
-Job patterns: `ps80-*`, `ps8*-build`, `ps-*-testing`
+## Job Patterns
+`ps80-*`, `ps8*-build`, `ps-*-testing`
+
+## Credentials
+`ps-staging` (AWS), `aws-jenkins` (SSH). Always use `withCredentials`.
 
 ## Related Jobs
 

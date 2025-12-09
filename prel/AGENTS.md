@@ -64,20 +64,27 @@ groovy -e "new GroovyShell().parse(new File('prel/prel-parallel.groovy'))"
   - `PLATFORM` – Distribution to test
   - `REPO` – Repository source
 
-## Jenkins CLI
+# Jenkins
 
 Instance: `rel` | URL: `https://rel.cd.percona.com`
 
+## CLI
 ```bash
-# jenkins CLI
 ~/bin/jenkins job rel list | grep prel              # All prel jobs
 ~/bin/jenkins params rel/<job>                      # Parameters
+```
 
-# curl (see root AGENTS.md for auth)
+## API
+```bash
+# Auth: API token from Jenkins → User → Configure → API Token
 curl -su "USER:TOKEN" "https://rel.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("prel"))'
 ```
 
-Job patterns: `prel*`, `prel-parallel`, `prel-documentation`
+## Job Patterns
+`prel*`, `prel-parallel`, `prel-documentation`
+
+## Credentials
+`moleculeDistributionJenkinsCreds()`. Always use `withCredentials`.
 
 ## Related Jobs
 
