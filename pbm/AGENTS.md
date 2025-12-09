@@ -57,13 +57,21 @@ moleculePbmJenkinsCreds()
 - **Key parameters:** `PBM_BRANCH`, `PSMDB_BRANCH`, `LAYOUT_TYPE`, `STORAGE_BACKEND`, `ENABLE_PITR`.
 - **Storage buckets:** Reuse existing staged buckets; never hardcode S3 keys.
 
-## Jenkins Instance
+## Jenkins CLI
 
-PBM jobs run on: `psmdb.cd.percona.com` (shared with PSMDB)
+Instance: `psmdb` | URL: `https://psmdb.cd.percona.com`
 
 ```bash
-~/bin/jenkins job psmdb list | grep pbm
+# jenkins CLI
+~/bin/jenkins job psmdb list | grep pbm             # All PBM jobs
+~/bin/jenkins params psmdb/<job>                    # Parameters
+~/bin/jenkins build psmdb/<job> -p KEY=val          # Build
+
+# curl (see root AGENTS.md for auth)
+curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("pbm"))'
 ```
+
+Job patterns: `pbm-*`, `pbm-functional-*`, `pbm-docker*`
 
 ## Related Jobs
 

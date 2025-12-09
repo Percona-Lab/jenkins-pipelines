@@ -64,17 +64,20 @@ groovy -e "new GroovyShell().parse(new File('prel/prel-parallel.groovy'))"
   - `PLATFORM` – Distribution to test
   - `REPO` – Repository source
 
-## Jenkins Instance
+## Jenkins CLI
 
-Percona Release jobs run on: `rel.cd.percona.com`
+Instance: `rel` | URL: `https://rel.cd.percona.com`
 
 ```bash
-# List jobs
-~/bin/jenkins job rel list
+# jenkins CLI
+~/bin/jenkins job rel list | grep prel              # All prel jobs
+~/bin/jenkins params rel/<job>                      # Parameters
 
-# Get job parameters
-~/bin/jenkins job rel params prel-parallel
+# curl (see root AGENTS.md for auth)
+curl -su "USER:TOKEN" "https://rel.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("prel"))'
 ```
+
+Job patterns: `prel*`, `prel-parallel`, `prel-documentation`
 
 ## Related Jobs
 

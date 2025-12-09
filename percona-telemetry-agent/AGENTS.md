@@ -70,17 +70,20 @@ groovy -e "new GroovyShell().parse(new File('percona-telemetry-agent/test_teleme
   - `PLATFORMS` – Target distributions list
   - `REPO` – Repository target (testing/release)
 
-## Jenkins Instance
+## Jenkins CLI
 
-Telemetry Agent jobs run on: `pmm.cd.percona.com`
+Instance: `pmm` | URL: `https://pmm.cd.percona.com`
 
 ```bash
-# List jobs
-~/bin/jenkins job pmm list | grep telemetry
+# jenkins CLI
+~/bin/jenkins job pmm list | grep telemetry         # Telemetry jobs
+~/bin/jenkins params pmm/<job>                      # Parameters
 
-# Get job parameters
-~/bin/jenkins job pmm params percona-telemetry-agent
+# curl (see root AGENTS.md for auth)
+curl -su "USER:TOKEN" "https://pmm.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("telemetry"))'
 ```
+
+Job patterns: `*telemetry*`, `test_telemetry_agent`
 
 ## Related Jobs
 

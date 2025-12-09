@@ -98,3 +98,18 @@ library identifier: 'lib@feature-branch'
 2. Add documentation comments at the top
 3. Test in isolation before integrating
 4. Update this AGENTS.md if adding a major new category
+
+## Jenkins CLI
+
+The shared library is loaded via `@Library('jenkins-pipelines@master')`. To find which jobs use a helper:
+
+```bash
+# Search for helper usage across all pipelines
+rg -l 'helperName(' --glob '*.groovy'
+
+# Find helper definition
+rg -n 'def call' vars/helperName.groovy
+
+# List all helper functions
+ls vars/*.groovy | xargs -I{} basename {} .groovy
+```

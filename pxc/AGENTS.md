@@ -51,13 +51,21 @@ PXC testing spans:
 - **Key parameters:** `PXC_BRANCH`, `GALERA_REV`, `MTR_SUITE`, `MATRIX`. Do not rename or remove; extend via additional parameters.
 - **Artifacts:** Builds are consumed by PS/PXB jobs - keep artifact naming (`percona-xtradb-cluster-<ver>-<os>.tar.gz`) stable.
 
-## Jenkins Instance
+## Jenkins CLI
 
-PXC jobs run on: `pxc.cd.percona.com`
+Instance: `pxc` | URL: `https://pxc.cd.percona.com`
 
 ```bash
-~/bin/jenkins job pxc list
+# jenkins CLI
+~/bin/jenkins job pxc list                          # All jobs
+~/bin/jenkins job pxc list | grep 'pxc80'           # PXC 8.0 jobs
+~/bin/jenkins params pxc/<job>                      # Parameters
+
+# curl (see root AGENTS.md for auth)
+curl -su "USER:TOKEN" "https://pxc.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name'
 ```
+
+Job patterns: `pxc80-*`, `pxc57-*`, `pxc-*-testing`
 
 ## Related Jobs
 

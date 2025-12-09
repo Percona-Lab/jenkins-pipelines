@@ -77,33 +77,50 @@ jenkins-pipelines/
 
 **Auto-discovery:** Agents automatically read the nearest AGENTS.md in the directory tree.
 
-## Jenkins CLI & Common Commands
+## Jenkins CLI
 
-### Core operations
+**Instances:** `pmm`, `ps80`, `psmdb`, `pxc`, `pxb`, `rel`, `pg`, `cloud`
 
+**Base URLs:** `https://<instance>.cd.percona.com`
+
+### Using jenkins CLI (recommended)
 ```bash
-# List jobs on an instance
-~/bin/jenkins job <instance> list
-
-# Get job details & parameters
-~/bin/jenkins job <instance> info <job-name>
-~/bin/jenkins job <instance> params <job-name>
-
-# Export job config (XML or YAML)
-~/bin/jenkins job <instance> config <job-name>
-~/bin/jenkins job <instance> config <job-name> --yaml
-
-# Update job config from YAML (auto-converts to XML)
-~/bin/jenkins job <instance> update <job-name> --config pipelines/job.yaml
-
-# Search or inspect logs
-~/bin/jenkins job <instance> search <pattern>
-~/bin/jenkins job <instance> logs <job-name> [build-number]
+~/bin/jenkins job <inst> list                     # List all jobs
+~/bin/jenkins job <inst> list | grep <pattern>    # Filter jobs
+~/bin/jenkins params <inst>/<job>                 # Show parameters
+~/bin/jenkins build <inst>/<job> -p KEY=val       # Trigger build
+~/bin/jenkins logs <inst>/<job> -f                # Follow logs
+~/bin/jenkins job <inst> config <job> --yaml      # Export config
 ```
 
-**Available instances:** `pmm`, `ps80`, `psmdb`, `pxc`, `pxb`, `pt`, `ps57`, `ps56`, `ps3`, `fb`, `cloud`, `rel`, `pg`.
+### Using curl (API)
+```bash
+# Auth: API token from Jenkins → User → Configure → API Token
+# Config: ~/.config/jenkins-cli/config.json (if using jenkins CLI)
 
-`~/bin/jenkins list-instances` shows which endpoints you can reach; populate `~/.config/jenkins-cli/config.json` with credentials (supports `_default` instance).
+# List jobs (note: URL-encode brackets as %5B %5D)
+curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name'
+
+# Get job config (XML)
+curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/job/JOB_NAME/config.xml"
+
+# Get job parameters
+curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/job/JOB_NAME/api/json?tree=property%5BparameterDefinitions%5Bname,defaultParameterValue%5Bvalue%5D%5D%5D"
+
+# Trigger build (POST)
+curl -su "USER:TOKEN" -X POST "https://psmdb.cd.percona.com/job/JOB_NAME/buildWithParameters?KEY=val"
+```
+
+### Common Job Patterns
+| Pattern | Instance | Description |
+|---------|----------|-------------|
+| `psmdb*`, `pbm*` | psmdb | MongoDB, PBM |
+| `pxc*`, `proxysql*` | pxc | XtraDB Cluster |
+| `ps-*`, `ps8*` | ps80 | Percona Server |
+| `pxb*` | pxb | XtraBackup |
+| `pmm*` | pmm | PMM |
+| `*-operator-*` | cloud | K8s operators |
+| `ppg*`, `pg_*` | rel, pg | PostgreSQL |
 
 ## Validation & Testing
 

@@ -82,17 +82,20 @@ molecule test -s pdps-orchestrator
   - `REPO` – Repository selection (testing/release/experimental)
   - `TESTING_BRANCH` – ps-testing.git branch (usually 'main')
 
-## Jenkins Instance
+## Jenkins CLI
 
-PDPS jobs run on: `ps80.cd.percona.com`
+Instance: `ps80` | URL: `https://ps80.cd.percona.com`
 
 ```bash
-# List jobs
-~/bin/jenkins job ps80 list | grep pdps
+# jenkins CLI
+~/bin/jenkins job ps80 list | grep pdps             # All PDPS jobs
+~/bin/jenkins params ps80/<job>                     # Parameters
 
-# Get job parameters
-~/bin/jenkins job ps80 params pdps-parallel
+# curl (see root AGENTS.md for auth)
+curl -su "USER:TOKEN" "https://ps80.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("pdps"))'
 ```
+
+Job patterns: `pdps-*`, `pdps-orchestrator*`, `pdps-upgrade*`
 
 ## Related Jobs
 

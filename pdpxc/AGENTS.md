@@ -90,17 +90,20 @@ molecule test -s pdpxc-haproxy
   - `REPO` – Repository selection (testing/release/experimental)
   - `TESTING_BRANCH` – pxc-testing.git branch (usually 'main')
 
-## Jenkins Instance
+## Jenkins CLI
 
-PDPXC jobs run on: `pxc.cd.percona.com`
+Instance: `pxc` | URL: `https://pxc.cd.percona.com`
 
 ```bash
-# List jobs
-~/bin/jenkins job pxc list | grep pdpxc
+# jenkins CLI
+~/bin/jenkins job pxc list | grep pdpxc             # All PDPXC jobs
+~/bin/jenkins params pxc/<job>                      # Parameters
 
-# Get job parameters
-~/bin/jenkins job pxc params pdpxc-parallel
+# curl (see root AGENTS.md for auth)
+curl -su "USER:TOKEN" "https://pxc.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("pdpxc"))'
 ```
+
+Job patterns: `pdpxc-*`, `pdpxc-haproxy`, `pdpxc-upgrade*`
 
 ## Related Jobs
 

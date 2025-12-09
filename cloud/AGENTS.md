@@ -69,13 +69,22 @@ openshiftClusterDestroy(params)
 - **Key parameters:** `CLUSTER_NAME`, `K8S_VERSION`, `OPERATOR_VERSION`, `PLATFORM`, `REGION`.
 - **Cleanup:** Set `CLEANUP=true` as default; only disable for debugging.
 
-## Jenkins Instance
+## Jenkins CLI
 
-Cloud jobs run on: `cloud.cd.percona.com`
+Instance: `cloud` | URL: `https://cloud.cd.percona.com`
 
 ```bash
-~/bin/jenkins job cloud list
+# jenkins CLI
+~/bin/jenkins job cloud list                        # All jobs
+~/bin/jenkins job cloud list | grep operator        # Operator jobs
+~/bin/jenkins params cloud/<job>                    # Parameters
+~/bin/jenkins build cloud/<job> -p KEY=val          # Build
+
+# curl (see root AGENTS.md for auth)
+curl -su "USER:TOKEN" "https://cloud.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("operator"))'
 ```
+
+Job patterns: `*-operator-*`, `pgo_*`, `pxco_*`, `psmdbo_*`, `eks-*`, `openshift-*`
 
 ## Orphaned Resource Cleanup
 

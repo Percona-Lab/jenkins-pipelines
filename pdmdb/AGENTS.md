@@ -68,17 +68,20 @@ molecule test -s pdmdb-setup
   - `SCENARIO` – Test scenario name
   - `REPO` – Repository selection (testing/release/experimental)
 
-## Jenkins Instance
+## Jenkins CLI
 
-PDMDB jobs run on: `psmdb.cd.percona.com`
+Instance: `psmdb` | URL: `https://psmdb.cd.percona.com`
 
 ```bash
-# List jobs
-~/bin/jenkins job psmdb list | grep pdmdb
+# jenkins CLI
+~/bin/jenkins job psmdb list | grep pdmdb           # All PDMDB jobs
+~/bin/jenkins params psmdb/<job>                    # Parameters
 
-# Get job parameters
-~/bin/jenkins job psmdb params pdmdb-parallel
+# curl (see root AGENTS.md for auth)
+curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("pdmdb"))'
 ```
+
+Job patterns: `pdmdb-*`, `pdmdb-parallel`, `pdmdb-upgrade*`
 
 ## Related Jobs
 
