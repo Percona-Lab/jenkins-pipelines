@@ -77,9 +77,9 @@ jenkins-pipelines/
 
 **Auto-discovery:** Agents automatically read the nearest AGENTS.md in the directory tree.
 
-## Jenkins CLI
+# Jenkins
 
-### Instances
+## Instances
 
 | Instance | URL | Products Hosted |
 |----------|-----|-----------------|
@@ -99,7 +99,7 @@ jenkins-pipelines/
 - `rel` is the main release instance
 - `pg` and `pxb` are dedicated single-product instances
 
-### Using jenkins CLI (recommended)
+## CLI
 ```bash
 ~/bin/jenkins job <inst> list                     # List all jobs
 ~/bin/jenkins job <inst> list | grep <pattern>    # Filter jobs
@@ -109,7 +109,7 @@ jenkins-pipelines/
 ~/bin/jenkins job <inst> config <job> --yaml      # Export config
 ```
 
-### Using curl (API)
+## API
 ```bash
 # Auth: API token from Jenkins → User → Configure → API Token
 # Config: ~/.config/jenkins-cli/config.json (if using jenkins CLI)
@@ -127,7 +127,7 @@ curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/job/JOB_NAME/api/json?tree=p
 curl -su "USER:TOKEN" -X POST "https://psmdb.cd.percona.com/job/JOB_NAME/buildWithParameters?KEY=val"
 ```
 
-### Common Job Patterns
+## Job Patterns
 | Pattern | Instance | Description |
 |---------|----------|-------------|
 | `psmdb*`, `pbm*` | psmdb | MongoDB, PBM |
