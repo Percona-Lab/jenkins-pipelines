@@ -86,12 +86,6 @@ groovy -e "new GroovyShell().parse(new File('IaC/pmm.cd/init.groovy.d/htz.cloud.
 - Introducing new Lambda functions
 - Adjusting Jenkins master sizing
 
-## Credentials
-
-- `aws-iac-admin` – Primary IaC deployment credential
-- Per-product IAM users/roles in each `.cd/` directory
-- Hetzner API credentials for htz.cloud.groovy integration
-
 # Jenkins
 
 IaC manages Jenkins infrastructure. Use these to inspect running configurations.
