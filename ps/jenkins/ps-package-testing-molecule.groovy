@@ -205,7 +205,7 @@ properties([
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_lts_innovation", "client_test"]'
+                    script: 'return ["ps57", "ps80", "ps84", "ps_lts_innovation", "client_test"]'
                 ]
             ]
         ],
@@ -238,10 +238,10 @@ properties([
                     classpath: [],
                     sandbox: true,
                     script: '''
-                        if (product_to_test == "ps_57") {
+                        if (product_to_test == "ps57") {
                             return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
-                        else if (product_to_test == "ps_80" || product_to_test == "ps_84") {
+                        else if (product_to_test == "ps80" || product_to_test == "ps84") {
                             return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
                         else {
@@ -264,14 +264,14 @@ properties([
                     sandbox: true,
                     script: '''
                         if (action_to_test == "major_upgrade") {
-                            if (product_to_test == "ps_80") {
-                                return ["ps_80","ps_57", "ps_84"]
+                            if (product_to_test == "ps80") {
+                                return ["ps80","ps57", "ps84"]
                             }
-                            else if (product_to_test == "ps_84") {
-                                return ["ps_80","ps_84"]
+                            else if (product_to_test == "ps84") {
+                                return ["ps80","ps84"]
                             }
-                            else if (product_to_test == "ps_57") {
-                                return ["ps_57", "ps_80"]
+                            else if (product_to_test == "ps57") {
+                                return ["ps57", "ps80"]
                             }
                             else {
                                 return ["NA"]
@@ -302,14 +302,14 @@ properties([
                     sandbox: true,
                     script: '''
                         if (action_to_test == "major_upgrade") {
-                            if (product_to_test == "ps_80") {
-                                return ["ps_80","ps_57", "ps_84"]
+                            if (product_to_test == "ps80") {
+                                return ["ps80","ps57", "ps84"]
                             }
-                            else if (product_to_test == "ps_84") {
-                                return ["ps_80","ps_84"]
+                            else if (product_to_test == "ps84") {
+                                return ["ps80","ps84"]
                             }
-                            else if (product_to_test == "ps_57") {
-                                return ["ps_57", "ps_80"]
+                            else if (product_to_test == "ps57") {
+                                return ["ps57", "ps80"]
                             }
                             else {
                                 return ["NA"]
@@ -330,7 +330,7 @@ properties([
         [
             $class: 'CascadeChoiceParameter',
             choiceType: 'PT_SINGLE_SELECT',
-            description: 'EOL version or Normal (only available for ps_57)',
+            description: 'EOL version or Normal (only available for ps57)',
             name: 'EOL',
             referencedParameters: 'product_to_test',
             script: [
@@ -339,7 +339,7 @@ properties([
                     classpath: [],
                     sandbox: true,
                     script: '''
-                        if (product_to_test == "ps_57") {
+                        if (product_to_test == "ps57") {
                             return ["yes", "no"]
                         }
                         else {
@@ -425,15 +425,15 @@ pipeline {
                                     if (product_to_test == "ps_lts_innovation") {
                                         moleculeParallelTestALL(allOS, ps90PackageTesting(), "molecule/ps/")
                                     } 
-                                    else if (product_to_test == "ps_57") {
+                                    else if (product_to_test == "ps57") {
                                         withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                                             moleculeParallelTestALL(allOS, ps57PackageTesting(), "molecule/ps/")
                                         }
                                     }
-                                    else if (product_to_test == "ps_80") {
+                                    else if (product_to_test == "ps80") {
                                         moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
                                     }
-                                    else if (product_to_test == "ps_84") {
+                                    else if (product_to_test == "ps84") {
                                         moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
                                     }
                                     else {
