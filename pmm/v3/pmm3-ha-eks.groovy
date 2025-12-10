@@ -195,7 +195,9 @@ EOF
                         eksCluster.configureAccess(
                             clusterName: env.CLUSTER_NAME,
                             region: env.REGION,
-                            adminGroupName: 'pmm-eks-admins'
+                            adminRoles: ['EKSAdminRole'],
+                            adminGroupName: 'pmm-eks-admins',
+                            discoverSSO: true
                         )
                     }
                 }

@@ -16,29 +16,61 @@ def validateRetentionDays(def retentionDays, int maxDays = DEFAULT_MAX_RETENTION
 }
 
 /**
- * Grant cluster admin access to EKSAdminRole, IAM group members, and SSO users
- * @param config.clusterName   EKS cluster name (required)
- * @param config.region        AWS region (default: us-east-2)
+ * Grant cluster admin access to specified principals
+ * @param config.clusterName    EKS cluster name (required)
+ * @param config.region         AWS region (default: us-east-2)
+ * @param config.adminRoles     List of IAM role names to grant admin access
+ * @param config.adminUsers     List of IAM user names to grant admin access
  * @param config.adminGroupName IAM group whose members get admin access
+ * @param config.discoverSSO    Auto-discover and grant access to SSO admin role (default: false)
+ * @param config.ssoPattern     Pattern to match SSO role name (default: 'AWSReservedSSO_AdministratorAccess')
  */
 def configureAccess(Map config) {
     def clusterName = config.clusterName ?: error('clusterName is required')
     def region = config.region ?: DEFAULT_REGION
+    def adminRoles = config.adminRoles ?: []
+    def adminUsers = config.adminUsers ?: []
     def adminGroupName = config.adminGroupName ?: ''
+    def discoverSSO = config.discoverSSO ?: false
+    def ssoPattern = config.ssoPattern ?: 'AWSReservedSSO_AdministratorAccess'
+
+    def rolesArg = adminRoles.join(' ')
+    def usersArg = adminUsers.join(' ')
 
     sh """
         set -euo pipefail
         CLUSTER="${clusterName}" REGION="${region}"
         grant_admin() {
-            aws eks create-access-entry --cluster-name "\${CLUSTER}" --region "\${REGION}" --principal-arn "\$1" || true
-            aws eks associate-access-policy --cluster-name "\${CLUSTER}" --region "\${REGION}" --principal-arn "\$1" \\
-                --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy --access-scope type=cluster || true
+            local arn="\$1"
+            echo "Granting admin access to: \${arn}"
+            aws eks create-access-entry --cluster-name "\${CLUSTER}" --region "\${REGION}" --principal-arn "\${arn}" 2>/dev/null || echo "  (entry may already exist)"
+            aws eks associate-access-policy --cluster-name "\${CLUSTER}" --region "\${REGION}" --principal-arn "\${arn}" \\
+                --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy --access-scope type=cluster 2>/dev/null || echo "  (policy may already be associated)"
         }
         ACCOUNT=\$(aws sts get-caller-identity --query Account --output text)
-        grant_admin "arn:aws:iam::\${ACCOUNT}:role/EKSAdminRole"
-        [ -n "${adminGroupName}" ] && for u in \$(aws iam get-group --group-name "${adminGroupName}" --query 'Users[].Arn' --output text 2>/dev/null); do grant_admin "\$u"; done
-        SSO=\$(aws iam list-roles --query "Roles[?contains(RoleName,'AWSReservedSSO_AdministratorAccess')].Arn|[0]" --output text 2>/dev/null | head -1)
-        [ -n "\${SSO}" ] && [ "\${SSO}" != "None" ] && grant_admin "\${SSO}"
+
+        # Grant access to specified roles
+        for role in ${rolesArg}; do
+            [ -n "\${role}" ] && grant_admin "arn:aws:iam::\${ACCOUNT}:role/\${role}"
+        done
+
+        # Grant access to specified users
+        for user in ${usersArg}; do
+            [ -n "\${user}" ] && grant_admin "arn:aws:iam::\${ACCOUNT}:user/\${user}"
+        done
+
+        # Grant access to IAM group members
+        if [ -n "${adminGroupName}" ]; then
+            for arn in \$(aws iam get-group --group-name "${adminGroupName}" --query 'Users[].Arn' --output text 2>/dev/null); do
+                grant_admin "\${arn}"
+            done
+        fi
+
+        # Discover and grant access to SSO admin role
+        if [ "${discoverSSO}" = "true" ]; then
+            SSO=\$(aws iam list-roles --query "Roles[?contains(RoleName,'${ssoPattern}')].Arn|[0]" --output text 2>/dev/null | head -1)
+            [ -n "\${SSO}" ] && [ "\${SSO}" != "None" ] && grant_admin "\${SSO}"
+        fi
     """
 }
 
