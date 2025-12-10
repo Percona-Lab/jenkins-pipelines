@@ -202,15 +202,39 @@ def deleteAllClusters(Map config = [:]) {
     def skipNewest = config.skipNewest != null ? config.skipNewest : true
     def respectRetention = config.respectRetention != null ? config.respectRetention : true
 
+    // Get all clusters with our prefix (sorted newest-first)
     def clusters = eksCluster.listClusters(region: region, prefix: CLUSTER_PREFIX)
-    if (!clusters) { echo "No clusters with prefix '${CLUSTER_PREFIX}'"; return }
+    if (!clusters) {
+        echo "No clusters found with prefix '${CLUSTER_PREFIX}'"
+        return
+    }
 
-    def toDelete = skipNewest ? clusters.drop(1) : clusters  // clusters sorted newest-first
-    if (skipNewest && clusters) { echo "Skipping newest: ${clusters[0]}" }
-    if (respectRetention) { toDelete = eksCluster.filterByRetention(toDelete, region) }
-    if (!toDelete) { echo 'No clusters to delete after filtering'; return }
+    // Start with all clusters, then apply filters
+    def toDelete = clusters
 
-    def parallel_stages = [:]
-    toDelete.each { c -> parallel_stages["Delete ${c}"] = { deleteCluster(clusterName: c, region: region) } }
-    parallel parallel_stages
+    // Optionally skip the newest cluster (protects in-progress builds)
+    if (skipNewest) {
+        echo "Skipping newest cluster: ${clusters[0]}"
+        toDelete = clusters.drop(1)
+    }
+
+    // Optionally filter by retention tags (only delete expired)
+    if (respectRetention) {
+        toDelete = eksCluster.filterByRetention(toDelete, region)
+    }
+
+    if (!toDelete) {
+        echo 'No clusters to delete after applying filters'
+        return
+    }
+
+    // Delete remaining clusters in parallel
+    echo "Deleting ${toDelete.size()} cluster(s): ${toDelete.join(', ')}"
+    def parallelStages = [:]
+    toDelete.each { clusterName ->
+        parallelStages["Delete ${clusterName}"] = {
+            deleteCluster(clusterName: clusterName, region: region)
+        }
+    }
+    parallel parallelStages
 }
