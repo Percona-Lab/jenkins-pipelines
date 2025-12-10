@@ -66,14 +66,15 @@ def configureAccess(Map config) {
 
         # Grant access to IAM group members
         if [ -n "${adminGroupName}" ]; then
-            for arn in \$(aws iam get-group --group-name "${adminGroupName}" --query 'Users[].Arn' --output text 2>/dev/null); do
+            GROUP_MEMBERS=\$(aws iam get-group --group-name "${adminGroupName}" --query 'Users[].Arn' --output text) || true
+            for arn in \${GROUP_MEMBERS}; do
                 grant_admin "\${arn}"
             done
         fi
 
         # Discover and grant access to SSO admin role
         if [ "${discoverSSO}" = "true" ]; then
-            SSO=\$(aws iam list-roles --query "Roles[?contains(RoleName,'${ssoPattern}')].Arn|[0]" --output text 2>/dev/null | head -1)
+            SSO=\$(aws iam list-roles --query "Roles[?contains(RoleName,'${ssoPattern}')].Arn|[0]" --output text | head -1) || true
             [ -n "\${SSO}" ] && [ "\${SSO}" != "None" ] && grant_admin "\${SSO}"
         fi
     """
@@ -172,7 +173,7 @@ def listClusters(Map config) {
     // Fetch clusters with creation timestamp, sort newest first
     def output = sh(script: """
         aws eks list-clusters --region ${region} --output json | jq -r '.clusters[]|select(startswith("${prefix}"))' | while read c; do
-            t=\$(aws eks describe-cluster --name "\$c" --region ${region} --query 'cluster.createdAt' --output text 2>/dev/null)
+            t=\$(aws eks describe-cluster --name "\$c" --region ${region} --query 'cluster.createdAt' --output text) || continue
             [ -n "\$t" ] && [ "\$t" != "None" ] && echo "\$t|\$c"
         done | sort -r | cut -d'|' -f2
     """, returnStdout: true).trim()
@@ -218,7 +219,7 @@ def filterByRetention(List clusters, String region, boolean verbose = true) {
     def now = (long)(System.currentTimeMillis() / 1000)
     def filtered = []
     clusters.each { c ->
-        def tag = sh(script: "aws eks describe-cluster --name ${c} --region ${region} --query 'cluster.tags.\"delete-after\"' --output text 2>/dev/null || echo ''", returnStdout: true).trim()
+        def tag = sh(script: "aws eks describe-cluster --name ${c} --region ${region} --query 'cluster.tags.\"delete-after\"' --output text || echo ''", returnStdout: true).trim()
         if (tag && tag != 'None' && tag != 'null' && tag != '') {
             def exp = tag as long
             if (now > exp) {
