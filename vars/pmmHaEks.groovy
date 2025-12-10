@@ -2,7 +2,6 @@
 // PMM-specific functions for deploying and managing PMM High Availability on EKS.
 // Uses eksCluster.groovy for generic EKS operations.
 import groovy.transform.Field
-import groovy.json.JsonSlurper
 
 @Field static final String CLUSTER_PREFIX = 'pmm-ha-test-'
 @Field static final int MAX_CLUSTERS = 5
@@ -175,24 +174,6 @@ def installPmm(Map config) {
 }
 
 // === CLUSTER LIFECYCLE ===
-
-/**
- * Get cluster tags as Map
- * @param clusterName EKS cluster name
- * @param region AWS region (default: 'us-east-2')
- * @return Map of tag key-value pairs (empty map on error)
- */
-def getClusterTags(String clusterName, String region = 'us-east-2') {
-    def tagsJson = sh(script: "aws eks describe-cluster --name ${clusterName} --region ${region} --query 'cluster.tags' --output json 2>/dev/null || echo '{}'", returnStdout: true).trim()
-    def tags = [:]
-    try {
-        def parsed = new JsonSlurper().parseText(tagsJson)
-        if (parsed instanceof Map) { tags = parsed.collectEntries { k, v -> [k, v] } }
-    } catch (Exception e) {
-        echo "Warning: Could not parse cluster tags: ${e.message}"
-    }
-    return tags
-}
 
 /**
  * Delete PMM HA cluster
