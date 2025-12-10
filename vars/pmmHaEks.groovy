@@ -178,12 +178,17 @@ def getClusterTags(String clusterName, String region = 'us-east-2') {
 
 /**
  * Delete PMM HA cluster
- * @param config.clusterName  EKS cluster name (required)
+ * @param config.clusterName  EKS cluster name (required, must start with pmm-ha-test-)
  * @param config.region       AWS region (default: 'us-east-2')
  */
 def deleteCluster(Map config) {
     def clusterName = config.clusterName ?: error('clusterName required')
     def region = config.region ?: 'us-east-2'
+
+    if (!clusterName.startsWith(CLUSTER_PREFIX)) {
+        error("clusterName must start with '${CLUSTER_PREFIX}' for safety")
+    }
+
     eksCluster.deleteCluster(clusterName: clusterName, region: region)
 }
 
