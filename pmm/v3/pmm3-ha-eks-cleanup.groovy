@@ -2,7 +2,6 @@
  * PMM HA EKS Cleanup Pipeline
  *
  * Manages cleanup of PMM HA test clusters. Supports manual and scheduled runs.
- * Deletes Route53 records, ALB ingress, and EKS clusters.
  *
  * Actions:
  *   - LIST_ONLY: List all test clusters with age
@@ -41,16 +40,6 @@ pipeline {
         )
         string(name: 'CLUSTER_NAME', defaultValue: '', description: 'Cluster name(s) for DELETE_CLUSTER. Comma-separated for parallel deletion (e.g., pmm-ha-test-65,pmm-ha-test-66)')
         booleanParam(name: 'SKIP_NEWEST', defaultValue: true, description: 'Skip the most recent cluster (protects in-progress builds)')
-        booleanParam(
-            name: 'ENABLE_PUBLIC_INGRESS',
-            defaultValue: true,
-            description: 'Delete Route53 DNS records during cleanup (uncheck if clusters have no public ingress)'
-        )
-        string(
-            name: 'R53_ZONE_NAME',
-            defaultValue: 'cd.percona.com',
-            description: 'Route53 hosted zone name (only used if ENABLE_PUBLIC_INGRESS is checked)'
-        )
     }
 
     options {
@@ -62,7 +51,6 @@ pipeline {
     environment {
         REGION = 'us-east-2'
         CLUSTER_PREFIX = "${pmmHaEks.CLUSTER_PREFIX}"
-        R53_ZONE_NAME = "${params.ENABLE_PUBLIC_INGRESS ? (params.R53_ZONE_NAME ?: 'cd.percona.com') : ''}"
     }
 
     stages {
@@ -137,8 +125,7 @@ pipeline {
                             if (clusterExists) {
                                 pmmHaEks.deleteCluster(
                                     clusterName: clusterName,
-                                    region: env.REGION,
-                                    r53ZoneName: env.R53_ZONE_NAME
+                                    region: env.REGION
                                 )
                             } else {
                                 echo "Cluster '${clusterName}' not found in region '${REGION}'."
@@ -156,8 +143,7 @@ pipeline {
                                     if (exists) {
                                         pmmHaEks.deleteCluster(
                                             clusterName: clusterName,
-                                            region: env.REGION,
-                                            r53ZoneName: env.R53_ZONE_NAME
+                                            region: env.REGION
                                         )
                                     } else {
                                         echo "Cluster '${clusterName}' not found."
@@ -178,7 +164,6 @@ pipeline {
                     script {
                         pmmHaEks.deleteAllClusters(
                             region: env.REGION,
-                            r53ZoneName: env.R53_ZONE_NAME,
                             skipNewest: params.SKIP_NEWEST,
                             respectRetention: false  // Force delete regardless of retention tags
                         )
@@ -194,7 +179,6 @@ pipeline {
                     script {
                         pmmHaEks.deleteAllClusters(
                             region: env.REGION,
-                            r53ZoneName: env.R53_ZONE_NAME,
                             skipNewest: true  // Protect newest during cron
                         )
                     }

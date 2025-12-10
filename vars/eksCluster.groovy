@@ -43,12 +43,11 @@ def configureAccess(Map config) {
 }
 
 /**
- * Install cluster components: GP3 StorageClass, Node Termination Handler, ALB Controller
+ * Install cluster components: GP3 StorageClass, Node Termination Handler
  * @param config.clusterName       EKS cluster name (required)
  * @param config.region            AWS region (default: us-east-2)
  * @param config.installStorageClass Install GP3 StorageClass (default: true)
  * @param config.installNTH        Install Node Termination Handler (default: true)
- * @param config.installALBController Install ALB Controller (default: false)
  * @param config.storageClassName  StorageClass name (default: auto-ebs-sc)
  */
 def setupClusterComponents(Map config) {
@@ -56,7 +55,6 @@ def setupClusterComponents(Map config) {
     def region = config.region ?: DEFAULT_REGION
     def installStorageClass = config.installStorageClass != false  // default: true
     def installNTH = config.installNTH != false                    // default: true
-    def installALBController = config.installALBController == true // default: false (explicit opt-in)
     def storageClassName = config.storageClassName ?: 'auto-ebs-sc'
 
     if (installStorageClass) {
@@ -81,25 +79,6 @@ EOF
             helm upgrade --install aws-node-termination-handler eks/aws-node-termination-handler -n kube-system \\
                 --set enableSpotInterruptionDraining=true --set enableScheduledEventDraining=true --wait
         '''
-    }
-    if (installALBController) {
-        sh """
-            CLUSTER="${clusterName}" REGION="${region}"
-            ACCOUNT=\$(aws sts get-caller-identity --query Account --output text)
-            eksctl create iamserviceaccount --cluster "\${CLUSTER}" --namespace kube-system --name aws-load-balancer-controller \\
-                --role-name "AmazonEKSLoadBalancerControllerRole-\${CLUSTER}" \\
-                --attach-policy-arn "arn:aws:iam::\${ACCOUNT}:policy/AWSLoadBalancerControllerIAMPolicy" --region "\${REGION}" --approve || true
-            VPC=\$(aws eks describe-cluster --name "\${CLUSTER}" --region "\${REGION}" --query "cluster.resourcesVpcConfig.vpcId" --output text)
-            helm repo add eks https://aws.github.io/eks-charts || true && helm repo update
-            helm upgrade --install aws-load-balancer-controller eks/aws-load-balancer-controller -n kube-system \\
-                --set clusterName="\${CLUSTER}" \\
-                --set serviceAccount.create=false \\
-                --set serviceAccount.name=aws-load-balancer-controller \\
-                --set region="\${REGION}" \\
-                --set vpcId="\${VPC}" \\
-                --wait
-            kubectl wait --for=condition=available deployment/aws-load-balancer-controller -n kube-system --timeout=120s
-        """
     }
 }
 
@@ -147,28 +126,17 @@ def filterByRetention(List clusters, String region, boolean verbose = true) {
 }
 
 /**
- * Delete cluster via eksctl; optionally delete ingress first to allow ALB cleanup
+ * Delete cluster via eksctl
  * @param config.clusterName      EKS cluster name (required)
  * @param config.region           AWS region (default: us-east-2)
- * @param config.cleanupNamespace Namespace containing ingress to delete first
- * @param config.cleanupIngress   Ingress name to delete before cluster deletion
  */
 def deleteCluster(Map config) {
     def clusterName = config.clusterName ?: error('clusterName is required')
     def region = config.region ?: DEFAULT_REGION
-    def cleanupNamespace = config.cleanupNamespace ?: ''
-    def cleanupIngress = config.cleanupIngress ?: ''
 
-    // Delete ingress first (if specified) to allow ALB cleanup before cluster deletion
     sh """
         set -euo pipefail
         CLUSTER="${clusterName}" REGION="${region}"
-        if [ -n "${cleanupNamespace}" ] && [ -n "${cleanupIngress}" ]; then
-            TMP=\$(mktemp)
-            aws eks update-kubeconfig --name "\${CLUSTER}" --region "\${REGION}" --kubeconfig "\${TMP}" 2>/dev/null && \\
-                KUBECONFIG="\${TMP}" kubectl delete ingress "${cleanupIngress}" -n "${cleanupNamespace}" --ignore-not-found || true
-            rm -f "\${TMP}"; sleep 30
-        fi
         # Disable termination protection on eksctl stacks (required before deletion)
         for s in \$(aws cloudformation list-stacks --region "\${REGION}" --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE \\
             --query "StackSummaries[?starts_with(StackName,'eksctl-\${CLUSTER}')].StackName" --output text 2>/dev/null); do

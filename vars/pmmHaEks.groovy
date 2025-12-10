@@ -7,10 +7,8 @@ import groovy.json.JsonSlurper
 @Field static final String CLUSTER_PREFIX = 'pmm-ha-test-'
 @Field static final int MAX_CLUSTERS = 5
 @Field static final int MAX_RETENTION_DAYS = 7
-@Field static final String PMM_INGRESS_NAME = 'pmm-ha-alb'
 @Field static final String PMM_SERVICE_NAME = 'pmm-ha-haproxy'
 @Field static final String PMM_DEFAULT_NAMESPACE = 'pmm'
-@Field static final String PMM_DEFAULT_R53_ZONE = 'cd.percona.com'
 
 // === VALIDATION ===
 
@@ -65,24 +63,16 @@ vm={{index .data "VMAGENT_remoteWrite_basicAuth_password" | base64decode}}'
  * @param config.clusterName     EKS cluster name (required)
  * @param config.buildNumber     Jenkins build number (required)
  * @param config.region          AWS region (default: 'us-east-2')
- * @param config.domain          Public domain for PMM URL
  * @param config.namespace       K8s namespace (default: 'pmm')
- * @param config.hasPublicIngress Include ALB hostname (default: true)
- * @return Map with creds and albHostname
+ * @return Map with creds
  */
 def writeAccessInfo(Map config) {
     def clusterName = config.clusterName ?: error('clusterName required')
     def buildNumber = config.buildNumber ?: error('buildNumber required')
     def region = config.region ?: 'us-east-2'
-    def domain = config.domain ?: ''
     def namespace = config.namespace ?: PMM_DEFAULT_NAMESPACE
-    def hasPublicIngress = config.hasPublicIngress != false
 
     def creds = getCredentials(namespace)
-    def albHostname = ''
-    if (hasPublicIngress) {
-        albHostname = sh(script: "kubectl get ingress ${PMM_INGRESS_NAME} -n ${namespace} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo 'pending'", returnStdout: true).trim()
-    }
 
     sh 'mkdir -p pmm-credentials'
     def accessInfo = """PMM HA Access Information
@@ -90,13 +80,10 @@ def writeAccessInfo(Map config) {
 Cluster: ${clusterName}
 Build:   ${buildNumber}
 Region:  ${region}
-"""
-    if (hasPublicIngress && domain) {
-        accessInfo += "\nPMM URL: https://${domain}\nALB:     ${albHostname}\n"
-    } else {
-        accessInfo += "\nAccess: Internal only (kubectl port-forward svc/pmm-ha-haproxy 8443:443 -n ${namespace})\n"
-    }
-    accessInfo += """
+
+Access: kubectl port-forward svc/${PMM_SERVICE_NAME} 8443:443 -n ${namespace}
+        Then open https://localhost:8443
+
 PMM/Grafana: admin / ${creds.pmm}
 PostgreSQL:  ${creds.pg}
 ClickHouse:  ${creds.ch_user} / ${creds.ch}
@@ -105,7 +92,7 @@ VictoriaMetrics: ${creds.vm_user} / ${creds.vm}
 kubectl: aws eks update-kubeconfig --name ${clusterName} --region ${region}
 """
     writeFile file: 'pmm-credentials/access-info.txt', text: accessInfo
-    return [creds: creds, albHostname: albHostname]
+    return [creds: creds]
 }
 
 // === PMM DEPLOYMENT ===
@@ -174,146 +161,6 @@ def installPmm(Map config) {
     """
 }
 
-// === NETWORKING HELPERS ===
-
-// Get public Route53 hosted zone ID for a domain
-def resolveR53ZoneId(String zoneName, String region = 'us-east-2') {
-    def zoneId = sh(script: """
-        id=\$(aws route53 list-hosted-zones-by-name --dns-name "${zoneName}" \\
-            --query 'HostedZones[?Config.PrivateZone==`false`&&Name==`'"${zoneName}"'.`].Id' --output text | sed 's|/hostedzone/||g')
-        [ \$(echo "\$id"|wc -w) -eq 1 ] && [ -n "\$id" ] && [ "\$id" != "None" ] && echo "\$id"
-    """, returnStdout: true).trim()
-    return zoneId
-}
-
-// Get ARN of wildcard ACM certificate (*.zoneName) for HTTPS
-def resolveAcmCertificate(String zoneName, String region = 'us-east-2') {
-    def cert = sh(script: """
-        aws acm list-certificates --region "${region}" --certificate-statuses ISSUED \\
-            --query "CertificateSummaryList[?DomainName=='*.${zoneName}'].CertificateArn|[0]" --output text
-    """, returnStdout: true).trim()
-    return (cert && cert != 'None') ? cert : ''
-}
-
-// Get ALB's canonical hosted zone ID (needed for Route53 alias records)
-def getAlbZoneId(String albHostname, String region = 'us-east-2') {
-    def z = sh(script: """aws elbv2 describe-load-balancers --region "${region}" --query "LoadBalancers[?DNSName=='${albHostname}'].CanonicalHostedZoneId" --output text""", returnStdout: true).trim()
-    return (z && z != 'None') ? z : ''
-}
-
-// Create Route53 A record aliased to ALB
-def createRoute53Alias(Map config) {
-    def zoneName = config.zoneName ?: error('zoneName required')
-    def recordName = config.recordName ?: error('recordName required')
-    def albHostname = config.albHostname ?: error('albHostname required')
-    def region = config.region ?: 'us-east-2'
-
-    def r53Zone = resolveR53ZoneId(zoneName, region)
-    if (!r53Zone) { error("No Route53 zone for ${zoneName}") }
-    def albZone = getAlbZoneId(albHostname, region)
-    if (!albZone) { echo 'WARNING: Could not get ALB zone ID'; return }
-
-    sh """
-        aws route53 change-resource-record-sets --hosted-zone-id "${r53Zone}" --change-batch '{
-            "Changes":[{"Action":"UPSERT","ResourceRecordSet":{"Name":"${recordName}","Type":"A",
-            "AliasTarget":{"HostedZoneId":"${albZone}","DNSName":"${albHostname}","EvaluateTargetHealth":true}}}]}'
-    """
-            }
-
-// Delete Route53 A alias record
-def deleteRoute53Record(Map config) {
-    def zoneName = config.zoneName ?: error('zoneName required')
-    def recordName = config.recordName ?: error('recordName required')
-    def region = config.region ?: 'us-east-2'
-
-    def r53Zone = resolveR53ZoneId(zoneName, region)
-    if (!r53Zone) { echo "WARNING: No Route53 zone for ${zoneName}"; return }
-    def fqdn = recordName.endsWith('.') ? recordName : "${recordName}."
-
-    sh """
-        set -euo pipefail
-        alias=\$(aws route53 list-resource-record-sets --hosted-zone-id "${r53Zone}" \\
-            --query "ResourceRecordSets[?Name=='${fqdn}'&&Type=='A'].AliasTarget|[0]" --output json 2>/dev/null)
-        [ -z "\$alias" ] || [ "\$alias" = "null" ] && exit 0
-        # jq -c builds compact JSON from multi-line AWS response (avoids shell word-splitting)
-        change_batch=\$(echo "\$alias" | jq -c '{Changes:[{Action:"DELETE",ResourceRecordSet:{Name:"${fqdn}",Type:"A",AliasTarget:.}}]}')
-        aws route53 change-resource-record-sets --hosted-zone-id "${r53Zone}" --change-batch "\$change_batch"
-    """
-}
-
-// Poll until ALB hostname is assigned to ingress
-def waitForAlb(String namespace, String ingressName, int maxAttempts = 30, int intervalSec = 10) {
-    def hostname = sh(script: """
-        for i in \$(seq 1 ${maxAttempts}); do
-            h=\$(kubectl get ingress ${ingressName} -n ${namespace} -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo "")
-            [ -n "\$h" ] && echo "\$h" && exit 0
-            sleep ${intervalSec}
-        done
-    """, returnStdout: true).trim()
-    return hostname
-}
-
-// === EXTERNAL ACCESS ===
-
-/**
- * Create ALB Ingress and Route53 DNS record for public HTTPS access
- * @param config.namespace    K8s namespace (default: 'pmm')
- * @param config.domain       Public FQDN for PMM (required)
- * @param config.certArn      ACM certificate ARN (required)
- * @param config.r53ZoneName  Route53 zone for DNS record
- * @param config.region       AWS region (default: 'us-east-2')
- * @return ALB hostname
- */
-def createIngress(Map config) {
-    def namespace = config.namespace ?: PMM_DEFAULT_NAMESPACE
-    def domain = config.domain ?: error('domain required')
-    def certArn = config.certArn ?: error('certArn required')
-    def r53ZoneName = config.r53ZoneName ?: ''
-    def region = config.region ?: 'us-east-2'
-
-    // Create ALB Ingress for PMM HA
-    sh """
-        cat <<EOF | kubectl apply -f -
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: ${PMM_INGRESS_NAME}
-  namespace: ${namespace}
-  annotations:
-    kubernetes.io/ingress.class: alb
-    alb.ingress.kubernetes.io/scheme: internet-facing
-    alb.ingress.kubernetes.io/target-type: ip
-    alb.ingress.kubernetes.io/certificate-arn: ${certArn}
-    alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
-    alb.ingress.kubernetes.io/backend-protocol: HTTPS
-    alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
-    alb.ingress.kubernetes.io/healthcheck-path: /v1/readyz
-    alb.ingress.kubernetes.io/healthcheck-port: "443"
-    alb.ingress.kubernetes.io/success-codes: "200"
-spec:
-  ingressClassName: alb
-  rules:
-  - host: ${domain}
-    http:
-      paths:
-      - path: /
-        pathType: Prefix
-        backend:
-          service:
-            name: ${PMM_SERVICE_NAME}
-            port: { number: 443 }
-EOF
-    """
-
-    def albHostname = waitForAlb(namespace, PMM_INGRESS_NAME)
-    if (!albHostname) { error('ALB not provisioned within timeout') }
-
-    if (r53ZoneName) {
-        createRoute53Alias(zoneName: r53ZoneName, recordName: domain, albHostname: albHostname, region: region)
-    }
-    return albHostname
-}
-
 // === CLUSTER LIFECYCLE ===
 
 // Get cluster tags as Map (for retention and ingress settings)
@@ -330,46 +177,24 @@ def getClusterTags(String clusterName, String region = 'us-east-2') {
 }
 
 /**
- * Delete PMM HA cluster with Route53 DNS cleanup
+ * Delete PMM HA cluster
  * @param config.clusterName  EKS cluster name (required)
  * @param config.region       AWS region (default: 'us-east-2')
- * @param config.r53ZoneName  Route53 zone override (default: from cluster tags)
  */
 def deleteCluster(Map config) {
     def clusterName = config.clusterName ?: error('clusterName required')
     def region = config.region ?: 'us-east-2'
-    def r53ZoneOverride = config.r53ZoneName ?: ''
-
-    def tags = getClusterTags(clusterName, region)
-    def installPmm = tags['install-pmm']
-    def publicIngress = tags['public-ingress']
-    def r53ZoneTag = tags['r53-zone']
-
-    // Determine Route53 zone for DNS cleanup ('none' tag means no public ingress, skip cleanup)
-    def zoneName = r53ZoneOverride ?: (r53ZoneTag == 'none' ? '' : r53ZoneTag) ?: PMM_DEFAULT_R53_ZONE
-
-    // Check if cluster has PMM with public ingress (based on creation-time tags)
-    def hasPmmIngress = installPmm?.toLowerCase() != 'false' && publicIngress?.toLowerCase() != 'false'
-    if (hasPmmIngress && zoneName) {
-        deleteRoute53Record(zoneName: zoneName, recordName: "${clusterName}.${zoneName}", region: region)
-    }
-
-    // Empty strings skip ingress cleanup in eksCluster.deleteCluster
-    def cleanupNs = hasPmmIngress ? PMM_DEFAULT_NAMESPACE : ''
-    def cleanupIngress = hasPmmIngress ? PMM_INGRESS_NAME : ''
-    eksCluster.deleteCluster(clusterName: clusterName, region: region, cleanupNamespace: cleanupNs, cleanupIngress: cleanupIngress)
+    eksCluster.deleteCluster(clusterName: clusterName, region: region)
 }
 
 /**
  * Delete multiple clusters (respects retention tags, optionally skips newest)
  * @param config.region           AWS region (default: 'us-east-2')
- * @param config.r53ZoneName      Route53 zone for DNS cleanup
  * @param config.skipNewest       Protect newest cluster (default: true)
  * @param config.respectRetention Only delete expired clusters (default: true)
  */
 def deleteAllClusters(Map config = [:]) {
     def region = config.region ?: 'us-east-2'
-    def r53ZoneName = config.r53ZoneName ?: ''
     def skipNewest = config.skipNewest != null ? config.skipNewest : true
     def respectRetention = config.respectRetention != null ? config.respectRetention : true
 
@@ -382,6 +207,6 @@ def deleteAllClusters(Map config = [:]) {
     if (!toDelete) { echo 'No clusters to delete after filtering'; return }
 
     def parallel_stages = [:]
-    toDelete.each { c -> parallel_stages["Delete ${c}"] = { deleteCluster(clusterName: c, region: region, r53ZoneName: r53ZoneName) } }
+    toDelete.each { c -> parallel_stages["Delete ${c}"] = { deleteCluster(clusterName: c, region: region) } }
     parallel parallel_stages
 }

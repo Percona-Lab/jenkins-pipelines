@@ -2,7 +2,7 @@
  * PMM HA EKS Test Pipeline
  *
  * Creates an EKS cluster with PMM High Availability deployment for testing.
- * Includes ALB ingress with ACM certificate and Route53 DNS.
+ * Access via kubectl port-forward for internal-only connectivity.
  *
  * Related:
  *   - Cleanup: pmm3-ha-eks-cleanup.groovy
@@ -57,16 +57,6 @@ pipeline {
             defaultValue: '',
             description: 'PMM admin password (only used if INSTALL_PMM is checked)'
         )
-        booleanParam(
-            name: 'ENABLE_PUBLIC_INGRESS',
-            defaultValue: true,
-            description: 'Create public ALB with Route53 DNS record (requires INSTALL_PMM)'
-        )
-        string(
-            name: 'R53_ZONE_NAME',
-            defaultValue: 'cd.percona.com',
-            description: 'Route53 hosted zone name (only used if ENABLE_PUBLIC_INGRESS is checked)'
-        )
         string(
             name: 'PMM_NAMESPACE',
             defaultValue: 'pmm',
@@ -79,11 +69,7 @@ pipeline {
         REGION = 'us-east-2'
         KUBECONFIG = "${WORKSPACE}/kubeconfig"
         PMM_NAMESPACE = "${params.PMM_NAMESPACE ?: 'pmm'}"
-        // Normalize to lowercase for consistent tag values
         INSTALL_PMM = "${params.INSTALL_PMM ? 'true' : 'false'}"
-        ENABLE_PUBLIC_INGRESS = "${params.INSTALL_PMM && params.ENABLE_PUBLIC_INGRESS ? 'true' : 'false'}"
-        R53_ZONE_NAME = "${params.INSTALL_PMM && params.ENABLE_PUBLIC_INGRESS ? (params.R53_ZONE_NAME ?: 'cd.percona.com') : ''}"
-        PMM_DOMAIN = "${pmmHaEks.CLUSTER_PREFIX}${BUILD_NUMBER}.${params.R53_ZONE_NAME ?: 'cd.percona.com'}"
     }
 
     stages {
@@ -120,8 +106,6 @@ metadata:
     retention-days: "${VALIDATED_RETENTION_DAYS}"
     delete-after: "${DELETE_AFTER_EPOCH}"
     install-pmm: "${INSTALL_PMM}"
-    public-ingress: "${ENABLE_PUBLIC_INGRESS}"
-    r53-zone: "${R53_ZONE_NAME:-none}"
 
 vpc:
   nat:
@@ -242,8 +226,7 @@ EOF
                     script {
                         eksCluster.setupClusterComponents(
                             clusterName: env.CLUSTER_NAME,
-                            region: env.REGION,
-                            installALBController: env.ENABLE_PUBLIC_INGRESS == 'true'
+                            region: env.REGION
                         )
                     }
                 }
@@ -260,31 +243,6 @@ EOF
                             chartBranch: params.HELM_CHART_BRANCH,
                             imageTag: params.PMM_IMAGE_TAG,
                             adminPassword: params.PMM_ADMIN_PASSWORD
-                        )
-                    }
-                }
-            }
-        }
-
-        stage('Setup External Access') {
-            when { expression { params.INSTALL_PMM && params.ENABLE_PUBLIC_INGRESS } }
-            steps {
-                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    script {
-                        // Resolve ACM wildcard certificate for the zone
-                        def certArn = pmmHaEks.resolveAcmCertificate(env.R53_ZONE_NAME, env.REGION)
-
-                        if (!certArn) {
-                            error("No valid ACM wildcard certificate found for *.${env.R53_ZONE_NAME}")
-                        }
-                        echo "Resolved ACM certificate: ${certArn}"
-
-                        pmmHaEks.createIngress(
-                            namespace: env.PMM_NAMESPACE,
-                            domain: env.PMM_DOMAIN,
-                            certArn: certArn,
-                            r53ZoneName: env.R53_ZONE_NAME,
-                            region: env.REGION
                         )
                     }
                 }
@@ -326,28 +284,12 @@ EOF
                                 clusterName: env.CLUSTER_NAME,
                                 buildNumber: env.BUILD_NUMBER,
                                 region: env.REGION,
-                                domain: env.PMM_DOMAIN,
-                                namespace: env.PMM_NAMESPACE,
-                                hasPublicIngress: params.ENABLE_PUBLIC_INGRESS
+                                namespace: env.PMM_NAMESPACE
                             )
 
-                            if (params.ENABLE_PUBLIC_INGRESS) {
-                                echo """
+                            echo """
 ============================================
 Access Information
-============================================
-PMM URL: https://${PMM_DOMAIN}
-ALB:     ${result.albHostname}
-User:    admin
-Password: ${result.creds.pmm}
-
-kubectl:
-  aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}
-"""
-                            } else {
-                                echo """
-============================================
-Access Information (Internal Only)
 ============================================
 PMM Admin Password: ${result.creds.pmm}
 
@@ -356,7 +298,6 @@ kubectl:
   kubectl port-forward svc/pmm-ha-haproxy 8443:443 -n ${PMM_NAMESPACE}
   # Then access https://localhost:8443
 """
-                            }
                         } else {
                             echo """
 ============================================
@@ -391,12 +332,7 @@ kubectl:
                     if (params.INSTALL_PMM) {
                         def creds = pmmHaEks.getCredentials(env.PMM_NAMESPACE)
                         def chartRepo = sh(script: "cat .chart-repo-source 2>/dev/null || echo 'unknown'", returnStdout: true).trim()
-
-                        if (params.ENABLE_PUBLIC_INGRESS) {
-                            currentBuild.description = "https://${PMM_DOMAIN} | admin / ${creds.pmm} | ${chartRepo}/${HELM_CHART_BRANCH}"
-                        } else {
-                            currentBuild.description = "${CLUSTER_NAME} (internal) | admin / ${creds.pmm} | ${chartRepo}/${HELM_CHART_BRANCH}"
-                        }
+                        currentBuild.description = "${CLUSTER_NAME} | admin / ${creds.pmm} | ${chartRepo}/${HELM_CHART_BRANCH}"
                     } else {
                         currentBuild.description = "${CLUSTER_NAME} (bare EKS)"
                     }
@@ -414,8 +350,7 @@ kubectl:
                     if (clusterExists) {
                         pmmHaEks.deleteCluster(
                             clusterName: env.CLUSTER_NAME,
-                            region: env.REGION,
-                            r53ZoneName: env.R53_ZONE_NAME
+                            region: env.REGION
                         )
                     } else {
                         echo "Cluster ${CLUSTER_NAME} not found, nothing to clean up."
