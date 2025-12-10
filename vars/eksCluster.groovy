@@ -8,7 +8,12 @@ import groovy.transform.Field
 
 // === CLUSTER SETUP ===
 
-// Clamp retention days to valid range (1 to maxDays)
+/**
+ * Clamp retention days to valid range (1 to maxDays)
+ * @param retentionDays Input value (any type, safely converted)
+ * @param maxDays Maximum allowed days (default: DEFAULT_MAX_RETENTION_DAYS)
+ * @return int between 1 and maxDays
+ */
 def validateRetentionDays(def retentionDays, int maxDays = DEFAULT_MAX_RETENTION_DAYS) {
     def days = 1
     try { days = retentionDays ? (retentionDays.toString() as int) : 1 } catch (Exception e) { days = 1 }
@@ -202,7 +207,13 @@ def listClustersWithAge(Map config) {
     }
 }
 
-// Return clusters whose delete-after tag (epoch seconds) has expired or is missing
+/**
+ * Filter clusters by retention tag expiration
+ * @param clusters List of cluster names to check
+ * @param region AWS region
+ * @param verbose Print DELETE/KEEP status for each cluster (default: true)
+ * @return List of clusters eligible for deletion (expired or missing tag)
+ */
 def filterByRetention(List clusters, String region, boolean verbose = true) {
     def now = (long)(System.currentTimeMillis() / 1000)
     def filtered = []

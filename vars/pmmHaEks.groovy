@@ -12,7 +12,10 @@ import groovy.json.JsonSlurper
 
 // === VALIDATION ===
 
-// Validate helm chart branch exists before cluster creation
+/**
+ * Validate helm chart branch exists before cluster creation (fail-fast)
+ * @param chartBranch Branch name to validate in percona-helm-charts repo
+ */
 def validateHelmChart(String chartBranch) {
     cloneHelmCharts(chartBranch, 'validate-charts')
     sh 'rm -rf validate-charts'
@@ -21,7 +24,13 @@ def validateHelmChart(String chartBranch) {
 
 // === HELM CHARTS ===
 
-// Clone helm charts from theTibi or percona repo (tries theTibi first)
+/**
+ * Clone PMM HA helm charts from theTibi or percona repo
+ * Tries theTibi/percona-helm-charts first (feature branches), falls back to percona/percona-helm-charts
+ * @param chartBranch Branch name to clone
+ * @param targetDir Target directory for clone (default: 'charts-repo')
+ * @return String repo source ('theTibi' or 'percona')
+ */
 def cloneHelmCharts(String chartBranch, String targetDir = 'charts-repo') {
     def repoSource = sh(script: """
         set -e
@@ -40,7 +49,11 @@ def cloneHelmCharts(String chartBranch, String targetDir = 'charts-repo') {
 
 // === CREDENTIALS ===
 
-// Extract all credentials from pmm-secret (PMM, PostgreSQL, ClickHouse, VictoriaMetrics)
+/**
+ * Extract all credentials from pmm-secret
+ * @param namespace K8s namespace (default: 'pmm')
+ * @return Map with keys: pmm, pg, ch_user, ch, vm_user, vm
+ */
 def getCredentials(String namespace = PMM_DEFAULT_NAMESPACE) {
     def output = sh(script: """
         kubectl get secret pmm-secret -n ${namespace} -o go-template='pmm={{index .data "PMM_ADMIN_PASSWORD" | base64decode}}
@@ -163,7 +176,12 @@ def installPmm(Map config) {
 
 // === CLUSTER LIFECYCLE ===
 
-// Get cluster tags as Map (for retention and ingress settings)
+/**
+ * Get cluster tags as Map
+ * @param clusterName EKS cluster name
+ * @param region AWS region (default: 'us-east-2')
+ * @return Map of tag key-value pairs (empty map on error)
+ */
 def getClusterTags(String clusterName, String region = 'us-east-2') {
     def tagsJson = sh(script: "aws eks describe-cluster --name ${clusterName} --region ${region} --query 'cluster.tags' --output json 2>/dev/null || echo '{}'", returnStdout: true).trim()
     def tags = [:]
