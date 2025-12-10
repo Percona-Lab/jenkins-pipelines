@@ -63,19 +63,19 @@ def configureAccess(Map config) {
             ACCOUNT=$(aws sts get-caller-identity --query Account --output text)
 
             # Grant access to specified roles
-            for role in ${ROLES_ARG}; do
+            for role in ${ROLES_ARG:-}; do
                 [ -n "${role}" ] && grant_admin "arn:aws:iam::${ACCOUNT}:role/${role}"
             done
 
             # Grant access to specified users
-            for user in ${USERS_ARG}; do
+            for user in ${USERS_ARG:-}; do
                 [ -n "${user}" ] && grant_admin "arn:aws:iam::${ACCOUNT}:user/${user}"
             done
 
             # Grant access to IAM group members
-            if [ -n "${ADMIN_GROUP_NAME}" ]; then
+            if [ -n "${ADMIN_GROUP_NAME:-}" ]; then
                 GROUP_MEMBERS=$(aws iam get-group --group-name "${ADMIN_GROUP_NAME}" --query 'Users[].Arn' --output text) || true
-                for arn in ${GROUP_MEMBERS}; do
+                for arn in ${GROUP_MEMBERS:-}; do
                     grant_admin "${arn}"
                 done
             fi
