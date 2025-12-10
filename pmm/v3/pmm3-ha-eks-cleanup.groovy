@@ -80,28 +80,7 @@ pipeline {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     script {
-                        def clusters = eksCluster.listClusters(region: env.REGION, prefix: pmmHaEks.CLUSTER_PREFIX)
-
-                        if (!clusters) {
-                            echo "No clusters found with prefix '${env.CLUSTER_PREFIX}'."
-                            return
-                        }
-
-                        echo "Found ${clusters.size()} cluster(s):"
-                        clusters.each { clusterName ->
-                            def info = sh(
-                                script: """
-                                    CREATED=\$(aws eks describe-cluster --name ${clusterName} --region ${env.REGION} \
-                                        --query 'cluster.createdAt' --output text)
-                                    CREATED_EPOCH=\$(date -d "\${CREATED}" +%s)
-                                    AGE_HOURS=\$(( ( \$(date +%s) - CREATED_EPOCH ) / 3600 ))
-                                    echo "\${CREATED}|\${AGE_HOURS}"
-                                """,
-                                returnStdout: true
-                            ).trim()
-                            def parts = info.split('\\|')
-                            echo "* ${clusterName} | Created: ${parts[0]} | Age: ${parts[1]}h"
-                        }
+                        eksCluster.listClustersWithAge(region: env.REGION, prefix: pmmHaEks.CLUSTER_PREFIX)
                     }
                 }
             }

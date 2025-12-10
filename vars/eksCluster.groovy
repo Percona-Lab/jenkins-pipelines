@@ -103,6 +103,34 @@ def listClusters(Map config) {
     return output ? output.split('\n').findAll { it } : []
 }
 
+/**
+ * List clusters with age information (for display purposes)
+ * @param config.region AWS region (default: us-east-2)
+ * @param config.prefix Cluster name prefix (required)
+ */
+def listClustersWithAge(Map config) {
+    def region = config.region ?: DEFAULT_REGION
+    def prefix = config.prefix ?: error('prefix is required')
+
+    def clusters = listClusters(region: region, prefix: prefix)
+    if (!clusters) {
+        echo "No clusters found with prefix '${prefix}'."
+        return
+    }
+
+    echo "Found ${clusters.size()} cluster(s):"
+    clusters.each { clusterName ->
+        def info = sh(script: """
+            CREATED=\$(aws eks describe-cluster --name ${clusterName} --region ${region} --query 'cluster.createdAt' --output text)
+            CREATED_EPOCH=\$(date -d "\${CREATED}" +%s)
+            AGE_HOURS=\$(( ( \$(date +%s) - CREATED_EPOCH ) / 3600 ))
+            echo "\${CREATED}|\${AGE_HOURS}"
+        """, returnStdout: true).trim()
+        def parts = info.split('\\|')
+        echo "* ${clusterName} | Created: ${parts[0]} | Age: ${parts[1]}h"
+    }
+}
+
 // Return clusters whose delete-after tag (epoch seconds) has expired or is missing
 def filterByRetention(List clusters, String region, boolean verbose = true) {
     def now = (long)(System.currentTimeMillis() / 1000)
