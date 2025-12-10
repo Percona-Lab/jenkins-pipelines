@@ -247,11 +247,20 @@ def deleteCluster(Map config) {
     sh """
         set -euo pipefail
         CLUSTER="${clusterName}" REGION="${region}"
-        # Disable termination protection on eksctl stacks (required before deletion)
-        for s in \$(aws cloudformation list-stacks --region "\${REGION}" --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE \\
-            --query "StackSummaries[?starts_with(StackName,'eksctl-\${CLUSTER}')].StackName" --output text 2>/dev/null); do
-            aws cloudformation update-termination-protection --region "\${REGION}" --stack-name "\${s}" --no-enable-termination-protection 2>/dev/null || true
+
+        # Disable termination protection on eksctl stacks (best-effort, may not exist)
+        STACKS=\$(aws cloudformation list-stacks --region "\${REGION}" \\
+            --stack-status-filter CREATE_COMPLETE UPDATE_COMPLETE \\
+            --query "StackSummaries[?starts_with(StackName,'eksctl-\${CLUSTER}')].StackName" \\
+            --output text) || true
+
+        for s in \${STACKS}; do
+            echo "Disabling termination protection on: \${s}"
+            aws cloudformation update-termination-protection \\
+                --region "\${REGION}" --stack-name "\${s}" \\
+                --no-enable-termination-protection || true
         done
+
         eksctl delete cluster --region "\${REGION}" --name "\${CLUSTER}" --disable-nodegroup-eviction --wait
     """
 }
