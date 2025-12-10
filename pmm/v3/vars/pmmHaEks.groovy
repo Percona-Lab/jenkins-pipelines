@@ -31,18 +31,21 @@ def validateHelmChart(String chartBranch) {
  * @return String repo source ('theTibi' or 'percona')
  */
 def cloneHelmCharts(String chartBranch, String targetDir = 'charts-repo') {
-    def repoSource = sh(script: """
-        set -e
-        rm -rf "${targetDir}"
-        has_charts() { [ -d "${targetDir}/charts/pmm-ha" ] && [ -d "${targetDir}/charts/pmm-ha-dependencies" ]; }
-        if git clone --depth 1 --branch "${chartBranch}" https://github.com/theTibi/percona-helm-charts.git "${targetDir}" 2>/dev/null && has_charts; then
-            echo "theTibi"
-        elif git clone --depth 1 --branch "${chartBranch}" https://github.com/percona/percona-helm-charts.git "${targetDir}" 2>/dev/null && has_charts; then
-            echo "percona"
-        else
-            echo "ERROR: Branch '${chartBranch}' not found or missing charts" >&2; exit 1
-        fi
-    """, returnStdout: true).trim()
+    def repoSource
+    withEnv(["TARGET_DIR=${targetDir}", "CHART_BRANCH=${chartBranch}"]) {
+        repoSource = sh(script: '''
+            set -e
+            rm -rf "${TARGET_DIR}"
+            has_charts() { [ -d "${TARGET_DIR}/charts/pmm-ha" ] && [ -d "${TARGET_DIR}/charts/pmm-ha-dependencies" ]; }
+            if git clone --depth 1 --branch "${CHART_BRANCH}" https://github.com/theTibi/percona-helm-charts.git "${TARGET_DIR}" 2>/dev/null && has_charts; then
+                echo "theTibi"
+            elif git clone --depth 1 --branch "${CHART_BRANCH}" https://github.com/percona/percona-helm-charts.git "${TARGET_DIR}" 2>/dev/null && has_charts; then
+                echo "percona"
+            else
+                echo "ERROR: Branch '${CHART_BRANCH}' not found or missing charts" >&2; exit 1
+            fi
+        ''', returnStdout: true).trim()
+    }
     return repoSource
 }
 
@@ -54,14 +57,17 @@ def cloneHelmCharts(String chartBranch, String targetDir = 'charts-repo') {
  * @return Map with keys: pmm, pg, ch_user, ch, vm_user, vm
  */
 def getCredentials(String namespace = PMM_DEFAULT_NAMESPACE) {
-    def output = sh(script: """
-        kubectl get secret pmm-secret -n ${namespace} -o go-template='pmm={{index .data "PMM_ADMIN_PASSWORD" | base64decode}}
+    def output
+    withEnv(["NAMESPACE=${namespace}"]) {
+        output = sh(script: '''
+            kubectl get secret pmm-secret -n "${NAMESPACE}" -o go-template='pmm={{index .data "PMM_ADMIN_PASSWORD" | base64decode}}
 pg={{index .data "PG_PASSWORD" | base64decode}}
 ch_user={{index .data "PMM_CLICKHOUSE_USER" | base64decode}}
 ch={{index .data "PMM_CLICKHOUSE_PASSWORD" | base64decode}}
 vm_user={{index .data "VMAGENT_remoteWrite_basicAuth_username" | base64decode}}
 vm={{index .data "VMAGENT_remoteWrite_basicAuth_password" | base64decode}}'
-    """, returnStdout: true).trim()
+        ''', returnStdout: true).trim()
+    }
     def creds = [:]
     output.split('\n').each { line ->
         def parts = line.split('=', 2)
@@ -126,51 +132,56 @@ def installPmm(Map config) {
     writeFile file: '.chart-repo-source', text: repoSource
     echo "Installing PMM HA from ${repoSource}/${chartBranch}"
 
-    sh """
-        set -euo pipefail
-        NS="${namespace}" TAG="${imageTag}" ADMIN_PW="${adminPassword}"
-        helm repo add percona https://percona.github.io/percona-helm-charts/ || true
-        helm repo add vm https://victoriametrics.github.io/helm-charts/ || true
-        helm repo add altinity https://docs.altinity.com/helm-charts/ || true
-        helm repo update
+    withEnv([
+        "NS=${namespace}",
+        "TAG=${imageTag}",
+        "ADMIN_PW=${adminPassword}"
+    ]) {
+        sh '''
+            set -euo pipefail
+            helm repo add percona https://percona.github.io/percona-helm-charts/ || true
+            helm repo add vm https://victoriametrics.github.io/helm-charts/ || true
+            helm repo add altinity https://docs.altinity.com/helm-charts/ || true
+            helm repo update
 
-        helm dependency update charts-repo/charts/pmm-ha-dependencies
-        helm upgrade --install pmm-operators charts-repo/charts/pmm-ha-dependencies -n "\${NS}" --create-namespace --wait --timeout 10m
+            helm dependency update charts-repo/charts/pmm-ha-dependencies
+            helm upgrade --install pmm-operators charts-repo/charts/pmm-ha-dependencies -n "${NS}" --create-namespace --wait --timeout 10m
 
-        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n "\${NS}" --timeout=300s || true
-        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n "\${NS}" --timeout=300s || true
-        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n "\${NS}" --timeout=300s || true
+            kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n "${NS}" --timeout=300s || true
+            kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n "${NS}" --timeout=300s || true
+            kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n "${NS}" --timeout=300s || true
 
-        PMM_PW=\${ADMIN_PW:-\$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)}
-        PG_PW=\$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
-        GF_PW=\$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
-        CH_PW=\$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
-        VM_PW=\$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+            PMM_PW=${ADMIN_PW:-$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)}
+            PG_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+            GF_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+            CH_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+            VM_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
 
-        kubectl create secret generic pmm-secret -n "\${NS}" \\
-            --from-literal=PMM_ADMIN_PASSWORD="\${PMM_PW}" \\
-            --from-literal=GF_SECURITY_ADMIN_PASSWORD="\${PMM_PW}" \\
-            --from-literal=PG_PASSWORD="\${PG_PW}" \\
-            --from-literal=GF_PASSWORD="\${GF_PW}" \\
-            --from-literal=PMM_CLICKHOUSE_USER="clickhouse_pmm" \\
-            --from-literal=PMM_CLICKHOUSE_PASSWORD="\${CH_PW}" \\
-            --from-literal=VMAGENT_remoteWrite_basicAuth_username="victoriametrics_pmm" \\
-            --from-literal=VMAGENT_remoteWrite_basicAuth_password="\${VM_PW}" \\
-            --dry-run=client -o yaml | kubectl apply -f -
+            kubectl create secret generic pmm-secret -n "${NS}" \
+                --from-literal=PMM_ADMIN_PASSWORD="${PMM_PW}" \
+                --from-literal=GF_SECURITY_ADMIN_PASSWORD="${PMM_PW}" \
+                --from-literal=PG_PASSWORD="${PG_PW}" \
+                --from-literal=GF_PASSWORD="${GF_PW}" \
+                --from-literal=PMM_CLICKHOUSE_USER="clickhouse_pmm" \
+                --from-literal=PMM_CLICKHOUSE_PASSWORD="${CH_PW}" \
+                --from-literal=VMAGENT_remoteWrite_basicAuth_username="victoriametrics_pmm" \
+                --from-literal=VMAGENT_remoteWrite_basicAuth_password="${VM_PW}" \
+                --dry-run=client -o yaml | kubectl apply -f -
 
-        helm dependency update charts-repo/charts/pmm-ha
-        helm upgrade --install pmm-ha charts-repo/charts/pmm-ha -n "\${NS}" \\
-            --set secret.create=false \\
-            --set secret.name=pmm-secret \\
-            --set clickhouse.resources.requests.memory=4Gi \\
-            --set clickhouse.resources.limits.memory=10Gi \\
-            --wait --timeout 15m \\
-            \${TAG:+--set image.tag=\${TAG}}  # Only add if TAG is non-empty
+            helm dependency update charts-repo/charts/pmm-ha
+            helm upgrade --install pmm-ha charts-repo/charts/pmm-ha -n "${NS}" \
+                --set secret.create=false \
+                --set secret.name=pmm-secret \
+                --set clickhouse.resources.requests.memory=4Gi \
+                --set clickhouse.resources.limits.memory=10Gi \
+                --wait --timeout 15m \
+                ${TAG:+--set image.tag=${TAG}}  # Only add if TAG is non-empty
 
-        kubectl rollout status statefulset/pmm-ha -n "\${NS}" --timeout=600s || true
-        kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n "\${NS}" --timeout=600s || true
-        kubectl get pods -n "\${NS}"
-    """
+            kubectl rollout status statefulset/pmm-ha -n "${NS}" --timeout=600s || true
+            kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n "${NS}" --timeout=600s || true
+            kubectl get pods -n "${NS}"
+        '''
+    }
 }
 
 // === CLUSTER LIFECYCLE ===
