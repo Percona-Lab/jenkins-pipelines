@@ -209,7 +209,6 @@ def deleteAllClusters(Map config = [:]) {
         return
     }
 
-    // Start with all clusters, then apply filters
     def toDelete = clusters
 
     // Optionally skip the newest cluster (protects in-progress builds)
