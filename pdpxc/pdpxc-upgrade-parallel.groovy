@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@pdpxco", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 def extractMajorVersion(version) {
@@ -16,7 +16,7 @@ def pdpxcOperatingSystems84() {
 
 def pdpxcOperatingSystems80() {
     return [
-        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'debian-11', 'debian-12', 'ubuntu-jammy', 'ubuntu-noble', 'al-2023'
+        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'debian-11', 'debian-12', 'ubuntu-jammy', 'ubuntu-noble'
     ]
 }
 
