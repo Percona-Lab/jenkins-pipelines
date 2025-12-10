@@ -125,7 +125,6 @@ pipeline {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     script {
                         pmmHaEks.deleteAllClusters(
-                            prefix: pmmHaEks.CLUSTER_PREFIX,
                             region: env.REGION,
                             skipNewest: params.SKIP_NEWEST,
                             respectRetention: false  // Force delete regardless of retention tags
@@ -141,7 +140,6 @@ pipeline {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     script {
                         pmmHaEks.deleteAllClusters(
-                            prefix: pmmHaEks.CLUSTER_PREFIX,
                             region: env.REGION,
                             skipNewest: true  // Protect newest during cron
                         )
