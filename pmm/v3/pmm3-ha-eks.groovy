@@ -181,9 +181,9 @@ EOF
         stage('Create EKS Cluster') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
-                        eksctl create cluster -f cluster-config.yaml --timeout=40m --verbose=4
-                    '''
+                    script {
+                        eksCluster.createCluster(configFile: 'cluster-config.yaml')
+                    }
                 }
             }
         }
@@ -205,14 +205,14 @@ EOF
         stage('Export kubeconfig') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
+                    script {
+                        eksCluster.exportKubeconfig(
+                            clusterName: env.CLUSTER_NAME,
+                            region: env.REGION,
+                            kubeconfigPath: env.KUBECONFIG
+                        )
+                    }
                     sh '''
-                        rm -rf kubeconfig
-
-                        aws eks update-kubeconfig \
-                            --name "${CLUSTER_NAME}" \
-                            --region "${REGION}" \
-                            --kubeconfig "${KUBECONFIG}"
-
                         kubectl cluster-info
                         kubectl get nodes
                     '''
@@ -342,16 +342,8 @@ kubectl:
         failure {
             withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                 script {
-                    def clusterExists = sh(
-                        script: "eksctl get cluster --region ${REGION} --name ${CLUSTER_NAME} >/dev/null 2>&1",
-                        returnStatus: true
-                    ) == 0
-
-                    if (clusterExists) {
-                        pmmHaEks.deleteCluster(
-                            clusterName: env.CLUSTER_NAME,
-                            region: env.REGION
-                        )
+                    if (eksCluster.clusterExists(clusterName: env.CLUSTER_NAME, region: env.REGION)) {
+                        pmmHaEks.deleteCluster(clusterName: env.CLUSTER_NAME, region: env.REGION)
                     } else {
                         echo "Cluster ${CLUSTER_NAME} not found, nothing to clean up."
                     }

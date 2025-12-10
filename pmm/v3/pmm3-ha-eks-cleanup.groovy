@@ -94,36 +94,19 @@ pipeline {
                         def clusterNames = params.CLUSTER_NAME.split(',').collect { it.trim() }.findAll { it }
 
                         if (clusterNames.size() == 1) {
-                            // Single cluster - delete directly
                             def clusterName = clusterNames[0]
-                            def clusterExists = sh(
-                                script: "aws eks describe-cluster --region ${REGION} --name ${clusterName} >/dev/null 2>&1",
-                                returnStatus: true
-                            ) == 0
-
-                            if (clusterExists) {
-                                pmmHaEks.deleteCluster(
-                                    clusterName: clusterName,
-                                    region: env.REGION
-                                )
+                            if (eksCluster.clusterExists(clusterName: clusterName, region: env.REGION)) {
+                                pmmHaEks.deleteCluster(clusterName: clusterName, region: env.REGION)
                             } else {
                                 echo "Cluster '${clusterName}' not found in region '${REGION}'."
                             }
                         } else {
-                            // Multiple clusters - delete in parallel
                             echo "Deleting ${clusterNames.size()} clusters in parallel: ${clusterNames.join(', ')}"
                             def parallelStages = [:]
                             clusterNames.each { clusterName ->
                                 parallelStages[clusterName] = {
-                                    def exists = sh(
-                                        script: "aws eks describe-cluster --region ${REGION} --name ${clusterName} >/dev/null 2>&1",
-                                        returnStatus: true
-                                    ) == 0
-                                    if (exists) {
-                                        pmmHaEks.deleteCluster(
-                                            clusterName: clusterName,
-                                            region: env.REGION
-                                        )
+                                    if (eksCluster.clusterExists(clusterName: clusterName, region: env.REGION)) {
+                                        pmmHaEks.deleteCluster(clusterName: clusterName, region: env.REGION)
                                     } else {
                                         echo "Cluster '${clusterName}' not found."
                                     }

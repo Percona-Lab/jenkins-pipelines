@@ -85,6 +85,45 @@ EOF
 // === CLUSTER LIFECYCLE ===
 
 /**
+ * Check if a cluster exists
+ * @param config.clusterName EKS cluster name (required)
+ * @param config.region AWS region (default: us-east-2)
+ * @return true if cluster exists
+ */
+def clusterExists(Map config) {
+    def clusterName = config.clusterName ?: error('clusterName is required')
+    def region = config.region ?: DEFAULT_REGION
+    return sh(script: "aws eks describe-cluster --region ${region} --name ${clusterName} >/dev/null 2>&1", returnStatus: true) == 0
+}
+
+/**
+ * Create cluster from config file
+ * @param config.configFile Path to eksctl config file (required)
+ * @param config.timeout Cluster creation timeout (default: 40m)
+ */
+def createCluster(Map config) {
+    def configFile = config.configFile ?: error('configFile is required')
+    def timeout = config.timeout ?: '40m'
+    sh "eksctl create cluster -f ${configFile} --timeout=${timeout} --verbose=4"
+}
+
+/**
+ * Export kubeconfig for cluster
+ * @param config.clusterName EKS cluster name (required)
+ * @param config.region AWS region (default: us-east-2)
+ * @param config.kubeconfigPath Path to write kubeconfig (required)
+ */
+def exportKubeconfig(Map config) {
+    def clusterName = config.clusterName ?: error('clusterName is required')
+    def region = config.region ?: DEFAULT_REGION
+    def kubeconfigPath = config.kubeconfigPath ?: error('kubeconfigPath is required')
+    sh """
+        rm -rf ${kubeconfigPath}
+        aws eks update-kubeconfig --name ${clusterName} --region ${region} --kubeconfig ${kubeconfigPath}
+    """
+}
+
+/**
  * List clusters matching prefix, sorted by creation time (newest first)
  * @param config.region AWS region (default: us-east-2)
  * @param config.prefix Cluster name prefix (required)
