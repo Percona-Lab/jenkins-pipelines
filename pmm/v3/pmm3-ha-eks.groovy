@@ -8,10 +8,10 @@
  *   - Cleanup: pmm3-ha-eks-cleanup.groovy
  *   - Shared library: vars/pmmHaEks.groovy
  */
-library changelog: false, identifier: 'lib@fix/pmm-ha-eks-access-entries', retriever: modernSCM([
-    $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines'
-])
+library changelog: false, identifier: 'v3lib@test/alex-proposed-changes', retriever: modernSCM(
+    scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+    libraryPath: 'pmm/v3/'
+)
 
 pipeline {
     agent {
