@@ -189,17 +189,23 @@ def deleteCluster(Map config) {
 
 /**
  * Delete multiple clusters (respects retention tags, optionally skips newest)
+ * @param config.prefix           Cluster name prefix (required for safety)
  * @param config.region           AWS region (default: 'us-east-2')
  * @param config.skipNewest       Protect newest cluster (default: true)
  * @param config.respectRetention Only delete expired clusters (default: true)
  */
 def deleteAllClusters(Map config = [:]) {
+    def prefix = config.prefix ?: error('prefix is required for deleteAllClusters')
     def region = config.region ?: 'us-east-2'
     def skipNewest = config.skipNewest != null ? config.skipNewest : true
     def respectRetention = config.respectRetention != null ? config.respectRetention : true
 
-    def clusters = eksCluster.listClusters(region: region, prefix: CLUSTER_PREFIX)
-    if (!clusters) { echo "No clusters with prefix '${CLUSTER_PREFIX}'"; return }
+    if (!prefix.startsWith(CLUSTER_PREFIX)) {
+        error("prefix must start with '${CLUSTER_PREFIX}' for safety")
+    }
+
+    def clusters = eksCluster.listClusters(region: region, prefix: prefix)
+    if (!clusters) { echo "No clusters with prefix '${prefix}'"; return }
 
     def toDelete = skipNewest ? clusters.drop(1) : clusters  // clusters sorted newest-first
     if (skipNewest && clusters) { echo "Skipping newest: ${clusters[0]}" }
