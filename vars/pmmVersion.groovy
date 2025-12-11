@@ -73,6 +73,7 @@ def call(String type='dev-latest') {
     '3.3.0': 'ami-0569db88919e78ee2',
     '3.3.1': 'ami-009c9a577432158a3',
     '3.4.0': 'ami-0f26e28bb71f9bafd',
+    '3.4.1': 'ami-00874e9842e3d1308',
     '3.5.0': '', // Add AMI ID After RC
   ]
   List<String> v3 = v3Versions.keySet() as List<String>;

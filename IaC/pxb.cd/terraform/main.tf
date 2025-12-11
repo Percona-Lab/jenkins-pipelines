@@ -3,15 +3,15 @@ terraform {
     encrypt = true
     region  = "us-west-2"
     bucket  = "terraform-state-storage-pxb"
-    key = "terraform.tfstate"
+    key     = "terraform.tfstate"
   }
   required_providers {
     template = {
-      source = "hashicorp/template"
+      source  = "hashicorp/template"
       version = "2.2.0"
     }
     aws = {
-      source = "hashicorp/aws"
+      source  = "hashicorp/aws"
       version = "4.18.0"
     }
   }
@@ -19,7 +19,7 @@ terraform {
 
 # Specify the provider and access details"${var.aws_region}"
 provider "aws" {
-  region = "${var.aws_region}"
+  region = var.aws_region
 }
 
 provider "template" {}
@@ -30,8 +30,8 @@ resource "aws_eip" "jenkins" {
 
 # DNS record for jenkins master
 resource "aws_route53_record" "jenkins" {
-  zone_id = "${var.hostedzone}"
-  name    = "${var.hostname}"
+  zone_id = var.hostedzone
+  name    = var.hostname
   type    = "A"
   records = ["${aws_eip.jenkins.public_ip}"]
   ttl     = "300"
@@ -39,7 +39,7 @@ resource "aws_route53_record" "jenkins" {
 
 # persistent volume for jenkins master
 resource "aws_ebs_volume" "jenkins" {
-  availability_zone = "${var.aws_az_list[var.main_az]}"
+  availability_zone = var.aws_az_list[var.main_az]
   encrypted         = false
   size              = 250
   type              = "gp2"
@@ -54,9 +54,9 @@ resource "aws_ebs_volume" "jenkins" {
 resource "aws_spot_fleet_request" "jenkins" {
   allocation_strategy                 = "capacityOptimized"
   excess_capacity_termination_policy  = "Default"
-  iam_fleet_role                      = "${aws_iam_role.jenkins-master-fleet.arn}"
+  iam_fleet_role                      = aws_iam_role.jenkins-master-fleet.arn
   replace_unhealthy_instances         = "true"
-  spot_price                          = "0.15"
+  spot_price                          = "0.1501"
   target_capacity                     = 1
   terminate_instances_with_expiration = "true"
   instance_interruption_behaviour     = "terminate"
@@ -65,8 +65,8 @@ resource "aws_spot_fleet_request" "jenkins" {
 
   launch_specification {
     instance_type = "m4.large"
-    ami           = "${data.aws_ami.amazon-linux-2.id}"
-    subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
+    ami           = data.aws_ami.amazon-linux-2023.id
+    subnet_id     = element(aws_subnet.jenkins.*.id, var.main_az)
 
     vpc_security_group_ids = [
       "${aws_vpc.jenkins.default_security_group_id}",
@@ -74,11 +74,11 @@ resource "aws_spot_fleet_request" "jenkins" {
       "${aws_security_group.jenkins-HTTP.id}",
     ]
 
-    iam_instance_profile_arn    = "${aws_iam_instance_profile.jenkins-master.arn}"
+    iam_instance_profile_arn    = aws_iam_instance_profile.jenkins-master.arn
     ebs_optimized               = "true"
-    key_name                    = "${var.key_name}"
+    key_name                    = var.key_name
     monitoring                  = "false"
-    user_data                   = "${data.template_file.master_user_data.rendered}"
+    user_data                   = data.template_file.master_user_data.rendered
     associate_public_ip_address = "true"
 
     tags = {
@@ -89,8 +89,8 @@ resource "aws_spot_fleet_request" "jenkins" {
 
   launch_specification {
     instance_type = "m5a.large"
-    ami           = "${data.aws_ami.amazon-linux-2.id}"
-    subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
+    ami           = data.aws_ami.amazon-linux-2023.id
+    subnet_id     = element(aws_subnet.jenkins.*.id, var.main_az)
 
     vpc_security_group_ids = [
       "${aws_vpc.jenkins.default_security_group_id}",
@@ -98,11 +98,11 @@ resource "aws_spot_fleet_request" "jenkins" {
       "${aws_security_group.jenkins-HTTP.id}",
     ]
 
-    iam_instance_profile_arn    = "${aws_iam_instance_profile.jenkins-master.arn}"
+    iam_instance_profile_arn    = aws_iam_instance_profile.jenkins-master.arn
     ebs_optimized               = "true"
-    key_name                    = "${var.key_name}"
+    key_name                    = var.key_name
     monitoring                  = "false"
-    user_data                   = "${data.template_file.master_user_data.rendered}"
+    user_data                   = data.template_file.master_user_data.rendered
     associate_public_ip_address = "true"
 
     tags = {
@@ -113,8 +113,8 @@ resource "aws_spot_fleet_request" "jenkins" {
 
   launch_specification {
     instance_type = "m5d.large"
-    ami           = "${data.aws_ami.amazon-linux-2.id}"
-    subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
+    ami           = data.aws_ami.amazon-linux-2023.id
+    subnet_id     = element(aws_subnet.jenkins.*.id, var.main_az)
 
     vpc_security_group_ids = [
       "${aws_vpc.jenkins.default_security_group_id}",
@@ -122,11 +122,11 @@ resource "aws_spot_fleet_request" "jenkins" {
       "${aws_security_group.jenkins-HTTP.id}",
     ]
 
-    iam_instance_profile_arn    = "${aws_iam_instance_profile.jenkins-master.arn}"
+    iam_instance_profile_arn    = aws_iam_instance_profile.jenkins-master.arn
     ebs_optimized               = "true"
-    key_name                    = "${var.key_name}"
+    key_name                    = var.key_name
     monitoring                  = "false"
-    user_data                   = "${data.template_file.master_user_data.rendered}"
+    user_data                   = data.template_file.master_user_data.rendered
     associate_public_ip_address = "true"
 
     tags = {
@@ -137,8 +137,8 @@ resource "aws_spot_fleet_request" "jenkins" {
 
   launch_specification {
     instance_type = "m5n.large"
-    ami           = "${data.aws_ami.amazon-linux-2.id}"
-    subnet_id     = "${element(aws_subnet.jenkins.*.id, var.main_az)}"
+    ami           = data.aws_ami.amazon-linux-2023.id
+    subnet_id     = element(aws_subnet.jenkins.*.id, var.main_az)
 
     vpc_security_group_ids = [
       "${aws_vpc.jenkins.default_security_group_id}",
@@ -146,11 +146,11 @@ resource "aws_spot_fleet_request" "jenkins" {
       "${aws_security_group.jenkins-HTTP.id}",
     ]
 
-    iam_instance_profile_arn    = "${aws_iam_instance_profile.jenkins-master.arn}"
+    iam_instance_profile_arn    = aws_iam_instance_profile.jenkins-master.arn
     ebs_optimized               = "true"
-    key_name                    = "${var.key_name}"
+    key_name                    = var.key_name
     monitoring                  = "false"
-    user_data                   = "${data.template_file.master_user_data.rendered}"
+    user_data                   = data.template_file.master_user_data.rendered
     associate_public_ip_address = "true"
 
     tags = {

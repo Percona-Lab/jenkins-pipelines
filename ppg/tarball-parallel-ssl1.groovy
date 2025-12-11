@@ -28,8 +28,17 @@ pipeline {
                 '1'
             ]
         )
+        choice(
+            name: 'IO_METHOD',
+            description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
+            choices: [
+                'worker',
+                'sync',
+                'io_uring'
+            ]
+        )
         string(
-            defaultValue: 'ppg-18.0',
+            defaultValue: 'ppg-18.1',
             description: 'PG version for test',
             name: 'VERSION'
         )

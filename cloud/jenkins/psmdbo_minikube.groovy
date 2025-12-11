@@ -78,6 +78,9 @@ void prepareNode() {
         sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
     """
 
+    installAzureCLI()
+    azureAuth()
+
     if ("$IMAGE_MONGOD") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
@@ -154,7 +157,7 @@ void initTests() {
         }
     }
 
-    withCredentials([file(credentialsId: 'cloud-secret-file', variable: 'CLOUD_SECRET_FILE')]) {
+    withCredentials([file(credentialsId: 'cloud-secret-file-psmdb', variable: 'CLOUD_SECRET_FILE')]) {
         sh """
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
         """
@@ -164,7 +167,7 @@ void initTests() {
 void clusterRunner(String cluster) {
     sh """
         export CHANGE_MINIKUBE_NONE_USER=true
-        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G
+        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G --force
     """
 
     for (int i=0; i<tests.size(); i++) {
@@ -266,6 +269,39 @@ PLATFORM_VER=$PLATFORM_VER"""
     )
 }
 
+void azureAuth() {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+        sh '''
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
+            az account set -s "$AZURE_SUBSCRIPTION_ID"
+        '''
+    }
+}
+
+void installAzureCLI() {
+    sh """
+        if ! command -v az &>/dev/null; then
+                if [ "$JENKINS_AGENT" = "AWS" ]; then
+                    curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+                    printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+                    sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
+                else
+                    echo "Installing Azure CLI for Hetzner instances..."
+                    sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+                    cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
+        [azure-cli]
+        name=Azure CLI
+        baseurl=https://packages.microsoft.com/yumrepos/azure-cli
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://packages.microsoft.com/keys/microsoft.asc
+        EOF
+                    sudo dnf install azure-cli -y
+                fi
+            fi
+    """
+}
+
 pipeline {
     environment {
         CLEAN_NAMESPACE = 1
@@ -291,7 +327,7 @@ pipeline {
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner','AWS'], description: 'Cloud infra for build')
     }
     agent {
-        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))

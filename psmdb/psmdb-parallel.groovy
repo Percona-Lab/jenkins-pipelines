@@ -24,21 +24,13 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '4.4.8',
-            description: 'PSMDB Version for tests',
+            defaultValue: '8.0.12',
+            description: 'PSMDB Version for tests e.g. 8.0.12, no hyphens.',
             name: 'PSMDB_VERSION'
         )
         choice( 
             name: 'ENABLE_TOOLKIT',
             description: 'Enable or disable percona toolkit check',
-            choices: [
-                'false',
-                'true'
-            ]
-        )
-        choice(
-            name: 'GATED_BUILD',
-            description: 'Test private repo?',
             choices: [
                 'false',
                 'true'
@@ -56,6 +48,14 @@ pipeline {
             defaultValue: 'main',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH')
+        string(
+                name: 'SSH_USER',
+                description: 'User for debugging',
+                defaultValue: 'none')
+        string(
+                name: 'SSH_PUBKEY',
+                description: 'User ssh public key for debugging',
+                defaultValue: 'none')
     }
     options {
         withCredentials(moleculePbmJenkinsCreds())
@@ -86,9 +86,10 @@ pipeline {
             steps {
                 withCredentials([
                     usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME'),
-                    usernamePassword(credentialsId: 'OIDC_ACCESS', passwordVariable: 'OIDC_CLIENT_SECRET', usernameVariable: 'OIDC_CLIENT_ID')]) {
+                    usernamePassword(credentialsId: 'OIDC_ACCESS', passwordVariable: 'OIDC_CLIENT_SECRET', usernameVariable: 'OIDC_CLIENT_ID'),
+                    string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
                     script {
-                        moleculeParallelTest(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION,GATED_BUILD), moleculeDir)
+                        moleculeParallelTest(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION), moleculeDir)
                     }
                 }
             }
@@ -101,14 +102,14 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION}, repo ${REPO}, private repo - ${GATED_BUILD} finished succesfully - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION}, repo ${REPO} - finished succesfully - [${BUILD_URL}]")
         }
         failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION}, repo ${REPO}, private repo - ${GATED_BUILD} failed - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION}, repo ${REPO} - failed - [${BUILD_URL}]")
         }
         always {
             script {
-                moleculeParallelPostDestroy(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION,GATED_BUILD), moleculeDir)
+                moleculeParallelPostDestroy(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION), moleculeDir)
             }
         }
     }

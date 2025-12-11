@@ -625,7 +625,7 @@ Resources:
 
                 sed -i 's/upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf
                 sed -i 's/apply_updates = no/apply_updates = yes/'         /etc/dnf/automatic.conf
-                echo "exclude=java-17-amazon-corretto" >> /etc/dnf/automatic.conf
+                echo "exclude=java-17-amazon-corretto* jenkins*" >> /etc/dnf/automatic.conf
                 systemctl enable --now dnf-automatic.timer
             }
 

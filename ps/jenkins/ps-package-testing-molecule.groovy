@@ -29,7 +29,9 @@ def ps80PackageTesting() {
         'ubuntu-focal',
         'ubuntu-focal-arm',
         'ubuntu-noble',
-        'ubuntu-noble-arm'
+        'ubuntu-noble-arm',
+        'amazon-linux-2023',
+        'amazon-linux-2023-arm'
     ]
 }
 
@@ -39,6 +41,8 @@ def ps84PackageTesting() {
         'debian-11-arm',
         'debian-12',
         'debian-12-arm',
+        'debian-13',
+        'debian-13-arm',
         'oracle-8',
         'oracle-9',
         'rhel-9',
@@ -48,10 +52,10 @@ def ps84PackageTesting() {
         'rhel-10-arm',
         'ubuntu-jammy',
         'ubuntu-jammy-arm',
-        'ubuntu-focal',
-        'ubuntu-focal-arm',
         'ubuntu-noble',
-        'ubuntu-noble-arm'
+        'ubuntu-noble-arm',
+        'amazon-linux-2023',
+        'amazon-linux-2023-arm'
     ]
 }
 
@@ -193,7 +197,98 @@ def loadEnvFile(envFilePath) {
     return envMap
 }
 
-
+properties([
+    parameters([
+        [
+            $class: 'ChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'Choose the product version to test: PS8.0 OR ps_lts_innovation',
+            name: 'product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_lts_innovation", "client_test"]'
+                ]
+            ]
+        ],
+        choice(
+            choices: ['testing', 'main', 'experimental'],
+            description: 'Choose the repo to install packages and run the tests',
+            name: 'install_repo'
+        ),
+        string(
+            defaultValue: 'https://github.com/Percona-QA/package-testing.git',
+            description: 'repo name',
+            name: 'git_repo',
+            trim: false
+        ),
+        string(
+            defaultValue: 'master',
+            description: 'Branch name',
+            name: 'git_branch',
+            trim: false
+        ),
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'Action To Test',
+            name: 'action_to_test',
+            referencedParameters: 'product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (product_to_test == "ps_57") {
+                            return ["install", "upgrade", "major_upgrade_from", "kmip", "kms"]
+                        }
+                        else if (product_to_test == "ps_80" || product_to_test == "ps_84") {
+                            return ["install", "upgrade", "major_upgrade_to", "kmip", "kms"]
+                        }
+                        else {
+                            return ["install", "upgrade", "kmip", "kms"]
+                        }
+                    '''
+                ]
+            ]
+        ],
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'EOL version or Normal (only available for ps_57)',
+            name: 'EOL',
+            referencedParameters: 'product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (product_to_test == "ps_57") {
+                            return ["yes", "no"]
+                        }
+                        else {
+                            return ["no"]
+                        }
+                    '''
+                ]
+            ]
+        ],
+        choice(
+            choices: ['yes', 'no'],
+            description: 'check_warnings',
+            name: 'check_warnings'
+        ),
+        choice(
+            choices: ['yes', 'no'],
+            description: 'Install MySQL Shell',
+            name: 'install_mysql_shell'
+        )
+    ])
+])
 
 pipeline {
     agent {
@@ -207,62 +302,6 @@ pipeline {
         check_warnings = "${params.check_warnings}"
         install_mysql_shell = "${params.install_mysql_shell}"
         EOL="${params.EOL}"
-    }
-    parameters {
-        choice(
-            choices: ['ps_57','ps_80', 'ps_84', 'ps_lts_innovation','client_test'],
-            description: 'Choose the product version to test: PS8.0 OR ps_lts_innovation',
-            name: 'product_to_test'
-        )
-        choice(
-            choices: ['testing', 'main', 'experimental'],
-            description: 'Choose the repo to install packages and run the tests',
-            name: 'install_repo'
-        )
-        string(
-            defaultValue: 'https://github.com/Percona-QA/package-testing.git',
-            description: 'repo name',       
-            name: 'git_repo',
-            trim: false
-        )
-        string(
-            defaultValue: 'master',
-            description: 'Branch name',
-            name: 'git_branch',
-            trim: false
-        )
-        choice(
-            choices: [
-                'install',
-                'upgrade',
-                'major_upgrade_from',
-                'kmip',
-                'kms'
-            ],
-            description: 'Action To Test',
-            name: 'action_to_test'
-        )
-        choice(
-            name: "EOL",
-            choices: ["yes", "no"],
-            description: "EOL version or Normal"
-        )
-        choice(
-            choices: [
-                'yes',
-                'no',
-            ],
-            description: 'check_warnings',
-            name: 'check_warnings'
-        )
-        choice(
-            choices: [
-                'yes',
-                'no'
-            ],
-            description: 'Install MySQL Shell',
-            name: 'install_mysql_shell'
-        )
     }
     options {
         withCredentials(moleculePdpsJenkinsCreds())
