@@ -218,24 +218,39 @@ stage('Check by Trivy') {
                     "perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}-arm64"
                 ]
 
+
                 // 🔹 Scan images and store logs
-                imageList.each { image ->
-                    echo "🔍 Scanning ${image}..."
-                    def result = sh(script: """#!/bin/bash
-                        LANG=C.UTF-8 sudo trivy image --quiet \
+                    imageList.each { image ->
+                        echo "🔍 Scanning ${image}..."
+                        def result = sh(script: """#!/bin/bash
+                            set -e
+                            sudo trivy image --quiet \
+                                      --format table \
+                                      --timeout 10m0s \
+                                      --ignore-unfixed \
+                                      --exit-code 1 \
+                                      --scanners vuln \
+                                      --severity HIGH,CRITICAL ${image}
+                            echo "TRIVY_EXIT_CODE=\$?"
+                        """, returnStatus: true)
+                        echo "Actual Trivy exit code: ${result}"
+
+                    // 🔴 Fail the build if vulnerabilities are found
+                        if (result != 0) {
+                            sh """
+                            sudo trivy image --quiet \
                                          --format table \
                                          --timeout 10m0s \
                                          --ignore-unfixed \
-                                         --exit-code 1 \
+                                         --exit-code 0 \
+                                         --scanners vuln \
                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
-                    """, returnStatus: true)
-
-                    if (result != 0) {
-                        error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
-                    } else {
-                        echo "✅ No critical vulnerabilities found in ${image}."
+                            """
+                            error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                        } else {
+                            echo "✅ No critical vulnerabilities found in ${image}."
+                        }
                     }
-                }
             } catch (Exception e) {
                 error "❌ Trivy scan failed: ${e.message}"
             }
@@ -248,31 +263,6 @@ stage('Check by Trivy') {
         }
     }
 }
-/*
-        stage('Check by trivy') {
-            agent {
-               label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
-            }
-            steps {
-                catchError {
-                        sh '''
-                            curl -O https://raw.githubusercontent.com/percona/percona-xtrabackup/${BRANCH}/XB_VERSION
-                            . ./XB_VERSION
-                            sudo apt-get update
-                            sudo apt-get -y install wget apt-transport-https gnupg lsb-release
-                            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-                            echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-                            sudo apt-get update
-                            sudo apt-get -y install trivy
-                            sudo trivy -q image --format table \
-                                          --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}-amd64 | tee -a trivy-hight-junit.xml
-                            sudo trivy -q image --format table \
-                                          --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}-arm64 | tee -a trivy-hight-junit.xml
-                        '''
-                }
-            }
-        }
-*/
     }
     post {
         always {
