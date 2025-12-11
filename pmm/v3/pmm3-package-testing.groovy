@@ -236,7 +236,6 @@ pipeline {
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-/*
                 stage('Debian 13 Trixie - AMD64') {
                     agent {
                         label 'min-trixie-x64'
@@ -246,7 +245,6 @@ pipeline {
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-*/
             }
         }
     }
