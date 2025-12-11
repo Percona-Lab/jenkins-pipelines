@@ -32,6 +32,8 @@ pipeline {
             choices: 'perconalab\npercona',
             description: 'Organization on hub.docker.com',
             name: 'ORGANIZATION')
+        string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
+        string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
         string(
             defaultValue: 'https://github.com/percona/percona-xtrabackup.git',
             description: 'URL for PXB git repository',
@@ -86,11 +88,13 @@ pipeline {
                             curl -O https://raw.githubusercontent.com/percona/percona-server/refs/heads/${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}/MYSQL_VERSION
                             . ./MYSQL_VERSION
                             rm -rf percona-docker
-                            git clone https://github.com/percona/percona-docker
+                            git clone ${REPO_DOCKER}
+                            cd percona-docker
+                            git checkout ${REPO_DOCKER_BRANCH}
                             if [ \${MYSQL_VERSION_MINOR} = "0" ]; then
-                                cd percona-docker/percona-xtrabackup-8.0
+                                cd percona-xtrabackup-8.0
                             else
-                                cd percona-docker/percona-xtrabackup-8.x
+                                cd percona-xtrabackup-8.x
                             fi
                             sed -i "s/ENV XTRABACKUP_VERSION.*/ENV XTRABACKUP_VERSION ${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.1/g" Dockerfile
