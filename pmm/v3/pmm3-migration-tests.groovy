@@ -48,11 +48,11 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for UI Tests repository PMM V3',
             name: 'PMM_V3_UI_GIT_BRANCH')
         string(
-            defaultValue: 'main',
+            defaultValue: 'v2',
             description: 'Tag/Branch for UI Tests repository PMM V2',
             name: 'PMM_V2_UI_GIT_BRANCH')
         string(
@@ -68,7 +68,7 @@ pipeline {
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         string(
-            defaultValue: 'main',
+            defaultValue: 'v2',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(

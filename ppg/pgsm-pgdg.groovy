@@ -11,52 +11,28 @@ pipeline {
   parameters {
         choice(
             name: 'PLATFORM',
-            description: 'For which platform (OS) you want to test?',
+            description: 'For what platform (OS) need to test',
             choices: ppgOperatingSystemsALL()
         )
         string(
-            defaultValue: '18.1',
-            description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3',
+            defaultValue: 'https://github.com/percona/pg_stat_monitor.git',
+            description: 'PGSM repo that we want to test, we could also use forked developer repo here.',
+            name: 'PGSM_REPO'
+        )
+        string(
+            defaultValue: 'main',
+            description: 'PGSM repo version/branch/tag to use; e.g main, 2.0.5',
+            name: 'PGSM_BRANCH'
+        )
+        string(
+            defaultValue: 'ppg-18.0',
+            description: 'PGDG Server PG version for test, including major and minor version, e.g pg-16.2, pg-15.5',
             name: 'VERSION'
-        )
-        string(
-            defaultValue: '18.1.1',
-            description: 'Server PG version for test, including major and minor version, e.g 17.6.1',
-            name: 'PERCONA_SERVER_VERSION'
-        )
-        string(
-            defaultValue: 'https://github.com/percona/postgres',
-            description: 'PSP repo that we want to test, we could also use forked developer repo here.',
-            name: 'PSP_REPO'
-        )
-        string(
-            defaultValue: 'PSP_REL_18_STABLE',
-            description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE',
-            name: 'PSP_BRANCH'
         )
         string(
             defaultValue: 'main',
             description: 'Branch for ppg-testing testing repository',
             name: 'TESTING_BRANCH'
-        )
-        choice(
-            name: 'TESTSUITE',
-            description: 'Testsuite to run',
-            choices: [
-                'check-server',
-                'check-tde',
-                'check-all',
-                'installcheck-world'
-            ]
-        )
-        choice(
-            name: 'IO_METHOD',
-            description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
-            choices: [
-                'worker',
-                'sync',
-                'io_uring'
-            ]
         )
         string(
             defaultValue: 'yes',
@@ -66,7 +42,7 @@ pipeline {
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "psp/server_tests";
+      MOLECULE_DIR = "pg_stat_monitor/pgsm_pgdg";
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
@@ -76,7 +52,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-psp-${env.VERSION}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.PLATFORM}"
                 }
             }
         }

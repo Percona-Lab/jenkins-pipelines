@@ -78,6 +78,9 @@ void prepareNode() {
         sudo curl -sLo /usr/local/bin/minikube https://storage.googleapis.com/minikube/releases/latest/minikube-linux-amd64 && sudo chmod +x /usr/local/bin/minikube
     """
 
+    installAzureCLI()
+    azureAuth()
+
     if ("$IMAGE_MONGOD") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
@@ -264,6 +267,39 @@ PLATFORM_VER=$PLATFORM_VER"""
     addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
         text: "<pre>${pipelineParameters}</pre>"
     )
+}
+
+void azureAuth() {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+        sh '''
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
+            az account set -s "$AZURE_SUBSCRIPTION_ID"
+        '''
+    }
+}
+
+void installAzureCLI() {
+    sh """
+        if ! command -v az &>/dev/null; then
+                if [ "$JENKINS_AGENT" = "AWS" ]; then
+                    curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+                    printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+                    sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
+                else
+                    echo "Installing Azure CLI for Hetzner instances..."
+                    sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+                    cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
+        [azure-cli]
+        name=Azure CLI
+        baseurl=https://packages.microsoft.com/yumrepos/azure-cli
+        enabled=1
+        gpgcheck=1
+        gpgkey=https://packages.microsoft.com/keys/microsoft.asc
+        EOF
+                    sudo dnf install azure-cli -y
+                fi
+            fi
+    """
 }
 
 pipeline {

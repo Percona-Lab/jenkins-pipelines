@@ -7,7 +7,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         string(
@@ -27,7 +27,7 @@ pipeline {
             description: 'Enable to setup Docker-compose for remote instances',
             name: 'AMI_UPGRADE_TESTING_INSTANCE')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
@@ -155,7 +155,7 @@ pipeline {
                             --output text \
                             --query 'Reservations[].Instances[].PrivateIpAddress' \
                             | tee PRIVATE_IP
-                        
+
                         # wait for the instance to get ready
                         aws ec2 wait instance-running \
                             --instance-ids $INSTANCE_ID
@@ -226,14 +226,14 @@ pipeline {
         success {
             script {
                 if (params.NOTIFY == "true") {
-                    slackSend botUser: true, 
-                        channel: '#pmm-notifications', 
-                        color: '#00FF00', 
+                    slackSend botUser: true,
+                        channel: '#pmm-notifications',
+                        color: '#00FF00',
                         message: "[${JOB_NAME}]: build ${BUILD_URL} finished, owner: @${OWNER} - https://${PUBLIC_IP}, Instance ID: ${INSTANCE_ID}"
                     if (OWNER_SLACK) {
-                        slackSend botUser: true, 
-                            channel: "@${OWNER_SLACK}", 
-                            color: '#00FF00', 
+                        slackSend botUser: true,
+                            channel: "@${OWNER_SLACK}",
+                            color: '#00FF00',
                             message: "[${JOB_NAME}]: build ${BUILD_URL} finished - https://${PUBLIC_IP}, Instance ID: ${INSTANCE_ID}"
                     }
                 }

@@ -3,6 +3,57 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
+def pdpxcOperatingSystems84() {
+    return [
+        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'rhel-10', 'debian-11', 'debian-12', 'debian-13', 'ubuntu-jammy', 'ubuntu-noble', 'al-2023'
+    ]
+}
+
+def pdpxcOperatingSystems80() {
+    return [
+        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'debian-11', 'debian-12', 'ubuntu-jammy', 'ubuntu-noble', 'al-2023'
+    ]
+}
+
+List allOS = pdpxcOperatingSystems84() + pdpxcOperatingSystems80()
+
+def moleculeParallelTestALL(allOS, operatingSystems, moleculeDir) {
+    def tests = [:]
+    allOS.each { os ->
+        tests["${os}"] = {
+            stage("${os}") {
+                if (operatingSystems.contains(os)) {
+                    sh """
+                        . virtenv/bin/activate
+                        cd ${moleculeDir}
+                        molecule test -s ${os}
+                    """
+                } else {
+                    echo "Skipping ${os} as it's not in operatingSystems"
+                }
+            }
+        }
+    }
+    parallel tests
+}
+
+def moleculeParallelPostDestroyALL(allOS, operatingSystems, moleculeDir) {
+    def posts = [:]
+    allOS.each { os ->
+        posts["${os}"] = {
+            if (operatingSystems.contains(os)) {
+                sh """
+                    . virtenv/bin/activate
+                    cd ${moleculeDir}
+                    molecule destroy -s ${os}
+                """
+            } else {
+                echo "Skipping destroy for ${os} as it's not in operatingSystems"
+            }
+        }
+    }
+    parallel posts
+}
 
 pipeline {
   agent {
@@ -11,7 +62,6 @@ pipeline {
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
       MOLECULE_DIR = "molecule/pdmysql/${SCENARIO}";
-
   }
   parameters {
         choice(
@@ -107,7 +157,9 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTest(pdpxcOperatingSystems(), env.MOLECULE_DIR)
+                    def selectedOSList = (env.VERSION.startsWith('8.4')) ? pdpxcOperatingSystems84() : pdpxcOperatingSystems80()
+                    echo "selectedOSList: ${selectedOSList}"
+                    moleculeParallelTestALL(allOS, selectedOSList, env.MOLECULE_DIR)
                 }
             }
          }
@@ -115,7 +167,8 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroy(pdpxcOperatingSystems(), env.MOLECULE_DIR)
+              def selectedOSList = (env.VERSION.startsWith('8.4')) ? pdpxcOperatingSystems84() : pdpxcOperatingSystems80()
+              moleculeParallelPostDestroyALL(allOS, selectedOSList, env.MOLECULE_DIR)
          }
       }
    }

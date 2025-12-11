@@ -1,42 +1,62 @@
-void build(String IMAGE_PREFIX){
-    sh """
-        cd ./source/
-        docker build --no-cache --squash -t perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} -f fluentbit/Dockerfile fluentbit
-        docker tag perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX} perconalab/fluentbit:${GIT_PD_BRANCH}-${IMAGE_PREFIX}
-    """
-}
-void checkImageForDocker(String IMAGE_PREFIX){
-     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
-            IMAGE_PREFIX=${IMAGE_PREFIX}
-            IMAGE_NAME='percona-xtradb-cluster-operator'
-            TrivyLog="$WORKSPACE/trivy-hight-\$IMAGE_NAME-${IMAGE_PREFIX}.xml"
+void checkImageForDocker(String IMAGE_SUFFIX){
+    try {
+             withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'SNYK_ID', variable: 'SNYK_ID')]) {
+                sh """
+                    IMAGE_SUFFIX=${IMAGE_SUFFIX}
+                    IMAGE_NAME="fluentbit"
+                    IMAGE_TAG="\${GIT_PD_BRANCH}-\${IMAGE_SUFFIX}"
+                    PATH_TO_DOCKERFILE="source/fluentbit"
 
-            sg docker -c "
-                docker login -u '${USER}' -p '${PASS}'
-                /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --ignore-unfixed  --timeout 10m --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:${GIT_PD_BRANCH}-${IMAGE_PREFIX}
-            "
+                    sg docker -c "
+                        set -e
+                        docker login -u '${USER}' -p '${PASS}'
+
+                        snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
+                            --severity-threshold=high --json-file-output=\${IMAGE_TAG}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
+                    "
+                """
+             }
+    } catch (Exception e) {
+        echo "Stage failed: ${e.getMessage()}"
+        sh """
+            exit 1
         """
+    } finally {
+         echo "Executing post actions..."
+         sh """
+             IMAGE_TAG=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
+             snyk-to-html -i \${IMAGE_TAG}-report.json -o \${IMAGE_TAG}-report.html
+         """
+        archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
     }
 }
-void pushImageToDocker(String IMAGE_PREFIX){
+
+void generateImageSummary(filePath) {
+    def images = readFile(filePath).trim().split("\n")
+
+    def report = "<h2>Image Summary Report</h2>\n"
+    report += "<p><strong>Total Images:</strong> ${images.size()}</p>\n"
+    report += "<ul>\n"
+
+    images.each { image ->
+        report += "<li>${image}</li>\n"
+    }
+
+    report += "</ul>\n"
+    return report
+}
+void build(String IMAGE_PREFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), file(credentialsId: 'DOCKER_REPO_KEY', variable: 'docker_key')]) {
         sh """
-            IMAGE_PREFIX=${IMAGE_PREFIX}
-            sg docker -c "
-                if [ ! -d ~/.docker/trust/private ]; then
-                    mkdir -p /home/ec2-user/.docker/trust/private
-                    cp "${docker_key}" ~/.docker/trust/private/
-                fi
-
-                docker login -u '${USER}' -p '${PASS}'
-                docker push perconalab/percona-xtradb-cluster-operator:${GIT_PD_BRANCH}-${IMAGE_PREFIX}
-                docker push perconalab/fluentbit:${GIT_PD_BRANCH}-${IMAGE_PREFIX}
-                docker logout
-            "
+            cd ./source/
+            docker login -u '${USER}' -p '${PASS}'
+            docker buildx create --use
+            docker buildx build --platform linux/amd64,linux/arm64 --progress plain -t perconalab/fluentbit:${GIT_PD_BRANCH}-${IMAGE_PREFIX} --push -f fluentbit/Dockerfile fluentbit
+            docker logout
         """
     }
 }
+
 pipeline {
     parameters {
         string(
@@ -49,9 +69,11 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker'
+         label 'docker-x64'
     }
     environment {
+        PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
+        SNYK_TOKEN=credentials('SNYK_ID')
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
     }
     options {
@@ -64,13 +86,10 @@ pipeline {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
-                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
-                    wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                    sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
-
-                    if [ ! -f junit.tpl ]; then
-                        wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
-                    fi
+                    curl -sL https://static.snyk.io/cli/latest/snyk-linux -o snyk
+                    chmod +x snyk
+                    sudo mv ./snyk /usr/local/bin/
+                    sudo npm install snyk-to-html -g
 
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
@@ -81,7 +100,7 @@ pipeline {
                 stash includes: "cloud/**", name: "cloud"
             }
         }
-        stage('Build fluentbit docker images') {
+        stage('Build and push fluentbit docker images') {
             steps {
                 sh '''
                     sudo rm -rf cloud
@@ -98,25 +117,27 @@ pipeline {
                 }
             }
         }
-        stage('Push Images to Docker registry') {
-            steps {
-                pushImageToDocker('logcollector')
-            }
-        }
-       stage('Trivy Checks') {
+        stage('Snyk CVEs Checks') {
             steps {
                 checkImageForDocker('logcollector')
-            }
-            post {
-                always {
-                    junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-logcollector.xml"
-                }
             }
         }
     }
     post {
         always {
-            archiveArtifacts artifacts: '*.pdf', allowEmptyArchive: true
+            script {
+                if (fileExists('./source/list-of-images.txt')) {
+                    def summary = generateImageSummary('./source/list-of-images.txt')
+
+                    addSummary(icon: 'symbol-aperture-outline plugin-ionicons-api',
+                        text: "<pre>${summary}</pre>"
+                    )
+                    // Also save as a file if needed
+                     writeFile(file: 'image-summary.html', text: summary)
+                } else {
+                    echo 'No ./source/list-of-images.txt file found - skipping summary generation'
+                }
+            }
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
             '''
