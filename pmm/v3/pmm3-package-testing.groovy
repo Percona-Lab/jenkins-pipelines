@@ -243,7 +243,6 @@ pipeline {
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
                     }
                 }
-/*
                 stage('Debian 13 Trixie - ARM64') {
                     agent {
                         label 'min-trixie-arm64'
@@ -253,7 +252,6 @@ pipeline {
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-*/
             }
         }
     }
