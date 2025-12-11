@@ -1,10 +1,30 @@
+/**
+ * PMM HA EKS Cleanup Pipeline
+ *
+ * Manages cleanup of PMM HA test clusters. Supports manual and scheduled runs.
+ *
+ * Actions:
+ *   - LIST_ONLY: List all test clusters with age
+ *   - DELETE_CLUSTER: Delete a specific cluster
+ *   - DELETE_ALL: Delete all test clusters (respects SKIP_NEWEST and retention tags)
+ *   - Cron: Automatically deletes expired/untagged clusters
+ *
+ * Related:
+ *   - Create: pmm3-ha-eks.groovy
+ *   - Shared library: vars/pmmHaEks.groovy
+ */
+library changelog: false, identifier: 'v3lib@fix/pmm-ha-eks-access-entries', retriever: modernSCM(
+    scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+    libraryPath: 'pmm/v3/'
+)
+
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'cli'
     }
 
     triggers {
-        cron('H 0,12 * * *') // Runs twice daily at 00:00 & 12:00
+        cron('H 0,12 * * *')
     }
 
     parameters {
@@ -15,35 +35,40 @@ pipeline {
                 LIST_ONLY - list all test clusters<br/>
                 DELETE_CLUSTER - delete a specific cluster (requires CLUSTER_NAME)<br/>
                 DELETE_ALL - delete all test clusters<br/><br/>
-                Note: Daily cron automatically deletes clusters older than 1 day.
+                Note: Daily cron automatically deletes expired clusters.
             '''
         )
-        string(name: 'CLUSTER_NAME', defaultValue: '', description: 'Required only for DELETE_CLUSTER')
+        string(name: 'CLUSTER_NAME', defaultValue: '', description: 'Cluster name(s) for DELETE_CLUSTER. Comma-separated for parallel deletion (e.g., pmm-ha-test-65,pmm-ha-test-66)')
+        booleanParam(name: 'SKIP_NEWEST', defaultValue: true, description: 'Skip the most recent cluster (protects in-progress builds)')
     }
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
+        disableConcurrentBuilds()
+        timeout(time: 60, unit: 'MINUTES')
     }
 
     environment {
-        REGION = "us-east-2"
-        CLUSTER_PREFIX = "pmm-ha-test-"
+        REGION = 'us-east-2'
+        CLUSTER_PREFIX = "${pmmHaEks.CLUSTER_PREFIX}"
     }
 
     stages {
         stage('Detect Run Type') {
             steps {
                 script {
+                    // Override ACTION for scheduled runs (cron triggers use DELETE_OLD mode)
                     if (currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause')) {
                         env.ACTION = 'DELETE_OLD'
-                        echo "Triggered by cron - will delete clusters older than 1 day."
+                        echo 'Triggered by cron - will delete clusters older than 1 day.'
                     } else {
                         env.ACTION = params.ACTION
                         echo "Manual run with ACTION=${params.ACTION}"
                     }
 
+                    // Validation: ensure required parameters are provided
                     if (env.ACTION == 'DELETE_CLUSTER' && !params.CLUSTER_NAME) {
-                        error("CLUSTER_NAME is required for DELETE_CLUSTER.")
+                        error('CLUSTER_NAME is required for DELETE_CLUSTER.')
                     }
                     if (params.CLUSTER_NAME && !params.CLUSTER_NAME.startsWith(env.CLUSTER_PREFIX)) {
                         error("Cluster name must start with ${env.CLUSTER_PREFIX}")
@@ -56,29 +81,9 @@ pipeline {
             when { expression { env.ACTION == 'LIST_ONLY' } }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
-                        set +x
-
-                        CLUSTERS=$(aws eks list-clusters --region "$REGION" \
-                            --query "clusters[?starts_with(@, '${CLUSTER_PREFIX}')]" \
-                            --output text)
-
-                        if [ -z "$CLUSTERS" ]; then
-                            echo "No clusters found with prefix '${CLUSTER_PREFIX}'."
-                            exit 0
-                        fi
-
-                        for c in $CLUSTERS; do
-                            CREATED=$(aws eks describe-cluster \
-                                --name "$c" --region "$REGION" \
-                                --query "cluster.createdAt" --output text)
-
-                            CREATED_EPOCH=$(date -d "$CREATED" +%s)
-                            AGE_HOURS=$(( ( $(date +%s) - CREATED_EPOCH ) / 3600 ))
-
-                            echo "• $c | Created: $CREATED | Age: ${AGE_HOURS}h"
-                        done
-                    '''
+                    script {
+                        eksCluster.listClusters(region: env.REGION, prefix: pmmHaEks.CLUSTER_PREFIX)
+                    }
                 }
             }
         }
@@ -87,15 +92,23 @@ pipeline {
             when { expression { env.ACTION == 'DELETE_CLUSTER' } }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
-                        if ! aws eks describe-cluster --region "${REGION}" --name "${CLUSTER_NAME}" >/dev/null 2>&1; then
-                            echo "Cluster '${CLUSTER_NAME}' not found in region '${REGION}'."
-                            exit 0
-                        fi
+                    script {
+                        // Parse comma-separated cluster names for batch deletion
+                        def clusterNames = params.CLUSTER_NAME.split(',').collect { it.trim() }.findAll { it }
 
-                        eksctl delete cluster --region "${REGION}" --name "${CLUSTER_NAME}" \
-                            --disable-nodegroup-eviction --wait
-                    '''
+                        // Filter out non-existent clusters
+                        def existing = clusterNames.findAll { name ->
+                            eksCluster.clusterExists(clusterName: name, region: env.REGION)
+                        }
+
+                        if (!existing) {
+                            echo "No clusters found: ${clusterNames.join(', ')}"
+                            return
+                        }
+
+                        // Single function handles both single and parallel deletion
+                        pmmHaEks.deleteClusters(clusterNames: existing, region: env.REGION)
+                    }
                 }
             }
         }
@@ -104,20 +117,14 @@ pipeline {
             when { expression { env.ACTION == 'DELETE_ALL' } }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
-                        CLUSTERS=$(aws eks list-clusters --region "$REGION" \
-                            --query "clusters[?starts_with(@, '${CLUSTER_PREFIX}')]" --output text)
-
-                        if [ -z "$CLUSTERS" ]; then
-                            echo "No clusters found with prefix '${CLUSTER_PREFIX}'."
-                            exit 0
-                        fi
-
-                        for c in $CLUSTERS; do
-                            eksctl delete cluster --region "$REGION" --name "$c" \
-                                --disable-nodegroup-eviction --wait
-                        done
-                    '''
+                    script {
+                        // Force delete all clusters (ignores retention tags, respects SKIP_NEWEST)
+                        pmmHaEks.deleteAllClusters(
+                            region: env.REGION,
+                            skipNewest: params.SKIP_NEWEST,
+                            respectRetention: false  // Force delete regardless of retention tags
+                        )
+                    }
                 }
             }
         }
@@ -126,36 +133,13 @@ pipeline {
             when { expression { env.ACTION == 'DELETE_OLD' } }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
-                        CLUSTERS=$(aws eks list-clusters --region "$REGION" \
-                            --query "clusters[?starts_with(@, '${CLUSTER_PREFIX}')]" --output text)
-
-                        if [ -z "$CLUSTERS" ]; then
-                            echo "No clusters found with prefix '${CLUSTER_PREFIX}'."
-                            exit 0
-                        fi
-
-                        CUTOFF=$(date -d "1 day ago" +%s)
-
-                        for c in $CLUSTERS; do
-                            CREATED=$(aws eks describe-cluster --name "$c" --region "$REGION" \
-                                --query "cluster.createdAt" --output text 2>/dev/null || true)
-
-                            if [ -z "$CREATED" ] || [ "$CREATED" == "None" ]; then
-                                echo "Unable to fetch creation time for $c — skipping."
-                                continue
-                            fi
-
-                            CREATED_EPOCH=$(date -d "$CREATED" +%s)
-
-                            if [ "$CREATED_EPOCH" -lt "$CUTOFF" ]; then
-                                eksctl delete cluster --region "$REGION" --name "$c" \
-                                    --disable-nodegroup-eviction --wait
-                            else
-                                echo "Skipping recent cluster: $c (created within last 24h)"
-                            fi
-                        done
-                    '''
+                    script {
+                        // Respect retention tags and protect newest cluster during automated runs
+                        pmmHaEks.deleteAllClusters(
+                            region: env.REGION,
+                            skipNewest: true  // Protect newest during cron
+                        )
+                    }
                 }
             }
         }
