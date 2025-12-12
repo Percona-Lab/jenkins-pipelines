@@ -336,8 +336,8 @@ git log --oneline -- pxc | rg -n 'PXC-' | head
 git log --since='12 months ago' --name-only --pretty=format: HEAD -- pxc \
   | sort | uniq -c | sort -rn | head
 
-# Who touched PXC pipelines recently
-git shortlog -sne --since='12 months ago' HEAD -- pxc | head
+# Recent context (subjects only)
+git log --since='12 months ago' --pretty=format:'%h %cd %s' --date=short -- pxc | head -n 50
 
 # Follow a file across renames
 git log --follow -p -- pxc/jenkins/pxc-package-testing.groovy

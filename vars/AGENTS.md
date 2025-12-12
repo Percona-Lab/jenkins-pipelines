@@ -2,263 +2,184 @@
 
 Extends: [../AGENTS.md](../AGENTS.md)
 
-## TL;DR
+## TL;DR (read this first)
 
-**What**: 107 shared Groovy helpers used by ~250 pipelines across all products
-**Where**: Loaded via `@Library('jenkins-pipelines@master')` in every pipeline
-**Key Categories**: Molecule testing, Docker setup, AWS operations, version parsing
-**Watch Out**: Changes affect ALL pipelines - test thoroughly; search for existing helpers before creating new ones
+- `vars/*.groovy` defines **107 global pipeline steps** (shared library “vars steps”).
+- **Most pipelines load this library explicitly** via `library ... retriever: modernSCM(...)` (usually `lib@master`, sometimes a pinned branch); a small legacy set uses `@Library('jenkins-pipelines') _`.
+- High fan-in steps are **contracts**: keep them backward compatible (`pushArtifactFolder`, `popArtifactFolder`, `upload{DEB,RPM}fromAWS`, `sync2ProdAutoBuild`, `slackNotify`).
+- Several helpers run on `node('master')`, use `sudo`, and/or SSH to `repo.ci.percona.com` → treat as privileged and keep workspace cleanup (`deleteDir()`).
+- **Ask first** before adding new global helpers in `vars/` (repo-wide blast radius).
 
 ## Quick Reference
 
 | Key | Value |
 |-----|-------|
-| Helper Count | 107 |
-| Pipelines Using | ~250 |
-| Top User | ppg (65 pipelines) |
-| Load Syntax | `@Library('jenkins-pipelines@master') _` |
-| Lint Command | `groovy -e "new GroovyShell().parse(...)"` |
+| Helper definitions | `vars/*.groovy` (107 files) |
+| Helpers referenced in repo scripts | 86/107 (as of 2025-12) |
+| Pipeline scripts calling at least one helper | 226 `.groovy` files (as of 2025-12) |
+| Preferred load pattern | `library ... identifier: 'lib@<branch>' ... modernSCM(...)` |
+| Legacy load pattern | `@Library('jenkins-pipelines') _` (mainly `pmm/openshift`) |
+| Artifact stash bucket | `s3://percona-jenkins-artifactory/` (via `AWS_STASH`) |
+| Upload/sign host | `repo.ci.percona.com` (SSH credential `repo.ci.percona.com`) |
+| Common stashes | `uploadPath`, `rpms`, `debs` |
 
-## Scope
+## Library Loading (how steps get into a pipeline)
 
-Shared Groovy library functions used across all Percona Jenkins pipelines. Contains **107 helper functions** for common operations: Molecule testing, Docker setup, AWS operations, version parsing, and infrastructure management.
-
-## Library Usage by Product
-
-| Product | Pipelines | Notes |
-|---------|-----------|-------|
-| **ppg** | 65 | PostgreSQL - heaviest user |
-| **psmdb** | 46 | MongoDB ecosystem |
-| **pmm** | 35 | PMM monitoring |
-| **ps** | 23 | Percona Server MySQL |
-| **pbm** | 19 | MongoDB backup |
-| **pxc** | 14 | XtraDB Cluster |
-| **pxb** | 10 | XtraBackup |
-| **pdps** | 10 | Distribution: PS |
-| **pdpxc** | 9 | Distribution: PXC |
-| **pdmdb** | 9 | Distribution: MongoDB |
-
-**Total**: ~250 pipelines load this library
-
-## Key Helper Categories
-
-### Molecule Testing
+Preferred explicit load (most jobs):
 ```groovy
-// Run Molecule scenario
-moleculeExecuteActionWithScenario(params)
-
-// Parallel execution
-moleculeParallelTest()
-
-// ALWAYS cleanup
-moleculeParallelPostDestroy()
-
-// Installation variants
-installMolecule()
-installMoleculeES()
-installMoleculeVagrant()
-
-// Product-specific credentials
-moleculePbmJenkinsCreds()    // PBM
-moleculePdpsJenkinsCreds()   // PDPS
-```
-
-### AWS Operations
-```groovy
-// Spot instances (70% cost savings)
-launchSpotInstance(
-    instanceType: 'm5.large',
-    spotPrice: '0.10'
-)
-
-// S3 artifacts
-pushArtifactFolder()
-pushArtifactS3()
-
-// AWS certs
-awsCertificates()
-```
-
-### OpenShift/EKS
-```groovy
-// OpenShift cluster lifecycle (1000+ lines)
-openshiftCluster()
-openshiftDiscovery()
-openshiftS3()
-openshiftSSL()
-openshiftTools()
-
-// EKS helpers
-eksctlCreateCluster()
-eksctlDeleteCluster()
-```
-
-### Docker
-```groovy
-installDocker()
-buildDockerImage()
-pushDockerImage()
-```
-
-### Version Helpers
-```groovy
-pmmVersion('dev-latest')    // PMM
-pbmVersion()                // PBM
-ppgScenarios()              // PostgreSQL
-```
-
-### Build Helpers
-```groovy
-buildStage()
-runPython('script_name', 'args')
-```
-
-## Usage Pattern
-
-```groovy
-@Library('jenkins-pipelines@master') _
-
-pipeline {
-    stages {
-        stage('Setup') {
-            steps {
-                installDocker()
-                script {
-                    def version = pmmVersion('dev-latest')
-                }
-            }
-        }
-    }
-    post {
-        always {
-            moleculeParallelPostDestroy()
-            deleteDir()
-        }
-    }
-}
-```
-
-## Common Pitfalls
-
-| Mistake | Why Wrong | Fix |
-|---------|-----------|-----|
-| Creating duplicate helper | Already exists in vars/ | Search first: `rg "funcName" vars/` |
-| Not testing across products | Breaks unrelated pipelines | Test on multiple products |
-| Changing helper signature | Breaks callers | Add new params with defaults |
-| Hardcoding credentials | Security risk | Use `withCredentials` wrapper |
-| Missing cleanup | Resources leak | Add cleanup in `post.always` |
-
-## Agent Workflow
-
-1. **Search first**: `rg "function_name" vars/` before writing new logic
-2. **Follow conventions**: Self-contained, well-named, minimal side effects
-3. **Document params**: Add comments for complex parameters
-4. **Test thoroughly**: Changes affect ALL pipelines
-5. **Coordinate**: Notify teams when modifying widely-used helpers
-
-## PR Review Checklist
-
-- [ ] No duplicate functionality in existing helpers
-- [ ] Backward compatible (new params have defaults)
-- [ ] Tested on multiple products
-- [ ] Comments for complex parameters
-- [ ] No hardcoded credentials
-- [ ] Cleanup logic included if creating resources
-
-## Change Impact
-
-| Change Type | Impact | Notification |
-|-------------|--------|--------------|
-| New helper | Safe (additive) | Document in AGENTS.md |
-| Modify signature | Breaks callers | All teams |
-| Bug fix | May change behavior | Test thoroughly |
-| Delete helper | Breaks callers | Never do |
-
-## Adding New Helpers
-
-```groovy
-// vars/newHelper.groovy
-/**
- * Description of what this helper does
- * @param param1 Description of param1
- * @param param2 Description of param2 (optional, default: 'value')
- */
-def call(String param1, String param2 = 'value') {
-    // Implementation
-}
-```
-
-1. Create `vars/newHelper.groovy` with `call()` method
-2. Add documentation comments
-3. Test in isolation
-4. Test on multiple products
-5. Update this AGENTS.md
-
-## Key Files
-
-| Helper | Lines | Purpose | Used By |
-|--------|-------|---------|---------|
-| `openshiftCluster.groovy` | 1051 | OpenShift lifecycle | cloud |
-| `awsCertificates.groovy` | 718 | AWS certs | builds |
-| `openshiftSSL.groovy` | 568 | SSL setup | cloud |
-| `openshiftTools.groovy` | 576 | Tools setup | cloud |
-| `openshiftS3.groovy` | 491 | S3 integration | cloud |
-| `openshiftDiscovery.groovy` | 426 | Discovery | cloud |
-| `launchSpotInstance.groovy` | 179 | Spot instances | builds |
-| `pmmVersion.groovy` | 108 | PMM versions | pmm |
-
-## Library Branches
-
-```groovy
-// Production (default)
-@Library('jenkins-pipelines@master') _
-
-// Feature branch testing
-@Library('jenkins-pipelines@feature-branch') _
-
-// Alternative syntax
 library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines'
 ])
 ```
 
-## Validation
-
-```bash
-# Lint helper
-groovy -e "new GroovyShell().parse(new File('vars/helperName.groovy'))"
-
-# Find all callers
-rg -l 'helperName(' --glob '*.groovy'
-
-# Find definition
-rg -n 'def call' vars/helperName.groovy
-
-# List all helpers
-ls vars/*.groovy | wc -l
+Legacy annotation (only a few jobs; verify Jenkins config supports it):
+```groovy
+@Library('jenkins-pipelines') _
 ```
 
-## Jenkins CLI
-
+Quick checks:
 ```bash
-# Search for helper usage
-rg -l 'helperName(' --glob '*.groovy'
-
-# Count callers
-rg -c 'helperName(' --glob '*.groovy' | sort -t: -k2 -rn
-
-# Find helper with pattern
-fd -e groovy . vars/ | xargs grep -l "pattern"
+rg -n "retriever: modernSCM\\(" --glob '*.groovy'
+rg -n "@Library\\('jenkins-pipelines'\\)" --glob '*.groovy'
 ```
 
-## Credentials
+## Dynamics Snapshot (repo scan + git)
 
-Helpers assume the caller wraps steps with `withCredentials`. Exception: credential-modeling helpers like:
-- `moleculePbmJenkinsCreds()` - PBM SSH keys
-- `moleculePdpsJenkinsCreds()` - PDPS SSH keys
+Top helpers by call occurrences in pipelines (as of 2025-12):
+- `pushArtifactFolder` (921), `popArtifactFolder` (824)
+- `uploadDEBfromAWS` (403), `uploadRPMfromAWS` (256)
+- `slackNotify` (312)
+- `moleculeExecuteActionWithScenario` (120)
+- `sync2ProdAutoBuild` (80), `signRPM` (70), `signDEB` (66)
+
+Highest-churn helpers (commits touching the file in the last 12 months):
+- `vars/moleculeParallelTest.groovy` (AMI map churn)
+- `vars/pmmVersion.groovy` (release/version map churn)
+- `vars/openshiftCluster.groovy` (platform/installer churn)
+- `vars/*OperatingSystems*.groovy` (OS matrix churn)
+
+Refresh locally:
+```bash
+git log --since='12 months ago' --name-only --pretty=format: -- vars | sed '/^$/d' | sort | uniq -c | sort -nr | head
+```
+
+## “What file do I edit?” (fast index)
+
+**Stash artifacts to/from S3** (cross-node / cross-job handoff):
+- `vars/pushArtifactFolder.groovy`
+- `vars/popArtifactFolder.groovy`
+
+**Upload packages to `repo.ci.percona.com`** (expects stashes):
+- RPMs: `vars/uploadRPM.groovy` (requires `stash 'rpms'` + `stash 'uploadPath'`)
+- DEBs: `vars/uploadDEB.groovy` (requires `stash 'debs'` + `stash 'uploadPath'`)
+
+**Upload packages from S3 stash** (runs on `node('master')` and SSHes to repo host):
+- RPMs: `vars/uploadRPMfromAWS.groovy` (S3 + `uploadPath`)
+- DEBs: `vars/uploadDEBfromAWS.groovy` (S3 + `uploadPath`)
+
+**Sign repo artifacts** (remote `signpackage`):
+- RPMs: `vars/signRPM.groovy` (requires `SIGN_PASSWORD` + `uploadPath`)
+- DEBs: `vars/signDEB.groovy` (requires `SIGN_PASSWORD` + `uploadPath`)
+
+**Promote/sync to prod repos** (remote repo mutation + signing):
+- `vars/sync2ProdAutoBuild.groovy`
+- `vars/sync2PrivateProdAutoBuild.groovy`
+
+**Molecule setup + execution**:
+- Install: `vars/installMolecule*.groovy`
+- Run single scenario: `vars/moleculeExecuteActionWithScenario.groovy`
+- Parallel OS matrix: `vars/moleculeParallelTest.groovy`, `vars/moleculeParallelPostDestroy.groovy`
+
+**OpenShift helpers** (large, shared across products):
+- `vars/openshiftCluster.groovy`, `vars/openshiftTools.groovy`, `vars/openshiftS3.groovy`, `vars/openshiftDiscovery.groovy`, `vars/openshiftSSL.groovy`
+
+**Python helpers bundled in the library**:
+- Runner: `vars/runPython.groovy` (loads `resources/pmm/<name>.py`)
+- Scripts: `resources/pmm/*.py`
+
+**Notifications**:
+- `vars/slackNotify.groovy`
+
+## Contracts & Side Effects (treat as invariants)
+
+**S3 artifact stash**
+- `pushArtifactFolder(FOLDER_NAME, AWS_STASH_PATH)` and `popArtifactFolder(FOLDER_NAME, AWS_STASH_PATH)` always use bucket `percona-jenkins-artifactory` and AWS credential `AWS_STASH`.
+
+**Repo upload flow**
+- Upload helpers read the remote destination from `uploadPath` (typically created + stashed earlier in the pipeline).
+- `upload*fromAWS` runs on `node('master')`, calls `popArtifactFolder(...)`, then SSH/SCPs packages to `repo.ci.percona.com`.
+- Some helpers modify `/etc/hosts` to force-resolve `repo.ci.percona.com` to a specific IP; keep that behavior stable unless you validate it end-to-end on Jenkins.
+
+**Signing + sync**
+- `sync2ProdAutoBuild.groovy` runs remote commands with `set -o xtrace` while interpolating signing secrets; avoid adding extra debug output around secret-bearing commands.
+
+## How to Change Helpers Safely
+
+- **Search call sites first** (blast radius is repo-wide):
+  - `rg -n "\\b<helperName>\\(" --glob '*.groovy' --glob '!vars/**'`
+- **Stay backward compatible**: only add optional params; avoid renames/removals.
+- **Avoid leaking secrets**: don’t echo credentials; prefer env vars + Jenkins masking; be especially careful in helpers that already enable `xtrace`.
+- **Keep workspaces clean**: many helpers call `deleteDir()` internally; pipelines should still use `post { always { deleteDir() } }` on long-lived agents.
+
+## Validation (local)
+
+```bash
+# Groovy syntax check (helper)
+groovy -e "new GroovyShell().parse(new File('vars/<helper>.groovy'))"
+
+# Find callers
+rg -l '\\b<helper>\\(' --glob '*.groovy' --glob '!vars/**'
+
+# Python resource sanity (if you touched resources/)
+python3 -m py_compile resources/pmm/<script>.py
+```
+
+## Molecule Patterns
+
+| Cred Helper | AWS ID | Products |
+|-------------|--------|----------|
+| moleculeDistributionJenkinsCreds | 4462f2e5-* | PPG, PREL |
+| moleculePbmJenkinsCreds | 4462f2e5-* + GCP | PBM, PDMDB |
+| moleculePdpsJenkinsCreds | 5d78d9c7-* | PDPS |
+| moleculePdpxcJenkinsCreds | 7e252458-* | PDPXC |
+| moleculepxbJenkinsCreds | c42456e5-* | PXB |
+| moleculepxcJenkinsCreds | c42456e5-* | PXC, ProxySQL |
+
+**Shared**: `MOLECULE_AWS_PRIVATE_KEY` (all products)
+**Variants**: Base, PDPS, PPG (`~/virtenv`), PXB (skip logic)
+**Files**: 22 molecule*.groovy (execute, parallel, cleanup, creds)
+
+## Platform Matrix Helpers
+
+| Function | OS Coverage | Products |
+|----------|-------------|----------|
+| pdpsOperatingSystems | Oracle 8/9, RHEL 8/9/10, Debian 11/12, Ubuntu Focal/Jammy/Noble | PDPS |
+| pdpxcOperatingSystems | Same as PDPS | PDPXC |
+| pdmdbOperatingSystems | Version-based (4.0-8.0), ARM, AL2023 | PDMDB, PSMDB, PBM |
+| ps80telemOperatingSystems | Full matrix + ARM | PS 8.0 Telemetry |
+| pcsmOperatingSystems | Debian 11/12, RHEL 8/9, Ubuntu Jammy/Noble + ARM, AL2023 | PCSM |
+| ps80ProOperatingSystems | Oracle 9, RHEL 10, Debian 12, Ubuntu Jammy/Noble + ARM, AL2023 | PS 8.0 Pro |
+
+**AMIs**: 18 AMIs in moleculeParallelTest.groovy (AL2023, Debian, RHEL, Rocky, Ubuntu)
+
+## OpenShift Helpers
+
+| Function | Purpose | Products |
+|----------|---------|----------|
+| openshiftCluster | Full lifecycle (create, destroy, list, PMM deploy) | PMM |
+| openshiftSSL | Let's Encrypt/cert-manager, ACM | PMM |
+| openshiftS3 | S3 state management | PMM, openshiftCluster |
+| openshiftDiscovery | Cluster discovery (S3 + Resource Groups API) | PMM |
+| openshiftTools | CLI install (oc, openshift-install, helm) | PMM |
+
+**Credentials**: AWS, SSH keys, Red Hat pull secrets
+**Used by**: PMM OpenShift testing pipelines
 
 ## Related
 
-- Root `AGENTS.md` - Repository-wide patterns
-- All product `AGENTS.md` files - Product-specific helpers usage
+- Root rules: [AGENTS.md](../AGENTS.md)
+- Infrastructure: [IaC/AGENTS.md](../IaC/AGENTS.md)
+- Helper scripts: [resources/AGENTS.md](../resources/AGENTS.md)
+- Product guides: [pmm/AGENTS.md](../pmm/AGENTS.md), [cloud/AGENTS.md](../cloud/AGENTS.md), etc.
+

@@ -9,7 +9,7 @@ Instructions for AI coding agents working with the Percona `jenkins-pipelines` r
 3. **Mirror existing patterns:** Prefer `rg`/`rg --files` for search, follow the same helper functions (`vars/`) and agent labels already used in that product.
 4. **Validate locally:** Lint Groovy, byte-compile Python helpers, and—when possible—perform Jenkins dry-runs or fork-based tests before submitting changes.
 5. **Keep secrets safe:** Never echo credentials; wrap everything with `withCredentials`, and clean workspaces with `deleteDir()` to avoid residue on long-lived agents.
-6. **Keep docs high-signal:** Prefer stable facts (job names, `script-path`, parameter contracts, cleanup rules) and avoid hardcoding contributor lists; use `git shortlog -sn ...` locally if you need an ownership hint.
+6. **Keep docs high-signal:** Prefer stable facts (job names, `script-path`, parameter contracts, cleanup rules) and avoid hardcoding contributor lists; use `git log --pretty=format:'%h %cd %s' --date=short -- <path>` for recent context.
 
 ## Setup Commands
 
@@ -82,9 +82,13 @@ jenkins-pipelines/
 ├── percona-telemetry-agent/  # Telemetry Agent - See percona-telemetry-agent/AGENTS.md
 ├── cloud/               # Cloud/operator pipelines - See cloud/AGENTS.md
 ├── vars/                # Shared library functions (~100 helpers) - See vars/AGENTS.md
-├── resources/           # Python scripts for pipelines
-├── IaC/                 # Infrastructure as Code
-│   └── *.cd/            # Product-specific CloudFormation (pmm.cd, ps80.cd, psmdb.cd, pg.cd, etc.)
+├── resources/           # Python helper scripts - See resources/AGENTS.md
+│   ├── pmm/              # PMM-specific (DigitalOcean cleanup)
+│   └── cloud/aws-functions/  # AWS cleanup scripts (7 Lambda-ready)
+├── IaC/                 # Infrastructure as Code - See IaC/AGENTS.md
+│   ├── cdk/              # CDK stacks (Lambda cleanup)
+│   ├── *.cd/             # Jenkins instance configs (12 directories)
+│   └── *.yml             # CloudFormation templates (14 stacks)
 └── docs/                # Documentation
 ```
 
@@ -97,7 +101,9 @@ jenkins-pipelines/
 Snapshot (as of 2025-12) derived from `git log --since='12 months ago'`:
 
 - **Mostly product-scoped changes:** most commits touch a single top-level directory; cross-directory edits are the exception (most commonly `pmm/` + `vars/`).
-- **Most active areas (by commits touching the path):** `pmm/` (94), `cloud/` (80), `vars/` (68), `IaC/` (51), `ps/` (41), `pxc/` (38), `pxb/` (36).
+- **Most active areas (by commits touching the path):** `pmm/` (96), `cloud/` (81), `vars/` (69), `IaC/` (52), `ps/` (42), `pxc/` (40), `pxb/` (40).
+- **Common co-changes:** `pmm/` + `vars/` and packaging families (`ps/`, `pxb/`, `pxc/`) are the most frequent multi-directory edits; treat them as coupled when changing shared helpers or packaging/test flows.
+- **Churn hotspots:** pipeline hotspots are `pmm/v3/pmm3-ui-tests-nightly.groovy` and `cloud/jenkins/pgo_*.groovy`; shared-library hotspots are `vars/moleculeParallelTest.groovy` (AMI map) and `vars/pmmVersion.groovy` (release/version map).
 - **Major milestones (examples):**
   - `CLOUD-875`: consolidated and deleted duplicated cloud pipelines (2024-12 → 2025-03).
   - `PMM-14154`: removed PMM v2 pipelines (large deletion commit).
@@ -107,8 +113,8 @@ Snapshot (as of 2025-12) derived from `git log --since='12 months ago'`:
 
 Useful commands:
 ```bash
-git log --since='12 months ago' --oneline -- <path>
-git shortlog -sn --since='12 months ago' -- <path>
+git log --since='12 months ago' --pretty=format:'%h %cd %s' --date=short -- <path>
+git log --since='12 months ago' --name-only --pretty=format: -- <path> | sed '/^$/d' | sort | uniq -c | sort -nr | head
 git tag -l '*-operator-*' --sort=-creatordate | head -n 20
 ```
 
@@ -142,6 +148,59 @@ git tag -l '*-operator-*' --sort=-creatordate | head -n 20
 **Cross-family:** PXB consumed by PS, PXC, PDPS, PDPXC
 
 When modifying upstream products, verify downstream jobs still pass.
+
+## Hetzner Migration
+
+| Product | Status | Jobs | Agent Labels |
+|---------|--------|------|--------------|
+| PSMDB | Complete (branch) | hetzner-psmdb-* | docker-x64-min |
+| PBM | Complete (branch) | hetzner-pbm-* | docker-x64 |
+| PXC 5.7 | Partial (param) | pxc57-pipeline CLOUD=Hetzner | docker-x64, launcher-x64 |
+| Operators | Optional (param) | JENKINS_AGENT=Hetzner | docker-x64-min |
+
+**Branch**: `hetzner` branch for PSMDB/PBM (diverged from master)
+**Pattern**: Hetzner default for PSMDB/PBM, AWS default for others
+
+## PRO Build Infrastructure
+
+| Product | Private Repo | Credential | Instance |
+|---------|-------------|------------|----------|
+| PS | percona-server-private-build | PS_PRIVATE_REPO_ACCESS | ps80.cd |
+| PXC | percona-xtradb-cluster-private-build | PS_PRIVATE_REPO_ACCESS | pxc.cd |
+| PXB | percona-xtrabackup-private-build | PS_PRIVATE_REPO_ACCESS | pxb.cd |
+| ProxySQL | proxysql-packaging (private) | PS_PRIVATE_REPO_ACCESS | pxc.cd |
+| PSMDB | percona-server-mongodb-private | PSMDB_PRIVATE_REPO_ACCESS | psmdb.cd |
+
+**Pattern**: Private repos for PRO/Enterprise, separate release pipelines on rel.cd
+**Credentials**: 2 families (PS vs PSMDB)
+
+## JJB (Jenkins Job Builder)
+
+| Product | YAML Files | Pattern |
+|---------|-----------|---------|
+| cloud | 25 | script-path → Groovy |
+| pxc | 20 | Job name ≠ file name |
+| ps | 14 | Check script-path |
+| psmdb | 12 | YAML = source of truth |
+| pxb | 10 | params, triggers, retention |
+
+**Quick find**:
+```bash
+rg -n "name:\\s+<job>\\b" --glob '*.yml'    # Find job config
+rg -n "script-path:" --glob '*.yml'          # Find pipeline mapping
+```
+
+**Warning**: Job names often don't match Groovy filenames - always check `script-path`
+
+## Platform Adoption
+
+| Platform | Status | Products |
+|----------|--------|----------|
+| RHEL 10 | Active | PS80 Pro, PDPS, PDPXC, PPG, PXB, PXC |
+| Ubuntu Noble (24.04) | Widespread | All active products |
+| Debian 13 (Trixie) | Emerging | PPG, PXB, PXC |
+| Amazon Linux 2023 | Growing | PCSM, PDMDB 6.0+, PS80 Pro |
+| Ubuntu 20.04 (Focal) | Deprecated | Removed (EOL May 2025) |
 
 ## CLI
 ```bash
@@ -305,8 +364,8 @@ stage('Tests') {
 **Python integration**
 
 ```groovy
-// 1. Create script in resources/your_script.py
-// 2. Call via helper
+// 1. Create script in resources/pmm/your_script.py
+// 2. Call via helper (runPython loads from resources/pmm/)
 def result = runPython('your_script', '--arg value')
 ```
 
@@ -342,11 +401,8 @@ environment {
 // S3 artifact upload
 sh "aws s3 cp artifact.tar.gz s3://bucket-name/path/ --region us-east-2"
 
-// EC2 spot instance (via helper)
-launchSpotInstance(
-    instanceType: 'm5.large',
-    spotPrice: '0.10'
-)
+// EC2 spot instances: search for existing product-specific flows first
+// (look for `request-spot-instances` in pipelines/helpers before changing behavior).
 
 // EKS cluster operations
 sh "eksctl create cluster --name \${CLUSTER_NAME} --region us-east-2"
@@ -404,7 +460,7 @@ Enhanced AGENTS.md files include: job dependency graphs, directory maps with lin
 | [pbm/AGENTS.md](pbm/AGENTS.md) | Enhanced | pbm, percona-backup-mongodb, mongo-backup, pitr, s3-storage, gcs, azure, logical-backup, physical-backup |
 | [proxysql/AGENTS.md](proxysql/AGENTS.md) | Enhanced | proxysql, proxy, load-balancer, query-routing, connection-pooling, mysql-proxy, admin-interface |
 | [psmdb/AGENTS.md](psmdb/AGENTS.md) | Hetzner | psmdb, mongodb, percona-server-mongodb, replicaset, sharding (see hetzner branch) |
-| [vars/AGENTS.md](vars/AGENTS.md) | Reference | vars, helpers, shared-library, groovy, launchSpotInstance, runPython, moleculeExecute, sync2Prod |
+| [vars/AGENTS.md](vars/AGENTS.md) | Reference | vars, helpers, shared-library, groovy, pushArtifactFolder, popArtifactFolder, uploadDEBfromAWS, uploadRPMfromAWS, slackNotify, moleculeParallelTest, sync2ProdAutoBuild, runPython |
 | [percona-telemetry-agent/AGENTS.md](percona-telemetry-agent/AGENTS.md) | Basic | telemetry, percona-telemetry-agent, pmm, agent, packaging, rpm, deb |
 | [pdps/AGENTS.md](pdps/AGENTS.md) | Basic | pdps, distribution, percona-distribution-ps, orchestrator, proxysql, toolkit |
 | [pdpxc/AGENTS.md](pdpxc/AGENTS.md) | Basic | pdpxc, distribution, percona-distribution-pxc, haproxy, proxysql, garbd |

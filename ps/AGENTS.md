@@ -293,8 +293,8 @@ git log --oneline -- ps | rg -n 'PKG-' | head
 git log --since='12 months ago' --name-only --pretty=format: HEAD -- ps \
   | sort | uniq -c | sort -rn | head
 
-# Who touched PS pipelines recently (rough ownership signal)
-git shortlog -sne --since='12 months ago' HEAD -- ps | head
+# Recent context (subjects only)
+git log --since='12 months ago' --pretty=format:'%h %cd %s' --date=short -- ps | head -n 50
 
 # Follow a file across renames
 git log --follow -p -- ps/jenkins/percona-server-for-mysql-8.0.groovy

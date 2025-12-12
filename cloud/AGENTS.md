@@ -35,7 +35,7 @@ Derived from a local scan of `cloud/**/*.groovy` and `git log --since='12 months
 - **PostgreSQL Operator (pgo)** is the most actively maintained operator in cloud/.
 - **Platform coverage varies by operator**: pxco and pgo have DOKS support; psmdbo and pso do not.
 - **Weekly schedulers trigger platform jobs**: `weekly_*.groovy` run on Saturday/Sunday and trigger 3x parallel runs per platform.
-- **Ownership signal**: use `git shortlog -sn --since='12 months ago' HEAD -- cloud` (treat as a hint, not strict ownership).
+- **Context signal**: use `git log --since='12 months ago' --pretty=format:'%h %cd %s' --date=short -- cloud | head` to see recent change subjects quickly.
 
 ## Job Dependency Graph (LLM-Optimized)
 
@@ -386,9 +386,6 @@ git log --oneline --max-count 50 -- cloud
 git log --since='12 months ago' --name-only --pretty=format: HEAD -- cloud \
   | sort | uniq -c | sort -rn | head
 
-# Who touched cloud pipelines recently (names only; omit emails)
-git shortlog -sn --since='12 months ago' HEAD -- cloud | head
-
 # Operator release tags (cadence signal)
 git tag -l '*-operator-*' --sort=-creatordate | head -n 20
 
@@ -446,6 +443,8 @@ cd cloud/gcp-functions && go build ./...
 - [psmdb/AGENTS.md](../psmdb/AGENTS.md) - PSMDB (deployed by PSMDBO operator)
 - [pdmdb/AGENTS.md](../pdmdb/AGENTS.md) - PDMDB (PSMDBO integration tests)
 - [ps/AGENTS.md](../ps/AGENTS.md) - PS (deployed by PSO operator)
+- [IaC/AGENTS.md](../IaC/AGENTS.md) - Lambda cleanup, infrastructure
+- [resources/AGENTS.md](../resources/AGENTS.md) - Cleanup scripts (aws-functions/)
 - [vars/AGENTS.md](../vars/AGENTS.md) - Shared helpers (eksctl*, openshift*)
 
 ## Related GitHub Repositories

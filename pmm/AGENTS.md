@@ -373,8 +373,8 @@ git log --oneline -- pmm | rg -n 'PMM-' | head
 git log --since='12 months ago' --name-only --pretty=format: HEAD -- pmm \
   | sort | uniq -c | sort -rn | head
 
-# Who touched PMM pipelines recently (rough ownership signal)
-git shortlog -sne --since='12 months ago' HEAD -- pmm | head
+# Recent context (subjects only)
+git log --since='12 months ago' --pretty=format:'%h %cd %s' --date=short -- pmm | head -n 50
 
 # Follow a file across renames
 git log --follow -p -- pmm/v3/pmm3-ui-tests-nightly.groovy
@@ -410,6 +410,8 @@ Recent structural changes worth knowing (from `git log -- pmm`):
 - [ps/AGENTS.md](../ps/AGENTS.md) - Percona Server (PMM monitors PS)
 - [pxc/AGENTS.md](../pxc/AGENTS.md) - XtraDB Cluster (PMM monitors PXC)
 - [psmdb/AGENTS.md](../psmdb/AGENTS.md) - Percona Server for MongoDB (PMM monitors PSMDB)
+- [IaC/AGENTS.md](../IaC/AGENTS.md) - Infrastructure (staging, EKS HA cleanup)
+- [resources/AGENTS.md](../resources/AGENTS.md) - Helper scripts (do_remove_droplets.py)
 - [vars/AGENTS.md](../vars/AGENTS.md) - Shared helpers (runSpotInstance, openshiftSSL)
 
 ## Local Validation
