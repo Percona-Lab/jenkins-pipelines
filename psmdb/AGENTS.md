@@ -1,11 +1,17 @@
 # AGENTS.md - PSMDB Pipelines
 
-Extends: [../AGENTS.md](../AGENTS.md)
+> **Active Branch**: Production PSMDB jobs run from the `hetzner` branch with `hetzner-*` job prefixes.
+> See the [hetzner branch AGENTS.md](https://github.com/Percona-Lab/jenkins-pipelines/blob/hetzner/psmdb/AGENTS.md) for comprehensive documentation.
+
+Extends: [../AGENTS.md](../AGENTS.md) | [../vars/AGENTS.md](../vars/AGENTS.md)
+
+Related: [pbm/AGENTS.md](../pbm/AGENTS.md) | [pdmdb/AGENTS.md](../pdmdb/AGENTS.md)
 
 ## TL;DR
 
 **What**: PSMDB builds (6.0-8.0), package testing, replica/sharding validation, PBM integration
-**Where**: Jenkins `psmdb` | `https://psmdb.cd.percona.com` | Jobs: `psmdb*`, `pbm*`, `pdmdb*`
+**Where**: Jenkins `psmdb` | `https://psmdb.cd.percona.com` | Jobs: `hetzner-psmdb*`, `hetzner-pbm*`, `hetzner-pdmdb*`
+**Active Versions**: 6.0, 7.0, 8.0 (older versions disabled)
 **Key Helpers**: `moleculeExecuteActionWithScenario()`, `pbmVersion()`, `moleculePbmJenkinsCreds()`
 **Watch Out**: Artifact naming consumed by PBM - coordinate changes; always destroy Molecule clusters
 
@@ -15,9 +21,9 @@ Extends: [../AGENTS.md](../AGENTS.md)
 |-----|-------|
 | Jenkins Instance | `psmdb` |
 | URL | https://psmdb.cd.percona.com |
-| Job Patterns | `psmdb*`, `pbm*`, `pcsm*`, `pdmdb*` |
-| Default Credential | `psmdb-staging` (AWS) |
-| AWS Region | `us-east-2` |
+| Active Branch | `hetzner` |
+| Job Patterns | `hetzner-psmdb*`, `hetzner-pbm*`, `hetzner-pcsm*` |
+| Infrastructure | Hetzner (migrated from AWS) |
 | Groovy Files | 46 |
 
 ## Scope
