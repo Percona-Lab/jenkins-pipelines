@@ -16,137 +16,170 @@ Extends: [../AGENTS.md](../AGENTS.md)
 | Jenkins Instance | `ps80` |
 | URL | https://ps80.cd.percona.com |
 | Job Patterns | `*proxysql*`, `qa-proxysql2-*` |
-| Default Credential | `moleculepxcJenkinsCreds()` |
+| Default Credential | `c42456e5-c28d-4962-b32c-b75d161bff27` (AWS) |
 | Build Type | Native C++/Go |
-| Groovy Files | ~5 |
+| Groovy Files | 3 |
+| Last Updated | 2025-12 |
 
-## Scope
+## Job Dependency Graph
 
-ProxySQL CI/CD pipelines for MySQL proxy layer testing and builds. Includes ProxySQL 2.x QA testing, source tarball generation, binary builds, and comprehensive test suite validation across multiple Linux distributions. ProxySQL provides connection pooling, query routing, and high availability for MySQL/Percona Server deployments.
+```
+proxysql.groovy (standalone, matrix execution)
+   │
+   └── Parallel builds: x64 + ARM64 across 9 platforms
 
-## Key Directories
+qa-proxysql2-pipeline.groovy (standalone)
+   │
+   └── Parallel: Build → Test stages
 
-- `jenkins/` – Build scripts and utilities
-- Root level – QA pipelines and test orchestration
-
-## Key Files
-
-- `qa-proxysql2-pipeline.groovy` – ProxySQL 2.x QA test suite orchestration
-- `proxysql.groovy` – Main ProxySQL build and test pipeline
-- `jenkins/proxysql-tarball.groovy` – Source tarball generation
-- Additional shell scripts in `jenkins/`: `build-binary-proxysql`, `run-*`, `test-proxysql`
-
-## Product-Specific Patterns
-
-### ProxySQL Version Support (Master Branch)
-
-```groovy
-// Master branch supports ProxySQL 2.x
-job: 'qa-proxysql2-pipeline'
-version: '2.x'
+proxysql-tarball.groovy (standalone)
+   │
+   └── Source tarball generation
 ```
 
-### Build Pattern (Go-based)
+**No downstream triggers** - ProxySQL jobs are standalone.
 
-```groovy
-// ProxySQL is written in C++ with Go components
-// Different build pattern from other Percona products
-buildType: 'native'  // Not Docker-based like other products
+## Directory Map
+
+```
+proxysql/                               # 605 lines total
+├── AGENTS.md                           # This file
+├── proxysql.groovy               (385) # Main build pipeline (9 platforms)
+├── qa-proxysql2-pipeline.groovy  (136) # QA test suite
+├── proxysql.yml                        # JJB config
+├── qa-proxysql2-param.yml              # QA job parameters
+├── qa-proxysql2-pipeline.yml           # QA JJB config
+├── jenkins/                            # 1 groovy file
+│   ├── proxysql-tarball.groovy   (84)  # Source tarball
+│   └── proxysql-tarball.yml            # JJB config
+├── build-binary-proxysql               # Build script
+├── test-proxysql                       # Test script
+├── run-build-proxysql                  # Run script
+├── run-test-proxysql                   # Run script
+└── checkout                            # Git checkout helper
 ```
 
-### Test Suite Integration
+## Key Jobs from Jenkins
 
-```groovy
-// ProxySQL has extensive test suite
-testSuite: 'qa-proxysql2-pipeline'
-// Covers: Connection pooling, query routing, failover, load balancing
-```
+| Job | Status | Purpose |
+|-----|--------|---------|
+| `proxysql-package-testing-all` | NotBuilt | Package validation |
+| `qa-proxysql2-pipeline` | - | QA test suite |
 
-### Molecule Credentials
+## Platform Matrix
 
-```groovy
-// Uses PXC Molecule credentials (ProxySQL works with PXC)
-moleculepxcJenkinsCreds()
-```
+| Platform | x64 | ARM64 |
+|----------|-----|-------|
+| Oracle Linux 8 | Yes | Yes |
+| Oracle Linux 9 | Yes | Yes |
+| Debian 11 | Yes | Yes |
+| Debian 12 | Yes | Yes |
+| Ubuntu Focal | Yes | - |
+| Ubuntu Jammy | Yes | Yes |
+| Ubuntu Noble | Yes | Yes |
+| Amazon Linux 2 | Yes | - |
+| RHEL 10 | Yes | - |
 
-## Agent Workflow
+## Credentials
 
-1. **Inspect existing jobs:** `~/bin/jenkins job ps80 config qa-proxysql2-pipeline -f yaml` to capture parameters like `VERSION`, `PROXYSQL_BRANCH`, `PLATFORM`.
-2. **Build considerations:** ProxySQL uses native C++/Go builds; different from Docker-based builds in other products.
-3. **Test suite coverage:** QA pipeline includes connection pooling, query routing, failover scenarios, and load balancing tests.
-4. **Platform support:** Recent work (Sept 2025) added RHEL10 support alongside existing distributions.
-5. **Parameter contracts:** ProxySQL jobs support release automation; extend but never rename/remove parameters.
+| ID | Purpose | Used In |
+|----|---------|---------|
+| `c42456e5-c28d-4962-b32c-b75d161bff27` | AWS S3/EC2 | qa-proxysql2-pipeline |
+| `PS_PRIVATE_REPO_ACCESS` | PRO repo access | proxysql-tarball |
 
-## Validation & Testing
+## Agent Labels
+
+| Label | Purpose | Files |
+|-------|---------|-------|
+| `docker` | Standard x64 builds | proxysql.groovy (most) |
+| `docker-32gb` | Memory-intensive x64 | proxysql.groovy (Amazon Linux) |
+| `docker-32gb-aarch64` | ARM64 builds | proxysql.groovy (ARM stages) |
+| `micro-amazon` | Lightweight init | qa-proxysql2-pipeline |
+| `min-bookworm-x64` | Tarball builds | proxysql-tarball |
+
+## Key Jira Tickets
+
+| Ticket | Summary |
+|--------|---------|
+| PSQLADM-573 | ProxySQL admin scripts testing job uses compiled version |
+| PSQLADM-555 | Fetch latest versions of PXC packages |
+
+## ProxySQL Features Tested
+
+- Connection pooling
+- Query routing
+- Load balancing
+- Failover handling
+- MySQL/PXC compatibility
+- Admin interface scripts
+
+## Common Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---------|-----------|-----|
+| Wrong build type | ProxySQL is C++/Go, not Docker | Use native build scripts |
+| Missing PXC creds | ProxySQL tests with PXC | Use `moleculepxcJenkinsCreds()` |
+| Skipping ARM64 | Incomplete coverage | Include ARM64 in matrix |
+| Wrong Jenkins instance | ProxySQL on ps80, not pxc | Use `ps80` instance |
+
+## Jenkins CLI Quick Reference
 
 ```bash
-# Groovy syntax validation
+# List all ProxySQL jobs
+~/bin/jenkins job ps80 list | grep proxysql
+
+# Get job status
+~/bin/jenkins status ps80/proxysql-package-testing-all
+
+# Get parameters
+~/bin/jenkins params ps80/qa-proxysql2-pipeline
+
+# Trigger a build
+~/bin/jenkins build ps80/qa-proxysql2-pipeline -p PLATFORM=generic-oracle-linux-9-x64
+
+# View logs
+~/bin/jenkins logs ps80/qa-proxysql2-pipeline
+```
+
+## Local Validation
+
+```bash
+# Groovy syntax check
+groovy -e "new GroovyShell().parse(new File('proxysql/proxysql.groovy'))"
 groovy -e "new GroovyShell().parse(new File('proxysql/qa-proxysql2-pipeline.groovy'))"
 
 # Build validation
-bash jenkins/build-binary-proxysql --version 2.5.5
+bash proxysql/build-binary-proxysql --version 2.5.5
 
 # Test suite validation
-bash jenkins/test-proxysql --suite qa
-
-# Jenkins dry-run
-~/bin/jenkins build ps80/qa-proxysql2-pipeline \
-  -p PLATFORM=generic-oracle-linux-9-x64 \
-  -p PROXYSQL_BRANCH=v2.5.x \
-  --watch
+bash proxysql/test-proxysql --suite qa
 ```
 
-## Credentials & Parameters
+## PR Review Checklist
 
-- **Credentials:** `moleculepxcJenkinsCreds()` – AWS/SSH for testing
-- **Key parameters:**
-  - `VERSION` – ProxySQL version (e.g., '2.5.5')
-  - `PROXYSQL_BRANCH` – Git branch (e.g., 'v2.5.x', 'v2.6.x')
-  - `PLATFORM` – OS selection via Molecule platform helpers
-  - `BUILD_TYPE` – Build configuration (debug/release)
-  - `RUN_TESTS` – Boolean to control test execution
+- [ ] `buildDiscarder(logRotator(...))` in options
+- [ ] `deleteDir()` in `post.always`
+- [ ] Both x64 and ARM64 coverage
+- [ ] Correct Jenkins instance (ps80)
+- [ ] AWS credentials via withCredentials
 
-# Jenkins
+## Change Impact
 
-Instance: `ps80` | URL: `https://ps80.cd.percona.com`
+| Change | Impact | Notify |
+|--------|--------|--------|
+| Version params | Release automation | RelEng |
+| Platform support | Test coverage | QA |
+| Build scripts | Binary generation | Build team |
 
-## CLI
-```bash
-~/bin/jenkins job ps80 list | grep proxysql         # All ProxySQL jobs
-~/bin/jenkins params ps80/<job>                     # Parameters
-```
+## Related
 
-## API
-```bash
-# Auth: API token from Jenkins → User → Configure → API Token
-curl -su "USER:TOKEN" "https://ps80.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("proxysql"))'
-```
+- [ps/AGENTS.md](../ps/AGENTS.md) - Percona Server (ProxySQL works with PS)
+- [pxc/AGENTS.md](../pxc/AGENTS.md) - XtraDB Cluster (ProxySQL provides PXC load balancing)
+- [vars/AGENTS.md](../vars/AGENTS.md) - Shared helpers
 
-## Job Patterns
-`*proxysql*`, `qa-proxysql2-*`
+## GitHub Repositories
 
-## Credentials
-`moleculepxcJenkinsCreds()` (AWS/SSH). Always use `withCredentials`.
-
-## Related Jobs
-
-- `ps-*` – Percona Server MySQL jobs (ProxySQL works with PS)
-- `pxc-*` – Percona XtraDB Cluster jobs (ProxySQL provides PXC load balancing)
-- Connection pooling and query routing validation
-- HA failover testing
-
-## Code Owners
-
-See `.github/CODEOWNERS` – ProxySQL pipelines maintained by:
-- rameshvs02 (32 commits) – Primary contributor
-- Mohit Joshi (27 commits) – Co-maintainer
-- Venkatesh Prasad (8 commits) – Supporting contributor
-- Vadim Yalovets (10 commits) – Infrastructure support
-
-Primary contact: `@rameshvs02`, `@mohit-joshi`
-
-## Status
-
-Last activity: September 2025 (active)
-Recent work: RHEL10 support, ongoing QA test improvements
-Activity: 4 commits in last 6 months (most active non-PPG product)
+| Repository | Purpose |
+|------------|---------|
+| [sysown/proxysql](https://github.com/sysown/proxysql) | Upstream source |
+| [percona/proxysql-packaging](https://github.com/percona/proxysql-packaging) | Percona packaging |
