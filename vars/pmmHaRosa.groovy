@@ -52,11 +52,6 @@ import groovy.transform.Field
 @Field static final String CLUSTER_PREFIX = 'pmm-ha-rosa-'
 @Field static final int MAX_CLUSTERS = 5
 
-// ECR Pull-Through Cache configuration (avoids Docker Hub rate limits)
-@Field static final String AWS_ACCOUNT_ID = '119175775298'
-@Field static final String ECR_REGION = 'us-east-2'
-@Field static final String ECR_PREFIX = '119175775298.dkr.ecr.us-east-2.amazonaws.com/docker-hub'
-
 // ============================================================================
 // Delegated Operations (from openshiftRosa)
 // ============================================================================
@@ -171,56 +166,14 @@ def formatClustersSummary(List clusters, String title = 'PMM HA ROSA CLUSTERS') 
 // PMM HA Specific Operations
 // ============================================================================
 
+// ECR prefix for image paths (must match openshiftRosa.ECR_PREFIX)
+@Field static final String ECR_PREFIX = '119175775298.dkr.ecr.us-east-2.amazonaws.com/docker-hub'
+
 /**
- * Configures ECR pull-through cache access on ROSA cluster.
- *
- * ECR pull-through cache proxies Docker Hub images through AWS ECR, avoiding
- * Docker Hub rate limits. The cache rule and Docker Hub credentials are
- * pre-configured in AWS Secrets Manager.
- *
- * @param config Map containing:
- *   - region: AWS region (optional, default: 'us-east-2')
- *
- * @return Map containing:
- *   - ecrRegistry: ECR registry URL
- *   - ecrPrefix: Full ECR prefix for image paths
+ * Configures ECR pull-through cache. Delegates to openshiftRosa.
  */
 def configureEcrPullThrough(Map config = [:]) {
-    def region = config.region ?: ECR_REGION
-
-    echo 'Configuring ECR pull-through cache access...'
-    echo "  ECR Registry: ${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com"
-
-    sh """
-        export PATH="\$HOME/.local/bin:\$PATH"
-
-        # Get ECR login token (valid for 12 hours)
-        ECR_TOKEN=\$(aws ecr get-login-password --region ${region})
-        ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com"
-
-        # Extract existing global pull secret
-        oc get secret/pull-secret -n openshift-config \\
-            --template='{{index .data ".dockerconfigjson" | base64decode}}' > /tmp/pull-secret.json
-
-        # Add ECR credentials using oc registry login
-        oc registry login --registry="\${ECR_REGISTRY}" \\
-            --auth-basic="AWS:\${ECR_TOKEN}" \\
-            --to=/tmp/pull-secret.json
-
-        # Update the global pull secret
-        oc set data secret/pull-secret -n openshift-config \\
-            --from-file=.dockerconfigjson=/tmp/pull-secret.json
-
-        # Clean up
-        rm -f /tmp/pull-secret.json
-
-        echo "ECR credentials added to global OpenShift pull secret"
-    """
-
-    return [
-        ecrRegistry: "${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com",
-        ecrPrefix: ECR_PREFIX
-    ]
+    return openshiftRosa.configureEcrPullThrough(config)
 }
 
 /**
@@ -346,7 +299,7 @@ EOF
     def ecrPrefix = ECR_PREFIX
 
     if (useEcr) {
-        configureEcrPullThrough([region: params.region ?: ECR_REGION])
+        configureEcrPullThrough([region: params.region ?: 'us-east-2'])
         echo "Using ECR pull-through cache: ${ecrPrefix}"
     } else if (config.dockerHubUser && config.dockerHubPassword) {
         sh """

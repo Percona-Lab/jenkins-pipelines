@@ -54,8 +54,10 @@ import groovy.transform.Field
 @Field static final int DEFAULT_REPLICAS = 3
 @Field static final int DEFAULT_MAX_CLUSTERS = 10
 
-// AWS Account ID for ECR
+// AWS Account ID and ECR configuration
 @Field static final String AWS_ACCOUNT_ID = '119175775298'
+@Field static final String ECR_REGION = 'us-east-2'
+@Field static final String ECR_PREFIX = '119175775298.dkr.ecr.us-east-2.amazonaws.com/docker-hub'
 
 // ============================================================================
 // Tool Installation
@@ -963,6 +965,151 @@ def formatClustersSummary(List clusters, String title = 'ROSA CLUSTERS') {
 
     output.append("=" * 80)
     return output.toString()
+}
+
+// ============================================================================
+// ECR Pull-Through Cache
+// ============================================================================
+
+/**
+ * Configures ECR pull-through cache access on ROSA cluster.
+ *
+ * ECR pull-through cache proxies Docker Hub images through AWS ECR,
+ * avoiding Docker Hub rate limits.
+ *
+ * @param config Map containing:
+ *   - region: AWS region (optional, default: 'us-east-2')
+ *
+ * @return Map containing:
+ *   - ecrRegistry: ECR registry URL
+ *   - ecrPrefix: Full ECR prefix for image paths
+ */
+def configureEcrPullThrough(Map config = [:]) {
+    def region = config.region ?: ECR_REGION
+
+    echo 'Configuring ECR pull-through cache access...'
+
+    sh """
+        export PATH="\$HOME/.local/bin:\$PATH"
+
+        ECR_TOKEN=\$(aws ecr get-login-password --region ${region})
+        ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com"
+
+        oc get secret/pull-secret -n openshift-config \\
+            --template='{{index .data ".dockerconfigjson" | base64decode}}' > /tmp/pull-secret.json
+
+        oc registry login --registry="\${ECR_REGISTRY}" \\
+            --auth-basic="AWS:\${ECR_TOKEN}" \\
+            --to=/tmp/pull-secret.json
+
+        oc set data secret/pull-secret -n openshift-config \\
+            --from-file=.dockerconfigjson=/tmp/pull-secret.json
+
+        rm -f /tmp/pull-secret.json
+    """
+
+    return [
+        ecrRegistry: "${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com",
+        ecrPrefix: ECR_PREFIX
+    ]
+}
+
+// ============================================================================
+// PMM Deployment (Standalone)
+// ============================================================================
+
+/**
+ * Installs standalone PMM on ROSA cluster.
+ *
+ * @param config Map containing:
+ *   - namespace: Kubernetes namespace (optional, default: 'pmm')
+ *   - imageRepository: PMM image repository (optional)
+ *   - imageTag: PMM image tag (optional, default: 'latest')
+ *   - adminPassword: PMM admin password (optional, auto-generated)
+ *   - storageClass: StorageClass (optional, default: 'gp3-csi')
+ *   - storageSize: PVC size (optional, default: '10Gi')
+ *   - useEcr: Use ECR pull-through cache (optional, default: true)
+ *   - chartVersion: Helm chart version (optional)
+ *
+ * @return Map containing deployment info
+ */
+def installPmmStandalone(Map config = [:]) {
+    def params = [
+        namespace: 'pmm',
+        imageTag: 'latest',
+        storageClass: 'gp3-csi',
+        storageSize: '10Gi',
+        useEcr: true
+    ] + config
+
+    echo "Installing standalone PMM on ROSA cluster"
+    echo "  Namespace: ${params.namespace}"
+    echo "  Image Tag: ${params.imageTag}"
+
+    def adminPassword = params.adminPassword ?: generatePassword()
+
+    // Create namespace
+    sh """
+        export PATH="\$HOME/.local/bin:\$PATH"
+        oc create namespace ${params.namespace} || true
+    """
+
+    // Configure ECR if enabled
+    if (params.useEcr) {
+        configureEcrPullThrough([region: params.region ?: ECR_REGION])
+    }
+
+    // Install Helm if needed
+    sh '''
+        export PATH="$HOME/.local/bin:$PATH"
+        if ! command -v helm &>/dev/null; then
+            curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+        fi
+        helm repo add percona https://percona.github.io/percona-helm-charts/ || true
+        helm repo update
+    '''
+
+    // Build Helm args
+    def helmArgs = [
+        "--namespace ${params.namespace}",
+        "--set secret.pmm_password='${adminPassword}'",
+        "--set storage.storageClassName=${params.storageClass}",
+        "--set storage.size=${params.storageSize}"
+    ]
+
+    if (params.imageRepository) {
+        def repo = params.useEcr ? "${ECR_PREFIX}/${params.imageRepository}" : params.imageRepository
+        helmArgs.add("--set image.repository=${repo}")
+    }
+    if (params.imageTag) {
+        helmArgs.add("--set image.tag=${params.imageTag}")
+    }
+    if (params.chartVersion) {
+        helmArgs.add("--version ${params.chartVersion}")
+    }
+
+    helmArgs.add('--wait --timeout 10m')
+
+    echo 'Installing PMM via Helm...'
+    sh """
+        export PATH="\$HOME/.local/bin:\$PATH"
+        helm upgrade --install pmm percona/pmm ${helmArgs.join(' ')}
+    """
+
+    // Verify
+    sh """
+        export PATH="\$HOME/.local/bin:\$PATH"
+        oc get pods -n ${params.namespace}
+        oc get svc -n ${params.namespace}
+    """
+
+    echo 'PMM installed successfully'
+
+    return [
+        namespace: params.namespace,
+        adminPassword: adminPassword,
+        serviceName: 'pmm'
+    ]
 }
 
 return this

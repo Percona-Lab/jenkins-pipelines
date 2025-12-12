@@ -85,11 +85,11 @@ pipeline {
             description: 'EC2 instance type for worker nodes'
         )
 
-        // PMM Deployment (optional)
-        booleanParam(
-            name: 'DEPLOY_PMM',
-            defaultValue: false,
-            description: 'Deploy PMM after cluster creation'
+        // PMM Deployment
+        choice(
+            name: 'PMM_MODE',
+            choices: ['none', 'standalone', 'ha'],
+            description: 'PMM deployment mode: none (cluster only), standalone (single instance), ha (high availability)'
         )
         string(
             name: 'PMM_IMAGE_TAG',
@@ -196,7 +196,7 @@ pipeline {
                     echo "Final cluster name: ${env.FINAL_CLUSTER_NAME}"
 
                     // Set build display
-                    def pmmStatus = params.DEPLOY_PMM ? "PMM:${params.PMM_IMAGE_TAG}" : "No-PMM"
+                    def pmmStatus = params.PMM_MODE != 'none' ? "PMM-${params.PMM_MODE}:${params.PMM_IMAGE_TAG}" : "No-PMM"
                     currentBuild.description = "${env.FINAL_CLUSTER_NAME} | ROSA ${params.OPENSHIFT_VERSION} | ${params.AWS_REGION} | ${pmmStatus}"
                     currentBuild.displayName = "#${BUILD_NUMBER} - ${env.FINAL_CLUSTER_NAME}"
                 }
@@ -254,20 +254,12 @@ Worker Nodes:         ${params.WORKER_COUNT} x ${params.INSTANCE_TYPE}
 
 PMM DEPLOYMENT
 --------------
-Deploy PMM:           ${params.DEPLOY_PMM ? 'Yes' : 'No'}"""
+PMM Mode:             ${params.PMM_MODE}"""
 
-                    if (params.DEPLOY_PMM) {
+                    if (params.PMM_MODE != 'none') {
                         summary += """
 PMM Repository:       ${params.PMM_IMAGE_REPOSITORY}
-PMM Image Tag:        ${params.PMM_IMAGE_TAG}"""
-                        if (params.PMM_HELM_CHART_BRANCH) {
-                            summary += """
-Helm Chart Branch:    ${params.PMM_HELM_CHART_BRANCH}"""
-                        } else {
-                            summary += """
-Helm Chart Version:   ${params.PMM_HELM_CHART_VERSION}"""
-                        }
-                        summary += """
+PMM Image Tag:        ${params.PMM_IMAGE_TAG}
 Admin Password:       ${params.PMM_ADMIN_PASSWORD == '<GENERATED>' ? 'Auto-generated' : 'User-specified'}"""
                     }
 
@@ -390,7 +382,7 @@ Please choose a different cluster name or delete the existing cluster first.
         }
 
         stage('Deploy PMM') {
-            when { expression { params.DEPLOY_PMM } }
+            when { expression { params.PMM_MODE != 'none' } }
             steps {
                 withCredentials([
                     aws(
@@ -400,38 +392,53 @@ Please choose a different cluster name or delete the existing cluster first.
                     )
                 ]) {
                     script {
-                        echo 'Deploying PMM to ROSA cluster...'
+                        echo "Deploying PMM (${params.PMM_MODE} mode) to ROSA cluster..."
 
-                        // Use pmmHaRosa for PMM deployment (has ECR and Helm logic)
                         def pmmConfig = [
-                            namespace: 'pmm-monitoring',
+                            namespace: 'pmm',
                             imageTag: params.PMM_IMAGE_TAG,
                             imageRepository: params.PMM_IMAGE_REPOSITORY,
                             storageClass: 'gp3-csi'
                         ]
 
-                        if (params.PMM_HELM_CHART_BRANCH) {
-                            pmmConfig.chartBranch = params.PMM_HELM_CHART_BRANCH
-                        }
-
                         if (params.PMM_ADMIN_PASSWORD != '<GENERATED>') {
                             pmmConfig.adminPassword = params.PMM_ADMIN_PASSWORD
                         }
 
-                        def pmmInfo = pmmHaRosa.installPmm(pmmConfig)
+                        def pmmInfo
+                        if (params.PMM_MODE == 'ha') {
+                            // HA mode - use pmmHaRosa
+                            if (params.PMM_HELM_CHART_BRANCH) {
+                                pmmConfig.chartBranch = params.PMM_HELM_CHART_BRANCH
+                            }
+                            pmmInfo = pmmHaRosa.installPmm(pmmConfig)
+
+                            // Create route for HA
+                            def routeInfo = pmmHaRosa.createRoute([
+                                namespace: pmmConfig.namespace,
+                                clusterName: env.FINAL_CLUSTER_NAME,
+                                r53ZoneName: params.BASE_DOMAIN
+                            ])
+                            env.PMM_URL = routeInfo.url
+                        } else {
+                            // Standalone mode - use openshiftRosa
+                            if (params.PMM_HELM_CHART_VERSION) {
+                                pmmConfig.chartVersion = params.PMM_HELM_CHART_VERSION
+                            }
+                            pmmInfo = openshiftRosa.installPmmStandalone(pmmConfig)
+
+                            // Create route for standalone
+                            def domain = "${env.FINAL_CLUSTER_NAME}.${params.BASE_DOMAIN}"
+                            openshiftRosa.createRoute53Record([
+                                domain: domain,
+                                target: sh(script: "oc get svc pmm -n pmm -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo ''", returnStdout: true).trim(),
+                                zoneName: params.BASE_DOMAIN
+                            ])
+                            env.PMM_URL = "https://${domain}"
+                        }
 
                         env.PMM_PASSWORD = pmmInfo.adminPassword
                         env.PMM_PASSWORD_GENERATED = (params.PMM_ADMIN_PASSWORD == '<GENERATED>') ? 'true' : 'false'
-
-                        // Create route with Route53 DNS
-                        def routeInfo = pmmHaRosa.createRoute([
-                            namespace: 'pmm-monitoring',
-                            clusterName: env.FINAL_CLUSTER_NAME,
-                            r53ZoneName: params.BASE_DOMAIN
-                        ])
-
-                        env.PMM_URL = routeInfo.url
-                        env.PMM_DOMAIN = routeInfo.routeHost
 
                         echo "PMM deployed successfully: ${env.PMM_URL}"
                     }
@@ -490,7 +497,7 @@ PRIMARY ACCESS
 Console URL:          ${env.CLUSTER_CONSOLE_URL}
 API Endpoint:         ${env.CLUSTER_API_URL}"""
 
-                    if (params.DEPLOY_PMM && env.PMM_URL) {
+                    if (params.PMM_MODE != 'none' && env.PMM_URL) {
                         summary += """
 PMM URL:              ${env.PMM_URL}"""
                     }
@@ -502,7 +509,7 @@ CREDENTIALS
 Cluster Admin:        cluster-admin
 Cluster Password:     ${env.CLUSTER_ADMIN_PASSWORD}"""
 
-                    if (params.DEPLOY_PMM && env.PMM_URL) {
+                    if (params.PMM_MODE != 'none' && env.PMM_URL) {
                         def passwordDisplay = env.PMM_PASSWORD_GENERATED == 'true' ? env.PMM_PASSWORD : '*** (user-specified)'
                         summary += """
 PMM Username:         admin
@@ -558,7 +565,7 @@ API URL: ${env.CLUSTER_API_URL}
 Admin User: cluster-admin
 Admin Password: ${env.CLUSTER_ADMIN_PASSWORD}
 """
-                    if (params.DEPLOY_PMM && env.PMM_URL) {
+                    if (params.PMM_MODE != 'none' && env.PMM_URL) {
                         clusterInfo += """
 PMM URL: ${env.PMM_URL}
 PMM User: admin
