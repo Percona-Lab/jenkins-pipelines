@@ -69,17 +69,9 @@ void prepareNode() {
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        OC_VER = "4.15.25"
         PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", returnStdout: true).trim()
-    } else {
-        if ("$PLATFORM_VER" <= "4.15.25") {
-            OC_VER="$PLATFORM_VER"
-        } else {
-            OC_VER="4.15.25"
-        }
     }
-    echo "OC_VER=$OC_VER"
-
+ 
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
@@ -89,7 +81,7 @@ void prepareNode() {
     sh """
         curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
-        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OC_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
     """
 
@@ -444,7 +436,7 @@ pipeline {
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner','AWS'], description: 'Cloud infra for build')
     }
     agent {
-        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
