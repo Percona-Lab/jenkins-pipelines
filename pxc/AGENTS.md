@@ -397,13 +397,14 @@ cd molecule/pxc && molecule test -s ubuntu-jammy
 - **PXC 5.6 is legacy**: Minimal maintenance, may not work with newer tooling.
 - **Cross-version testing**: `qa_pxc_57_80_test-pipeline.groovy` tests 5.7→8.0 upgrades.
 
-## Related AGENTS.md Files
+## Related
 
-- `pdpxc/AGENTS.md` - Distribution packaging (depends on PXC)
-- `proxysql/AGENTS.md` - ProxySQL pipelines
-- `ps/AGENTS.md` - Percona Server (PXC depends on PS builds)
-- `pxb/AGENTS.md` - XtraBackup (used for SST)
-- `vars/AGENTS.md` - Shared library helpers
+- [pdpxc/AGENTS.md](../pdpxc/AGENTS.md) - Percona Distribution for PXC (bundles PXC)
+- [proxysql/AGENTS.md](../proxysql/AGENTS.md) - ProxySQL (load balancing for PXC)
+- [ps/AGENTS.md](../ps/AGENTS.md) - Percona Server (PXC based on PS)
+- [pxb/AGENTS.md](../pxb/AGENTS.md) - XtraBackup (SST and backups for PXC)
+- [cloud/AGENTS.md](../cloud/AGENTS.md) - PXC Operator (deploys PXC on K8s)
+- [vars/AGENTS.md](../vars/AGENTS.md) - Shared library helpers
 
 ## Related GitHub Repositories
 

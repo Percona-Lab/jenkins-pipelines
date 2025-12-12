@@ -404,6 +404,14 @@ Recent structural changes worth knowing (from `git log -- pmm`):
 
 **EKS HA**: infra + cleanup jobs added (PMM-14346, PMM-14505).
 
+## Related
+
+- [cloud/AGENTS.md](../cloud/AGENTS.md) - K8s operators (PMM HA on EKS tests)
+- [ps/AGENTS.md](../ps/AGENTS.md) - Percona Server (PMM monitors PS)
+- [pxc/AGENTS.md](../pxc/AGENTS.md) - XtraDB Cluster (PMM monitors PXC)
+- [psmdb/AGENTS.md](../psmdb/AGENTS.md) - Percona Server for MongoDB (PMM monitors PSMDB)
+- [vars/AGENTS.md](../vars/AGENTS.md) - Shared helpers (runSpotInstance, openshiftSSL)
+
 ## Local Validation
 
 ```bash

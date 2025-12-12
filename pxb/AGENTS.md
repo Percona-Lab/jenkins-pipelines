@@ -213,8 +213,10 @@ groovy -e "new GroovyShell().parse(new File('pxb/v2/jenkins/percona-xtrabackup-8
 
 ## Related
 
-- [ps/AGENTS.md](../ps/AGENTS.md) - Percona Server (depends on PXB)
-- [pxc/AGENTS.md](../pxc/AGENTS.md) - XtraDB Cluster (depends on PXB)
+- [ps/AGENTS.md](../ps/AGENTS.md) - Percona Server (uses PXB for backups)
+- [pxc/AGENTS.md](../pxc/AGENTS.md) - XtraDB Cluster (uses PXB for SST/backups)
+- [pdps/AGENTS.md](../pdps/AGENTS.md) - Percona Distribution for PS (bundles PXB)
+- [pdpxc/AGENTS.md](../pdpxc/AGENTS.md) - Percona Distribution for PXC (bundles PXB)
 - [vars/AGENTS.md](../vars/AGENTS.md) - Shared helpers (molecule*, ccache*)
 
 ## GitHub Repositories

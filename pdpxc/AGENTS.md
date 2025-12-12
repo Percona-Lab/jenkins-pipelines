@@ -155,8 +155,10 @@ molecule test -s pdpxc-haproxy
 
 ## Related
 
-- [pxc/AGENTS.md](../pxc/AGENTS.md) - PXC builds (PDPXC depends on these)
-- [cloud/AGENTS.md](../cloud/AGENTS.md) - PXC Operator integration
+- [pxc/AGENTS.md](../pxc/AGENTS.md) - PXC builds (PDPXC bundles PXC)
+- [proxysql/AGENTS.md](../proxysql/AGENTS.md) - ProxySQL (PDPXC bundles ProxySQL)
+- [pxb/AGENTS.md](../pxb/AGENTS.md) - XtraBackup (PDPXC bundles PXB)
+- [cloud/AGENTS.md](../cloud/AGENTS.md) - PXCO operator integration tests
 - [vars/AGENTS.md](../vars/AGENTS.md) - Shared helpers
 
 ## GitHub Repositories

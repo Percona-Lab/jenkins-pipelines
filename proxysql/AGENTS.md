@@ -13,9 +13,9 @@ Extends: [../AGENTS.md](../AGENTS.md)
 
 | Key | Value |
 |-----|-------|
-| Jenkins Instance | `ps80` |
-| URL | https://ps80.cd.percona.com |
-| Job Patterns | `*proxysql*`, `qa-proxysql2-*` |
+| Jenkins Instance | `pxc` (QA jobs), `ps80` (package testing) |
+| URL | https://pxc.cd.percona.com, https://ps80.cd.percona.com |
+| Job Patterns | `qa-proxysql*` (pxc), `proxysql-package-testing*` (ps80/pxc) |
 | Default Credential | `c42456e5-c28d-4962-b32c-b75d161bff27` (AWS) |
 | Build Type | Native C++/Go |
 | Groovy Files | 3 |
@@ -183,8 +183,10 @@ bash proxysql/test-proxysql --suite qa
 
 ## Related
 
-- [ps/AGENTS.md](../ps/AGENTS.md) - Percona Server (ProxySQL works with PS)
 - [pxc/AGENTS.md](../pxc/AGENTS.md) - XtraDB Cluster (ProxySQL provides PXC load balancing)
+- [pdpxc/AGENTS.md](../pdpxc/AGENTS.md) - Percona Distribution for PXC (bundles ProxySQL)
+- [pdps/AGENTS.md](../pdps/AGENTS.md) - Percona Distribution for PS (bundles ProxySQL)
+- [ps/AGENTS.md](../ps/AGENTS.md) - Percona Server (ProxySQL works with PS)
 - [vars/AGENTS.md](../vars/AGENTS.md) - Shared helpers
 
 ## GitHub Repositories

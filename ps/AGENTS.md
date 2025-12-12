@@ -344,14 +344,14 @@ cd molecule/ps && molecule test -s ubuntu-jammy
 - **Private repo access**: Pro and 5.7 EOL builds use `PS_PRIVATE_REPO_ACCESS` and `GITHUB_API_TOKEN` for private GitHub repos.
 - **InnoDB cluster tests**: The parallel orchestrator runs 20 OS variants. Failures are often OS-specific—check individual job logs.
 
-## Related AGENTS.md Files
+## Related
 
-- `pdps/AGENTS.md` - Distribution packaging (depends on PS)
-- `pxb/AGENTS.md` - XtraBackup (depends on PS)
-- `pxc/AGENTS.md` - XtraDB Cluster (depends on PS)
-- `pmm/AGENTS.md` - PMM integration (PS triggers PMM_PS.yaml workflow)
-- `cloud/AGENTS.md` - K8s operators (PS Operator tests PS images)
-- `vars/AGENTS.md` - Shared library helpers
+- [pdps/AGENTS.md](../pdps/AGENTS.md) - Percona Distribution for PS (bundles PS)
+- [pxb/AGENTS.md](../pxb/AGENTS.md) - XtraBackup (backs up PS)
+- [pxc/AGENTS.md](../pxc/AGENTS.md) - XtraDB Cluster (based on PS)
+- [pmm/AGENTS.md](../pmm/AGENTS.md) - PMM integration (monitors PS)
+- [cloud/AGENTS.md](../cloud/AGENTS.md) - PS Operator (deploys PS on K8s)
+- [vars/AGENTS.md](../vars/AGENTS.md) - Shared library helpers
 
 ## Related GitHub Repositories
 

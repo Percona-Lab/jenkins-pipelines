@@ -438,11 +438,15 @@ cd cloud/gcp-functions && go build ./...
 - **Legacy PGO v1**: 9 legacy pipelines exist for PGO v1 compatibility—separate from current pgo_*.groovy.
 - **Orphan cleanup is critical**: Run `aws-functions/*.py` and `gcp-functions/` utilities regularly to avoid cost leaks.
 
-## Related AGENTS.md Files
+## Related
 
-- `pmm/AGENTS.md` - PMM HA on EKS (`pmm/v3/pmm3-ha-eks.groovy`)
-- `vars/AGENTS.md` - Shared helpers (eksctl*, openshift* functions)
-- `IaC/AGENTS.md` - CloudFormation for Jenkins infrastructure
+- [pmm/AGENTS.md](../pmm/AGENTS.md) - PMM HA on EKS tests
+- [pxc/AGENTS.md](../pxc/AGENTS.md) - PXC (deployed by PXCO operator)
+- [pdpxc/AGENTS.md](../pdpxc/AGENTS.md) - PDPXC (PXCO integration tests)
+- [psmdb/AGENTS.md](../psmdb/AGENTS.md) - PSMDB (deployed by PSMDBO operator)
+- [pdmdb/AGENTS.md](../pdmdb/AGENTS.md) - PDMDB (PSMDBO integration tests)
+- [ps/AGENTS.md](../ps/AGENTS.md) - PS (deployed by PSO operator)
+- [vars/AGENTS.md](../vars/AGENTS.md) - Shared helpers (eksctl*, openshift*)
 
 ## Related GitHub Repositories
 
