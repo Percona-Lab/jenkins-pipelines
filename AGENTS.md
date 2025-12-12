@@ -77,6 +77,26 @@ jenkins-pipelines/
 
 **Auto-discovery:** Agents automatically read the nearest AGENTS.md in the directory tree.
 
+## Repo Dynamics (last 12 months)
+
+Snapshot (as of 2025-12) derived from `git log --since='12 months ago'`:
+
+- **Mostly product-scoped changes:** most commits touch a single top-level directory; cross-directory edits are the exception (most commonly `pmm/` + `vars/`).
+- **Highest churn areas:** `pmm/` (185), `cloud/` (79), `ps/` (42), `pxc/` (38), `pxb/` (36) dominate recent change volume.
+- **Major milestones (examples):**
+  - `CLOUD-875`: consolidated and deleted duplicated cloud pipelines (2024-12 → 2025-03).
+  - `PMM-14154`: removed PMM v2 pipelines (large deletion commit).
+  - Dec 2025: expanded `AGENTS.md` documentation across products with LLM-optimized job dependency graphs.
+- **Hetzner migration:** PSMDB and PBM jobs migrating to Hetzner infrastructure (jobs prefixed `hetzner-*`).
+- **Release cadence signal:** operator versions are frequently tagged (`*-operator-*`); use tags as a quick "what changed recently" index.
+
+Useful commands:
+```bash
+git log --since='12 months ago' --oneline -- <path>
+git shortlog -sn --since='12 months ago' -- <path>
+git tag -l '*-operator-*' --sort=-creatordate | head -n 20
+```
+
 # Jenkins
 
 ## Instances
@@ -348,22 +368,24 @@ sh "eksctl create cluster --name \${CLUSTER_NAME} --region us-east-2"
 
 ## Product AGENTS.md Files
 
-| File | Keywords |
-|------|----------|
-| [pmm/AGENTS.md](pmm/AGENTS.md) | pmm, monitoring, grafana, victoriametrics, prometheus, clickhouse, qan, query-analytics, eks-ha, ha-testing, staging, ami, ovf, docker, ui-tests, playwright, upgrade-tests, observability, alerting, dashboards |
-| [percona-telemetry-agent/AGENTS.md](percona-telemetry-agent/AGENTS.md) | telemetry, percona-telemetry-agent, pmm, agent, packaging, packages, rpm, deb, multi-distro, x86_64, aarch64 |
-| [psmdb/AGENTS.md](psmdb/AGENTS.md) | psmdb, mongodb, mongo, percona-server-mongodb, replicaset, sharding, wiredtiger, mongod, mongos, arbiter, oplog, bson |
-| [pxc/AGENTS.md](pxc/AGENTS.md) | pxc, xtradb, galera, cluster, mysql-cluster, wsrep, sst, ist, donor, joiner, garbd, multi-master, synchronous-replication |
-| [ps/AGENTS.md](ps/AGENTS.md) | ps, percona-server, mysql, ps80, ps57, ps56, innodb, rocksdb, tokudb, mysqld, my.cnf, replication, gtid |
-| [pxb/AGENTS.md](pxb/AGENTS.md) | pxb, xtrabackup, backup, mysql-backup, incremental, full-backup, prepare, restore, streaming, compression, encryption |
-| [pbm/AGENTS.md](pbm/AGENTS.md) | pbm, percona-backup-mongodb, mongo-backup, pitr, point-in-time, snapshot, restore, s3-storage, logical-backup, physical-backup |
-| [cloud/AGENTS.md](cloud/AGENTS.md) | operator, eks, gke, aks, openshift, kubernetes, k8s, helm, pxc-operator, psmdb-operator, pg-operator, ps-operator, everest, cr, crd, statefulset, pvc |
-| [proxysql/AGENTS.md](proxysql/AGENTS.md) | proxysql, proxy, load-balancer, query-routing, connection-pooling, read-write-split, mysql-proxy, admin-interface |
-| [pdps/AGENTS.md](pdps/AGENTS.md) | pdps, distribution, percona-distribution-ps, orchestrator, proxysql, toolkit, mysql-shell, mysql-router, group-replication |
-| [pdpxc/AGENTS.md](pdpxc/AGENTS.md) | pdpxc, distribution, percona-distribution-pxc, haproxy, proxysql, garbd, pxc-bundle |
-| [pdmdb/AGENTS.md](pdmdb/AGENTS.md) | pdmdb, distribution, percona-distribution-mongodb, pbm, mongosh, mongo-tools, compass |
-| [prel/AGENTS.md](prel/AGENTS.md) | release, prel, sync2prod, publishing, repo, packages, rpm, deb, tarballs, signing, gpg, repository |
-| [vars/AGENTS.md](vars/AGENTS.md) | vars, helpers, shared-library, functions, groovy, launchSpotInstance, runPython, installDocker, moleculeExecute, sync2Prod, pmmVersion, withCredentials |
+Enhanced AGENTS.md files include: job dependency graphs, directory maps with line counts, credentials tables, Jenkins CLI quick reference, and key Jira tickets.
+
+| File | Status | Keywords |
+|------|--------|----------|
+| [pmm/AGENTS.md](pmm/AGENTS.md) | Enhanced | pmm, monitoring, grafana, victoriametrics, prometheus, clickhouse, qan, eks-ha, ami, ovf, docker, ui-tests, playwright |
+| [cloud/AGENTS.md](cloud/AGENTS.md) | Enhanced | operator, eks, gke, aks, openshift, kubernetes, k8s, pxc-operator, psmdb-operator, pg-operator, ps-operator |
+| [ps/AGENTS.md](ps/AGENTS.md) | Enhanced | ps, percona-server, mysql, ps80, ps84, innodb, rocksdb, mysqld, replication, gtid, molecule |
+| [pxc/AGENTS.md](pxc/AGENTS.md) | Enhanced | pxc, xtradb, galera, cluster, wsrep, sst, ist, hetzner, pxc80, pxc84, pxc57 |
+| [pxb/AGENTS.md](pxb/AGENTS.md) | Enhanced | pxb, xtrabackup, backup, mysql-backup, incremental, full-backup, prepare, restore, kmip |
+| [pbm/AGENTS.md](pbm/AGENTS.md) | Enhanced | pbm, percona-backup-mongodb, mongo-backup, pitr, s3-storage, gcs, azure, logical-backup, physical-backup |
+| [proxysql/AGENTS.md](proxysql/AGENTS.md) | Enhanced | proxysql, proxy, load-balancer, query-routing, connection-pooling, mysql-proxy, admin-interface |
+| [psmdb/AGENTS.md](psmdb/AGENTS.md) | Hetzner | psmdb, mongodb, percona-server-mongodb, replicaset, sharding (see hetzner branch) |
+| [vars/AGENTS.md](vars/AGENTS.md) | Reference | vars, helpers, shared-library, groovy, launchSpotInstance, runPython, moleculeExecute, sync2Prod |
+| [percona-telemetry-agent/AGENTS.md](percona-telemetry-agent/AGENTS.md) | Basic | telemetry, percona-telemetry-agent, pmm, agent, packaging, rpm, deb |
+| [pdps/AGENTS.md](pdps/AGENTS.md) | Basic | pdps, distribution, percona-distribution-ps, orchestrator, proxysql, toolkit |
+| [pdpxc/AGENTS.md](pdpxc/AGENTS.md) | Basic | pdpxc, distribution, percona-distribution-pxc, haproxy, proxysql, garbd |
+| [pdmdb/AGENTS.md](pdmdb/AGENTS.md) | Basic | pdmdb, distribution, percona-distribution-mongodb, pbm, mongosh, mongo-tools |
+| [prel/AGENTS.md](prel/AGENTS.md) | Basic | release, prel, sync2prod, publishing, repo, packages, rpm, deb, tarballs |
 
 ## Reference Files
 
