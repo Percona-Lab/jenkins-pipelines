@@ -135,7 +135,7 @@ pipeline {
                                         cat uploadPath-${PACKAGE_VERSION}
                                 """
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
-                                buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_ssl35=1")
+                                buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_ssl35=1 --include_liburing=1")
                                 pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18)
                                 uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18, "binary", "${PACKAGE_VERSION}")
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
@@ -161,7 +161,7 @@ pipeline {
                                         cat uploadPath-${PACKAGE_VERSION}
                                 """
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
-                                buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION}")
+                                buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --include_liburing=1")
                                 pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18)
                                 uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18, "binary", "${PACKAGE_VERSION}")
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
@@ -187,7 +187,7 @@ pipeline {
                                         cat uploadPath-${PACKAGE_VERSION}
                                 """
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
-                                buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1")
+                                buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_system_ssl=1 --include_liburing=1")
                                 pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18)
                                 uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_18, "binary", "${PACKAGE_VERSION}")
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
