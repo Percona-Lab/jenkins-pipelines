@@ -42,9 +42,6 @@ pipeline {
         )
     }
 
-    environment {
-        S3_BUCKET = 'openshift-clusters-119175775298-us-east-2'
-    }
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '100'))
@@ -128,27 +125,8 @@ Age:            ${openshiftRosa.getClusterAgeHours(targetCluster.createdAt)} hou
                             env.CLUSTER_STATE = targetCluster.state
                         } else {
                             echo "WARNING: Cluster '${env.TARGET_CLUSTER}' not found in ROSA API"
-                            echo 'Will attempt to clean up S3 state and Route53 records if they exist'
+                            echo 'Will attempt to clean up Route53 records if they exist'
                             env.CLUSTER_STATE = 'not-found'
-                        }
-
-                        // Check S3 state
-                        def s3State = openshiftRosa.getClusterState([
-                            clusterName: env.TARGET_CLUSTER,
-                            region: params.AWS_REGION
-                        ])
-
-                        if (s3State) {
-                            echo """
-S3 STATE FOUND
---------------
-Created by:     ${s3State.created_by ?: 'unknown'}
-Created date:   ${s3State.created_date ?: 'unknown'}
-Team:           ${s3State.team_name ?: 'unknown'}
-TTL:            ${s3State.delete_after_hours ?: 'unknown'} hours
-"""
-                        } else {
-                            echo 'No S3 state found for this cluster'
                         }
                     }
                 }
@@ -166,9 +144,7 @@ DRY RUN - WOULD DELETE THE FOLLOWING
 
 ROSA Cluster:     ${env.TARGET_CLUSTER} (${env.CLUSTER_STATE})
 VPC Stack:        ${env.TARGET_CLUSTER}-vpc
-S3 State:         s3://${env.S3_BUCKET}/${env.TARGET_CLUSTER}/
 Route53 Records:  ${params.DELETE_ROUTE53 ? "${env.TARGET_CLUSTER}.${params.BASE_DOMAIN}" : 'SKIPPED'}
-
 Operator Roles:   Will be deleted
 OIDC Provider:    Will NOT be deleted (shared)
 
@@ -237,30 +213,6 @@ To proceed with deletion, run this job again with DRY_RUN=false
                             echo "ROSA cluster deletion initiated for ${env.TARGET_CLUSTER}"
                             echo "Cluster ID: ${deleteResult.clusterId}"
                         }
-                    }
-                }
-            }
-        }
-
-        stage('Cleanup S3 State') {
-            when { expression { !params.DRY_RUN } }
-            steps {
-                withCredentials([
-                    aws(
-                        credentialsId: 'jenkins-openshift-aws',
-                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
-                ]) {
-                    script {
-                        echo "Cleaning up S3 state for ${env.TARGET_CLUSTER}..."
-
-                        openshiftRosa.deleteClusterState([
-                            clusterName: env.TARGET_CLUSTER,
-                            region: params.AWS_REGION
-                        ])
-
-                        echo 'S3 state cleanup completed'
                     }
                 }
             }

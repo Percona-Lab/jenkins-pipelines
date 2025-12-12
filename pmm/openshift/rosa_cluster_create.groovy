@@ -35,10 +35,6 @@ def attemptClusterCleanup(String reason) {
                             region: params.AWS_REGION,
                             deleteVpc: true
                         ])
-                        openshiftRosa.deleteClusterState([
-                            clusterName: env.FINAL_CLUSTER_NAME,
-                            region: params.AWS_REGION
-                        ])
                     }
                     echo 'Cleanup completed successfully'
                 } catch (Exception e) {
@@ -56,7 +52,6 @@ pipeline {
     agent { label 'agent-amd64-ol9' }
 
     environment {
-        S3_BUCKET = 'openshift-clusters-119175775298-us-east-2'
         KUBECONFIG_DIR = "${WORKSPACE}/kubeconfig"
     }
 
@@ -365,19 +360,6 @@ Please choose a different cluster name or delete the existing cluster first.
                         env.CLUSTER_API_URL = clusterInfo.apiUrl
                         env.CLUSTER_CONSOLE_URL = clusterInfo.consoleUrl
                         env.CLUSTER_VERSION = clusterInfo.openshiftVersion
-
-                        // Save state to S3
-                        openshiftRosa.saveClusterState([
-                            clusterName: env.FINAL_CLUSTER_NAME,
-                            clusterId: clusterInfo.clusterId,
-                            openshiftVersion: clusterInfo.openshiftVersion,
-                            region: params.AWS_REGION,
-                            instanceType: params.INSTANCE_TYPE,
-                            replicas: params.WORKER_COUNT,
-                            deleteAfterHours: params.DELETE_AFTER_HOURS,
-                            teamName: params.TEAM_NAME,
-                            buildUser: env.BUILD_USER_ID
-                        ])
                     }
                 }
             }
@@ -545,7 +527,6 @@ LIFECYCLE
 ---------
 Auto-Delete After:    ${params.DELETE_AFTER_HOURS} hours
 Team:                 ${params.TEAM_NAME}
-S3 State:             s3://${env.S3_BUCKET}/${env.FINAL_CLUSTER_NAME}/
 
 ====================================================================
 """

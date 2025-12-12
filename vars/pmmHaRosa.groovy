@@ -160,6 +160,13 @@ def generatePassword() {
     return openshiftRosa.generatePassword()
 }
 
+/**
+ * Formats cluster list for display. Delegates to openshiftRosa.
+ */
+def formatClustersSummary(List clusters, String title = 'PMM HA ROSA CLUSTERS') {
+    return openshiftRosa.formatClustersSummary(clusters, title)
+}
+
 // ============================================================================
 // PMM HA Specific Operations
 // ============================================================================

@@ -54,9 +54,8 @@ import groovy.transform.Field
 @Field static final int DEFAULT_REPLICAS = 3
 @Field static final int DEFAULT_MAX_CLUSTERS = 10
 
-// AWS Account and S3 bucket for state storage
+// AWS Account ID for ECR
 @Field static final String AWS_ACCOUNT_ID = '119175775298'
-@Field static final String DEFAULT_S3_BUCKET = 'openshift-clusters-119175775298-us-east-2'
 
 // ============================================================================
 // Tool Installation
@@ -712,135 +711,6 @@ def listClusters(Map config = [:]) {
 
     echo "Found ${result.size()} ROSA cluster(s)"
     return result
-}
-
-// ============================================================================
-// S3 State Management
-// ============================================================================
-
-/**
- * Saves ROSA cluster metadata to S3 for tracking and discovery.
- *
- * This maintains compatibility with the existing OpenShift cluster discovery
- * system which uses S3 for state management.
- *
- * @param config Map containing:
- *   - clusterName: Cluster name (required)
- *   - clusterId: ROSA cluster ID (required)
- *   - region: AWS region (optional, default: 'us-east-2')
- *   - openshiftVersion: OpenShift version (optional)
- *   - instanceType: EC2 instance type (optional)
- *   - replicas: Number of workers (optional)
- *   - s3Bucket: S3 bucket for state (optional, default: standard bucket)
- *   - buildUser: User who created the cluster (optional)
- *   - deleteAfterHours: Cluster TTL in hours (optional)
- *   - teamName: Team name for billing (optional)
- *
- * @return Map containing saved metadata
- */
-def saveClusterState(Map config) {
-    if (!config.clusterName || !config.clusterId) {
-        error 'clusterName and clusterId are required'
-    }
-
-    def region = config.region ?: DEFAULT_REGION
-    def s3Bucket = config.s3Bucket ?: DEFAULT_S3_BUCKET
-
-    def metadata = [
-        cluster_name: config.clusterName,
-        cluster_id: config.clusterId,
-        cluster_type: 'rosa-hcp',
-        openshift_version: config.openshiftVersion ?: 'unknown',
-        aws_region: region,
-        created_date: new Date().format("yyyy-MM-dd'T'HH:mm:ss'Z'", TimeZone.getTimeZone('UTC')),
-        created_by: config.buildUser ?: env.BUILD_USER_ID ?: 'jenkins',
-        jenkins_build: env.BUILD_NUMBER,
-        jenkins_job: env.JOB_NAME,
-        instance_type: config.instanceType ?: DEFAULT_INSTANCE_TYPE,
-        replicas: config.replicas ?: DEFAULT_REPLICAS,
-        delete_after_hours: config.deleteAfterHours ?: '24',
-        team_name: config.teamName ?: 'unknown'
-    ]
-
-    def metadataJson = new JsonBuilder(metadata).toPrettyString()
-    def s3Key = "${config.clusterName}/cluster-metadata.json"
-
-    echo "Saving cluster metadata to s3://${s3Bucket}/${s3Key}"
-
-    sh """
-        cat > /tmp/cluster-metadata.json <<'ENDJSON'
-${metadataJson}
-ENDJSON
-
-        aws s3 cp /tmp/cluster-metadata.json s3://${s3Bucket}/${s3Key} --region ${region}
-        rm -f /tmp/cluster-metadata.json
-    """
-
-    echo 'Cluster metadata saved to S3'
-    return metadata
-}
-
-/**
- * Retrieves cluster metadata from S3.
- *
- * @param config Map containing:
- *   - clusterName: Cluster name (required)
- *   - region: AWS region (optional, default: 'us-east-2')
- *   - s3Bucket: S3 bucket (optional)
- *
- * @return Map containing cluster metadata, or null if not found
- */
-def getClusterState(Map config) {
-    if (!config.clusterName) {
-        error 'clusterName is required'
-    }
-
-    def region = config.region ?: DEFAULT_REGION
-    def s3Bucket = config.s3Bucket ?: DEFAULT_S3_BUCKET
-    def s3Key = "${config.clusterName}/cluster-metadata.json"
-
-    try {
-        def metadataJson = sh(
-            script: """
-                aws s3 cp s3://${s3Bucket}/${s3Key} - --region ${region} 2>/dev/null || echo '{}'
-            """,
-            returnStdout: true
-        ).trim()
-
-        if (metadataJson == '{}') {
-            return null
-        }
-
-        return new JsonSlurper().parseText(metadataJson)
-    } catch (Exception e) {
-        echo "WARNING: Could not retrieve cluster state: ${e.message}"
-        return null
-    }
-}
-
-/**
- * Deletes cluster state from S3.
- *
- * @param config Map containing:
- *   - clusterName: Cluster name (required)
- *   - region: AWS region (optional)
- *   - s3Bucket: S3 bucket (optional)
- */
-def deleteClusterState(Map config) {
-    if (!config.clusterName) {
-        error 'clusterName is required'
-    }
-
-    def region = config.region ?: DEFAULT_REGION
-    def s3Bucket = config.s3Bucket ?: DEFAULT_S3_BUCKET
-
-    echo "Deleting cluster state from S3: ${config.clusterName}"
-
-    sh """
-        aws s3 rm s3://${s3Bucket}/${config.clusterName}/ --recursive --region ${region} || true
-    """
-
-    echo 'Cluster state deleted from S3'
 }
 
 // ============================================================================
