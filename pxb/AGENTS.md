@@ -108,13 +108,36 @@ pxb/                                    # 3.5k lines total
 
 ## Key Jira Tickets
 
-| Ticket | Summary |
-|--------|---------|
-| PKG-682 | Update platforms for PXB Jenkins jobs (RHEL 10, Debian 13) |
-| PKG-575 | Fix var declarations for 8.4 jobs |
-| PKG-475 | Update PXB release pipeline for PRO builds (private repos) |
-| PKG-256 | PXB 9.1.0 packaging tasks |
-| RM-1471 | PXB 8.0.35-32 release |
+| Ticket | Summary | Status |
+|--------|---------|--------|
+| PKG-682 | Platform modernization - ASAN to CentOS 8+, add LTS platforms | Open |
+| PKG-696 | Python3 subunit2junitxml for Ubuntu Noble/Debian Bookworm | Done |
+| PKG-691 | libaio.so.1 symlink fix for Ubuntu Noble | Done |
+| PKG-685 | JJB binary XML fix for YAML job definitions | Done |
+| PKG-575 | Fix test failure reporting (UNSTABLE not showing yellow) | Done |
+| PKG-475 | PRO builds via private repos (`percona/*-private-build`) | Done |
+| PKG-423 | GCC 10+ requirement for PXB 9.x (CentOS 7/8 deprecated) | Done |
+| PKG-306 | PXB 8.4.0-2 PRO release (telemetry: PXB-3422) | Done |
+| PKG-256 | PXB 9.1.0 packaging tasks | Done |
+
+## Current Initiatives
+
+### Platform Modernization (PKG-682)
+- ASAN builds migrating to CentOS 8+
+- Ubuntu Noble and Debian Bookworm support complete (PKG-696, PKG-691)
+- Python3 `subunit2junitxml` replaces Python2 version
+
+### PRO Build Infrastructure
+- Private build repos: `percona/percona-xtrabackup-private-build`
+- Release pipeline: `rel.cd.percona.com/view/pxb-8.0-RELEASE/`
+- Telemetry differentiation community vs PRO (PXB-3422)
+
+### Compiler Requirements
+| Version | Min GCC | Platform Impact |
+|---------|---------|-----------------|
+| 9.x | GCC 10+ | CentOS 7/8 deprecated |
+| 8.4/8.0 | GCC 8+ | All platforms supported |
+| 2.4 | GCC 4.8+ | Legacy platforms |
 
 ## Backup Testing
 

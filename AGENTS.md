@@ -9,6 +9,7 @@ Instructions for AI coding agents working with the Percona `jenkins-pipelines` r
 3. **Mirror existing patterns:** Prefer `rg`/`rg --files` for search, follow the same helper functions (`vars/`) and agent labels already used in that product.
 4. **Validate locally:** Lint Groovy, byte-compile Python helpers, and—when possible—perform Jenkins dry-runs or fork-based tests before submitting changes.
 5. **Keep secrets safe:** Never echo credentials; wrap everything with `withCredentials`, and clean workspaces with `deleteDir()` to avoid residue on long-lived agents.
+6. **Keep docs high-signal:** Prefer stable facts (job names, `script-path`, parameter contracts, cleanup rules) and avoid hardcoding contributor lists; use `git shortlog -sn ...` locally if you need an ownership hint.
 
 ## Setup Commands
 
@@ -132,6 +133,15 @@ git tag -l '*-operator-*' --sort=-creatordate | head -n 20
 - `pxc` hosts Galera ecosystem: PXC + PDPXC + some PXB/PT jobs
 - `rel` is the main release instance
 - `pg` and `pxb` are dedicated single-product instances
+
+## Product Dependencies
+
+**MongoDB family:** PSMDB → PBM → PDMDB → PSMDBO operator
+**MySQL family:** PS → PXB → PDPS → PSO operator
+**Galera family:** PXC → ProxySQL → PDPXC → PXCO operator
+**Cross-family:** PXB consumed by PS, PXC, PDPS, PDPXC
+
+When modifying upstream products, verify downstream jobs still pass.
 
 ## CLI
 ```bash

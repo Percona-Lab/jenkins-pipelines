@@ -99,10 +99,25 @@ proxysql/                               # 605 lines total
 
 ## Key Jira Tickets
 
-| Ticket | Summary |
-|--------|---------|
-| PSQLADM-573 | ProxySQL admin scripts testing job uses compiled version |
-| PSQLADM-555 | Fetch latest versions of PXC packages |
+| Ticket | Summary | Status |
+|--------|---------|--------|
+| PSQLADM-573 | Fix qa-proxysql2-pipeline to test compiled binary (not repo pkg) | Done |
+| PSQLADM-567 | Code refresh for ProxySQL Admin 3.0.1 | Done |
+| PSQLADM-555 | Dev work for ProxySQL 2.7.3 | Pending Release |
+| PSQLADM-560 | syncusers test timeout on Bookworm (open bug) | Open |
+
+## Current Initiatives
+
+### ProxySQL 3.x Support (PSQLADM-567)
+- New `qa-proxysql3-param` job for version 3.x testing
+- Code refresh completed September 2025
+
+### Testing Infrastructure (PSQLADM-573)
+- Binary builds now properly tested (not repo packages)
+- Platform matrix expanded: OEL9, Ubuntu Noble
+
+### Known Issues
+- **Debian Bookworm** (PSQLADM-560): syncusers test ~131s vs expected <60s
 
 ## ProxySQL Features Tested
 

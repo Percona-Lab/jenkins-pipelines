@@ -107,11 +107,28 @@ pbm/                                    # 2,560 lines total
 
 ## Key Jira Tickets
 
-| Ticket | Summary |
-|--------|---------|
-| PBM-1506 | Add two different setups for GCS |
-| PKG-389 | Docker images manifest retagged (multi-arch) |
-| PKG-41 | Add nightly PBM Docker build |
+| Ticket | Summary | Status |
+|--------|---------|--------|
+| PKG-41 | Nightly Docker builds for K8s operator testing | Done |
+| PKG-389 | Multi-arch image rework (`x.y-multi` → `x.y` manifest) | Done |
+| PBM-1506 | GCS parallel download for restore performance | Done |
+
+## Current Initiatives
+
+### Docker Pipeline Improvements
+- **Nightly builds** (PKG-41): `perconalab/percona-backup-mongodb:nightly` for operator testing
+- **Multi-arch rework** (PKG-389): Standardized tagging `x.y` (manifest) + `-amd64`/`-arm64` suffixes
+- ARM64 support expanding across all image variants
+
+### Storage Backend Evolution
+- **GCS SDK migration** (PBM-1506): Parallel download for faster restores
+- Native GCS SDK replacing S3-compatible API
+- Related: PBM-1557 (further GCS improvements)
+
+### Driving Forces
+- K8s operators (PSMDB/PXC/PGO) require nightly Docker images
+- ARM64 adoption driving multi-arch requirements
+- Cloud storage performance optimization (large backup SLAs)
 
 ## Backup Coverage
 
