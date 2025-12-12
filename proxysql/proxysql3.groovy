@@ -377,13 +377,20 @@ pipeline {
                         sudo systemctl stop apparmor
                         sudo systemctl disable apparmor
                         sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+                        export DOCKER_CLI_EXPERIMENTAL=enabled
+                        sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                        sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                        sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                         sudo systemctl restart docker
-                        git clone https://github.com/percona/percona-docker
+                        sudo apt-get install -y qemu-system binfmt-support qemu-user-static
+                        sudo qemu-system-x86_64 --version
+                        sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+                        git clone https://github.com/surbhat1595/percona-docker
                         cd percona-docker/proxysql
-                        sed -i "s/ENV PROXYSQL_VERSION.*/ENV PROXYSQL_VERSION ${VERSION}-${RPM_RELEASE}/g" Dockerfile
-                        sed -i "s/enable proxysql testing/enable proxysql ${COMPONENT}/g" Dockerfile
-                        sed -i "s/proxysql2/proxysql3/g" Dockerfile
-                        sudo docker build --no-cache --platform "linux/amd64" -t perconalab/proxysql3:${VERSION}-${RPM_RELEASE} .
+                        sed -i "s/ENV PROXYSQL_VERSION.*/ENV PROXYSQL_VERSION ${VERSION}-${RPM_RELEASE}/g" Dockerfile-proxysql3
+                        sed -i "s/enable proxysql testing/enable proxysql ${COMPONENT}/g" Dockerfile-proxysql3
+                        sudo docker build --provenance=false --no-cache --platform "linux/amd64" -t perconalab/proxysql3:${VERSION}-${RPM_RELEASE}-amd64 -f Dockerfile-proxysql3 .
+                        sudo docker build --provenance=false --no-cache --platform "linux/arm64" -t perconalab/proxysql3:${VERSION}-${RPM_RELEASE}-arm64 -f Dockerfile-proxysql3 .
 
                         sudo docker images
                     '''
@@ -394,19 +401,24 @@ pipeline {
                         )]) {
                         sh '''
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                            sudo docker push perconalab/proxysql3:${VERSION}-${RPM_RELEASE}
+                            sudo docker push perconalab/proxysql3:${VERSION}-${RPM_RELEASE}-amd64
+                            sudo docker push perconalab/proxysql3:${VERSION}-${RPM_RELEASE}-arm64
 
                             PROXYSQL_MAJOR_VERSION=$(echo $VERSION | cut -d'.' -f1)
                             PROXYSQL_MINOR_VERSION=$(echo $VERSION | cut -d'.' -f2)
                             PROXYSQL_PATCH_VERSION=$(echo $VERSION | cut -d'.' -f3)
 
-                            docker tag perconalab/proxysql3:${VERSION}-${RPM_RELEASE} perconalab/proxysql3:${PROXYSQL_MAJOR_VERSION}.${PROXYSQL_MINOR_VERSION}.${PROXYSQL_PATCH_VERSION}
-                            docker tag perconalab/proxysql3:${VERSION}-${RPM_RELEASE} perconalab/proxysql3:${PROXYSQL_MAJOR_VERSION}.${PROXYSQL_MINOR_VERSION}
-                            docker tag perconalab/proxysql3:${VERSION}-${RPM_RELEASE} perconalab/proxysql3:${PROXYSQL_MAJOR_VERSION}
-
-                            sudo docker push perconalab/proxysql3:${PROXYSQL_MAJOR_VERSION}.${PROXYSQL_MINOR_VERSION}.${PROXYSQL_PATCH_VERSION}
-                            sudo docker push perconalab/proxysql3:${PROXYSQL_MAJOR_VERSION}.${PROXYSQL_MINOR_VERSION}
-                            sudo docker push perconalab/proxysql3:${PROXYSQL_MAJOR_VERSION}
+                           sudo docker manifest create perconalab/proxysql3:${VERSION}-${RPM_RELEASE} \
+                               perconalab/proxysql3:${VERSION}-${RPM_RELEASE}-amd64 \
+                               perconalab/proxysql3:${VERSION}-${RPM_RELEASE}-arm64
+                           sudo docker manifest annotate perconalab/proxysql3:${VERSION}-${RPM_RELEASE} perconalab/proxysql3:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate perconalab/proxysql3:${VERSION}-${RPM_RELEASE} perconalab/proxysql3:${VERSION}-${RPM_RELEASE}-amd64  --os linux --arch amd64
+                           sudo docker manifest inspect perconalab/proxysql3:${VERSION}-${RPM_RELEASE}
+                           sudo docker manifest push perconalab/proxysql3:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t  perconalab/proxysql3:${PROXYSQL_MAJOR_VERSION}.${PROXYSQL_MINOR_VERSION}.${PROXYSQL_PATCH_VERSION} perconalab/proxysql3:${VERSION}-${RPM_RELEASE}                           
+                           sudo docker buildx imagetools create -t  perconalab/proxysql3:${PROXYSQL_MAJOR_VERSION}.${PROXYSQL_MINOR_VERSION} perconalab/proxysql3:${VERSION}-${RPM_RELEASE}                           
+                           sudo docker buildx imagetools create -t  perconalab/proxysql3:${PROXYSQL_MAJOR_VERSION} perconalab/proxysql3:${VERSION}-${RPM_RELEASE}                           
+                           sudo docker buildx imagetools create -t  perconalab/proxysql3:latest perconalab/proxysql3:${VERSION}-${RPM_RELEASE}                           
 
                         '''
                     }
