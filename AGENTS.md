@@ -346,12 +346,28 @@ sh "eksctl create cluster --name \${CLUSTER_NAME} --region us-east-2"
 - Modify `init.groovy.d/` without explicit approval.
 - Delete jobs or IaC resources without tracing dependencies.
 
+## Product AGENTS.md Files
+
+| File | Keywords |
+|------|----------|
+| [pmm/AGENTS.md](pmm/AGENTS.md) | pmm, monitoring, grafana, victoriametrics, prometheus, clickhouse, qan, query-analytics, eks-ha, ha-testing, staging, ami, ovf, docker, ui-tests, playwright, upgrade-tests, observability, alerting, dashboards |
+| [psmdb/AGENTS.md](psmdb/AGENTS.md) | psmdb, mongodb, mongo, percona-server-mongodb, replicaset, sharding, wiredtiger, mongod, mongos, arbiter, oplog, bson |
+| [pxc/AGENTS.md](pxc/AGENTS.md) | pxc, xtradb, galera, cluster, mysql-cluster, wsrep, sst, ist, donor, joiner, garbd, multi-master, synchronous-replication |
+| [ps/AGENTS.md](ps/AGENTS.md) | ps, percona-server, mysql, ps80, ps57, ps56, innodb, rocksdb, tokudb, mysqld, my.cnf, replication, gtid |
+| [pxb/AGENTS.md](pxb/AGENTS.md) | pxb, xtrabackup, backup, mysql-backup, incremental, full-backup, prepare, restore, streaming, compression, encryption |
+| [pbm/AGENTS.md](pbm/AGENTS.md) | pbm, percona-backup-mongodb, mongo-backup, pitr, point-in-time, snapshot, restore, s3-storage, logical-backup, physical-backup |
+| [cloud/AGENTS.md](cloud/AGENTS.md) | operator, eks, gke, aks, openshift, kubernetes, k8s, helm, pxc-operator, psmdb-operator, pg-operator, ps-operator, everest, cr, crd, statefulset, pvc |
+| [proxysql/AGENTS.md](proxysql/AGENTS.md) | proxysql, proxy, load-balancer, query-routing, connection-pooling, read-write-split, mysql-proxy, admin-interface |
+| [pdps/AGENTS.md](pdps/AGENTS.md) | pdps, distribution, percona-distribution-ps, orchestrator, proxysql, toolkit, mysql-shell, mysql-router, group-replication |
+| [pdpxc/AGENTS.md](pdpxc/AGENTS.md) | pdpxc, distribution, percona-distribution-pxc, haproxy, proxysql, garbd, pxc-bundle |
+| [pdmdb/AGENTS.md](pdmdb/AGENTS.md) | pdmdb, distribution, percona-distribution-mongodb, pbm, mongosh, mongo-tools, compass |
+| [prel/AGENTS.md](prel/AGENTS.md) | release, prel, sync2prod, publishing, repo, packages, rpm, deb, tarballs, signing, gpg, repository |
+| [vars/AGENTS.md](vars/AGENTS.md) | vars, helpers, shared-library, functions, groovy, launchSpotInstance, runPython, installDocker, moleculeExecute, sync2Prod, pmmVersion, withCredentials |
+
 ## Reference Files
 
-- `pmm/README.md` – PMM-specific best practices.
-- `pmm/`, `pxc/`, `pxb/`, `psmdb/`, `ps/`, `pbm/`, `cloud/`, `vars/`, `IaC/` each contain their own `AGENTS.md` with tighter scope.
-- `vars/` – Shared library functions (Groovy).
-- `resources/` – Python helpers invoked via `runPython`.
-- `IaC/` – Infrastructure-as-code definitions for Jenkins masters.
-- `~/.config/jenkins-cli/config.json` – Jenkins CLI instance definitions and `_default` selection.
-- `/.github/CODEOWNERS` – Product-specific reviewers/approvers.
+- `vars/` – Shared library functions (Groovy)
+- `resources/` – Python helpers invoked via `runPython`
+- `IaC/` – Infrastructure-as-code definitions for Jenkins masters
+- `~/.config/jenkins-cli/config.json` – Jenkins CLI instance definitions
+- `.github/CODEOWNERS` – Product-specific reviewers/approvers
