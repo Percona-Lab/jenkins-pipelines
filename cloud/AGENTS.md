@@ -369,17 +369,6 @@ Recent structural changes (from `git log -- cloud`):
 - DOKS (DigitalOcean) added for pxco and pgo.
 - GCP cleanup functions added in Go.
 
-## Top Contributors (last 12 months)
-
-| Commits | Author |
-|---------|--------|
-| 23 | Eleonora Zinchenko |
-| 17 | Viacheslav Sarzhan |
-| 9 | Julio Pasinatto |
-| 9 | Pavel Tankov |
-| 5 | Anderson Nogueira |
-| 5 | Valmira Nogueira Correa |
-
 ## Local Validation
 
 ```bash

@@ -307,17 +307,6 @@ Recent structural changes worth knowing (from `git log -- ps`):
 - PS 9.x innovation track added with dedicated jobs.
 - Active Choice plugin adoption for parameter selection.
 
-## Top Contributors (last 12 months)
-
-| Commits | Author |
-|---------|--------|
-| 12 | Yash (panchal-yash) |
-| 6 | Puneet Kaushik (kaushikpuneet07) |
-| 6 | Vadim Yalovets |
-| 5 | Grishma123-Eng |
-| 4 | Anderson Nogueira |
-| 4 | Surabhi Bhat |
-
 ## Local Validation
 
 ```bash
