@@ -106,7 +106,7 @@ jenkins-pipelines/
 ~/bin/jenkins params <inst>/<job>                 # Show parameters
 ~/bin/jenkins build <inst>/<job> -p KEY=val       # Trigger build
 ~/bin/jenkins logs <inst>/<job> -f                # Follow logs
-~/bin/jenkins job <inst> config <job> --yaml      # Export config
+~/bin/jenkins job <inst> config <job> -f yaml     # Export config as YAML
 ```
 
 ## API
@@ -148,7 +148,7 @@ curl -su "USER:TOKEN" -X POST "https://psmdb.cd.percona.com/job/JOB_NAME/buildWi
    ```bash
    python3 -m py_compile resources/script.py
    ```
-3. **Config diffing:** Export live configs to YAML via `~/bin/jenkins job <instance> config <job> --yaml > jobs/<job>.yaml` and diff against local edits before pushing.
+3. **Config diffing:** Export live configs to YAML via `~/bin/jenkins job <instance> config <job> -f yaml > jobs/<job>.yaml` and diff against local edits before pushing.
 4. **Dry run:** Prefer Jenkins test jobs with `echo` placeholders or a forked library branch that points to your pipelines.
 5. **Runtime validation:** For major changes, trigger a build with safe parameters and monitor via `~/bin/jenkins job <instance> logs <job> --follow`.
 
@@ -351,6 +351,7 @@ sh "eksctl create cluster --name \${CLUSTER_NAME} --region us-east-2"
 | File | Keywords |
 |------|----------|
 | [pmm/AGENTS.md](pmm/AGENTS.md) | pmm, monitoring, grafana, victoriametrics, prometheus, clickhouse, qan, query-analytics, eks-ha, ha-testing, staging, ami, ovf, docker, ui-tests, playwright, upgrade-tests, observability, alerting, dashboards |
+| [percona-telemetry-agent/AGENTS.md](percona-telemetry-agent/AGENTS.md) | telemetry, percona-telemetry-agent, pmm, agent, packaging, packages, rpm, deb, multi-distro, x86_64, aarch64 |
 | [psmdb/AGENTS.md](psmdb/AGENTS.md) | psmdb, mongodb, mongo, percona-server-mongodb, replicaset, sharding, wiredtiger, mongod, mongos, arbiter, oplog, bson |
 | [pxc/AGENTS.md](pxc/AGENTS.md) | pxc, xtradb, galera, cluster, mysql-cluster, wsrep, sst, ist, donor, joiner, garbd, multi-master, synchronous-replication |
 | [ps/AGENTS.md](ps/AGENTS.md) | ps, percona-server, mysql, ps80, ps57, ps56, innodb, rocksdb, tokudb, mysqld, my.cnf, replication, gtid |

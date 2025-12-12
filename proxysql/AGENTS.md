@@ -71,7 +71,7 @@ moleculepxcJenkinsCreds()
 
 ## Agent Workflow
 
-1. **Inspect existing jobs:** `~/bin/jenkins job ps80 config qa-proxysql2-pipeline --yaml` to capture parameters like `VERSION`, `PROXYSQL_BRANCH`, `PLATFORM`.
+1. **Inspect existing jobs:** `~/bin/jenkins job ps80 config qa-proxysql2-pipeline -f yaml` to capture parameters like `VERSION`, `PROXYSQL_BRANCH`, `PLATFORM`.
 2. **Build considerations:** ProxySQL uses native C++/Go builds; different from Docker-based builds in other products.
 3. **Test suite coverage:** QA pipeline includes connection pooling, query routing, failover scenarios, and load balancing tests.
 4. **Platform support:** Recent work (Sept 2025) added RHEL10 support alongside existing distributions.

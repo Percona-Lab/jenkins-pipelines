@@ -51,7 +51,7 @@ products: ['ps', 'psmdb', 'pxc', 'pxb', 'pmm', 'tools']
 
 ## Agent Workflow
 
-1. **Inspect existing jobs:** `~/bin/jenkins job rel config prel-parallel --yaml` to capture parameters.
+1. **Inspect existing jobs:** `~/bin/jenkins job rel config prel-parallel -f yaml` to capture parameters.
 2. **Testing scope:** Percona-release is foundational; changes affect all products.
 3. **Distribution coverage:** Test across all supported Linux distributions.
 4. **Documentation:** Ensure docs are updated for repository changes.

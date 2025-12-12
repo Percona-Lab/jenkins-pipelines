@@ -72,7 +72,7 @@ moleculePdpxcJenkinsCreds()
 
 ## Agent Workflow
 
-1. **Inspect existing jobs:** `~/bin/jenkins job pxc config pdpxc-parallel --yaml` to capture parameters like `VERSION`, `PLATFORM`, `SCENARIO`, `TESTING_BRANCH`.
+1. **Inspect existing jobs:** `~/bin/jenkins job pxc config pdpxc-parallel -f yaml` to capture parameters like `VERSION`, `PLATFORM`, `SCENARIO`, `TESTING_BRANCH`.
 2. **Reuse distribution patterns:** Follow established patterns from `pxc/` pipelines for consistency with XtraDB Cluster testing.
 3. **HAProxy component:** When modifying HAProxy jobs, ensure compatibility with PXC cluster configurations.
 4. **Operator integration:** PXC Operator integration jobs coordinate with Kubernetes operator testing infrastructure.

@@ -54,7 +54,7 @@ moleculePbmJenkinsCreds()
 
 ## Agent Workflow
 
-1. **Inspect existing jobs:** `~/bin/jenkins job psmdb config pdmdb-parallel --yaml` to capture parameters like `VERSION`, `PLATFORM`, `SCENARIO`.
+1. **Inspect existing jobs:** `~/bin/jenkins job psmdb config pdmdb-parallel -f yaml` to capture parameters like `VERSION`, `PLATFORM`, `SCENARIO`.
 2. **Reuse distribution patterns:** Follow established patterns from `psmdb/` pipelines for consistency.
 3. **Platform matrix:** Use standard Molecule platform lists from `vars/` helpers.
 4. **Lifecycle cleanup:** Always include cleanup in `post { always { ... } }` blocks.

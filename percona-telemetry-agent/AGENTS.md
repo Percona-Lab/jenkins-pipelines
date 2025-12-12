@@ -56,7 +56,7 @@ validation: 'agent_collect_metrics'
 
 ## Agent Workflow
 
-1. **Inspect existing jobs:** `~/bin/jenkins job pmm config percona-telemetry-agent --yaml` to capture parameters like `VERSION`, `BRANCH`, `PLATFORMS`.
+1. **Inspect existing jobs:** `~/bin/jenkins job pmm config percona-telemetry-agent -f yaml` to capture parameters like `VERSION`, `BRANCH`, `PLATFORMS`.
 2. **Package building:** Agent is packaged for multiple distributions simultaneously.
 3. **Testing validation:** Test job validates package installation and basic metric collection.
 4. **Release workflow:** Build → Test → Release to repositories.

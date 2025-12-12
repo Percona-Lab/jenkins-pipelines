@@ -134,6 +134,6 @@ python3 -m py_compile cloud/aws-functions/orphaned_eks_clusters.py
 
 ## Related
 
-- `pmm/v3/AGENTS.md` - PMM HA on EKS (in Hetzner branch)
+- `pmm/AGENTS.md` - PMM pipelines (PMM HA on EKS lives in `pmm/v3/`)
 - `IaC/` - CloudFormation for Jenkins infrastructure
 - `vars/AGENTS.md` - Shared helpers (eksctl*, openshift*)

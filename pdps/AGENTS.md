@@ -64,7 +64,7 @@ moleculePdpsJenkinsCreds()
 
 ## Agent Workflow
 
-1. **Inspect existing jobs:** `~/bin/jenkins job ps80 config pdps-parallel --yaml` to capture parameters like `VERSION`, `PLATFORM`, `SCENARIO`, `TESTING_BRANCH`.
+1. **Inspect existing jobs:** `~/bin/jenkins job ps80 config pdps-parallel -f yaml` to capture parameters like `VERSION`, `PLATFORM`, `SCENARIO`, `TESTING_BRANCH`.
 2. **Reuse distribution patterns:** Follow established patterns from `ps/` pipelines for consistency with Percona Server testing.
 3. **Orchestrator component:** When modifying orchestrator jobs, ensure both direct and Docker variants are updated.
 4. **Perl DBD integration:** DBD-MySQL testing validates Perl driver compatibility with PDPS versions.
