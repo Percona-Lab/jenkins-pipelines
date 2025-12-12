@@ -126,7 +126,7 @@ proxysql/                               # 605 lines total
 
 ```bash
 # List all ProxySQL jobs
-~/bin/jenkins job ps80 list | grep proxysql
+~/bin/jenkins job ps80 list | rg -i proxysql
 
 # Get job status
 ~/bin/jenkins status ps80/proxysql-package-testing-all
@@ -139,6 +139,9 @@ proxysql/                               # 605 lines total
 
 # View logs
 ~/bin/jenkins logs ps80/qa-proxysql2-pipeline
+
+# Check history
+~/bin/jenkins history ps80/qa-proxysql2-pipeline
 ```
 
 ## Local Validation

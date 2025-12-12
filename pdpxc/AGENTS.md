@@ -24,10 +24,16 @@ Extends: [../AGENTS.md](../AGENTS.md)
 ## Job Dependency Graph
 
 ```
-pdpxc-multi-parallel.groovy (orchestrator)
+pdpxc-multi-parallel.groovy (orchestrator, fanout: 5)
    │
-   ├── pdpxc-parallel (3x different scenarios)
-   ├── pdpxc-upgrade-parallel
+   ├── pdpxc-parallel (3x: install, setup, pro scenarios)
+   ├── pdpxc-upgrade-parallel (upgrade path testing)
+   └── haproxy (load balancer tests)
+
+pdpxc-multi.groovy (sequential, fanout: 5)
+   │
+   ├── pdpxc (3x: install, setup, pro scenarios)
+   ├── pdpxc-upgrade
    └── haproxy
 
 pdpxc-pxco-integration-scheduler.groovy
@@ -35,7 +41,7 @@ pdpxc-pxco-integration-scheduler.groovy
    └── Triggers PXC Operator integration tests
 ```
 
-**Parallel Execution**: All tests run in parallel across platforms.
+**Fanout Pattern**: Multi-parallel orchestrator triggers 5 downstream jobs in parallel.
 
 ## Directory Map
 
@@ -105,10 +111,11 @@ pdpxc/                                  # 1,782 lines total
 
 ```bash
 # List all PDPXC jobs
-~/bin/jenkins job pxc list | grep pdpxc
+~/bin/jenkins job pxc list | rg -i pdpxc
 
 # Get job status
 ~/bin/jenkins status pxc/pdpxc-upgrade-parallel
+~/bin/jenkins status pxc/pdpxc-integration-push-test
 
 # Get parameters
 ~/bin/jenkins params pxc/pdpxc-parallel
@@ -118,6 +125,10 @@ pdpxc/                                  # 1,782 lines total
 
 # View logs
 ~/bin/jenkins logs pxc/pdpxc-upgrade-parallel
+
+# Check history
+~/bin/jenkins history pxc/pdpxc-upgrade-parallel
+~/bin/jenkins history pxc/pdpxc-multi-parallel
 ```
 
 ## Local Validation

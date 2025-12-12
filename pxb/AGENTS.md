@@ -145,23 +145,25 @@ PXB must validate:
 ## Jenkins CLI Quick Reference
 
 ```bash
-# List all jobs
-~/bin/jenkins job pxb list
+# List all PXB jobs
+~/bin/jenkins job pxb list | rg -i pxb
 
 # Get job status
 ~/bin/jenkins status pxb/pxb-package-testing-molecule
+~/bin/jenkins status pxb/pxb-9x-testing
 
-# Get parameters
-~/bin/jenkins params pxb/pxb-80-build
+# Get parameters (compile pipeline)
+~/bin/jenkins params pxb/percona-xtrabackup-8.0-compile-param
 
 # Trigger a build
 ~/bin/jenkins build pxb/pxb-tarball-molecule -p PXB_VERSION=8.4.0-4 -p REPO_TYPE=PRO
 
-# View logs
+# View logs with build number
 ~/bin/jenkins logs pxb/pxb-package-testing-molecule -b 259
 
 # Check history
 ~/bin/jenkins history pxb/pxb-9x-testing
+~/bin/jenkins history pxb/pxb-tarball-molecule
 ```
 
 ## Local Validation

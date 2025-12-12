@@ -5,7 +5,7 @@ Instructions for AI coding agents working with the Percona `jenkins-pipelines` r
 ## How to Use These Instructions
 
 1. **Locate scope:** Identify the directories/files you will touch and open the nearest `AGENTS.md` (`pmm/AGENTS.md`, `vars/AGENTS.md`, etc.). Update the relevant file if you discover new constraints—this documentation is a living artifact.
-2. **Inspect existing jobs first:** Use `~/bin/jenkins job <instance> info|config` to understand real parameters, SCM paths, and downstream triggers before editing any pipeline.
+2. **Inspect existing jobs first:** Use `~/bin/jenkins job <instance> info|config` to understand real parameters, SCM paths, `script-path` (job → pipeline mapping), and downstream triggers before editing any pipeline.
 3. **Mirror existing patterns:** Prefer `rg`/`rg --files` for search, follow the same helper functions (`vars/`) and agent labels already used in that product.
 4. **Validate locally:** Lint Groovy, byte-compile Python helpers, and—when possible—perform Jenkins dry-runs or fork-based tests before submitting changes.
 5. **Keep secrets safe:** Never echo credentials; wrap everything with `withCredentials`, and clean workspaces with `deleteDir()` to avoid residue on long-lived agents.
@@ -38,6 +38,20 @@ export JENKINS_INSTANCE=pmm                       # optional default
 ```
 
 The CLI (a Python script executed via `uv run --script`) can list jobs, fetch configs, tail logs, inspect queue items, and convert YAML job definitions to XML automatically when you pass `--config <file>` to `job create|update`.
+
+### Jenkins job configs (JJB YAML)
+
+Many Jenkins jobs are managed via Jenkins Job Builder (JJB) YAML checked into this repo (often under `*/jenkins/*.yml`):
+- YAML is the source of truth for **job name**, **parameters**, **triggers/retention**, and for Pipeline jobs the `script-path` pointing at a `.groovy` file.
+- Job names often don’t match Groovy filenames; always confirm the `script-path` before editing/renaming.
+- If you change params/cron/retention/script-path, update the YAML and keep the pipeline’s `triggers { ... }` / `buildDiscarder(...)` consistent.
+- Avoid editing JJB-managed jobs in the Jenkins UI; export and diff via `~/bin/jenkins job <instance> config <job> -f yaml`.
+
+Quick find:
+```bash
+rg -n "name:\\s+<job-name>\\b" --glob '*.yml'
+rg -n "script-path:" --glob '*.yml'
+```
 
 ## Project Overview
 

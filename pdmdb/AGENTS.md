@@ -24,20 +24,20 @@ Extends: [../AGENTS.md](../AGENTS.md)
 ## Job Dependency Graph
 
 ```
-pdmdb-multi-parallel.groovy (orchestrator)
+pdmdb-multi-parallel.groovy (orchestrator, fanout: 4)
    │
-   ├── pdmdb-parallel
-   ├── pdmdb-setup-parallel
-   ├── pdmdb-upgrade-parallel (2x different upgrade paths)
+   ├── pdmdb-parallel (distribution testing)
+   ├── pdmdb-setup-parallel (initial setup)
+   └── pdmdb-upgrade-parallel (2x: different upgrade paths)
+
+pdmdb-multi.groovy (sequential, fanout: 4)
    │
-pdmdb-multi.groovy (sequential orchestrator)
-   │
-   ├── pdmdb
-   ├── pdmdb-setup
-   └── pdmdb-upgrade (2x)
+   ├── pdmdb (distribution testing)
+   ├── pdmdb-setup (initial setup)
+   └── pdmdb-upgrade (2x: different upgrade paths)
 ```
 
-**All jobs currently SUCCESS on Jenkins.**
+**Fanout Pattern**: Multi-parallel triggers 4 downstream jobs; upgrade runs twice with different version params.
 
 ## Directory Map
 
@@ -90,10 +90,11 @@ pdmdb/                                  # 964 lines total
 
 ```bash
 # List all PDMDB jobs
-~/bin/jenkins job psmdb list | grep pdmdb
+~/bin/jenkins job psmdb list | rg -i pdmdb
 
 # Get job status
 ~/bin/jenkins status psmdb/pdmdb-parallel
+~/bin/jenkins status psmdb/hetzner-pdmdb-site-check
 
 # Get parameters
 ~/bin/jenkins params psmdb/pdmdb-setup
@@ -103,6 +104,9 @@ pdmdb/                                  # 964 lines total
 
 # View logs
 ~/bin/jenkins logs psmdb/pdmdb-upgrade
+
+# Check history
+~/bin/jenkins history psmdb/pdmdb-multi-parallel
 ```
 
 ## Local Validation

@@ -143,23 +143,27 @@ pbm/                                    # 2,560 lines total
 ## Jenkins CLI Quick Reference
 
 ```bash
-# List all PBM jobs
-~/bin/jenkins job psmdb list | grep pbm
+# List all PBM jobs (AWS and Hetzner)
+~/bin/jenkins job psmdb list | rg -i pbm
+
+# List Hetzner-specific jobs
+~/bin/jenkins job psmdb list | rg hetzner-pbm
 
 # Get job status
+~/bin/jenkins status psmdb/hetzner-pbm-autobuild-RELEASE
 ~/bin/jenkins status psmdb/hetzner-pbm-functional-tests-full
 
 # Get parameters
-~/bin/jenkins params psmdb/pbm-autobuild-RELEASE
+~/bin/jenkins params psmdb/hetzner-pbm-autobuild-RELEASE
 
-# Trigger a build
-~/bin/jenkins build psmdb/pbm-docker -p PBM_VERSION=2.9.0 -p PBM_REPO_CH=testing
+# Trigger a build (Hetzner is now default)
+~/bin/jenkins build psmdb/hetzner-pbm-docker -p PBM_VERSION=2.12.0 -p PBM_REPO_CH=testing
 
-# View logs
+# View logs with build number
 ~/bin/jenkins logs psmdb/hetzner-pbm-functional-tests-full -b 63
 
-# Check Hetzner jobs
-~/bin/jenkins job psmdb list | grep hetzner-pbm
+# Check history
+~/bin/jenkins history psmdb/hetzner-pbm-autobuild-RELEASE
 ```
 
 ## Local Validation

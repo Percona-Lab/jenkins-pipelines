@@ -24,16 +24,18 @@ Extends: [../AGENTS.md](../AGENTS.md)
 ## Job Dependency Graph
 
 ```
-pdps-multi-parallel.groovy (orchestrator)
+pdps-multi-parallel.groovy (orchestrator, fanout: 4)
    │
-   ├── pdps-parallel (3x different scenarios)
-   └── pdps-upgrade-parallel
+   ├── pdps-parallel (3x: install, setup, pro scenarios)
+   └── pdps-upgrade-parallel (upgrade path testing)
 
-pdps-multi.groovy (sequential orchestrator)
+pdps-multi.groovy (sequential, fanout: 4)
    │
-   ├── pdps (3x different scenarios)
+   ├── pdps (3x: install, setup, pro scenarios)
    └── pdps-upgrade
 ```
+
+**Fanout Pattern**: Multi-parallel triggers 4 downstream jobs in parallel.
 
 ## Directory Map
 
@@ -94,10 +96,12 @@ pdps/                                   # 1,596 lines total
 
 ```bash
 # List all PDPS jobs
-~/bin/jenkins job ps80 list | grep pdps
+~/bin/jenkins job ps80 list | rg -i "pdps|orchestrator"
 
 # Get job status
 ~/bin/jenkins status ps80/orchestrator
+~/bin/jenkins status ps80/orchestrator_docker
+~/bin/jenkins status ps80/pdps-parallel
 
 # Get parameters
 ~/bin/jenkins params ps80/pdps-parallel
@@ -107,6 +111,10 @@ pdps/                                   # 1,596 lines total
 
 # View logs
 ~/bin/jenkins logs ps80/orchestrator_docker
+
+# Check history
+~/bin/jenkins history ps80/orchestrator
+~/bin/jenkins history ps80/pdps-multi-parallel
 ```
 
 ## Local Validation
