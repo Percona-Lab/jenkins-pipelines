@@ -381,9 +381,28 @@ git log --follow -p -- pmm/v3/pmm3-ui-tests-nightly.groovy
 ```
 
 Recent structural changes worth knowing (from `git log -- pmm`):
-- PMM v2 pipelines were deleted (`PMM-14154`).
-- OpenShift cluster lifecycle jobs were expanded (`PMM-14242`, `PMM-14304`).
-- EKS “PMM HA” infra + cleanup jobs were added (`PMM-14346`, `PMM-14505`).
+
+**v2 End-of-Life (PMM-14154, PMM-14558)**:
+- v2 pipelines deprecated; main branch restructured for v3 only
+- Test repos consolidated to main branches
+
+**OpenShift Enhancements (PMM-14242, PMM-14304, PMM-14287, PMM-14125)**:
+- SSL automation: `vars/openshiftSSL.groovy`, `vars/awsCertificates.groovy`
+- `PMM_HELM_BRANCH` param for non-released helm charts
+- `PMM_IP` env var exposed for downstream jobs
+- 87.5% OpenShift test coverage with SCC workaround
+
+**Platform Updates**:
+- Added: Debian 13 Trixie, RHEL 10 (PMM-14249, PMM-14208)
+- Removed: Ubuntu 20.04 LTS (PMM-14057)
+- Re-added: Debian Bullseye (PMM-14221)
+
+**Security & CI**:
+- Trivy scanner added alongside Snyk (PMM-14499)
+- Some tests migrated from Jenkins to GitHub Actions (PMM-14115)
+- Launchable observation mode for test intelligence (PMM-14427)
+
+**EKS HA**: infra + cleanup jobs added (PMM-14346, PMM-14505).
 
 ## Local Validation
 
