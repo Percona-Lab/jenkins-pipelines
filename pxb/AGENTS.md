@@ -177,15 +177,6 @@ cd molecule/pxb && molecule test -s ubuntu-jammy
 groovy -e "new GroovyShell().parse(new File('pxb/v2/jenkins/percona-xtrabackup-8.0-compile-pipeline.groovy'))"
 ```
 
-## PR Review Checklist
-
-- [ ] `buildDiscarder(logRotator(...))` in options
-- [ ] `deleteDir()` in `post.always`
-- [ ] PS/PXC compatibility tested
-- [ ] ccache handling correct
-- [ ] No artifact naming changes
-- [ ] KMIP tests included for PRO builds
-
 ## Change Impact
 
 | Change | Impact | Notify |

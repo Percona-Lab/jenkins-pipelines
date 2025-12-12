@@ -155,14 +155,6 @@ bash proxysql/build-binary-proxysql --version 2.5.5
 bash proxysql/test-proxysql --suite qa
 ```
 
-## PR Review Checklist
-
-- [ ] `buildDiscarder(logRotator(...))` in options
-- [ ] `deleteDir()` in `post.always`
-- [ ] Both x64 and ARM64 coverage
-- [ ] Correct Jenkins instance (ps80)
-- [ ] AWS credentials via withCredentials
-
 ## Change Impact
 
 | Change | Impact | Notify |

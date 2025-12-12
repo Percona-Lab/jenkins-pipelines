@@ -5,7 +5,7 @@ Extends: [../AGENTS.md](../AGENTS.md)
 ## TL;DR
 
 **What**: Percona Distribution for PS - package testing, orchestrator, Perl DBD-MySQL, upgrade validation
-**Where**: Jenkins `ps80` | `https://ps80.cd.percona.com` | Jobs: `pdps-*`
+**Where**: Jenkins `ps80` | `https://ps80.cd.percona.com` | Jobs: `pdps-*`, `orchestrator*`
 **Key Helpers**: `moleculePdpsJenkinsCreds()`, `moleculeExecuteActionWithScenario()`
 **Watch Out**: Depends on PS artifacts; includes orchestrator HA testing
 
@@ -15,130 +15,131 @@ Extends: [../AGENTS.md](../AGENTS.md)
 |-----|-------|
 | Jenkins Instance | `ps80` |
 | URL | https://ps80.cd.percona.com |
-| Job Patterns | `pdps-*`, `pdps-parallel`, `pdps-upgrade*` |
+| Job Patterns | `pdps-*`, `orchestrator*`, `perl-DBD-*` |
 | Default Credential | `moleculePdpsJenkinsCreds()` |
 | AWS Region | `us-east-2` |
-| Groovy Files | ~10 |
+| Groovy Files | 10 |
+| Last Updated | 2025-12 |
 
-## Scope
+## Job Dependency Graph
 
-Percona Distribution for Percona Server (PDPS) CI/CD pipelines. Includes distribution package testing for Percona Server MySQL, orchestrator components, Perl DBD-MySQL integration, multi-version setup, upgrade validation, and comprehensive distribution testing across Linux platforms.
+```
+pdps-multi-parallel.groovy (orchestrator)
+   │
+   ├── pdps-parallel (3x different scenarios)
+   └── pdps-upgrade-parallel
 
-## Key Files
-
-- `pdps-setup.groovy` / `pdps-setup-parallel.groovy` – Initial PDPS setup and installation
-- `pdps-parallel.groovy` / `pdps.groovy` – Distribution testing across platforms
-- `pdps-upgrade.groovy` / `pdps-upgrade-parallel.groovy` – Upgrade path testing (minor/major versions)
-- `pdps-multi.groovy` / `pdps-multi-parallel.groovy` – Multi-version testing orchestration
-- `pdps-orchestrator.groovy` / `pdps-orchestrator_docker.groovy` – Orchestrator HA component testing
-- `pdps-perl-DBD-Mysql.groovy` – Perl DBD-MySQL integration testing
-
-## Product-Specific Patterns
-
-### Distribution Testing Pattern
-
-```groovy
-// Standard PDPS test scenarios
-moleculeExecute(
-    scenario: 'pdps-setup',
-    platform: params.PLATFORM,
-    version: params.VERSION
-)
+pdps-multi.groovy (sequential orchestrator)
+   │
+   ├── pdps (3x different scenarios)
+   └── pdps-upgrade
 ```
 
-### Orchestrator Testing
+## Directory Map
 
-```groovy
-// Orchestrator is a HA management tool for MySQL
-// Tested in both direct and Docker variants
-scenario: 'pdps-orchestrator'       // Direct installation
-scenario: 'pdps-orchestrator-docker' // Docker-based testing
+```
+pdps/                                   # 1,596 lines total
+├── AGENTS.md                           # This file
+├── perl-DBD-Mysql.groovy         (345) # Perl DBD-MySQL testing
+├── pdps-multi.groovy             (196) # Sequential orchestration
+├── pdps-multi-parallel.groovy    (180) # Parallel orchestration
+├── pdps.groovy                   (164) # Main distribution testing
+├── pdps-upgrade.groovy           (163) # Upgrade testing
+├── pdps-upgrade-parallel.groovy  (130) # Parallel upgrades
+├── pdps-parallel.groovy          (127) # Parallel testing
+├── orchestrator.groovy           (115) # Orchestrator HA
+├── orchestrator_docker.groovy     (94) # Orchestrator Docker
+├── pdps-site-check.groovy         (82) # Site validation
+└── *.yml                               # JJB configs
 ```
 
-### Molecule Credentials
+## Key Jobs from Jenkins
 
-```groovy
-// Use PDPS-specific Molecule credentials
-moleculePdpsJenkinsCreds()
-```
+| Job | Status | Purpose |
+|-----|--------|---------|
+| `orchestrator` | SUCCESS | Orchestrator HA testing |
+| `orchestrator_docker` | SUCCESS | Orchestrator Docker testing |
+| `mysql-orchestrator-pipeline` | SUCCESS | Orchestrator pipeline |
+| `pdps` | FAILED | Main distribution testing |
+| `pdps-parallel` | FAILED | Parallel testing |
+| `pdps-upgrade` | FAILED | Upgrade testing |
+| `pdps-upgrade-parallel` | FAILED | Parallel upgrades |
 
-## Agent Workflow
+## Components Tested
 
-1. **Inspect existing jobs:** `~/bin/jenkins job ps80 config pdps-parallel -f yaml` to capture parameters like `VERSION`, `PLATFORM`, `SCENARIO`, `TESTING_BRANCH`.
-2. **Reuse distribution patterns:** Follow established patterns from `ps/` pipelines for consistency with Percona Server testing.
-3. **Orchestrator component:** When modifying orchestrator jobs, ensure both direct and Docker variants are updated.
-4. **Perl DBD integration:** DBD-MySQL testing validates Perl driver compatibility with PDPS versions.
-5. **Parameter contracts:** PDPS jobs follow release automation contracts; extend but never rename/remove parameters.
+| Component | Pipeline | Purpose |
+|-----------|----------|---------|
+| PDPS Distribution | pdps-parallel | Package installation/testing |
+| Orchestrator | orchestrator.groovy | MySQL HA management |
+| Orchestrator Docker | orchestrator_docker.groovy | Containerized orchestrator |
+| Perl DBD-MySQL | perl-DBD-Mysql.groovy | Perl driver compatibility |
 
-## Validation & Testing
+## Version Matrix
+
+| Version | Status | Upgrade From |
+|---------|--------|--------------|
+| PDPS 8.4 | LTS | 8.0 |
+| PDPS 8.0 | Active | 5.7 |
+| PDPS 5.7 | Maintenance | - |
+
+## Common Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---------|-----------|-----|
+| Missing PS artifacts | PDPS depends on PS | Ensure PS builds complete first |
+| Skipping orchestrator tests | Incomplete distribution | Include orchestrator in test matrix |
+| Wrong orchestrator variant | Docker vs direct | Choose correct variant for use case |
+
+## Jenkins CLI Quick Reference
 
 ```bash
-# Groovy syntax validation
+# List all PDPS jobs
+~/bin/jenkins job ps80 list | grep pdps
+
+# Get job status
+~/bin/jenkins status ps80/orchestrator
+
+# Get parameters
+~/bin/jenkins params ps80/pdps-parallel
+
+# Trigger a build
+~/bin/jenkins build ps80/pdps-parallel -p PLATFORM=generic-oracle-linux-9-x64 -p VERSION=pdps-8.0
+
+# View logs
+~/bin/jenkins logs ps80/orchestrator_docker
+```
+
+## Local Validation
+
+```bash
+# Groovy syntax check
 groovy -e "new GroovyShell().parse(new File('pdps/pdps-parallel.groovy'))"
 
-# Molecule testing (local validation)
-cd /path/to/ps-testing
-molecule test -s pdps-setup
+# Molecule testing
+cd /path/to/ps-testing && molecule test -s pdps-setup
 
 # Orchestrator testing
 molecule test -s pdps-orchestrator
-
-# Jenkins dry-run
-~/bin/jenkins build ps80/pdps-parallel \
-  -p PLATFORM=generic-oracle-linux-9-x64 \
-  -p VERSION=pdps-8.0 \
-  --watch
 ```
 
-## Credentials & Parameters
+## Change Impact
 
-- **Credentials:** `moleculePdpsJenkinsCreds()` – AWS/SSH for Molecule testing
-- **Key parameters:**
-  - `VERSION` – PDPS version (e.g., 'pdps-8.0', 'pdps-8.4')
-  - `PLATFORM` – OS selection via Molecule platform helpers
-  - `SCENARIO` – Test scenario name
-  - `REPO` – Repository selection (testing/release/experimental)
-  - `TESTING_BRANCH` – ps-testing.git branch (usually 'main')
+| Change | Impact | Notify |
+|--------|--------|--------|
+| Version params | Release automation | RelEng |
+| Orchestrator config | HA behavior | DBA team |
+| Perl DBD changes | Driver compatibility | QA |
 
-# Jenkins
+## Related
 
-Instance: `ps80` | URL: `https://ps80.cd.percona.com`
+- [ps/AGENTS.md](../ps/AGENTS.md) - PS builds (PDPS depends on these)
+- [proxysql/AGENTS.md](../proxysql/AGENTS.md) - ProxySQL (often bundled)
+- [vars/AGENTS.md](../vars/AGENTS.md) - Shared helpers
 
-## CLI
-```bash
-~/bin/jenkins job ps80 list | grep pdps             # All PDPS jobs
-~/bin/jenkins params ps80/<job>                     # Parameters
-```
+## GitHub Repositories
 
-## API
-```bash
-# Auth: API token from Jenkins → User → Configure → API Token
-curl -su "USER:TOKEN" "https://ps80.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("pdps"))'
-```
-
-## Job Patterns
-`pdps-*`, `pdps-orchestrator*`, `pdps-upgrade*`
-
-## Credentials
-`moleculePdpsJenkinsCreds()` (AWS/SSH). Always use `withCredentials`.
-
-## Related Jobs
-
-- `ps-*` – Related Percona Server MySQL jobs
-- Orchestrator HA component testing
-- Distribution testing orchestration
-- Perl DBD-MySQL compatibility validation
-
-## Code Owners
-
-See `.github/CODEOWNERS` – PDPS pipelines maintained by:
-- Eleonora Zinchenko (24 commits) – Primary contributor
-- Mikhail Samoylov (7 commits) – Supporting contributor
-- Puneet Kaushik (4 commits) – Supporting contributor
-
-Primary contact: `@eleonora-zinchenko`
-
-## Status
-
-Last activity: November 2024 (dormant)
-Maintenance mode: Stable distribution testing infrastructure with Noble (Ubuntu 24.04) support added
+| Repository | Purpose |
+|------------|---------|
+| [percona/percona-server](https://github.com/percona/percona-server) | PS source |
+| [openark/orchestrator](https://github.com/openark/orchestrator) | Orchestrator upstream |
+| [Percona-QA/package-testing](https://github.com/Percona-QA/package-testing) | Package test scenarios |

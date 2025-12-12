@@ -82,7 +82,7 @@ jenkins-pipelines/
 Snapshot (as of 2025-12) derived from `git log --since='12 months ago'`:
 
 - **Mostly product-scoped changes:** most commits touch a single top-level directory; cross-directory edits are the exception (most commonly `pmm/` + `vars/`).
-- **Highest churn areas:** `pmm/` (185), `cloud/` (79), `ps/` (42), `pxc/` (38), `pxb/` (36) dominate recent change volume.
+- **Most active areas (by commits touching the path):** `pmm/` (94), `cloud/` (80), `vars/` (68), `IaC/` (51), `ps/` (41), `pxc/` (38), `pxb/` (36).
 - **Major milestones (examples):**
   - `CLOUD-875`: consolidated and deleted duplicated cloud pipelines (2024-12 → 2025-03).
   - `PMM-14154`: removed PMM v2 pipelines (large deletion commit).

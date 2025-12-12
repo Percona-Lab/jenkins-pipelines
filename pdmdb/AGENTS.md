@@ -5,7 +5,7 @@ Extends: [../AGENTS.md](../AGENTS.md)
 ## TL;DR
 
 **What**: Percona Distribution for MongoDB - package testing, multi-version setup, upgrade validation
-**Where**: Jenkins `psmdb` | `https://psmdb.cd.percona.com` | Jobs: `pdmdb-*`
+**Where**: Jenkins `psmdb` | `https://psmdb.cd.percona.com` | Jobs: `pdmdb-*`, `hetzner-pdmdb-*`
 **Key Helpers**: `moleculePbmJenkinsCreds()`, `moleculeExecuteActionWithScenario()`
 **Watch Out**: Depends on PSMDB artifacts; follow release automation contracts
 
@@ -15,114 +15,124 @@ Extends: [../AGENTS.md](../AGENTS.md)
 |-----|-------|
 | Jenkins Instance | `psmdb` |
 | URL | https://psmdb.cd.percona.com |
-| Job Patterns | `pdmdb-*`, `pdmdb-parallel`, `pdmdb-upgrade*` |
+| Job Patterns | `pdmdb-*`, `hetzner-pdmdb-*` |
 | Default Credential | `moleculePbmJenkinsCreds()` |
 | AWS Region | `us-east-2` |
-| Groovy Files | ~5 |
+| Groovy Files | 9 |
+| Last Updated | 2025-12 |
 
-## Scope
+## Job Dependency Graph
 
-Percona Distribution for MongoDB (PDMDB) CI/CD pipelines. Includes distribution package testing, multi-version setup, upgrade validation, and integration testing across multiple Linux distributions.
-
-## Key Files
-
-- `pdmdb-setup.groovy` – Initial PDMDB setup and installation
-- `pdmdb-parallel.groovy` – Parallel distribution testing across platforms
-- `pdmdb-upgrade.groovy` – Upgrade path testing (minor/major versions)
-- `pdmdb-multi.groovy` / `pdmdb-multi-parallel.groovy` – Multi-version testing orchestration
-- `pdmdb-site-check.groovy` – Site validation checks
-
-## Product-Specific Patterns
-
-### Distribution Testing Pattern
-
-```groovy
-// Standard PDMDB test scenarios
-moleculeExecute(
-    scenario: 'pdmdb-setup',
-    platform: params.PLATFORM,
-    version: params.VERSION
-)
+```
+pdmdb-multi-parallel.groovy (orchestrator)
+   │
+   ├── pdmdb-parallel
+   ├── pdmdb-setup-parallel
+   ├── pdmdb-upgrade-parallel (2x different upgrade paths)
+   │
+pdmdb-multi.groovy (sequential orchestrator)
+   │
+   ├── pdmdb
+   ├── pdmdb-setup
+   └── pdmdb-upgrade (2x)
 ```
 
-### Molecule Credentials
+**All jobs currently SUCCESS on Jenkins.**
 
-```groovy
-// Use PDMDB-specific Molecule credentials
-moleculePbmJenkinsCreds()
+## Directory Map
+
+```
+pdmdb/                                  # 964 lines total
+├── AGENTS.md                           # This file
+├── pdmdb-upgrade.groovy          (148) # Upgrade path testing
+├── pdmdb-upgrade-parallel.groovy (144) # Parallel upgrades
+├── pdmdb-multi.groovy            (122) # Sequential orchestration
+├── pdmdb-multi-parallel.groovy   (113) # Parallel orchestration
+├── pdmdb.groovy                  (104) # Main distribution testing
+├── pdmdb-setup.groovy             (98) # Initial setup
+├── pdmdb-parallel.groovy          (93) # Parallel testing
+├── pdmdb-site-check.groovy        (72) # Site validation
+├── pdmdb-setup-parallel.groovy    (70) # Parallel setup
+└── *.yml                               # JJB configs
 ```
 
-## Agent Workflow
+## Key Jobs from Jenkins
 
-1. **Inspect existing jobs:** `~/bin/jenkins job psmdb config pdmdb-parallel -f yaml` to capture parameters like `VERSION`, `PLATFORM`, `SCENARIO`.
-2. **Reuse distribution patterns:** Follow established patterns from `psmdb/` pipelines for consistency.
-3. **Platform matrix:** Use standard Molecule platform lists from `vars/` helpers.
-4. **Lifecycle cleanup:** Always include cleanup in `post { always { ... } }` blocks.
-5. **Parameter contracts:** PDMDB jobs follow release automation contracts; extend but never rename/remove parameters.
+| Job | Status | Purpose |
+|-----|--------|---------|
+| `pdmdb` | SUCCESS | Main distribution testing |
+| `pdmdb-parallel` | SUCCESS | Parallel testing |
+| `pdmdb-setup` | SUCCESS | Initial setup |
+| `pdmdb-setup-parallel` | SUCCESS | Parallel setup |
+| `pdmdb-upgrade` | SUCCESS | Upgrade testing |
+| `pdmdb-upgrade-parallel` | SUCCESS | Parallel upgrades |
+| `pdmdb-multi` | SUCCESS | Sequential orchestration |
+| `pdmdb-multi-parallel` | SUCCESS | Parallel orchestration |
+| `hetzner-pdmdb-site-check` | SUCCESS | Site check (Hetzner) |
 
-## Validation & Testing
+## Version Matrix
+
+| Version | Status | Upgrade From |
+|---------|--------|--------------|
+| PDMDB 8.0 | Active | 7.0 |
+| PDMDB 7.0 | Active | 6.0 |
+| PDMDB 6.0 | Maintenance | 5.0 |
+
+## Common Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---------|-----------|-----|
+| Missing PSMDB artifacts | PDMDB depends on PSMDB | Ensure PSMDB builds complete first |
+| Using wrong orchestrator | Multi vs multi-parallel | Choose based on parallelism needs |
+| Skipping upgrade tests | Incomplete validation | Include upgrade paths in test matrix |
+
+## Jenkins CLI Quick Reference
 
 ```bash
-# Groovy syntax validation
+# List all PDMDB jobs
+~/bin/jenkins job psmdb list | grep pdmdb
+
+# Get job status
+~/bin/jenkins status psmdb/pdmdb-parallel
+
+# Get parameters
+~/bin/jenkins params psmdb/pdmdb-setup
+
+# Trigger a build
+~/bin/jenkins build psmdb/pdmdb-parallel -p PLATFORM=generic-oracle-linux-9-x64 -p VERSION=pdmdb-8.0
+
+# View logs
+~/bin/jenkins logs psmdb/pdmdb-upgrade
+```
+
+## Local Validation
+
+```bash
+# Groovy syntax check
 groovy -e "new GroovyShell().parse(new File('pdmdb/pdmdb-parallel.groovy'))"
 
-# Molecule testing (local validation)
-cd /path/to/psmdb-testing
-molecule test -s pdmdb-setup
-
-# Jenkins dry-run
-~/bin/jenkins build psmdb/pdmdb-parallel \
-  -p PLATFORM=generic-oracle-linux-9-x64 \
-  -p VERSION=pdmdb-8.0 \
-  --watch
+# Molecule testing
+cd /path/to/psmdb-testing && molecule test -s pdmdb-setup
 ```
 
-## Credentials & Parameters
+## Change Impact
 
-- **Credentials:** `moleculePbmJenkinsCreds()` – AWS/SSH for Molecule testing
-- **Key parameters:**
-  - `VERSION` – PDMDB version (e.g., 'pdmdb-8.0')
-  - `PLATFORM` – OS selection via Molecule platform helpers
-  - `SCENARIO` – Test scenario name
-  - `REPO` – Repository selection (testing/release/experimental)
+| Change | Impact | Notify |
+|--------|--------|--------|
+| Version params | Release automation | RelEng |
+| Upgrade paths | Compatibility testing | QA |
+| Platform support | Test coverage | Build team |
 
-# Jenkins
+## Related
 
-Instance: `psmdb` | URL: `https://psmdb.cd.percona.com`
+- [psmdb/AGENTS.md](../psmdb/AGENTS.md) - PSMDB builds (PDMDB depends on these)
+- [pbm/AGENTS.md](../pbm/AGENTS.md) - PBM integration
+- [vars/AGENTS.md](../vars/AGENTS.md) - Shared helpers
 
-## CLI
-```bash
-~/bin/jenkins job psmdb list | grep pdmdb           # All PDMDB jobs
-~/bin/jenkins params psmdb/<job>                    # Parameters
-```
+## GitHub Repositories
 
-## API
-```bash
-# Auth: API token from Jenkins → User → Configure → API Token
-curl -su "USER:TOKEN" "https://psmdb.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("pdmdb"))'
-```
-
-## Job Patterns
-`pdmdb-*`, `pdmdb-parallel`, `pdmdb-upgrade*`
-
-## Credentials
-`moleculePbmJenkinsCreds()` (AWS/SSH). Always use `withCredentials`.
-
-## Related Jobs
-
-- `psmdb-*` – Related Percona Server MongoDB jobs
-- Distribution testing orchestration
-- Package validation workflows
-
-## Code Owners
-
-See `.github/CODEOWNERS` – PDMDB pipelines maintained by:
-- Oleksandr Havryliak (15 commits) – Primary contributor
-- Mikhail Samoylov (11 commits) – Supporting contributor
-
-Primary contact: `@oleksandr-havryliak`
-
-## Status
-
-Last activity: July 2024 (dormant)
-Maintenance mode: Stable distribution testing infrastructure
+| Repository | Purpose |
+|------------|---------|
+| [percona/percona-server-mongodb](https://github.com/percona/percona-server-mongodb) | PSMDB source |
+| [percona/percona-server-mongodb-packaging](https://github.com/percona/percona-server-mongodb-packaging) | Packaging |
+| [Percona-QA/psmdb-testing](https://github.com/Percona-QA/psmdb-testing) | Test scenarios |

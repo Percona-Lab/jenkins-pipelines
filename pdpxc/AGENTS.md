@@ -5,7 +5,7 @@ Extends: [../AGENTS.md](../AGENTS.md)
 ## TL;DR
 
 **What**: Percona Distribution for PXC - Galera clustering, HAProxy, PRM, upgrade validation
-**Where**: Jenkins `pxc` | `https://pxc.cd.percona.com` | Jobs: `pdpxc-*`
+**Where**: Jenkins `pxc` | `https://pxc.cd.percona.com` | Jobs: `pdpxc-*`, `haproxy`
 **Key Helpers**: `moleculeExecuteActionWithScenario()`, `moleculeParallelPostDestroy()`
 **Watch Out**: Depends on PXC artifacts; includes HAProxy and operator integration
 
@@ -15,140 +15,142 @@ Extends: [../AGENTS.md](../AGENTS.md)
 |-----|-------|
 | Jenkins Instance | `pxc` |
 | URL | https://pxc.cd.percona.com |
-| Job Patterns | `pdpxc-*`, `pdpxc-parallel`, `pdpxc-upgrade*` |
+| Job Patterns | `pdpxc-*`, `haproxy`, `percona-replication-manager` |
 | Default Credential | `pxc-staging` |
 | AWS Region | `us-east-2` |
-| Groovy Files | ~10 |
+| Groovy Files | 10 |
+| Last Updated | 2025-12 |
 
-## Scope
+## Job Dependency Graph
 
-Percona Distribution for Percona XtraDB Cluster (PDPXC) CI/CD pipelines. Includes distribution package testing for Galera-based MySQL clustering, HAProxy load balancing, Percona Replication Manager integration, multi-version setup, upgrade validation, and PXC Operator integration testing.
+```
+pdpxc-multi-parallel.groovy (orchestrator)
+   │
+   ├── pdpxc-parallel (3x different scenarios)
+   ├── pdpxc-upgrade-parallel
+   └── haproxy
 
-## Key Files
-
-- `pdpxc-setup.groovy` / `pdpxc-setup-parallel.groovy` – Initial PDPXC setup and installation
-- `pdpxc-parallel.groovy` / `pdpxc.groovy` – Distribution testing across platforms
-- `pdpxc-upgrade.groovy` / `pdpxc-upgrade-parallel.groovy` – Upgrade path testing (minor/major versions)
-- `pdpxc-multi.groovy` / `pdpxc-multi-parallel.groovy` – Multi-version testing orchestration
-- `pdpxc-haproxy.groovy` – HAProxy load balancer integration testing
-- `pdpxc-percona-replication-manager.groovy` – Percona Replication Manager testing
-- `pdpxc-pxco-integration-scheduler.groovy` – PXC Operator integration scheduling
-
-## Product-Specific Patterns
-
-### Distribution Testing Pattern
-
-```groovy
-// Standard PDPXC test scenarios
-moleculeExecute(
-    scenario: 'pdpxc-setup',
-    platform: params.PLATFORM,
-    version: params.VERSION
-)
+pdpxc-pxco-integration-scheduler.groovy
+   │
+   └── Triggers PXC Operator integration tests
 ```
 
-### HAProxy Integration
+**Parallel Execution**: All tests run in parallel across platforms.
 
-```groovy
-// HAProxy provides load balancing for PXC clusters
-// Validated as part of PDPXC distribution
-scenario: 'pdpxc-haproxy'
+## Directory Map
+
+```
+pdpxc/                                  # 1,782 lines total
+├── AGENTS.md                           # This file
+├── percona-replication-manager.groovy (355) # PRM testing (ARM64 + x64)
+├── pdpxc-multi.groovy              (216) # Multi-version orchestration
+├── haproxy.groovy                  (202) # HAProxy load balancer
+├── pdpxc-multi-parallel.groovy     (198) # Parallel orchestrator
+├── pdpxc-upgrade-parallel.groovy   (177) # Parallel upgrades
+├── pdpxc-upgrade.groovy            (162) # Upgrade testing
+├── pdpxc.groovy                    (158) # Main distribution testing
+├── pdpxc-parallel.groovy           (122) # Parallel testing
+├── pdpxc-pxco-integration-scheduler.groovy (106) # Operator integration
+├── pdpxc-site-check.groovy          (86) # Site validation
+└── *.yml                                 # JJB configs
 ```
 
-### PXC Operator Integration
+## Key Jobs from Jenkins
 
-```groovy
-// Operator integration scheduling
-// Validates PDPXC packages work with Kubernetes PXC Operator
-job: 'pdpxc-pxco-integration-scheduler'
-```
+| Job | Status | Purpose |
+|-----|--------|---------|
+| `pdpxc-upgrade-parallel` | SUCCESS | Parallel upgrade testing |
+| `pdpxc-upgrade` | SUCCESS | Upgrade path validation |
+| `pdpxc-integration-push-test` | SUCCESS | Integration push tests |
+| `pdpxc-parallel` | FAILED | Parallel distribution testing |
+| `haproxy` | FAILED | HAProxy load balancer tests |
+| `pdpxc-multi-parallel` | FAILED | Multi-version orchestration |
 
-### Molecule Credentials
+## Agent Labels
 
-```groovy
-// Use PDPXC-specific Molecule credentials
-moleculePdpxcJenkinsCreds()
-```
+| Label | Purpose | Files |
+|-------|---------|-------|
+| `docker` | Standard builds | percona-replication-manager (most) |
+| `docker-32gb-aarch64` | ARM64 builds | percona-replication-manager |
+| `min-bookworm-x64` | Molecule controller | pdpxc.groovy |
+| `min-centos-7-x64` | Legacy orchestration | pdpxc-multi-parallel |
 
-## Agent Workflow
+## Components Tested
 
-1. **Inspect existing jobs:** `~/bin/jenkins job pxc config pdpxc-parallel -f yaml` to capture parameters like `VERSION`, `PLATFORM`, `SCENARIO`, `TESTING_BRANCH`.
-2. **Reuse distribution patterns:** Follow established patterns from `pxc/` pipelines for consistency with XtraDB Cluster testing.
-3. **HAProxy component:** When modifying HAProxy jobs, ensure compatibility with PXC cluster configurations.
-4. **Operator integration:** PXC Operator integration jobs coordinate with Kubernetes operator testing infrastructure.
-5. **Parameter contracts:** PDPXC jobs follow release automation contracts; extend but never rename/remove parameters.
+| Component | Pipeline | Purpose |
+|-----------|----------|---------|
+| PDPXC Distribution | pdpxc-parallel | Package installation/testing |
+| HAProxy | haproxy.groovy | Load balancer integration |
+| Percona Replication Manager | percona-replication-manager | PRM validation |
+| PXC Operator | pdpxc-pxco-integration-scheduler | K8s operator integration |
 
-## Validation & Testing
+## Version Matrix
+
+| Version | Status | Upgrade From |
+|---------|--------|--------------|
+| PDPXC 8.4 | LTS | 8.0 |
+| PDPXC 8.0 | Active | 5.7 |
+| PDPXC 5.7 | Maintenance | - |
+
+## Common Pitfalls
+
+| Mistake | Why Wrong | Fix |
+|---------|-----------|-----|
+| Missing PXC artifacts | PDPXC depends on PXC | Ensure PXC builds complete first |
+| Skipping HAProxy tests | Incomplete distribution | Include HAProxy in test matrix |
+| Ignoring ARM64 | PRM has ARM64 builds | Include ARM64 stages |
+| Wrong orchestrator | Multi-parallel vs multi | Use correct orchestration job |
+
+## Jenkins CLI Quick Reference
 
 ```bash
-# Groovy syntax validation
+# List all PDPXC jobs
+~/bin/jenkins job pxc list | grep pdpxc
+
+# Get job status
+~/bin/jenkins status pxc/pdpxc-upgrade-parallel
+
+# Get parameters
+~/bin/jenkins params pxc/pdpxc-parallel
+
+# Trigger a build
+~/bin/jenkins build pxc/pdpxc-parallel -p PLATFORM=generic-oracle-linux-9-x64 -p VERSION=pdpxc-8.0
+
+# View logs
+~/bin/jenkins logs pxc/pdpxc-upgrade-parallel
+```
+
+## Local Validation
+
+```bash
+# Groovy syntax check
 groovy -e "new GroovyShell().parse(new File('pdpxc/pdpxc-parallel.groovy'))"
 
-# Molecule testing (local validation)
-cd /path/to/pxc-testing
-molecule test -s pdpxc-setup
+# Molecule testing
+cd /path/to/pxc-testing && molecule test -s pdpxc-setup
 
 # HAProxy testing
 molecule test -s pdpxc-haproxy
-
-# Jenkins dry-run
-~/bin/jenkins build pxc/pdpxc-parallel \
-  -p PLATFORM=generic-oracle-linux-9-x64 \
-  -p VERSION=pdpxc-8.0 \
-  --watch
 ```
 
-## Credentials & Parameters
+## Change Impact
 
-- **Credentials:** `moleculePdpxcJenkinsCreds()` – AWS/SSH for Molecule testing
-- **Key parameters:**
-  - `VERSION` – PDPXC version (e.g., 'pdpxc-8.0', 'pdpxc-8.4')
-  - `PLATFORM` – OS selection via Molecule platform helpers
-  - `SCENARIO` – Test scenario name
-  - `REPO` – Repository selection (testing/release/experimental)
-  - `TESTING_BRANCH` – pxc-testing.git branch (usually 'main')
+| Change | Impact | Notify |
+|--------|--------|--------|
+| Version params | Release automation | RelEng |
+| HAProxy config | Load balancer behavior | QA |
+| PRM changes | Replication management | DBA team |
+| Operator integration | K8s testing | Cloud team |
 
-# Jenkins
+## Related
 
-Instance: `pxc` | URL: `https://pxc.cd.percona.com`
+- [pxc/AGENTS.md](../pxc/AGENTS.md) - PXC builds (PDPXC depends on these)
+- [cloud/AGENTS.md](../cloud/AGENTS.md) - PXC Operator integration
+- [vars/AGENTS.md](../vars/AGENTS.md) - Shared helpers
 
-## CLI
-```bash
-~/bin/jenkins job pxc list | grep pdpxc             # All PDPXC jobs
-~/bin/jenkins params pxc/<job>                      # Parameters
-```
+## GitHub Repositories
 
-## API
-```bash
-# Auth: API token from Jenkins → User → Configure → API Token
-curl -su "USER:TOKEN" "https://pxc.cd.percona.com/api/json?tree=jobs%5Bname%5D" | jq -r '.jobs[].name | select(contains("pdpxc"))'
-```
-
-## Job Patterns
-`pdpxc-*`, `pdpxc-haproxy`, `pdpxc-upgrade*`
-
-## Credentials
-`moleculePdpxcJenkinsCreds()` (AWS/SSH). Always use `withCredentials`.
-
-## Related Jobs
-
-- `pxc-*` – Related Percona XtraDB Cluster jobs
-- `cloud/pxc-operator-*` – Kubernetes PXC Operator testing
-- HAProxy load balancer integration
-- Percona Replication Manager testing
-- Distribution testing orchestration
-
-## Code Owners
-
-See `.github/CODEOWNERS` – PDPXC pipelines maintained by:
-- Eleonora Zinchenko (15 commits) – Primary contributor
-- Mikhail Samoylov (6 commits) – Supporting contributor
-- Yash (3 commits) – Operator integration
-- Vadim Yalovets (3 commits) – Supporting contributor
-
-Primary contact: `@eleonora-zinchenko`
-
-## Status
-
-Last activity: May 2025 (semi-active)
-Recent work: PXC Operator integration, trigger automation
+| Repository | Purpose |
+|------------|---------|
+| [percona/percona-xtradb-cluster](https://github.com/percona/percona-xtradb-cluster) | PXC source |
+| [Percona-QA/pxc-qa](https://github.com/Percona-QA/pxc-qa) | PXC testing tool |

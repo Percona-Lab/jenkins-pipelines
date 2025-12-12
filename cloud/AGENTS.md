@@ -5,6 +5,7 @@ Extends: [../AGENTS.md](../AGENTS.md) | [../vars/AGENTS.md](../vars/AGENTS.md)
 ## TL;DR (read this first)
 
 - **Main pipelines live in** `cloud/jenkins/*.groovy` (45 scripts).
+- **Jobs are JJB-managed**: `cloud/jenkins/*.yml` defines job name/params + `script-path` → `cloud/jenkins/*.groovy` (don’t edit via Jenkins UI).
 - **Four K8s operators tested**: PXC (pxco), MongoDB (psmdbo), PostgreSQL (pgo), MySQL (pso).
 - **Six platforms**: EKS, GKE, AKS, OpenShift (ROSA), Minikube, DOKS.
 - **No shared library**; pipelines use inline helpers + direct tool installation.
@@ -19,8 +20,9 @@ Extends: [../AGENTS.md](../AGENTS.md) | [../vars/AGENTS.md](../vars/AGENTS.md)
 | Jenkins instance | `cloud` |
 | URL | https://cloud.cd.percona.com |
 | Total jobs | ~60+ |
-| Common job prefixes | `pxco-*`, `psmdbo-*`, `pgo-*`, `pso-*`, `weekly_*` |
+| Common job prefixes | `pxco-*`, `psmdbo-*`, `pgo-*`, `pso-*`, `weekly-*`, `*-docker-build`, `build-*-images` |
 | Primary script root | `cloud/jenkins/` |
+| JJB configs | `cloud/jenkins/*.yml` |
 | AWS region | `us-east-2` |
 | GCP region | Varies by test |
 | Slack channel | `#cloud-dev-ci` |
@@ -33,7 +35,7 @@ Derived from a local scan of `cloud/**/*.groovy` and `git log --since='12 months
 - **PostgreSQL Operator (pgo)** is the most actively maintained operator in cloud/.
 - **Platform coverage varies by operator**: pxco and pgo have DOKS support; psmdbo and pso do not.
 - **Weekly schedulers trigger platform jobs**: `weekly_*.groovy` run on Saturday/Sunday and trigger 3x parallel runs per platform.
-- **Highest churn contributors**: Eleonora Zinchenko (23), Viacheslav Sarzhan (17), Julio Pasinatto (9), Pavel Tankov (9).
+- **Ownership signal**: use `git shortlog -sn --since='12 months ago' HEAD -- cloud` (treat as a hint, not strict ownership).
 
 ## Job Dependency Graph (LLM-Optimized)
 
@@ -43,37 +45,37 @@ Data source: Codebase scan of `build job:` and `triggerJobMultiple()` calls. Las
 
 | Job | Type | Platforms | Cron | Notes |
 |-----|------|-----------|------|-------|
-| weekly_pxco | scheduler | EKS,GKE,AKS,OpenShift | `0 8 * * 6` (Sat 8AM) | Triggers 3x per platform |
-| weekly_psmdbo | scheduler | EKS,GKE,AKS,OpenShift | `0 15 * * 6` (Sat 3PM) | Triggers 3x per platform |
-| weekly_pgo | scheduler | EKS,GKE,AKS,OpenShift | `0 15 * * 0` (Sun 3PM) | Triggers 3x per platform |
-| weekly_pso | scheduler | EKS,GKE,OpenShift | `0 8 * * 0` (Sun 8AM) | No AKS support |
-| pxco_eks | e2e test | EKS | - | 6 parallel clusters |
-| pgo_eks | e2e test | EKS | - | 6 parallel clusters |
-| psmdbo_eks | e2e test | EKS | - | 6 parallel clusters |
-| pso_eks | e2e test | EKS | - | 6 parallel clusters |
+| weekly-pxco | scheduler | EKS,GKE,AKS,OpenShift | `0 8 * * 6` (Sat 8AM) | Triggers 3x per platform |
+| weekly-psmdbo | scheduler | EKS,GKE,AKS,OpenShift | `0 15 * * 6` (Sat 3PM) | Triggers 3x per platform |
+| weekly-pgo | scheduler | EKS,GKE,AKS,OpenShift | `0 15 * * 0` (Sun 3PM) | Triggers 3x per platform |
+| weekly-pso | scheduler | EKS,GKE,OpenShift | `0 8 * * 0` (Sun 8AM) | No AKS support |
+| pxco-eks-1 | e2e test | EKS | - | 6 parallel clusters |
+| pgo-eks-1 | e2e test | EKS | - | 6 parallel clusters |
+| psmdbo-eks-1 | e2e test | EKS | - | 6 parallel clusters |
+| pso-eks-1 | e2e test | EKS | - | 6 parallel clusters |
 
 ### Explicit Edges (from weekly schedulers)
 
 ```
-weekly_pxco (Sat 8AM)
+weekly-pxco (Sat 8AM)
 ├── pxco-gke-1 (3x)
 ├── pxco-eks-1 (3x)
 ├── pxco-aks-1 (3x)
 └── pxco-openshift-1 (3x)
 
-weekly_psmdbo (Sat 3PM)
+weekly-psmdbo (Sat 3PM)
 ├── psmdbo-gke-1 (3x)
 ├── psmdbo-eks-1 (3x)
 ├── psmdbo-aks-1 (3x)
 └── psmdbo-openshift-1 (3x)
 
-weekly_pgo (Sun 3PM)
+weekly-pgo (Sun 3PM)
 ├── pgo-gke-1 (3x)
 ├── pgo-eks-1 (3x)
 ├── pgo-aks-1 (3x)
 └── pgo-openshift-1 (3x)
 
-weekly_pso (Sun 8AM)
+weekly-pso (Sun 8AM)
 ├── pso-gke-1 (3x)
 ├── pso-eks-1 (3x)
 └── pso-openshift-1 (3x)
@@ -103,7 +105,7 @@ weekly_pso (Sun 8AM)
 
 ```
 cloud/
-  jenkins/                           # All pipeline scripts (45 files)
+  jenkins/                           # Pipelines (45 .groovy) + JJB job configs (.yml)
     pxco_*.groovy                    # PXC Operator tests (6 platforms)
     psmdbo_*.groovy                  # MongoDB Operator tests (5 platforms)
     pgo_*.groovy                     # PostgreSQL Operator tests (6 platforms)
@@ -111,7 +113,7 @@ cloud/
     pgo_v1_*.groovy                  # Legacy PGO v1 pipelines (9 files)
     weekly_*.groovy                  # Weekly scheduled test runners (4 files)
     *_docker_build.groovy            # Docker image builds (11 files)
-    *.yml                            # Job configuration YAML
+    *.yml                            # Jenkins Job Builder configs (job name, params, script-path)
   aws-functions/                     # AWS orphan cleanup (Python)
     orphaned_eks_clusters.py
     orphaned_openshift_instances.py
@@ -132,6 +134,19 @@ cloud/
 ```
 
 ## "What file do I edit?" (fast index)
+
+Cloud jobs are mostly managed via Jenkins Job Builder (JJB):
+- **Job config** (name/params/triggers + `script-path`): `cloud/jenkins/*.yml`
+- **Pipeline logic** (Declarative pipeline): `cloud/jenkins/*.groovy`
+
+Keep `triggers { cron(...) }` / `buildDiscarder(...)` consistent between the `.yml` and the `.groovy` when you touch schedules/retention.
+
+### JJB Job Configs (source of truth for job name + script-path)
+
+- Example: `pgo-eks-1` → `cloud/jenkins/pgo-eks-1.yml` → `script-path: cloud/jenkins/pgo_eks.groovy`
+- Example: `weekly-pgo` → `cloud/jenkins/weekly-pgo.yml` → `script-path: cloud/jenkins/weekly_pgo.groovy`
+- Example: `pgo-docker-build` → `cloud/jenkins/pgo-docker.yml` → `script-path: cloud/jenkins/pgo_docker_build.groovy`
+- Freestyle “poll + trigger” wrappers: `cloud/jenkins/build-*-image*.yml` (example: `cloud/jenkins/build-pgo-image.yml` triggers `pgo-docker-build`)
 
 ### Operator E2E Tests by Platform
 
@@ -214,22 +229,25 @@ Cloud pipelines do NOT use `@Library` or `library` declarations. Instead they us
 - Inline helper functions (`prepareNode()`, `createCluster()`, `shutdownCluster()`)
 - Direct tool installation in stages
 - Local checkout script (`cloud/local/checkout`)
+  - Note: some Docker build pipelines download `cloud/local/checkout` from `master` (example: `cloud/jenkins/version_service_docker_build.groovy`), so branch-only changes to `cloud/local/checkout` may not be exercised unless you update those jobs too.
 
 ### Common Inline Helpers
 
 ```groovy
-// Cluster lifecycle (EKS example)
-def createCluster(String name) {
-    sh "eksctl create cluster --name ${name} --region us-east-2 ..."
+// These helpers are usually defined per-file (not shared across the repo).
+void prepareNode() { /* clone sources + install tools */ }
+
+void createCluster(String CLUSTER_SUFFIX) {
+    sh """
+        tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
+        # eksctl cluster config...
+        EOF
+        eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
+    """
 }
 
-def shutdownCluster(String name) {
-    sh "eksctl delete cluster --name ${name} --region us-east-2"
-}
-
-// Resource tagging for cleanup automation
-def tagCluster(String name) {
-    // Tags: delete-cluster-after-hours, creation-time, team
+void shutdownCluster(String CLUSTER_SUFFIX) {
+    sh "eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force ... || true"
 }
 ```
 
@@ -333,11 +351,23 @@ agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64' : 'docker-32gb' }
 rg -l "_eks\.groovy" cloud/jenkins
 rg -l "_openshift\.groovy" cloud/jenkins
 
+# Find the JJB YAML for a Jenkins job name
+rg -n "name:\\s+pxco-eks-1\\b" cloud/jenkins/*.yml
+
+# See its script-path
+rg -n "script-path:" cloud/jenkins/pxco-eks-1.yml
+
 # Find all credential usage
 rg -n "credentialsId:" cloud/jenkins
 
 # Find cluster cleanup logic
 rg -n "eksctl delete|shutdownCluster|deleteCluster" cloud/jenkins
+
+# Find S3 cache/marker logic (skip reruns)
+rg -n "percona-jenkins-artifactory|PARAMS_HASH|head-object" cloud/jenkins
+
+# Find checkout script usage (some jobs wget it from GitHub raw)
+rg -n "cloud/local/checkout|raw\\.githubusercontent\\.com/.*/cloud/local/checkout" cloud/jenkins
 
 # Find weekly scheduler targets
 rg -n "triggerJobMultiple" cloud/jenkins
@@ -356,14 +386,18 @@ git log --oneline --max-count 50 -- cloud
 git log --since='12 months ago' --name-only --pretty=format: HEAD -- cloud \
   | sort | uniq -c | sort -rn | head
 
-# Who touched cloud pipelines recently
-git shortlog -sne --since='12 months ago' HEAD -- cloud | head
+# Who touched cloud pipelines recently (names only; omit emails)
+git shortlog -sn --since='12 months ago' HEAD -- cloud | head
+
+# Operator release tags (cadence signal)
+git tag -l '*-operator-*' --sort=-creatordate | head -n 20
 
 # Follow a specific operator pipeline
 git log --follow -p -- cloud/jenkins/pgo_eks.groovy
 ```
 
 Recent structural changes (from `git log -- cloud`):
+- `CLOUD-875` (2024-12 → 2025-03): consolidated and deleted duplicated cloud pipelines (watch for legacy names in older logs; use `git log --follow`).
 - PostgreSQL Operator (pgo) tests most actively maintained.
 - Hetzner agent support added across pipelines.
 - DOKS (DigitalOcean) added for pxco and pgo.
@@ -393,21 +427,13 @@ cd cloud/gcp-functions && go build ./...
 | Hardcoded cluster names | Name collisions | Use `${BUILD_NUMBER}` suffix |
 | No resource tagging | Cleanup automation fails | Tag with `delete-cluster-after-hours` |
 
-## PR Review Checklist
-
-- [ ] Cluster cleanup in `post.always`
-- [ ] `timeout()` wrapper on cluster operations
-- [ ] Correct credential wrapper for target cloud
-- [ ] No hardcoded cluster names (use `${BUILD_NUMBER}`)
-- [ ] Resource tagging for cleanup automation
-- [ ] Slack notification on failure (`#cloud-dev-ci`)
-
 ## Notes / Known "gotchas"
 
 - **EKS tests use 6 parallel clusters** (cluster1-cluster6) for test parallelization—ensure all are cleaned up.
 - **OpenShift costs $300/day**: Most expensive platform. Verify cleanup thoroughly.
 - **Minikube tests need `docker-32gb`**: High memory required for local K8s.
 - **No shared library**: Unlike other products, cloud pipelines are self-contained with inline helpers.
+- **S3 “skip rerun” marker contract**: many tests write marker objects to `s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/` using `PARAMS_HASH`; changing the key format changes rerun behavior.
 - **Hetzner conditional labels**: Some pipelines support Hetzner agents via parameter switch.
 - **Legacy PGO v1**: 9 legacy pipelines exist for PGO v1 compatibility—separate from current pgo_*.groovy.
 - **Orphan cleanup is critical**: Run `aws-functions/*.py` and `gcp-functions/` utilities regularly to avoid cost leaks.

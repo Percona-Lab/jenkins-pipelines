@@ -175,16 +175,6 @@ cd molecule/pbm && molecule test -s aws-sharded
 docker run -it percona/pbm:latest pbm --help
 ```
 
-## PR Review Checklist
-
-- [ ] `buildDiscarder(logRotator(...))` in options
-- [ ] `deleteDir()` in `post.always`
-- [ ] `moleculePbmJenkinsCreds()` present
-- [ ] S3 bucket cleanup
-- [ ] RS and sharded topology coverage
-- [ ] PSMDB version alignment
-- [ ] All storage backends tested (S3, GCS, Azure)
-
 ## Change Impact
 
 | Change | Impact | Notify |

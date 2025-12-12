@@ -388,15 +388,6 @@ cd molecule/pxc && molecule test -s ubuntu-jammy
 | Forgetting ProxySQL tests | Breaks load balancer validation | Include in test matrix |
 | Using AWS for PXC 5.7 | Hetzner is default now | Set `CLOUD='AWS'` explicitly |
 
-## PR Review Checklist
-
-- [ ] `buildDiscarder(logRotator(...))` in options
-- [ ] `deleteDir()` in `post.always`
-- [ ] Galera wsrep settings consistent
-- [ ] Multi-node cluster cleanup (`moleculeParallelPostDestroy()`)
-- [ ] ProxySQL tests included if applicable
-- [ ] Correct cloud provider for version (Hetzner for 5.7)
-
 ## Notes / Known "gotchas"
 
 - **Hetzner is DEFAULT for PXC 5.7**: The `pxc57-pipeline.groovy` uses Hetzner by default. Set `CLOUD='AWS'` to use AWS.
