@@ -117,50 +117,6 @@ pipeline {
             description: 'PMM admin password (leave as <GENERATED> for auto-generation)'
         )
 
-        // SSL Configuration
-        booleanParam(
-            name: 'ENABLE_SSL',
-            defaultValue: false,
-            description: 'Enable SSL/TLS certificates'
-        )
-        choice(
-            name: 'SSL_METHOD',
-            choices: ['letsencrypt', 'acm'],
-            description: 'SSL certificate method'
-        )
-        string(
-            name: 'SSL_EMAIL',
-            defaultValue: 'cloud-dev-test@percona.com',
-            description: 'Email for Let\'s Encrypt certificates'
-        )
-        booleanParam(
-            name: 'USE_STAGING_CERT',
-            defaultValue: false,
-            description: 'Use Let\'s Encrypt staging (for testing)'
-        )
-
-        // Lifecycle
-        string(
-            name: 'DELETE_AFTER_HOURS',
-            defaultValue: '8',
-            description: 'Auto-delete after N hours (used by cleanup job)'
-        )
-        string(
-            name: 'TEAM_NAME',
-            defaultValue: 'cloud',
-            description: 'Team name for billing/tracking'
-        )
-        string(
-            name: 'PRODUCT_TAG',
-            defaultValue: 'pmm',
-            description: 'Product tag for resource tracking'
-        )
-        string(
-            name: 'BASE_DOMAIN',
-            defaultValue: 'cd.percona.com',
-            description: 'Base domain for cluster URLs'
-        )
-
         // Advanced
         booleanParam(
             name: 'DEBUG_MODE',
@@ -241,49 +197,20 @@ pipeline {
 ROSA HCP Cluster Creation Summary
 ====================================================================
 
-CLUSTER CONFIGURATION
----------------------
 Cluster Name:         ${env.FINAL_CLUSTER_NAME}
 OpenShift Version:    ${params.OPENSHIFT_VERSION}
 AWS Region:           ${params.AWS_REGION}
-Base Domain:          ${params.BASE_DOMAIN}
-
-COMPUTE RESOURCES
------------------
 Worker Nodes:         ${params.WORKER_COUNT} x ${params.INSTANCE_TYPE}
-
-PMM DEPLOYMENT
---------------
 PMM Mode:             ${params.PMM_MODE}"""
 
                     if (params.PMM_MODE != 'none') {
                         summary += """
-PMM Repository:       ${params.PMM_IMAGE_REPOSITORY}
-PMM Image Tag:        ${params.PMM_IMAGE_TAG}
-Admin Password:       ${params.PMM_ADMIN_PASSWORD == '<GENERATED>' ? 'Auto-generated' : 'User-specified'}"""
+PMM Image:            ${params.PMM_IMAGE_REPOSITORY}:${params.PMM_IMAGE_TAG}"""
                     }
 
                     summary += """
 
-SSL CONFIGURATION
------------------
-Enable SSL:           ${params.ENABLE_SSL ? 'Yes' : 'No'}"""
-                    if (params.ENABLE_SSL) {
-                        summary += """
-SSL Method:           ${params.SSL_METHOD}
-Staging Cert:         ${params.USE_STAGING_CERT}"""
-                    }
-
-                    summary += """
-
-LIFECYCLE
----------
-Auto-delete after:    ${params.DELETE_AFTER_HOURS} hours
-Team:                 ${params.TEAM_NAME}
-Product Tag:          ${params.PRODUCT_TAG}
-
---------------------------------------------------------------------
-Starting ROSA HCP cluster creation process...
+====================================================================
 """
                     echo summary
                 }
@@ -412,73 +339,24 @@ Please choose a different cluster name or delete the existing cluster first.
                                 pmmConfig.chartBranch = params.PMM_HELM_CHART_BRANCH
                             }
                             pmmInfo = pmmHaRosa.installPmm(pmmConfig)
-
-                            // Create route for HA
-                            def routeInfo = pmmHaRosa.createRoute([
-                                namespace: pmmConfig.namespace,
-                                clusterName: env.FINAL_CLUSTER_NAME,
-                                r53ZoneName: params.BASE_DOMAIN
-                            ])
-                            env.PMM_URL = routeInfo.url
                         } else {
                             // Standalone mode - use openshiftRosa
                             if (params.PMM_HELM_CHART_VERSION) {
                                 pmmConfig.chartVersion = params.PMM_HELM_CHART_VERSION
                             }
                             pmmInfo = openshiftRosa.installPmmStandalone(pmmConfig)
-
-                            // Create route for standalone
-                            def domain = "${env.FINAL_CLUSTER_NAME}.${params.BASE_DOMAIN}"
-                            openshiftRosa.createRoute53Record([
-                                domain: domain,
-                                target: sh(script: "oc get svc pmm -n pmm -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo ''", returnStdout: true).trim(),
-                                zoneName: params.BASE_DOMAIN
-                            ])
-                            env.PMM_URL = "https://${domain}"
                         }
+
+                        // Get PMM service URL
+                        env.PMM_URL = sh(
+                            script: "oc get svc ${pmmInfo.serviceName} -n ${pmmConfig.namespace} -o jsonpath='https://{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null || echo 'pending'",
+                            returnStdout: true
+                        ).trim()
 
                         env.PMM_PASSWORD = pmmInfo.adminPassword
                         env.PMM_PASSWORD_GENERATED = (params.PMM_ADMIN_PASSWORD == '<GENERATED>') ? 'true' : 'false'
 
                         echo "PMM deployed successfully: ${env.PMM_URL}"
-                    }
-                }
-            }
-        }
-
-        stage('Configure SSL') {
-            when { expression { params.ENABLE_SSL } }
-            steps {
-                withCredentials([
-                    aws(
-                        credentialsId: 'jenkins-openshift-aws',
-                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
-                ]) {
-                    script {
-                        echo "Configuring SSL certificates using ${params.SSL_METHOD}..."
-
-                        def sslConfig = [
-                            clusterName: env.FINAL_CLUSTER_NAME,
-                            baseDomain: params.BASE_DOMAIN,
-                            email: params.SSL_EMAIL,
-                            useStaging: params.USE_STAGING_CERT,
-                            kubeconfigPath: "${KUBECONFIG_DIR}/config"
-                        ]
-
-                        if (params.SSL_METHOD == 'letsencrypt') {
-                            openshiftSSL.setupLetsEncrypt(sslConfig)
-                            echo 'Let\'s Encrypt SSL configured'
-                        } else if (params.SSL_METHOD == 'acm') {
-                            awsCertificates.setupACM(sslConfig + [
-                                accessKey: AWS_ACCESS_KEY_ID,
-                                secretKey: AWS_SECRET_ACCESS_KEY
-                            ])
-                            echo 'ACM SSL configured'
-                        }
-
-                        env.SSL_CONFIGURED = 'true'
                     }
                 }
             }
@@ -530,25 +408,13 @@ LOGIN COMMAND
 -------------
 oc login ${env.CLUSTER_API_URL} -u cluster-admin -p '${env.CLUSTER_ADMIN_PASSWORD}' --insecure-skip-tls-verify
 
-LIFECYCLE
----------
-Auto-Delete After:    ${params.DELETE_AFTER_HOURS} hours
-Team:                 ${params.TEAM_NAME}
-
 ====================================================================
 """
                     echo summary
 
                     // Update build description
                     def pmmStatus = env.PMM_URL ? "PMM: ${env.PMM_URL}" : "No PMM"
-                    currentBuild.description = "${env.FINAL_CLUSTER_NAME} | " +
-                        "ROSA ${env.CLUSTER_VERSION} | " +
-                        "${params.AWS_REGION} | " +
-                        "Active | " +
-                        "Console: ${env.CLUSTER_CONSOLE_URL} | " +
-                        "${pmmStatus} | " +
-                        "Workers: ${params.WORKER_COUNT}x${params.INSTANCE_TYPE} | " +
-                        "Auto-delete: ${params.DELETE_AFTER_HOURS}h"
+                    currentBuild.description = "${env.FINAL_CLUSTER_NAME} | ROSA ${env.CLUSTER_VERSION} | ${pmmStatus}"
                 }
             }
         }

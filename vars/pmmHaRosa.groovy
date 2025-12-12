@@ -2,42 +2,19 @@
  * PMM HA ROSA operations library.
  *
  * Extends openshiftRosa with PMM High Availability specific deployment.
- * For generic ROSA operations (cluster lifecycle, DNS, etc.), this library
- * delegates to openshiftRosa.
+ * For generic ROSA operations (cluster lifecycle), this library delegates to openshiftRosa.
  *
  * Prerequisites:
  * - rosa CLI installed on Jenkins agents
  * - Red Hat offline token stored as Jenkins credential
  * - AWS credentials with ROSA permissions
  *
- * @since 1.0.0
- *
- * @example Library Usage:
- * // Import the library
- * library changelog: false, identifier: 'lib@master', retriever: modernSCM([
- *     $class: 'GitSCMSource',
- *     remote: 'https://github.com/Percona-Lab/jenkins-pipelines'
- * ])
- *
- * // Create ROSA HCP cluster (delegates to openshiftRosa)
- * pmmHaRosa.createCluster([
- *     clusterName: 'pmm-ha-rosa-1',
- *     region: 'us-east-2',
- *     replicas: 3
- * ])
- *
- * // Deploy PMM HA (PMM-specific)
+ * @example
+ * // Deploy PMM HA
  * pmmHaRosa.installPmm([
  *     namespace: 'pmm',
  *     chartBranch: 'PMM-14420',
  *     imageTag: '3.4.0'
- * ])
- *
- * // Create Route with Route53 DNS (PMM-specific)
- * pmmHaRosa.createRoute([
- *     namespace: 'pmm',
- *     domain: 'pmm-ha-rosa-1.cd.percona.com',
- *     r53ZoneName: 'cd.percona.com'
  * ])
  */
 
@@ -134,19 +111,6 @@ def getClusterAgeHours(String createdAt) {
     return openshiftRosa.getClusterAgeHours(createdAt)
 }
 
-/**
- * Creates Route53 DNS record. Delegates to openshiftRosa.
- */
-def createRoute53Record(Map config) {
-    return openshiftRosa.createRoute53Record(config)
-}
-
-/**
- * Deletes Route53 DNS record. Delegates to openshiftRosa.
- */
-def deleteRoute53Record(Map config) {
-    return openshiftRosa.deleteRoute53Record(config)
-}
 
 /**
  * Generates a random password. Delegates to openshiftRosa.
@@ -445,94 +409,6 @@ EOF
         namespace: params.namespace,
         adminPassword: adminPassword,
         serviceName: 'pmm-ha'
-    ]
-}
-
-/**
- * Creates an OpenShift Route for external PMM access and configures Route53 DNS.
- *
- * @param config Map containing:
- *   - namespace: PMM namespace (required)
- *   - domain: Custom domain for PMM (optional)
- *   - clusterName: ROSA cluster name (required for domain generation)
- *   - r53ZoneName: Route53 zone name (optional, default: 'cd.percona.com')
- *   - r53ZoneId: Route53 hosted zone ID (optional)
- *   - serviceName: PMM service name (optional, default: 'pmm-ha')
- *
- * @return Map containing:
- *   - routeName: Name of created route
- *   - routeHost: Route hostname
- *   - url: Full HTTPS URL for PMM
- *   - dnsRecord: Route53 DNS record name
- */
-def createRoute(Map config) {
-    if (!config.namespace) {
-        error 'namespace is required'
-    }
-
-    def params = [
-        r53ZoneName: 'cd.percona.com',
-        serviceName: 'pmm-ha'
-    ] + config
-
-    def domain = params.domain
-    if (!domain && params.clusterName) {
-        domain = "${params.clusterName}.${params.r53ZoneName}"
-    }
-
-    if (!domain) {
-        error 'Either domain or clusterName must be provided'
-    }
-
-    echo 'Creating OpenShift Route for PMM HA'
-    echo "  Domain: ${domain}"
-    echo "  Namespace: ${params.namespace}"
-
-    sh """
-        export PATH="\$HOME/.local/bin:\$PATH"
-
-        oc delete route pmm-https -n ${params.namespace} || true
-
-        oc create route passthrough pmm-https \\
-            --service=${params.serviceName} \\
-            --port=https \\
-            --hostname=${domain} \\
-            -n ${params.namespace}
-
-        oc get route pmm-https -n ${params.namespace}
-    """
-
-    def routerHost = sh(
-        script: """
-            export PATH="\$HOME/.local/bin:\$PATH"
-            oc get route pmm-https -n ${params.namespace} -o jsonpath='{.status.ingress[0].routerCanonicalHostname}' || \\
-            oc get service -n openshift-ingress router-default -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
-        """,
-        returnStdout: true
-    ).trim()
-
-    if (routerHost) {
-        echo "Creating Route53 DNS record: ${domain} -> ${routerHost}"
-
-        createRoute53Record([
-            domain: domain,
-            target: routerHost,
-            zoneName: params.r53ZoneName,
-            zoneId: params.r53ZoneId
-        ])
-    } else {
-        echo 'WARNING: Could not get router hostname for Route53 setup'
-    }
-
-    def pmmUrl = "https://${domain}"
-    echo "PMM HA accessible at: ${pmmUrl}"
-
-    return [
-        routeName: 'pmm-https',
-        routeHost: domain,
-        url: pmmUrl,
-        dnsRecord: domain,
-        routerHost: routerHost
     ]
 }
 
