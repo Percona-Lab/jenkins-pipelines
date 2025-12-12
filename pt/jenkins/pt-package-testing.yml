@@ -25,15 +25,17 @@
         - choice:
             name: node_to_test
             choices:
-                - 'min-centos-7-x64'
                 - 'min-ol-8-x64'
                 - 'min-ol-9-x64'
+                - 'min-rhel-10-x64'
+                - 'min-al2023-x64'
                 - 'min-focal-x64'
                 - 'min-jammy-x64'
                 - 'min-noble-x64'
                 - 'min-buster-x64'
                 - 'min-bullseye-x64'
                 - 'min-bookworm-x64'
+                - 'min-trixie-x64'
             description: 'Node to run tests on'
         - choice:
             name: install_repo
