@@ -27,6 +27,11 @@ def call(operatingSystems, moleculeDir) {
               (params.server_to_test == 'ms-84' && params.product_to_test == 'pxb_84' && "${os}" == 'ubuntu-focal' ) ||
               (params.server_to_test == 'ms-84' && params.product_to_test == 'pxb_84' && "${os}" == 'ubuntu-jammy-arm' ) ||
               (params.server_to_test == 'ms-84' && params.product_to_test == 'pxb_84' && "${os}" == 'ubuntu-noble-arm' ) ||
+              (params.server_to_test == 'ms-84' && params.product_to_test == 'pxb_84' && "${os}" == 'debian-13-arm' ) ||
+              (params.server_to_test == 'ms-84' && params.product_to_test == 'pxb_84' && "${os}" == 'al-2023-arm' ) ||
+              (params.product_to_test == 'pxb_80' && params.server_to_test == 'ms-80' && "${os}" == 'al-2023-arm' ) ||
+              (params.product_to_test == 'pxb_80' && params.server_to_test == 'ms-80' && "${os}" == 'debian-13-arm' ) ||
+              (params.product_to_test == 'pxb_80' && params.server_to_test == 'ms-80' && "${os}" == 'debian-13' ) ||
               (params.product_to_test == 'pxb_80' && params.server_to_test == 'ms-80' && "${os}" == 'ubuntu-noble-arm' ) ||
               (params.product_to_test == 'pxb_80' && params.server_to_test == 'ms-80' && "${os}" == 'ubuntu-jammy-arm' ) ||
               (params.product_to_test == 'pxb_80' && params.server_to_test == 'ms-80' && "${os}" == 'debian-12-arm' ) ||
