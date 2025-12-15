@@ -209,11 +209,30 @@ properties([
                 ]
             ]
         ],
-        choice(
-            choices: ['testing', 'main', 'experimental'],
-            description: 'Choose the repo to install packages and run the tests',
-            name: 'install_repo'
-        ),
+
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'Install Repo',
+            name: 'install_repo',
+            referencedParameters: 'action_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (action_to_test == "major_upgrade") {
+                            return ["NA"]
+                        }
+                        else {
+                            return ["testing", "main", "experimental"]
+                        }   
+                    '''
+                ]
+            ]
+        ],
+
         string(
             defaultValue: 'https://github.com/Percona-QA/package-testing.git',
             description: 'repo name',
