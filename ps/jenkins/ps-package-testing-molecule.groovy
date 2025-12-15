@@ -211,11 +211,10 @@ properties([
         ],
 
         [
-            $class: 'CascadeChoiceParameter',
+            $class: 'ActiveChoiceParameter',
             choiceType: 'PT_SINGLE_SELECT',
             description: 'Install Repo',
             name: 'install_repo',
-            referencedParameters: 'action_to_test',
             script: [
                 $class: 'GroovyScript',
                 script: [
@@ -227,7 +226,7 @@ properties([
                         }
                         else {
                             return ["testing", "main", "experimental"]
-                        }   
+                        }
                     '''
                 ]
             ]
