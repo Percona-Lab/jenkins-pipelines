@@ -4,6 +4,7 @@ import groovy.transform.Field
 @Field static final String CLUSTER_PREFIX = 'pmm-ha-test-'
 @Field static final int MAX_CLUSTERS = 5
 @Field static final int MAX_RETENTION_DAYS = 7
+@Field static final int SKIP_NEWEST_THRESHOLD_HOURS = 4  // Only skip "newest" if created within this window
 @Field static final String PMM_SERVICE_NAME = 'pmm-ha-haproxy'
 @Field static final String PMM_DEFAULT_NAMESPACE = 'pmm'
 
@@ -215,6 +216,36 @@ def filterByRetention(List clusters, String region, boolean verbose = true) {
     return filtered
 }
 
+/** Check if a cluster was created recently (within threshold hours)
+ *  @param clusterName, region, thresholdHours */
+def isClusterRecent(String clusterName, String region, int thresholdHours = SKIP_NEWEST_THRESHOLD_HOURS) {
+    def createdAt
+    withEnv([
+        "CLUSTER=${clusterName}",
+        "REGION=${region}"
+    ]) {
+        createdAt = sh(script: '''
+            aws eks describe-cluster --name "${CLUSTER}" --region "${REGION}" --query 'cluster.createdAt' --output text 2>/dev/null || echo ''
+        ''', returnStdout: true).trim()
+    }
+
+    if (!createdAt || createdAt == 'None' || createdAt == 'null') {
+        return false  // Can't determine age, assume not recent
+    }
+
+    // Parse ISO timestamp and compare to threshold
+    def ageHours
+    withEnv(["CREATED=${createdAt}"]) {
+        ageHours = sh(script: '''
+            CREATED_EPOCH=$(date -d "${CREATED}" +%s 2>/dev/null || echo 0)
+            NOW_EPOCH=$(date +%s)
+            echo $(( (NOW_EPOCH - CREATED_EPOCH) / 3600 ))
+        ''', returnStdout: true).trim() as int
+    }
+
+    return ageHours < thresholdHours
+}
+
 /** Delete PMM HA clusters (parallelizes when multiple provided)
  *  @param clusterNames, region */
 def deleteClusters(Map config) {
@@ -268,10 +299,16 @@ def deleteAllClusters(Map config = [:]) {
 
     def toDelete = clusters
 
-    // Skip newest cluster to protect in-progress builds
-    if (skipNewest) {
-        echo "Skipping newest cluster: ${clusters[0]}"
-        toDelete = clusters.drop(1)
+    // Skip newest cluster ONLY if it was created recently (protects in-progress builds)
+    // Don't skip old clusters just because they happen to be "the only one"
+    if (skipNewest && clusters.size() > 0) {
+        def newest = clusters[0]
+        if (isClusterRecent(newest, region)) {
+            echo "Skipping newest cluster: ${newest} (created within last ${SKIP_NEWEST_THRESHOLD_HOURS}h)"
+            toDelete = clusters.drop(1)
+        } else {
+            echo "Newest cluster ${newest} is older than ${SKIP_NEWEST_THRESHOLD_HOURS}h - not protecting"
+        }
     }
 
     // Filter by retention tags (only delete expired clusters)
