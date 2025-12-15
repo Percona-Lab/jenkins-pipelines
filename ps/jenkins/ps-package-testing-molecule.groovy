@@ -341,11 +341,28 @@ properties([
                 ]
             ]
         ],
-        choice(
-            choices: ['testing', 'main', 'experimental'],
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
             description: 'major upgrade to repo',
-            name: 'major_upgrade_to_repo'
-        ),
+            name: 'major_upgrade_to_repo',
+            referencedParameters: 'action_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (action_to_test == "major_upgrade") {
+                            return ["testing", "main", "experimental"]
+                        }
+                        else {
+                            return ["NA"]
+                        }
+                    '''
+                ]
+            ]
+        ],
         [
             $class: 'CascadeChoiceParameter',
             choiceType: 'PT_SINGLE_SELECT',
