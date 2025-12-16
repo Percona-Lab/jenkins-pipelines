@@ -91,7 +91,6 @@ pipeline {
     MOLECULE_DIR = "molecule/pxb-new-ps-tarball/";
     PXB_VERSION = "${params.PXB_VERSION}";
     TESTING_BRANCH = "${params.TESTING_BRANCH}";
-    TESTING_GIT_ACCOUNT = "${params.TESTING_GIT_ACCOUNT}";
   }
   parameters {
     string(
@@ -131,7 +130,7 @@ pipeline {
     stage('Checkout') {
       steps {
         deleteDir()
-        git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
+        git poll: false, branch: TESTING_BRANCH, url: "https://github.com/Percona-QA/package-testing.git"
         echo "PXB_VERSION is ${env.PXB_VERSION}"
       }
     }
