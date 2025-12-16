@@ -24,6 +24,8 @@ pipeline {
             choices: 'perconalab\npercona',
             description: 'Organization on hub.docker.com',
             name: 'ORGANIZATION')
+        string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
+        string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
         string(
             defaultValue: 'https://github.com/percona/percona-xtradb-cluster.git',
             description: 'URL for percona-xtradb-cluster repository',
@@ -83,8 +85,10 @@ pipeline {
                             sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                             curl -O https://raw.githubusercontent.com/percona/percona-xtradb-cluster/${GIT_BRANCH}/MYSQL_VERSION
                             . ./MYSQL_VERSION
-                            git clone https://github.com/percona/percona-docker
-                            cd percona-docker/percona-xtradb-cluster-${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}
+                            git clone ${REPO_DOCKER}
+                            cd percona-docker
+                            git checkout ${REPO_DOCKER_BRANCH}
+                            cd percona-xtradb-cluster-${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}
                             sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PXC_TELEMETRY_VERSION.*/ENV PXC_TELEMETRY_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}-${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PXC_REPO .*/ENV PXC_REPO testing/g" Dockerfile
@@ -254,23 +258,37 @@ stage('Check by trivy') {
                 ]
 
                 // 🔹 Scan images and store logs
-                imageList.each { image ->
-                    echo "🔍 Scanning ${image}..."
-                    def result = sh(script: """#!/bin/bash
-                        sudo trivy image --quiet \
+                    imageList.each { image ->
+                        echo "🔍 Scanning ${image}..."
+                        def result = sh(script: """#!/bin/bash
+                            set -e
+                            sudo trivy image --quiet \
+                                      --format table \
+                                      --timeout 10m0s \
+                                      --ignore-unfixed \
+                                      --exit-code 1 \
+                                      --scanners vuln \
+                                      --severity HIGH,CRITICAL ${image}
+                            echo "TRIVY_EXIT_CODE=\$?"
+                        """, returnStatus: true)
+                        echo "Actual Trivy exit code: ${result}"
+
+                    // 🔴 Fail the build if vulnerabilities are found
+                        if (result != 0) {
+                            sh """
+                            sudo trivy image --quiet \
                                          --format table \
                                          --timeout 10m0s \
                                          --ignore-unfixed \
-                                         --exit-code 1 \
+                                         --exit-code 0 \
+                                         --scanners vuln \
                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
-                    """, returnStatus: true)
-
-                    if (result != 0) {
-                        error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
-                    } else {
-                        echo "✅ No critical vulnerabilities found in ${image}."
+                            """
+                            error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                        } else {
+                            echo "✅ No critical vulnerabilities found in ${image}."
+                        }
                     }
-                }
             } catch (Exception e) {
                 error "❌ Trivy scan failed: ${e.message}"
             } // try
