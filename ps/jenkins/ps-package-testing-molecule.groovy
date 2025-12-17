@@ -461,19 +461,14 @@ pipeline {
             stage('RUN TESTS') {
                         steps {
                             script {
-                                if (action_to_test == 'install') {
-                                    sh """
-                                        echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
-                                    """
-                                } 
-                                else if (action_to_test == 'major_upgrade')     {
+                                if (action_to_test == 'major_upgrade')     {
                                     sh """
                                         echo PLAYBOOK_VAR="ps_major_upgrade" > .env.ENV_VARS
                                     """
                                 }
                                 else {
                                     sh """
-                                        echo PLAYBOOK_VAR="${product_to_test}_${action_to_test}" > .env.ENV_VARS
+                                        echo PLAYBOOK_VAR="${action_to_test}_${product_to_test}" > .env.ENV_VARS
                                     """
                                 }
                                 def envMap = loadEnvFile('.env.ENV_VARS')
