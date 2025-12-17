@@ -8,7 +8,7 @@ def PXBskipOSPRO() {
 }
 
 def PXBskipOSNONPRO() {
-  return ['al-2023']
+  return []
 }
 
 

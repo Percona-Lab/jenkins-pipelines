@@ -113,6 +113,11 @@ pipeline {
                     }
                 }
 
+                stage('Debian Trixie') {
+                    steps {
+                        runNodeBuild('min-trixie-x64')
+                    }
+                }
                 stage('Ubuntu Focal') {
                     steps {
                         runNodeBuild('min-focal-x64')
@@ -139,6 +144,16 @@ pipeline {
                 stage('Oracle Linux 9') {
                     steps {
                         runNodeBuild('min-ol-9-x64')
+                    }
+                }
+                stage('RedHat 10') {
+                    steps {
+                        runNodeBuild('min-rhel-10-x64')
+                    }
+                }
+                stage('Amazon Linux 2023') {
+                    steps {
+                        runNodeBuild('min-al2023-x64')
                     }
                 }
             }

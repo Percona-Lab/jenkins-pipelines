@@ -35,16 +35,8 @@ void initParams() {
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        OC_VER="4.15.25"
         PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", returnStdout: true).trim()
-    } else {
-        if ("$PLATFORM_VER" <= "4.15.25") {
-            OC_VER="$PLATFORM_VER"
-        } else {
-            OC_VER="4.15.25"
-        }
-    }
-    echo "OC_VER=$OC_VER"
+    } 
 
     if ("$IMAGE_POSTGRESQL") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
@@ -90,7 +82,7 @@ void prepareAgent() {
         kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
         echo \$(kubectl kuttl --version) is installed
 
-        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OC_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
     """
 }
@@ -405,7 +397,7 @@ pipeline {
         choice(name: 'SKIP_TEST_WARNINGS', choices: 'false\ntrue', description: 'Skip test warnings that requires release documentation')
     }
     agent {
-        label 'docker'
+        label 'min-al2023-x64'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
@@ -441,7 +433,7 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     agent {
-                        label 'docker'
+                        label 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -451,7 +443,7 @@ pipeline {
                 }
                 stage('cluster2') {
                     agent {
-                        label 'docker'
+                        label 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -461,7 +453,7 @@ pipeline {
                 }
                 stage('cluster3') {
                     agent {
-                        label 'docker'
+                        label 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -471,7 +463,7 @@ pipeline {
                 }
                 stage('cluster4') {
                     agent {
-                        label 'docker'
+                        label 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
