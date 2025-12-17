@@ -468,7 +468,7 @@ pipeline {
                                         echo PLAYBOOK_VAR="${formatted_product_to_test}" > .env.ENV_VARS
                                     """
                                 } 
-                                if (action_to_test == 'major_upgrade')     {
+                                else if (action_to_test == 'major_upgrade')     {
                                     sh """
                                         echo PLAYBOOK_VAR="ps_major_upgrade" > .env.ENV_VARS
                                     """
