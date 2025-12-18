@@ -71,8 +71,8 @@ pipeline {
         )
         choice(
             name: 'INSTANCE_TYPE',
-            choices: ['m5.xlarge', 'm5.large', 'm5.2xlarge'],
-            description: 'EC2 instance type for worker nodes'
+            choices: ['m5.2xlarge', 'm5.xlarge', 'm5.4xlarge'],
+            description: 'EC2 instance type for worker nodes (m5.2xlarge recommended for PMM HA)'
         )
         string(
             name: 'HELM_CHART_BRANCH',
@@ -325,6 +325,8 @@ supplementalGroups:
 users:
   - system:serviceaccount:pmm:default
   - system:serviceaccount:pmm:pmm-ha
+  - system:serviceaccount:pmm:pmm-service-account
+  - system:serviceaccount:pmm:pmm-ha-haproxy
 volumes:
   - configMap
   - downwardAPI
