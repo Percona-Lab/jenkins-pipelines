@@ -1,4 +1,6 @@
-@Library('jenkins-pipelines') _
+@Library('jenkins-pipelines@feature/pmm-ha-rosa') _
+
+def openshiftRosa
 
 /**
  * Lists ROSA HCP clusters.
@@ -34,6 +36,15 @@ pipeline {
     }
 
     stages {
+        stage('Checkout & Load') {
+            steps {
+                checkout scm
+                script {
+                    openshiftRosa = load 'pmm/v3/vars/openshiftRosa.groovy'
+                }
+            }
+        }
+
         stage('Install CLI Tools') {
             steps {
                 script {

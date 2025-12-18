@@ -1,4 +1,7 @@
-@Library('jenkins-pipelines') _
+@Library('jenkins-pipelines@feature/pmm-ha-rosa') _
+
+def openshiftRosa
+def pmmHaRosa
 
 /**
  * Creates a ROSA HCP cluster with optional PMM deployment.
@@ -152,9 +155,19 @@ pipeline {
                     echo "Final cluster name: ${env.FINAL_CLUSTER_NAME}"
 
                     // Set build display
-                    def pmmStatus = params.PMM_MODE != 'none' ? "PMM-${params.PMM_MODE}:${params.PMM_IMAGE_TAG}" : "No-PMM"
+                    def pmmStatus = params.PMM_MODE != 'none' ? "PMM-${params.PMM_MODE}:${params.PMM_IMAGE_TAG}" : 'No-PMM'
                     currentBuild.description = "${env.FINAL_CLUSTER_NAME} | ROSA ${params.OPENSHIFT_VERSION} | ${params.AWS_REGION} | ${pmmStatus}"
                     currentBuild.displayName = "#${BUILD_NUMBER} - ${env.FINAL_CLUSTER_NAME}"
+                }
+            }
+        }
+
+        stage('Checkout & Load') {
+            steps {
+                checkout scm
+                script {
+                    openshiftRosa = load 'pmm/v3/vars/openshiftRosa.groovy'
+                    pmmHaRosa = load 'pmm/v3/vars/pmmHaRosa.groovy'
                 }
             }
         }
@@ -208,10 +221,10 @@ PMM Mode:             ${params.PMM_MODE}"""
 PMM Image:            ${params.PMM_IMAGE_REPOSITORY}:${params.PMM_IMAGE_TAG}"""
                     }
 
-                    summary += """
+                    summary += '''
 
 ====================================================================
-"""
+'''
                     echo summary
                 }
             }
@@ -413,7 +426,7 @@ oc login ${env.CLUSTER_API_URL} -u cluster-admin -p '${env.CLUSTER_ADMIN_PASSWOR
                     echo summary
 
                     // Update build description
-                    def pmmStatus = env.PMM_URL ? "PMM: ${env.PMM_URL}" : "No PMM"
+                    def pmmStatus = env.PMM_URL ? "PMM: ${env.PMM_URL}" : 'No PMM'
                     currentBuild.description = "${env.FINAL_CLUSTER_NAME} | ROSA ${env.CLUSTER_VERSION} | ${pmmStatus}"
                 }
             }

@@ -1,4 +1,6 @@
-@Library('jenkins-pipelines') _
+@Library('jenkins-pipelines@feature/pmm-ha-rosa') _
+
+def openshiftRosa
 
 /**
  * Destroys a ROSA HCP cluster.
@@ -31,6 +33,15 @@ pipeline {
     }
 
     stages {
+        stage('Checkout & Load') {
+            steps {
+                checkout scm
+                script {
+                    openshiftRosa = load 'pmm/v3/vars/openshiftRosa.groovy'
+                }
+            }
+        }
+
         stage('Validate') {
             steps {
                 script {
@@ -146,7 +157,7 @@ Run again with DRY_RUN=false to proceed.
                             deleteVpc: true
                         ])
 
-                        echo "Cluster deletion initiated"
+                        echo 'Cluster deletion initiated'
                         currentBuild.description = "Deleted ${env.TARGET_CLUSTER}"
                     }
                 }

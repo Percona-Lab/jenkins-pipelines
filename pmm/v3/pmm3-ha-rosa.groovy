@@ -1,5 +1,8 @@
 @Library('jenkins-pipelines@feature/pmm-ha-rosa') _
 
+def openshiftRosa
+def pmmHaRosa
+
 /**
  * PMM HA on ROSA HCP - Creates a ROSA cluster and deploys PMM in HA mode.
  *
@@ -120,6 +123,16 @@ pipeline {
                     def imageDisplay = params.PMM_IMAGE_TAG ?: 'chart-default'
                     currentBuild.displayName = "#${BUILD_NUMBER} - ${env.FINAL_CLUSTER_NAME}"
                     currentBuild.description = "ROSA ${params.OPENSHIFT_VERSION} | PMM HA | ${imageDisplay}"
+                }
+            }
+        }
+
+        stage('Checkout & Load') {
+            steps {
+                checkout scm
+                script {
+                    openshiftRosa = load 'pmm/v3/vars/openshiftRosa.groovy'
+                    pmmHaRosa = load 'pmm/v3/vars/pmmHaRosa.groovy'
                 }
             }
         }

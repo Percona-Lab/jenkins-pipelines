@@ -1,5 +1,7 @@
 @Library('jenkins-pipelines@feature/pmm-ha-rosa') _
 
+def openshiftRosa
+
 /**
  * PMM HA ROSA Cleanup - Manages cleanup of PMM HA ROSA HCP clusters.
  *
@@ -49,6 +51,15 @@ pipeline {
     }
 
     stages {
+        stage('Checkout & Load') {
+            steps {
+                checkout scm
+                script {
+                    openshiftRosa = load 'pmm/v3/vars/openshiftRosa.groovy'
+                }
+            }
+        }
+
         stage('Setup') {
             steps {
                 script {
@@ -97,7 +108,7 @@ pipeline {
 
                         if (pmmHaClusters.isEmpty()) {
                             echo 'No PMM HA ROSA clusters found'
-                            currentBuild.description = "No clusters found"
+                            currentBuild.description = 'No clusters found'
                         } else {
                             // Add age information
                             pmmHaClusters.each { cluster ->
@@ -214,8 +225,8 @@ Failed:          ${failed.size()} (${failed.join(', ') ?: 'none'})
                         echo "LIST_ONLY action completed. Found ${env.CLUSTER_COUNT} PMM HA ROSA cluster(s)."
                         currentBuild.description = "Listed ${env.CLUSTER_COUNT} cluster(s)"
                     } else {
-                        echo "No clusters matched deletion criteria."
-                        currentBuild.description = "No clusters to delete"
+                        echo 'No clusters matched deletion criteria.'
+                        currentBuild.description = 'No clusters to delete'
                     }
                 }
             }
