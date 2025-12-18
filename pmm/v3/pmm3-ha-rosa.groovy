@@ -657,6 +657,21 @@ EOF
 
                             helm dependency build percona-helm-charts/charts/pmm-ha
                             ${helmArgs.join(' \\\n                                ')}
+
+                            # Fix HAProxy DNS config for OpenShift (uses dns-default.openshift-dns instead of kube-dns.kube-system)
+                            echo "Patching HAProxy configmap for OpenShift DNS..."
+                            oc get cm pmm-ha-haproxy -n pmm -o json | \
+                                sed 's/kube-dns.kube-system.svc.cluster.local/dns-default.openshift-dns.svc.cluster.local/g' | \
+                                oc apply -f -
+
+                            # Restart HAProxy pods to pick up new config
+                            echo "Restarting HAProxy pods..."
+                            oc delete pods -n pmm -l app.kubernetes.io/name=haproxy --wait=false || true
+                            sleep 10
+
+                            # Wait for HAProxy pods to be ready
+                            echo "Waiting for HAProxy pods..."
+                            oc wait --for=condition=Ready pods -n pmm -l app.kubernetes.io/name=haproxy --timeout=120s || true
                         """
 
                         // Get PMM URL
