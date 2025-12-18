@@ -54,10 +54,8 @@ import groovy.transform.Field
 @Field static final int DEFAULT_REPLICAS = 3
 @Field static final int DEFAULT_MAX_CLUSTERS = 10
 
-// AWS Account ID and ECR configuration
+// AWS Account ID for ROSA resources
 @Field static final String AWS_ACCOUNT_ID = '119175775298'
-@Field static final String ECR_REGION = 'us-east-2'
-@Field static final String ECR_PREFIX = '119175775298.dkr.ecr.us-east-2.amazonaws.com/docker-hub'
 
 // PMM-specific OIDC/operator roles prefix
 @Field static final String PMM_OPERATOR_ROLE_PREFIX = 'pmm-rosa-ha'
@@ -326,7 +324,7 @@ def createCluster(Map config) {
                 export AWS_DEFAULT_REGION=${params.region}
                 rosa create account-roles --prefix ${operatorRolePrefix} --hosted-cp --mode auto --yes
             """
-            echo "Account roles created successfully"
+            echo 'Account roles created successfully'
         } else {
             echo "Found existing account roles with prefix: ${operatorRolePrefix}"
         }
@@ -849,9 +847,9 @@ def getClusterAgeHours(String createdAt) {
  */
 def formatClustersSummary(List clusters, String title = 'ROSA CLUSTERS') {
     def output = new StringBuilder()
-    output.append("=" * 80)
+    output.append('=' * 80)
     output.append("\n${title}\n")
-    output.append("=" * 80)
+    output.append('=' * 80)
     output.append("\n")
 
     if (clusters.isEmpty()) {
@@ -859,7 +857,7 @@ def formatClustersSummary(List clusters, String title = 'ROSA CLUSTERS') {
     } else {
         output.append(String.format("%-30s %-12s %-10s %-8s %s\n",
             'NAME', 'STATE', 'VERSION', 'AGE(h)', 'REGION'))
-        output.append("-" * 80)
+        output.append('-' * 80)
         output.append("\n")
 
         clusters.each { cluster ->
@@ -873,55 +871,8 @@ def formatClustersSummary(List clusters, String title = 'ROSA CLUSTERS') {
         }
     }
 
-    output.append("=" * 80)
+    output.append('=' * 80)
     return output.toString()
-}
-
-// ============================================================================
-// ECR Pull-Through Cache
-// ============================================================================
-
-/**
- * Configures ECR pull-through cache access on ROSA cluster.
- *
- * ECR pull-through cache proxies Docker Hub images through AWS ECR,
- * avoiding Docker Hub rate limits.
- *
- * @param config Map containing:
- *   - region: AWS region (optional, default: 'us-east-2')
- *
- * @return Map containing:
- *   - ecrRegistry: ECR registry URL
- *   - ecrPrefix: Full ECR prefix for image paths
- */
-def configureEcrPullThrough(Map config = [:]) {
-    def region = config.region ?: ECR_REGION
-
-    echo 'Configuring ECR pull-through cache access...'
-
-    sh """
-        export PATH="\$HOME/.local/bin:\$PATH"
-
-        ECR_TOKEN=\$(aws ecr get-login-password --region ${region})
-        ECR_REGISTRY="${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com"
-
-        oc get secret/pull-secret -n openshift-config \\
-            --template='{{index .data ".dockerconfigjson" | base64decode}}' > /tmp/pull-secret.json
-
-        oc registry login --registry="\${ECR_REGISTRY}" \\
-            --auth-basic="AWS:\${ECR_TOKEN}" \\
-            --to=/tmp/pull-secret.json
-
-        oc set data secret/pull-secret -n openshift-config \\
-            --from-file=.dockerconfigjson=/tmp/pull-secret.json
-
-        rm -f /tmp/pull-secret.json
-    """
-
-    return [
-        ecrRegistry: "${AWS_ACCOUNT_ID}.dkr.ecr.${region}.amazonaws.com",
-        ecrPrefix: ECR_PREFIX
-    ]
 }
 
 // ============================================================================
@@ -931,6 +882,9 @@ def configureEcrPullThrough(Map config = [:]) {
 /**
  * Installs standalone PMM on ROSA cluster.
  *
+ * Note: Docker Hub rate limits are handled by Kyverno policy that rewrites
+ * images to use Percona DevServices registry (reg-19jf01na.percona.com).
+ *
  * @param config Map containing:
  *   - namespace: Kubernetes namespace (optional, default: 'pmm')
  *   - imageRepository: PMM image repository (optional)
@@ -938,7 +892,6 @@ def configureEcrPullThrough(Map config = [:]) {
  *   - adminPassword: PMM admin password (optional, auto-generated)
  *   - storageClass: StorageClass (optional, default: 'gp3-csi')
  *   - storageSize: PVC size (optional, default: '10Gi')
- *   - useEcr: Use ECR pull-through cache (optional, default: true)
  *   - chartVersion: Helm chart version (optional)
  *
  * @return Map containing deployment info
@@ -948,26 +901,20 @@ def installPmmStandalone(Map config = [:]) {
         namespace: 'pmm',
         imageTag: 'latest',
         storageClass: 'gp3-csi',
-        storageSize: '10Gi',
-        useEcr: true
+        storageSize: '10Gi'
     ] + config
 
-    echo "Installing standalone PMM on ROSA cluster"
+    echo 'Installing standalone PMM on ROSA cluster'
     echo "  Namespace: ${params.namespace}"
     echo "  Image Tag: ${params.imageTag}"
 
     def adminPassword = params.adminPassword ?: generatePassword()
 
     // Create namespace
-    sh """
+    sh '''
         export PATH="\$HOME/.local/bin:\$PATH"
         oc create namespace ${params.namespace} || true
-    """
-
-    // Configure ECR if enabled
-    if (params.useEcr) {
-        configureEcrPullThrough([region: params.region ?: ECR_REGION])
-    }
+    '''
 
     // Install Helm if needed
     sh '''
@@ -988,8 +935,7 @@ def installPmmStandalone(Map config = [:]) {
     ]
 
     if (params.imageRepository) {
-        def repo = params.useEcr ? "${ECR_PREFIX}/${params.imageRepository}" : params.imageRepository
-        helmArgs.add("--set image.repository=${repo}")
+        helmArgs.add("--set image.repository=${params.imageRepository}")
     }
     if (params.imageTag) {
         helmArgs.add("--set image.tag=${params.imageTag}")
@@ -1001,17 +947,17 @@ def installPmmStandalone(Map config = [:]) {
     helmArgs.add('--wait --timeout 10m')
 
     echo 'Installing PMM via Helm...'
-    sh """
+    sh '''
         export PATH="\$HOME/.local/bin:\$PATH"
         helm upgrade --install pmm percona/pmm ${helmArgs.join(' ')}
-    """
+    '''
 
     // Verify
-    sh """
+    sh '''
         export PATH="\$HOME/.local/bin:\$PATH"
         oc get pods -n ${params.namespace}
         oc get svc -n ${params.namespace}
-    """
+    '''
 
     echo 'PMM installed successfully'
 

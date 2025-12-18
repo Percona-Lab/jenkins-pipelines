@@ -111,7 +111,6 @@ def getClusterAgeHours(String createdAt) {
     return openshiftRosa.getClusterAgeHours(createdAt)
 }
 
-
 /**
  * Generates a random password. Delegates to openshiftRosa.
  */
@@ -130,20 +129,13 @@ def formatClustersSummary(List clusters, String title = 'PMM HA ROSA CLUSTERS') 
 // PMM HA Specific Operations
 // ============================================================================
 
-// ECR prefix for image paths (must match openshiftRosa.ECR_PREFIX)
-@Field static final String ECR_PREFIX = '119175775298.dkr.ecr.us-east-2.amazonaws.com/docker-hub'
-
-/**
- * Configures ECR pull-through cache. Delegates to openshiftRosa.
- */
-def configureEcrPullThrough(Map config = [:]) {
-    return openshiftRosa.configureEcrPullThrough(config)
-}
-
 /**
  * Installs PMM HA on the ROSA cluster.
  *
  * Deploys PMM in High Availability mode using the pmm-ha Helm chart.
+ *
+ * Note: Docker Hub rate limits are handled by Kyverno policy that rewrites
+ * images to use Percona DevServices registry (reg-19jf01na.percona.com).
  *
  * @param config Map containing:
  *   - namespace: Kubernetes namespace for PMM (optional, default: 'pmm')
@@ -154,9 +146,6 @@ def configureEcrPullThrough(Map config = [:]) {
  *   - storageClass: StorageClass to use (optional, default: 'gp3-csi')
  *   - dependenciesStorageSize: Storage size for dependencies PVCs (optional, default: '10Gi')
  *   - pmmStorageSize: Storage size for PMM PVC (optional, default: '10Gi')
- *   - useEcr: Use ECR pull-through cache (optional, default: true)
- *   - dockerHubUser: Docker Hub username (fallback if useEcr=false)
- *   - dockerHubPassword: Docker Hub password (fallback if useEcr=false)
  *
  * @return Map containing:
  *   - namespace: Namespace where PMM is deployed
@@ -258,31 +247,6 @@ EOF
         echo "Pre-created pmm-secret with all required keys"
     """
 
-    // Configure ECR pull-through cache
-    def useEcr = params.useEcr != false
-    def ecrPrefix = ECR_PREFIX
-
-    if (useEcr) {
-        configureEcrPullThrough([region: params.region ?: 'us-east-2'])
-        echo "Using ECR pull-through cache: ${ecrPrefix}"
-    } else if (config.dockerHubUser && config.dockerHubPassword) {
-        sh """
-            export PATH="\$HOME/.local/bin:\$PATH"
-
-            oc get secret/pull-secret -n openshift-config \\
-                --template='{{index .data ".dockerconfigjson" | base64decode}}' > /tmp/pull-secret.json
-
-            oc registry login --registry="docker.io" \\
-                --auth-basic="${config.dockerHubUser}:${config.dockerHubPassword}" \\
-                --to=/tmp/pull-secret.json
-
-            oc set data secret/pull-secret -n openshift-config \\
-                --from-file=.dockerconfigjson=/tmp/pull-secret.json
-
-            rm -f /tmp/pull-secret.json
-        """
-    }
-
     // Clone helm charts
     def chartsDir = "${env.WORKSPACE}/percona-helm-charts"
     def tibiRepo = 'https://github.com/theTibi/percona-helm-charts.git'
@@ -328,20 +292,9 @@ EOF
         "--set global.storageClass=${params.storageClass}",
         "--set postgresql.primary.persistence.size=${params.dependenciesStorageSize}",
         "--set clickhouse.persistence.size=${params.dependenciesStorageSize}",
-        "--set victoriametrics.server.persistentVolume.size=${params.dependenciesStorageSize}"
+        "--set victoriametrics.server.persistentVolume.size=${params.dependenciesStorageSize}",
+        '--wait --timeout 15m'
     ]
-
-    if (useEcr) {
-        depsHelmArgs.addAll([
-            "--set pg-operator.operatorImageRepository=${ecrPrefix}/percona/percona-postgresql-operator",
-            "--set victoria-metrics-operator.image.repository=${ecrPrefix}/victoriametrics/operator",
-            '--set victoria-metrics-operator.image.tag=v0.56.4',
-            "--set altinity-clickhouse-operator.operator.image.repository=${ecrPrefix}/altinity/clickhouse-operator",
-            "--set altinity-clickhouse-operator.metrics.image.repository=${ecrPrefix}/altinity/metrics-exporter"
-        ])
-    }
-
-    depsHelmArgs.add('--wait --timeout 15m')
 
     echo 'Installing PMM HA dependencies...'
     sh """
@@ -359,30 +312,10 @@ EOF
     ]
 
     if (params.imageRepository?.trim()) {
-        def imageRepo = params.imageRepository
-        if (useEcr && !imageRepo.startsWith(ecrPrefix)) {
-            imageRepo = "${ecrPrefix}/${imageRepo}"
-        }
-        helmArgs.add("--set image.repository=${imageRepo}")
+        helmArgs.add("--set image.repository=${params.imageRepository}")
     }
     if (params.imageTag?.trim()) {
         helmArgs.add("--set image.tag=${params.imageTag}")
-    }
-
-    if (useEcr) {
-        helmArgs.addAll([
-            "--set clickhouse.image.repository=${ecrPrefix}/altinity/clickhouse-server",
-            "--set clickhouse.keeper.image.repository=${ecrPrefix}/clickhouse/clickhouse-keeper",
-            "--set haproxy.image.repository=${ecrPrefix}/haproxytech/haproxy-alpine",
-            "--set pg-db.image=${ecrPrefix}/percona/percona-distribution-postgresql:17.6-1",
-            "--set pg-db.proxy.pgBouncer.image=${ecrPrefix}/percona/percona-pgbouncer:1.24.1-1",
-            "--set pg-db.backups.pgbackrest.image=${ecrPrefix}/percona/percona-pgbackrest:2.56.0-1",
-            "--set vmcluster.spec.vmselect.image=${ecrPrefix}/victoriametrics/vmselect:v1.110.0-cluster",
-            "--set vmcluster.spec.vminsert.image=${ecrPrefix}/victoriametrics/vminsert:v1.110.0-cluster",
-            "--set vmcluster.spec.vmstorage.image=${ecrPrefix}/victoriametrics/vmstorage:v1.110.0-cluster",
-            "--set vmauth.spec.image=${ecrPrefix}/victoriametrics/vmauth:v1.110.0",
-            "--set vmagent.spec.image=${ecrPrefix}/victoriametrics/vmagent:v1.110.0"
-        ])
     }
 
     helmArgs.add('--wait --timeout 15m')

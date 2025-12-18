@@ -582,7 +582,7 @@ defaultAddCapabilities: null
 fsGroup:
   type: RunAsAny
 groups: []
-priority: null
+priority: 10
 readOnlyRootFilesystem: false
 requiredDropCapabilities:
   - MKNOD
@@ -594,13 +594,21 @@ supplementalGroups:
   type: RunAsAny
 users:
   - system:serviceaccount:pmm:default
-  - system:serviceaccount:pmm:pmm-ha
   - system:serviceaccount:pmm:pmm-service-account
   - system:serviceaccount:pmm:pmm-ha-haproxy
+  - system:serviceaccount:pmm:pmm-ha-pg-db
+  - system:serviceaccount:pmm:pmm-ha-pmmdb
+  - system:serviceaccount:pmm:pmm-ha-vmagent
+  - system:serviceaccount:pmm:pmm-ha-secret-generator
+  - system:serviceaccount:pmm:pmm-ha-dependencies-altinity-clickhouse-operator
+  - system:serviceaccount:pmm:pmm-ha-dependencies-pg-operator
+  - system:serviceaccount:pmm:pmm-ha-dependencies-victoria-metrics-operator
 volumes:
   - configMap
+  - csi
   - downwardAPI
   - emptyDir
+  - ephemeral
   - persistentVolumeClaim
   - projected
   - secret
