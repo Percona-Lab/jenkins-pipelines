@@ -103,11 +103,6 @@ pipeline {
       description: 'Branch for package-testing repository',
       name: 'TESTING_BRANCH'
     )
-    string(
-      defaultValue: 'Percona-QA',
-      description: 'Git account for package-testing repository',
-      name: 'TESTING_GIT_ACCOUNT'
-    )
   }
   options {
     withCredentials(moleculepxbJenkinsCreds())
@@ -122,8 +117,8 @@ pipeline {
           def PXB_RELEASE = params.PXB_VERSION.tokenize('-')[0].tokenize('.').with { it[0] + it[1] }
           env.PXB_RELEASE = PXB_RELEASE
           
-          currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PXB_VERSION}-${params.REPO_TYPE}-${params.TESTING_REPO}"
-          currentBuild.description = "${env.PXB_REVISION}"
+          currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PXB_VERSION}-${params.TESTING_BRANCH}"
+          //currentBuild.description = "${env.PXB_REVISION}"
         }
       }
     }
