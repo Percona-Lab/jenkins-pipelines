@@ -372,7 +372,12 @@ EOF
 
                         sh """
                             export PATH=\$HOME/.local/bin:\$PATH
-                            helm dependency build percona-helm-charts/charts/pmm-ha || true
+
+                            # Add required helm repos for pmm-ha chart
+                            helm repo add haproxy https://haproxytech.github.io/helm-charts/ || true
+                            helm repo update
+
+                            helm dependency build percona-helm-charts/charts/pmm-ha
                             ${helmArgs.join(' \\\n                                ')}
                         """
 
