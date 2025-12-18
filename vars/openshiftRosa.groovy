@@ -331,32 +331,49 @@ def createCluster(Map config) {
             echo "Found existing account roles with prefix: ${operatorRolePrefix}"
         }
 
-        // Step 2: Create or find OIDC config
-        echo 'Setting up OIDC configuration...'
-        oidcConfigId = sh(
+        // Step 2: Find or create OIDC config
+        // Check if operator roles already exist and extract OIDC config from trust policy
+        echo 'Checking for existing operator roles...'
+        def existingOidcId = sh(
             script: """
                 export PATH="\$HOME/.local/bin:\$PATH"
-                export AWS_DEFAULT_REGION=${params.region}
-                rosa create oidc-config --mode auto --managed --yes -o json 2>/dev/null | jq -r '.id' || \
-                rosa list oidc-config -o json 2>/dev/null | jq -r 'last | .id // empty'
+                # Get trust policy from existing operator role and extract OIDC config ID
+                aws iam get-role --role-name ${operatorRolePrefix}-kube-system-kms-provider 2>/dev/null | \
+                    jq -r '.Role.AssumeRolePolicyDocument.Statement[0].Principal.Federated // empty' | \
+                    grep -oP 'oidc\\.op1\\.openshiftapps\\.com/\\K[a-z0-9]+' || echo ''
             """,
             returnStdout: true
         ).trim()
 
-        if (!oidcConfigId) {
-            error 'Failed to create or find OIDC config'
-        }
+        if (existingOidcId) {
+            echo "Found existing operator roles bound to OIDC config: ${existingOidcId}"
+            oidcConfigId = existingOidcId
+        } else {
+            echo 'No existing operator roles found. Creating new OIDC config...'
+            oidcConfigId = sh(
+                script: """
+                    export PATH="\$HOME/.local/bin:\$PATH"
+                    export AWS_DEFAULT_REGION=${params.region}
+                    rosa create oidc-config --mode auto --managed --yes -o json | jq -r '.id'
+                """,
+                returnStdout: true
+            ).trim()
 
-        // Step 3: Create operator roles for this OIDC config
-        echo "Creating operator roles for OIDC config: ${oidcConfigId}"
-        sh """
-            export PATH="\$HOME/.local/bin:\$PATH"
-            export AWS_DEFAULT_REGION=${params.region}
-            rosa create operator-roles --hosted-cp --prefix ${operatorRolePrefix} \
-                --oidc-config-id ${oidcConfigId} \
-                --installer-role-arn arn:aws:iam::${AWS_ACCOUNT_ID}:role/${operatorRolePrefix}-HCP-ROSA-Installer-Role \
-                --mode auto --yes || true
-        """
+            if (!oidcConfigId) {
+                error 'Failed to create OIDC config'
+            }
+
+            // Create operator roles for this OIDC config
+            echo "Creating operator roles for OIDC config: ${oidcConfigId}"
+            sh """
+                export PATH="\$HOME/.local/bin:\$PATH"
+                export AWS_DEFAULT_REGION=${params.region}
+                rosa create operator-roles --hosted-cp --prefix ${operatorRolePrefix} \
+                    --oidc-config-id ${oidcConfigId} \
+                    --installer-role-arn arn:aws:iam::${AWS_ACCOUNT_ID}:role/${operatorRolePrefix}-HCP-ROSA-Installer-Role \
+                    --mode auto --yes
+            """
+        }
 
         echo "Using OIDC config ID: ${oidcConfigId}"
     }
