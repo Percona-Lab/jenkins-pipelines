@@ -81,7 +81,7 @@ pipeline {
 
                                 sh """
                                     cd psmdb-testing/pcsm-pytest
-                                    MONGODB_IMAGE=perconalab/percona-server-mongodb:${PSMDB} docker compose build
+                                    MONGODB_IMAGE=perconalab/percona-server-mongodb:${PSMDB} docker compose build --no-cache
                                     docker compose up -d
                                     if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
                                     if [ -n "${params.TEST_FILTER}" ]; then
