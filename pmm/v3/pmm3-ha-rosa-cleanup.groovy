@@ -137,7 +137,7 @@ pipeline {
                                 env.CLUSTERS_TO_DELETE = oldClusters.collect { it.name }.join(',')
                                 echo "Clusters to delete (older than ${env.MAX_AGE_HOURS}h): ${env.CLUSTERS_TO_DELETE ?: 'none'}"
                             } else if (params.ACTION == 'DELETE_NAMED') {
-                                def requestedNames = params.CLUSTER_NAMES?.split(',')*.trim()?.findAll { it }
+                                def requestedNames = params.CLUSTER_NAMES?.split(',')?.collect { it.trim() }?.findAll { it }
                                 def validNames = requestedNames?.findAll { name ->
                                     pmmHaClusters.any { it.name == name }
                                 }
@@ -170,7 +170,7 @@ pipeline {
                     string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
                 ]) {
                     script {
-                        def clustersToDelete = env.CLUSTERS_TO_DELETE.split(',')*.trim().findAll { it }
+                        def clustersToDelete = env.CLUSTERS_TO_DELETE.split(',').collect { it.trim() }.findAll { it }
                         def deleted = []
                         def failed = []
 
