@@ -19,7 +19,7 @@ def attemptClusterCleanup(String reason) {
             echo "DEBUG MODE: Skipping automatic cleanup of ${reason} cluster"
             echo 'To manually clean up, run pmm3-ha-rosa-cleanup with:'
             echo "  - CLUSTER_NAMES: ${env.FINAL_CLUSTER_NAME}"
-            echo "  - ACTION: DELETE_NAMED"
+            echo '  - ACTION: DELETE_NAMED'
         } else {
             echo "Attempting to clean up ${reason} cluster resources..."
             def cleanupTimeout = reason == 'aborted' ? 2 : 10
@@ -257,7 +257,14 @@ pipeline {
                         echo 'Installing PMM HA dependencies (etcd, PostgreSQL, Valkey)...'
                         sh """
                             export PATH=\$HOME/.local/bin:\$PATH
-                            helm dependency build percona-helm-charts/charts/pmm-ha-dependencies || true
+
+                            # Add required helm repos
+                            helm repo add percona https://percona.github.io/percona-helm-charts/ || true
+                            helm repo add victoriametrics https://victoriametrics.github.io/helm-charts/ || true
+                            helm repo add altinity https://helm.altinity.com || true
+                            helm repo update
+
+                            helm dependency build percona-helm-charts/charts/pmm-ha-dependencies
                             helm upgrade --install pmm-ha-deps percona-helm-charts/charts/pmm-ha-dependencies \
                                 --namespace pmm --create-namespace \
                                 --wait --timeout 10m
@@ -283,7 +290,7 @@ pipeline {
                 ]) {
                     script {
                         echo 'Installing PMM HA on ROSA cluster'
-                        echo "  Namespace: pmm"
+                        echo '  Namespace: pmm'
                         echo "  Chart Branch: ${params.HELM_CHART_BRANCH}"
                         def imageDisplay = params.PMM_IMAGE_TAG ? "${params.PMM_IMAGE_REPOSITORY ?: 'default'}:${params.PMM_IMAGE_TAG}" : 'chart-default'
                         echo "  Image: ${imageDisplay}"
