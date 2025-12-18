@@ -403,7 +403,11 @@ def createCluster(Map config) {
         echo "VPC CIDR: ${vpcCidr}"
     }
 
-    // Build rosa create cluster command
+    // Build rosa create cluster command with explicit role ARNs
+    def installerRoleArn = "arn:aws:iam::${AWS_ACCOUNT_ID}:role/${operatorRolePrefix}-HCP-ROSA-Installer-Role"
+    def supportRoleArn = "arn:aws:iam::${AWS_ACCOUNT_ID}:role/${operatorRolePrefix}-HCP-ROSA-Support-Role"
+    def workerRoleArn = "arn:aws:iam::${AWS_ACCOUNT_ID}:role/${operatorRolePrefix}-HCP-ROSA-Worker-Role"
+
     def createCmd = """
         export PATH="\$HOME/.local/bin:\$PATH"
 
@@ -415,6 +419,9 @@ def createCluster(Map config) {
             --compute-machine-type=${params.instanceType} \\
             --oidc-config-id=${oidcConfigId} \\
             --operator-roles-prefix=${operatorRolePrefix} \\
+            --role-arn=${installerRoleArn} \\
+            --support-role-arn=${supportRoleArn} \\
+            --worker-iam-role=${workerRoleArn} \\
             --subnet-ids=${subnetIds} \\
             --machine-cidr=${vpcCidr} \\
             --hosted-cp \\
