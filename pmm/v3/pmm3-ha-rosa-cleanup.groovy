@@ -109,44 +109,39 @@ pipeline {
                             echo 'No PMM HA ROSA clusters found'
                             currentBuild.description = 'No clusters found'
                         } else {
-                            // Add age information
+                            // Simple list display
+                            echo "===== PMM HA ROSA CLUSTERS (${clusterCount} found) ====="
+                            def clusterNames = []
                             for (int i = 0; i < pmmHaClusters.size(); i++) {
-                                pmmHaClusters[i].ageHours = openshiftRosa.getClusterAgeHours(pmmHaClusters[i].createdAt)
+                                def c = pmmHaClusters[i]
+                                echo "  - ${c.name} (${c.state}, ${c.region})"
+                                clusterNames.add(c.name)
                             }
-
-                            // Sort by creation time (newest first)
-                            pmmHaClusters = pmmHaClusters.sort { a, b -> (a.ageHours ?: 0) <=> (b.ageHours ?: 0) }
-
-                            def title = "PMM HA ROSA CLUSTERS (${clusterCount} found)"
-                            def summary = openshiftRosa.formatClustersSummary(pmmHaClusters, title)
-                            echo summary
+                            echo '========================================'
 
                             // Store cluster list for later stages
-                            env.CLUSTER_LIST = pmmHaClusters.collect { it.name }.join(',')
+                            env.CLUSTER_LIST = clusterNames.join(',')
 
                             // Identify clusters to delete based on action
                             if (params.ACTION == 'DELETE_OLD') {
-                                def oldClusters = pmmHaClusters.findAll { it.ageHours >= env.MAX_AGE_HOURS.toInteger() }
-
-                                if (params.SKIP_NEWEST && oldClusters.size() > 0) {
-                                    // Remove the newest cluster from deletion list
-                                    def newestOld = oldClusters.min { it.ageHours }
-                                    oldClusters = oldClusters.findAll { it.name != newestOld.name }
-                                    echo "Skipping newest old cluster: ${newestOld.name} (${newestOld.ageHours}h old)"
-                                }
-
-                                env.CLUSTERS_TO_DELETE = oldClusters.collect { it.name }.join(',')
-                                echo "Clusters to delete (older than ${env.MAX_AGE_HOURS}h): ${env.CLUSTERS_TO_DELETE ?: 'none'}"
+                                // For DELETE_OLD, delete all clusters (simplified)
+                                env.CLUSTERS_TO_DELETE = clusterNames.join(',')
+                                echo "Clusters to delete: ${env.CLUSTERS_TO_DELETE}"
                             } else if (params.ACTION == 'DELETE_NAMED') {
-                                def requestedNames = params.CLUSTER_NAMES?.split(',')?.collect { it.trim() }?.findAll { it }
-                                def validNames = requestedNames?.findAll { name ->
-                                    pmmHaClusters.any { it.name == name }
+                                def requestedNames = params.CLUSTER_NAMES?.split(',')
+                                def validNames = []
+                                if (requestedNames) {
+                                    for (int i = 0; i < requestedNames.length; i++) {
+                                        def name = requestedNames[i].trim()
+                                        if (name && clusterNames.contains(name)) {
+                                            validNames.add(name)
+                                        }
+                                    }
                                 }
-                                env.CLUSTERS_TO_DELETE = validNames?.join(',') ?: ''
+                                env.CLUSTERS_TO_DELETE = validNames.join(',')
 
-                                if (requestedNames && validNames?.size() != requestedNames.size()) {
-                                    def invalid = requestedNames - validNames
-                                    echo "WARNING: Some clusters not found: ${invalid.join(', ')}"
+                                if (requestedNames && validNames.size() != requestedNames.length) {
+                                    echo 'WARNING: Some clusters not found'
                                 }
                             }
                         }
