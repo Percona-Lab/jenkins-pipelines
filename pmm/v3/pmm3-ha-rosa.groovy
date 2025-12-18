@@ -9,7 +9,8 @@
  * Features:
  * - Fast cluster provisioning (~15 min via ROSA HCP)
  * - PMM HA deployment via Helm
- * - ECR pull-through cache support (avoids Docker Hub rate limits)
+ * - Kyverno policy for Docker Hub pull-through cache (avoids rate limits)
+ * - Uses Percona DevServices registry (reg-19jf01na.percona.com)
  * - Automatic cleanup on failure (unless DEBUG_MODE enabled)
  */
 
@@ -61,8 +62,8 @@ pipeline {
     parameters {
         choice(
             name: 'OPENSHIFT_VERSION',
-            choices: ['4.16', '4.17', '4.18'],
-            description: 'OpenShift version for ROSA HCP cluster'
+            choices: ['4.18', '4.17', '4.19', '4.20'],
+            description: 'OpenShift version for ROSA HCP cluster (4.18+ recommended for Kyverno 1.16.x)'
         )
         choice(
             name: 'REPLICAS',
@@ -76,7 +77,7 @@ pipeline {
         )
         string(
             name: 'HELM_CHART_BRANCH',
-            defaultValue: 'PMM-14420',
+            defaultValue: 'PMM-14324-pmm-ha-monitoring',
             description: 'Branch of percona-helm-charts repo for PMM HA chart'
         )
         string(
@@ -229,6 +230,262 @@ pipeline {
 
                         env.KUBECONFIG = accessInfo.kubeconfigPath
                         env.CLUSTER_ADMIN_PASSWORD = accessInfo.password
+                    }
+                }
+            }
+        }
+
+        stage('Install Kyverno') {
+            steps {
+                withCredentials([
+                    aws(
+                        credentialsId: 'jenkins-openshift-aws',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    script {
+                        echo 'Installing Kyverno for Docker Hub image rewriting...'
+                        sh '''
+                            export PATH=$HOME/.local/bin:$PATH
+
+                            # Add Kyverno helm repo
+                            helm repo add kyverno https://kyverno.github.io/kyverno/ || true
+                            helm repo update
+
+                            # Install Kyverno (version compatible with K8s 1.31+)
+                            helm upgrade --install kyverno kyverno/kyverno \
+                                --namespace kyverno --create-namespace \
+                                --version 3.6.1 \
+                                --set admissionController.replicas=1 \
+                                --set backgroundController.replicas=1 \
+                                --set cleanupController.replicas=1 \
+                                --set reportsController.replicas=1 \
+                                --wait --timeout 5m || echo "Kyverno install completed (post-hooks may timeout but pods should run)"
+
+                            # Wait for admission controller to be ready
+                            oc wait --for=condition=ready pod -l app.kubernetes.io/component=admission-controller -n kyverno --timeout=120s || true
+                        '''
+
+                        // Create ClusterPolicy for Docker Hub rewrite to DevServices registry
+                        echo 'Creating Docker Hub pull-through cache policy (DevServices registry)...'
+                        sh '''
+                            export PATH=$HOME/.local/bin:$PATH
+                            cat <<'POLICY_EOF' | oc apply -f -
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: dockerhub-pull-through-cache
+  annotations:
+    policies.kyverno.io/title: Docker Hub Pull Through Cache
+    policies.kyverno.io/description: >-
+      Rewrites Docker Hub images to use Percona DevServices registry
+      (reg-19jf01na.percona.com/dockerhub-cache/) to avoid rate limits.
+spec:
+  background: false
+  validationFailureAction: Audit
+  rules:
+    - name: containers-dockerhub-explicit
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+                - UPDATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - openshift-*
+      mutate:
+        foreach:
+          - list: request.object.spec.containers
+            preconditions:
+              any:
+                - key: "{{ contains(element.image, 'docker.io/') }}"
+                  operator: Equals
+                  value: true
+                - key: "{{ contains(element.image, 'index.docker.io/') }}"
+                  operator: Equals
+                  value: true
+            patchesJson6902: |-
+              - op: replace
+                path: /spec/containers/{{elementIndex}}/image
+                value: 'reg-19jf01na.percona.com/dockerhub-cache/{{images.containers."{{element.name}}".path}}:{{images.containers."{{element.name}}".tag}}'
+    - name: containers-dockerhub-implicit-org
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+                - UPDATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - openshift-*
+      mutate:
+        foreach:
+          - list: request.object.spec.containers
+            preconditions:
+              all:
+                - key: "{{ contains(element.image, '/') }}"
+                  operator: Equals
+                  value: true
+                - key: "{{ contains(element.image, '.') }}"
+                  operator: Equals
+                  value: false
+                - key: '{{images.containers."{{element.name}}".registry}}'
+                  operator: Equals
+                  value: docker.io
+            patchesJson6902: |-
+              - op: replace
+                path: /spec/containers/{{elementIndex}}/image
+                value: 'reg-19jf01na.percona.com/dockerhub-cache/{{images.containers."{{element.name}}".path}}:{{images.containers."{{element.name}}".tag}}'
+    - name: containers-dockerhub-implicit-library
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+                - UPDATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - openshift-*
+      mutate:
+        foreach:
+          - list: request.object.spec.containers
+            preconditions:
+              all:
+                - key: "{{ contains(element.image, '/') }}"
+                  operator: Equals
+                  value: false
+                - key: "{{ contains(element.image, '.') }}"
+                  operator: Equals
+                  value: false
+                - key: '{{images.containers."{{element.name}}".registry}}'
+                  operator: Equals
+                  value: docker.io
+            patchesJson6902: |-
+              - op: replace
+                path: /spec/containers/{{elementIndex}}/image
+                value: 'reg-19jf01na.percona.com/dockerhub-cache/library/{{images.containers."{{element.name}}".name}}:{{images.containers."{{element.name}}".tag}}'
+    - name: init-dockerhub-explicit
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+                - UPDATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - openshift-*
+      mutate:
+        foreach:
+          - list: "request.object.spec.initContainers || `[]`"
+            preconditions:
+              any:
+                - key: "{{ contains(element.image, 'docker.io/') }}"
+                  operator: Equals
+                  value: true
+                - key: "{{ contains(element.image, 'index.docker.io/') }}"
+                  operator: Equals
+                  value: true
+            patchesJson6902: |-
+              - op: replace
+                path: /spec/initContainers/{{elementIndex}}/image
+                value: 'reg-19jf01na.percona.com/dockerhub-cache/{{images.initContainers."{{element.name}}".path}}:{{images.initContainers."{{element.name}}".tag}}'
+    - name: init-dockerhub-implicit-org
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+                - UPDATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - openshift-*
+      mutate:
+        foreach:
+          - list: "request.object.spec.initContainers || `[]`"
+            preconditions:
+              all:
+                - key: "{{ contains(element.image, '/') }}"
+                  operator: Equals
+                  value: true
+                - key: "{{ contains(element.image, '.') }}"
+                  operator: Equals
+                  value: false
+                - key: '{{images.initContainers."{{element.name}}".registry}}'
+                  operator: Equals
+                  value: docker.io
+            patchesJson6902: |-
+              - op: replace
+                path: /spec/initContainers/{{elementIndex}}/image
+                value: 'reg-19jf01na.percona.com/dockerhub-cache/{{images.initContainers."{{element.name}}".path}}:{{images.initContainers."{{element.name}}".tag}}'
+    - name: init-dockerhub-implicit-library
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+                - UPDATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - openshift-*
+      mutate:
+        foreach:
+          - list: "request.object.spec.initContainers || `[]`"
+            preconditions:
+              all:
+                - key: "{{ contains(element.image, '/') }}"
+                  operator: Equals
+                  value: false
+                - key: "{{ contains(element.image, '.') }}"
+                  operator: Equals
+                  value: false
+                - key: '{{images.initContainers."{{element.name}}".registry}}'
+                  operator: Equals
+                  value: docker.io
+            patchesJson6902: |-
+              - op: replace
+                path: /spec/initContainers/{{elementIndex}}/image
+                value: 'reg-19jf01na.percona.com/dockerhub-cache/library/{{images.initContainers."{{element.name}}".name}}:{{images.initContainers."{{element.name}}".tag}}'
+POLICY_EOF
+                            echo "Kyverno ClusterPolicy created for Docker Hub pull-through cache"
+                        '''
                     }
                 }
             }
