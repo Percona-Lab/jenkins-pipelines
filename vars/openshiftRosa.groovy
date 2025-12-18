@@ -302,14 +302,15 @@ def createCluster(Map config) {
     }
 
     // Get OIDC config ID (required for HCP)
-    // Use PMM-specific operator roles to avoid conflicts with other teams
+    // Use PMM-specific roles to avoid conflicts with other teams
     def oidcConfigId = params.oidcConfigId
     def operatorRolePrefix = params.operatorRolePrefix ?: PMM_OPERATOR_ROLE_PREFIX
 
     if (!oidcConfigId) {
-        echo "Setting up OIDC resources with prefix: ${operatorRolePrefix}"
+        echo "Setting up ROSA HCP resources with prefix: ${operatorRolePrefix}"
 
-        // Check if PMM operator roles already exist
+        // Step 1: Ensure account roles exist (Installer, Support, Worker)
+        // These are shared across all clusters using the same prefix
         def installerRoleExists = sh(
             script: """
                 export PATH="\$HOME/.local/bin:\$PATH"
@@ -318,53 +319,45 @@ def createCluster(Map config) {
             returnStdout: true
         ).trim()
 
-        if (installerRoleExists.contains('exists')) {
-            echo "Found existing PMM operator roles with prefix: ${operatorRolePrefix}"
-            // Find OIDC config that uses these roles
-            // List all OIDC configs and test which one works
-            oidcConfigId = sh(
-                script: """
-                    export PATH="\$HOME/.local/bin:\$PATH"
-                    export AWS_DEFAULT_REGION=${params.region}
-                    rosa list oidc-config -o json 2>/dev/null | jq -r 'last | .id // empty'
-                """,
-                returnStdout: true
-            ).trim()
-
-            if (!oidcConfigId) {
-                echo 'No OIDC config found. Creating one with existing operator roles...'
-                oidcConfigId = sh(
-                    script: """
-                        export PATH="\$HOME/.local/bin:\$PATH"
-                        export AWS_DEFAULT_REGION=${params.region}
-                        rosa create oidc-config --mode auto --managed --yes -o json | jq -r '.id'
-                    """,
-                    returnStdout: true
-                ).trim()
-            }
-        } else {
-            echo "PMM operator roles not found. Creating OIDC config and operator roles..."
-
-            // Create new OIDC config
-            oidcConfigId = sh(
-                script: """
-                    export PATH="\$HOME/.local/bin:\$PATH"
-                    export AWS_DEFAULT_REGION=${params.region}
-                    rosa create oidc-config --mode auto --managed --yes -o json | jq -r '.id'
-                """,
-                returnStdout: true
-            ).trim()
-
-            // Create operator roles with PMM prefix
-            echo "Creating operator roles with prefix: ${operatorRolePrefix}"
+        if (!installerRoleExists.contains('exists')) {
+            echo "Account roles not found. Creating account roles with prefix: ${operatorRolePrefix}"
             sh """
                 export PATH="\$HOME/.local/bin:\$PATH"
                 export AWS_DEFAULT_REGION=${params.region}
-                rosa create operator-roles --hosted-cp --prefix ${operatorRolePrefix} \
-                    --oidc-config-id ${oidcConfigId} --installer-role-arn "" \
-                    --mode auto --yes || true
+                rosa create account-roles --prefix ${operatorRolePrefix} --hosted-cp --mode auto --yes
             """
+            echo "Account roles created successfully"
+        } else {
+            echo "Found existing account roles with prefix: ${operatorRolePrefix}"
         }
+
+        // Step 2: Create or find OIDC config
+        echo 'Setting up OIDC configuration...'
+        oidcConfigId = sh(
+            script: """
+                export PATH="\$HOME/.local/bin:\$PATH"
+                export AWS_DEFAULT_REGION=${params.region}
+                rosa create oidc-config --mode auto --managed --yes -o json 2>/dev/null | jq -r '.id' || \
+                rosa list oidc-config -o json 2>/dev/null | jq -r 'last | .id // empty'
+            """,
+            returnStdout: true
+        ).trim()
+
+        if (!oidcConfigId) {
+            error 'Failed to create or find OIDC config'
+        }
+
+        // Step 3: Create operator roles for this OIDC config
+        echo "Creating operator roles for OIDC config: ${oidcConfigId}"
+        sh """
+            export PATH="\$HOME/.local/bin:\$PATH"
+            export AWS_DEFAULT_REGION=${params.region}
+            rosa create operator-roles --hosted-cp --prefix ${operatorRolePrefix} \
+                --oidc-config-id ${oidcConfigId} \
+                --installer-role-arn arn:aws:iam::${AWS_ACCOUNT_ID}:role/${operatorRolePrefix}-HCP-ROSA-Installer-Role \
+                --mode auto --yes || true
+        """
+
         echo "Using OIDC config ID: ${oidcConfigId}"
     }
 
