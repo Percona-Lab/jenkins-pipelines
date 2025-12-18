@@ -1,7 +1,6 @@
 @Library('jenkins-pipelines@feature/pmm-ha-rosa') _
 
 def openshiftRosa
-def pmmHaRosa
 
 /**
  * PMM HA on ROSA HCP - Creates a ROSA cluster and deploys PMM in HA mode.
@@ -132,7 +131,6 @@ pipeline {
                 checkout scm
                 script {
                     openshiftRosa = load 'pmm/v3/vars/openshiftRosa.groovy'
-                    pmmHaRosa = load 'pmm/v3/vars/pmmHaRosa.groovy'
                 }
             }
         }
@@ -187,8 +185,8 @@ pipeline {
                         }
 
                         // Check cluster quota
-                        pmmHaRosa.checkClusterLimit([
-                            currentClusters: pmmHaClusters,
+                        openshiftRosa.checkClusterLimit([
+                            prefix: 'pmm-ha-rosa-',
                             maxClusters: 5
                         ])
                     }
@@ -617,7 +615,7 @@ EOF
                         '''
 
                         // Generate password and create secret
-                        env.PMM_ADMIN_PASSWORD = pmmHaRosa.generatePassword()
+                        env.PMM_ADMIN_PASSWORD = openshiftRosa.generatePassword()
                         sh """
                             export PATH=\$HOME/.local/bin:\$PATH
                             oc delete secret pmm-secret -n pmm 2>/dev/null || true
