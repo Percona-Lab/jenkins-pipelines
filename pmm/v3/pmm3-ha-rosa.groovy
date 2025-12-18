@@ -281,11 +281,6 @@ pipeline {
                         credentialsId: 'jenkins-openshift-aws',
                         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    ),
-                    usernamePassword(
-                        credentialsId: 'dockerHub',
-                        usernameVariable: 'DOCKERHUB_USER',
-                        passwordVariable: 'DOCKERHUB_PASSWORD'
                     )
                 ]) {
                     script {
@@ -357,16 +352,8 @@ EOF
                             echo "Pre-created pmm-secret with all required keys"
                         """
 
-                        // Configure Docker Hub pull secret
-                        sh '''
-                            export PATH=$HOME/.local/bin:$PATH
-                            oc create secret docker-registry dockerhub-secret \
-                                --docker-server=docker.io \
-                                --docker-username="$DOCKERHUB_USER" \
-                                --docker-password="$DOCKERHUB_PASSWORD" \
-                                -n pmm 2>/dev/null || true
-                            oc secrets link default dockerhub-secret --for=pull -n pmm 2>/dev/null || true
-                        '''
+                        // Note: Docker Hub pull secret not configured - relies on cluster's default pull config
+                        // If rate limited, consider using ECR pull-through cache or adding dockerHub credential
 
                         // Build helm args
                         def helmArgs = [
