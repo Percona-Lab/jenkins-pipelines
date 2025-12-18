@@ -1,5 +1,3 @@
-@Library('jenkins-pipelines@feature/pmm-ha-rosa') _
-
 def openshiftRosa
 
 /**
