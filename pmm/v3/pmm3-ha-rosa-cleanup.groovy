@@ -118,7 +118,8 @@ pipeline {
                             pmmHaClusters = pmmHaClusters.sort { a, b -> (a.ageHours ?: 0) <=> (b.ageHours ?: 0) }
 
                             def title = "PMM HA ROSA CLUSTERS (${clusterCount} found)"
-                            echo openshiftRosa.formatClustersSummary(pmmHaClusters, title)
+                            def summary = openshiftRosa.formatClustersSummary(pmmHaClusters, title)
+                            echo summary
 
                             // Store cluster list for later stages
                             env.CLUSTER_LIST = pmmHaClusters.collect { it.name }.join(',')
