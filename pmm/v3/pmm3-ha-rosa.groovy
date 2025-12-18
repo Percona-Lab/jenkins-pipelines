@@ -633,12 +633,11 @@ EOF
                         // Note: Docker Hub pull secret not configured - relies on cluster's default pull config
                         // If rate limited, consider using ECR pull-through cache or adding dockerHub credential
 
-                        // Build helm args
+                        // Build helm args (no --wait, we'll wait after DNS fix)
                         def helmArgs = [
                             'helm upgrade --install pmm-ha percona-helm-charts/charts/pmm-ha',
                             '--namespace pmm',
-                            '--set service.type=LoadBalancer',
-                            '--wait --timeout 15m'
+                            '--set service.type=LoadBalancer'
                         ]
 
                         if (params.PMM_IMAGE_TAG) {
@@ -658,6 +657,17 @@ EOF
                             helm dependency build percona-helm-charts/charts/pmm-ha
                             ${helmArgs.join(' \\\n                                ')}
 
+                            # Wait for HAProxy configmap to be created
+                            echo "Waiting for HAProxy configmap..."
+                            for i in {1..30}; do
+                                if oc get cm pmm-ha-haproxy -n pmm &>/dev/null; then
+                                    echo "HAProxy configmap found"
+                                    break
+                                fi
+                                echo "Waiting for HAProxy configmap... (\$i/30)"
+                                sleep 5
+                            done
+
                             # Fix HAProxy DNS config for OpenShift (uses dns-default.openshift-dns instead of kube-dns.kube-system)
                             echo "Patching HAProxy configmap for OpenShift DNS..."
                             oc get cm pmm-ha-haproxy -n pmm -o json | \
@@ -667,11 +677,11 @@ EOF
                             # Restart HAProxy pods to pick up new config
                             echo "Restarting HAProxy pods..."
                             oc delete pods -n pmm -l app.kubernetes.io/name=haproxy --wait=false || true
-                            sleep 10
 
-                            # Wait for HAProxy pods to be ready
-                            echo "Waiting for HAProxy pods..."
-                            oc wait --for=condition=Ready pods -n pmm -l app.kubernetes.io/name=haproxy --timeout=120s || true
+                            # Wait for all PMM HA pods to be ready
+                            echo "Waiting for all PMM HA pods to be ready..."
+                            oc wait --for=condition=Ready pods -n pmm -l app.kubernetes.io/instance=pmm-ha --timeout=600s || true
+                            oc wait --for=condition=Ready pods -n pmm -l app.kubernetes.io/name=haproxy --timeout=300s
                         """
 
                         // Get PMM URL
