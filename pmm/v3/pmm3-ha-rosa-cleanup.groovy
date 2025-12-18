@@ -104,21 +104,23 @@ pipeline {
                         def allClusters = openshiftRosa.listClusters([region: env.AWS_REGION])
                         def pmmHaClusters = allClusters.findAll { it.name.startsWith(env.CLUSTER_PREFIX) }
 
-                        env.CLUSTER_COUNT = pmmHaClusters.size().toString()
+                        def clusterCount = pmmHaClusters.size()
+                        env.CLUSTER_COUNT = clusterCount.toString()
 
-                        if (pmmHaClusters.isEmpty()) {
+                        if (clusterCount == 0) {
                             echo 'No PMM HA ROSA clusters found'
                             currentBuild.description = 'No clusters found'
                         } else {
                             // Add age information
-                            pmmHaClusters.each { cluster ->
-                                cluster.ageHours = openshiftRosa.getClusterAgeHours(cluster.createdAt)
+                            for (int i = 0; i < pmmHaClusters.size(); i++) {
+                                pmmHaClusters[i].ageHours = openshiftRosa.getClusterAgeHours(pmmHaClusters[i].createdAt)
                             }
 
                             // Sort by creation time (newest first)
-                            pmmHaClusters = pmmHaClusters.sort { a, b -> a.ageHours <=> b.ageHours }
+                            pmmHaClusters = pmmHaClusters.sort { a, b -> (a.ageHours ?: 0) <=> (b.ageHours ?: 0) }
 
-                            echo openshiftRosa.formatClustersSummary(pmmHaClusters, "PMM HA ROSA CLUSTERS (${pmmHaClusters.size()} found)")
+                            def title = "PMM HA ROSA CLUSTERS (${clusterCount} found)"
+                            echo openshiftRosa.formatClustersSummary(pmmHaClusters, title)
 
                             // Store cluster list for later stages
                             env.CLUSTER_LIST = pmmHaClusters.collect { it.name }.join(',')
