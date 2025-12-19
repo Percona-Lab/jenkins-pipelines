@@ -254,6 +254,8 @@ ENDSSH
                     try {
                         // 🔹 Install Trivy if not already installed
                         sh '''
+                            uname -a
+                            cat /etc/os-release
                             if ! command -v trivy &> /dev/null; then
                                 echo "🔄 Installing Trivy..."
                                 apt-get update
