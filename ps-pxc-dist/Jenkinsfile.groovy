@@ -122,6 +122,9 @@ pipeline {
 
     stages {
         stage('push-to-rpm-repository') {
+            agent {
+                label 'jenkins'
+            }
             when {
                 expression { params.SKIP_RPM == false }
             }
@@ -152,6 +155,9 @@ pipeline {
             }
         }
         stage('push-to-deb-repository') {
+            agent {
+                label 'jenkins'
+            }
             when {
                 expression { params.SKIP_APT == false }
             }
@@ -183,6 +189,9 @@ pipeline {
             }
         }
         stage('sync-repos-to-production') {
+            agent {
+                label 'jenkins'
+            }
             when {
                 expression { params.SKIP_SYNC == false }
             }
@@ -204,6 +213,9 @@ pipeline {
             }
         }
         stage('sync-production-downloads') {
+            agent {
+                label 'jenkins'
+            }
             when {
                 expression { params.SKIP_PRODUCTION_DOWNLOADS == false }
             }
@@ -230,6 +242,9 @@ pipeline {
             }
         }
         stage('refresh-downloads-area') {
+            agent {
+                label 'jenkins'
+            }
             when {
                 expression { params.SKIP_PRODUCTION_REFRESH == false }
             }
