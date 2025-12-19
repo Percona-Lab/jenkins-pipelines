@@ -351,9 +351,6 @@ spec:
                 - key: "{{ contains(element.image, '/') }}"
                   operator: Equals
                   value: true
-                - key: "{{ contains(element.image, '.') }}"
-                  operator: Equals
-                  value: false
                 - key: '{{images.containers."{{element.name}}".registry}}'
                   operator: Equals
                   value: docker.io
@@ -383,9 +380,6 @@ spec:
             preconditions:
               all:
                 - key: "{{ contains(element.image, '/') }}"
-                  operator: Equals
-                  value: false
-                - key: "{{ contains(element.image, '.') }}"
                   operator: Equals
                   value: false
                 - key: '{{images.containers."{{element.name}}".registry}}'
@@ -450,9 +444,6 @@ spec:
                 - key: "{{ contains(element.image, '/') }}"
                   operator: Equals
                   value: true
-                - key: "{{ contains(element.image, '.') }}"
-                  operator: Equals
-                  value: false
                 - key: '{{images.initContainers."{{element.name}}".registry}}'
                   operator: Equals
                   value: docker.io
@@ -482,9 +473,6 @@ spec:
             preconditions:
               all:
                 - key: "{{ contains(element.image, '/') }}"
-                  operator: Equals
-                  value: false
-                - key: "{{ contains(element.image, '.') }}"
                   operator: Equals
                   value: false
                 - key: '{{images.initContainers."{{element.name}}".registry}}'
