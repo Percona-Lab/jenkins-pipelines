@@ -268,8 +268,13 @@ ENDSSH
                         '''
                         // 🔹 Define the image tags
                         def imageList = [
-                            "perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}-amd64",
-                            "perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}-arm64"
+                            "perconalab/haproxy:latest",
+                            "perconalab/proxysql2:latest",
+                            "perconalab/percona-toolkit:latest",
+                            "perconalab/percona-xtrabackup:latest",
+                            "perconalab/percona-xtradb-cluster:latest",
+                            "perconalab/percona-server:latest",
+                            "perconalab/percona-orchestrator:latest"
                         ]
                         // 🔹 Scan images and store logs
                             imageList.each { image ->
