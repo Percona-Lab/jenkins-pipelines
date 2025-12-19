@@ -258,12 +258,19 @@ ENDSSH
                             cat /etc/os-release
                             if ! command -v trivy &> /dev/null; then
                                 echo "🔄 Installing Trivy..."
-                                apt-get update
-                                apt-get -y install wget apt-transport-https gnupg lsb-release
-                                wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
-                                echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
-                                apt-get update
-                                apt-get -y install trivy
+                                dnf install -y wget ca-certificates gnupg2
+
+                                tee /etc/yum.repos.d/trivy.repo > /dev/null <<'EOF'
+[trivy]
+name=Trivy repository
+baseurl=https://aquasecurity.github.io/trivy-repo/rpm/releases/$basearch/
+gpgcheck=1
+enabled=1
+gpgkey=https://aquasecurity.github.io/trivy-repo/rpm/public.key
+EOF
+
+                                dnf install -y trivy
+                                trivy --version
                             else
                                 echo "✅ Trivy is installed."
                             fi
