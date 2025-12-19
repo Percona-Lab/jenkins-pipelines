@@ -691,7 +691,7 @@ EOF
                                         echo "https://$URL"
                                         exit 0
                                     fi
-                                    echo "Waiting for LoadBalancer... ($i/30)"
+                                    echo "Waiting for LoadBalancer... ($i/30)" >&2
                                     sleep 10
                                 done
                                 echo "pending"
