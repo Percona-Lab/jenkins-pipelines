@@ -672,16 +672,17 @@ EOF
                             oc wait --for=condition=Ready pods -n pmm -l app.kubernetes.io/name=haproxy --timeout=300s
                         """
 
-                        // Get PMM URL
+                        // Get PMM URL (service is named monitoring-service in pmm-ha chart)
                         def pmmUrl = sh(
                             script: '''
                                 export PATH=$HOME/.local/bin:$PATH
                                 for i in {1..30}; do
-                                    URL=$(oc get svc pmm-ha -n pmm -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+                                    URL=$(oc get svc monitoring-service -n pmm -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
                                     if [ -n "$URL" ]; then
                                         echo "https://$URL"
                                         exit 0
                                     fi
+                                    echo "Waiting for LoadBalancer... ($i/30)"
                                     sleep 10
                                 done
                                 echo "pending"
