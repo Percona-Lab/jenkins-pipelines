@@ -105,6 +105,11 @@ pipeline {
             description: "Skips refresh-downloads-area stage",
             name: 'SKIP_PRODUCTION_REFRESH'
         )
+        booleanParam(
+            defaultValue: false,
+            description: "Skips checking CVE stage",
+            name: 'SKIP_CVE_TEST'
+        )
     }
     options {
         skipDefaultCheckout()
@@ -236,8 +241,65 @@ ENDSSH
                 }
             }
         }
-    }
 
+        stage('Check docker images by Trivy') {
+            when {
+                expression { params.SKIP_CVE_TEST == false }
+            }
+            environment {
+                TRIVY_LOG = "trivy-high-junit.xml"
+            }
+            steps {
+                script {
+                    try {
+                        // 🔹 Install Trivy if not already installed
+                        sh '''
+                            if ! command -v trivy &> /dev/null; then
+                                echo "🔄 Installing Trivy..."
+                                sudo apt-get update
+                                sudo apt-get -y install wget apt-transport-https gnupg lsb-release
+                                wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
+                                echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
+                                sudo apt-get update
+                                sudo apt-get -y install trivy
+                            else
+                                echo "✅ Trivy is installed."
+                            fi
+                        '''
+                        // 🔹 Define the image tags
+                        def imageList = [
+                            "perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}-amd64",
+                            "perconalab/percona-xtrabackup:${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}-arm64"
+                        ]
+                        // 🔹 Scan images and store logs
+                            imageList.each { image ->
+                                echo "🔍 Scanning ${image}..."
+                                def result = sh(script: """#!/bin/bash
+                                    set -e
+                                    sudo trivy image --quiet \
+                                      --format table --timeout 10m0s --ignore-unfixed --exit-code 1 --scanners vuln --severity HIGH,CRITICAL ${image}
+                                    echo "TRIVY_EXIT_CODE=\$?"
+                                """, returnStatus: true)
+                                echo "Actual Trivy exit code: ${result}"
+                            // 🔴 Fail the build if vulnerabilities are found
+                                if (result != 0) {
+                                    sh """
+                                        sudo trivy image --quiet \
+                                          --format table --timeout 10m0s --ignore-unfixed --exit-code 0 --scanners vuln \
+                                          --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
+                                    """
+                                    error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                                } else {
+                                    echo "✅ No critical vulnerabilities found in ${image}."
+                                }
+                            }
+                } catch (Exception e) {
+                    error "❌ Trivy scan failed: ${e.message}"
+                }
+            }
+            }
+        }
+    }
     post {
         success {
             slackSend channel: '#releases-ci', color: '#00FF00', message: "${REPOSITORY} distribution: job finished"
