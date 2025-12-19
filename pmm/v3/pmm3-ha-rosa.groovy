@@ -643,6 +643,15 @@ EOF
                             helm repo update
 
                             helm dependency build percona-helm-charts/charts/pmm-ha
+
+                            # Wait for all operators to be ready before installing PMM HA
+                            # This prevents webhook timeout errors during helm install
+                            echo "Waiting for operators to be ready..."
+                            oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=300s
+                            oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=300s
+                            oc wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n pmm --timeout=300s
+                            echo "All operators ready"
+
                             ${helmArgs.join(' \\\n                                ')}
 
                             # Wait for HAProxy configmap to be created
