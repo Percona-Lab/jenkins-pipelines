@@ -303,6 +303,9 @@ ENDSSH
                                     echo "✅ No critical vulnerabilities found in ${image}."
                                 }
                             }
+                            if (result != 0) {
+                                    error "❌ Trivy detected vulnerabilities in images. See ${TRIVY_LOG} for details."
+                            }
                 } catch (Exception e) {
                     error "❌ Trivy scan failed: ${e.message}"
                 }
