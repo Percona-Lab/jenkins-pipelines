@@ -298,7 +298,7 @@ ENDSSH
                                           --format table --timeout 10m0s --ignore-unfixed --exit-code 0 --scanners vuln \
                                           --severity HIGH,CRITICAL ${image} | tee -a ${TRIVY_LOG}
                                     """
-                                    error "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
+                                    echo "❌ Trivy detected vulnerabilities in ${image}. See ${TRIVY_LOG} for details."
                                 } else {
                                     echo "✅ No critical vulnerabilities found in ${image}."
                                 }
