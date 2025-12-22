@@ -45,7 +45,7 @@ for REPOPATH in $REPOPATH_TMP; do
         echo "<*> reprepro binary is $(which reprepro)"
         pushd /srv/UPLOAD/$dir/binary/debian
         echo "Looking for Debian build directories..."
-        CODENAMES=$(ls -1)
+        CODENAMES=$(ls -1 | grep trixie)
 
         echo Distributions are: "${CODENAMES}"
         popd
