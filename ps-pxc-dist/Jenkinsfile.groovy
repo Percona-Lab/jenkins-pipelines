@@ -183,7 +183,7 @@ pipeline {
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
                                 export SIGN_PASSWORD=\${SIGN_PASSWORD}
                                 bash -x /tmp/args_pipeline
-                                wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/ps-pxc-dist/apt_release.sh -O apt_release.sh
+                                wget https://raw.githubusercontent.com/adivinho/jenkins-pipelines/hetzner/ps-pxc-dist/apt_release.sh -O apt_release.sh
                                 bash -xe apt_release.sh
                             "
                         """
