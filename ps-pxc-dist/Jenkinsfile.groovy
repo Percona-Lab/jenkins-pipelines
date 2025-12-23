@@ -111,8 +111,22 @@ pipeline {
         )
         booleanParam(
             defaultValue: false,
-            description: "Skips checking CVE stage",
+            description: "Skips checking CVE stage<br><hr><b>────────────────────────────────────────────────</b>",
             name: 'SKIP_CVE_TEST'
+        choice(
+            choices: 'YES\nNO',
+            description: 'Push amazonlinux 2023 packages',
+            name: 'PUSHAMAZONLINUX'
+        )
+        choice(
+            choices: 'YES\nNO',
+            description: 'Push trixie packages',
+            name: 'PUSHTRIXIE'
+        )
+        choice(
+            choices: 'NO\nYES',
+            description: 'Push focal packages',
+            name: 'PUSHFOCAL'
         )
     }
     options {
@@ -142,6 +156,9 @@ pipeline {
                             echo "COMPONENT=\${COMPONENT}" >> args_pipeline
                             echo "REMOVE_LOCKFILE=\${REMOVE_LOCKFILE}" >> args_pipeline
                             echo "REMOVE_BEFORE_PUSH=\${REMOVE_BEFORE_PUSH}" >> args_pipeline
+                            echo "PUSHAMAZONLINUX=\${PUSHAMAZONLINUX}" >> args_pipeline
+                            echo "PUSHFOCAL=\${PUSHFOCAL}" >> args_pipeline
+                            echo "PUSHTRIXIE=\${PUSHTRIXIE}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
                             rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
@@ -167,7 +184,7 @@ pipeline {
                     string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD'),
                     sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')
                     ]){
-                        sh """ 
+                        sh """
                             rm args_pipeline
                             for var in "\$(printenv | grep _PATH | sed 's/KEY_PATH.*//')"; do
                                 echo "\$var" >> args_pipeline
@@ -178,12 +195,14 @@ pipeline {
                             echo "COMPONENT=\${COMPONENT}" >> args_pipeline
                             echo "REMOVE_LOCKFILE=\${REMOVE_LOCKFILE}" >> args_pipeline
                             echo "REMOVE_BEFORE_PUSH=\${REMOVE_BEFORE_PUSH}" >> args_pipeline
+                            echo "PUSHFOCAL=\${PUSHFOCAL}" >> args_pipeline
+                            echo "PUSHTRIXIE=\${PUSHTRIXIE}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
                             rsync -aHv --delete -e "ssh -o StrictHostKeyChecking=no -i \$KEY_PATH" args_pipeline \$USER@repo.ci.percona.com:/tmp/args_pipeline
                             ssh -o StrictHostKeyChecking=no -i \$KEY_PATH \$USER@repo.ci.percona.com " \
                                 export SIGN_PASSWORD=\${SIGN_PASSWORD}
                                 bash -x /tmp/args_pipeline
-                                wget https://raw.githubusercontent.com/adivinho/jenkins-pipelines/hetzner/ps-pxc-dist/apt_release.sh -O apt_release.sh
+                                wget https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/ps-pxc-dist/apt_release.sh -O apt_release.sh
                                 bash -xe apt_release.sh
                             "
                         """
@@ -225,6 +244,7 @@ pipeline {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh """
+                        rm args_pipeline
                         if [ "\${COMPONENT}" == "RELEASE" ]; then
                            for var in "\$(printenv | grep _PATH | sed 's/KEY_PATH.*//')"; do
                                 echo "\$var" >> args_pipeline
@@ -331,6 +351,7 @@ ENDSSH
             }
         }
     }
+
     post {
         success {
             slackSend channel: '#releases-ci', color: '#00FF00', message: "${REPOSITORY} distribution: job finished"
