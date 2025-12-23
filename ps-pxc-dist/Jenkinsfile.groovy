@@ -111,7 +111,7 @@ pipeline {
         )
         booleanParam(
             defaultValue: false,
-            description: "Skips checking CVE stage<br><hr><b>────────────────────────────────────────────────</b>",
+            description: "Skips checking CVE stage",
             name: 'SKIP_CVE_TEST'
         )
         choice(
