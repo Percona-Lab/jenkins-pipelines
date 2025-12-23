@@ -113,6 +113,7 @@ pipeline {
             defaultValue: false,
             description: "Skips checking CVE stage<br><hr><b>────────────────────────────────────────────────</b>",
             name: 'SKIP_CVE_TEST'
+        )
         choice(
             choices: 'YES\nNO',
             description: 'Push amazonlinux 2023 packages',
