@@ -321,7 +321,7 @@ parameters {
                         }
                     }
                 }
-                stage('Centos 8 ARM') {
+                stage('Oracle Linux 8 ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -334,7 +334,7 @@ parameters {
                                 installCli("rpm")
                                 unstash 'properties'
                                 popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                                buildStage("centos:8", "--build_rpm=1")
+                                buildStage("oraclelinux:8", "--build_rpm=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
                                     pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                                 }
