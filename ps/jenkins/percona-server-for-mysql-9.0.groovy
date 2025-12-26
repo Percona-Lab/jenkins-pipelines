@@ -384,6 +384,38 @@ parameters {
                         }
                     }
                 }
+                stage('Amazon Linux 2023') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            installCli("rpm")
+                            unstash 'properties'
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("amazonlinux:2023", "--build_rpm=1")
+
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        }
+                    }
+                }
+                stage('Amazon Linux 2023 ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            installCli("rpm")
+                            unstash 'properties'
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("amazonlinux:2023", "--build_rpm=1")
+
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        }
+                    }
+                }
                 stage('Oracle Linux 10') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
