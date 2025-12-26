@@ -209,7 +209,7 @@ parameters {
             description: 'Experimental packages only',
             name: 'EXPERIMENTALMODE')
         choice(
-            choices: 'laboratory\ntesting\nexperimental\nrelease',
+            choices: 'experimental\ntesting\nlabaratory\nrelease',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
         choice(
