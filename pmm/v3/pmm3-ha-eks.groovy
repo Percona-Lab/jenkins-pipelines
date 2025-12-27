@@ -6,15 +6,35 @@ pipeline {
     parameters {
         choice(
             name: 'K8S_VERSION',
-            choices: ['1.32', '1.31', '1.30', '1.29', '1.28'],
+            choices: ['1.34', '1.33', '1.32', '1.31', '1.30'],
             description: 'Select Kubernetes cluster version'
+        )
+        string(
+            name: 'HELM_CHART_BRANCH',
+            defaultValue: 'pmmha-v3',
+            description: 'Branch of percona-helm-charts repo'
+        )
+        string(
+            name: 'PMM_IMAGE_TAG',
+            defaultValue: '',
+            description: 'PMM Server image tag'
+        )
+        choice(
+            name: 'RETENTION_DAYS',
+            choices: ['1', '2', '3'],
+            description: 'Days to retain cluster before auto-deletion'
+        )
+        string(
+            name: 'PMM_ADMIN_PASSWORD',
+            defaultValue: '',
+            description: 'PMM admin password'
         )
     }
 
      environment {
         CLUSTER_NAME = "pmm-ha-test-${BUILD_NUMBER}"
         REGION = "us-east-2"
-        KUBECONFIG = "${WORKSPACE}/kubeconfig/config"
+        KUBECONFIG = "${WORKSPACE}/kubeconfig"
     }
 
     stages {
@@ -47,15 +67,16 @@ managedNodeGroups:
   - name: ng-spot
     amiFamily: AmazonLinux2023
     instanceTypes:
-      - m5a.large
-      - m5n.large
-      - m7a.large
-      - m7i-flex.large
+      - c5a.xlarge
+      - c8a.xlarge
+      - c8i.xlarge
+      - c7i-flex.xlarge
+      - c8i-flex.xlarge
     volumeSize: 80
     spot: true
-    minSize: 2
-    maxSize: 5
-    desiredCapacity: 3
+    minSize: 4
+    maxSize: 6
+    desiredCapacity: 4
     tags:
         iit-billing-tag: "pmm"
         nodegroup: "spot"
@@ -115,8 +136,6 @@ EOF
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        mkdir -p kubeconfig
-
                         aws eks update-kubeconfig \
                             --name "${CLUSTER_NAME}" \
                             --region "${REGION}" \
@@ -177,6 +196,56 @@ EOF
             }
         }
 
+        stage('Install PMM HA') {
+            steps {
+                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
+                    git poll: false, branch: HELM_CHART_BRANCH, url: 'https://github.com/percona/percona-helm-charts.git'
+
+                    sh '''
+                        helm repo add percona https://percona.github.io/percona-helm-charts/
+                        helm repo add vm https://victoriametrics.github.io/helm-charts/
+                        helm repo add altinity https://docs.altinity.com/helm-charts/
+                        helm repo update
+
+                        helm dependency update charts/pmm-ha-dependencies
+                        helm upgrade --install pmm-operators charts/pmm-ha-dependencies -n pmm --create-namespace --wait --timeout 10m
+
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=300s
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=300s
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n pmm --timeout=300s
+
+                        PMM_PW="${PMM_ADMIN_PASSWORD:-$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)}"
+                        PG_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+                        GF_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+                        CH_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+                        VM_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+
+                        kubectl create secret generic pmm-secret -n pmm \
+                            --from-literal=PMM_ADMIN_PASSWORD="${PMM_PW}" \
+                            --from-literal=GF_SECURITY_ADMIN_PASSWORD="${PMM_PW}" \
+                            --from-literal=PG_PASSWORD="${PG_PW}" \
+                            --from-literal=GF_PASSWORD="${GF_PW}" \
+                            --from-literal=PMM_CLICKHOUSE_USER="clickhouse_pmm" \
+                            --from-literal=PMM_CLICKHOUSE_PASSWORD="${CH_PW}" \
+                            --from-literal=VMAGENT_remoteWrite_basicAuth_username="victoriametrics_pmm" \
+                            --from-literal=VMAGENT_remoteWrite_basicAuth_password="${VM_PW}" \
+                            --dry-run=client -o yaml | kubectl apply -f -
+
+                        helm dependency update charts/pmm-ha
+                        helm upgrade --install pmm-ha charts/pmm-ha -n pmm \
+                            --set secret.create=false \
+                            --set secret.name=pmm-secret \
+                            --wait --timeout 15m \
+                            ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}}  # Only add if PMM_IMAGE_TAG is non-empty
+
+                        kubectl rollout status statefulset/pmm-ha -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=600s
+                        kubectl get pods -n pmm
+                    '''
+                }
+            }
+        }
+
         stage('Cluster Summary') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
@@ -205,7 +274,7 @@ EOF
 
         stage('Archive kubeconfig') {
             steps {
-                archiveArtifacts artifacts: 'kubeconfig/config', fingerprint: true
+                archiveArtifacts artifacts: 'kubeconfig', fingerprint: true
                 archiveArtifacts artifacts: 'cluster-config.yaml', fingerprint: true
             }
         }
