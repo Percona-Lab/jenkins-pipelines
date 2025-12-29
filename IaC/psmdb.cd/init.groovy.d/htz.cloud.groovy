@@ -99,7 +99,7 @@ initMap['deb-docker'] = '''#!/bin/bash -x
         sleep 1
         echo try again
     done
-    until sudo apt-get -y install docker-ce docker-ce-cli containerd.io; do
+    until sudo apt-get -y install docker-ce docker-ce-cli docker-compose-plugin containerd.io; do
         sleep 1
         echo try again
     done
