@@ -29,6 +29,11 @@ pipeline {
             defaultValue: '',
             description: 'PMM admin password'
         )
+        booleanParam(
+            name: 'ENABLE_EXTERNAL_ACCESS',
+            defaultValue: false,
+            description: 'Enable external access for PMM HA (creates LoadBalancer)'
+        )
     }
 
      environment {
@@ -119,20 +124,38 @@ EOF
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
                         eksctl create cluster -f cluster-config.yaml --timeout=40m --verbose=4
+                    '''
+                }
+            }
+        }
 
-                        # Create access entry
-                        aws eks create-access-entry \
-                            --cluster-name "${CLUSTER_NAME}" \
-                            --region "${REGION}" \
-                            --principal-arn arn:aws:iam::119175775298:role/EKSAdminRole
+        stage('Configure Cluster Access') {
+            steps {
+                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
+                    sh '''
+                        grant_admin() {
+                            local arn="$1"
 
-                        # Associate admin policy
-                        aws eks associate-access-policy \
-                        --cluster-name "${CLUSTER_NAME}" \
-                        --region "${REGION}" \
-                        --principal-arn arn:aws:iam::119175775298:role/EKSAdminRole \
-                        --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
-                        --access-scope type=cluster
+                            aws eks create-access-entry \
+                                --cluster-name "${CLUSTER_NAME}" \
+                                --region "${REGION}" \
+                                --principal-arn "${arn}"
+
+                            aws eks associate-access-policy \
+                                --cluster-name "${CLUSTER_NAME}" \
+                                --region "${REGION}" \
+                                --principal-arn "${arn}" \
+                                --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
+                                --access-scope type=cluster
+                        }
+
+                        # Resolving AWS account ID
+                        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+
+                        # Granting access to IAM group members
+                        for arn in $(aws iam get-group --group-name pmm-eks-admins --query 'Users[].Arn' --output text); do
+                            grant_admin "${arn}"
+                        done
                     '''
                 }
             }
@@ -220,7 +243,11 @@ EOF
                         kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=300s
                         kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n pmm --timeout=300s
 
-                        PMM_PW="${PMM_ADMIN_PASSWORD:-$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)}"
+                        if [ -n "${PMM_ADMIN_PASSWORD}" ]; then
+                            PMM_PW="${PMM_ADMIN_PASSWORD}"
+                        else
+                            PMM_PW="$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)"
+                        fi
                         PG_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
                         GF_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
                         CH_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
@@ -247,6 +274,33 @@ EOF
                         kubectl rollout status statefulset/pmm-ha -n pmm --timeout=600s
                         kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=600s
                         kubectl get pods -n pmm
+                    '''
+                }
+            }
+        }
+
+        stage('Configure External Access') {
+            when {
+                expression { params.ENABLE_EXTERNAL_ACCESS }
+            }
+            steps {
+                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
+                    sh '''
+                        kubectl patch svc pmm-ha-haproxy -n pmm --type='merge' -p '{
+                            "spec": {
+                                "type": "LoadBalancer"
+                            },
+                            "metadata": {
+                                "annotations": {
+                                "service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
+                                "service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing"
+                                }
+                            }
+                        }'
+
+                        echo "Waiting for LoadBalancer hostname..."
+                        sleep 120
+                        kubectl get svc pmm-ha-haproxy -n pmm -o jsonpath="{.status.loadBalancer.ingress[0].hostname}"
                     '''
                 }
             }
