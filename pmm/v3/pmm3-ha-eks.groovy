@@ -268,7 +268,7 @@ EOF
                         helm upgrade --install pmm-ha charts/pmm-ha -n pmm \
                             --set secret.create=false \
                             --set secret.name=pmm-secret \
-                            --wait --timeout 25m \
+                            --wait --timeout 45m \
                             ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}}  # Only add if PMM_IMAGE_TAG is non-empty
 
                         kubectl rollout status statefulset/pmm-ha -n pmm --timeout=600s
