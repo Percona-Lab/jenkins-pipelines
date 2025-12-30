@@ -120,13 +120,27 @@ EOF
                     sh '''
                         eksctl create cluster -f cluster-config.yaml --timeout=40m --verbose=4
 
-                        # Map EKSAdminRole for IAM users
-                        eksctl create iamidentitymapping \
-                            --cluster "${CLUSTER_NAME}" \
+                        // # Map EKSAdminRole for IAM users
+                        // eksctl create iamidentitymapping \
+                        //     --cluster "${CLUSTER_NAME}" \
+                        //     --region "${REGION}" \
+                        //     --arn arn:aws:iam::119175775298:role/EKSAdminRole \
+                        //     --username eks-admin \
+                        //     --group system:masters
+
+                        # Create access entry
+                        aws eks create-access-entry \
+                            --cluster-name "${CLUSTER_NAME}" \
                             --region "${REGION}" \
-                            --arn arn:aws:iam::119175775298:role/EKSAdminRole \
-                            --username eks-admin \
-                            --group system:masters
+                            --principal-arn arn:aws:iam::119175775298:role/EKSAdminRole
+
+                        # Associate admin policy
+                        aws eks associate-access-policy \
+                        --cluster-name "${CLUSTER_NAME}" \
+                        --region "${REGION}" \
+                        --principal-arn arn:aws:iam::119175775298:role/EKSAdminRole \
+                        --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
+                        --access-scope type=cluster
                     '''
                 }
             }
