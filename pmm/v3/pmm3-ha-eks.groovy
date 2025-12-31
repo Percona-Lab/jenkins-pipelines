@@ -323,7 +323,7 @@ EOF
                         echo "Build:   ${BUILD_NUMBER}"
                         echo ""
 
-                        kubectl get nodes -o wide
+                        kubectl get nodes -L node.kubernetes.io/instance-type -o wide
                         echo ""
                         kubectl get storageclass
                         echo ""
@@ -342,7 +342,7 @@ EOF
                         echo ""
 
                         echo "Access Information"
-                        echo echo "------------------------------"
+                        echo "------------------------------"
 
                         echo "kubectl access (local):"
                         echo "  aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}"
