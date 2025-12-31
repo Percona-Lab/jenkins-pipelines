@@ -314,9 +314,8 @@ EOF
                     sh '''
                         set +x
 
-                        echo "============================================"
                         echo "EKS Cluster Summary"
-                        echo "============================================"
+                        echo "------------------------------"
 
                         echo "Name:    ${CLUSTER_NAME}"
                         echo "Version: ${K8S_VERSION}"
@@ -324,48 +323,26 @@ EOF
                         echo "Build:   ${BUILD_NUMBER}"
                         echo ""
 
-                        kubectl get nodes -L node.kubernetes.io/instance-type -o wide
+                        kubectl get nodes -o wide
                         echo ""
                         kubectl get storageclass
                         echo ""
 
-                        echo "============================================"
                         echo "Internal Component Credentials"
-                        echo "============================================"
+                        echo "------------------------------"
 
                         get_secret() {
                             kubectl get secret pmm-secret -n pmm \
                                 -o "jsonpath={.data.$1}" 2>/dev/null | base64 --decode
                         }
-                        PMM_ADMIN_PASSWORD=$(get_secret PMM_ADMIN_PASSWORD)
-                        PG_PASSWORD=$(get_secret PG_PASSWORD)
-                        CH_USER=$(get_secret PMM_CLICKHOUSE_USER)
-                        CH_PASSWORD=$(get_secret PMM_CLICKHOUSE_PASSWORD)
-                        VM_USER=$(get_secret VMAGENT_remoteWrite_basicAuth_username)
-                        VM_PASSWORD=$(get_secret VMAGENT_remoteWrite_basicAuth_password)
-
-                        echo "PMM:"
-                        echo "  user:     admin"
-                        echo "  password: ${PMM_ADMIN_PASSWORD}"
+                        echo "PMM/Grafana:     admin / $(get_secret PMM_ADMIN_PASSWORD)"
+                        echo "PostgreSQL:      $(get_secret PG_PASSWORD)"
+                        echo "ClickHouse:      $(get_secret PMM_CLICKHOUSE_USER) / $(get_secret PMM_CLICKHOUSE_PASSWORD)"
+                        echo "VictoriaMetrics: $(get_secret VMAGENT_remoteWrite_basicAuth_username) / $(get_secret VMAGENT_remoteWrite_basicAuth_password)"
                         echo ""
 
-                        echo "PostgreSQL:"
-                        echo "  password: ${PG_PASSWORD}"
-                        echo ""
-
-                        echo "ClickHouse:"
-                        echo "  user:     ${CH_USER}"
-                        echo "  password: ${CH_PASSWORD}"
-                        echo ""
-
-                        echo "VictoriaMetrics:"
-                        echo "  user:     ${VM_USER}"
-                        echo "  password: ${VM_PASSWORD}"
-                        echo ""
-
-                        echo "============================================"
                         echo "Access Information"
-                        echo "============================================"
+                        echo echo "------------------------------"
 
                         echo "kubectl access (local):"
                         echo "  aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}"
@@ -374,9 +351,8 @@ EOF
                         echo ""
 
                         if [ "${ENABLE_EXTERNAL_ACCESS}" = "true" ]; then
-                            echo "============================================"
                             echo "External Access (LoadBalancer)"
-                            echo "============================================"
+                            echo "------------------------------"
 
                             echo "  https://$(kubectl get svc pmm-ha-haproxy -n pmm -o 'jsonpath={.status.loadBalancer.ingress[0].hostname}')"
                         fi
