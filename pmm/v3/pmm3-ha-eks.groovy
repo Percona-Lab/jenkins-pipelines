@@ -344,8 +344,9 @@ EOF
                         VM_USER=$(get_secret VMAGENT_remoteWrite_basicAuth_username)
                         VM_PASSWORD=$(get_secret VMAGENT_remoteWrite_basicAuth_password)
 
-                        echo "PMM Admin User: admin"
-                        echo "PMM Admin Password: ${PMM_ADMIN_PASSWORD}"
+                        echo "PMM:"
+                        echo "  user:     admin"
+                        echo "  password: ${PMM_ADMIN_PASSWORD}"
                         echo ""
 
                         echo "PostgreSQL:"
@@ -372,7 +373,7 @@ EOF
                         echo "  # Then access https://localhost:8443"
                         echo ""
 
-                        if [ "${ENABLE_EXTERNAL_ACCESS:-false}" = "true" ]; then
+                        if [ "${ENABLE_EXTERNAL_ACCESS}" = "true" ]; then
                             echo "============================================"
                             echo "External Access (LoadBalancer)"
                             echo "============================================"
