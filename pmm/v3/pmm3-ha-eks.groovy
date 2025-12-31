@@ -58,6 +58,7 @@ metadata:
     iit-billing-tag: "pmm"
     created-by: "jenkins"
     build-number: "${BUILD_NUMBER}"
+    retention-days: "${RETENTION_DAYS}"
     purpose: "pmm-ha-testing"
 
 iam:
@@ -124,56 +125,42 @@ EOF
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
                         eksctl create cluster -f cluster-config.yaml --timeout=40m --verbose=4
-
-                        # Create access entry
-                        aws eks create-access-entry \
-                            --cluster-name "${CLUSTER_NAME}" \
-                            --region "${REGION}" \
-                            --principal-arn arn:aws:iam::119175775298:role/EKSAdminRole
-
-                        # Associate admin policy
-                        aws eks associate-access-policy \
-                        --cluster-name "${CLUSTER_NAME}" \
-                        --region "${REGION}" \
-                        --principal-arn arn:aws:iam::119175775298:role/EKSAdminRole \
-                        --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
-                        --access-scope type=cluster
                     '''
                 }
             }
         }
 
-        // stage('Configure Cluster Access') {
-        //     steps {
-        //         withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-        //             sh '''
-        //                 grant_admin() {
-        //                     local arn="$1"
+        stage('Configure Cluster Access') {
+            steps {
+                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
+                    sh '''
+                        grant_admin() {
+                            local arn="$1"
 
-        //                     aws eks create-access-entry \
-        //                         --cluster-name "${CLUSTER_NAME}" \
-        //                         --region "${REGION}" \
-        //                         --principal-arn "${arn}"
+                            aws eks create-access-entry \
+                                --cluster-name "${CLUSTER_NAME}" \
+                                --region "${REGION}" \
+                                --principal-arn "${arn}"
 
-        //                     aws eks associate-access-policy \
-        //                         --cluster-name "${CLUSTER_NAME}" \
-        //                         --region "${REGION}" \
-        //                         --principal-arn "${arn}" \
-        //                         --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
-        //                         --access-scope type=cluster
-        //                 }
+                            aws eks associate-access-policy \
+                                --cluster-name "${CLUSTER_NAME}" \
+                                --region "${REGION}" \
+                                --principal-arn "${arn}" \
+                                --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
+                                --access-scope type=cluster
+                        }
 
-        //                 # Resolving AWS account ID
-        //                 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+                        # Granting access to IAM group members
+                        for arn in $(aws iam get-group --group-name pmm-eks-admins --query 'Users[].Arn' --output text); do
+                            grant_admin "${arn}"
+                        done
 
-        //                 # Granting access to IAM group members
-        //                 for arn in $(aws iam get-group --group-name pmm-eks-admins --query 'Users[].Arn' --output text); do
-        //                     grant_admin "${arn}"
-        //                 done
-        //             '''
-        //         }
-        //     }
-        // }
+                        # Granting access to SSO admin role
+                        grant_admin $(aws iam list-roles --query "Roles[?contains(RoleName,'AWSReservedSSO_AdministratorAccess')].Arn|[0]" --output text | head -1)
+                    '''
+                }
+            }
+        }
 
         stage('Export kubeconfig') {
             steps {
@@ -314,7 +301,8 @@ EOF
 
                         echo "Waiting for LoadBalancer hostname..."
                         sleep 120
-                        kubectl get svc pmm-ha-haproxy -n pmm -o jsonpath="{.status.loadBalancer.ingress[0].hostname}"
+                        kubectl get svc pmm-ha-haproxy -n pmm \
+                            -o jsonpath="{.status.loadBalancer.ingress[0].hostname}"
                     '''
                 }
             }
@@ -326,21 +314,71 @@ EOF
                     sh '''
                         set +x
 
+                        echo "============================================"
                         echo "EKS Cluster Summary"
-                        echo "-------------------"
+                        echo "============================================"
+
                         echo "Name:    ${CLUSTER_NAME}"
                         echo "Version: ${K8S_VERSION}"
                         echo "Region:  ${REGION}"
                         echo "Build:   ${BUILD_NUMBER}"
                         echo ""
 
-                        kubectl get nodes -o wide
+                        kubectl get nodes -L node.kubernetes.io/instance-type -o wide
                         echo ""
                         kubectl get storageclass
                         echo ""
 
-                        echo "To access this cluster, run:"
-                        echo "aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION} --role-arn arn:aws:iam::119175775298:role/EKSAdminRole"
+                        echo "============================================"
+                        echo "Internal Component Credentials"
+                        echo "============================================"
+
+                        get_secret () {
+                            kubectl get secret pmm-secret -n pmm \
+                                -o "jsonpath={.data.$1}" 2>/dev/null | base64 --decode"
+                        }
+                        PMM_ADMIN_PASSWORD=$(get_secret PMM_ADMIN_PASSWORD)
+                        PG_PASSWORD=$(get_secret PG_PASSWORD)
+                        CH_USER=$(get_secret PMM_CLICKHOUSE_USER)
+                        CH_PASSWORD=$(get_secret PMM_CLICKHOUSE_PASSWORD)
+                        VM_USER=$(get_secret VMAGENT_remoteWrite_basicAuth_username)
+                        VM_PASSWORD=$(get_secret VMAGENT_remoteWrite_basicAuth_password)
+
+                        echo "PMM Admin User: admin"
+                        echo "PMM Admin Password: ${PMM_ADMIN_PASSWORD}"
+                        echo ""
+
+                        echo "PostgreSQL:"
+                        echo "  password: ${PG_PASSWORD}"
+                        echo ""
+
+                        echo "ClickHouse:"
+                        echo "  user:     ${CH_USER}"
+                        echo "  password: ${CH_PASSWORD}"
+                        echo ""
+
+                        echo "VictoriaMetrics:"
+                        echo "  user:     ${VM_USER}"
+                        echo "  password: ${VM_PASSWORD}"
+                        echo ""
+
+                        echo "============================================"
+                        echo "Access Information"
+                        echo "============================================"
+
+                        echo "kubectl access (local):"
+                        echo "  aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}"
+                        echo "  kubectl port-forward svc/pmm-ha-haproxy 8443:443 -n pmm"
+                        echo "  # Then access https://localhost:8443"
+                        echo ""
+
+                        if [ "${ENABLE_EXTERNAL_ACCESS:-false}" = "true" ]; then
+                            echo "============================================"
+                            echo "External Access (LoadBalancer)"
+                            echo "============================================"
+
+                            echo "  https://$(kubectl get svc pmm-ha-haproxy -n pmm -o 'jsonpath={.status.loadBalancer.ingress[0].hostname}')"
+                        fi
                     '''
                 }
             }
