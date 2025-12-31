@@ -124,42 +124,56 @@ EOF
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
                         eksctl create cluster -f cluster-config.yaml --timeout=40m --verbose=4
+
+                        # Create access entry
+                        aws eks create-access-entry \
+                            --cluster-name "${CLUSTER_NAME}" \
+                            --region "${REGION}" \
+                            --principal-arn arn:aws:iam::119175775298:role/EKSAdminRole
+
+                        # Associate admin policy
+                        aws eks associate-access-policy \
+                        --cluster-name "${CLUSTER_NAME}" \
+                        --region "${REGION}" \
+                        --principal-arn arn:aws:iam::119175775298:role/EKSAdminRole \
+                        --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
+                        --access-scope type=cluster
                     '''
                 }
             }
         }
 
-        stage('Configure Cluster Access') {
-            steps {
-                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
-                        grant_admin() {
-                            local arn="$1"
+        // stage('Configure Cluster Access') {
+        //     steps {
+        //         withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
+        //             sh '''
+        //                 grant_admin() {
+        //                     local arn="$1"
 
-                            aws eks create-access-entry \
-                                --cluster-name "${CLUSTER_NAME}" \
-                                --region "${REGION}" \
-                                --principal-arn "${arn}"
+        //                     aws eks create-access-entry \
+        //                         --cluster-name "${CLUSTER_NAME}" \
+        //                         --region "${REGION}" \
+        //                         --principal-arn "${arn}"
 
-                            aws eks associate-access-policy \
-                                --cluster-name "${CLUSTER_NAME}" \
-                                --region "${REGION}" \
-                                --principal-arn "${arn}" \
-                                --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
-                                --access-scope type=cluster
-                        }
+        //                     aws eks associate-access-policy \
+        //                         --cluster-name "${CLUSTER_NAME}" \
+        //                         --region "${REGION}" \
+        //                         --principal-arn "${arn}" \
+        //                         --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
+        //                         --access-scope type=cluster
+        //                 }
 
-                        # Resolving AWS account ID
-                        ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
+        //                 # Resolving AWS account ID
+        //                 ACCOUNT_ID=$(aws sts get-caller-identity --query Account --output text)
 
-                        # Granting access to IAM group members
-                        for arn in $(aws iam get-group --group-name pmm-eks-admins --query 'Users[].Arn' --output text); do
-                            grant_admin "${arn}"
-                        done
-                    '''
-                }
-            }
-        }
+        //                 # Granting access to IAM group members
+        //                 for arn in $(aws iam get-group --group-name pmm-eks-admins --query 'Users[].Arn' --output text); do
+        //                     grant_admin "${arn}"
+        //                 done
+        //             '''
+        //         }
+        //     }
+        // }
 
         stage('Export kubeconfig') {
             steps {
