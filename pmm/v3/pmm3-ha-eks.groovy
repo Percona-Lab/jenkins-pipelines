@@ -333,9 +333,9 @@ EOF
                         echo "Internal Component Credentials"
                         echo "============================================"
 
-                        get_secret () {
+                        get_secret() {
                             kubectl get secret pmm-secret -n pmm \
-                                -o "jsonpath={.data.$1}" 2>/dev/null | base64 --decode"
+                                -o "jsonpath={.data.$1}" 2>/dev/null | base64 --decode
                         }
                         PMM_ADMIN_PASSWORD=$(get_secret PMM_ADMIN_PASSWORD)
                         PG_PASSWORD=$(get_secret PG_PASSWORD)
