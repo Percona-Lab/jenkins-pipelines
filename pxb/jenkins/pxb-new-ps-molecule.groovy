@@ -90,13 +90,19 @@ pipeline {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
     MOLECULE_DIR = "molecule/pxb-new-ps-tarball/";
     PXB_VERSION = "${params.PXB_VERSION}";
+    PS_VERSION = "${params.PS_VERSION}";
     TESTING_BRANCH = "${params.TESTING_BRANCH}";
   }
   parameters {
     string(
-      name: 'PXB_VERSION', 
-      defaultValue: '8.0.35-34', 
+      name: 'PXB_VERSION',
+      defaultValue: '8.0.35-34',
       description: 'PXB full version'
+    )
+    string(
+      name: 'PS_VERSION',
+      defaultValue: '8.0.44-35',
+      description: 'PS full version'
     )
     string(
       defaultValue: 'master',
