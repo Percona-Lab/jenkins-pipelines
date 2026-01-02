@@ -6,15 +6,40 @@ pipeline {
     parameters {
         choice(
             name: 'K8S_VERSION',
-            choices: ['1.32', '1.31', '1.30', '1.29', '1.28'],
+            choices: ['1.34', '1.33', '1.32', '1.31', '1.30'],
             description: 'Select Kubernetes cluster version'
+        )
+        string(
+            name: 'HELM_CHART_BRANCH',
+            defaultValue: 'pmmha-v3',
+            description: 'Branch of percona-helm-charts repo'
+        )
+        string(
+            name: 'PMM_IMAGE_TAG',
+            defaultValue: '',
+            description: 'PMM Server image tag'
+        )
+        choice(
+            name: 'RETENTION_DAYS',
+            choices: ['1', '2', '3'],
+            description: 'Days to retain cluster before auto-deletion'
+        )
+        string(
+            name: 'PMM_ADMIN_PASSWORD',
+            defaultValue: '',
+            description: 'PMM admin password'
+        )
+        booleanParam(
+            name: 'ENABLE_EXTERNAL_ACCESS',
+            defaultValue: false,
+            description: 'Enable external access for PMM HA (creates LoadBalancer)'
         )
     }
 
      environment {
         CLUSTER_NAME = "pmm-ha-test-${BUILD_NUMBER}"
         REGION = "us-east-2"
-        KUBECONFIG = "${WORKSPACE}/kubeconfig/config"
+        KUBECONFIG = "${WORKSPACE}/kubeconfig"
     }
 
     stages {
@@ -33,6 +58,7 @@ metadata:
     iit-billing-tag: "pmm"
     created-by: "jenkins"
     build-number: "${BUILD_NUMBER}"
+    retention-days: "${RETENTION_DAYS}"
     purpose: "pmm-ha-testing"
 
 iam:
@@ -47,15 +73,16 @@ managedNodeGroups:
   - name: ng-spot
     amiFamily: AmazonLinux2023
     instanceTypes:
-      - m5a.large
-      - m5n.large
-      - m7a.large
-      - m7i-flex.large
+      - c5a.xlarge
+      - c8a.xlarge
+      - c8i.xlarge
+      - c7i-flex.xlarge
+      - c8i-flex.xlarge
     volumeSize: 80
     spot: true
-    minSize: 2
-    maxSize: 5
-    desiredCapacity: 3
+    minSize: 4
+    maxSize: 6
+    desiredCapacity: 4
     tags:
         iit-billing-tag: "pmm"
         nodegroup: "spot"
@@ -98,14 +125,38 @@ EOF
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
                         eksctl create cluster -f cluster-config.yaml --timeout=40m --verbose=4
+                    '''
+                }
+            }
+        }
 
-                        # Map EKSAdminRole for IAM users
-                        eksctl create iamidentitymapping \
-                            --cluster "${CLUSTER_NAME}" \
-                            --region "${REGION}" \
-                            --arn arn:aws:iam::119175775298:role/EKSAdminRole \
-                            --username eks-admin \
-                            --group system:masters
+        stage('Configure Cluster Access') {
+            steps {
+                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
+                    sh '''
+                        grant_admin() {
+                            local arn="$1"
+
+                            aws eks create-access-entry \
+                                --cluster-name "${CLUSTER_NAME}" \
+                                --region "${REGION}" \
+                                --principal-arn "${arn}"
+
+                            aws eks associate-access-policy \
+                                --cluster-name "${CLUSTER_NAME}" \
+                                --region "${REGION}" \
+                                --principal-arn "${arn}" \
+                                --policy-arn arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy \
+                                --access-scope type=cluster
+                        }
+
+                        # Granting access to IAM group members
+                        for arn in $(aws iam get-group --group-name pmm-eks-admins --query 'Users[].Arn' --output text); do
+                            grant_admin "${arn}"
+                        done
+
+                        # Granting access to SSO admin role
+                        grant_admin $(aws iam list-roles --query "Roles[?contains(RoleName,'AWSReservedSSO_AdministratorAccess')].Arn|[0]" --output text | head -1)
                     '''
                 }
             }
@@ -115,8 +166,6 @@ EOF
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        mkdir -p kubeconfig
-
                         aws eks update-kubeconfig \
                             --name "${CLUSTER_NAME}" \
                             --region "${REGION}" \
@@ -177,6 +226,88 @@ EOF
             }
         }
 
+        stage('Install PMM HA') {
+            steps {
+                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
+                    git poll: false, branch: HELM_CHART_BRANCH, url: 'https://github.com/percona/percona-helm-charts.git'
+
+                    sh '''
+                        helm repo add percona https://percona.github.io/percona-helm-charts/
+                        helm repo add vm https://victoriametrics.github.io/helm-charts/
+                        helm repo add altinity https://docs.altinity.com/helm-charts/
+                        helm repo update
+
+                        helm dependency update charts/pmm-ha-dependencies
+                        helm upgrade --install pmm-operators charts/pmm-ha-dependencies -n pmm --create-namespace --wait --timeout 10m
+
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=300s
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=300s
+                        kubectl wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n pmm --timeout=300s
+
+                        if [ -n "${PMM_ADMIN_PASSWORD}" ]; then
+                            PMM_PW="${PMM_ADMIN_PASSWORD}"
+                        else
+                            PMM_PW="$(openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16)"
+                        fi
+                        PG_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+                        GF_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+                        CH_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+                        VM_PW=$(openssl rand -base64 24 | tr -dc 'a-zA-Z0-9' | head -c 24)
+
+                        kubectl create secret generic pmm-secret -n pmm \
+                            --from-literal=PMM_ADMIN_PASSWORD="${PMM_PW}" \
+                            --from-literal=GF_SECURITY_ADMIN_PASSWORD="${PMM_PW}" \
+                            --from-literal=PG_PASSWORD="${PG_PW}" \
+                            --from-literal=GF_PASSWORD="${GF_PW}" \
+                            --from-literal=PMM_CLICKHOUSE_USER="clickhouse_pmm" \
+                            --from-literal=PMM_CLICKHOUSE_PASSWORD="${CH_PW}" \
+                            --from-literal=VMAGENT_remoteWrite_basicAuth_username="victoriametrics_pmm" \
+                            --from-literal=VMAGENT_remoteWrite_basicAuth_password="${VM_PW}" \
+                            --dry-run=client -o yaml | kubectl apply -f -
+
+                        helm dependency update charts/pmm-ha
+                        helm upgrade --install pmm-ha charts/pmm-ha -n pmm \
+                            --set secret.create=false \
+                            --set secret.name=pmm-secret \
+                            --wait --timeout 15m \
+                            ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}}  # Only add if PMM_IMAGE_TAG is non-empty
+
+                        kubectl rollout status statefulset/pmm-ha -n pmm --timeout=600s
+                        kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=600s
+                        kubectl get pods -n pmm
+                    '''
+                }
+            }
+        }
+
+        stage('Configure External Access') {
+            when {
+                expression { params.ENABLE_EXTERNAL_ACCESS }
+            }
+            steps {
+                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
+                    sh '''
+                        kubectl patch svc pmm-ha-haproxy -n pmm --type='merge' -p '{
+                            "spec": {
+                                "type": "LoadBalancer"
+                            },
+                            "metadata": {
+                                "annotations": {
+                                "service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
+                                "service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing"
+                                }
+                            }
+                        }'
+
+                        echo "Waiting for LoadBalancer hostname..."
+                        sleep 120
+                        kubectl get svc pmm-ha-haproxy -n pmm \
+                            -o jsonpath="{.status.loadBalancer.ingress[0].hostname}"
+                    '''
+                }
+            }
+        }
+
         stage('Cluster Summary') {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
@@ -184,20 +315,47 @@ EOF
                         set +x
 
                         echo "EKS Cluster Summary"
-                        echo "-------------------"
+                        echo "------------------------------"
+
                         echo "Name:    ${CLUSTER_NAME}"
                         echo "Version: ${K8S_VERSION}"
                         echo "Region:  ${REGION}"
                         echo "Build:   ${BUILD_NUMBER}"
                         echo ""
 
-                        kubectl get nodes -o wide
+                        kubectl get nodes -L node.kubernetes.io/instance-type -o wide
                         echo ""
                         kubectl get storageclass
                         echo ""
 
-                        echo "To access this cluster, run:"
-                        echo "aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION} --role-arn arn:aws:iam::119175775298:role/EKSAdminRole"
+                        echo "Internal Component Credentials"
+                        echo "------------------------------"
+
+                        get_secret() {
+                            kubectl get secret pmm-secret -n pmm \
+                                -o "jsonpath={.data.$1}" 2>/dev/null | base64 --decode
+                        }
+                        echo "PMM/Grafana:     admin / $(get_secret PMM_ADMIN_PASSWORD)"
+                        echo "PostgreSQL:      $(get_secret PG_PASSWORD)"
+                        echo "ClickHouse:      $(get_secret PMM_CLICKHOUSE_USER) / $(get_secret PMM_CLICKHOUSE_PASSWORD)"
+                        echo "VictoriaMetrics: $(get_secret VMAGENT_remoteWrite_basicAuth_username) / $(get_secret VMAGENT_remoteWrite_basicAuth_password)"
+                        echo ""
+
+                        echo "Access Information"
+                        echo "------------------------------"
+
+                        echo "kubectl access (local):"
+                        echo "  aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}"
+                        echo "  kubectl port-forward svc/pmm-ha-haproxy 8443:443 -n pmm"
+                        echo "  # Then access https://localhost:8443"
+                        echo ""
+
+                        if [ "${ENABLE_EXTERNAL_ACCESS}" = "true" ]; then
+                            echo "External Access (LoadBalancer)"
+                            echo "------------------------------"
+
+                            echo "  https://$(kubectl get svc pmm-ha-haproxy -n pmm -o 'jsonpath={.status.loadBalancer.ingress[0].hostname}')"
+                        fi
                     '''
                 }
             }
@@ -205,7 +363,7 @@ EOF
 
         stage('Archive kubeconfig') {
             steps {
-                archiveArtifacts artifacts: 'kubeconfig/config', fingerprint: true
+                archiveArtifacts artifacts: 'kubeconfig', fingerprint: true
                 archiveArtifacts artifacts: 'cluster-config.yaml', fingerprint: true
             }
         }
