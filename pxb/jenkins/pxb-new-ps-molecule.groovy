@@ -4,7 +4,7 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 def PXBskipOSPRO() {
-  return ['debian-11', 'debian-12', 'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'ubuntu-jammy', 'ubuntu-noble', 'al-2023']
+  return ['debian-11', 'debian-13', 'oracle-8', 'oracle-9', 'rhel-8', 'rhel-10', 'ubuntu-jammy', 'ubuntu-noble', 'al-2023']
 }
 
 def deleteBuildInstances(){
