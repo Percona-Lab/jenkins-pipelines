@@ -40,7 +40,6 @@ pipeline {
         CLUSTER_NAME = "pmm-ha-test-${BUILD_NUMBER}"
         REGION = "us-east-2"
         KUBECONFIG = "${WORKSPACE}/kubeconfig"
-        PMM_URL = "https://localhost:8443"
     }
 
     stages {
@@ -321,6 +320,9 @@ EOF
 
         stage('Cluster Summary') {
             steps {
+                script {
+                    env.PMM_URL = env.PMM_URL ?: "https://localhost:8443"
+                }
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
                         set +x
