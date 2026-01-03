@@ -40,6 +40,7 @@ pipeline {
         CLUSTER_NAME = "pmm-ha-test-${BUILD_NUMBER}"
         REGION = "us-east-2"
         KUBECONFIG = "${WORKSPACE}/kubeconfig"
+        PMM_URL = "https://localhost:8443"
     }
 
     stages {
@@ -286,24 +287,34 @@ EOF
             }
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                    sh '''
-                        kubectl patch svc pmm-ha-haproxy -n pmm --type='merge' -p '{
-                            "spec": {
-                                "type": "LoadBalancer"
-                            },
-                            "metadata": {
-                                "annotations": {
-                                "service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
-                                "service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing"
+                    script {
+                        sh '''
+                            kubectl patch svc pmm-ha-haproxy -n pmm --type='merge' -p '{
+                                "spec": {
+                                    "type": "LoadBalancer"
+                                },
+                                "metadata": {
+                                    "annotations": {
+                                    "service.beta.kubernetes.io/aws-load-balancer-type": "nlb",
+                                    "service.beta.kubernetes.io/aws-load-balancer-scheme": "internet-facing"
+                                    }
                                 }
-                            }
-                        }'
+                            }'
 
-                        echo "Waiting for LoadBalancer hostname..."
-                        sleep 120
-                        kubectl get svc pmm-ha-haproxy -n pmm \
-                            -o jsonpath="{.status.loadBalancer.ingress[0].hostname}"
-                    '''
+                            echo "Waiting for LoadBalancer hostname..."
+                            sleep 120
+                        '''
+
+                        def lbHost = sh(
+                            returnStdout: true,
+                            script: '''
+                                kubectl get svc pmm-ha-haproxy -n pmm \
+                                -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+                            '''
+                        ).trim()
+
+                        env.PMM_URL = "https://${lbHost}"
+                    }
                 }
             }
         }
@@ -347,14 +358,14 @@ EOF
                         echo "kubectl access (local):"
                         echo "  aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}"
                         echo "  kubectl port-forward svc/pmm-ha-haproxy 8443:443 -n pmm"
-                        echo "  # Then access https://localhost:8443"
+                        echo "  # Then access ${PMM_URL}"
                         echo ""
 
                         if [ "${ENABLE_EXTERNAL_ACCESS}" = "true" ]; then
                             echo "External Access (LoadBalancer)"
                             echo "------------------------------"
 
-                            echo "  https://$(kubectl get svc pmm-ha-haproxy -n pmm -o 'jsonpath={.status.loadBalancer.ingress[0].hostname}')"
+                            echo "  ${PMM_URL}"
                         fi
                     '''
                 }
@@ -371,6 +382,7 @@ EOF
 
     post {
         success {
+            currentBuild.description = "PMM: ${env.PMM_URL}"
             echo "Cluster ${CLUSTER_NAME} created successfully."
             echo "Download the kubeconfig artifact to access the cluster."
         }
