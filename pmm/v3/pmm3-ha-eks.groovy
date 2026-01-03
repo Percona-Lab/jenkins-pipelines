@@ -360,7 +360,7 @@ EOF
                         echo "kubectl access (local):"
                         echo "  aws eks update-kubeconfig --name ${CLUSTER_NAME} --region ${REGION}"
                         echo "  kubectl port-forward svc/pmm-ha-haproxy 8443:443 -n pmm"
-                        echo "  # Then access ${PMM_URL}"
+                        echo "  # Then access https://localhost:8443"
                         echo ""
 
                         if [ "${ENABLE_EXTERNAL_ACCESS}" = "true" ]; then
