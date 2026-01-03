@@ -27,12 +27,12 @@ imageMap['us-east-2a.min-rhel-8-x64']     = 'ami-0eeed66f8f65afdba'             
 imageMap['us-east-2a.min-ol-8-x64']       = imageMap['us-east-2a.min-rhel-8-x64']   // oraclelinux 8.9
 imageMap['us-east-2a.min-rhel-9-x64']     = 'ami-0b5a1d936f517ad3e'                 // oraclelinux 9.3
 imageMap['us-east-2a.min-ol-9-x64']       = imageMap['us-east-2a.min-rhel-9-x64']   // oraclelinux 9.3
-imageMap['us-east-2a.min-alma-10-x64']    = 'ami-06be7a8dff9965741'                 // almalinux 10
-imageMap['us-east-2a.min-jammy-x64']      = 'ami-085438ce84ab3ac76'                 // ubuntu 22
-imageMap['us-east-2a.min-noble-x64']      = 'ami-0d1b5a8c13042c939'                 // ubuntu 24
-imageMap['us-east-2a.min-bullseye-x64']   = 'ami-0434754593ce7b895'                 // debian 11
-imageMap['us-east-2a.min-bookworm-x64']   = 'ami-065eb7eeb82248b49'                 // debian 12
-imageMap['us-east-2a.min-trixie-x64']     = 'ami-0e4a9a71af7af46ff'                 // debian 13
+imageMap['us-east-2a.min-alma-10-x64']    = 'ami-070f0d38c534f0fd8'                 // almalinux 10
+imageMap['us-east-2a.min-jammy-x64']      = 'ami-0503ed50b531cc445'                 // ubuntu 22
+imageMap['us-east-2a.min-noble-x64']      = 'ami-06e3c045d79fd65d9'                 // ubuntu 24
+imageMap['us-east-2a.min-bullseye-x64']   = 'ami-08a1f358f8d29bbf5'                 // debian 11
+imageMap['us-east-2a.min-bookworm-x64']   = 'ami-08c109c5ec1e367c3'                 // debian 12
+imageMap['us-east-2a.min-trixie-x64']     = 'ami-054f4f14d58fb695c'                 // debian 13
 
 imageMap['us-east-2b.min-rhel-8-x64']     = imageMap['us-east-2a.min-rhel-8-x64']
 imageMap['us-east-2b.min-ol-8-x64']       = imageMap['us-east-2a.min-ol-8-x64']     // oraclelinux 8
@@ -59,12 +59,12 @@ imageMap['us-east-2c.min-trixie-x64']     = imageMap['us-east-2a.min-trixie-x64'
 // ARM64 based AMIs
 imageMap['us-east-2a.min-ol-8-arm64']       = 'ami-0f77cbbab56907b6c'               // oraclelinux 8.9 arm64
 imageMap['us-east-2a.min-ol-9-arm64']       = 'ami-0ffbdb6ee492c2cd5'               // oraclelinux 9.3 arm64
-imageMap['us-east-2a.min-alma-10-arm64']    = 'ami-0f5ead2bc98a63a65'               // almalinux 10 arm64
-imageMap['us-east-2a.min-jammy-arm64']      = 'ami-0f732d76e7fad24ca'               // ubuntu 22.04 arm64
-imageMap['us-east-2a.min-noble-arm64']      = 'ami-019eeff96c2865995'               // ubuntu 24.04 arm64
-imageMap['us-east-2a.min-bullseye-arm64']   = 'ami-0d0902423ff93b14f'               // debian 11 arm64
-imageMap['us-east-2a.min-bookworm-arm64']   = 'ami-0de4c77901001cfe7'               // debian 12 arm64
-imageMap['us-east-2a.min-trixie-arm64']     = 'ami-0e80837acd137142b'               // debian 13 arm64
+imageMap['us-east-2a.min-alma-10-arm64']    = 'ami-0cb638175de2a2ff6'               // almalinux 10 arm64
+imageMap['us-east-2a.min-jammy-arm64']      = 'ami-0f3bb1aab2e14631f'               // ubuntu 22.04 arm64
+imageMap['us-east-2a.min-noble-arm64']      = 'ami-01da1dbf9ea3a6ee6'               // ubuntu 24.04 arm64
+imageMap['us-east-2a.min-bullseye-arm64']   = 'ami-0f11ce0dbafaddcbd'               // debian 11 arm64
+imageMap['us-east-2a.min-bookworm-arm64']   = 'ami-03566da4c3469bbcc'               // debian 12 arm64
+imageMap['us-east-2a.min-trixie-arm64']     = 'ami-0a3db80382cdee233'               // debian 13 arm64
 
 imageMap['us-east-2b.min-ol-8-arm64']       = imageMap['us-east-2a.min-ol-8-arm64']
 imageMap['us-east-2b.min-ol-9-arm64']       = imageMap['us-east-2a.min-ol-9-arm64']
@@ -85,12 +85,12 @@ imageMap['us-east-2c.min-bookworm-arm64']   = imageMap['us-east-2a.min-bookworm-
 imageMap['us-east-2c.min-trixie-arm64']     = imageMap['us-east-2a.min-trixie-arm64']
 
 priceMap = [:]
-priceMap['t2.large']   = '0.045'
-priceMap['t3.xlarge']  = '0.065'
-priceMap['t3.large']   = '0.035'
-priceMap['m4.large']   = '0.060'
-priceMap['m7a.large']  = '0.044' // amd64 instance type - vCPU=2, memory=8GiB, saving=73%, interruption='<5%', price=0.03
-priceMap['m7g.large']  = '0.042' // arm64 instance type - vCPU=2, memory=8GiB, saving=63%, interruption='<5%', price=0.03
+priceMap['t2.large']    = '0.045'
+priceMap['t3.xlarge']   = '0.065'
+priceMap['t3.large']    = '0.035'
+priceMap['m4.large']    = '0.060'
+priceMap['m7a.large']   = '0.044' // amd64 instance type - vCPU=2, memory=8GiB, saving=73%, interruption='<5%', price=0.03
+priceMap['m7gd.large']  = '0.042' // arm64 instance type - vCPU=2, memory=8GiB, saving=63%, interruption='<5%', price=0.03
 
 userMap = [:]
 userMap['min-rhel-8-x64']      = 'ec2-user'
@@ -235,12 +235,12 @@ initMap['min-bookworm-arm64'] = initMap['debMap']
 initMap['min-trixie-arm64']   = initMap['debMap']
 
 capMap = [:]
-capMap['t2.large']   = '20'
-capMap['t3.xlarge']  = '20'
-capMap['t3.large']   = '20'
-capMap['m4.large']   = '10'
-capMap['m7a.large']  = '15' // amd64 instance type
-capMap['m7g.large']  = '15' // arm64 instance type
+capMap['t2.large']    = '20'
+capMap['t3.xlarge']   = '20'
+capMap['t3.large']    = '20'
+capMap['m4.large']    = '10'
+capMap['m7a.large']   = '15' // amd64 instance type
+capMap['m7gd.large']  = '15' // arm64 instance type
 
 typeMap = [:]
 typeMap['min-rhel-8-x64']     = 'm7a.large'
@@ -254,7 +254,7 @@ typeMap['min-bullseye-x64']   = typeMap['min-rhel-8-x64']
 typeMap['min-bookworm-x64']   = typeMap['min-rhel-8-x64']
 typeMap['min-trixie-x64']     = typeMap['min-rhel-8-x64']
 
-typeMap['min-ol-8-arm64']     = 'm7g.large'
+typeMap['min-ol-8-arm64']     = 'm7gd.large'
 typeMap['min-ol-9-arm64']     = typeMap['min-ol-8-arm64']
 typeMap['min-alma-10-arm64']  = typeMap['min-ol-8-arm64']
 typeMap['min-jammy-arm64']    = typeMap['min-ol-8-arm64']
