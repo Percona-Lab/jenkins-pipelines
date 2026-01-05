@@ -72,10 +72,12 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
 }
 
 def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD) {
+    def pmmImageTag = DOCKER_VERSION.split(":")[1]
+
     clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
         string(name: 'K8S_VERSION', value: K8S_VERSION),
         string(name: 'HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
-        string(name: 'PMM_IMAGE_TAG', value: DOCKER_VERSION),
+        string(name: 'PMM_IMAGE_TAG', value: pmmImageTag),
         string(name: 'PMM_ADMIN_PASSWORD', value: ADMIN_PASSWORD),
         booleanParam(name: 'ENABLE_EXTERNAL_ACCESS', value: true),
         string(name: 'RETENTION_DAYS', value: '1'),
