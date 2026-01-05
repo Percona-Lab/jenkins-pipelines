@@ -77,7 +77,7 @@ def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, AD
         string(name: 'HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
         string(name: 'PMM_IMAGE_TAG', value: DOCKER_VERSION),
         string(name: 'PMM_ADMIN_PASSWORD', value: ADMIN_PASSWORD),
-        string(name: 'ENABLE_EXTERNAL_ACCESS', value: true),
+        booleanParam(name: 'ENABLE_EXTERNAL_ACCESS', value: true),
         string(name: 'RETENTION_DAYS', value: '1'),
     ]
 
