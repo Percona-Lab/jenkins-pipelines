@@ -1,0 +1,25 @@
+- job:
+    name: hetzner-psmdb60-autobuild-RECOVERY
+    project-type: pipeline
+    description: |
+        Recovery pipeline for PSMDB 6.0 post-build stages.
+        
+        Use this when the main pipeline (hetzner-psmdb60-autobuild-RELEASE) failed at:
+        - Upload packages and tarballs from S3
+        - Sign packages
+        - Push to public repository
+        - Push Tarballs to TESTING download area
+        
+        Required: AWS_STASH_PATH from the failed build console output.
+        
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/vorsel/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: psmdb/jenkins/percona-server-for-mongodb-6.0-recovery.groovy
+
