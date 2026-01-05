@@ -71,6 +71,26 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
     env.PMM_UI_URL = "${pmmAddress}/"
 }
 
+def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD) {
+    clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
+        string(name: 'K8S_VERSION', value: K8S_VERSION),
+        string(name: 'HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
+        string(name: 'PMM_IMAGE_TAG', value: DOCKER_VERSION),
+        string(name: 'PMM_ADMIN_PASSWORD', value: ADMIN_PASSWORD),
+        string(name: 'ENABLE_EXTERNAL_ACCESS', value: true),
+        string(name: 'RETENTION_DAYS', value: '1'),
+    ]
+
+    def pmmAddress = clusterCreateJob.buildVariables.PMM_URL
+    def pmmHostname = pmmAddress.split("//")[1]
+
+    env.VM_IP = pmmHostname
+    env.VM_NAME = clusterCreateJob.buildVariables.VM_NAME
+    env.WORK_DIR = clusterCreateJob.buildVariables.WORK_DIR
+    env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${pmmHostname}"
+    env.PMM_UI_URL = "${pmmAddress}/"
+}
+
 void runAMIStagingStart(String AMI_ID) {
     amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
         string(name: 'AMI_ID', value: AMI_ID)
@@ -221,7 +241,7 @@ pipeline {
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: ['docker', 'ovf', 'ami', 'helm'],
+            choices: ['docker', 'ovf', 'ami', 'helm', 'ha'],
             description: "PMM Server installation type.",
             name: 'SERVER_TYPE')
         string(
@@ -248,10 +268,18 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
+        string(
+            defaultValue: 'pmmha-v3',
+            description: 'HA setup branch of percona-helm-charts repo (pmmha-v3 has both pmm-ha and pmm-ha-dependencies)',
+            name: 'HELM_CHART_BRANCH')
         choice(
             choices: ['latest', '4.19.6', '4.19.5', '4.19.4', '4.19.3', '4.19.2', '4.18.9', '4.18.8', '4.18.7', '4.18.6', '4.18.5', '4.17.9', '4.17.8', '4.17.7', '4.17.6', '4.17.5', '4.16.9', '4.16.8', '4.16.7', '4.16.6', '4.16.5'],
             description: 'OpenShift version to install (specific version or channel)',
             name: 'OPENSHIFT_VERSION')
+        choice(
+            choices: ['1.34', '1.33', '1.32', '1.31', '1.30'],
+            description: 'HA setup Kubernetes cluster version',
+            name: 'K8S_VERSION')
         choice(
             choices: ['8.0', '8.4', '5.7'],
             description: 'Percona XtraDB Cluster version',
@@ -322,7 +350,7 @@ pipeline {
                         runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
-                stage('Setup OVF Server Instance') {
+                stage('Setup OVF PMM Server Instance') {
                     when {
                         expression { env.SERVER_TYPE == "ovf" }
                     }
@@ -330,7 +358,7 @@ pipeline {
                         runOVFStagingStart(DOCKER_VERSION, PMM_QA_GIT_BRANCH)
                     }
                 }
-                stage('Setup AMI Server Instance') {
+                stage('Setup AMI PMM Server Instance') {
                     when {
                         expression { env.SERVER_TYPE == "ami" }
                     }
@@ -338,12 +366,20 @@ pipeline {
                         runAMIStagingStart(DOCKER_VERSION)
                     }
                 }
-                stage('Setup Helm Server Instance') {
+                stage('Setup Helm PMM Server Instance') {
                     when {
                         expression { env.SERVER_TYPE == "helm" }
                     }
                     steps {
                         runOpenshiftClusterCreate(OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PASSWORD)
+                    }
+                }
+                stage('Setup HA PMM Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "ha" }
+                    }
+                    steps {
+                        runHAClusterCreate(KUBERNETES_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD)
                     }
                 }
             }
