@@ -379,7 +379,7 @@ pipeline {
                         expression { env.SERVER_TYPE == "ha" }
                     }
                     steps {
-                        runHAClusterCreate(KUBERNETES_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD)
+                        runHAClusterCreate(K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD)
                     }
                 }
             }
