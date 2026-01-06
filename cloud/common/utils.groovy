@@ -89,7 +89,7 @@ void azureAuth() {
 
 void installAzureCLI(String agent) {
     if (agent == 'Hetzner') {
-        sh """
+        sh '''
         if ! command -v az &>/dev/null; then
             sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
             cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
@@ -102,15 +102,15 @@ gpgkey=https://packages.microsoft.com/keys/microsoft.asc
 EOF
             sudo dnf install azure-cli -y
         fi
-    """
+        '''
     } else {
-        sh """
+        sh '''
         if ! command -v az &>/dev/null; then
             curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
             printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
             sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
         fi
-    """
+        '''
     }
 }
 

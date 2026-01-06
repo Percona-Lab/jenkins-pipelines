@@ -138,11 +138,11 @@ void runTest(Integer testId) {
                     [[ "$IMAGE_OPERATOR" ]] && export IMAGE=$IMAGE_OPERATOR || export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                     export IMAGE_MONGOD=$IMAGE_MONGOD
                     export IMAGE_BACKUP=$IMAGE_BACKUP
+                    export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
                     export IMAGE_PMM3_CLIENT=$IMAGE_PMM3_CLIENT
                     export IMAGE_PMM3_SERVER=$IMAGE_PMM3_SERVER
-                    export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
                     export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
 
                     e2e-tests/$testName/run
@@ -188,11 +188,11 @@ testsuite name=$JOB_NAME
 IMAGE_OPERATOR=${IMAGE_OPERATOR ?: 'e2e_defaults'}
 IMAGE_MONGOD=${IMAGE_MONGOD ?: 'e2e_defaults'}
 IMAGE_BACKUP=${IMAGE_BACKUP ?: 'e2e_defaults'}
+IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR ?: 'e2e_defaults'}
 IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
 IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
 IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT ?: 'e2e_defaults'}
 IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER ?: 'e2e_defaults'}
-IMAGE_LOGCOLLECTOR=${IMAGE_LOGCOLLECTOR ?: 'e2e_defaults'}
 PLATFORM_VER=$PLATFORM_VER
 GKE_RELEASE_CHANNEL=$GKE_RELEASE_CHANNEL"""
 

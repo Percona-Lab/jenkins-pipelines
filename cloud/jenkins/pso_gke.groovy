@@ -17,7 +17,7 @@ void prepareMainNode() {
     
     echo '=========================[ Cloning operator source code ]========================='
     sh """
-        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
+        git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator.git source
     """
     
     echo '=========================[ Reading release versions and setting parameters ]========================='

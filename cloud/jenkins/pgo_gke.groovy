@@ -1,6 +1,5 @@
 def utils
 
-region = 'us-central1-c'
 tests = []
 clusters = []
 release_versions = 'source/e2e-tests/release_versions'
