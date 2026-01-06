@@ -48,7 +48,7 @@ bootDeadlineMap['launcher-x64-hel1']  = bootDeadlineMap['default']
 bootDeadlineMap['launcher-x64-fsn1']  = bootDeadlineMap['default']
 
 jvmOptsMap = [:]
-jvmOptsMap['deb12']         = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
+jvmOptsMap['deb12']         = '-Xms4g -Xmx16g -Xss4m -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
 jvmOptsMap['deb12-x64-nbg1']     = jvmOptsMap['deb12']
 jvmOptsMap['deb12-x64-hel1']     = jvmOptsMap['deb12']
 jvmOptsMap['deb12-x64-fsn1']     = jvmOptsMap['deb12']
@@ -99,7 +99,7 @@ initMap['deb-docker'] = '''#!/bin/bash -x
         sleep 1
         echo try again
     done
-    until sudo apt-get -y install docker-ce docker-ce-cli docker-compose-plugin containerd.io; do
+    until sudo apt-get -y install docker-ce docker-ce-cli  docker-compose-plugin containerd.io; do
         sleep 1
         echo try again
     done
@@ -150,21 +150,21 @@ initMap['launcher-x64-fsn1']  = initMap['deb-docker']
 def templates = [
        /* new HetznerServerTemplate("ubuntu20-cx21", "java", "name=ubuntu20-docker", "fsn1", "cx21"), */
         //                        tmplName                  tmplLabels                     tmplImage                  region server type
-        new HetznerServerTemplate("deb12-x64-nbg1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "nbg1", "cpx41"),
+        new HetznerServerTemplate("deb12-x64-nbg1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "nbg1", "cpx42"),
         new HetznerServerTemplate("deb12-aarch64-nbg1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "nbg1", "cax31"),
-        new HetznerServerTemplate("deb12-x64-hel1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "hel1", "cpx41"),
+        new HetznerServerTemplate("deb12-x64-hel1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "hel1", "cpx42"),
         new HetznerServerTemplate("deb12-aarch64-hel1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "hel1", "cax31"),
-        new HetznerServerTemplate("deb12-x64-fsn1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "fsn1", "cpx41"),
+        new HetznerServerTemplate("deb12-x64-fsn1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "fsn1", "cpx42"),
         new HetznerServerTemplate("deb12-aarch64-fsn1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "fsn1", "cax31"),
-        new HetznerServerTemplate("deb12-x64-nbg1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "nbg1", "cpx51"),
+        new HetznerServerTemplate("deb12-x64-nbg1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "nbg1", "cpx62"),
         new HetznerServerTemplate("deb12-aarch64-nbg1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "nbg1", "cax41"),
-        new HetznerServerTemplate("deb12-x64-hel1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "hel1", "cpx51"),
+        new HetznerServerTemplate("deb12-x64-hel1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "hel1", "cpx62"),
         new HetznerServerTemplate("deb12-aarch64-hel1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "hel1", "cax41"),
-        new HetznerServerTemplate("deb12-x64-fsn1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "fsn1", "cpx51"),
+        new HetznerServerTemplate("deb12-x64-fsn1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "fsn1", "cpx62"),
         new HetznerServerTemplate("deb12-aarch64-fsn1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "fsn1", "cax41"),
-        new HetznerServerTemplate("launcher-x64-nbg1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "nbg1", "cpx21"),
-        new HetznerServerTemplate("launcher-x64-hel1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "hel1", "cpx21"),
-        new HetznerServerTemplate("launcher-x64-fsn1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "fsn1", "cpx21")
+        new HetznerServerTemplate("launcher-x64-nbg1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "nbg1", "cpx22"),
+        new HetznerServerTemplate("launcher-x64-hel1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "hel1", "cpx22"),
+        new HetznerServerTemplate("launcher-x64-fsn1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "fsn1", "cpx22")
 ]
 
 templates.each { it ->
