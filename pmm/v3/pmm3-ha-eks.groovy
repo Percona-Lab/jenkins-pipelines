@@ -39,7 +39,7 @@ pipeline {
         string(
             name: 'PMM_IMAGE_REPOSITORY',
             defaultValue: '',
-            description: 'PMM image repository override'
+            description: 'PMM image repository override (initial value is pulled from the Helm chart)'
         )
         string(
             name: 'PMM_IMAGE_TAG',
