@@ -209,7 +209,7 @@ parameters {
             description: 'Experimental packages only',
             name: 'EXPERIMENTALMODE')
         choice(
-            choices: 'laboratory\ntesting\nexperimental\nrelease',
+            choices: 'experimental\ntesting\nlabaratory\nrelease',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
         choice(
@@ -321,7 +321,7 @@ parameters {
                         }
                     }
                 }
-                stage('Centos 8 ARM') {
+                stage('Oracle Linux 8 ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -334,7 +334,7 @@ parameters {
                                 installCli("rpm")
                                 unstash 'properties'
                                 popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                                buildStage("centos:8", "--build_rpm=1")
+                                buildStage("oraclelinux:8", "--build_rpm=1")
                                 if (env.EXPERIMENTALMODE == 'NO') {
                                     pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                                 }
@@ -378,6 +378,40 @@ parameters {
                             } else {
                                 buildStage("oraclelinux:9", "--build_rpm=1")
                             }
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Amazon Linux 2023') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            installCli("rpm")
+                            unstash 'properties'
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("amazonlinux:2023", "--build_rpm=1")
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Amazon Linux 2023 ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            installCli("rpm")
+                            unstash 'properties'
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("amazonlinux:2023", "--build_rpm=1")
                             if (env.EXPERIMENTALMODE == 'NO') {
                                 pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                             }
