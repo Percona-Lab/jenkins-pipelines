@@ -128,31 +128,37 @@ pipeline {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
                         CLUSTERS=$(aws eks list-clusters --region "$REGION" \
-                            --query "clusters[?starts_with(@, '${CLUSTER_PREFIX}')]" --output text)
+                            --query "clusters[?starts_with(@, '${CLUSTER_PREFIX}')]" \
+                            --output text)
 
                         if [ -z "$CLUSTERS" ]; then
                             echo "No clusters found with prefix '${CLUSTER_PREFIX}'."
                             exit 0
                         fi
 
-                        CUTOFF=$(date -d "1 day ago" +%s)
+                        NOW_EPOCH=$(date +%s)
 
                         for c in $CLUSTERS; do
-                            CREATED=$(aws eks describe-cluster --name "$c" --region "$REGION" \
-                                --query "cluster.createdAt" --output text 2>/dev/null || true)
+                            DESC=$(aws eks describe-cluster \
+                                --name "$c" \
+                                --region "$REGION" \
+                                --output json)
 
-                            if [ -z "$CREATED" ] || [ "$CREATED" == "None" ]; then
-                                echo "Unable to fetch creation time for $c — skipping."
-                                continue
-                            fi
+                            CREATED=$(echo "$DESC" | jq -r '.cluster.createdAt')
+                            RETENTION=$(echo "$DESC" | jq -r '.cluster.tags["retention-days"]')
 
                             CREATED_EPOCH=$(date -d "$CREATED" +%s)
+                            MAX_AGE_SECONDS=$(( RETENTION * 86400 ))
+                            AGE_SECONDS=$(( NOW_EPOCH - CREATED_EPOCH ))
 
-                            if [ "$CREATED_EPOCH" -lt "$CUTOFF" ]; then
-                                eksctl delete cluster --region "$REGION" --name "$c" \
-                                    --disable-nodegroup-eviction --wait
+                            if [ "$AGE_SECONDS" -gt "$MAX_AGE_SECONDS" ]; then
+                                eksctl delete cluster \
+                                    --region "$REGION" \
+                                    --name "$c" \
+                                    --disable-nodegroup-eviction \
+                                    --wait
                             else
-                                echo "Skipping recent cluster: $c (created within last 24h)"
+                                echo "Keeping cluster $c (age < ${RETENTION} days)"
                             fi
                         done
                     '''
