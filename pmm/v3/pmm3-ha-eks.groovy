@@ -385,7 +385,7 @@ EOF
     post {
         success {
             script {
-                currentBuild.description = "PMM: ${env.PMM_URL}"
+                currentBuild.description = "Cluster: ${env.CLUSTER_NAME} | PMM: ${env.PMM_URL}"
             }
             echo "Cluster ${CLUSTER_NAME} created successfully."
             echo "Download the kubeconfig artifact to access the cluster."
