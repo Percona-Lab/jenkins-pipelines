@@ -1,6 +1,28 @@
+def cleanupCluster() {
+    withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
+        sh '''
+            if eksctl get cluster \
+                --region "${REGION}" \
+                --name "${CLUSTER_NAME}" >/dev/null 2>&1
+            then
+                eksctl delete cluster \
+                    --region "${REGION}" \
+                    --name "${CLUSTER_NAME}" \
+                    --disable-nodegroup-eviction \
+                    --wait
+            fi
+        '''
+    }
+}
+
 pipeline {
     agent {
         label 'agent-amd64-ol9'
+    }
+
+    options {
+        timeout(time: 90, unit: 'MINUTES')
+        disableConcurrentBuilds()
     }
 
     parameters {
@@ -391,20 +413,12 @@ EOF
             echo "Download the kubeconfig artifact to access the cluster."
         }
         failure {
-            withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
-                sh '''
-                    if eksctl get cluster \
-                        --region "${REGION}" \
-                        --name "${CLUSTER_NAME}" >/dev/null 2>&1
-                    then
-                        eksctl delete cluster \
-                            --region "${REGION}" \
-                            --name "${CLUSTER_NAME}" \
-                            --disable-nodegroup-eviction \
-                            --wait
-                    fi
-                '''
-            }
+            echo "Build FAILED — cleaning up cluster"
+            cleanupCluster()
+        }
+        aborted {
+            echo "Build ABORTED — cleaning up cluster"
+            cleanupCluster()
         }
     }
 }
