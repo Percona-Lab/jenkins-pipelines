@@ -37,9 +37,14 @@ pipeline {
             description: 'Branch of percona-helm-charts repo'
         )
         string(
+            name: 'PMM_IMAGE_REPOSITORY',
+            defaultValue: '',
+            description: 'PMM image repository override (initial value is pulled from the Helm chart)'
+        )
+        string(
             name: 'PMM_IMAGE_TAG',
             defaultValue: '',
-            description: 'PMM Server image tag'
+            description: 'PMM image tag override (initial value is pulled from the Helm chart)'
         )
         choice(
             name: 'RETENTION_DAYS',
@@ -102,9 +107,9 @@ managedNodeGroups:
       - c8i-flex.xlarge
     volumeSize: 80
     spot: true
-    minSize: 4
+    minSize: 5
     maxSize: 6
-    desiredCapacity: 4
+    desiredCapacity: 5
     tags:
         iit-billing-tag: "pmm"
         nodegroup: "spot"
@@ -292,7 +297,8 @@ EOF
                             --set secret.create=false \
                             --set secret.name=pmm-secret \
                             --wait --timeout 15m \
-                            ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}}  # Only add if PMM_IMAGE_TAG is non-empty
+                            ${PMM_IMAGE_REPOSITORY:+--set image.repository=${PMM_IMAGE_REPOSITORY}} \
+                            ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}}
 
                         kubectl rollout status statefulset/pmm-ha -n pmm --timeout=600s
                         kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=600s
