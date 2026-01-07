@@ -48,7 +48,7 @@ bootDeadlineMap['launcher-x64-hel1']  = bootDeadlineMap['default']
 bootDeadlineMap['launcher-x64-fsn1']  = bootDeadlineMap['default']
 
 jvmOptsMap = [:]
-jvmOptsMap['deb12']         = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
+jvmOptsMap['deb12']         = '-Xms4g -Xmx16g -Xss4m -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
 jvmOptsMap['deb12-x64-nbg1']     = jvmOptsMap['deb12']
 jvmOptsMap['deb12-x64-hel1']     = jvmOptsMap['deb12']
 jvmOptsMap['deb12-x64-fsn1']     = jvmOptsMap['deb12']
@@ -78,7 +78,6 @@ networkMap['percona-vpc-eu'] = '10442325' // percona-vpc-eu
 initMap = [:]
 initMap['deb-docker'] = '''#!/bin/bash -x
     set -o xtrace
-    ( sudo systemctl stop sshd; sleep 300; sudo systemctl start sshd ) &
     sudo fallocate -l 32G /swapfile
     sudo chmod 600 /swapfile
     sudo mkswap /swapfile
@@ -129,7 +128,6 @@ initMap['deb-docker'] = '''#!/bin/bash -x
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl restart docker
     echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
-    sudo systemctl start sshd
 '''
 initMap['deb12-x64-nbg1']     = initMap['deb-docker']
 initMap['deb12-x64-hel1']     = initMap['deb-docker']
@@ -150,21 +148,21 @@ initMap['launcher-x64-fsn1']  = initMap['deb-docker']
 def templates = [
        /* new HetznerServerTemplate("ubuntu20-cx21", "java", "name=ubuntu20-docker", "fsn1", "cx21"), */
         //                        tmplName                  tmplLabels                     tmplImage                  region server type
-        new HetznerServerTemplate("deb12-x64-nbg1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "nbg1", "cpx41"),
+        new HetznerServerTemplate("deb12-x64-nbg1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "nbg1", "cpx42"),
         new HetznerServerTemplate("deb12-aarch64-nbg1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "nbg1", "cax31"),
-        new HetznerServerTemplate("deb12-x64-hel1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "hel1", "cpx41"),
+        new HetznerServerTemplate("deb12-x64-hel1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "hel1", "cpx42"),
         new HetznerServerTemplate("deb12-aarch64-hel1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "hel1", "cax31"),
-        new HetznerServerTemplate("deb12-x64-fsn1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "fsn1", "cpx41"),
+        new HetznerServerTemplate("deb12-x64-fsn1-min",     labelMap['deb12-x64-min'],     imageMap['deb12-x64'],     "fsn1", "cpx42"),
         new HetznerServerTemplate("deb12-aarch64-fsn1-min", labelMap['deb12-aarch64-min'], imageMap['deb12-aarch64'], "fsn1", "cax31"),
-        new HetznerServerTemplate("deb12-x64-nbg1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "nbg1", "cpx51"),
+        new HetznerServerTemplate("deb12-x64-nbg1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "nbg1", "cpx62"),
         new HetznerServerTemplate("deb12-aarch64-nbg1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "nbg1", "cax41"),
-        new HetznerServerTemplate("deb12-x64-hel1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "hel1", "cpx51"),
+        new HetznerServerTemplate("deb12-x64-hel1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "hel1", "cpx62"),
         new HetznerServerTemplate("deb12-aarch64-hel1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "hel1", "cax41"),
-        new HetznerServerTemplate("deb12-x64-fsn1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "fsn1", "cpx51"),
+        new HetznerServerTemplate("deb12-x64-fsn1",         labelMap['deb12-x64'],         imageMap['deb12-x64'],     "fsn1", "cpx62"),
         new HetznerServerTemplate("deb12-aarch64-fsn1",     labelMap['deb12-aarch64'],     imageMap['deb12-aarch64'], "fsn1", "cax41"),
-        new HetznerServerTemplate("launcher-x64-nbg1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "nbg1", "cpx21"),
-        new HetznerServerTemplate("launcher-x64-hel1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "hel1", "cpx21"),
-        new HetznerServerTemplate("launcher-x64-fsn1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "fsn1", "cpx21")
+        new HetznerServerTemplate("launcher-x64-nbg1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "nbg1", "cpx22"),
+        new HetznerServerTemplate("launcher-x64-hel1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "hel1", "cpx22"),
+        new HetznerServerTemplate("launcher-x64-fsn1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "fsn1", "cpx22")
 ]
 
 templates.each { it ->
@@ -188,3 +186,4 @@ def jenkins = Jenkins.get()
 jenkins.clouds.remove(jenkins.clouds.getByName(cloudName))
 jenkins.clouds.add(cloud)
 jenkins.save()
+

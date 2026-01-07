@@ -41,7 +41,12 @@ pipeline {
                     sed -E "s/ENV PPG_REPO (.+)/ENV PPG_REPO ${params.PPG_REPO}/" -i Dockerfile
                     sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile
                     sed -E "s/ENV PPG_MINOR_VERSION (.+)/ENV PPG_MINOR_VERSION \$MIN_VER/" -i Dockerfile
+                    sed -E "s/ENV PPG_VERSION (.+)/ENV PPG_VERSION ${params.PPG_VERSION}/" -i Dockerfile-postgis
+                    sed -E "s/ENV PPG_REPO (.+)/ENV PPG_REPO ${params.PPG_REPO}/" -i Dockerfile-postgis
+                    sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile-postgis
+                    sed -E "s/ENV PPG_MINOR_VERSION (.+)/ENV PPG_MINOR_VERSION \$MIN_VER/" -i Dockerfile-postgis
                     docker build . -t percona-distribution-postgresql:\$MAJ_VER 
+                    docker build . -t percona-distribution-postgresql-with-postgis:\$MAJ_VER -f Dockerfile-postgis
                     """
             }
         }
@@ -57,9 +62,13 @@ pipeline {
                     if [ ${params.PPG_REPO} = "release" ]; then
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
                                          --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-distribution-postgresql:\$MAJ_VER
+                        /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
+                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-distribution-postgresql-with-postgis:\$MAJ_VER
                     else
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
                                          --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-distribution-postgresql:\$MAJ_VER
+                        /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
+                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-distribution-postgresql-with-postgis:\$MAJ_VER
                     fi
                """
             }
@@ -82,10 +91,14 @@ pipeline {
                          sudo ./aws/install
                          aws ecr-public get-login-password --region us-east-1 | docker login --username AWS --password-stdin public.ecr.aws/e7j3v3n0
                          docker tag percona-distribution-postgresql:\$MAJ_VER public.ecr.aws/e7j3v3n0/ppg-build:ppg-${params.PPG_VERSION}
+                         docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER public.ecr.aws/e7j3v3n0/ppg-build-postgis:ppg-${params.PPG_VERSION}
                          docker push public.ecr.aws/e7j3v3n0/ppg-build:ppg-${params.PPG_VERSION}
+                         docker push public.ecr.aws/e7j3v3n0/ppg-build-postgis:ppg-${params.PPG_VERSION}
                          if [ ${params.LATEST} = "yes" ]; then
                             docker tag percona-distribution-postgresql:\$MAJ_VER public.ecr.aws/e7j3v3n0/ppg-build:latest
+                            docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER public.ecr.aws/e7j3v3n0/ppg-build-postgis:latest
                             docker push public.ecr.aws/e7j3v3n0/ppg-build:latest
+                            docker push public.ecr.aws/e7j3v3n0/ppg-build-postgis:latest
                          fi
                      """
                 }
@@ -107,9 +120,17 @@ pipeline {
                          docker push perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64
                          docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:\$MAJ_VER-amd64
                          docker push perconalab/percona-distribution-postgresql:\$MAJ_VER-amd64
+                         docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER perconalab/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-amd64
+                         docker push perconalab/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-amd64
+                         docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-amd64
+                         docker push perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-amd64
+                         docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER-amd64
+                         docker push perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
                             docker tag percona-distribution-postgresql:\$MAJ_VER perconalab/percona-distribution-postgresql:latest
                             docker push perconalab/percona-distribution-postgresql:latest
+                            docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER perconalab/percona-distribution-postgresql-with-postgis:latest
+                            docker push perconalab/percona-distribution-postgresql-with-postgis:latest
                          fi
                      """
                 }
@@ -131,9 +152,18 @@ pipeline {
                          docker push percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64
                          docker tag percona-distribution-postgresql:\$MAJ_VER percona/percona-distribution-postgresql:\$MAJ_VER-amd64
                          docker push percona/percona-distribution-postgresql:\$MAJ_VER-amd64
+                         docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER percona/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-amd64
+                         docker push percona/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-amd64
+                         docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-amd64
+                         docker push percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-amd64
+                         docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-amd64
+                         docker push percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-amd64
+
                          if [ ${params.LATEST} = "yes" ]; then
                             docker tag percona-distribution-postgresql:\$MAJ_VER percona/percona-distribution-postgresql:latest
                             docker push percona/percona-distribution-postgresql:latest
+                            docker tag percona-distribution-postgresql-with-postgis:\$MAJ_VER percona/percona-distribution-postgresql-with-postgis:latest
+                            docker push percona/percona-distribution-postgresql-with-postgis:latest
                          fi
                      """
                 }

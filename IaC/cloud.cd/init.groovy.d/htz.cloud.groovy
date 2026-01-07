@@ -48,7 +48,7 @@ bootDeadlineMap['launcher-x64-hel1']  = bootDeadlineMap['default']
 bootDeadlineMap['launcher-x64-fsn1']  = bootDeadlineMap['default']
 
 jvmOptsMap = [:]
-jvmOptsMap['fedora42']         = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
+jvmOptsMap['fedora42']         = '-Xms4g -Xmx16g -Xss4m -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
 jvmOptsMap['fedora42-x64-nbg1']     = jvmOptsMap['fedora42']
 jvmOptsMap['fedora42-x64-hel1']     = jvmOptsMap['fedora42']
 jvmOptsMap['fedora42-x64-fsn1']     = jvmOptsMap['fedora42']
@@ -145,21 +145,21 @@ initMap['launcher-x64-fsn1']  = initMap['fedora-docker']
 def templates = [
        /* new HetznerServerTemplate("ubuntu20-cx21", "java", "name=ubuntu20-docker", "fsn1", "cx21"), */
         //                        tmplName                  tmplLabels                     tmplImage                  region server type
-        new HetznerServerTemplate("fedora42-x64-nbg1-min",     labelMap['fedora42-x64-min'],     imageMap['fedora42-x64'],     "nbg1", "cpx41"),
+        new HetznerServerTemplate("fedora42-x64-nbg1-min",     labelMap['fedora42-x64-min'],     imageMap['fedora42-x64'],     "nbg1", "cpx42"),
         new HetznerServerTemplate("fedora42-aarch64-nbg1-min", labelMap['fedora42-aarch64-min'], imageMap['fedora42-aarch64'], "nbg1", "cax31"),
-        new HetznerServerTemplate("fedora42-x64-hel1-min",     labelMap['fedora42-x64-min'],     imageMap['fedora42-x64'],     "hel1", "cpx41"),
+        new HetznerServerTemplate("fedora42-x64-hel1-min",     labelMap['fedora42-x64-min'],     imageMap['fedora42-x64'],     "hel1", "cpx42"),
         new HetznerServerTemplate("fedora42-aarch64-hel1-min", labelMap['fedora42-aarch64-min'], imageMap['fedora42-aarch64'], "hel1", "cax31"),
-        new HetznerServerTemplate("fedora42-x64-fsn1-min",     labelMap['fedora42-x64-min'],     imageMap['fedora42-x64'],     "fsn1", "cpx41"),
+        new HetznerServerTemplate("fedora42-x64-fsn1-min",     labelMap['fedora42-x64-min'],     imageMap['fedora42-x64'],     "fsn1", "cpx42"),
         new HetznerServerTemplate("fedora42-aarch64-fsn1-min", labelMap['fedora42-aarch64-min'], imageMap['fedora42-aarch64'], "fsn1", "cax31"),
-        new HetznerServerTemplate("fedora42-x64-nbg1",         labelMap['fedora42-x64'],         imageMap['fedora42-x64'],     "nbg1", "cpx51"),
+        new HetznerServerTemplate("fedora42-x64-nbg1",         labelMap['fedora42-x64'],         imageMap['fedora42-x64'],     "nbg1", "cpx62"),
         new HetznerServerTemplate("fedora42-aarch64-nbg1",     labelMap['fedora42-aarch64'],     imageMap['fedora42-aarch64'], "nbg1", "cax41"),
-        new HetznerServerTemplate("fedora42-x64-hel1",         labelMap['fedora42-x64'],         imageMap['fedora42-x64'],     "hel1", "cpx51"),
+        new HetznerServerTemplate("fedora42-x64-hel1",         labelMap['fedora42-x64'],         imageMap['fedora42-x64'],     "hel1", "cpx62"),
         new HetznerServerTemplate("fedora42-aarch64-hel1",     labelMap['fedora42-aarch64'],     imageMap['fedora42-aarch64'], "hel1", "cax41"),
-        new HetznerServerTemplate("fedora42-x64-fsn1",         labelMap['fedora42-x64'],         imageMap['fedora42-x64'],     "fsn1", "cpx51"),
+        new HetznerServerTemplate("fedora42-x64-fsn1",         labelMap['fedora42-x64'],         imageMap['fedora42-x64'],     "fsn1", "cpx62"),
         new HetznerServerTemplate("fedora42-aarch64-fsn1",     labelMap['fedora42-aarch64'],     imageMap['fedora42-aarch64'], "fsn1", "cax41"),
-        new HetznerServerTemplate("launcher-x64-nbg1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "nbg1", "cpx21"),
-        new HetznerServerTemplate("launcher-x64-hel1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "hel1", "cpx21"),
-        new HetznerServerTemplate("launcher-x64-fsn1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "fsn1", "cpx21")
+        new HetznerServerTemplate("launcher-x64-nbg1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "nbg1", "cpx22"),
+        new HetznerServerTemplate("launcher-x64-hel1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "hel1", "cpx22"),
+        new HetznerServerTemplate("launcher-x64-fsn1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "fsn1", "cpx22")
 ]
 
 templates.each { it ->
