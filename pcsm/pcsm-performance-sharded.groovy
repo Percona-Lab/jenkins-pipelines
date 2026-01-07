@@ -11,7 +11,7 @@ pipeline {
         label 'min-bookworm-x64'
     }
     parameters {
-        choice(name: 'OPERATING_SYSTEM',description: 'Operating System you want to test on',choices: ['ubuntu24', 'redhat8'])
+        choice(name: 'OPERATING_SYSTEM',description: 'Operating System you want to test on',choices: ['ubuntu24', 'redhat8', 'ubuntu22'])
         choice(name: 'PSMDB',description: 'PSMDB used for testing',choices: ['6', '7','8'])
         string(name: 'PCSM_BRANCH',description: 'PCSM Branch for testing',defaultValue: 'main')
         string(name: 'TESTING_BRANCH',description: 'Branch for testing repository',defaultValue: 'main')
