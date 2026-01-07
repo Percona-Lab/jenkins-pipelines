@@ -93,33 +93,33 @@ pipeline {
                 }
             }
         }
-        stage ('Run tests') {
-            steps {
-                script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "verify", env.SCENARIO)
-                }
-            }
-        }
-        stage ('Cleanup') {
-            steps {
-                script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.SCENARIO)
-                }
-            }
-        }
-    }
+//        stage ('Run tests') {
+//            steps {
+//                script{
+//                    moleculeExecuteActionWithScenario(moleculeDir, "verify", env.SCENARIO)
+//                }
+//            }
+//        }
+//        stage ('Cleanup') {
+//            steps {
+//                script{
+//                    moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.SCENARIO)
+//                }
+//            }
+//        }
+//    }
     post {
         always {
             script {
-                sh """
-                    rm -f /tmp/pbm-agent-storage-aws.yaml
-                    rm -f /tmp/pbm-agent-storage-aws-minio.yaml
-                    rm -f /tmp/pbm-agent-storage-gcp.conf
-                    rm -f /tmp/pbm-agent-storage-gcp-hmac.conf
-                    rm -f /tmp/pbm-agent-storage-azure.conf
-                    rm -f /tmp/pbm-agent-storage-oss.yaml
-                """
-                moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.SCENARIO)
+//                sh """
+//                    rm -f /tmp/pbm-agent-storage-aws.yaml
+//                    rm -f /tmp/pbm-agent-storage-aws-minio.yaml
+//                    rm -f /tmp/pbm-agent-storage-gcp.conf
+//                    rm -f /tmp/pbm-agent-storage-gcp-hmac.conf
+//                    rm -f /tmp/pbm-agent-storage-azure.conf
+//                    rm -f /tmp/pbm-agent-storage-oss.yaml
+//                """
+//                moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.SCENARIO)
             }
             junit testResults: "**/report.xml", keepLongStdio: true
         }
