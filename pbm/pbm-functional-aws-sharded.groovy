@@ -88,7 +88,7 @@ pipeline {
                             cp $PBM_AZURE_YML /tmp/pbm-agent-storage-azure.conf
                             cp $PBM_OSS_YML /tmp/pbm-agent-storage-oss.yaml
                         """
-                        moleculeExecuteActionWithScenario(moleculeDir, "converge", env.SCENARIO)
+//                        moleculeExecuteActionWithScenario(moleculeDir, "converge", env.SCENARIO)
                     }
                 }
             }
