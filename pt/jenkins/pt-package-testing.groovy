@@ -136,13 +136,17 @@ pipeline {
             name: 'git_branch',
             trim: false
         )
-        booleanParam(
+         booleanParam(
             name: 'skip_ps57',
             description: "Enable to skip ps 5.7 packages installation tests"
         )
         booleanParam(
             name: 'skip_ps80',
             description: "Enable to skip ps 8.0 packages installation tests"
+        )
+        booleanParam(
+            name: 'skip_ps84',
+            description: "Enable to skip ps 8.4 packages installation tests"
         )
         booleanParam(
             name: 'skip_pxc57',
@@ -153,16 +157,16 @@ pipeline {
             description: "Enable to skip pxc 8.0 packages installation tests"
         )
         booleanParam(
-            name: 'skip_psmdb44',
-            description: "Enable to skip psmdb 4.4 packages installation tests"
+            name: 'skip_pxc84',
+            description: "Enable to skip pxc 8.4 packages installation tests"
         )
         booleanParam(
-            name: 'skip_psmdb50',
-            description: "Enable to skip psmdb 5.0 packages installation tests"
+            name: 'skip_psmdb70',
+            description: "Enable to skip psmdb 7.0 packages installation tests"
         )
         booleanParam(
-            name: 'skip_psmdb60',
-            description: "Enable to skip psmdb 6.0 packages installation tests."
+            name: 'skip_psmdb80',
+            description: "Enable to skip psmdb 8.0 packages installation tests"
         )
         booleanParam(
             name: 'skip_upstream57',
@@ -251,6 +255,24 @@ pipeline {
                     }
                 }
 
+                stage('ps84_and_pt') {
+                    agent {
+                        label params.node_to_test
+                    }
+                    when {
+                        beforeAgent true
+                        expression {
+                            !(params.node_to_test =~ /(noble)/) && !params.skip_ps84
+                        }
+                    }
+                    environment {
+                        install_with = 'ps84'
+                    }
+                    steps {
+                        runPlaybook("pt_with_products")
+                    }
+                }
+
                 stage('pxc57_and_pt') {
                     agent {
                         label params.node_to_test
@@ -287,54 +309,54 @@ pipeline {
                     }
                 }
 
-                stage('psmdb44_and_pt') {
+                stage('pxc84_and_pt') {
                     agent {
                         label params.node_to_test
                     }
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(ol-9|bookworm|noble)/) && !params.skip_psmdb44
+                            !(params.node_to_test =~ /(noble)/) && !params.skip_pxc84
                         }
                     }
                     environment {
-                        install_with = 'psmdb44'
+                        install_with = 'pxc84'
                     }
                     steps {
                         runPlaybook("pt_with_products")
                     }
                 }
 
-                stage('psmdb50_and_pt') {
+                stage('psmdb70_and_pt') {
                     agent {
                         label params.node_to_test
                     }
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(ol-9|bookworm|noble)/) && !params.skip_psmdb50
+                            !(params.node_to_test =~ /(ol-9|bookworm|noble)/) && !params.skip_psmdb70
                         }
                     }
                     environment {
-                        install_with = 'psmdb50'
+                        install_with = 'psmdb70'
                     }
                     steps {
                         runPlaybook("pt_with_products")
                     }
                 }
 
-                stage('psmdb60_and_pt') {
+                stage('psmdb80_and_pt') {
                     agent {
                         label params.node_to_test
                     }
                     when {
                         beforeAgent true
                         expression {
-                            !(params.node_to_test =~ /(bookworm|noble)/) && !params.skip_psmdb60
+                            !(params.node_to_test =~ /(ol-9|bookworm|noble)/) && !params.skip_psmdb80
                         }
                     }
                     environment {
-                        install_with = 'psmdb60'
+                        install_with = 'psmdb80'
                     }
                     steps {
                         runPlaybook("pt_with_products")
