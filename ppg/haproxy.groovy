@@ -10,7 +10,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/haproxy-builder.sh -O builder.sh
         sed -i "s/^BRANCH=.*/BRANCH=${PG_BRANCH}/g" builder.sh
         VERSION=\$(echo ${PG_BRANCH} | sed 's/^v//')
-        sed -i "s/^VERSION=.*/VERSION=${env.VERSION}/g" builder.sh
+        sed -i "s/^VERSION=.*/VERSION=\${VERSION}/g" builder.sh
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
