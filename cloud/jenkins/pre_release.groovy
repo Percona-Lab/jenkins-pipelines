@@ -125,8 +125,6 @@ pipeline {
         //                 git config user.email "jenkins@example.com"
         //                 git config user.name "Jenkins CI"
         //                 git checkout -b ${env.RELEASE_BRANCH}
-
-        //                 git checkout ${env.RELEASE_BRANCH}
         //             """
         //         }
         //     }
@@ -151,7 +149,8 @@ pipeline {
                     echo 'Generating release images file'
                     sh """
                         export PATH="\$HOME/.local/bin:\$PATH"
-                        uv run scripts/generate_release_images_file.py ${operatorMap[params.OPERATOR]} ${params.VERSION}
+                        pwd
+                        uv run cloud/scripts/generate_release_images_file.py ${operatorMap[params.OPERATOR]} ${params.VERSION}
                     """
 
                     archiveArtifacts artifacts: 'release_versions.txt', allowEmptyArchive: false, fingerprint: true
@@ -198,7 +197,7 @@ pipeline {
         //     steps {
         //         sh """
         //             export PATH="\$HOME/.local/bin:\$PATH"
-        //             uv run generate_vs_json.py e2e-tests/release_versions operator.${params.VERSION}.${params.OPERATOR}-frag.json
+        //             uv run cloud/scripts/generate_vs_json.py e2e-tests/release_versions operator.${params.VERSION}.${params.OPERATOR}-frag.json
         //         """
         //     }
         // }
