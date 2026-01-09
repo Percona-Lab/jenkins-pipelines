@@ -45,7 +45,7 @@ pipeline {
             steps {
                 script {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
-                        if (!params.VERSION || !params.VERSION.matches(~/^\d+\.\d+\.\d+$/)) {
+                        if (!params.VERSION || !(params.VERSION ==~ /^\d+\.\d+\.\d+$/)) {
                             error("VERSION must follow semantic versioning format (x.y.z). Provided: ${params.VERSION}")
                         }
 
