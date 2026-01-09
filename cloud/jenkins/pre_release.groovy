@@ -158,9 +158,9 @@ pipeline {
             steps {
                 sh """
                     export PATH="\$HOME/.local/bin:\$PATH"
-                    uv run cloud/scripts/generate_vs_frag.py release_versions.txt operator.${params.VERSION}.${params.OPERATOR}-frag.json
+                    uv run cloud/scripts/generate_vs_frag.py release_versions.txt vs-frag.json
                 """
-                archiveArtifacts artifacts: 'operator.${params.VERSION}.${params.OPERATOR}-frag.json', allowEmptyArchive: false, fingerprint: true
+                archiveArtifacts artifacts: 'vs-frag.json', allowEmptyArchive: false, fingerprint: true
             }
         }
 

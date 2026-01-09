@@ -48,7 +48,9 @@ def parse_input_file(filepath: str) -> Dict[str, str]:
             line = line.strip()
             if line and not line.startswith("#") and "=" in line:
                 key, value = line.split("=", 1)
-                images[key.strip()] = value.strip()
+                key = key.strip()
+                if key.startswith("IMAGE"):
+                    images[key] = value.strip()
     return images
 
 
