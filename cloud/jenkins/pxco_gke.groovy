@@ -70,9 +70,9 @@ gpgkey=https://packages.cloud.google.com/yum/doc/rpm-package-key.gpg
 EOF
         sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
 
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 | true
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+        sudo yum install percona-xtrabackup-84
+        sudo yum install -y percona-xtrabackup-84
     """
 
     installAzureCLI()

@@ -71,9 +71,9 @@ void prepareNode() {
             sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
         fi
 
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-        sudo percona-release enable-only tools
-        sudo yum install -y percona-xtrabackup-80 | true
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+        sudo yum install percona-xtrabackup-84
+        sudo yum install -y percona-xtrabackup-84
 
         sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
 [google-cloud-cli]
