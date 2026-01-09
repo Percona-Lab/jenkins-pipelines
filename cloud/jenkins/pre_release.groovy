@@ -27,7 +27,6 @@ pipeline {
             description: 'Create a new release branch?'
         )
     }
-        
 
     environment {
         RELEASE_BRANCH = "release-${params.VERSION}"
@@ -149,12 +148,19 @@ pipeline {
                     echo 'Generating release images file'
                     sh """
                         export PATH="\$HOME/.local/bin:\$PATH"
-                        pwd
                         uv run cloud/scripts/generate_release_images_file.py ${operatorMap[params.OPERATOR]} ${params.VERSION}
                     """
-
                     archiveArtifacts artifacts: 'release_versions.txt', allowEmptyArchive: false, fingerprint: true
                 }
+            }
+        }
+        stage('Generate Version Service JSON fragment') {
+            steps {
+                sh """
+                    export PATH="\$HOME/.local/bin:\$PATH"
+                    uv run cloud/scripts/generate_vs_frag.py release_versions.txt operator.${params.VERSION}.${params.OPERATOR}-frag.json
+                """
+                archiveArtifacts artifacts: 'operator.${params.VERSION}.${params.OPERATOR}-frag.json', allowEmptyArchive: false, fingerprint: true
             }
         }
 
@@ -190,15 +196,6 @@ pipeline {
         //                 fi
         //             """
         //         }
-        //     }
-        // }
-
-        // stage('Generate Version Service JSON fragment') {
-        //     steps {
-        //         sh """
-        //             export PATH="\$HOME/.local/bin:\$PATH"
-        //             uv run cloud/scripts/generate_vs_json.py e2e-tests/release_versions operator.${params.VERSION}.${params.OPERATOR}-frag.json
-        //         """
         //     }
         // }
     }
