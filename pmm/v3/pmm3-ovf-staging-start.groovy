@@ -28,7 +28,7 @@ pipeline {
             description: 'OVA Image version, for installing already released version, pass 3.x.y ex. 3.28.0',
             name: 'OVA_VERSION')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
@@ -67,7 +67,7 @@ pipeline {
                         # - image id: is set to `pmm-ovf-agent`
                         # - ssh-key name: is set to `Jenkins`
                         # - firewall name: is set to `pmm-firewall`
-                        
+
                         set -o xtrace
 
                         SSH_KEY_ID=$(doctl compute ssh-key list -o json | jq -r '.[] | select(.name=="Jenkins") | .id')
@@ -184,8 +184,8 @@ pipeline {
             script {
                 wrap([$class: 'BuildUser']) {
                     env.OWNER_SLACK = slackUserIdFromEmail(
-                        botUser: true, 
-                        email: env.BUILD_USER_EMAIL, 
+                        botUser: true,
+                        email: env.BUILD_USER_EMAIL,
                         tokenCredentialId: 'JenkinsCI-SlackBot-v2'
                     )
                 }

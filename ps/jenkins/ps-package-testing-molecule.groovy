@@ -1,5 +1,4 @@
 
-
 library changelog: false, identifier: "lib@master", retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
@@ -29,7 +28,9 @@ def ps80PackageTesting() {
         'ubuntu-focal',
         'ubuntu-focal-arm',
         'ubuntu-noble',
-        'ubuntu-noble-arm'
+        'ubuntu-noble-arm',
+        'amazon-linux-2023',
+        'amazon-linux-2023-arm'
     ]
 }
 
@@ -39,6 +40,7 @@ def ps84PackageTesting() {
         'debian-11-arm',
         'debian-12',
         'debian-12-arm',
+        'debian-13',
         'oracle-8',
         'oracle-9',
         'rhel-9',
@@ -48,10 +50,10 @@ def ps84PackageTesting() {
         'rhel-10-arm',
         'ubuntu-jammy',
         'ubuntu-jammy-arm',
-        'ubuntu-focal',
-        'ubuntu-focal-arm',
         'ubuntu-noble',
-        'ubuntu-noble-arm'
+        'ubuntu-noble-arm',
+        'amazon-linux-2023',
+        'amazon-linux-2023-arm'
     ]
 }
 
@@ -205,24 +207,20 @@ properties([
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_lts_innovation", "client_test"]'
+                    script: 'return ["ps57", "ps80", "ps84", "ps_lts_innovation", "client_test"]'
                 ]
             ]
         ],
-        choice(
-            choices: ['testing', 'main', 'experimental'],
-            description: 'Choose the repo to install packages and run the tests',
-            name: 'install_repo'
-        ),
+
         string(
-            defaultValue: 'https://github.com/Percona-QA/package-testing.git',
-            description: 'repo name',
-            name: 'git_repo',
+            defaultValue: 'Percona-QA',
+            description: 'Git account name',
+            name: 'git_account',
             trim: false
         ),
         string(
             defaultValue: 'master',
-            description: 'Branch name',
+            description: 'Git Branch name',
             name: 'git_branch',
             trim: false
         ),
@@ -238,11 +236,11 @@ properties([
                     classpath: [],
                     sandbox: true,
                     script: '''
-                        if (product_to_test == "ps_57") {
-                            return ["install", "upgrade", "major_upgrade_from", "kmip", "kms"]
+                        if (product_to_test == "ps57") {
+                            return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
-                        else if (product_to_test == "ps_80" || product_to_test == "ps_84") {
-                            return ["install", "upgrade", "major_upgrade_to", "kmip", "kms"]
+                        else if (product_to_test == "ps80" || product_to_test == "ps84") {
+                            return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
                         else {
                             return ["install", "upgrade", "kmip", "kms"]
@@ -251,23 +249,134 @@ properties([
                 ]
             ]
         ],
+
         [
             $class: 'CascadeChoiceParameter',
             choiceType: 'PT_SINGLE_SELECT',
-            description: 'EOL version or Normal (only available for ps_57)',
-            name: 'EOL',
-            referencedParameters: 'product_to_test',
+            description: 'Install Repo',
+            name: 'install_repo',
+            referencedParameters: 'action_to_test',
             script: [
                 $class: 'GroovyScript',
                 script: [
                     classpath: [],
                     sandbox: true,
                     script: '''
-                        if (product_to_test == "ps_57") {
-                            return ["yes", "no"]
+                        if (action_to_test == "major_upgrade") {
+                            return ["NA"]
                         }
                         else {
-                            return ["no"]
+                            return ["testing", "main", "experimental"]
+                        }
+                    '''
+                ]
+            ]
+        ],
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'from',
+            name: 'major_upgrade_from_product',
+            referencedParameters: 'action_to_test,product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (action_to_test == "major_upgrade") {
+                            if (product_to_test == "ps80") {
+                                return ["ps80","ps57", "ps84"]
+                            }
+                            else if (product_to_test == "ps84") {
+                                return ["ps80","ps84"]
+                            }
+                            else if (product_to_test == "ps57") {
+                                return ["ps57", "ps80"]
+                            }
+                            else {
+                                return ["NA"]
+                            }
+                        }
+                        else {
+                            return ["NA"]
+                        }
+                    '''
+                ]
+            ]
+        ],
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'major upgrade from repo',
+            name: 'major_upgrade_from_repo',
+            referencedParameters: 'action_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (action_to_test == "major_upgrade") {
+                            return ["testing", "main", "experimental"]
+                        }
+                        else {
+                            return ["NA"]
+                        }
+                    '''
+                ]
+            ]
+        ],
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'from',
+            name: 'major_upgrade_to_product',
+            referencedParameters: 'action_to_test,product_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (action_to_test == "major_upgrade") {
+                            if (product_to_test == "ps80") {
+                                return ["ps80","ps57", "ps84"]
+                            }
+                            else if (product_to_test == "ps84") {
+                                return ["ps80","ps84"]
+                            }
+                            else if (product_to_test == "ps57") {
+                                return ["ps57", "ps80"]
+                            }
+                            else {
+                                return ["NA"]
+                            }
+                        }
+                        else {
+                            return ["NA"]
+                        }
+                    '''
+                ]
+            ]
+        ],
+        [
+            $class: 'CascadeChoiceParameter',
+            choiceType: 'PT_SINGLE_SELECT',
+            description: 'major upgrade to repo',
+            name: 'major_upgrade_to_repo',
+            referencedParameters: 'action_to_test',
+            script: [
+                $class: 'GroovyScript',
+                script: [
+                    classpath: [],
+                    sandbox: true,
+                    script: '''
+                        if (action_to_test == "major_upgrade") {
+                            return ["testing", "main", "experimental"]
+                        }
+                        else {
+                            return ["NA"]
                         }
                     '''
                 ]
@@ -297,7 +406,13 @@ pipeline {
         action_to_test  = "${params.action_to_test}"
         check_warnings = "${params.check_warnings}"
         install_mysql_shell = "${params.install_mysql_shell}"
-        EOL="${params.EOL}"
+        EOL="yes"//PS 57 has default EOL to yes
+        major_upgrade_from_product = "${params.major_upgrade_from_product}"
+        major_upgrade_from_repo = "${params.major_upgrade_from_repo}"
+        major_upgrade_to_product = "${params.major_upgrade_to_product}"
+        major_upgrade_to_repo = "${params.major_upgrade_to_repo}"
+        TESTING_BRANCH = "${params.git_branch}"
+        TESTING_GIT_ACCOUNT = "${params.git_account}"
     }
     options {
         withCredentials(moleculePdpsJenkinsCreds())
@@ -312,8 +427,9 @@ pipeline {
             }
             stage('Checkout') {
                 steps {
-                    deleteDir()
-                    git poll: false, branch: "${params.git_branch}", url: "${params.git_repo}"      }
+                    deleteDir() 
+                    git poll: false, branch: "${params.git_branch}", url: "https://github.com/${params.git_account}/package-testing.git"
+                }
             }
             stage('Prepare') {
                 steps {
@@ -326,12 +442,28 @@ pipeline {
                         steps {
                             script {
                                 if (action_to_test == 'install') {
+                                    def formatted_product_to_test = product_to_test.replace('ps', 'ps_')
                                     sh """
-                                        echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
+                                        echo "Formatted product_to_test: ${formatted_product_to_test}"
+                                        echo PLAYBOOK_VAR="${formatted_product_to_test}" > .env.ENV_VARS
                                     """
                                 } 
-                                else {
+                                else if (action_to_test == 'upgrade') {
+                                    def formatted_product_to_test = product_to_test.replace('ps', 'ps_')
                                     sh """
+                                        echo PLAYBOOK_VAR="ps_upgrade" > .env.ENV_VARS
+                                        echo PLAYBOOK_VAR="${formatted_product_to_test}" > .env.ENV_VARS
+                                    """
+                                }
+                                else if (action_to_test == 'major_upgrade')     {
+                                    sh """
+                                        echo PLAYBOOK_VAR="ps_major_upgrade" > .env.ENV_VARS
+                                    """
+                                }
+                                else {
+                                    def formatted_product_to_test = product_to_test.replace('ps', 'ps_')
+                                    sh """
+                                        echo "Formatted product_to_test: ${formatted_product_to_test}"
                                         echo PLAYBOOK_VAR="${product_to_test}_${action_to_test}" > .env.ENV_VARS
                                     """
                                 }
@@ -340,15 +472,15 @@ pipeline {
                                     if (product_to_test == "ps_lts_innovation") {
                                         moleculeParallelTestALL(allOS, ps90PackageTesting(), "molecule/ps/")
                                     } 
-                                    else if (product_to_test == "ps_57") {
+                                    else if (product_to_test == "ps57") {
                                         withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                                             moleculeParallelTestALL(allOS, ps57PackageTesting(), "molecule/ps/")
                                         }
                                     }
-                                    else if (product_to_test == "ps_80") {
+                                    else if (product_to_test == "ps80") {
                                         moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
                                     }
-                                    else if (product_to_test == "ps_84") {
+                                    else if (product_to_test == "ps84") {
                                         moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
                                     }
                                     else {

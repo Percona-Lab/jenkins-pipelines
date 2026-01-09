@@ -35,23 +35,15 @@ void initParams() {
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        OC_VER="4.15.25"
         PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", returnStdout: true).trim()
-    } else {
-        if ("$PLATFORM_VER" <= "4.15.25") {
-            OC_VER="$PLATFORM_VER"
-        } else {
-            OC_VER="4.15.25"
-        }
-    }
-    echo "OC_VER=$OC_VER"
+    } 
 
     if ("$IMAGE_POSTGRESQL") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
         currentBuild.description = "$PLATFORM_VER " + "$IMAGE_POSTGRESQL".split(":")[1] + " $cw"
     }
-    env.DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{tag=\$2; sub(/-postgres\$/, \"\", tag); sub(/-[0-9]+\$/, \"\", tag); print tag}' || echo main-ppg17", , returnStdout: true).trim()
+    env.DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{tag=\$2; sub(/-postgres\$/, \"\", tag); sub(/-[0-9]+\$/, \"\", tag); print tag}' || echo main-ppg18", , returnStdout: true).trim()
     echo "DB_TAG is $DB_TAG"
 }
 
@@ -90,7 +82,7 @@ void prepareAgent() {
         kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
         echo \$(kubectl kuttl --version) is installed
 
-        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OC_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+        curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
     """
 }
@@ -387,15 +379,15 @@ pipeline {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'PILLAR_VERSION', choices: 'none\n12\n13\n14\n15\n16\n17', description: 'Implies release run.')
+        choice(name: 'PILLAR_VERSION', choices: 'none\n12\n13\n14\n15\n16\n17\n18', description: 'For release runs. PG version to test. Job takes images from release_versions when set.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'OpenShift kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
         string(name: 'PG_VER', defaultValue: '', description: 'PG version')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main')
-        string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-postgres')
-        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-pgbouncer')
-        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-pgbackrest')
+        string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-postgres')
+        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-pgbouncer')
+        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-pgbackrest')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
@@ -405,7 +397,7 @@ pipeline {
         choice(name: 'SKIP_TEST_WARNINGS', choices: 'false\ntrue', description: 'Skip test warnings that requires release documentation')
     }
     agent {
-        label 'docker'
+        label 'min-al2023-x64'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
@@ -441,7 +433,7 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     agent {
-                        label 'docker'
+                        label 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -451,7 +443,7 @@ pipeline {
                 }
                 stage('cluster2') {
                     agent {
-                        label 'docker'
+                        label 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -461,7 +453,7 @@ pipeline {
                 }
                 stage('cluster3') {
                     agent {
-                        label 'docker'
+                        label 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -471,7 +463,7 @@ pipeline {
                 }
                 stage('cluster4') {
                     agent {
-                        label 'docker'
+                        label 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()

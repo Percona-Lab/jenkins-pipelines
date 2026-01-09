@@ -86,7 +86,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
@@ -110,11 +110,11 @@ pipeline {
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(

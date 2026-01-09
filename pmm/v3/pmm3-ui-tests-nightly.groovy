@@ -217,7 +217,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         choice(
@@ -241,11 +241,11 @@ pipeline {
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
@@ -265,11 +265,11 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['17', '16', '15', '14', '13'],
+            choices: ['17', '18', '16', '15', '14', '13'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['17', '16', '15','14', '13'],
+            choices: ['17', '18', '16', '15','14', '13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(

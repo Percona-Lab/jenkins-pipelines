@@ -70,6 +70,7 @@ pipeline {
         stage('Test') {
             steps {
                 withCredentials([
+                    string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE'),
                     usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME'),
                     usernamePassword(credentialsId: 'OIDC_ACCESS', passwordVariable: 'OIDC_CLIENT_SECRET', usernameVariable: 'OIDC_CLIENT_ID')]) {
                       script {

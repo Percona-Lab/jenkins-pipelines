@@ -46,7 +46,7 @@ pipeline {
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         choice(
-            choices: ['pmm2', 'pmm1'],
+            choices: ['pmm2'],
             description: 'Which Version of PMM-Server',
             name: 'PMM_VERSION')
         choice(
@@ -146,7 +146,7 @@ pipeline {
             description: 'Please change the default Value for Server Public IP, When you need to use this instance just as client',
             name: 'SERVER_IP')
         string(
-            defaultValue: 'main',
+            defaultValue: 'v2',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(

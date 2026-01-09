@@ -405,7 +405,7 @@ void setInventories(String param_test_type){
                         SSH_USER="ubuntu"            
                     }else if(("${params.node_to_test}" == "debian-11") ||("${params.node_to_test}" == "debian-12") || ("${params.node_to_test}" == "debian-11-arm") || ("${params.node_to_test}" == "debian-12-arm") || ("${params.node_to_test}" == "debian-10")){
                         SSH_USER="admin"
-                    }else if(("${params.node_to_test}" == "amazon-linux-2023-arm") || ("${params.node_to_test}" == "amazon-linux-2023") || ("${params.node_to_test}" == "ol-8") || ("${params.node_to_test}" == "ol-9") || ("${params.node_to_test}" == "min-amazon-2") || ("${params.node_to_test}" == "rhel-8") || ("${params.node_to_test}" == "rhel-9") ("${params.node_to_test}" == "rhel-8-arm") || ("${params.node_to_test}" == "rhel-9-arm")){
+                    }else if(("${params.node_to_test}" == "amazon-linux-2023-arm") || ("${params.node_to_test}" == "amazon-linux-2023") || ("${params.node_to_test}" == "ol-8") || ("${params.node_to_test}" == "ol-9") || ("${params.node_to_test}" == "min-amazon-2") || ("${params.node_to_test}" == "rhel-8") || ("${params.node_to_test}" == "rhel-9") || ("${params.node_to_test}" == "rhel-8-arm") || ("${params.node_to_test}" == "rhel-9-arm")){
                         SSH_USER="ec2-user"
                     }else if(("${params.node_to_test}" == "centos-7")){
                         SSH_USER="centos"
@@ -724,7 +724,6 @@ properties([
                                         'ubuntu-jammy',
                                         'ubuntu-noble-arm',
                                         'ubuntu-jammy-arm',
-                                        'ubuntu-focal',
                                         'debian-12',
                                         'debian-11',
                                         'debian-12-arm',
@@ -734,7 +733,9 @@ properties([
                                         'rhel-8',
                                         'rhel-9',
                                         'rhel-8-arm',
-                                        'rhel-9-arm'
+                                        'rhel-9-arm',
+                                        'amazon-linux-2023',
+                                        'amazon-linux-2023-arm'
                         ]
 
                         def non_pro_pxc84 = [
@@ -742,9 +743,10 @@ properties([
                                         'ubuntu-jammy',
                                         'ubuntu-noble-arm',
                                         'ubuntu-jammy-arm',
-                                        'ubuntu-focal',
+                                        'debian-13',
                                         'debian-12',
                                         'debian-11',
+                                        'debian-13-arm',
                                         'debian-12-arm',
                                         'debian-11-arm',
                                         'ol-8',
@@ -755,6 +757,8 @@ properties([
                                         'rhel-8-arm',
                                         'rhel-9-arm',
                                         'rhel-10-arm'
+                                        'amazon-linux-2023',
+                                        'amazon-linux-2023-arm'
                         ]
 
                         def pxc_innovation_lts = [

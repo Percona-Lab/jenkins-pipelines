@@ -43,11 +43,11 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'PMM_UI_TESTS_BRANCH')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_BRANCH')
         choice(
