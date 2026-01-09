@@ -54,36 +54,45 @@ pipeline {
 
                     echo "Validating version v${params.VERSION} for ${params.OPERATOR}..."
 
-                    def apiResponse = sh(
-                        script: "curl -s ${env.GITHUB_API_URL}",
+                    sh """
+                        curl -s ${env.GITHUB_API_URL} > /tmp/releases.json
+                    """
+                    def versionExists = sh(
+                        script: "jq -r '.[].tag_name' /tmp/releases.json | grep -x 'v${params.VERSION}' || true",
                         returnStdout: true
                     ).trim()
 
-                    if (apiResponse.contains("\"tag_name\": \"v${params.VERSION}\"")) {
+                    if (versionExists) {
                         error("Version v${params.VERSION} already exists in GitHub releases.")
                     }
 
                     def latestVersion = sh(
-                        script: "echo '${apiResponse}' | jq -r '.[0].tag_name'",
+                        script: "jq -r '.[0].tag_name' /tmp/releases.json",
                         returnStdout: true
                     ).trim()
 
-                    if (latestVersion) {
+                    if (latestVersion && latestVersion != 'null') {
+                        def latestVersionClean = latestVersion.replaceAll(/^v/, '')
+                        def currentVersionClean = params.VERSION
+                        
                         def compareResult = sh(
-                            script: "printf '%s\\n%s' '${latestVersion}' '${params.VERSION}' | sort -V | tail -1",
+                            script: "printf '%s\\n%s' '${latestVersionClean}' '${currentVersionClean}' | sort -V | tail -1",
                             returnStdout: true
                         ).trim()
 
-                        if (compareResult != params.VERSION) {
-                            error("New version v${params.VERSION} must be greater than latest release v${latestVersion}")
+                        if (compareResult != currentVersionClean) {
+                            error("New version v${params.VERSION} must be greater than latest release ${latestVersion}")
                         }
-                        echo "Version v${params.VERSION} > v${latestVersion} ✓"
+                        echo "Version v${params.VERSION} > ${latestVersion} ✓"
                     } else {
                         error("No existing releases found in repository. Cannot proceed without a baseline release to compare against.")
                     }
+                    sh "rm -f /tmp/releases.json"
+                
                 }
             }
         }
+
 
         // stage('Checkout Code') {
         //     steps {
