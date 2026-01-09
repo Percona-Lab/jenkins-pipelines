@@ -72,7 +72,7 @@ void prepareNode() {
         fi
 
         sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-        sudo yum install percona-xtrabackup-84
+        sudo percona-release enable pxb-84-lts
         sudo yum install -y percona-xtrabackup-84
 
         sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
