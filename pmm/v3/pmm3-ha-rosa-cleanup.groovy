@@ -1,12 +1,13 @@
-def openshiftRosa
-
 /**
  * PMM HA ROSA Cleanup - Manages cleanup of PMM HA ROSA HCP clusters.
  *
- * Supports three actions:
+ * Self-contained single-file pipeline (no external library dependencies).
+ *
+ * Supports actions:
  * - LIST_ONLY: Show all PMM HA ROSA clusters without deleting
- * - DELETE_OLD: Delete clusters older than 24 hours (automatic cleanup)
- * - DELETE_NAMED: Delete specific clusters by name
+ * - DELETE_CLUSTER: Delete a specific cluster by name
+ * - DELETE_ALL: Delete all PMM HA ROSA clusters
+ * - DELETE_OLD: (cron only) Delete clusters older than 24 hours
  *
  * Designed to run on a schedule (cron) for cost management.
  */
@@ -14,58 +15,97 @@ def openshiftRosa
 pipeline {
     agent { label 'agent-amd64-ol9' }
 
-    environment {
-        AWS_REGION = 'us-east-2'
-        CLUSTER_PREFIX = 'pmm-ha-rosa-'
-        MAX_AGE_HOURS = 24
+    triggers {
+        cron('H 0,12 * * *') // Runs twice daily at 00:00 & 12:00
     }
 
     parameters {
         choice(
             name: 'ACTION',
-            choices: ['LIST_ONLY', 'DELETE_OLD', 'DELETE_NAMED'],
+            choices: ['LIST_ONLY', 'DELETE_CLUSTER', 'DELETE_ALL'],
             description: '''
-                LIST_ONLY - List all PMM HA ROSA clusters
-                DELETE_OLD - Delete clusters older than 24 hours
-                DELETE_NAMED - Delete specific clusters by name
+                LIST_ONLY - List all PMM HA ROSA clusters<br/>
+                DELETE_CLUSTER - Delete a specific cluster (requires CLUSTER_NAME)<br/>
+                DELETE_ALL - Delete all PMM HA ROSA clusters<br/><br/>
+                Note: Daily cron automatically deletes clusters older than 24 hours.
             '''
         )
         string(
-            name: 'CLUSTER_NAMES',
+            name: 'CLUSTER_NAME',
             defaultValue: '',
-            description: 'Comma-separated list of cluster names to delete (for DELETE_NAMED action)'
+            description: 'Required only for DELETE_CLUSTER action'
         )
         booleanParam(
-            name: 'SKIP_NEWEST',
+            name: 'DELETE_OPERATOR_ROLES',
+            defaultValue: false,
+            description: 'Delete operator roles when deleting cluster (WARNING: can break other clusters if shared)'
+        )
+        booleanParam(
+            name: 'DELETE_VPC',
             defaultValue: true,
-            description: 'Skip the most recently created cluster when using DELETE_OLD'
+            description: 'Delete VPC CloudFormation stack when deleting cluster'
         )
     }
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '100'))
-        timeout(time: 60, unit: 'MINUTES')
+        timeout(time: 120, unit: 'MINUTES')
         timestamps()
     }
 
+    environment {
+        REGION = 'us-east-2'
+        CLUSTER_PREFIX = 'pmm-ha-rosa-'
+        MAX_AGE_HOURS = '24'
+        AWS_ACCOUNT_ID = '119175775298'
+        OPERATOR_ROLE_PREFIX = 'pmm-rosa-ha'
+    }
+
     stages {
-        stage('Checkout & Load') {
+        stage('Detect Run Type') {
             steps {
-                checkout scm
                 script {
-                    openshiftRosa = load 'pmm/v3/vars/openshiftRosa.groovy'
+                    if (currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause')) {
+                        env.ACTION = 'DELETE_OLD'
+                        echo "Triggered by cron - will delete clusters older than ${MAX_AGE_HOURS} hours."
+                    } else {
+                        env.ACTION = params.ACTION
+                        echo "Manual run with ACTION=${params.ACTION}"
+                    }
+
+                    if (env.ACTION == 'DELETE_CLUSTER' && !params.CLUSTER_NAME) {
+                        error("CLUSTER_NAME is required for DELETE_CLUSTER action.")
+                    }
+                    if (params.CLUSTER_NAME && !params.CLUSTER_NAME.startsWith(env.CLUSTER_PREFIX)) {
+                        error("Cluster name must start with ${env.CLUSTER_PREFIX}")
+                    }
+
+                    currentBuild.displayName = "#${BUILD_NUMBER} - ${env.ACTION}"
+                    currentBuild.description = "Action: ${env.ACTION}"
                 }
             }
         }
 
-        stage('Setup') {
+        stage('Install ROSA CLI') {
             steps {
-                script {
-                    currentBuild.displayName = "#${BUILD_NUMBER} - ${params.ACTION}"
-                    currentBuild.description = "Action: ${params.ACTION}"
+                sh '''
+                    set -o errexit
+                    set -o xtrace
 
-                    openshiftRosa.installRosaCli()
-                }
+                    # Check if rosa is already installed
+                    if command -v rosa &>/dev/null; then
+                        echo "ROSA CLI already installed: $(rosa version)"
+                        exit 0
+                    fi
+
+                    # Download and install ROSA CLI
+                    ROSA_URL="https://mirror.openshift.com/pub/openshift-v4/clients/rosa/latest/rosa-linux.tar.gz"
+                    curl -sL "${ROSA_URL}" | tar -xz -C /tmp
+                    sudo mv /tmp/rosa /usr/local/bin/rosa
+                    sudo chmod +x /usr/local/bin/rosa
+
+                    rosa version
+                '''
             }
         }
 
@@ -79,17 +119,19 @@ pipeline {
                     ),
                     string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
                 ]) {
-                    script {
-                        openshiftRosa.login([
-                            token: env.ROSA_TOKEN,
-                            region: env.AWS_REGION
-                        ])
-                    }
+                    sh '''
+                        set -o errexit
+                        set -o xtrace
+
+                        rosa login --token="${ROSA_TOKEN}"
+                        rosa whoami
+                    '''
                 }
             }
         }
 
         stage('List Clusters') {
+            when { expression { env.ACTION == 'LIST_ONLY' } }
             steps {
                 withCredentials([
                     aws(
@@ -98,64 +140,30 @@ pipeline {
                         secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
                     )
                 ]) {
-                    script {
-                        def allClusters = openshiftRosa.listClusters([region: env.AWS_REGION])
-                        def pmmHaClusters = allClusters.findAll { it.name.startsWith(env.CLUSTER_PREFIX) }
+                    sh '''
+                        set -o errexit
 
-                        def clusterCount = pmmHaClusters.size()
-                        env.CLUSTER_COUNT = clusterCount.toString()
+                        echo "===== PMM HA ROSA CLUSTERS ====="
 
-                        if (clusterCount == 0) {
-                            echo 'No PMM HA ROSA clusters found'
-                            currentBuild.description = 'No clusters found'
-                        } else {
-                            // Simple list display
-                            echo "===== PMM HA ROSA CLUSTERS (${clusterCount} found) ====="
-                            def clusterNames = []
-                            for (int i = 0; i < pmmHaClusters.size(); i++) {
-                                def c = pmmHaClusters[i]
-                                echo "  - ${c.name} (${c.state}, ${c.region})"
-                                clusterNames.add(c.name)
-                            }
-                            echo '========================================'
+                        # Get all clusters as JSON
+                        CLUSTERS_JSON=$(rosa list clusters -o json 2>/dev/null || echo "[]")
 
-                            // Store cluster list for later stages
-                            env.CLUSTER_LIST = clusterNames.join(',')
+                        # Filter for PMM HA clusters and display
+                        echo "${CLUSTERS_JSON}" | jq -r --arg prefix "${CLUSTER_PREFIX}" '
+                            .[] | select(.name | startswith($prefix)) |
+                            "• \\(.name) | State: \\(.state) | Region: \\(.region.id) | Created: \\(.creation_timestamp)"
+                        ' || echo "No clusters found with prefix '${CLUSTER_PREFIX}'"
 
-                            // Identify clusters to delete based on action
-                            if (params.ACTION == 'DELETE_OLD') {
-                                // For DELETE_OLD, delete all clusters (simplified)
-                                env.CLUSTERS_TO_DELETE = clusterNames.join(',')
-                                echo "Clusters to delete: ${env.CLUSTERS_TO_DELETE}"
-                            } else if (params.ACTION == 'DELETE_NAMED') {
-                                def requestedNames = params.CLUSTER_NAMES?.split(',')
-                                def validNames = []
-                                if (requestedNames) {
-                                    for (int i = 0; i < requestedNames.length; i++) {
-                                        def name = requestedNames[i].trim()
-                                        if (name && clusterNames.contains(name)) {
-                                            validNames.add(name)
-                                        }
-                                    }
-                                }
-                                env.CLUSTERS_TO_DELETE = validNames.join(',')
-
-                                if (requestedNames && validNames.size() != requestedNames.length) {
-                                    echo 'WARNING: Some clusters not found'
-                                }
-                            }
-                        }
-                    }
+                        COUNT=$(echo "${CLUSTERS_JSON}" | jq --arg prefix "${CLUSTER_PREFIX}" '[.[] | select(.name | startswith($prefix))] | length')
+                        echo "================================"
+                        echo "Total PMM HA ROSA clusters: ${COUNT}"
+                    '''
                 }
             }
         }
 
-        stage('Delete Clusters') {
-            when {
-                expression {
-                    params.ACTION in ['DELETE_OLD', 'DELETE_NAMED'] && env.CLUSTERS_TO_DELETE?.trim()
-                }
-            }
+        stage('Delete Cluster') {
+            when { expression { env.ACTION == 'DELETE_CLUSTER' } }
             steps {
                 withCredentials([
                     aws(
@@ -165,65 +173,203 @@ pipeline {
                     ),
                     string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
                 ]) {
-                    script {
-                        def clustersToDelete = env.CLUSTERS_TO_DELETE.split(',').collect { it.trim() }.findAll { it }
-                        def deleted = []
-                        def failed = []
+                    sh """
+                        set -o errexit
+                        set -o xtrace
 
-                        echo "Starting deletion of ${clustersToDelete.size()} cluster(s)..."
+                        CLUSTER_NAME="${params.CLUSTER_NAME}"
+                        DELETE_OPERATOR_ROLES="${params.DELETE_OPERATOR_ROLES}"
+                        DELETE_VPC="${params.DELETE_VPC}"
 
-                        clustersToDelete.each { clusterName ->
-                            try {
-                                echo "Deleting cluster: ${clusterName}"
-                                openshiftRosa.deleteCluster([
-                                    clusterName: clusterName,
-                                    region: env.AWS_REGION,
-                                    deleteOidc: false,
-                                    deleteOperatorRoles: true,
-                                    deleteVpc: true
-                                ])
-                                deleted.add(clusterName)
-                                echo "Successfully initiated deletion: ${clusterName}"
-                            } catch (Exception e) {
-                                echo "Failed to delete ${clusterName}: ${e.message}"
-                                failed.add(clusterName)
-                            }
-                        }
+                        # Verify cluster exists
+                        if ! rosa describe cluster --cluster="\${CLUSTER_NAME}" &>/dev/null; then
+                            echo "Cluster '\${CLUSTER_NAME}' not found."
+                            exit 0
+                        fi
 
-                        def summary = """
-====================================================================
-CLEANUP SUMMARY
-====================================================================
-Action:          ${params.ACTION}
-Total clusters:  ${env.CLUSTER_COUNT}
-Deleted:         ${deleted.size()} (${deleted.join(', ') ?: 'none'})
-Failed:          ${failed.size()} (${failed.join(', ') ?: 'none'})
-====================================================================
-"""
-                        echo summary
-                        currentBuild.description = "Deleted: ${deleted.size()}, Failed: ${failed.size()}"
+                        echo "Deleting cluster: \${CLUSTER_NAME}"
 
-                        if (failed.size() > 0) {
-                            unstable("Some cluster deletions failed: ${failed.join(', ')}")
-                        }
-                    }
+                        # Delete the cluster
+                        rosa delete cluster --cluster="\${CLUSTER_NAME}" --yes --watch
+
+                        # Optionally delete operator roles
+                        if [ "\${DELETE_OPERATOR_ROLES}" = "true" ]; then
+                            echo "Deleting operator roles for cluster: \${CLUSTER_NAME}"
+                            rosa delete operator-roles --cluster="\${CLUSTER_NAME}" --yes --mode=auto || true
+                        fi
+
+                        # Delete VPC CloudFormation stack if requested
+                        if [ "\${DELETE_VPC}" = "true" ]; then
+                            VPC_STACK_NAME="\${CLUSTER_NAME}-vpc"
+                            if aws cloudformation describe-stacks --stack-name "\${VPC_STACK_NAME}" --region "${REGION}" &>/dev/null; then
+                                echo "Deleting VPC stack: \${VPC_STACK_NAME}"
+                                aws cloudformation delete-stack --stack-name "\${VPC_STACK_NAME}" --region "${REGION}"
+                                aws cloudformation wait stack-delete-complete --stack-name "\${VPC_STACK_NAME}" --region "${REGION}" || true
+                            fi
+                        fi
+
+                        echo "Successfully deleted cluster: \${CLUSTER_NAME}"
+                    """
                 }
             }
         }
 
-        stage('Summary') {
-            when {
-                expression { params.ACTION == 'LIST_ONLY' || !env.CLUSTERS_TO_DELETE?.trim() }
-            }
+        stage('Delete All Clusters') {
+            when { expression { env.ACTION == 'DELETE_ALL' } }
             steps {
-                script {
-                    if (params.ACTION == 'LIST_ONLY') {
-                        echo "LIST_ONLY action completed. Found ${env.CLUSTER_COUNT} PMM HA ROSA cluster(s)."
-                        currentBuild.description = "Listed ${env.CLUSTER_COUNT} cluster(s)"
-                    } else {
-                        echo 'No clusters matched deletion criteria.'
-                        currentBuild.description = 'No clusters to delete'
-                    }
+                withCredentials([
+                    aws(
+                        credentialsId: 'jenkins-openshift-aws',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ),
+                    string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
+                ]) {
+                    sh """
+                        set -o errexit
+
+                        DELETE_OPERATOR_ROLES="${params.DELETE_OPERATOR_ROLES}"
+                        DELETE_VPC="${params.DELETE_VPC}"
+
+                        # Get all PMM HA clusters
+                        CLUSTERS_JSON=\$(rosa list clusters -o json 2>/dev/null || echo "[]")
+                        CLUSTERS=\$(echo "\${CLUSTERS_JSON}" | jq -r --arg prefix "${CLUSTER_PREFIX}" '.[] | select(.name | startswith(\$prefix)) | .name')
+
+                        if [ -z "\${CLUSTERS}" ]; then
+                            echo "No clusters found with prefix '${CLUSTER_PREFIX}'."
+                            exit 0
+                        fi
+
+                        DELETED=0
+                        FAILED=0
+
+                        for CLUSTER_NAME in \${CLUSTERS}; do
+                            echo "============================================"
+                            echo "Deleting cluster: \${CLUSTER_NAME}"
+                            echo "============================================"
+
+                            if rosa delete cluster --cluster="\${CLUSTER_NAME}" --yes --watch; then
+                                # Delete operator roles if requested
+                                if [ "\${DELETE_OPERATOR_ROLES}" = "true" ]; then
+                                    rosa delete operator-roles --cluster="\${CLUSTER_NAME}" --yes --mode=auto || true
+                                fi
+
+                                # Delete VPC stack if requested
+                                if [ "\${DELETE_VPC}" = "true" ]; then
+                                    VPC_STACK_NAME="\${CLUSTER_NAME}-vpc"
+                                    if aws cloudformation describe-stacks --stack-name "\${VPC_STACK_NAME}" --region "${REGION}" &>/dev/null; then
+                                        echo "Deleting VPC stack: \${VPC_STACK_NAME}"
+                                        aws cloudformation delete-stack --stack-name "\${VPC_STACK_NAME}" --region "${REGION}"
+                                        aws cloudformation wait stack-delete-complete --stack-name "\${VPC_STACK_NAME}" --region "${REGION}" || true
+                                    fi
+                                fi
+
+                                DELETED=\$((DELETED + 1))
+                            else
+                                echo "Failed to delete cluster: \${CLUSTER_NAME}"
+                                FAILED=\$((FAILED + 1))
+                            fi
+                        done
+
+                        echo "============================================"
+                        echo "DELETE ALL SUMMARY"
+                        echo "============================================"
+                        echo "Deleted: \${DELETED}"
+                        echo "Failed: \${FAILED}"
+                        echo "============================================"
+
+                        if [ "\${FAILED}" -gt 0 ]; then
+                            exit 1
+                        fi
+                    """
+                }
+            }
+        }
+
+        stage('Delete Old Clusters (cron only)') {
+            when { expression { env.ACTION == 'DELETE_OLD' } }
+            steps {
+                withCredentials([
+                    aws(
+                        credentialsId: 'jenkins-openshift-aws',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    ),
+                    string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
+                ]) {
+                    sh '''
+                        set -o errexit
+
+                        # Get all PMM HA clusters with creation timestamp
+                        CLUSTERS_JSON=$(rosa list clusters -o json 2>/dev/null || echo "[]")
+
+                        # Filter for PMM HA clusters
+                        PMM_CLUSTERS=$(echo "${CLUSTERS_JSON}" | jq -r --arg prefix "${CLUSTER_PREFIX}" '
+                            [.[] | select(.name | startswith($prefix))]
+                        ')
+
+                        CLUSTER_COUNT=$(echo "${PMM_CLUSTERS}" | jq 'length')
+
+                        if [ "${CLUSTER_COUNT}" = "0" ]; then
+                            echo "No clusters found with prefix '${CLUSTER_PREFIX}'."
+                            exit 0
+                        fi
+
+                        echo "Found ${CLUSTER_COUNT} PMM HA ROSA cluster(s)"
+
+                        # Calculate cutoff time (24 hours ago)
+                        CUTOFF_EPOCH=$(date -d "${MAX_AGE_HOURS} hours ago" +%s)
+                        DELETED=0
+                        SKIPPED=0
+                        FAILED=0
+
+                        # Process each cluster
+                        echo "${PMM_CLUSTERS}" | jq -c '.[]' | while read -r CLUSTER; do
+                            CLUSTER_NAME=$(echo "${CLUSTER}" | jq -r '.name')
+                            CREATED=$(echo "${CLUSTER}" | jq -r '.creation_timestamp')
+
+                            if [ -z "${CREATED}" ] || [ "${CREATED}" = "null" ]; then
+                                echo "Unable to fetch creation time for ${CLUSTER_NAME} — skipping."
+                                continue
+                            fi
+
+                            # Parse creation timestamp
+                            CREATED_EPOCH=$(date -d "${CREATED}" +%s 2>/dev/null || echo "0")
+
+                            if [ "${CREATED_EPOCH}" = "0" ]; then
+                                echo "Unable to parse creation time for ${CLUSTER_NAME} — skipping."
+                                continue
+                            fi
+
+                            AGE_HOURS=$(( ($(date +%s) - CREATED_EPOCH) / 3600 ))
+
+                            if [ "${CREATED_EPOCH}" -lt "${CUTOFF_EPOCH}" ]; then
+                                echo "============================================"
+                                echo "Deleting old cluster: ${CLUSTER_NAME} (${AGE_HOURS}h old)"
+                                echo "============================================"
+
+                                if rosa delete cluster --cluster="${CLUSTER_NAME}" --yes --watch; then
+                                    # Delete VPC stack (don't delete operator roles by default for safety)
+                                    VPC_STACK_NAME="${CLUSTER_NAME}-vpc"
+                                    if aws cloudformation describe-stacks --stack-name "${VPC_STACK_NAME}" --region "${REGION}" &>/dev/null; then
+                                        echo "Deleting VPC stack: ${VPC_STACK_NAME}"
+                                        aws cloudformation delete-stack --stack-name "${VPC_STACK_NAME}" --region "${REGION}"
+                                        aws cloudformation wait stack-delete-complete --stack-name "${VPC_STACK_NAME}" --region "${REGION}" || true
+                                    fi
+
+                                    echo "Successfully deleted: ${CLUSTER_NAME}"
+                                else
+                                    echo "Failed to delete: ${CLUSTER_NAME}"
+                                fi
+                            else
+                                echo "Skipping recent cluster: ${CLUSTER_NAME} (${AGE_HOURS}h old, within ${MAX_AGE_HOURS}h threshold)"
+                            fi
+                        done
+
+                        echo "============================================"
+                        echo "CLEANUP COMPLETE"
+                        echo "============================================"
+                    '''
                 }
             }
         }

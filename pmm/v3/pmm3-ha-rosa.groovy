@@ -1,81 +1,33 @@
-@Library('jenkins-pipelines@feature/pmm-ha-rosa') _
-
-def openshiftRosa
-
 /**
  * PMM HA on ROSA HCP - Creates a ROSA cluster and deploys PMM in HA mode.
  *
- * This pipeline is specifically designed for PMM High Availability testing on
- * Red Hat OpenShift Service on AWS (ROSA) with Hosted Control Planes (HCP).
- *
- * Features:
- * - Fast cluster provisioning (~15 min via ROSA HCP)
- * - PMM HA deployment via Helm
- * - Kyverno policy for Docker Hub pull-through cache (avoids rate limits)
- * - Uses Percona DevServices registry (reg-19jf01na.percona.com)
- * - Automatic cleanup on failure (unless DEBUG_MODE enabled)
+ * Self-contained single-file pipeline (no external library dependencies).
+ * Validated shell script logic ported from /tmp/rosa-ha-create.sh
  */
-
-def attemptClusterCleanup(String reason) {
-    if (env.FINAL_CLUSTER_NAME) {
-        if (params.DEBUG_MODE) {
-            echo "DEBUG MODE: Skipping automatic cleanup of ${reason} cluster"
-            echo 'To manually clean up, run pmm3-ha-rosa-cleanup with:'
-            echo "  - CLUSTER_NAMES: ${env.FINAL_CLUSTER_NAME}"
-            echo '  - ACTION: DELETE_NAMED'
-        } else {
-            echo "Attempting to clean up ${reason} cluster resources..."
-            def cleanupTimeout = reason == 'aborted' ? 2 : 10
-            timeout(time: cleanupTimeout, unit: 'MINUTES') {
-                try {
-                    withCredentials([
-                        aws(
-                            credentialsId: 'jenkins-openshift-aws',
-                            accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                            secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                        ),
-                        string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
-                    ]) {
-                        openshiftRosa.login([token: env.ROSA_TOKEN, region: 'us-east-2'])
-                        openshiftRosa.deleteCluster([
-                            clusterName: env.FINAL_CLUSTER_NAME,
-                            region: 'us-east-2',
-                            deleteVpc: true
-                        ])
-                    }
-                    echo 'Cleanup completed successfully'
-                } catch (Exception e) {
-                    echo "Cleanup failed: ${e.toString()}"
-                    echo 'Manual cleanup may be required via pmm3-ha-rosa-cleanup job'
-                }
-            }
-        }
-    }
-}
 
 pipeline {
     agent { label 'agent-amd64-ol9' }
 
-    environment {
-        KUBECONFIG_DIR = "${WORKSPACE}/kubeconfig"
-        AWS_REGION = 'us-east-2'
-    }
-
     parameters {
+        string(
+            name: 'CLUSTER_NAME',
+            defaultValue: '',
+            description: 'Cluster name (leave empty for auto-generated pmm-ha-rosa-BUILD_NUMBER)'
+        )
         choice(
             name: 'OPENSHIFT_VERSION',
-            choices: ['4.18', '4.17', '4.19', '4.20'],
-            description: 'OpenShift version for ROSA HCP cluster (4.18+ recommended for Kyverno 1.16.x)'
+            choices: ['4.17', '4.18', '4.16'],
+            description: 'OpenShift version for ROSA HCP cluster'
         )
         choice(
             name: 'REPLICAS',
-            choices: ['3', '4', '5'],
+            choices: ['2', '3', '4'],
             description: 'Number of worker nodes'
         )
         choice(
             name: 'INSTANCE_TYPE',
-            choices: ['m5.2xlarge', 'm5.xlarge', 'm5.4xlarge'],
-            description: 'EC2 instance type for worker nodes (m5.2xlarge recommended for PMM HA)'
+            choices: ['m5.xlarge', 'm5.2xlarge', 'm5.4xlarge'],
+            description: 'EC2 instance type for worker nodes'
         )
         string(
             name: 'HELM_CHART_BRANCH',
@@ -87,22 +39,30 @@ pipeline {
             defaultValue: '',
             description: 'PMM Server image tag (leave empty for chart default)'
         )
-        string(
-            name: 'PMM_IMAGE_REPOSITORY',
-            defaultValue: '',
-            description: 'PMM Server image repository (leave empty for chart default)'
-        )
         booleanParam(
             name: 'DEBUG_MODE',
             defaultValue: true,
             description: 'Skip cleanup on failure for debugging'
         )
+        booleanParam(
+            name: 'SKIP_PMM_INSTALL',
+            defaultValue: false,
+            description: 'Skip PMM HA installation (cluster only)'
+        )
+    }
+
+    environment {
+        REGION = 'us-east-2'
+        AWS_ACCOUNT_ID = '119175775298'
+        OPERATOR_ROLE_PREFIX = 'pmm-rosa-ha'
+        CLUSTER_PREFIX = 'pmm-ha-rosa-'
+        MAX_CLUSTERS = 5
     }
 
     options {
         skipDefaultCheckout()
-        buildDiscarder(logRotator(numToKeepStr: '100', daysToKeepStr: '30'))
-        timeout(time: 60, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '30'))
+        timeout(time: 90, unit: 'MINUTES')
         timestamps()
     }
 
@@ -111,85 +71,78 @@ pipeline {
             steps {
                 script {
                     deleteDir()
-                    sh "mkdir -p ${KUBECONFIG_DIR}"
 
-                    // Generate cluster name with build number
-                    env.FINAL_CLUSTER_NAME = "pmm-ha-rosa-${BUILD_NUMBER}"
+                    // Set cluster name
+                    env.CLUSTER_NAME = params.CLUSTER_NAME ?: "pmm-ha-rosa-${BUILD_NUMBER}"
 
-                    echo "Cluster name: ${env.FINAL_CLUSTER_NAME}"
-
-                    // Set build display
-                    def imageDisplay = params.PMM_IMAGE_TAG ?: 'chart-default'
-                    currentBuild.displayName = "#${BUILD_NUMBER} - ${env.FINAL_CLUSTER_NAME}"
-                    currentBuild.description = "ROSA ${params.OPENSHIFT_VERSION} | PMM HA | ${imageDisplay}"
+                    currentBuild.displayName = "#${BUILD_NUMBER} - ${env.CLUSTER_NAME}"
+                    currentBuild.description = "ROSA ${params.OPENSHIFT_VERSION} | ${params.INSTANCE_TYPE} x ${params.REPLICAS}"
                 }
             }
         }
 
-        stage('Checkout & Load') {
+        stage('Checkout') {
             steps {
                 checkout scm
-                script {
-                    openshiftRosa = load 'pmm/v3/vars/openshiftRosa.groovy'
-                }
             }
         }
 
-        stage('Install CLI Tools') {
-            steps {
-                script {
-                    openshiftRosa.installRosaCli()
-                    openshiftRosa.installOcCli([version: params.OPENSHIFT_VERSION])
-                    openshiftTools.installHelm()
-                }
-            }
-        }
-
-        stage('Login to ROSA') {
+        stage('Verify Prerequisites') {
             steps {
                 withCredentials([
-                    aws(
-                        credentialsId: 'jenkins-openshift-aws',
+                    aws(credentialsId: 'jenkins-openshift-aws',
                         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    ),
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),
                     string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
                 ]) {
-                    script {
-                        openshiftRosa.login([
-                            token: env.ROSA_TOKEN,
-                            region: env.AWS_REGION
-                        ])
-                    }
+                    sh '''
+                        set -o errexit
+
+                        echo "[1/7] Verifying prerequisites..."
+
+                        # Check CLIs
+                        command -v rosa &>/dev/null || { echo "ERROR: rosa CLI not found"; exit 1; }
+                        command -v oc &>/dev/null || { echo "ERROR: oc CLI not found"; exit 1; }
+                        command -v helm &>/dev/null || { echo "ERROR: helm CLI not found"; exit 1; }
+
+                        # Check AWS auth
+                        aws sts get-caller-identity || { echo "ERROR: Not authenticated to AWS"; exit 1; }
+
+                        # Login to ROSA
+                        rosa login --token="${ROSA_TOKEN}"
+                        rosa whoami
+
+                        echo "  Prerequisites: OK"
+                    '''
                 }
             }
         }
 
-        stage('Check Existing Clusters') {
+        stage('Check Cluster Limit') {
             steps {
                 withCredentials([
-                    aws(
-                        credentialsId: 'jenkins-openshift-aws',
+                    aws(credentialsId: 'jenkins-openshift-aws',
                         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),
+                    string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
                 ]) {
-                    script {
-                        def clusters = openshiftRosa.listClusters([region: env.AWS_REGION])
-                        def pmmHaClusters = clusters.findAll { it.name.startsWith('pmm-ha-rosa-') }
+                    sh '''
+                        set -o errexit
 
-                        if (!pmmHaClusters.isEmpty()) {
-                            echo openshiftRosa.formatClustersSummary(pmmHaClusters, 'EXISTING PMM HA ROSA CLUSTERS')
-                        } else {
-                            echo 'No existing PMM HA ROSA clusters found'
-                        }
+                        echo "Checking existing PMM HA ROSA clusters..."
 
-                        // Check cluster quota
-                        openshiftRosa.checkClusterLimit([
-                            prefix: 'pmm-ha-rosa-',
-                            maxClusters: 5
-                        ])
-                    }
+                        CLUSTER_COUNT=$(rosa list clusters -o json 2>/dev/null | \
+                            jq -r --arg prefix "${CLUSTER_PREFIX}" \
+                            '[.[] | select(.name | startswith($prefix))] | length')
+
+                        echo "Existing clusters: ${CLUSTER_COUNT} / ${MAX_CLUSTERS}"
+
+                        if [ "${CLUSTER_COUNT}" -ge "${MAX_CLUSTERS}" ]; then
+                            echo "ERROR: Maximum cluster limit (${MAX_CLUSTERS}) reached."
+                            echo "Delete old clusters with: rosa delete cluster --cluster=<name> --yes"
+                            exit 1
+                        fi
+                    '''
                 }
             }
         }
@@ -197,580 +150,482 @@ pipeline {
         stage('Create ROSA HCP Cluster') {
             steps {
                 withCredentials([
-                    aws(
-                        credentialsId: 'jenkins-openshift-aws',
+                    aws(credentialsId: 'jenkins-openshift-aws',
                         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    ),
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),
                     string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
                 ]) {
-                    script {
-                        def clusterInfo = openshiftRosa.createCluster([
-                            clusterName: env.FINAL_CLUSTER_NAME,
-                            region: env.AWS_REGION,
-                            openshiftVersion: params.OPENSHIFT_VERSION,
-                            replicas: params.REPLICAS.toInteger(),
-                            instanceType: params.INSTANCE_TYPE
-                        ])
+                    sh '''
+                        set -o errexit
+                        export AWS_DEFAULT_REGION="${REGION}"
 
-                        env.CLUSTER_ID = clusterInfo.clusterId
-                        env.CLUSTER_API_URL = clusterInfo.apiUrl
-                        env.CLUSTER_CONSOLE_URL = clusterInfo.consoleUrl
-                        env.CLUSTER_VERSION = clusterInfo.openshiftVersion
-                    }
+                        echo "============================================"
+                        echo "Creating ROSA HCP Cluster: ${CLUSTER_NAME}"
+                        echo "============================================"
+
+                        # [2/7] Determine OIDC config from existing operator roles
+                        echo "[2/7] Determining OIDC configuration..."
+
+                        OIDC_CONFIG_ID=""
+                        if aws iam get-role --role-name "${OPERATOR_ROLE_PREFIX}-kube-system-kms-provider" &>/dev/null; then
+                            OIDC_CONFIG_ID=$(aws iam get-role --role-name "${OPERATOR_ROLE_PREFIX}-kube-system-kms-provider" | \
+                                jq -r '.Role.AssumeRolePolicyDocument.Statement[0].Principal.Federated // empty' | \
+                                grep -oE '[a-z0-9]+$' || echo "")
+
+                            if [ -n "${OIDC_CONFIG_ID}" ]; then
+                                echo "  Found existing operator roles trusting OIDC: ${OIDC_CONFIG_ID}"
+                            fi
+                        fi
+
+                        if [ -z "${OIDC_CONFIG_ID}" ]; then
+                            OIDC_CONFIG_ID=$(rosa list oidc-config -o json 2>/dev/null | jq -r '.[0].id // empty')
+
+                            if [ -z "${OIDC_CONFIG_ID}" ]; then
+                                echo "  Creating new OIDC configuration..."
+                                rosa create oidc-config --mode=auto --yes
+                                sleep 5
+                                OIDC_CONFIG_ID=$(rosa list oidc-config -o json | jq -r '.[0].id')
+                            fi
+                        fi
+                        echo "  OIDC Config ID: ${OIDC_CONFIG_ID}"
+
+                        # [3/7] Check account roles
+                        echo "[3/7] Checking account roles..."
+                        if ! rosa list account-roles 2>/dev/null | grep -q "HCP-ROSA-Installer"; then
+                            echo "  Creating account roles..."
+                            rosa create account-roles --hosted-cp --mode=auto --yes 2>&1 | grep -v "^ERR: Insufficient AWS quotas" || true
+                        fi
+                        echo "  Account roles: OK"
+
+                        # [4/7] Resolve OpenShift version
+                        echo "[4/7] Resolving OpenShift version..."
+                        RESOLVED_VERSION=$(rosa list versions --hosted-cp -o json 2>/dev/null | \
+                            jq -r --arg v "${OPENSHIFT_VERSION}" '.[] | select(.raw_id | startswith($v + ".")) | .raw_id' | \
+                            head -1)
+
+                        if [ -z "${RESOLVED_VERSION}" ]; then
+                            echo "ERROR: No version found for ${OPENSHIFT_VERSION}"
+                            exit 1
+                        fi
+                        echo "  Resolved: ${RESOLVED_VERSION}"
+
+                        # [5/7] Setup VPC
+                        echo "[5/7] Setting up VPC..."
+                        VPC_STACK_NAME="${CLUSTER_NAME}-vpc"
+
+                        STACK_STATUS=$(aws cloudformation describe-stacks --stack-name "${VPC_STACK_NAME}" --region "${REGION}" \
+                            --query "Stacks[0].StackStatus" --output text 2>/dev/null || echo "NOT_FOUND")
+
+                        if [ "${STACK_STATUS}" = "ROLLBACK_COMPLETE" ] || [ "${STACK_STATUS}" = "DELETE_COMPLETE" ]; then
+                            echo "  Deleting failed stack..."
+                            aws cloudformation delete-stack --stack-name "${VPC_STACK_NAME}" --region "${REGION}"
+                            aws cloudformation wait stack-delete-complete --stack-name "${VPC_STACK_NAME}" --region "${REGION}" 2>/dev/null || true
+                            STACK_STATUS="NOT_FOUND"
+                        fi
+
+                        if [ "${STACK_STATUS}" = "NOT_FOUND" ]; then
+                            VPC_COUNT=$(aws ec2 describe-vpcs --region "${REGION}" --query "length(Vpcs)" --output text)
+                            if [ "${VPC_COUNT}" -ge 20 ]; then
+                                echo "ERROR: VPC limit reached (${VPC_COUNT}/20)"
+                                exit 1
+                            fi
+
+                            cat > /tmp/vpc-${BUILD_NUMBER}.yaml << 'VPCTEMPLATE'
+AWSTemplateFormatVersion: '2010-09-09'
+Description: VPC for ROSA HCP cluster
+Parameters:
+  Region:
+    Type: String
+Resources:
+  VPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: '10.0.0.0/16'
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref AWS::StackName
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+  AttachGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref VPC
+      InternetGatewayId: !Ref InternetGateway
+  PublicSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: '10.0.0.0/24'
+      AvailabilityZone: !Sub '${Region}a'
+      MapPublicIpOnLaunch: true
+  PublicSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: '10.0.1.0/24'
+      AvailabilityZone: !Sub '${Region}b'
+      MapPublicIpOnLaunch: true
+  PrivateSubnet1:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: '10.0.128.0/24'
+      AvailabilityZone: !Sub '${Region}a'
+  PrivateSubnet2:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref VPC
+      CidrBlock: '10.0.129.0/24'
+      AvailabilityZone: !Sub '${Region}b'
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  PublicRoute:
+    Type: AWS::EC2::Route
+    DependsOn: AttachGateway
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: '0.0.0.0/0'
+      GatewayId: !Ref InternetGateway
+  PublicSubnet1RouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet1
+      RouteTableId: !Ref PublicRouteTable
+  PublicSubnet2RouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PublicSubnet2
+      RouteTableId: !Ref PublicRouteTable
+  EIP1:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  EIP2:
+    Type: AWS::EC2::EIP
+    Properties:
+      Domain: vpc
+  NatGateway1:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt EIP1.AllocationId
+      SubnetId: !Ref PublicSubnet1
+  NatGateway2:
+    Type: AWS::EC2::NatGateway
+    Properties:
+      AllocationId: !GetAtt EIP2.AllocationId
+      SubnetId: !Ref PublicSubnet2
+  PrivateRouteTable1:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  PrivateRouteTable2:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref VPC
+  PrivateRoute1:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref NatGateway1
+  PrivateRoute2:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable2
+      DestinationCidrBlock: '0.0.0.0/0'
+      NatGatewayId: !Ref NatGateway2
+  PrivateSubnet1RouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet1
+      RouteTableId: !Ref PrivateRouteTable1
+  PrivateSubnet2RouteAssoc:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref PrivateSubnet2
+      RouteTableId: !Ref PrivateRouteTable2
+VPCTEMPLATE
+
+                            echo "  Creating VPC stack: ${VPC_STACK_NAME}"
+                            aws cloudformation create-stack \
+                                --stack-name "${VPC_STACK_NAME}" \
+                                --template-body "file:///tmp/vpc-${BUILD_NUMBER}.yaml" \
+                                --parameters ParameterKey=Region,ParameterValue="${REGION}" \
+                                --region "${REGION}"
+
+                            echo "  Waiting for VPC stack (3-5 minutes)..."
+                            aws cloudformation wait stack-create-complete --stack-name "${VPC_STACK_NAME}" --region "${REGION}"
+                            rm -f "/tmp/vpc-${BUILD_NUMBER}.yaml"
+
+                            echo "true" > vpc_created.flag
+                        else
+                            echo "  VPC stack already exists: ${VPC_STACK_NAME}"
+                        fi
+
+                        # Get subnets from VPC
+                        VPC_ID=$(aws ec2 describe-vpcs --region "${REGION}" \
+                            --filters "Name=tag:Name,Values=${VPC_STACK_NAME}" \
+                            --query "Vpcs[0].VpcId" --output text)
+
+                        PUBLIC_SUBNETS=$(aws ec2 describe-subnets \
+                            --filters "Name=vpc-id,Values=${VPC_ID}" "Name=map-public-ip-on-launch,Values=true" \
+                            --region "${REGION}" --query "Subnets[*].SubnetId" --output text | tr '\t' ',')
+
+                        PRIVATE_SUBNETS=$(aws ec2 describe-subnets \
+                            --filters "Name=vpc-id,Values=${VPC_ID}" "Name=map-public-ip-on-launch,Values=false" \
+                            --region "${REGION}" --query "Subnets[*].SubnetId" --output text | tr '\t' ',')
+
+                        ALL_SUBNETS="${PUBLIC_SUBNETS},${PRIVATE_SUBNETS}"
+                        echo "  Subnets: ${ALL_SUBNETS}"
+
+                        # [6/7] Check operator roles
+                        echo "[6/7] Checking operator roles..."
+                        INSTALLER_ROLE_ARN="arn:aws:iam::${AWS_ACCOUNT_ID}:role/ManagedOpenShift-HCP-ROSA-Installer-Role"
+
+                        if ! aws iam get-role --role-name "${OPERATOR_ROLE_PREFIX}-kube-system-kms-provider" &>/dev/null; then
+                            echo "  Creating operator roles..."
+                            rosa create operator-roles \
+                                --hosted-cp \
+                                --prefix="${OPERATOR_ROLE_PREFIX}" \
+                                --oidc-config-id="${OIDC_CONFIG_ID}" \
+                                --installer-role-arn="${INSTALLER_ROLE_ARN}" \
+                                --mode=auto --yes
+                        fi
+                        echo "  Operator roles: OK"
+
+                        # [7/7] Create cluster
+                        echo "[7/7] Creating ROSA HCP cluster..."
+                        rosa create cluster \
+                            --cluster-name="${CLUSTER_NAME}" \
+                            --sts --hosted-cp \
+                            --region="${REGION}" \
+                            --version="${RESOLVED_VERSION}" \
+                            --compute-machine-type="${INSTANCE_TYPE}" \
+                            --replicas="${REPLICAS}" \
+                            --subnet-ids="${ALL_SUBNETS}" \
+                            --oidc-config-id="${OIDC_CONFIG_ID}" \
+                            --operator-roles-prefix="${OPERATOR_ROLE_PREFIX}" \
+                            --mode=auto --yes
+
+                        # Wait for ready
+                        echo "Waiting for cluster to be ready (~30-40 minutes)..."
+                        MAX_ATTEMPTS=80
+                        ATTEMPT=0
+
+                        while [ $ATTEMPT -lt $MAX_ATTEMPTS ]; do
+                            ATTEMPT=$((ATTEMPT + 1))
+                            STATUS=$(rosa describe cluster -c "${CLUSTER_NAME}" -o json 2>/dev/null | jq -r '.state // "unknown"')
+                            echo "[$(date '+%H:%M:%S')] Status: ${STATUS} (${ATTEMPT}/${MAX_ATTEMPTS})"
+
+                            case "${STATUS}" in
+                                ready) echo "Cluster is ready!"; break ;;
+                                error|uninstalling) echo "ERROR: Cluster failed"; exit 1 ;;
+                            esac
+                            sleep 30
+                        done
+
+                        [ "${STATUS}" = "ready" ] || { echo "ERROR: Timeout"; exit 1; }
+
+                        # Create admin
+                        echo "Creating cluster admin..."
+                        rosa create admin --cluster="${CLUSTER_NAME}"
+                    '''
                 }
             }
         }
 
-        stage('Configure kubectl Access') {
+        stage('Configure Access') {
             steps {
                 withCredentials([
-                    aws(
-                        credentialsId: 'jenkins-openshift-aws',
+                    aws(credentialsId: 'jenkins-openshift-aws',
                         accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    ),
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),
                     string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
                 ]) {
                     script {
-                        def accessInfo = openshiftRosa.configureAccess([
-                            clusterName: env.FINAL_CLUSTER_NAME,
-                            kubeconfigPath: "${KUBECONFIG_DIR}/config",
-                            region: env.AWS_REGION
-                        ])
+                        // Get cluster info
+                        env.CLUSTER_API_URL = sh(
+                            script: "rosa describe cluster --cluster=${env.CLUSTER_NAME} -o json | jq -r '.api.url'",
+                            returnStdout: true
+                        ).trim()
 
-                        env.KUBECONFIG = accessInfo.kubeconfigPath
-                        env.CLUSTER_ADMIN_PASSWORD = accessInfo.password
+                        env.CLUSTER_CONSOLE_URL = sh(
+                            script: "rosa describe cluster --cluster=${env.CLUSTER_NAME} -o json | jq -r '.console.url'",
+                            returnStdout: true
+                        ).trim()
+
+                        // Get admin password from rosa output
+                        def adminOutput = sh(
+                            script: "rosa describe cluster --cluster=${env.CLUSTER_NAME} 2>&1 || true",
+                            returnStdout: true
+                        )
+
+                        // Wait for admin credentials
+                        echo "Waiting 90s for admin credentials to propagate..."
+                        sleep(90)
+
+                        // Login
+                        sh """
+                            # Get fresh admin credentials
+                            ADMIN_PASS=\$(rosa create admin --cluster=${env.CLUSTER_NAME} 2>&1 | grep -oE '[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}' | head -1 || echo "")
+
+                            if [ -n "\${ADMIN_PASS}" ]; then
+                                echo "Logging in to cluster..."
+                                oc login ${env.CLUSTER_API_URL} --username=cluster-admin --password="\${ADMIN_PASS}" --insecure-skip-tls-verify=true
+                                oc whoami
+                                oc get nodes
+                            fi
+                        """
                     }
                 }
             }
         }
 
         stage('Install Kyverno') {
+            when { expression { !params.SKIP_PMM_INSTALL } }
             steps {
-                withCredentials([
-                    aws(
-                        credentialsId: 'jenkins-openshift-aws',
-                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
-                ]) {
-                    script {
-                        echo 'Installing Kyverno for Docker Hub image rewriting...'
-                        sh '''
-                            export PATH=$HOME/.local/bin:$PATH
+                sh '''
+                    set -o errexit
 
-                            # Add Kyverno helm repo
-                            helm repo add kyverno https://kyverno.github.io/kyverno/ || true
-                            helm repo update
+                    echo "Installing Kyverno..."
+                    helm repo add kyverno https://kyverno.github.io/kyverno/ || true
+                    helm repo update
 
-                            # Install Kyverno (version compatible with K8s 1.31+)
-                            helm upgrade --install kyverno kyverno/kyverno \
-                                --namespace kyverno --create-namespace \
-                                --version 3.6.1 \
-                                --set admissionController.replicas=1 \
-                                --set backgroundController.replicas=1 \
-                                --set cleanupController.replicas=1 \
-                                --set reportsController.replicas=1 \
-                                --wait --timeout 5m || echo "Kyverno install completed (post-hooks may timeout but pods should run)"
+                    helm upgrade --install kyverno kyverno/kyverno \
+                        --namespace kyverno --create-namespace \
+                        --version 3.3.0 \
+                        --set admissionController.replicas=1 \
+                        --set backgroundController.replicas=1 \
+                        --set cleanupController.replicas=1 \
+                        --set reportsController.replicas=1 \
+                        --wait --timeout 5m || true
 
-                            # Wait for admission controller to be ready
-                            oc wait --for=condition=ready pod -l app.kubernetes.io/component=admission-controller -n kyverno --timeout=120s || true
-                        '''
+                    oc wait --for=condition=ready pod -l app.kubernetes.io/component=admission-controller -n kyverno --timeout=120s || true
 
-                        // Create ClusterPolicy for Docker Hub rewrite to DevServices registry
-                        echo 'Creating Docker Hub pull-through cache policy (DevServices registry)...'
-                        sh '''
-                            export PATH=$HOME/.local/bin:$PATH
-                            cat <<'POLICY_EOF' | oc apply -f -
-apiVersion: kyverno.io/v1
-kind: ClusterPolicy
-metadata:
-  name: dockerhub-pull-through-cache
-  annotations:
-    policies.kyverno.io/title: Docker Hub Pull Through Cache
-    policies.kyverno.io/description: >-
-      Rewrites Docker Hub images to use Percona DevServices registry
-      (reg-19jf01na.percona.com/dockerhub-cache/) to avoid rate limits.
-spec:
-  background: false
-  validationFailureAction: Audit
-  rules:
-    - name: containers-dockerhub-explicit
-      match:
-        any:
-          - resources:
-              kinds:
-                - Pod
-              operations:
-                - CREATE
-                - UPDATE
-      exclude:
-        any:
-          - resources:
-              namespaces:
-                - kube-system
-                - kyverno
-                - openshift-*
-      mutate:
-        foreach:
-          - list: request.object.spec.containers
-            preconditions:
-              any:
-                - key: "{{ contains(element.image, 'docker.io/') }}"
-                  operator: Equals
-                  value: true
-                - key: "{{ contains(element.image, 'index.docker.io/') }}"
-                  operator: Equals
-                  value: true
-            patchesJson6902: |-
-              - op: replace
-                path: /spec/containers/{{elementIndex}}/image
-                value: 'reg-19jf01na.percona.com/dockerhub-cache/{{images.containers."{{element.name}}".path}}:{{images.containers."{{element.name}}".tag}}'
-    - name: containers-dockerhub-implicit-org
-      match:
-        any:
-          - resources:
-              kinds:
-                - Pod
-              operations:
-                - CREATE
-                - UPDATE
-      exclude:
-        any:
-          - resources:
-              namespaces:
-                - kube-system
-                - kyverno
-                - openshift-*
-      mutate:
-        foreach:
-          - list: request.object.spec.containers
-            preconditions:
-              all:
-                - key: "{{ contains(element.image, '/') }}"
-                  operator: Equals
-                  value: true
-                - key: '{{images.containers."{{element.name}}".registry}}'
-                  operator: Equals
-                  value: docker.io
-            patchesJson6902: |-
-              - op: replace
-                path: /spec/containers/{{elementIndex}}/image
-                value: 'reg-19jf01na.percona.com/dockerhub-cache/{{images.containers."{{element.name}}".path}}:{{images.containers."{{element.name}}".tag}}'
-    - name: containers-dockerhub-implicit-library
-      match:
-        any:
-          - resources:
-              kinds:
-                - Pod
-              operations:
-                - CREATE
-                - UPDATE
-      exclude:
-        any:
-          - resources:
-              namespaces:
-                - kube-system
-                - kyverno
-                - openshift-*
-      mutate:
-        foreach:
-          - list: request.object.spec.containers
-            preconditions:
-              all:
-                - key: "{{ contains(element.image, '/') }}"
-                  operator: Equals
-                  value: false
-                - key: '{{images.containers."{{element.name}}".registry}}'
-                  operator: Equals
-                  value: docker.io
-            patchesJson6902: |-
-              - op: replace
-                path: /spec/containers/{{elementIndex}}/image
-                value: 'reg-19jf01na.percona.com/dockerhub-cache/library/{{images.containers."{{element.name}}".name}}:{{images.containers."{{element.name}}".tag}}'
-    - name: init-dockerhub-explicit
-      match:
-        any:
-          - resources:
-              kinds:
-                - Pod
-              operations:
-                - CREATE
-                - UPDATE
-      exclude:
-        any:
-          - resources:
-              namespaces:
-                - kube-system
-                - kyverno
-                - openshift-*
-      mutate:
-        foreach:
-          - list: "request.object.spec.initContainers || `[]`"
-            preconditions:
-              any:
-                - key: "{{ contains(element.image, 'docker.io/') }}"
-                  operator: Equals
-                  value: true
-                - key: "{{ contains(element.image, 'index.docker.io/') }}"
-                  operator: Equals
-                  value: true
-            patchesJson6902: |-
-              - op: replace
-                path: /spec/initContainers/{{elementIndex}}/image
-                value: 'reg-19jf01na.percona.com/dockerhub-cache/{{images.initContainers."{{element.name}}".path}}:{{images.initContainers."{{element.name}}".tag}}'
-    - name: init-dockerhub-implicit-org
-      match:
-        any:
-          - resources:
-              kinds:
-                - Pod
-              operations:
-                - CREATE
-                - UPDATE
-      exclude:
-        any:
-          - resources:
-              namespaces:
-                - kube-system
-                - kyverno
-                - openshift-*
-      mutate:
-        foreach:
-          - list: "request.object.spec.initContainers || `[]`"
-            preconditions:
-              all:
-                - key: "{{ contains(element.image, '/') }}"
-                  operator: Equals
-                  value: true
-                - key: '{{images.initContainers."{{element.name}}".registry}}'
-                  operator: Equals
-                  value: docker.io
-            patchesJson6902: |-
-              - op: replace
-                path: /spec/initContainers/{{elementIndex}}/image
-                value: 'reg-19jf01na.percona.com/dockerhub-cache/{{images.initContainers."{{element.name}}".path}}:{{images.initContainers."{{element.name}}".tag}}'
-    - name: init-dockerhub-implicit-library
-      match:
-        any:
-          - resources:
-              kinds:
-                - Pod
-              operations:
-                - CREATE
-                - UPDATE
-      exclude:
-        any:
-          - resources:
-              namespaces:
-                - kube-system
-                - kyverno
-                - openshift-*
-      mutate:
-        foreach:
-          - list: "request.object.spec.initContainers || `[]`"
-            preconditions:
-              all:
-                - key: "{{ contains(element.image, '/') }}"
-                  operator: Equals
-                  value: false
-                - key: '{{images.initContainers."{{element.name}}".registry}}'
-                  operator: Equals
-                  value: docker.io
-            patchesJson6902: |-
-              - op: replace
-                path: /spec/initContainers/{{elementIndex}}/image
-                value: 'reg-19jf01na.percona.com/dockerhub-cache/library/{{images.initContainers."{{element.name}}".name}}:{{images.initContainers."{{element.name}}".tag}}'
-POLICY_EOF
-                            echo "Kyverno ClusterPolicy created for Docker Hub pull-through cache"
-                        '''
-                    }
-                }
-            }
-        }
-
-        stage('Install PMM HA Dependencies') {
-            steps {
-                withCredentials([
-                    aws(
-                        credentialsId: 'jenkins-openshift-aws',
-                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
-                ]) {
-                    script {
-                        // Clone Helm charts repo
-                        echo "Cloning percona-helm-charts branch: ${params.HELM_CHART_BRANCH}"
-                        sh """
-                            rm -rf percona-helm-charts
-                            git clone --depth 1 -b ${params.HELM_CHART_BRANCH} https://github.com/percona/percona-helm-charts.git percona-helm-charts || \
-                            git clone --depth 1 -b ${params.HELM_CHART_BRANCH} https://github.com/theTibi/percona-helm-charts.git percona-helm-charts
-                            ls -la percona-helm-charts/charts/
-                        """
-
-                        // Install pmm-ha-dependencies chart first (etcd, pg, valkey)
-                        echo 'Installing PMM HA dependencies (etcd, PostgreSQL, Valkey)...'
-                        sh """
-                            export PATH=\$HOME/.local/bin:\$PATH
-
-                            # Add required helm repos
-                            helm repo add percona https://percona.github.io/percona-helm-charts/ || true
-                            helm repo add victoriametrics https://victoriametrics.github.io/helm-charts/ || true
-                            helm repo add altinity https://helm.altinity.com || true
-                            helm repo update
-
-                            helm dependency build percona-helm-charts/charts/pmm-ha-dependencies
-                            helm upgrade --install pmm-ha-deps percona-helm-charts/charts/pmm-ha-dependencies \
-                                --namespace pmm --create-namespace \
-                                --wait --timeout 10m
-                        """
-                    }
-                }
+                    echo "Applying Docker Hub pull-through cache policy..."
+                    oc apply -f pmm/v3/resources/kyverno-dockerhub-policy.yaml || true
+                '''
             }
         }
 
         stage('Install PMM HA') {
+            when { expression { !params.SKIP_PMM_INSTALL } }
             steps {
-                withCredentials([
-                    aws(
-                        credentialsId: 'jenkins-openshift-aws',
-                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
-                    )
-                ]) {
-                    script {
-                        echo 'Installing PMM HA on ROSA cluster'
-                        echo '  Namespace: pmm'
-                        echo "  Chart Branch: ${params.HELM_CHART_BRANCH}"
-                        def imageDisplay = params.PMM_IMAGE_TAG ? "${params.PMM_IMAGE_REPOSITORY ?: 'default'}:${params.PMM_IMAGE_TAG}" : 'chart-default'
-                        echo "  Image: ${imageDisplay}"
+                script {
+                    // Generate password
+                    env.PMM_ADMIN_PASSWORD = sh(
+                        script: "openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16",
+                        returnStdout: true
+                    ).trim()
 
-                        // Create namespace and SCC
-                        sh '''
-                            export PATH=$HOME/.local/bin:$PATH
-                            oc create namespace pmm 2>/dev/null || true
+                    sh """
+                        set -o errexit
 
-                            cat <<EOF | oc apply -f -
-apiVersion: security.openshift.io/v1
-kind: SecurityContextConstraints
-metadata:
-  name: pmm-anyuid
-allowHostDirVolumePlugin: false
-allowHostIPC: false
-allowHostNetwork: false
-allowHostPID: false
-allowHostPorts: false
-allowPrivilegeEscalation: true
-allowPrivilegedContainer: false
-allowedCapabilities: null
-defaultAddCapabilities: null
-fsGroup:
-  type: RunAsAny
-groups: []
-priority: 10
-readOnlyRootFilesystem: false
-requiredDropCapabilities:
-  - MKNOD
-runAsUser:
-  type: RunAsAny
-seLinuxContext:
-  type: MustRunAs
-supplementalGroups:
-  type: RunAsAny
-users:
-  - system:serviceaccount:pmm:default
-  - system:serviceaccount:pmm:pmm-service-account
-  - system:serviceaccount:pmm:pmm-ha-haproxy
-  - system:serviceaccount:pmm:pmm-ha-pg-db
-  - system:serviceaccount:pmm:pmm-ha-pmmdb
-  - system:serviceaccount:pmm:pmm-ha-vmagent
-  - system:serviceaccount:pmm:pmm-ha-secret-generator
-  - system:serviceaccount:pmm:pmm-ha-dependencies-altinity-clickhouse-operator
-  - system:serviceaccount:pmm:pmm-ha-dependencies-pg-operator
-  - system:serviceaccount:pmm:pmm-ha-dependencies-victoria-metrics-operator
-volumes:
-  - configMap
-  - csi
-  - downwardAPI
-  - emptyDir
-  - ephemeral
-  - persistentVolumeClaim
-  - projected
-  - secret
-EOF
-                            echo "Custom SCC 'pmm-anyuid' created for PMM HA workloads"
-                        '''
+                        echo "Installing PMM HA..."
 
-                        // Generate password and create secret
-                        env.PMM_ADMIN_PASSWORD = openshiftRosa.generatePassword()
-                        sh """
-                            export PATH=\$HOME/.local/bin:\$PATH
-                            oc delete secret pmm-secret -n pmm 2>/dev/null || true
-                            oc create secret generic pmm-secret -n pmm \
-                                --from-literal=PMM_ADMIN_PASSWORD=${env.PMM_ADMIN_PASSWORD} \
-                                --from-literal=PMM_CLICKHOUSE_USER=clickhouse_pmm \
-                                --from-literal=PMM_CLICKHOUSE_PASSWORD=${env.PMM_ADMIN_PASSWORD} \
-                                --from-literal=VMAGENT_remoteWrite_basicAuth_username=victoriametrics_pmm \
-                                --from-literal=VMAGENT_remoteWrite_basicAuth_password=${env.PMM_ADMIN_PASSWORD} \
-                                --from-literal=PG_PASSWORD=${env.PMM_ADMIN_PASSWORD} \
-                                --from-literal=GF_PASSWORD=${env.PMM_ADMIN_PASSWORD}
-                            echo "Pre-created pmm-secret with all required keys"
-                        """
+                        # Clone helm charts
+                        rm -rf percona-helm-charts
+                        git clone --depth 1 -b ${params.HELM_CHART_BRANCH} https://github.com/percona/percona-helm-charts.git percona-helm-charts || \
+                        git clone --depth 1 -b ${params.HELM_CHART_BRANCH} https://github.com/theTibi/percona-helm-charts.git percona-helm-charts
 
-                        // Note: Docker Hub pull secret not configured - relies on cluster's default pull config
-                        // If rate limited, consider using ECR pull-through cache or adding dockerHub credential
+                        # Setup namespace and SCC
+                        oc create namespace pmm 2>/dev/null || true
+                        oc apply -f pmm/v3/resources/pmm-anyuid-scc.yaml
 
-                        // Build helm args (no --wait, we'll wait after DNS fix)
-                        def helmArgs = [
-                            'helm upgrade --install pmm-ha percona-helm-charts/charts/pmm-ha',
-                            '--namespace pmm',
-                            '--set service.type=LoadBalancer'
-                        ]
+                        # Create secrets
+                        oc delete secret pmm-secret -n pmm 2>/dev/null || true
+                        oc create secret generic pmm-secret -n pmm \
+                            --from-literal=PMM_ADMIN_PASSWORD=${env.PMM_ADMIN_PASSWORD} \
+                            --from-literal=PMM_CLICKHOUSE_PASSWORD=${env.PMM_ADMIN_PASSWORD} \
+                            --from-literal=PG_PASSWORD=${env.PMM_ADMIN_PASSWORD} \
+                            --from-literal=GF_PASSWORD=${env.PMM_ADMIN_PASSWORD}
 
-                        if (params.PMM_IMAGE_TAG) {
-                            helmArgs.add("--set image.tag=${params.PMM_IMAGE_TAG}")
-                        }
-                        if (params.PMM_IMAGE_REPOSITORY) {
-                            helmArgs.add("--set image.repository=${params.PMM_IMAGE_REPOSITORY}")
-                        }
+                        # Add helm repos
+                        helm repo add percona https://percona.github.io/percona-helm-charts/ || true
+                        helm repo add victoriametrics https://victoriametrics.github.io/helm-charts/ || true
+                        helm repo add altinity https://helm.altinity.com || true
+                        helm repo add haproxy https://haproxytech.github.io/helm-charts/ || true
+                        helm repo update
 
-                        sh """
-                            export PATH=\$HOME/.local/bin:\$PATH
+                        # Install dependencies
+                        helm dependency build percona-helm-charts/charts/pmm-ha-dependencies
+                        helm upgrade --install pmm-ha-deps percona-helm-charts/charts/pmm-ha-dependencies \
+                            --namespace pmm --wait --timeout 10m
 
-                            # Add required helm repos for pmm-ha chart
-                            helm repo add haproxy https://haproxytech.github.io/helm-charts/ || true
-                            helm repo update
+                        # Wait for operators
+                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=300s || true
+                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=300s || true
 
-                            helm dependency build percona-helm-charts/charts/pmm-ha
+                        # Install PMM HA
+                        helm dependency build percona-helm-charts/charts/pmm-ha
 
-                            # Wait for all operators to be ready before installing PMM HA
-                            # This prevents webhook timeout errors during helm install
-                            echo "Waiting for operators to be ready..."
-                            oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=300s
-                            oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=300s
-                            oc wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n pmm --timeout=300s
-                            echo "All operators ready"
+                        HELM_ARGS="--namespace pmm --set service.type=LoadBalancer"
+                        [ -n "${PMM_IMAGE_TAG}" ] && HELM_ARGS="\${HELM_ARGS} --set image.tag=${params.PMM_IMAGE_TAG}"
 
-                            ${helmArgs.join(' \\\n                                ')}
+                        helm upgrade --install pmm-ha percona-helm-charts/charts/pmm-ha \${HELM_ARGS}
 
-                            # Wait for HAProxy configmap to be created
-                            echo "Waiting for HAProxy configmap..."
+                        # Patch HAProxy for OpenShift DNS
+                        for i in {1..30}; do
+                            if oc get cm pmm-ha-haproxy -n pmm &>/dev/null; then
+                                oc get cm pmm-ha-haproxy -n pmm -o json | \
+                                    sed 's/kube-dns.kube-system.svc.cluster.local/dns-default.openshift-dns.svc.cluster.local/g' | \
+                                    oc apply -f -
+                                oc delete pods -n pmm -l app.kubernetes.io/name=haproxy --wait=false || true
+                                break
+                            fi
+                            sleep 5
+                        done
+
+                        # Wait for pods
+                        oc wait --for=condition=Ready pods -n pmm -l app.kubernetes.io/name=haproxy --timeout=300s || true
+                    """
+
+                    // Get PMM URL
+                    env.PMM_URL = sh(
+                        script: '''
                             for i in {1..30}; do
-                                if oc get cm pmm-ha-haproxy -n pmm &>/dev/null; then
-                                    echo "HAProxy configmap found"
-                                    break
-                                fi
-                                echo "Waiting for HAProxy configmap... (\$i/30)"
-                                sleep 5
+                                URL=$(oc get svc monitoring-service -n pmm -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
+                                [ -n "$URL" ] && { echo "https://$URL"; exit 0; }
+                                sleep 10
                             done
-
-                            # Fix HAProxy DNS config for OpenShift (uses dns-default.openshift-dns instead of kube-dns.kube-system)
-                            echo "Patching HAProxy configmap for OpenShift DNS..."
-                            oc get cm pmm-ha-haproxy -n pmm -o json | \
-                                sed 's/kube-dns.kube-system.svc.cluster.local/dns-default.openshift-dns.svc.cluster.local/g' | \
-                                oc apply -f -
-
-                            # Restart HAProxy pods to pick up new config
-                            echo "Restarting HAProxy pods..."
-                            oc delete pods -n pmm -l app.kubernetes.io/name=haproxy --wait=false || true
-
-                            # Wait for all PMM HA pods to be ready
-                            echo "Waiting for all PMM HA pods to be ready..."
-                            oc wait --for=condition=Ready pods -n pmm -l app.kubernetes.io/instance=pmm-ha --timeout=600s || true
-                            oc wait --for=condition=Ready pods -n pmm -l app.kubernetes.io/name=haproxy --timeout=300s
-                        """
-
-                        // Get PMM URL (service is named monitoring-service in pmm-ha chart)
-                        def pmmUrl = sh(
-                            script: '''
-                                export PATH=$HOME/.local/bin:$PATH
-                                for i in {1..30}; do
-                                    URL=$(oc get svc monitoring-service -n pmm -o jsonpath='{.status.loadBalancer.ingress[0].hostname}' 2>/dev/null)
-                                    if [ -n "$URL" ]; then
-                                        echo "https://$URL"
-                                        exit 0
-                                    fi
-                                    echo "Waiting for LoadBalancer... ($i/30)" >&2
-                                    sleep 10
-                                done
-                                echo "pending"
-                            ''',
-                            returnStdout: true
-                        ).trim()
-
-                        env.PMM_URL = pmmUrl
-                        echo "PMM HA deployed: ${env.PMM_URL}"
-                    }
+                            echo "pending"
+                        ''',
+                        returnStdout: true
+                    ).trim()
                 }
             }
         }
 
-        stage('Cluster Summary') {
+        stage('Summary') {
             steps {
                 script {
                     def summary = """
-====================================================================
+============================================
 PMM HA ON ROSA - DEPLOYMENT COMPLETE
-====================================================================
-
-CLUSTER ACCESS
---------------
-Console URL:          ${env.CLUSTER_CONSOLE_URL}
-API Endpoint:         ${env.CLUSTER_API_URL}
-Cluster Admin:        cluster-admin
-Cluster Password:     ${env.CLUSTER_ADMIN_PASSWORD}
-
-PMM ACCESS
-----------
-PMM URL:              ${env.PMM_URL}
-PMM Username:         admin
-PMM Password:         ${env.PMM_ADMIN_PASSWORD}
-
-CLUSTER DETAILS
----------------
-Cluster Name:         ${env.FINAL_CLUSTER_NAME}
-Cluster ID:           ${env.CLUSTER_ID}
-OpenShift Version:    ${env.CLUSTER_VERSION}
-AWS Region:           ${env.AWS_REGION}
-Worker Nodes:         ${params.REPLICAS} x ${params.INSTANCE_TYPE}
-
-LOGIN COMMANDS
---------------
-# OpenShift CLI
-oc login ${env.CLUSTER_API_URL} -u cluster-admin -p '${env.CLUSTER_ADMIN_PASSWORD}' --insecure-skip-tls-verify
-
-# kubectl
-export KUBECONFIG=${env.KUBECONFIG}
-kubectl get pods -n pmm
-
-====================================================================
+============================================
+Cluster:    ${env.CLUSTER_NAME}
+Console:    ${env.CLUSTER_CONSOLE_URL}
+API:        ${env.CLUSTER_API_URL}
+"""
+                    if (!params.SKIP_PMM_INSTALL) {
+                        summary += """
+PMM URL:    ${env.PMM_URL}
+PMM User:   admin
+PMM Pass:   ${env.PMM_ADMIN_PASSWORD}
+"""
+                    }
+                    summary += """
+============================================
+Delete: rosa delete cluster --cluster=${env.CLUSTER_NAME} --yes
+        aws cloudformation delete-stack --stack-name ${env.CLUSTER_NAME}-vpc
+============================================
 """
                     echo summary
-
-                    // Update build description with PMM URL
-                    currentBuild.description = "${env.FINAL_CLUSTER_NAME} | ROSA ${env.CLUSTER_VERSION} | PMM: ${env.PMM_URL}"
-                }
-            }
-        }
-
-        stage('Archive Artifacts') {
-            steps {
-                script {
-                    def clusterInfo = """
-Cluster Name: ${env.FINAL_CLUSTER_NAME}
-Cluster ID: ${env.CLUSTER_ID}
-Console URL: ${env.CLUSTER_CONSOLE_URL}
-API URL: ${env.CLUSTER_API_URL}
-Admin User: cluster-admin
-Admin Password: ${env.CLUSTER_ADMIN_PASSWORD}
-
-PMM URL: ${env.PMM_URL}
-PMM User: admin
-PMM Password: ${env.PMM_ADMIN_PASSWORD}
-"""
-                    writeFile file: "${KUBECONFIG_DIR}/cluster-info.txt", text: clusterInfo
-                    archiveArtifacts artifacts: 'kubeconfig/**', allowEmptyArchive: true
+                    currentBuild.description = "${env.CLUSTER_NAME} | ${env.PMM_URL ?: 'no PMM'}"
                 }
             }
         }
@@ -779,12 +634,32 @@ PMM Password: ${env.PMM_ADMIN_PASSWORD}
     post {
         failure {
             script {
-                attemptClusterCleanup('failed')
-            }
-        }
-        aborted {
-            script {
-                attemptClusterCleanup('aborted')
+                if (!params.DEBUG_MODE) {
+                    echo "Cleaning up failed cluster..."
+                    try {
+                        timeout(time: 10, unit: 'MINUTES') {
+                            withCredentials([
+                                aws(credentialsId: 'jenkins-openshift-aws',
+                                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),
+                                string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
+                            ]) {
+                                sh """
+                                    rosa login --token="\${ROSA_TOKEN}"
+                                    rosa delete cluster --cluster=${env.CLUSTER_NAME} --yes || true
+
+                                    if [ -f vpc_created.flag ]; then
+                                        aws cloudformation delete-stack --stack-name ${env.CLUSTER_NAME}-vpc --region ${env.REGION} || true
+                                    fi
+                                """
+                            }
+                        }
+                    } catch (Exception e) {
+                        echo "Cleanup failed: ${e.message}"
+                    }
+                } else {
+                    echo "DEBUG_MODE: Skipping cleanup"
+                }
             }
         }
         always {
