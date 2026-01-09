@@ -11,6 +11,11 @@ pipeline {
     }
 
     parameters {
+        choice(
+            name: 'OPERATOR',
+            choices: ['percona-server-mongodb-operator', 'percona-xtradb-cluster-operator', 'percona-server-mysql-operator', 'percona-postgresql-operator'],
+            description: 'Select the operator'
+        )
         string(
             name: 'VERSION',
             defaultValue: '',
@@ -18,20 +23,15 @@ pipeline {
         )
         choice(
             name: 'CREATE_BRANCH',
-            choices: ['no', 'yes'],
+            choices: ['NO', 'YES'],
             description: 'Create a new release branch?'
         )
-        choice(
-            name: 'OPERATOR',
-            choices: ['percona-server-mongodb-operator', 'percona-xtradb-cluster-operator', 'percona-server-mysql-operator', 'percona-postgresql-operator'],
-            description: 'Select the operator'
-        )
     }
+        
 
     environment {
         RELEASE_BRANCH = "release-${params.VERSION}"
         RESULT_FOLDER = 'release-artifacts'
-        //GITHUB_TOKEN = credentials('github-token-id')
     }
 
     options {
@@ -44,42 +44,44 @@ pipeline {
         stage('Validate Parameters') {
             steps {
                 script {
-                    if (!params.VERSION || !params.VERSION.matches(~/^\d+\.\d+\.\d+$/)) {
-                        error("VERSION must follow semantic versioning format (x.y.z). Provided: ${params.VERSION}")
-                    }
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
+                        if (!params.VERSION || !params.VERSION.matches(~/^\d+\.\d+\.\d+$/)) {
+                            error("VERSION must follow semantic versioning format (x.y.z). Provided: ${params.VERSION}")
+                        }
 
-                    def repoPath = "percona/${params.OPERATOR}"
-                    env.GIT_REPO_URL = "https://github.com/${repoPath}.git"
-                    env.GITHUB_API_URL = "https://api.github.com/repos/${repoPath}/releases"
+                        def repoPath = "percona/${params.OPERATOR}"
+                        env.GIT_REPO_URL = "https://github.com/${repoPath}.git"
+                        env.GITHUB_API_URL = "https://api.github.com/repos/${repoPath}/releases"
 
-                    echo "Validating version v${params.VERSION} for ${params.OPERATOR}..."
+                        echo "Validating version v${params.VERSION} for ${params.OPERATOR}..."
 
-                    def apiResponse = sh(
-                        script: "curl -s -H 'Authorization: token \${GITHUB_TOKEN}' ${env.GITHUB_API_URL}",
-                        returnStdout: true
-                    ).trim()
-
-                    if (apiResponse.contains("\"tag_name\": \"v${params.VERSION}\"")) {
-                        error("Version v${params.VERSION} already exists in GitHub releases.")
-                    }
-
-                    def latestVersion = sh(
-                        script: "echo '${apiResponse}' | jq -r '.[0].tag_name'",
-                        returnStdout: true
-                    ).trim()
-
-                    if (latestVersion) {
-                        def compareResult = sh(
-                            script: "printf '%s\\n%s' '${latestVersion}' '${params.VERSION}' | sort -V | tail -1",
+                        def apiResponse = sh(
+                            script: "curl -s -H 'Authorization: token \${GITHUB_TOKEN}' ${env.GITHUB_API_URL}",
                             returnStdout: true
                         ).trim()
 
-                        if (compareResult != params.VERSION) {
-                            error("New version v${params.VERSION} must be greater than latest release v${latestVersion}")
+                        if (apiResponse.contains("\"tag_name\": \"v${params.VERSION}\"")) {
+                            error("Version v${params.VERSION} already exists in GitHub releases.")
                         }
-                        echo "Version v${params.VERSION} > v${latestVersion} ✓"
-                    } else {
-                        error("No existing releases found in repository. Cannot proceed without a baseline release to compare against.")
+
+                        def latestVersion = sh(
+                            script: "echo '${apiResponse}' | jq -r '.[0].tag_name'",
+                            returnStdout: true
+                        ).trim()
+
+                        if (latestVersion) {
+                            def compareResult = sh(
+                                script: "printf '%s\\n%s' '${latestVersion}' '${params.VERSION}' | sort -V | tail -1",
+                                returnStdout: true
+                            ).trim()
+
+                            if (compareResult != params.VERSION) {
+                                error("New version v${params.VERSION} must be greater than latest release v${latestVersion}")
+                            }
+                            echo "Version v${params.VERSION} > v${latestVersion} ✓"
+                        } else {
+                            error("No existing releases found in repository. Cannot proceed without a baseline release to compare against.")
+                        }
                     }
                 }
             }
@@ -224,7 +226,7 @@ pipeline {
             }
         }
         always {
-            cleanWs(deleteDirs: true)
+            deleteDir()
         }
     }
 }
