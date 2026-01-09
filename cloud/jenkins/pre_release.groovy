@@ -116,7 +116,7 @@ pipeline {
 
         // stage('Create Release Branch') {
         //     when {
-        //         expression { params.CREATE_BRANCH == 'yes' }
+        //         expression { params.CREATE_BRANCH == 'YES' }
         //     }
         //     steps {
         //         script {
@@ -150,7 +150,8 @@ pipeline {
                 script {
                     echo 'Generating release images file'
                     sh """
-                        uv run scripts/generate_release_images_file.py operatorMap[params.OPERATOR] ${params.VERSION}
+                        export PATH="\$HOME/.local/bin:\$PATH"
+                        uv run scripts/generate_release_images_file.py ${operatorMap[params.OPERATOR]} ${params.VERSION}
                     """
 
                     archiveArtifacts artifacts: 'release_versions.txt', allowEmptyArchive: false, fingerprint: true
@@ -196,7 +197,8 @@ pipeline {
         // stage('Generate Version Service JSON fragment') {
         //     steps {
         //         sh """
-        //             uv run generate_vs_json.py e2e-tests/release_versions operator.{params.VERSION}.${params.OPERATOR}-frag.json
+        //             export PATH="\$HOME/.local/bin:\$PATH"
+        //             uv run generate_vs_json.py e2e-tests/release_versions operator.${params.VERSION}.${params.OPERATOR}-frag.json
         //         """
         //     }
         // }
