@@ -2,7 +2,7 @@ String call() {
     // For this to work, devs should add keys to https://github.com/settings/keys
     String sshKeys = ''
     // github users
-    final List additional_keys = ['talhabinrizwan', 'nailya', 'BupycHuk', 'ademidoff' ] 
+    final List additional_keys = ['talhabinrizwan', 'nailya', 'ademidoff' ] 
     additional_keys.each { item ->
         // First get the status code
         def exitCode = sh(script: "curl -sSf https://github.com/${item}.keys -o /tmp/ssh_keys_${item}", returnStatus: true)
