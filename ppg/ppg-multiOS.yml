@@ -1,5 +1,5 @@
 - job:
-    name: ppg-parallel
+    name: ppg-multiOS
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ppg/ppg-parallel.groovy
+      script-path: ppg/ppg-multiOS.groovy
