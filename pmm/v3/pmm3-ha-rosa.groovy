@@ -465,7 +465,7 @@ VPCTEMPLATE
                         )
 
                         // Wait for admin credentials
-                        echo "Waiting 90s for admin credentials to propagate..."
+                        echo 'Waiting 90s for admin credentials to propagate...'
                         sleep(90)
 
                         // Login
@@ -635,35 +635,49 @@ Delete: rosa delete cluster --cluster=${env.CLUSTER_NAME} --yes
         failure {
             script {
                 if (!params.DEBUG_MODE) {
-                    echo "Cleaning up failed cluster..."
-                    try {
-                        timeout(time: 10, unit: 'MINUTES') {
-                            withCredentials([
-                                aws(credentialsId: 'jenkins-openshift-aws',
-                                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
-                                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),
-                                string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
-                            ]) {
-                                sh """
-                                    rosa login --token="\${ROSA_TOKEN}"
-                                    rosa delete cluster --cluster=${env.CLUSTER_NAME} --yes || true
-
-                                    if [ -f vpc_created.flag ]; then
-                                        aws cloudformation delete-stack --stack-name ${env.CLUSTER_NAME}-vpc --region ${env.REGION} || true
-                                    fi
-                                """
-                            }
-                        }
-                    } catch (Exception e) {
-                        echo "Cleanup failed: ${e.message}"
-                    }
+                    echo 'Cleaning up failed cluster...'
+                    cleanupCluster()
                 } else {
-                    echo "DEBUG_MODE: Skipping cleanup"
+                    echo 'DEBUG_MODE: Skipping cleanup'
+                }
+            }
+        }
+        aborted {
+            script {
+                if (!params.DEBUG_MODE) {
+                    echo 'Job aborted - cleaning up cluster...'
+                    cleanupCluster()
+                } else {
+                    echo 'DEBUG_MODE: Skipping cleanup'
                 }
             }
         }
         always {
             deleteDir()
         }
+    }
+}
+
+def cleanupCluster() {
+    try {
+        timeout(time: 10, unit: 'MINUTES') {
+            withCredentials([
+                aws(credentialsId: 'jenkins-openshift-aws',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),
+                string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
+            ]) {
+                sh """
+                    rosa login --token="\${ROSA_TOKEN}"
+                    rosa delete cluster --cluster=${env.CLUSTER_NAME} --yes || true
+
+                    if [ -f vpc_created.flag ]; then
+                        aws cloudformation delete-stack --stack-name ${env.CLUSTER_NAME}-vpc --region ${env.REGION} || true
+                    fi
+                """
+            }
+        }
+    } catch (Exception e) {
+        echo "Cleanup failed: ${e.message}"
     }
 }
