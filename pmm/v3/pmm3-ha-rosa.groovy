@@ -31,7 +31,7 @@ pipeline {
         )
         string(
             name: 'HELM_CHART_BRANCH',
-            defaultValue: 'PMM-14324-pmm-ha-monitoring',
+            defaultValue: 'pmmha-v3',
             description: 'Branch of percona-helm-charts repo for PMM HA chart'
         )
         string(
