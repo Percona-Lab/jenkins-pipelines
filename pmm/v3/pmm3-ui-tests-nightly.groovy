@@ -89,6 +89,7 @@ def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, AD
     env.VM_IP = pmmHostname
     env.VM_NAME = clusterCreateJob.buildVariables.VM_NAME
     env.WORK_DIR = clusterCreateJob.buildVariables.WORK_DIR
+    env.CLUSTER_NAME = clusterCreateJob.buildVariables.CLUSTER_NAME
     env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${pmmHostname}"
     env.PMM_UI_URL = "${pmmAddress}/"
 }
@@ -544,6 +545,12 @@ pipeline {
                     build job: 'openshift-cluster-destroy', parameters: [
                         string(name: 'CLUSTER_NAME', value: env.FINAL_CLUSTER_NAME),
                         string(name: 'DESTROY_REASON', value: 'testing-complete'),
+                    ]
+                }
+                if (env.SERVER_TYPE == "ha") {
+                    build job: 'pmm3-ha-eks-cleanup', parameters: [
+                        string(name: 'ACTION', value: 'DELETE_CLUSTER'),
+                        string(name: 'CLUSTER_NAME', value: value: env.CLUSTER_NAME),
                     ]
                 }
                 if(env.VM_NAME && env.SERVER_TYPE == "docker") {
