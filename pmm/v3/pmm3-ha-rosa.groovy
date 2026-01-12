@@ -87,6 +87,120 @@ pipeline {
             }
         }
 
+        stage('Install CLI Tools') {
+            steps {
+                sh '''
+                    set -o errexit
+
+                    mkdir -p $HOME/.local/bin
+                    export PATH="$HOME/.local/bin:$PATH"
+
+                    echo "Installing CLI tools with SHA256 checksum validation..."
+
+                    # ============================================================
+                    # ROSA CLI
+                    # ============================================================
+                    if ! command -v rosa &>/dev/null; then
+                        echo "[1/3] Installing ROSA CLI..."
+                        ROSA_URL="https://mirror.openshift.com/pub/openshift-v4/clients/rosa/latest"
+
+                        curl -sSL "${ROSA_URL}/rosa-linux.tar.gz" -o /tmp/rosa.tar.gz
+                        curl -sSL "${ROSA_URL}/sha256sum.txt" -o /tmp/rosa-sha256sum.txt
+
+                        # Validate checksum
+                        EXPECTED_SHA=$(grep 'rosa-linux.tar.gz$' /tmp/rosa-sha256sum.txt | awk '{print $1}')
+                        ACTUAL_SHA=$(sha256sum /tmp/rosa.tar.gz | awk '{print $1}')
+
+                        if [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
+                            echo "ERROR: ROSA checksum mismatch!"
+                            echo "  Expected: $EXPECTED_SHA"
+                            echo "  Actual:   $ACTUAL_SHA"
+                            exit 1
+                        fi
+                        echo "  Checksum OK: $ACTUAL_SHA"
+
+                        tar -xzf /tmp/rosa.tar.gz -C $HOME/.local/bin rosa
+                        chmod +x $HOME/.local/bin/rosa
+                        rm -f /tmp/rosa.tar.gz /tmp/rosa-sha256sum.txt
+                    else
+                        echo "[1/3] ROSA CLI already installed: $(rosa version | head -1)"
+                    fi
+
+                    # ============================================================
+                    # OpenShift CLI (oc)
+                    # ============================================================
+                    if ! command -v oc &>/dev/null; then
+                        echo "[2/3] Installing OpenShift CLI (oc)..."
+                        OC_VERSION="stable-${OPENSHIFT_VERSION}"
+                        OC_URL="https://mirror.openshift.com/pub/openshift-v4/clients/ocp/${OC_VERSION}"
+
+                        curl -sSL "${OC_URL}/openshift-client-linux.tar.gz" -o /tmp/oc.tar.gz
+                        curl -sSL "${OC_URL}/sha256sum.txt" -o /tmp/oc-sha256sum.txt
+
+                        # Validate checksum
+                        EXPECTED_SHA=$(grep 'openshift-client-linux.tar.gz$' /tmp/oc-sha256sum.txt | awk '{print $1}')
+                        ACTUAL_SHA=$(sha256sum /tmp/oc.tar.gz | awk '{print $1}')
+
+                        if [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
+                            echo "ERROR: OpenShift CLI checksum mismatch!"
+                            echo "  Expected: $EXPECTED_SHA"
+                            echo "  Actual:   $ACTUAL_SHA"
+                            exit 1
+                        fi
+                        echo "  Checksum OK: $ACTUAL_SHA"
+
+                        tar -xzf /tmp/oc.tar.gz -C $HOME/.local/bin oc kubectl
+                        chmod +x $HOME/.local/bin/oc $HOME/.local/bin/kubectl
+                        rm -f /tmp/oc.tar.gz /tmp/oc-sha256sum.txt
+                    else
+                        echo "[2/3] OpenShift CLI already installed: $(oc version --client 2>/dev/null | head -1)"
+                    fi
+
+                    # ============================================================
+                    # Helm (latest stable from GitHub releases)
+                    # ============================================================
+                    if ! command -v helm &>/dev/null; then
+                        echo "[3/3] Installing Helm..."
+
+                        # Get latest stable version from GitHub API
+                        HELM_VERSION=$(curl -sSL https://api.github.com/repos/helm/helm/releases/latest | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+                        echo "  Latest version: ${HELM_VERSION}"
+
+                        HELM_URL="https://get.helm.sh/helm-${HELM_VERSION}-linux-amd64.tar.gz"
+
+                        curl -sSL "${HELM_URL}" -o /tmp/helm.tar.gz
+                        curl -sSL "${HELM_URL}.sha256sum" -o /tmp/helm-sha256sum.txt
+
+                        # Validate checksum (helm format: "hash  filename")
+                        EXPECTED_SHA=$(cat /tmp/helm-sha256sum.txt | awk '{print $1}')
+                        ACTUAL_SHA=$(sha256sum /tmp/helm.tar.gz | awk '{print $1}')
+
+                        if [ "$EXPECTED_SHA" != "$ACTUAL_SHA" ]; then
+                            echo "ERROR: Helm checksum mismatch!"
+                            echo "  Expected: $EXPECTED_SHA"
+                            echo "  Actual:   $ACTUAL_SHA"
+                            exit 1
+                        fi
+                        echo "  Checksum OK: $ACTUAL_SHA"
+
+                        tar -xzf /tmp/helm.tar.gz -C /tmp linux-amd64/helm
+                        mv /tmp/linux-amd64/helm $HOME/.local/bin/helm
+                        chmod +x $HOME/.local/bin/helm
+                        rm -rf /tmp/helm.tar.gz /tmp/helm-sha256sum.txt /tmp/linux-amd64
+                    else
+                        echo "[3/3] Helm already installed: $(helm version --short)"
+                    fi
+
+                    # Verify all tools
+                    echo ""
+                    echo "CLI Tools Summary:"
+                    echo "  ROSA: $(rosa version | head -1)"
+                    echo "  OC:   $(oc version --client 2>/dev/null | grep 'Client Version' || oc version --client | head -1)"
+                    echo "  Helm: $(helm version --short)"
+                '''
+            }
+        }
+
         stage('Verify Prerequisites') {
             steps {
                 withCredentials([
@@ -97,6 +211,7 @@ pipeline {
                 ]) {
                     sh '''
                         set -o errexit
+                        export PATH="$HOME/.local/bin:$PATH"
 
                         echo "[1/7] Verifying prerequisites..."
 
@@ -128,6 +243,7 @@ pipeline {
                 ]) {
                     sh '''
                         set -o errexit
+                        export PATH="$HOME/.local/bin:$PATH"
 
                         echo "Checking existing PMM HA ROSA clusters..."
 
@@ -157,6 +273,7 @@ pipeline {
                 ]) {
                     sh '''
                         set -o errexit
+                        export PATH="$HOME/.local/bin:$PATH"
                         export AWS_DEFAULT_REGION="${REGION}"
 
                         echo "============================================"
@@ -470,6 +587,8 @@ VPCTEMPLATE
 
                         // Login
                         sh """
+                            export PATH="\$HOME/.local/bin:\$PATH"
+
                             # Get fresh admin credentials
                             ADMIN_PASS=\$(rosa create admin --cluster=${env.CLUSTER_NAME} 2>&1 | grep -oE '[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}' | head -1 || echo "")
 
@@ -490,6 +609,7 @@ VPCTEMPLATE
             steps {
                 sh '''
                     set -o errexit
+                    export PATH="$HOME/.local/bin:$PATH"
 
                     echo "Installing Kyverno..."
                     helm repo add kyverno https://kyverno.github.io/kyverno/ || true
@@ -524,6 +644,7 @@ VPCTEMPLATE
 
                     sh """
                         set -o errexit
+                        export PATH="\$HOME/.local/bin:\$PATH"
 
                         echo "Installing PMM HA..."
 
@@ -668,6 +789,8 @@ def cleanupCluster() {
                 string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
             ]) {
                 sh """
+                    export PATH="\$HOME/.local/bin:\$PATH"
+
                     rosa login --token="\${ROSA_TOKEN}"
                     rosa delete cluster --cluster=${env.CLUSTER_NAME} --yes || true
 
