@@ -20,7 +20,7 @@ pipeline {
                 'debian-13',
                 'debian-12-arm64',
                 'rocky-9-arm64',
-                'ubuntu-jammy-arm64'
+                'ubuntu-jammy-arm64',
                 'rhel-10-arm64',
                 'debian-13-arm64',
             ]
