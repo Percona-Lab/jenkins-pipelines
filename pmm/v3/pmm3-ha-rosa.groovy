@@ -637,21 +637,39 @@ VPCTEMPLATE
         stage('Install PMM HA') {
             when { expression { !params.SKIP_PMM_INSTALL } }
             steps {
-                script {
-                    // Generate password
-                    env.PMM_ADMIN_PASSWORD = sh(
-                        script: "openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16",
-                        returnStdout: true
-                    ).trim()
+                withCredentials([
+                    aws(credentialsId: 'jenkins-openshift-aws',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'),
+                    string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
+                ]) {
+                    script {
+                        // Generate password
+                        env.PMM_ADMIN_PASSWORD = sh(
+                            script: "openssl rand -base64 16 | tr -dc 'a-zA-Z0-9' | head -c 16",
+                            returnStdout: true
+                        ).trim()
 
-                    sh """
-                        set -o errexit
-                        export PATH="\$HOME/.local/bin:\$PATH"
+                        // Re-login to cluster (kubeconfig doesn't persist between stages)
+                        sh """
+                            export PATH="\$HOME/.local/bin:\$PATH"
+                            rosa login --token="\${ROSA_TOKEN}"
 
-                        echo "Installing PMM HA..."
+                            # Get admin password and login
+                            ADMIN_PASS=\$(rosa create admin --cluster=${env.CLUSTER_NAME} 2>&1 | grep -oE '[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}-[A-Za-z0-9]{5}' | head -1 || echo "")
+                            if [ -n "\${ADMIN_PASS}" ]; then
+                                oc login ${env.CLUSTER_API_URL} --username=cluster-admin --password="\${ADMIN_PASS}" --insecure-skip-tls-verify=true
+                            fi
+                        """
 
-                        # Clone helm charts
-                        rm -rf percona-helm-charts
+                        sh """
+                            set -o errexit
+                            export PATH="\$HOME/.local/bin:\$PATH"
+
+                            echo "Installing PMM HA..."
+
+                            # Clone helm charts
+                            rm -rf percona-helm-charts
                         git clone --depth 1 -b ${params.HELM_CHART_BRANCH} https://github.com/percona/percona-helm-charts.git percona-helm-charts || \
                         git clone --depth 1 -b ${params.HELM_CHART_BRANCH} https://github.com/theTibi/percona-helm-charts.git percona-helm-charts
 
@@ -719,6 +737,7 @@ VPCTEMPLATE
                         ''',
                         returnStdout: true
                     ).trim()
+                    }
                 }
             }
         }
