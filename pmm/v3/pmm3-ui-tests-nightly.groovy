@@ -550,7 +550,7 @@ pipeline {
                 if (env.SERVER_TYPE == "ha") {
                     build job: 'pmm3-ha-eks-cleanup', parameters: [
                         string(name: 'ACTION', value: 'DELETE_CLUSTER'),
-                        string(name: 'CLUSTER_NAME', value: value: env.CLUSTER_NAME),
+                        string(name: 'CLUSTER_NAME', value: env.CLUSTER_NAME),
                     ]
                 }
                 if(env.VM_NAME && env.SERVER_TYPE == "docker") {
