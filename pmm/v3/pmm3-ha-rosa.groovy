@@ -212,6 +212,7 @@ pipeline {
                     sh '''
                         set -o errexit
                         export PATH="$HOME/.local/bin:$PATH"
+                        export AWS_DEFAULT_REGION="${REGION}"
 
                         echo "[1/7] Verifying prerequisites..."
 
@@ -244,6 +245,7 @@ pipeline {
                     sh '''
                         set -o errexit
                         export PATH="$HOME/.local/bin:$PATH"
+                        export AWS_DEFAULT_REGION="${REGION}"
 
                         echo "Checking existing PMM HA ROSA clusters..."
 
