@@ -3,20 +3,21 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
+def sendSlackNotification(scenario, fromVersion, toVersion) {
+    if (currentBuild.result == "SUCCESS") {
+        buildSummary = "Job: ${env.JOB_NAME}\nScenario: ${scenario}\nFrom version: ${fromVersion}\nTo version: ${toVersion}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
+        slackSend color: "good", message: "${buildSummary}", channel: '#postgresql-test'
+    } else {
+        buildSummary = "Job: ${env.JOB_NAME}\nScenario: ${scenario}\nFrom version: ${fromVersion}\nTo version: ${toVersion}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
+        slackSend color: "danger", message: "${buildSummary}", channel: '#postgresql-test'
+    }
+}
+
 pipeline {
     agent {
         label 'min-ol-9-x64'
     }
-    environment {
-        PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
-        MOLECULE_DIR = "ppg/${SCENARIO}"
-    }
     parameters {
-        choice(
-            name: 'PLATFORM',
-            description: 'For what platform (OS) need to test',
-            choices: ppgOperatingSystemsAMD()
-        )
         choice(
             name: 'FROM_REPO',
             description: 'From this repo will be upgraded PPG',
@@ -55,11 +56,10 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
-        booleanParam(
-            name: 'DESTROY_ENV',
-            defaultValue: true,
-            description: 'Destroy VM after tests'
-        )
+    }
+    environment {
+        PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+        MOLECULE_DIR = "ppg/${SCENARIO}"
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
@@ -69,7 +69,7 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.SCENARIO}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
                 }
             }
         }
@@ -86,31 +86,10 @@ pipeline {
                 }
             }
         }
-        stage('Create virtual machines') {
+        stage('Test') {
             steps {
                 script {
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "create", env.PLATFORM)
-                }
-            }
-        }
-        stage('Run playbook for test') {
-            steps {
-                script {
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "converge", env.PLATFORM)
-                }
-            }
-        }
-        stage('Start testinfra tests') {
-            steps {
-                script {
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "verify", env.PLATFORM)
-                }
-            }
-        }
-        stage('Start Cleanup ') {
-            steps {
-                script {
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
+                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                 }
             }
         }
@@ -118,9 +97,8 @@ pipeline {
     post {
         always {
             script {
-                if (env.DESTROY_ENV) {
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
-                }
+                moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                sendSlackNotification(env.SCENARIO, env.FROM_VERSION, env.VERSION)
             }
         }
     }

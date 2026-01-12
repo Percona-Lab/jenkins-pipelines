@@ -3,15 +3,16 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotification(psp_repo, psp_branch, version, package_repo, major_repo) {
+def sendSlackNotification(scenario, version) {
     if (currentBuild.result == "SUCCESS") {
-        buildSummary = "Job: ${env.JOB_NAME}\nPSP_Repo: ${psp_repo}\nPSP_Branch: ${psp_branch}\nVersion: ${version}\nPackage_Repo: ${package_repo}\nMajor_Repo: ${major_repo}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
+        buildSummary = "Job: ${env.JOB_NAME}\nScenario: ${scenario}\nVersion: ${version}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
         slackSend color: "good", message: "${buildSummary}", channel: '#postgresql-test'
     } else {
-        buildSummary = "Job: ${env.JOB_NAME}\nPSP_Repo: ${psp_repo}\nPSP_Branch: ${psp_branch}\nVersion: ${version}\nPackage_Repo: ${package_repo}\nMajor_Repo: ${major_repo}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
+        buildSummary = "Job: ${env.JOB_NAME}\nScenario: ${scenario}\nVersion: ${version}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
         slackSend color: "danger", message: "${buildSummary}", channel: '#postgresql-test'
     }
 }
+
 
 pipeline {
     agent {
@@ -20,26 +21,16 @@ pipeline {
     parameters {
         choice(
             name: 'REPO',
-            description: 'Packages Repo for testing',
+            description: 'Repo for testing',
             choices: [
                 'testing',
-                'experimental',
-                'release'
+                'release',
+                'experimental'
             ]
         )
         string(
-            defaultValue: 'https://github.com/percona/pg_tde.git',
-            description: 'pg_tde repo that we want to test, we could also use forked developer repo here.',
-            name: 'TDE_REPO'
-        )
-        string(
-            defaultValue: 'release-2.1',
-            description: 'TDE repo version/branch/tag to use; e.g main, release-2.1',
-            name: 'TDE_BRANCH'
-        )
-        string(
             defaultValue: 'ppg-18.1',
-            description: 'Server PG version for test, including major and minor version, e.g ppg-17.4, ppg-17.3',
+            description: 'PG version for test',
             name: 'VERSION'
         )
         choice(
@@ -51,28 +42,34 @@ pipeline {
                 'io_uring'
             ]
         )
+        choice(
+            name: 'SCENARIO',
+            description: 'PG scenario for test',
+            choices: ppgScenarios()
+        )
         string(
             defaultValue: 'main',
-            description: 'Branch for ppg-testing testing repository',
+            description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
         booleanParam(
             name: 'MAJOR_REPO',
-            description: "Enable to use major (ppg-17) repo instead of ppg-17.6"
+            description: "Enable to use major (ppg-17) repo instead of ppg-17.0"
         )
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
-        MOLECULE_DIR = "pg_tde/tde"
+        MOLECULE_DIR = "ppg/${SCENARIO}"
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
+        disableConcurrentBuilds()
     }
     stages {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-pg_tde-${env.VERSION}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
                 }
             }
         }
@@ -101,7 +98,7 @@ pipeline {
         always {
             script {
                 moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                sendSlackNotification(env.TDE_REPO, env.TDE_BRANCH, env.VERSION, env.REPO, env.MAJOR_REPO)
+                sendSlackNotification(env.SCENARIO, env.VERSION)
             }
         }
     }

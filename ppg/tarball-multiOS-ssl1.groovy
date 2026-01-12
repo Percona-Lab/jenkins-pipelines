@@ -3,45 +3,57 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotification(pgsm_repo, pgsm_branch, version) {
+def sendSlackNotification(version) {
     if (currentBuild.result == "SUCCESS") {
-        buildSummary = "Job: ${env.JOB_NAME}\nPGSM_Repo: ${pgsm_repo}\nPGSM_Branch: ${pgsm_branch}\nVersion: ${version}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
+        buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
         slackSend color: "good", message: "${buildSummary}", channel: '#postgresql-test'
     } else {
-        buildSummary = "Job: ${env.JOB_NAME}\nPGSM_Repo: ${pgsm_repo}\nPGSM_Branch: ${pgsm_branch}\nVersion: ${version}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
+        buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
         slackSend color: "danger", message: "${buildSummary}", channel: '#postgresql-test'
     }
 }
+
 
 pipeline {
     agent {
         label 'min-ol-9-x64'
     }
     parameters {
-        string(
-            defaultValue: 'https://github.com/percona/pg_stat_monitor.git',
-            description: 'PGSM repo that we want to test, we could also use forked developer repo here.',
-            name: 'PGSM_REPO'
+        choice(
+            name: 'SSL_VERSION',
+            description: 'SSL version to use',
+            choices: [
+                '1'
+            ]
+        )
+        choice(
+            name: 'IO_METHOD',
+            description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
+            choices: [
+                'worker',
+                'sync',
+                'io_uring'
+            ]
         )
         string(
-            defaultValue: '2.3.1',
-            description: 'PGSM repo version/branch/tag to use; e.g main, 2.0.5',
-            name: 'PGSM_BRANCH'
-        )
-        string(
-            defaultValue: 'pg-18.0',
-            description: 'PGDG Server PG version for test, including major and minor version, e.g pg-16.2, pg-15.5',
+            defaultValue: 'ppg-18.1',
+            description: 'PG version for test',
             name: 'VERSION'
         )
         string(
+            defaultValue: 'https://downloads.percona.com/downloads/TESTING/pg_tarballs-17.6/percona-postgresql-17.6-ssl1.1-linux-x86_64.tar.gz',
+            description: 'URL for tarball.',
+            name: 'TARBALL_URL'
+        )
+        string(
             defaultValue: 'main',
-            description: 'Branch for ppg-testing testing repository',
+            description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
-        MOLECULE_DIR = "pg_stat_monitor/pgsm_pgdg"
+        MOLECULE_DIR = "ppg/pg-tarballs"
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
@@ -51,7 +63,7 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-pgsm-${env.VERSION}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.JOB_NAME}"
                 }
             }
         }
@@ -71,7 +83,7 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+                    moleculeParallelTestPPG(ppgOperatingSystemsSSL1(), env.MOLECULE_DIR)
                 }
             }
         }
@@ -79,8 +91,8 @@ pipeline {
     post {
         always {
             script {
-                moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                sendSlackNotification(env.PGSM_REPO, env.PGSM_BRANCH, env.VERSION)
+                moleculeParallelPostDestroyPPG(ppgOperatingSystemsSSL1(), env.MOLECULE_DIR)
+                sendSlackNotification(env.VERSION)
             }
         }
     }

@@ -1,5 +1,5 @@
 - job:
-    name: component
+    name: docker-server
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -8,7 +8,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+              - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ppg/component.groovy
+      script-path: ppg/docker-server.groovy
