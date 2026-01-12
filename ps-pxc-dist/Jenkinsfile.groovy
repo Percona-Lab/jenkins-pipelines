@@ -147,7 +147,7 @@ pipeline {
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
-                            rm args_pipeline
+                            rm -f args_pipeline
                             for var in "\$(printenv | grep _PATH | sed 's/KEY_PATH.*//')"; do
                                 echo "\$var" >> args_pipeline
                             done
