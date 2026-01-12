@@ -44,6 +44,10 @@ pipeline {
             description: 'Tag/Branch for binlog-server repository',
             name: 'GIT_BRANCH')
         string(
+            defaultValue: '1.0.0',
+            description: 'VERSION value',
+            name: 'VERSION')
+        string(
             defaultValue: '1',
             description: 'RPM release value',
             name: 'RPM_RELEASE')
@@ -51,10 +55,6 @@ pipeline {
             defaultValue: '1',
             description: 'DEB release value',
             name: 'DEB_RELEASE')
-        string(
-            defaultValue: '1.0.0',
-            description: 'VERSION value',
-            name: 'VERSION')
         string(
             defaultValue: 'tools',
             description: 'PBS repo name',
