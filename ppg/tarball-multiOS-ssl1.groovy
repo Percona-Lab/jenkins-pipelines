@@ -25,13 +25,8 @@ pipeline {
             name: 'SSL_VERSION',
             description: 'SSL version to use',
             choices: [
-                '3'
+                '1'
             ]
-        )
-        string(
-            defaultValue: 'ppg-18.1',
-            description: 'PG version for test',
-            name: 'VERSION'
         )
         choice(
             name: 'IO_METHOD',
@@ -43,7 +38,12 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'https://downloads.percona.com/downloads/TESTING/pg_tarballs-17.6/percona-postgresql-17.6-ssl3-linux-x86_64.tar.gz',
+            defaultValue: 'ppg-18.1',
+            description: 'PG version for test',
+            name: 'VERSION'
+        )
+        string(
+            defaultValue: 'https://downloads.percona.com/downloads/TESTING/pg_tarballs-17.6/percona-postgresql-17.6-ssl1.1-linux-x86_64.tar.gz',
             description: 'URL for tarball.',
             name: 'TARBALL_URL'
         )
@@ -64,6 +64,7 @@ pipeline {
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
+          disableConcurrentBuilds()
   }
     stages {
         stage('Set build name'){
@@ -89,7 +90,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTestPPG(ppgOperatingSystemsSSL3(), env.MOLECULE_DIR)
+                    moleculeParallelTestPPG(ppgOperatingSystemsSSL1(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -97,7 +98,7 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroyPPG(ppgOperatingSystemsSSL3(), env.MOLECULE_DIR)
+              moleculeParallelPostDestroyPPG(ppgOperatingSystemsSSL1(), env.MOLECULE_DIR)
               sendSlackNotification(env.VERSION)
          }
       }

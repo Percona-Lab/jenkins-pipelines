@@ -48,6 +48,10 @@ pipeline {
                 'perconalab'
             ]
         )
+        booleanParam(
+            name: 'WITH_POSTGIS',
+            description: "Enable if testing a psp/ppg server docker that also contains postgis."
+        )
         string(
             defaultValue: 'yes',
             description: 'Destroy VM after tests',

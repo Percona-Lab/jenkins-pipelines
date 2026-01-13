@@ -1,5 +1,5 @@
 - job:
-    name: ppg
+    name: docker-server
     project-type: pipeline
     description: |
         Do not edit this job through the web!

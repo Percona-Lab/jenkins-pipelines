@@ -81,6 +81,7 @@ pipeline {
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
+          disableConcurrentBuilds()
   }
     stages {
         stage('Set build name'){

@@ -3,14 +3,14 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotification(psp_repo, psp_branch, version, package_repo, major_repo)
+def sendSlackNotification(pgsm_repo, pgsm_branch, pgsm_package_install, version, package_repo, major_repo)
 {
  if ( currentBuild.result == "SUCCESS" ) {
-    buildSummary = "Job: ${env.JOB_NAME}\nPSP_Repo: ${psp_repo}\nPSP_Branch: ${psp_branch}\nVersion: ${version}\nPackage_Repo: ${package_repo}\nMajor_Repo: ${major_repo}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
+    buildSummary = "Job: ${env.JOB_NAME}\nPGSM_Repo: ${pgsm_repo}\nPGSM_Branch: ${pgsm_branch}\nPGSM_install_from_package: ${pgsm_package_install}\nVersion: ${version}\nPackage_Repo: ${package_repo}\nMajor_Repo: ${major_repo}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
   slackSend color : "good", message: "${buildSummary}", channel: '#postgresql-test'
  }
  else {
-  buildSummary = "Job: ${env.JOB_NAME}\nPSP_Repo: ${psp_repo}\nPSP_Branch: ${psp_branch}\nVersion: ${version}\nPackage_Repo: ${package_repo}\nMajor_Repo: ${major_repo}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
+  buildSummary = "Job: ${env.JOB_NAME}\nPGSM_Repo: ${pgsm_repo}\nPGSM_Branch: ${pgsm_branch}\nPGSM_install_from_package: ${pgsm_package_install}\nVersion: ${version}\nPackage_Repo: ${package_repo}\nMajor_Repo: ${major_repo}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
   slackSend color : "danger", message: "${buildSummary}", channel: '#postgresql-test'
  }
 }
@@ -30,28 +30,23 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'https://github.com/percona/pg_tde.git',
-            description: 'pg_tde repo that we want to test, we could also use forked developer repo here.',
-            name: 'TDE_REPO'
+            defaultValue: 'https://github.com/percona/pg_stat_monitor.git',
+            description: 'PGSM repo that we want to test, we could also use forked developer repo here.',
+            name: 'PGSM_REPO'
         )
         string(
-            defaultValue: 'release-2.1',
-            description: 'TDE repo version/branch/tag to use; e.g main, release-2.1',
-            name: 'TDE_BRANCH'
+            defaultValue: '2.3.0',
+            description: 'PGSM repo version/branch/tag to use; e.g main, 2.0.5',
+            name: 'PGSM_BRANCH'
         )
         string(
-            defaultValue: 'ppg-18.1',
-            description: 'Server PG version for test, including major and minor version, e.g ppg-17.4, ppg-17.3',
+            defaultValue: 'ppg-18.0',
+            description: 'Server PG version for test, including major and minor version, e.g ppg-16.2, ppg-15.5',
             name: 'VERSION'
         )
-        choice(
-            name: 'IO_METHOD',
-            description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
-            choices: [
-                'worker',
-                'sync',
-                'io_uring'
-            ]
+        booleanParam(
+            name: 'PGSM_PACKAGE_INSTALL',
+            description: "If Selected, then pgsm rpm/deb will be installed in server that is shipped with ppg mentioned in VERSION above. Build sources will only be used for regression and binary will not be installed into server from built sources. If UnSelected, then no pgsm rpm/deb will be installed into the server, and pgsm binary from the built sources will be installed into the server."
         )
         string(
             defaultValue: 'main',
@@ -65,21 +60,22 @@ pipeline {
         )
         booleanParam(
             name: 'MAJOR_REPO',
-            description: "Enable to use major (ppg-17) repo instead of ppg-17.6"
+            description: "Enable to use major (ppg-16) repo instead of ppg-16.2"
         )
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "pg_tde/tde";
+      MOLECULE_DIR = "pg_stat_monitor/pgsm";
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
+          disableConcurrentBuilds()
   }
     stages {
         stage('Set build name'){
           steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-pg_tde-${env.VERSION}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-pgsm-${env.VERSION}"
                     }
                 }
             }
@@ -108,7 +104,7 @@ pipeline {
         always {
           script {
               moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-              sendSlackNotification(env.TDE_REPO, env.TDE_BRANCH, env.VERSION, env.REPO, env.MAJOR_REPO)
+              sendSlackNotification(env.PGSM_REPO, env.PGSM_BRANCH, env.PGSM_PACKAGE_INSTALL, env.VERSION, env.REPO, env.MAJOR_REPO)
          }
       }
    }

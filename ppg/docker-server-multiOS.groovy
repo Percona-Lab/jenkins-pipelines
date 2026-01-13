@@ -43,6 +43,10 @@ pipeline {
                 'perconalab'
             ]
         )
+        booleanParam(
+            name: 'WITH_POSTGIS',
+            description: "Enable if testing a psp/ppg server docker that also contains postgis."
+        )
         string(
             defaultValue: 'yes',
             description: 'Destroy VM after tests',
@@ -54,6 +58,7 @@ pipeline {
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
+          disableConcurrentBuilds()
   }
     stages {
         stage('Set build name'){

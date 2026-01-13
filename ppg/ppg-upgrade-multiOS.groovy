@@ -3,18 +3,17 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotification(version)
+def sendSlackNotification(scenario, fromVersion, toVersion)
 {
  if ( currentBuild.result == "SUCCESS" ) {
-  buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
+  buildSummary = "Job: ${env.JOB_NAME}\nScenario: ${scenario}\nFrom version: ${fromVersion}\nTo version: ${toVersion}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
   slackSend color : "good", message: "${buildSummary}", channel: '#postgresql-test'
  }
  else {
-  buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
+  buildSummary = "Job: ${env.JOB_NAME}\nScenario: ${scenario}\nFrom version: ${fromVersion}\nTo version: ${toVersion}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
   slackSend color : "danger", message: "${buildSummary}", channel: '#postgresql-test'
  }
 }
-
 
 pipeline {
   agent {
@@ -22,54 +21,56 @@ pipeline {
   }
   parameters {
         choice(
-            name: 'SSL_VERSION',
-            description: 'SSL version to use',
+            name: 'FROM_REPO',
+            description: 'From this repo will be upgraded PPG',
             choices: [
-                '1'
+                'testing',
+                'experimental',
+                'release'
             ]
         )
         choice(
-            name: 'IO_METHOD',
-            description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
+            name: 'TO_REPO',
+            description: 'Repo for testing',
             choices: [
-                'worker',
-                'sync',
-                'io_uring'
+                'testing',
+                'experimental',
+                'release'
             ]
         )
         string(
-            defaultValue: 'ppg-18.1',
-            description: 'PG version for test',
-            name: 'VERSION'
+            defaultValue: 'ppg-17.6',
+            description: 'From this version PPG will be updated',
+            name: 'FROM_VERSION'
         )
         string(
-            defaultValue: 'https://downloads.percona.com/downloads/TESTING/pg_tarballs-17.6/percona-postgresql-17.6-ssl1.1-linux-x86_64.tar.gz',
-            description: 'URL for tarball.',
-            name: 'TARBALL_URL'
+            defaultValue: 'ppg-17.7',
+            description: 'To this version PPG will be updated',
+            name: 'VERSION'
+        )
+        choice(
+            name: 'SCENARIO',
+            description: 'PG version for test',
+            choices: ppgUpgradeScenarios()
         )
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',
-            name: 'TESTING_BRANCH'
-        )
-        string(
-            defaultValue: 'yes',
-            description: 'Destroy VM after tests',
-            name: 'DESTROY_ENV'
-        )
+            name: 'TESTING_BRANCH')
   }
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "ppg/pg-tarballs";
+      MOLECULE_DIR = "ppg/${SCENARIO}";
   }
   options {
           withCredentials(moleculeDistributionJenkinsCreds())
+          disableConcurrentBuilds()
   }
     stages {
         stage('Set build name'){
           steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.JOB_NAME}"
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}"
                     }
                 }
             }
@@ -89,7 +90,7 @@ pipeline {
         stage('Test') {
           steps {
                 script {
-                    moleculeParallelTestPPG(ppgOperatingSystemsSSL1(), env.MOLECULE_DIR)
+                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                 }
             }
          }
@@ -97,8 +98,8 @@ pipeline {
     post {
         always {
           script {
-              moleculeParallelPostDestroyPPG(ppgOperatingSystemsSSL1(), env.MOLECULE_DIR)
-              sendSlackNotification(env.VERSION)
+              moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+              sendSlackNotification(env.SCENARIO, env.FROM_VERSION, env.VERSION)
          }
       }
    }

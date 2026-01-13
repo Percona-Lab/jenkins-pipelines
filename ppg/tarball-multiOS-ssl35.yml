@@ -1,5 +1,5 @@
 - job:
-    name: docker-component
+    name: tarball-multiOS-ssl35
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'ppg-dockers-tests'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ppg/docker-component.groovy
+      script-path: ppg/tarball-multiOS-ssl35.groovy
