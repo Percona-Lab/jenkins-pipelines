@@ -116,12 +116,12 @@ pipeline {
     )
     string(
       name: 'PS_RHEL_GCLIBC_VERSION',
-      defaultValue: '2.39',
+      defaultValue: '2.35',
       description: 'PS full version'
     )
     string(
       name: 'PS_DEBIAN_GCLIBC_VERSION',
-      defaultValue: '2.36',
+      defaultValue: '2.35',
       description: 'PS full version'
     )
     string(
