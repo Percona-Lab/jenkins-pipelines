@@ -63,23 +63,21 @@ pipeline {
             description: "Enable to use major (ppg-16) repo instead of ppg-16.2"
         )
   }
-
-    environment {
-        PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
-        MOLECULE_DIR = "pg_stat_monitor/pgsm"
-        // Create a dedicated directory for collected artifacts
-        ARTIFACT_STORAGE = "${env.WORKSPACE}/collected_logs"
-    }
-
+  environment {
+      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
+      MOLECULE_DIR = "pg_stat_monitor/pgsm";
+  }
+  options {
+          withCredentials(moleculeDistributionJenkinsCreds())
+  }
     stages {
         stage('Set build name'){
-            steps {
-                script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-pgsm-${env.VERSION}"
-                    sh "mkdir -p ${env.ARTIFACT_STORAGE}"
+          steps {
+                    script {
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-pgsm-${env.VERSION}"
+                    }
                 }
             }
-        }
         stage('Checkout') {
             steps {
                 deleteDir()
@@ -87,63 +85,26 @@ pipeline {
             }
         }
         stage ('Prepare') {
-            steps {
+          steps {
                 script {
-                    installMoleculePython39()
-                }
-            }
+                   installMoleculePython39()
+             }
+           }
         }
         stage('Test') {
-            steps {
+          steps {
                 script {
-                    // Note: We use try/finally to ensure logs are collected even if tests fail
-                    try {
-                        moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                    } finally {
-                        echo "Tests completed (passed or failed). Proceeding to log collection..."
-                    }
+                    moleculeParallelTestPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
                 }
             }
-        }
-        stage('Retrieve Remote Logs') {
-            steps {
-                script {
-                    def osList = ppgOperatingSystemsALL()
-
-                    // We iterate through the scenarios to pull files from each VM
-                    osList.each { os ->
-                        echo "Collecting logs for OS: ${os}"
-                        dir(env.MOLECULE_DIR) {
-                            try {
-                                // 1. Compress the directory on the remote VM
-                                sh "molecule exec -s ${os} -- tar -czf /tmp/pgsm_logs.tar.gz -C /tmp/pg_stat_monitor ."
-
-                                // 2. Pull the tarball to the Jenkins agent workspace
-                                // Note: We use 'molecule cp' or 'ansible fetch' via molecule
-                                sh "molecule exec -s ${os} -- cat /tmp/pgsm_logs.tar.gz > ${env.ARTIFACT_STORAGE}/logs-${os}.tar.gz"
-                            } catch (Exception e) {
-                                echo "Could not collect logs for ${os}: ${e.message}"
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        stage('Archive to Jenkins') {
-            steps {
-                // This makes the files downloadable from the Jenkins Build page
-                archiveArtifacts artifacts: 'collected_logs/*.tar.gz', allowEmptyArchive: true, fingerprint: true
-            }
-        }
-    }
-
+         }
+  }
     post {
         always {
-            script {
-                // Destroy VMs ONLY after we have pulled the logs
-                moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
-                sendSlackNotification(env.PGSM_REPO, env.PGSM_BRANCH, env.PGSM_PACKAGE_INSTALL, env.VERSION, env.REPO, env.MAJOR_REPO)
-            }
-        }
-    }
+          script {
+              moleculeParallelPostDestroyPPG(ppgOperatingSystemsALL(), env.MOLECULE_DIR)
+              sendSlackNotification(env.PGSM_REPO, env.PGSM_BRANCH, env.PGSM_PACKAGE_INSTALL, env.VERSION, env.REPO, env.MAJOR_REPO)
+         }
+      }
+   }
 }
