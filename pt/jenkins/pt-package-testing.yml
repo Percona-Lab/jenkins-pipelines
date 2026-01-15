@@ -63,6 +63,10 @@
             default: false
             description: "Enable to skip ps 8.0 packages installation tests"
         - bool:
+            name: skip_ps84
+            default: false
+            description: "Enable to skip ps 8.4 packages installation tests"
+        - bool:
             name: skip_pxc57
             default: false
             description: "Enable to skip pxc 5.7 packages installation tests"
@@ -71,17 +75,17 @@
             default: false
             description: "Enable to skip pxc 8.0 packages installation tests"
         - bool:
-            name: skip_psmdb44
+            name: skip_pxc84
             default: false
-            description: "Enable to skip psmdb 4.4 packages installation tests"
+            description: "Enable to skip pxc 8.4 packages installation tests"
         - bool:
-            name: skip_psmdb50
+            name: skip_psmdb70
             default: false
-            description: "Enable to skip psmdb 5.0 packages installation tests"
+            description: "Enable to skip psmdb 7.0 packages installation tests"
         - bool:
-            name: skip_psmdb60
-            default: true
-            description: "Enable to skip psmdb 6.0 packages installation tests. Leave enabled till PT-2217 is fixed"
+            name: skip_psmdb80
+            default: false
+            description: "Enable to skip psmdb 8.0 packages installation tests"
         - bool:
             name: skip_upstream57
             default: false
