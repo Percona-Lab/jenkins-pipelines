@@ -52,35 +52,35 @@ pipeline {
         stage ('Create instances') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "create", env.SCENARIO)
+                    moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "create", env.SCENARIO)
                 }
             }
         }
         stage ('Prepare instances') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "prepare", env.SCENARIO)
+                    moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "prepare", env.SCENARIO)
                 }
             }
         }
         stage ('Create infrastructure') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "converge", env.SCENARIO)
+                    moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "converge", env.SCENARIO)
                 }
             }
         }
         stage ('Run tests') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "verify", env.SCENARIO)
+                    moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "verify", env.SCENARIO)
                 }
             }
         }
         stage ('Cleanup') {
             steps {
                 script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.SCENARIO)
+                    moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "cleanup", env.SCENARIO)
                 }
             }
         }
@@ -88,7 +88,7 @@ pipeline {
     post {
         always {
             script {
-                moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.SCENARIO)
+                moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "destroy", env.SCENARIO)
             }
             junit testResults: "**/report.xml", keepLongStdio: true
         }
