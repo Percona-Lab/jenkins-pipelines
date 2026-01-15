@@ -18,7 +18,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./builder.sh --builddir=\${build_dir}/test ${STAGE_PARAM}"
+            bash -x ./builder.sh --builddir=\${build_dir}/test "--repo_component=${COMPONENT}" ${STAGE_PARAM}"
     """
 }
 
