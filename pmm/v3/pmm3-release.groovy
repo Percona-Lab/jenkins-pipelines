@@ -533,7 +533,7 @@ ENDSSH
                         copyArtifacts filter: 'report.html', projectName: 'pmm3-image-scanning'
                         sh 'mv report.html report-${VERSION}.html'
                         archiveArtifacts "report-${VERSION}.html"
-                        env.SCAN_REPORT_URL = "CVE Scan Report: ${BUILD_URL}artifact/report-${VERSION}.html"
+                        env.SCAN_REPORT_URL = "${BUILD_URL}artifact/report-${VERSION}.html"
                     }
                 }
             }
@@ -544,11 +544,12 @@ ENDSSH
             deleteDir()
         }
         success {
-            slackSend botUser: true, channel: '#pmm', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
-            slackSend botUser: true, channel: '#releases', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
+            slackSend botUser: true, channel: '#pmm', color: '#00FF00', message: 'PMM ${VERSION} was released! :rocket:\nBuild URL: ${BUILD_URL}\nCVE Scan Report: ${env.SCAN_REPORT_URL}'
+            slackSend botUser: true, channel: '#releases', color: '#00FF00', message: 'PMM ${VERSION} was released! :rocket:\nBuild URL: ${BUILD_URL}\nCVE Scan Report: ${env.SCAN_REPORT_URL}'
+            slackSend botUser: true, channel: '#pmm-internal', color: '#00FF00', message: 'PMM ${VERSION} was released! :rocket:\nBuild URL: ${BUILD_URL}\nCVE Scan Report: ${env.SCAN_REPORT_URL}'
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-internal', color: '#FF0000', message: "[${JOB_NAME}]: release failed - ${BUILD_URL}"
+            slackSend botUser: true, channel: '#pmm-internal', color: '#FF0000', message: '[${JOB_NAME}]: PMM ${VERSION} release failed \nBuild URL: ${BUILD_URL}'
         }
     }
 }
