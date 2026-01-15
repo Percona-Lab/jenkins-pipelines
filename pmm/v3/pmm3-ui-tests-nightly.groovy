@@ -590,9 +590,9 @@ pipeline {
             script {
                 junit 'tests/output/*.xml'
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                archiveArtifacts artifacts: 'logs.zip'
-                archiveArtifacts artifacts: 'tests/output/*.png'
-                archiveArtifacts artifacts: 'tests/output/trace/*.zip'
+                archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'tests/output/*.png', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'tests/output/trace/*.zip', allowEmptyArchive: true
             }
         }
     }
