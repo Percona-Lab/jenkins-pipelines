@@ -15,7 +15,7 @@
         description: Tag/Branch for the Orchestrator repository
     - string:
         name: PS_TARBALL
-        default: "https://downloads.percona.com/downloads/Percona-Server-8.0/Percona-Server-8.0.41-32/binary/tarball/Percona-Server-8.0.41-32-Linux.x86_64.glibc2.31-minimal.tar.gz"
+        default: "https://downloads.percona.com/downloads/Percona-Server-8.4/Percona-Server-8.4.7-7/binary/tarball/Percona-Server-8.4.7-7-Linux.x86_64.glibc2.35-minimal.tar.gz"
         description: PS tarball to be used for testing
     - string:
         name: CI_ENV_GIT_REPO
