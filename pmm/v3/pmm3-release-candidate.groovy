@@ -227,7 +227,7 @@ pipeline {
                     slackSend botUser: true,
                         channel: env.NOTIFICATION_CHANNEL,
                         color: '#0892d0',
-                        message: "[${JOB_NAME}]: RC PMM $VERSION build has started. You can check progress at: ${BUILD_URL}"
+                        message: "[${JOB_NAME}]: New PMM ${VERSION} RC build has started. \nYou can check progress at: ${BUILD_URL}"
                     env.EXIST = sh (
                         script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules pmm-\${VERSION} | wc -l',
                         returnStdout: true
@@ -361,8 +361,8 @@ pipeline {
         success {
             slackSend botUser: true,
                       channel: env.NOTIFICATION_CHANNEL,
-                      color: '#00ff00ff',
-                      message: [${JOB_NAME}]: New RC build is out :rocket:
+                      color: '#00FF00',
+                      message: """[${JOB_NAME}]: New PMM ${VERSION} RC build is out :rocket:
 Server: perconalab/pmm-server:${VERSION}-rc
 Client: perconalab/pmm-client:${VERSION}-rc
 OVA: https://percona-vm.s3.amazonaws.com/PMM3-Server-${VERSION}.ova
@@ -375,7 +375,7 @@ CVE Scan Reports: ${env.SCAN_REPORT_URL}
                       """
         }
         failure {
-            slackSend botUser: true, channel: env.NOTIFICATION_CHANNEL, color: '#FF0000', message: '[${JOB_NAME}]: RC build failed :thisisfine: \nBuild URL: ${BUILD_URL}'
+            slackSend botUser: true, channel: env.NOTIFICATION_CHANNEL, color: '#FF0000', message: "[${JOB_NAME}]: PMM ${VERSION} RC build failed :thisisfine: \nBuild URL: ${BUILD_URL}"
         }
     }
 }
