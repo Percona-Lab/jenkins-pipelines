@@ -16,8 +16,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
             set -o xtrace
             cd \${build_dir}
-            bash -x ./pgpool2_builder.sh --builddir=\${build_dir}/test --install_deps=1
-	    bash -x ./pgpool2_builder.sh --builddir=\${build_dir}/test $STAGE_PARAM"
+            bash -x ./pgpool2_builder.sh --builddir=\${build_dir}/test --install_deps=1 --repo_component=${COMPONENT}
+	    bash -x ./pgpool2_builder.sh --builddir=\${build_dir}/test --repo_component=${COMPONENT} $STAGE_PARAM"
     """
 }
 
