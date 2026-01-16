@@ -86,10 +86,6 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-7-fix-upgrade-job',
-            description: 'Tag/Branch for UI Tests repository',
-            name: 'PMM_UI_GIT_BRANCH')
-        string(
             defaultValue: "percona/pmm-server:${clientRepoAvailableVersions[-6]}",
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
@@ -224,11 +220,9 @@ pipeline {
                     steps {
                         sh '''
                             npm ci
-                            npx playwright install
-                            envsubst < env.list > env.generated.list
-                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                            npx playwright install-deps
+                            npx playwright install chromium
                             export PWD=$(pwd)
-                            export CHROMIUM_PATH=/usr/bin/chromium
                             ansible-galaxy collection install ansible.utils
                         '''
                     }
@@ -326,7 +320,8 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@pre-upgrade'
+                        cd e2e_tests/
+                        npx playwright test --grep '@pre-upgrade'
                     '''
                 }
             }
