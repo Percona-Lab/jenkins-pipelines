@@ -41,8 +41,8 @@ EOF
             steps {
                 script {
                     sh """
-                        trivy image --severity HIGH,CRITICAL --format json -o trivy-server-report.json ${params.PMM_SERVER_IMAGE}
-                        trivy convert --format template --template "@contrib/html.tpl" -o trivy-server-report.html trivy-server-report.json
+                        trivy image --severity HIGH,CRITICAL --format table -o trivy-server-report.txt ${params.PMM_SERVER_IMAGE}
+                        trivy convert --format template --template "@contrib/html.tpl" -o trivy-server-report.html trivy-server-report.txt
                     """
                     archiveArtifacts artifacts: 'trivy-server-report.*', allowEmptyArchive: true
                 }
@@ -52,8 +52,8 @@ EOF
             steps {
                 script {
                     sh """
-                        trivy image --severity HIGH,CRITICAL --format json -o trivy-client-report.json ${params.PMM_CLIENT_IMAGE}
-                        trivy convert --format template --template "@contrib/html.tpl" -o trivy-client-report.html trivy-client-report.json
+                        trivy image --severity HIGH,CRITICAL --format table -o trivy-client-report.txt ${params.PMM_CLIENT_IMAGE}
+                        trivy convert --format template --template "@contrib/html.tpl" -o trivy-client-report.html trivy-client-report.txt
                     """
                     archiveArtifacts artifacts: 'trivy-client-report.*', allowEmptyArchive: true
                 }
