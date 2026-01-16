@@ -129,10 +129,6 @@ pipeline {
                     println clientRepoAvailableVersions.contains(CLIENT_VERSION.trim())
                     currentBuild.description = "Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
-                git poll: false,
-                    branch: PMM_UI_GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-ui-tests.git'
-
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
