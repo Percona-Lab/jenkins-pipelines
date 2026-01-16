@@ -37,7 +37,7 @@ pipeline {
                 script {
                     slackSend botUser: true,
                         channel: '#pmm-internal',
-                        color: '#0892d0',
+                        color: '#0000FF',
                         message: "[${JOB_NAME}]: PMM ${VERSION} release has started. \nYou can check progress at: ${BUILD_URL}"                    
                     
                     currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>WATCHTOWER: ${WATCHTOWER_IMAGE}<br>PATH_TO_CLIENT_AMD64: ${PATH_TO_CLIENT_AMD64}<br>PATH_TO_CLIENT_ARM64: ${PATH_TO_CLIENT_ARM64}"
