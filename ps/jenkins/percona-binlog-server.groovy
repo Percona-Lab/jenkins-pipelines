@@ -35,7 +35,8 @@ pipeline {
         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
     parameters {
-        choices: [ 'Hetzner','AWS' ],
+        choice(
+            choices: [ 'Hetzner','AWS' ],
             description: 'Cloud infra for build',
             name: 'CLOUD' )
         string(
