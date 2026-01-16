@@ -35,6 +35,9 @@ pipeline {
         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
     parameters {
+        choices: [ 'Hetzner','AWS' ],
+            description: 'Cloud infra for build',
+            name: 'CLOUD' )
         string(
             defaultValue: 'https://github.com/Percona-Lab/percona-binlog-server.git',
             description: 'URL for Percona Binlog Server repository',
