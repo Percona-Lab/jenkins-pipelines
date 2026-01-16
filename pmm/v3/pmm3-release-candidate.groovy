@@ -344,13 +344,16 @@ pipeline {
 
                     env.SCAN_REPORT_URL = ""
                     if (imageScan.result == 'SUCCESS') {
-                        // Copy Trivy HTML reports for both server and client
-                        copyArtifacts filter: '*-report.html', projectName: 'pmm3-image-scanning'
+                        // Copy Trivy reports for both server and client
+                        copyArtifacts filter: '*-report.*', projectName: 'pmm3-image-scanning'
                         sh '''
+                            mv trivy-server-report.txt trivy-server-report-${VERSION}-rc.txt
                             mv trivy-server-report.html trivy-server-report-${VERSION}-rc.html
+
+                            mv trivy-client-report.txt trivy-client-report-${VERSION}-rc.txt
                             mv trivy-client-report.html trivy-client-report-${VERSION}-rc.html
                         '''
-                        archiveArtifacts artifacts: "*-report-${VERSION}-rc.html"
+                        archiveArtifacts artifacts: "*-report-${VERSION}-rc.*"
                         env.SCAN_REPORT_URL = "CVE Scan Reports: ${BUILD_URL}artifact/"
                     }
                 }

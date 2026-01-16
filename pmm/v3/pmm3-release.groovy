@@ -530,12 +530,15 @@ ENDSSH
 
                     env.SCAN_REPORT_URL = ""
                     if (imageScan.result == 'SUCCESS') {
-                        copyArtifacts filter: '*-report.html', projectName: 'pmm3-image-scanning'
+                        copyArtifacts filter: '*-report.*', projectName: 'pmm3-image-scanning'
                         sh '''
+                            mv trivy-server-report.txt trivy-server-report-${VERSION}.txt
                             mv trivy-server-report.html trivy-server-report-${VERSION}.html
+
+                            mv trivy-client-report.txt trivy-client-report-${VERSION}.txt
                             mv trivy-client-report.html trivy-client-report-${VERSION}.html
                         '''
-                        archiveArtifacts "*-report-${VERSION}.html"
+                        archiveArtifacts "*-report-${VERSION}.*"
                         env.SCAN_REPORT_URL = "CVE Scan Reports: ${BUILD_URL}artifact/"
                     }
                 }
