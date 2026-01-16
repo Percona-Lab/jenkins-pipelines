@@ -237,6 +237,9 @@ pipeline {
                     }
                 }
                 stage('Debian 13 Trixie - AMD64') {
+                    when {
+                        expression { !TESTS.contains("upgrade") }
+                    }
                     agent {
                         label 'min-trixie-x64'
                     }
