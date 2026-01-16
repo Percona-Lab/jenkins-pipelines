@@ -42,7 +42,7 @@ EOF
                 script {
                     sh """
                         trivy image --severity HIGH,CRITICAL --format table -o trivy-server-report.txt ${params.PMM_SERVER_IMAGE}
-                        trivy convert --format template --template "@contrib/html.tpl" -o trivy-server-report.html trivy-server-report.txt
+                        trivy image --severity HIGH,CRITICAL --format template --template "@contrib/html.tpl" -o trivy-server-report.html ${params.PMM_SERVER_IMAGE}
                     """
                     archiveArtifacts artifacts: 'trivy-server-report.*', allowEmptyArchive: true
                 }
@@ -53,7 +53,7 @@ EOF
                 script {
                     sh """
                         trivy image --severity HIGH,CRITICAL --format table -o trivy-client-report.txt ${params.PMM_CLIENT_IMAGE}
-                        trivy convert --format template --template "@contrib/html.tpl" -o trivy-client-report.html trivy-client-report.txt
+                        trivy image --severity HIGH,CRITICAL --format template --template "@contrib/html.tpl" -o trivy-client-report.html ${params.PMM_CLIENT_IMAGE}
                     """
                     archiveArtifacts artifacts: 'trivy-client-report.*', allowEmptyArchive: true
                 }
