@@ -37,29 +37,27 @@ EOF
                 }
             }
         }
-        stage('Trivy Scan') {
-            parallel {
-                stage('Scan PMM Server') {
-                    steps {
-                        script {
-                            sh """
-                                trivy image --severity HIGH,CRITICAL --format table -o trivy-server-report.txt ${params.PMM_SERVER_IMAGE}
-                                trivy image --severity HIGH,CRITICAL --format template --template "@contrib/html.tpl" -o trivy-server-report.html ${params.PMM_SERVER_IMAGE}
-                            """
-                            archiveArtifacts artifacts: 'trivy-server-report.*', allowEmptyArchive: true
-                        }
-                    }
+        stage('Scan PMM Server') {
+            steps {
+                script {
+                    sh """
+                        trivy image --severity HIGH,CRITICAL --format json -o trivy-server-report.json ${params.PMM_SERVER_IMAGE}
+                        trivy convert --format table -o trivy-server-report.txt trivy-server-report.json
+                        trivy convert --format template --template "@contrib/html.tpl" -o trivy-server-report.html trivy-server-report.json
+                    """
+                    archiveArtifacts artifacts: 'trivy-server-report.*', allowEmptyArchive: true
                 }
-                stage('Scan PMM Client') {
-                    steps {
-                        script {
-                            sh """
-                                trivy image --severity HIGH,CRITICAL --format table -o trivy-client-report.txt ${params.PMM_CLIENT_IMAGE}
-                                trivy image --severity HIGH,CRITICAL --format template --template "@contrib/html.tpl" -o trivy-client-report.html ${params.PMM_CLIENT_IMAGE}
-                            """
-                            archiveArtifacts artifacts: 'trivy-client-report.*', allowEmptyArchive: true
-                        }
-                    }
+            }
+        }
+        stage('Scan PMM Client') {
+            steps {
+                script {
+                    sh """
+                        trivy image --severity HIGH,CRITICAL --format json -o trivy-client-report.json ${params.PMM_CLIENT_IMAGE}
+                        trivy convert --format table -o trivy-client-report.txt trivy-client-report.json
+                        trivy convert --format template --template "@contrib/html.tpl" -o trivy-client-report.html trivy-client-report.json
+                    """
+                    archiveArtifacts artifacts: 'trivy-client-report.*', allowEmptyArchive: true
                 }
             }
         }
