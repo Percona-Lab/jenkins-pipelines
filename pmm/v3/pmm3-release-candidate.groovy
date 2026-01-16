@@ -338,17 +338,17 @@ pipeline {
             steps {
                 script {
                     imageScan = build job: 'pmm3-image-scanning', propagate: false, parameters: [
-                        string(name: 'IMAGE', value: "perconalab/pmm-server"),
-                        string(name: 'TAG', value: "${VERSION}-rc")
+                        string(name: 'PMM_CLIENT_IMAGE', value: "perconalab/pmm-client:${VERSION}-rc"),
+                        string(name: 'PMM_SERVER_IMAGE', value: "perconalab/pmm-server:${VERSION}-rc")
                     ]
 
                     env.SCAN_REPORT_URL = ""
                     if (imageScan.result == 'SUCCESS') {
-                        // Copy both Snyk and Trivy HTML reports
+                        // Copy Trivy HTML reports for both server and client
                         copyArtifacts filter: '*-report.html', projectName: 'pmm3-image-scanning'
                         sh '''
-                            mv snyk-report.html snyk-report-${VERSION}-rc.html
-                            mv trivy-report.html trivy-report-${VERSION}-rc.html
+                            mv trivy-server-report.html trivy-server-report-${VERSION}-rc.html
+                            mv trivy-client-report.html trivy-client-report-${VERSION}-rc.html
                         '''
                         archiveArtifacts artifacts: "*-report-${VERSION}-rc.html"
                         env.SCAN_REPORT_URL = "CVE Scan Reports: ${BUILD_URL}artifact/"

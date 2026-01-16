@@ -524,16 +524,19 @@ ENDSSH
             steps {
                 script {
                     imageScan = build job: 'pmm3-image-scanning', propagate: false, parameters: [
-                        string(name: 'IMAGE', value: "perconalab/pmm-server"),
-                        string(name: 'TAG', value: "${VERSION}")
+                        string(name: 'PMM_CLIENT_IMAGE', value: "perconalab/pmm-client:${VERSION}"),
+                        string(name: 'PMM_SERVER_IMAGE', value: "perconalab/pmm-server:${VERSION}")
                     ]
 
                     env.SCAN_REPORT_URL = ""
                     if (imageScan.result == 'SUCCESS') {
-                        copyArtifacts filter: 'report.html', projectName: 'pmm3-image-scanning'
-                        sh 'mv report.html report-${VERSION}.html'
-                        archiveArtifacts "report-${VERSION}.html"
-                        env.SCAN_REPORT_URL = "CVE Scan Report: ${BUILD_URL}artifact/report-${VERSION}.html"
+                        copyArtifacts filter: '*-report.html', projectName: 'pmm3-image-scanning'
+                        sh '''
+                            mv trivy-server-report.html trivy-server-report-${VERSION}.html
+                            mv trivy-client-report.html trivy-client-report-${VERSION}.html
+                        '''
+                        archiveArtifacts "*-report-${VERSION}.html"
+                        env.SCAN_REPORT_URL = "CVE Scan Reports: ${BUILD_URL}artifact/"
                     }
                 }
             }

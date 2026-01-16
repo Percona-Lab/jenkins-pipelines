@@ -8,13 +8,13 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'perconalab/pmm-server',
-            description: 'Image to scan',
-            name: 'IMAGE')
+            defaultValue: 'perconalab/pmm-client:3-dev-latest',
+            description: 'PMM Client image with tag to scan',
+            name: 'PMM_CLIENT_IMAGE')
         string(
-            defaultValue: '3-dev-latest',
-            description: 'Image tag',
-            name: 'TAG')
+            defaultValue: 'perconalab/pmm-server:3-dev-latest',
+            description: 'PMM Server image with tag to scan',
+            name: 'PMM_SERVER_IMAGE')
     }
     stages {
         stage('Install Trivy') {
@@ -38,13 +38,28 @@ EOF
             }
         }
         stage('Trivy Scan') {
-            steps {
-                script {
-                    sh """
-                        trivy image --severity HIGH,CRITICAL --format table -o trivy-report.txt ${params.IMAGE}:${params.TAG}
-                        trivy image --severity HIGH,CRITICAL --format template --template "@contrib/html.tpl" -o trivy-report.html ${params.IMAGE}:${params.TAG}
-                    """
-                    archiveArtifacts artifacts: 'trivy-report.*', allowEmptyArchive: true
+            parallel {
+                stage('Scan PMM Server') {
+                    steps {
+                        script {
+                            sh """
+                                trivy image --severity HIGH,CRITICAL --format table -o trivy-server-report.txt ${params.PMM_SERVER_IMAGE}
+                                trivy image --severity HIGH,CRITICAL --format template --template "@contrib/html.tpl" -o trivy-server-report.html ${params.PMM_SERVER_IMAGE}
+                            """
+                            archiveArtifacts artifacts: 'trivy-server-report.*', allowEmptyArchive: true
+                        }
+                    }
+                }
+                stage('Scan PMM Client') {
+                    steps {
+                        script {
+                            sh """
+                                trivy image --severity HIGH,CRITICAL --format table -o trivy-client-report.txt ${params.PMM_CLIENT_IMAGE}
+                                trivy image --severity HIGH,CRITICAL --format template --template "@contrib/html.tpl" -o trivy-client-report.html ${params.PMM_CLIENT_IMAGE}
+                            """
+                            archiveArtifacts artifacts: 'trivy-client-report.*', allowEmptyArchive: true
+                        }
+                    }
                 }
             }
         }
