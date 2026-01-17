@@ -224,10 +224,10 @@ pipeline {
                 deleteDir()
                 script {
                     currentBuild.description = "$VERSION"
-                    slackSend botUser: true,
-                        channel: env.NOTIFICATION_CHANNEL,
-                        color: '#0892d0',
-                        message: "Release candidate PMM $VERSION build has started. You can check progress at: ${BUILD_URL}"
+                    // slackSend botUser: true,
+                    //     channel: env.NOTIFICATION_CHANNEL,
+                    //     color: '#0892d0',
+                    //     message: "Release candidate PMM $VERSION build has started. You can check progress at: ${BUILD_URL}"
                     env.EXIST = sh (
                         script: 'git ls-remote --heads https://github.com/Percona-Lab/pmm-submodules pmm-\${VERSION} | wc -l',
                         returnStdout: true
@@ -360,25 +360,25 @@ pipeline {
             }
         }
     }
-    post {
-        success {
-            slackSend botUser: true,
-                      channel: env.NOTIFICATION_CHANNEL,
-                      color: '#00FF00',
-                      message: """New Release Candidate is out :rocket:
-Server: perconalab/pmm-server:${VERSION}-rc
-Client: perconalab/pmm-client:${VERSION}-rc
-OVA: https://percona-vm.s3.amazonaws.com/PMM3-Server-${VERSION}.ova
-AMI: ${env.AMI_ID}
-Tarball AMD64: ${env.TARBALL_AMD64_URL}
-Tarball ARM64: ${env.TARBALL_ARM64_URL}
-Tarball AMD64 (GSSAPI) OL8: ${env.TARBALL_AMD64_DYNAMIC_OL8_URL}
-Tarball AMD64 (GSSAPI) OL9: ${env.TARBALL_AMD64_DYNAMIC_OL9_URL}
-${env.SCAN_REPORT_URL}
-                      """
-        }
-        failure {
-            slackSend botUser: true, channel: '#pmm-internal', color: '#FF0000', message: "[${JOB_NAME}]: RC build failed :fire: - ${BUILD_URL}"
-        }
-    }
+//     post {
+//         success {
+//             slackSend botUser: true,
+//                       channel: env.NOTIFICATION_CHANNEL,
+//                       color: '#00FF00',
+//                       message: """New Release Candidate is out :rocket:
+// Server: perconalab/pmm-server:${VERSION}-rc
+// Client: perconalab/pmm-client:${VERSION}-rc
+// OVA: https://percona-vm.s3.amazonaws.com/PMM3-Server-${VERSION}.ova
+// AMI: ${env.AMI_ID}
+// Tarball AMD64: ${env.TARBALL_AMD64_URL}
+// Tarball ARM64: ${env.TARBALL_ARM64_URL}
+// Tarball AMD64 (GSSAPI) OL8: ${env.TARBALL_AMD64_DYNAMIC_OL8_URL}
+// Tarball AMD64 (GSSAPI) OL9: ${env.TARBALL_AMD64_DYNAMIC_OL9_URL}
+// ${env.SCAN_REPORT_URL}
+//                       """
+//         }
+//         failure {
+//             slackSend botUser: true, channel: '#pmm-internal', color: '#FF0000', message: "[${JOB_NAME}]: RC build failed :fire: - ${BUILD_URL}"
+//         }
+//     }
 }
