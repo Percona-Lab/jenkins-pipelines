@@ -64,7 +64,11 @@ pipeline {
         stage('Set build name'){
           steps {
                     script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SERVER_VERSION}"
+                        if (params.WITH_POSTGIS) {
+                            currentBuild.displayName = "${env.BUILD_NUMBER}-docker-with-postgis-${env.SERVER_VERSION}-${env.PLATFORM}"
+                        } else {
+                            currentBuild.displayName = "${env.BUILD_NUMBER}-docker-${env.SERVER_VERSION}-${env.PLATFORM}"
+                        }
                     }
                 }
             }
