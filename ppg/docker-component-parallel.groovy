@@ -3,14 +3,14 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotification(repo,version,tag)
+def sendSlackNotification(repo,server_version,server_docker_tag,component,component_docker_tag,component_version)
 {
  if ( currentBuild.result == "SUCCESS" ) {
-  buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nRepo: ${repo}\nDocker-tag: ${tag}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
+  buildSummary = "Job: ${env.JOB_NAME}\nRepo: ${repo}\nServer-Version: ${server_version}\nServer-Docker-tag: ${server_docker_tag}\nComponent: ${component}\nComponent-Docker-tag: ${component_docker_tag}\nComponent-Version: ${component_version}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
   slackSend color : "good", message: "${buildSummary}", channel: '#postgresql-test'
  }
  else {
-  buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nRepo: ${repo}\nDocker-tag: ${tag}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
+  buildSummary = "Job: ${env.JOB_NAME}\nRepo: ${repo}\nServer-Version: ${server_version}\nServer-Docker-tag: ${server_docker_tag}\nComponent: ${component}\nComponent-Docker-tag: ${component_docker_tag}\nComponent-Version: ${component_version}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
   slackSend color : "danger", message: "${buildSummary}", channel: '#postgresql-test'
  }
 }
@@ -106,7 +106,7 @@ pipeline {
               if (env.DESTROY_ENV == "yes") {
                     moleculeParallelPostDestroyPPG(['rocky-9', 'rhel-10', 'debian-12', 'debian-13', 'ubuntu-jammy', 'rocky-9-arm64', 'rhel-10-arm64', 'debian-12-arm64', 'debian-13-arm64', 'ubuntu-jammy-arm64'], env.MOLECULE_DIR)
               }
-              sendSlackNotification(env.REPOSITORY, env.SERVER_VERSION, env.DOCKER_TAG)
+              sendSlackNotification(env.REPOSITORY, env.SERVER_VERSION, env.DOCKER_SERVER_TAG, env.COMPONENT, env.DOCKER_COMPONENT_TAG, env.COMPONENT_VERSION)
          }
       }
    }
