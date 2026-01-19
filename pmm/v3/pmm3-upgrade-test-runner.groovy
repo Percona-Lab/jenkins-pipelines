@@ -180,7 +180,7 @@ pipeline {
                     } else if (env.UPGRADE_FLAG == "ADVISORS-ALERTING") {
                         env.PRE_UPGRADE_FLAG = "@pre-advisors-alerting-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-advisors-alerting-upgrade"
-                        env.PMM_CLIENTS = "--help"
+                        env.PMM_CLIENTS = "--database pgsql"
                     } else if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
                         env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade"
