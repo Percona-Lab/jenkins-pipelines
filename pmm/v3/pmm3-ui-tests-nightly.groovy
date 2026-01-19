@@ -583,7 +583,7 @@ pipeline {
             script {
                 junit 'tests/output/*.xml'
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                archiveArtifacts artifacts: 'logs.zip'
+                archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
             }
         }
         failure {
