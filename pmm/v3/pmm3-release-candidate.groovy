@@ -354,7 +354,7 @@ pipeline {
                             mv trivy-client-report.html trivy-client-report-${VERSION}-rc.html
                         '''
                         archiveArtifacts artifacts: "*-report-${VERSION}-rc.*"
-                        env.SCAN_REPORT_URL = "CVE Scan Reports: ${BUILD_URL}artifact/"
+                        env.SCAN_REPORT_URL = "${BUILD_URL}artifact/"
                     }
                 }
             }

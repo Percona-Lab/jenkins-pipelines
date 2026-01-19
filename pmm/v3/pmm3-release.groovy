@@ -544,7 +544,7 @@ ENDSSH
                             mv trivy-client-report.html trivy-client-report-${VERSION}.html
                         '''
                         archiveArtifacts "*-report-${VERSION}.*"
-                        env.SCAN_REPORT_URL = "CVE Scan Reports: ${BUILD_URL}artifact/"
+                        env.SCAN_REPORT_URL = "${BUILD_URL}artifact/"
                     }
                 }
             }
