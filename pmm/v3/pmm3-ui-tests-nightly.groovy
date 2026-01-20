@@ -462,7 +462,7 @@ pipeline {
                     sudo npx playwright install-deps
                     envsubst < env.list > env.generated.list
                     echo "Triggering Advisors Background Jobs..."
-                    node utils/trigger_advisors.js
+                    node utils/triggerAdvisors.js
                 """
             }
         }
