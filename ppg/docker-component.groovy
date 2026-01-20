@@ -81,7 +81,7 @@ pipeline {
     stage('Set build name'){
       steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-docker-${env.SERVER_VERSION}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-docker-${env.SERVER_VERSION}-${env.PLATFORM}-${env.COMPONENT}-${env.COMPONENT_VERSION}"
                 }
             }
         }
