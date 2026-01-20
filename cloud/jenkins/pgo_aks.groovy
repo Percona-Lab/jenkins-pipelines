@@ -52,7 +52,7 @@ void initParams() {
         currentBuild.displayName = "#" + currentBuild.number + " $GIT_BRANCH"
         currentBuild.description = "$PLATFORM_VER " + "$IMAGE_POSTGRESQL".split(":")[1] + " $cw"
     }
-    env.DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{tag=\$2; sub(/-postgres\$/, \"\", tag); sub(/-[0-9]+\$/, \"\", tag); print tag}' || echo main-ppg17", , returnStdout: true).trim()
+    env.DB_TAG = sh(script: "[[ \$IMAGE_POSTGRESQL ]] && echo \$IMAGE_POSTGRESQL | awk -F':' '{tag=\$2; sub(/-postgres\$/, \"\", tag); sub(/-[0-9]+\$/, \"\", tag); print tag}' || echo main-ppg18", , returnStdout: true).trim()
     echo "DB_TAG is $DB_TAG"
 }
 
@@ -352,15 +352,15 @@ pipeline {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'PILLAR_VERSION', choices: 'none\n12\n13\n14\n15\n16\n17', description: 'Implies release run.')
+        choice(name: 'PILLAR_VERSION', choices: 'none\n12\n13\n14\n15\n16\n17\n18', description: 'For release runs. PG version to test. Job takes images from release_versions when set.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'AKS kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
         string(name: 'PG_VER', defaultValue: '', description: 'PG version')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main')
-        string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-postgres')
-        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-pgbouncer')
-        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg17-pgbackrest')
+        string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-postgres')
+        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-pgbouncer')
+        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-pgbackrest')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
