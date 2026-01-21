@@ -1,0 +1,220 @@
+---
+# Kyverno ClusterPolicy for Docker Hub Pull-Through Cache
+# Rewrites Docker Hub images to use Percona DevServices registry
+# to avoid rate limits.
+#
+# Registry: reg-19jf01na.percona.com/dockerhub-cache/
+#
+# Usage:
+#   oc apply -f pmm/v3/resources/kyverno-dockerhub-policy.yaml
+#
+apiVersion: kyverno.io/v1
+kind: ClusterPolicy
+metadata:
+  name: dockerhub-pull-through-cache
+  annotations:
+    policies.kyverno.io/title: Docker Hub Pull Through Cache
+    policies.kyverno.io/description: >-
+      Rewrites Docker Hub images to use Percona DevServices registry
+      (reg-19jf01na.percona.com/dockerhub-cache/) to avoid rate limits.
+spec:
+  background: false
+  validationFailureAction: Audit
+  rules:
+    # Rule 1: Containers with explicit docker.io/ prefix
+    - name: containers-dockerhub-explicit
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+                - UPDATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - openshift-*
+      mutate:
+        foreach:
+          - list: request.object.spec.containers
+            preconditions:
+              any:
+                - key: "{{ contains(element.image, 'docker.io/') }}"
+                  operator: Equals
+                  value: true
+                - key: "{{ contains(element.image, 'index.docker.io/') }}"
+                  operator: Equals
+                  value: true
+            patchesJson6902: |-
+              - op: replace
+                path: /spec/containers/{{elementIndex}}/image
+                value: 'reg-19jf01na.percona.com/dockerhub-cache/{{images.containers."{{element.name}}".path}}:{{images.containers."{{element.name}}".tag}}'
+
+    # Rule 2: Containers with implicit org/image format (e.g., bitnami/redis)
+    - name: containers-dockerhub-implicit-org
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+                - UPDATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - openshift-*
+      mutate:
+        foreach:
+          - list: request.object.spec.containers
+            preconditions:
+              all:
+                - key: "{{ contains(element.image, '/') }}"
+                  operator: Equals
+                  value: true
+                - key: '{{images.containers."{{element.name}}".registry}}'
+                  operator: Equals
+                  value: docker.io
+            patchesJson6902: |-
+              - op: replace
+                path: /spec/containers/{{elementIndex}}/image
+                value: 'reg-19jf01na.percona.com/dockerhub-cache/{{images.containers."{{element.name}}".path}}:{{images.containers."{{element.name}}".tag}}'
+
+    # Rule 3: Containers with implicit library images (e.g., nginx, redis)
+    - name: containers-dockerhub-implicit-library
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+                - UPDATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - openshift-*
+      mutate:
+        foreach:
+          - list: request.object.spec.containers
+            preconditions:
+              all:
+                - key: "{{ contains(element.image, '/') }}"
+                  operator: Equals
+                  value: false
+                - key: '{{images.containers."{{element.name}}".registry}}'
+                  operator: Equals
+                  value: docker.io
+            patchesJson6902: |-
+              - op: replace
+                path: /spec/containers/{{elementIndex}}/image
+                value: 'reg-19jf01na.percona.com/dockerhub-cache/library/{{images.containers."{{element.name}}".name}}:{{images.containers."{{element.name}}".tag}}'
+
+    # Rule 4: Init containers with explicit docker.io/ prefix
+    - name: init-dockerhub-explicit
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+                - UPDATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - openshift-*
+      mutate:
+        foreach:
+          - list: "request.object.spec.initContainers || `[]`"
+            preconditions:
+              any:
+                - key: "{{ contains(element.image, 'docker.io/') }}"
+                  operator: Equals
+                  value: true
+                - key: "{{ contains(element.image, 'index.docker.io/') }}"
+                  operator: Equals
+                  value: true
+            patchesJson6902: |-
+              - op: replace
+                path: /spec/initContainers/{{elementIndex}}/image
+                value: 'reg-19jf01na.percona.com/dockerhub-cache/{{images.initContainers."{{element.name}}".path}}:{{images.initContainers."{{element.name}}".tag}}'
+
+    # Rule 5: Init containers with implicit org/image format
+    - name: init-dockerhub-implicit-org
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+                - UPDATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - openshift-*
+      mutate:
+        foreach:
+          - list: "request.object.spec.initContainers || `[]`"
+            preconditions:
+              all:
+                - key: "{{ contains(element.image, '/') }}"
+                  operator: Equals
+                  value: true
+                - key: '{{images.initContainers."{{element.name}}".registry}}'
+                  operator: Equals
+                  value: docker.io
+            patchesJson6902: |-
+              - op: replace
+                path: /spec/initContainers/{{elementIndex}}/image
+                value: 'reg-19jf01na.percona.com/dockerhub-cache/{{images.initContainers."{{element.name}}".path}}:{{images.initContainers."{{element.name}}".tag}}'
+
+    # Rule 6: Init containers with implicit library images
+    - name: init-dockerhub-implicit-library
+      match:
+        any:
+          - resources:
+              kinds:
+                - Pod
+              operations:
+                - CREATE
+                - UPDATE
+      exclude:
+        any:
+          - resources:
+              namespaces:
+                - kube-system
+                - kyverno
+                - openshift-*
+      mutate:
+        foreach:
+          - list: "request.object.spec.initContainers || `[]`"
+            preconditions:
+              all:
+                - key: "{{ contains(element.image, '/') }}"
+                  operator: Equals
+                  value: false
+                - key: '{{images.initContainers."{{element.name}}".registry}}'
+                  operator: Equals
+                  value: docker.io
+            patchesJson6902: |-
+              - op: replace
+                path: /spec/initContainers/{{elementIndex}}/image
+                value: 'reg-19jf01na.percona.com/dockerhub-cache/library/{{images.initContainers."{{element.name}}".name}}:{{images.initContainers."{{element.name}}".tag}}'
