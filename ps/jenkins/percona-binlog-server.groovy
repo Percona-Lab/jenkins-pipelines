@@ -276,6 +276,9 @@ pipeline {
                     }
                 }
                 stage('Debian Bullseye(11)') {
+                    when {
+                       expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
