@@ -100,7 +100,7 @@ pipeline {
 
         stage('Generate SBOM') {
             parallel {
-                /*stage('Generate PG SBOM OL/8 AMD') {
+                stage('Generate PG SBOM OL/8 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -120,7 +120,7 @@ pipeline {
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
                         }
                     }
-                }*/
+                }
                 stage('Generate PG SBOM OL/8 ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -142,7 +142,7 @@ pipeline {
                         }
                     }
                 }
-                /*stage('Generate PG SBOM OL/9 AMD') {
+                stage('Generate PG SBOM OL/9 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -414,7 +414,7 @@ pipeline {
                                 uploadPGSBOMToTestingDownloadServer("pg_sbom", "${PG_VERSION}", "json")
                         }
                     }
-                }*/
+                }
 				stage('Generate PG SBOM Trixie ARM') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
