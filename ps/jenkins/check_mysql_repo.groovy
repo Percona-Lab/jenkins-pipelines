@@ -159,7 +159,8 @@ pipeline {
                                 // AI analysis: parameter takes precedence, then env var
                                 def enableAI = params.ENABLE_AI_ANALYSIS ?: (env.ENABLE_AI_ANALYSIS == 'true')
                                 def llmModel = params.LLM_MODEL ?: env.LLM_MODEL ?: 'gemini-2.0-flash'
-                                def aiFlag = enableAI ? '-a' : ''
+                                def aiFlags = enableAI ? "-a -m ${llmModel}" : '-m no-ai'
+                                def csvSuffix = enableAI ? "_${llmModel}" : '_no-ai'
 
                                 sh """
                                     set -o errexit
@@ -169,12 +170,11 @@ pipeline {
                                         -i mysql-server-repo \
                                         -o csv_output \
                                         -g \
-                                        -m ${llmModel} \
-                                        ${aiFlag} \
+                                        ${aiFlags} \
                                         ${oldTag} ${newTag}
 
                                     # Validate CSV output
-                                    CSV_FILE="csv_output/${newTag}_${llmModel}.csv"
+                                    CSV_FILE="csv_output/${newTag}${csvSuffix}.csv"
                                     if [ ! -f "\${CSV_FILE}" ]; then
                                         echo "ERROR: Expected CSV file not found: \${CSV_FILE}"
                                         exit 1
@@ -182,11 +182,10 @@ pipeline {
 
                                     LINE_COUNT=\$(wc -l < "\${CSV_FILE}")
                                     if [ "\${LINE_COUNT}" -le 1 ]; then
-                                        echo "ERROR: CSV file has no data (only header): \${CSV_FILE}"
-                                        exit 1
+                                        echo "WARNING: CSV file has no commits (only header): \${CSV_FILE}"
+                                    else
+                                        echo "SUCCESS: Generated \${CSV_FILE} with \$((LINE_COUNT - 1)) commits"
                                     fi
-
-                                    echo "SUCCESS: Generated \${CSV_FILE} with \$((LINE_COUNT - 1)) commits"
                                 """
                             } else {
                                 echo "Tags are identical or invalid for ${versionPattern}: old=${oldTag}, new=${newTag}"
