@@ -6,8 +6,14 @@ import requests
 import json
 import sys
 import argparse
-from typing import Dict, Optional, Tuple
+from typing import Dict, List, Optional, Tuple, Callable
 from concurrent.futures import ThreadPoolExecutor, as_completed
+
+DOCKER_AUTH_URL = "https://auth.docker.io/token"
+DOCKER_REGISTRY_URL = "https://registry-1.docker.io/v2"
+VERSION_SERVICE_BASE_URL = (
+    "https://raw.githubusercontent.com/Percona-Lab/percona-version-service/main/sources"
+)
 
 
 def get_digest(
@@ -17,14 +23,16 @@ def get_digest(
         session = requests.Session()
     try:
         repo, tag = image.split(":")
-        token_url = f"https://auth.docker.io/token?service=registry.docker.io&scope=repository:{repo}:pull"
+        token_url = (
+            f"{DOCKER_AUTH_URL}?service=registry.docker.io&scope=repository:{repo}:pull"
+        )
         token = session.get(token_url, timeout=10).json()["token"]
         headers = {
             "Authorization": f"Bearer {token}",
             "Accept": "application/vnd.docker.distribution.manifest.list.v2+json",
         }
         r = session.get(
-            f"https://registry-1.docker.io/v2/{repo}/manifests/{tag}",
+            f"{DOCKER_REGISTRY_URL}/{repo}/manifests/{tag}",
             headers=headers,
             timeout=10,
         )
@@ -69,7 +77,7 @@ def detect_product_type(images: Dict[str, str]) -> str:
         return "pxc"
     if "server-mongodb-operator" in operator_image:
         return "psmdb"
-    return "psmdb"
+    raise ValueError(f"Unknown operator type in IMAGE_OPERATOR: {operator_image!r}")
 
 
 def fetch_image_hashes(
@@ -97,96 +105,86 @@ def make_entry(
     return entry
 
 
-def categorize_pxc(images: Dict[str, str], hashes: Dict[str, Tuple]) -> Dict[str, Dict]:
-    result = {
-        "pxc": {},
-        "pmm": {},
-        "proxysql": {},
-        "haproxy": {},
-        "backup": {},
-        "log_collector": {},
-        "operator": {},
-    }
+def is_pmm(key: str) -> bool:
+    return "PMM_CLIENT" in key or key == "IMAGE_PMM3_CLIENT"
+
+
+def categorize_by_rules(
+    images: Dict[str, str],
+    hashes: Dict[str, Tuple],
+    rules: List[Tuple[Callable[[str], bool], str]],
+    categories: List[str],
+) -> Dict[str, Dict]:
+    result = {cat: {} for cat in categories}
     for key, path in images.items():
         ver = extract_version(path)
         h = hashes.get(key, (None, None))
         entry = make_entry(path, h[0], h[1])
-        if "OPERATOR" in key:
-            result["operator"][ver] = entry
-        elif "PXC" in key:
-            result["pxc"][ver] = entry
-        elif "BACKUP" in key:
-            result["backup"][ver] = entry
-        elif "PMM_CLIENT" in key or key == "IMAGE_PMM3_CLIENT":
-            result["pmm"][ver] = entry
-        elif "LOGCOLLECTOR" in key:
-            result["log_collector"][ver] = entry
-        elif "PROXY" in key and "HAPROXY" not in key:
-            result["proxysql"][ver] = entry
-        elif "HAPROXY" in key:
-            result["haproxy"][ver] = entry
+        for check, category in rules:
+            if check(key):
+                result[category][ver] = entry
+                break
     return {k: v for k, v in result.items() if v}
+
+
+def categorize_pxc(images: Dict[str, str], hashes: Dict[str, Tuple]) -> Dict[str, Dict]:
+    rules = [
+        (lambda k: "OPERATOR" in k, "operator"),
+        (lambda k: "PXC" in k, "pxc"),
+        (lambda k: "BACKUP" in k, "backup"),
+        (is_pmm, "pmm"),
+        (lambda k: "LOGCOLLECTOR" in k, "log_collector"),
+        (lambda k: "PROXY" in k and "HAPROXY" not in k, "proxysql"),
+        (lambda k: "HAPROXY" in k, "haproxy"),
+    ]
+    categories = [
+        "pxc",
+        "pmm",
+        "proxysql",
+        "haproxy",
+        "backup",
+        "log_collector",
+        "operator",
+    ]
+    return categorize_by_rules(images, hashes, rules, categories)
 
 
 def categorize_psmdb(
     images: Dict[str, str], hashes: Dict[str, Tuple]
 ) -> Dict[str, Dict]:
-    result = {
-        "mongod": {},
-        "backup": {},
-        "pmm": {},
-        "log_collector": {},
-        "operator": {},
-    }
-    for key, path in images.items():
-        ver = extract_version(path)
-        h = hashes.get(key, (None, None))
-        entry = make_entry(path, h[0], h[1])
-        if "OPERATOR" in key:
-            result["operator"][ver] = entry
-        elif "MONGOD" in key:
-            result["mongod"][ver] = entry
-        elif "BACKUP" in key:
-            result["backup"][ver] = entry
-        elif "PMM_CLIENT" in key or key == "IMAGE_PMM3_CLIENT":
-            result["pmm"][ver] = entry
-        elif "LOGCOLLECTOR" in key:
-            result["log_collector"][ver] = entry
-    return {k: v for k, v in result.items() if v}
+    rules = [
+        (lambda k: "OPERATOR" in k, "operator"),
+        (lambda k: "MONGOD" in k, "mongod"),
+        (lambda k: "BACKUP" in k, "backup"),
+        (is_pmm, "pmm"),
+        (lambda k: "LOGCOLLECTOR" in k, "log_collector"),
+    ]
+    categories = ["mongod", "backup", "pmm", "log_collector", "operator"]
+    return categorize_by_rules(images, hashes, rules, categories)
 
 
 def categorize_ps(images: Dict[str, str], hashes: Dict[str, Tuple]) -> Dict[str, Dict]:
-    result = {
-        "mysql": {},
-        "pmm": {},
-        "haproxy": {},
-        "orchestrator": {},
-        "router": {},
-        "toolkit": {},
-        "backup": {},
-        "operator": {},
-    }
-    for key, path in images.items():
-        ver = extract_version(path)
-        h = hashes.get(key, (None, None))
-        entry = make_entry(path, h[0], h[1])
-        if "OPERATOR" in key:
-            result["operator"][ver] = entry
-        elif "MYSQL" in key:
-            result["mysql"][ver] = entry
-        elif "BACKUP" in key:
-            result["backup"][ver] = entry
-        elif "PMM_CLIENT" in key or key == "IMAGE_PMM3_CLIENT":
-            result["pmm"][ver] = entry
-        elif "HAPROXY" in key:
-            result["haproxy"][ver] = entry
-        elif "ORCHESTRATOR" in key:
-            result["orchestrator"][ver] = entry
-        elif "ROUTER" in key:
-            result["router"][ver] = entry
-        elif "TOOLKIT" in key:
-            result["toolkit"][ver] = entry
-    return {k: v for k, v in result.items() if v}
+    rules = [
+        (lambda k: "OPERATOR" in k, "operator"),
+        (lambda k: "MYSQL" in k, "mysql"),
+        (lambda k: "BACKUP" in k, "backup"),
+        (is_pmm, "pmm"),
+        (lambda k: "HAPROXY" in k, "haproxy"),
+        (lambda k: "ORCHESTRATOR" in k, "orchestrator"),
+        (lambda k: "ROUTER" in k, "router"),
+        (lambda k: "TOOLKIT" in k, "toolkit"),
+    ]
+    categories = [
+        "mysql",
+        "pmm",
+        "haproxy",
+        "orchestrator",
+        "router",
+        "toolkit",
+        "backup",
+        "operator",
+    ]
+    return categorize_by_rules(images, hashes, rules, categories)
 
 
 def categorize_pg(images: Dict[str, str], hashes: Dict[str, Tuple]) -> Dict[str, Dict]:
@@ -226,7 +224,7 @@ def categorize_pg(images: Dict[str, str], hashes: Dict[str, Tuple]) -> Dict[str,
             result["postgis"][pg_version_map[suffix]] = entry
         elif "BACKREST" in key and suffix in pg_version_map:
             result["pgbackrest"][pg_version_map[suffix]] = entry
-        elif "PMM_CLIENT" in key or key == "IMAGE_PMM3_CLIENT":
+        elif is_pmm(key):
             result["pmm"][ver] = entry
     return {k: v for k, v in result.items() if v}
 
@@ -251,6 +249,23 @@ def categorize_images(images: Dict[str, str], max_workers: int = 10) -> Dict:
                 print(f"Error: {key}: {e}", file=sys.stderr)
                 hash_results[key] = (None, None)
     session.close()
+
+    missing_digests = []
+    for key, (h_amd, h_arm) in hash_results.items():
+        image = images.get(key, key)
+        if h_amd is None:
+            missing_digests.append(f"{image} (amd64)")
+        if h_arm is None:
+            missing_digests.append(f"{image} (arm64)")
+
+    if missing_digests:
+        print(
+            f"\nWARNING: Missing digests for {len(missing_digests)} image(s):",
+            file=sys.stderr,
+        )
+        for m in missing_digests:
+            print(f"  - {m}", file=sys.stderr)
+        print("", file=sys.stderr)
 
     categorizers = {
         "pxc": categorize_pxc,
@@ -317,6 +332,138 @@ VERSION_LIMITS = {
 }
 
 
+def generate_pxc_dep(result: Dict) -> Dict:
+    """Generate dependency rules for PXC operator."""
+    return {
+        "backup": {
+            "8.4.0": {">=": [{"var": "productVersion"}, "8.4"]},
+            "8.0.35": {
+                "and": [
+                    {">=": [{"var": "productVersion"}, "8.0"]},
+                    {"<": [{"var": "productVersion"}, "8.4"]},
+                ]
+            },
+            "2.4.29": {
+                "and": [
+                    {">=": [{"var": "productVersion"}, "5.7"]},
+                    {"<": [{"var": "productVersion"}, "8.0"]},
+                ]
+            },
+        }
+    }
+
+
+def generate_psmdb_dep(result: Dict) -> Dict:
+    """Generate dependency rules for PSMDB operator."""
+    return {}
+
+
+def generate_pg_dep(result: Dict) -> Dict:
+    """Generate dependency rules for PG operator based on newest version per major."""
+    matrix = result["versions"][0]["matrix"]
+    dep = {}
+
+    for category in ["pgbackrest", "postgis", "pgbouncer"]:
+        if category not in matrix:
+            continue
+
+        by_major = {}
+        for ver in matrix[category].keys():
+            major = int(ver.split(".")[0])
+            if major not in by_major:
+                by_major[major] = []
+            by_major[major].append(ver)
+
+        if not by_major:
+            continue
+
+        newest_per_major = []
+        for major, versions in by_major.items():
+            newest = max(versions, key=parse_version_key)
+            newest_per_major.append((major, newest))
+
+        newest_per_major.sort(reverse=True)
+        max_major = newest_per_major[0][0]
+
+        dep[category] = {}
+        for major, ver in newest_per_major:
+            if major == max_major:
+                dep[category][ver] = {">=": [{"var": "productVersion"}, ver]}
+            else:
+                dep[category][ver] = {
+                    "and": [
+                        {">=": [{"var": "productVersion"}, ver]},
+                        {"<": [{"var": "productVersion"}, f"{major + 1}.0"]},
+                    ]
+                }
+
+    return dep
+
+
+def generate_ps_dep(result: Dict) -> Dict:
+    """Generate dependency rules for PS operator based on newest version per major."""
+    matrix = result["versions"][0]["matrix"]
+    dep = {}
+
+    for category in ["backup", "router"]:
+        if category not in matrix:
+            continue
+
+        by_major = {}
+        for ver in matrix[category].keys():
+            major = get_major_minor(ver)
+            if major not in by_major:
+                by_major[major] = []
+            by_major[major].append(ver)
+
+        if not by_major:
+            continue
+
+        newest_per_major = []
+        for major, versions in by_major.items():
+            newest = max(versions, key=parse_version_key)
+            newest_per_major.append((major, newest))
+
+        newest_per_major.sort(key=lambda x: parse_version_key(x[0]), reverse=True)
+        max_major = newest_per_major[0][0]
+
+        dep[category] = {}
+        for major, ver in newest_per_major:
+            if major == max_major:
+                dep[category][ver] = {">=": [{"var": "productVersion"}, major]}
+            else:
+                next_major_idx = [m for m, _ in newest_per_major].index(major) - 1
+                next_major = newest_per_major[next_major_idx][0]
+                dep[category][ver] = {
+                    "and": [
+                        {">=": [{"var": "productVersion"}, major]},
+                        {"<": [{"var": "productVersion"}, next_major]},
+                    ]
+                }
+
+    return dep
+
+
+DEP_GENERATORS = {
+    "pxc-operator": generate_pxc_dep,
+    "psmdb-operator": generate_psmdb_dep,
+    "pg-operator": generate_pg_dep,
+    "ps-operator": generate_ps_dep,
+}
+
+
+def generate_dep_file(product: str, output_file: str, result: Dict) -> None:
+    """Generate dependency file for the given product."""
+    generator = DEP_GENERATORS.get(product)
+    if generator is None:
+        return
+
+    dep_file = output_file.replace(".json", ".dep.json")
+    dep_data = generator(result)
+    with open(dep_file, "w") as f:
+        json.dump(dep_data, f, indent=2)
+
+
 def parse_version_key(ver_str: str) -> Tuple:
     """Parse version string for sorting, handles versions like 8.0.42-33.1"""
     parts = re.split(r"[.-]", ver_str)
@@ -345,7 +492,7 @@ def fetch_previous_release(
 ) -> Dict:
     """Fetch previous release JSON from version service repo."""
     if base_url is None:
-        base_url = "https://raw.githubusercontent.com/Percona-Lab/percona-version-service/main/sources"
+        base_url = VERSION_SERVICE_BASE_URL
 
     url = f"{base_url}/operator.{operator_version}.{product}.json"
     try:
@@ -357,11 +504,20 @@ def fetch_previous_release(
         return None
 
 
-def remove_recommended_status(data: Dict) -> Dict:
-    """Change all 'recommended' status to 'available' in the matrix."""
+def remove_recommended_status(data: Dict, categories_to_update: set = None) -> Dict:
+    """Change 'recommended' status to 'available' only for specified categories.
+
+    If categories_to_update is None, updates all categories.
+    If specified, only updates categories in that set.
+    """
     for version_entry in data.get("versions", []):
         matrix = version_entry.get("matrix", {})
         for category, versions in matrix.items():
+            if (
+                categories_to_update is not None
+                and category not in categories_to_update
+            ):
+                continue
             for ver_key, ver_data in versions.items():
                 if ver_data.get("status") == "recommended":
                     ver_data["status"] = "available"
@@ -439,17 +595,18 @@ def trim_old_versions(data: Dict, limits: Dict) -> Dict:
 
 def generate_full_release_from_fragment(
     fragment: Dict, previous_version: str, output_file: str
-) -> None:
+) -> Dict:
     """Generate full release JSON by merging fragment dict with previous release."""
     frag_entry = fragment["versions"][0]
     product = frag_entry["product"]
+    frag_categories = set(frag_entry.get("matrix", {}).keys())
 
     old_data = fetch_previous_release(previous_version, product)
     if old_data is None:
         print("Warning: using fragment as-is (no previous release)", file=sys.stderr)
         result = fragment
     else:
-        old_data = remove_recommended_status(old_data)
+        old_data = remove_recommended_status(old_data, frag_categories)
         result = merge_fragment(old_data, fragment)
 
     limits = VERSION_LIMITS.get(product, {})
@@ -459,14 +616,16 @@ def generate_full_release_from_fragment(
     with open(output_file, "w") as f:
         json.dump(result, f, indent=2)
 
+    return result
+
 
 def generate_full_release(
     fragment_file: str, previous_version: str, output_file: str
-) -> None:
+) -> Dict:
     """Generate full release JSON by merging fragment file with previous release."""
     with open(fragment_file, "r") as f:
         fragment = json.load(f)
-    generate_full_release_from_fragment(fragment, previous_version, output_file)
+    return generate_full_release_from_fragment(fragment, previous_version, output_file)
 
 
 def main():
@@ -515,9 +674,11 @@ def main():
     elif args.command == "release":
         images = parse_input_file(args.input_file)
         fragment = categorize_images(images)
-        generate_full_release_from_fragment(
+        result = generate_full_release_from_fragment(
             fragment, args.previous_version, args.output_file
         )
+        product = fragment["versions"][0]["product"]
+        generate_dep_file(product, args.output_file, result)
     else:
         if len(sys.argv) == 3:
             images = parse_input_file(sys.argv[1])

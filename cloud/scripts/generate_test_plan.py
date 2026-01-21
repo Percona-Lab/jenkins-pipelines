@@ -327,9 +327,9 @@ def main():
     if not test_plan:
         return 1
 
-    with open("test-plan.json", "w") as f:
+    with open("test_plan.json", "w") as f:
         json.dump(test_plan, f, indent=2)
-    print("Saved: test-plan.json")
+    print("Saved: test_plan.json")
 
     md_content = [
         generate_version_info(versions, db_type),

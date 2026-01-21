@@ -143,7 +143,7 @@ pipeline {
                     export PATH="\$HOME/.local/bin:\$PATH"
                     uv run cloud/scripts/generate_test_plan.py release_versions.txt
                 """
-                archiveArtifacts artifacts: 'test-plan.json, test-plan.md', allowEmptyArchive: false, fingerprint: true
+                archiveArtifacts artifacts: 'test_plan.json, test_plan.md', allowEmptyArchive: false, fingerprint: true
             }
         }
 
