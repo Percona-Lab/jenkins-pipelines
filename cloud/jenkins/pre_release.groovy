@@ -127,12 +127,14 @@ pipeline {
         }
         stage('Generate Version Service JSON fragment') {
             steps {
-                def VsFileName = "operator.${params.VERSION}.${operatorMap[params.OPERATOR]}-operator.json"
-                sh """
-                    export PATH="\$HOME/.local/bin:\$PATH"
-                    uv run cloud/scripts/generate_vs.py release release_versions.txt ${params.PREVIOUS_VERSION} ${vsFileName}
-                """
-                archiveArtifacts artifacts: "${vsFileName}", allowEmptyArchive: false, fingerprint: true
+                script {
+                    def vsFileName = "operator.${params.VERSION}.${operatorMap[params.OPERATOR]}-operator.json"
+                    sh """
+                        export PATH="\$HOME/.local/bin:\$PATH"
+                        uv run cloud/scripts/generate_vs.py release release_versions.txt ${params.PREVIOUS_VERSION} ${vsFileName}
+                    """
+                    archiveArtifacts artifacts: "${vsFileName}", allowEmptyArchive: false, fingerprint: true
+                }
             }
         }
         stage('Generate Test Plan') {
