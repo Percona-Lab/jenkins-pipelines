@@ -1,4 +1,3 @@
-# aws cloudformation --region us-east-2 create-stack --template-body file://IaC/StagingStack.yml --capabilities CAPABILITY_NAMED_IAM --stack-name pmm-staging --tags Key=iit-billing-tag,Value=pmm-staging --parameters ParameterKey=LambdaName,ParameterValue=email_running_instances ParameterKey=SShortName,ParameterValue=pmm-staging
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Parameters:
@@ -352,6 +351,7 @@ Resources:
                   - ec2:DescribeSpotPriceHistory
                   - ec2:DescribeInstances
                   - ses:SendEmail
+                  - pricing:GetProducts
               - Effect: Allow
                 Resource: "arn:aws:logs:*:*:*"
                 Action:
@@ -380,9 +380,60 @@ Resources:
           import boto3
           import datetime
           import collections
+          import json
+          from functools import lru_cache
+
+          # Region to location mapping for pricing API
+          REGION_LOCATION_MAP = {
+              'us-east-1': 'US East (N. Virginia)',
+              'us-east-2': 'US East (Ohio)',
+              'us-west-1': 'US West (N. California)',
+              'us-west-2': 'US West (Oregon)',
+              'eu-west-1': 'EU (Ireland)',
+              'eu-central-1': 'EU (Frankfurt)',
+              'eu-west-2': 'EU (London)',
+              'eu-west-3': 'EU (Paris)',
+              'eu-north-1': 'EU (Stockholm)'
+          }
+
+          @lru_cache(maxsize=128)
+          def get_on_demand_price(instance_type, region='us-east-2'):
+              """Get accurate on-demand price from AWS Pricing API"""
+              try:
+                  # Pricing API is only available in us-east-1
+                  pricing_client = boto3.client('pricing', region_name='us-east-1')
+                  location = REGION_LOCATION_MAP.get(region, 'US East (Ohio)')
+
+                  response = pricing_client.get_products(
+                      ServiceCode='AmazonEC2',
+                      Filters=[
+                          {'Type': 'TERM_MATCH', 'Field': 'instanceType', 'Value': instance_type},
+                          {'Type': 'TERM_MATCH', 'Field': 'location', 'Value': location},
+                          {'Type': 'TERM_MATCH', 'Field': 'tenancy', 'Value': 'Shared'},
+                          {'Type': 'TERM_MATCH', 'Field': 'operatingSystem', 'Value': 'Linux'},
+                          {'Type': 'TERM_MATCH', 'Field': 'preInstalledSw', 'Value': 'NA'},
+                          {'Type': 'TERM_MATCH', 'Field': 'capacitystatus', 'Value': 'Used'}
+                      ],
+                      MaxResults=1
+                  )
+
+                  if response['PriceList']:
+                      price_item = json.loads(response['PriceList'][0])
+                      on_demand = price_item['terms']['OnDemand']
+
+                      for term in on_demand.values():
+                          for price_dimension in term['priceDimensions'].values():
+                              price = float(price_dimension['pricePerUnit']['USD'])
+                              if price > 0:
+                                  return price
+              except Exception as e:
+                  print(f"Error: Could not get on-demand price for {instance_type} in {region}: {e}")
+                  raise e  # Re-raise to ensure we know if pricing fails
+
+              raise ValueError(f"No on-demand price found for {instance_type} in {region}")
 
           def lambda_handler(event, context):
-              fullReportEmail = ['alexander.tymchuk@percona.com', 'talha.rizwan@percona.com']
+              fullReportEmail = ['alexander.tymchuk@percona.com', 'talha.rizwan@percona.com', 'anderson.nogueira@percona.com']
               region = 'us-east-2'
               session = boto3.Session(region_name=region)
               resources = session.resource('ec2')
@@ -397,21 +448,21 @@ Resources:
               emails = collections.defaultdict(list)
               for instance in instances:
                   # get instance Owner
-                  ownerFilter = filter(lambda x: 'owner' == x['Key'], instance.tags)
+                  ownerFilter = list(filter(lambda x: 'owner' == x['Key'], instance.tags))
                   if len(ownerFilter) >= 1:
                       owner = ownerFilter[0]['Value'] + '@percona.com'
                   else:
                       owner = 'unknown'
 
                   # get instance allowed days
-                  allowedDaysFilter = filter(lambda x: 'stop-after-days' == x['Key'], instance.tags)
-                  if len(allowedDaysFilter) >= 1 and allowedDaysFilter[0]['Value'] > 0:
+                  allowedDaysFilter = list(filter(lambda x: 'stop-after-days' == x['Key'], instance.tags))
+                  if len(allowedDaysFilter) >= 1 and int(allowedDaysFilter[0]['Value']) > 0:
                       allowedDays = allowedDaysFilter[0]['Value'] + ' days'
                   else:
                       allowedDays = 'unlimited'
 
                   # get instance Name
-                  nameFilter = filter(lambda x: 'Name' == x['Key'], instance.tags)
+                  nameFilter = list(filter(lambda x: 'Name' == x['Key'], instance.tags))
                   if len(nameFilter) >= 1:
                       name = nameFilter[0]['Value']
                   else:
@@ -421,25 +472,71 @@ Resources:
                   current_time = datetime.datetime.now(instance.launch_time.tzinfo)
                   uptime = current_time - instance.launch_time
 
-                  # get price
-                  priceHistory = ec2.describe_spot_price_history(
-                      InstanceTypes=[instance.instance_type],
-                      StartTime=instance.launch_time,
-                      EndTime=current_time,
-                      AvailabilityZone=instance.placement['AvailabilityZone']
-                  )
-                  totalCost = 0.0
-                  for price in priceHistory['SpotPriceHistory']:
-                      totalCost += float(price['SpotPrice'])
+                  # get price - calculate time-weighted cost
+                  is_spot = instance.instance_lifecycle == 'spot'
+
+                  if is_spot:
+                      # Get spot price history for Linux/UNIX only
+                      priceHistory = ec2.describe_spot_price_history(
+                          InstanceTypes=[instance.instance_type],
+                          StartTime=instance.launch_time,
+                          EndTime=current_time,
+                          AvailabilityZone=instance.placement['AvailabilityZone'],
+                          ProductDescriptions=['Linux/UNIX']
+                      )
+
+                      # Calculate time-weighted cost
+                      totalCost = 0.0
+                      sorted_prices = sorted(priceHistory['SpotPriceHistory'],
+                                            key=lambda x: x['Timestamp'])
+
+                      for i, entry in enumerate(sorted_prices):
+                          period_start = entry['Timestamp']
+                          price = float(entry['SpotPrice'])
+
+                          # Determine when this price period ended
+                          if i < len(sorted_prices) - 1:
+                              period_end = sorted_prices[i + 1]['Timestamp']
+                          else:
+                              period_end = current_time
+
+                          # Only count time after instance launched
+                          if period_end <= instance.launch_time:
+                              continue
+                          if period_start < instance.launch_time:
+                              period_start = instance.launch_time
+
+                          # Calculate hours at this price
+                          hours = (period_end - period_start).total_seconds() / 3600
+                          totalCost += hours * price
+                  else:
+                      # On-demand pricing using AWS Pricing API
+                      hours = uptime.total_seconds() / 3600
+                      try:
+                          on_demand_price = get_on_demand_price(instance.instance_type, region)
+                          totalCost = hours * on_demand_price
+                      except Exception as e:
+                          print(f"Failed to get on-demand price for {instance.instance_type}: {e}")
+                          # Skip this instance if we can't get pricing
+                          continue
+
                   costStr = '%0.2f USD' % totalCost
 
                   # prepare table for email
                   if uptime.total_seconds() > 5*60*60:
                       strUptime = re.match('^[^:]+:[^:]+', str(uptime)).group(0)
-                      emails[owner].append('<tr><td>' + name + '</td><td>' + owner + '</td><td>' + strUptime + '</td><td>' + allowedDays + '</td><td>' + costStr + '</td></tr>')
+                      lifecycle = 'Spot' if is_spot else 'On-Demand'
+                      instance_details = instance.instance_type + ' (' + lifecycle + ')'
+                      region_az = region + '/' + instance.placement['AvailabilityZone']
+
+                      row = ('<tr><td>' + name + '</td><td>' + instance_details + '</td><td>' +
+                            region_az + '</td><td>' + owner + '</td><td>' + strUptime +
+                            '</td><td>' + allowedDays + '</td><td>' + costStr + '</td></tr>')
+
+                      emails[owner].append(row)
                       for email in fullReportEmail:
                           if owner != email:
-                              emails[email].append('<tr><td>' + name + '</td><td>' + owner + '</td><td>' + strUptime + '</td><td>' + allowedDays + '</td><td>' + costStr + '</td></tr>')
+                              emails[email].append(row)
                   else:
                       print('Skip: ' + name)
 
@@ -452,8 +549,8 @@ Resources:
                       <head></head>
                       <body>
                         <h4>A friendly reminder - please don't forget to shutdown the following instances:</h4>
-                        <table>
-                          <tr><th>Name</th><th>Owner</th><th>Uptime</th><th>Expiry</th><th>Total Cost</th></tr>
+                        <table border="1" cellpadding="5" cellspacing="0">
+                          <tr><th>Name</th><th>Type</th><th>Region/AZ</th><th>Owner</th><th>Uptime</th><th>Expiry</th><th>Total Cost</th></tr>
                           %s
                         </table>
                         <p></p>
