@@ -291,6 +291,9 @@ pipeline {
                     }
                 }
                 stage('Debian Bullseye(11) ARM') {
+                    when {
+                       expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
