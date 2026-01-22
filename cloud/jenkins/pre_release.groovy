@@ -129,11 +129,12 @@ pipeline {
             steps {
                 script {
                     def vsFileName = "operator.${params.VERSION}.${operatorMap[params.OPERATOR]}-operator.json"
+                    def vsDepFileName = "operator.${params.VERSION}.${operatorMap[params.OPERATOR]}-operator.dep.json"
                     sh """
                         export PATH="\$HOME/.local/bin:\$PATH"
                         uv run cloud/scripts/generate_vs.py release release_versions.txt ${params.PREVIOUS_VERSION} ${vsFileName}
                     """
-                    archiveArtifacts artifacts: "${vsFileName}", allowEmptyArchive: false, fingerprint: true
+                    archiveArtifacts artifacts: "${vsFileName}, ${vsDepFileName}", allowEmptyArchive: false, fingerprint: true
                 }
             }
         }

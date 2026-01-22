@@ -288,7 +288,10 @@ def get_minikube():
         "https://api.github.com/repos/kubernetes/minikube/releases/latest", timeout=10
     )
     resp.raise_for_status()
-    return resp.json().get("tag_name", "").lstrip("v")
+    body = resp.json().get("body", "")
+    if m := re.search(r"Kubernetes v?(\d+\.\d+\.\d+)", body):
+        return m.group(1)
+    return None
 
 
 def get_openshift():

@@ -4,6 +4,7 @@
 import json
 import re
 import argparse
+import requests
 from pathlib import Path
 
 
@@ -36,6 +37,14 @@ def extract_db_versions(versions: dict[str, str], db_type: str) -> list[str]:
         if match:
             found.add(match.group(1))
     return sorted(found, key=int, reverse=True)
+
+
+def get_minikube():
+    resp = requests.get(
+        "https://api.github.com/repos/kubernetes/minikube/releases/latest", timeout=10
+    )
+    resp.raise_for_status()
+    return resp.json().get("tag_name", "").lstrip("v")
 
 
 def extract_k8s_platforms(versions: dict[str, str]) -> dict[str, dict[str, str]]:
@@ -94,7 +103,7 @@ def generate_version_info(versions: dict[str, str], db_type: str) -> str:
         if platform == "MINIKUBE":
             k8s_ver = info.get("max", info.get("version", ""))
             if k8s_ver:
-                lines.append(f"{name} <OVERRIDE> with Kubernetes v{k8s_ver}")
+                lines.append(f"{name} {get_minikube()} with Kubernetes v{k8s_ver}")
         else:
             min_v = info.get("min", "")
             max_v = info.get("max", "")
