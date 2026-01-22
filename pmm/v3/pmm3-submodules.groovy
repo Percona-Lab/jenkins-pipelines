@@ -86,6 +86,7 @@ pipeline {
                 stash includes: 'apiBranch', name: 'apiBranch'
                 stash includes: 'apiURL', name: 'apiURL'
                 stash includes: 'pmmQABranch', name: 'pmmQABranch'
+                stash includes: 'QAIntegrationBranch', name: 'QAIntegrationBranch'
                 stash includes: 'apiCommitSha', name: 'apiCommitSha'
                 stash includes: 'pmmQACommitSha', name: 'pmmQACommitSha'
                 stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
@@ -253,6 +254,7 @@ pipeline {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         unstash 'IMAGE'
                         unstash 'pmmQABranch'
+                        unstash 'QAIntegrationBranch'
                         unstash 'pmmUITestBranch'
                         unstash 'fbCommitSha'
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
@@ -286,12 +288,14 @@ pipeline {
                         '''
 
                         def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
+                        def QA_INTEGRATION_GIT_BRANCH = sh(returnStdout: true, script: "cat QAIntegrationBranch").trim()
                         def PMM_UI_TESTS_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmUITestBranch").trim()
                         payload = [
                           ref: "${PMM_BRANCH}",
                           inputs: [
                             pmm_server_image: "${IMAGE}", pmm_client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
                             pmm_qa_branch: "${PMM_QA_GIT_BRANCH}", pmm_ui_tests_branch: "${PMM_UI_TESTS_GIT_BRANCH}",
+                            qa_integration_branch: "${QA_INTEGRATION_GIT_BRANCH}",
                             pmm_client_version: "${CLIENT_URL}"
                           ]
                         ]
