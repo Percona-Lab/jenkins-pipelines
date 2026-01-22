@@ -57,7 +57,7 @@ pipeline {
                     }
 
                     def repoPath = "percona/${params.OPERATOR}"
-                    env.GIT_REPO_URL = "https://github.com/${repoPath}.git"
+                    env.GIT_REPO_URL = "https://github.com/jvpasinatto/percona-server-mongodb-operator.git" //for testing
                     env.GITHUB_API_URL = "https://api.github.com/repos/${repoPath}/releases"
 
                     echo "Validating version v${params.VERSION} for ${params.OPERATOR}..."
@@ -148,76 +148,79 @@ pipeline {
             }
         }
 
-        // stage('Checkout Code') {
-        //     steps {
-        //         script {
-        //             echo 'Checking out operator repository...'
-        //             checkout([
-        //                 $class: 'GitSCM',
-        //                 branches: [[name: '*/main']],
-        //                 extensions: [
-        //                     [$class: 'CleanBeforeCheckout'],
-        //                     [$class: 'CloneOption', depth: 0, noTags: false, shallow: false]
-        //                 ],
-        //                 userRemoteConfigs: [[
-        //                     credentialsId: 'git-credentials',
-        //                     url: env.GIT_REPO_URL
-        //                 ]]
-        //             ])
-        //         }
-        //     }
-        // }
+        stage('Checkout Code') {
+            steps {
+                script {
+                    echo 'Checking out operator repository...'
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        extensions: [
+                            [$class: 'CleanBeforeCheckout'],
+                            [$class: 'CloneOption', depth: 0, noTags: false, shallow: false],
+                            [$class: 'RelativeTargetDirectory', relativeTargetDir: 'operator-repo']
+                        ],
+                        userRemoteConfigs: [[
+                            credentialsId: 'git-credentials',
+                            url: env.GIT_REPO_URL
+                        ]]
+                    ])
+                }
+            }
+        }
 
-        // stage('Create Release Branch') {
-        //     when {
-        //         expression { params.CREATE_BRANCH == 'YES' }
-        //     }
-        //     steps {
-        //         script {
-        //             echo "Creating release branch: ${env.RELEASE_BRANCH}"
-        //             sh """
-        //                 git config user.email "jenkins@example.com"
-        //                 git config user.name "Jenkins CI"
-        //                 git checkout -b ${env.RELEASE_BRANCH}
-        //             """
-        //         }
-        //     }
-        // }
+        stage('Create Release Branch') {
+            when {
+                expression { params.CREATE_BRANCH == 'YES' }
+            }
+            steps {
+                dir('operator-repo') {
+                    script {
+                        echo "Creating release branch: ${env.RELEASE_BRANCH}"
+                        sh "git checkout -b ${env.RELEASE_BRANCH}"
+                    }
+                }
+            }
+        }
 
-        // stage('Execute Makefile Release') {
-        //     steps {
-        //         script {
-        //             echo 'Executing Makefile release rule...'
-        //             sh """
-        //                 make release VERSION=${params.VERSION} IMAGE_TAG_BASE=percona/${params.OPERATOR}
-        //             """
-        //         }
-        //     }
-        // }
+        stage('Execute Makefile Release') {
+            steps {
+                dir('operator-repo') {
+                    script {
+                        echo 'Executing Makefile release rule...'
+                        sh """
+                            make release VERSION=${params.VERSION} IMAGE_TAG_BASE=percona/${params.OPERATOR}
+                        """
+                    }
+                }
+            }
+        }
 
-        // stage('Commit and Push Changes') {
-        //     steps {
-        //         script {
-        //             def updateBranch = "${env.RELEASE_BRANCH}-update_versions"
-        //             echo "Creating branch '${updateBranch}' from ${env.RELEASE_BRANCH} and committing changes..."
-        //             sh """
-        //                 git config user.email "jenkins@example.com"
-        //                 git config user.name "Jenkins CI"
-        //                 git checkout -b ${updateBranch}
-                        
-        //                 git add .
-        //                 if ! git diff --cached --exit-code; then
-        //                     git commit -m "Update images for ${params.VERSION} release"
-        //                     git push origin ${updateBranch}
-        //                     echo "Changes pushed to ${updateBranch}"
-        //                     echo "Please create a PR from ${updateBranch} to ${env.RELEASE_BRANCH}"
-        //                 else
-        //                     echo "No changes to commit"
-        //                 fi
-        //             """
-        //         }
-        //     }
-        // }
+        stage('Commit and Push Changes') {
+            steps {
+                dir('operator-repo') {
+                    script {
+                        def updateBranch = "${env.RELEASE_BRANCH}-update_versions"
+                        echo "Creating branch '${updateBranch}' from ${env.RELEASE_BRANCH} and committing changes..."
+                        sh """
+                            git config user.email "jenkins@example.com"
+                            git config user.name "Jenkins CI"
+                            git checkout -b ${updateBranch}
+
+                            git add .
+                            if ! git diff --cached --exit-code; then
+                                git commit -m "Update images for ${params.VERSION} release"
+                                git push origin ${updateBranch}
+                                echo "Changes pushed to ${updateBranch}"
+                                echo "Please create a PR from ${updateBranch} to ${env.RELEASE_BRANCH}"
+                            else
+                                echo "No changes to commit"
+                            fi
+                        """
+                    }
+                }
+            }
+        }
     }
 
     post {
