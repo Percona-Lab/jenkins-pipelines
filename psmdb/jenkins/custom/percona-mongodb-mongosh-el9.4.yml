@@ -1,0 +1,14 @@
+- job:
+    name: percona-mongodb-mongosh-el9.4
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/vorsel/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: psmdb/jenkins/custom/percona-mongodb-mongosh-el9.4.groovy
