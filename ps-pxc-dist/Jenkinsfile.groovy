@@ -121,6 +121,11 @@ pipeline {
         )
         choice(
             choices: 'YES\nNO',
+            description: 'Push RHEL 10 packages',
+            name: 'PUSHRHEL10'
+        )
+        choice(
+            choices: 'YES\nNO',
             description: 'Push trixie packages',
             name: 'PUSHTRIXIE'
         )
@@ -147,7 +152,7 @@ pipeline {
                 withCredentials([string(credentialsId: 'SIGN_PASSWORD', variable: 'SIGN_PASSWORD')]) {
                     withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                         sh """
-                            rm args_pipeline
+                            rm -f args_pipeline
                             for var in "\$(printenv | grep _PATH | sed 's/KEY_PATH.*//')"; do
                                 echo "\$var" >> args_pipeline
                             done
@@ -158,6 +163,7 @@ pipeline {
                             echo "REMOVE_LOCKFILE=\${REMOVE_LOCKFILE}" >> args_pipeline
                             echo "REMOVE_BEFORE_PUSH=\${REMOVE_BEFORE_PUSH}" >> args_pipeline
                             echo "PUSHAMAZONLINUX=\${PUSHAMAZONLINUX}" >> args_pipeline
+                            echo "PUSHRHEL10=\${PUSHRHEL10}" >> args_pipeline
                             echo "PUSHFOCAL=\${PUSHFOCAL}" >> args_pipeline
                             echo "PUSHTRIXIE=\${PUSHTRIXIE}" >> args_pipeline
                             echo "\$(awk '{\$1="export" OFS \$1} 1' args_pipeline)" > args_pipeline
