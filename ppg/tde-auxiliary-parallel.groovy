@@ -20,66 +20,65 @@ pipeline {
       label 'min-ol-9-x64'
   }
   parameters {
-        string(
-            defaultValue: '18.1',
-            description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3',
-            name: 'VERSION'
-        )
-        string(
-            defaultValue: '18.1.1',
-            description: 'Server PG version for test, including major and minor version, e.g 17.6.1',
-            name: 'PERCONA_SERVER_VERSION'
-        )
-        string(
-            defaultValue: 'https://github.com/percona/postgres',
-            description: 'PSP repo that we want to test, we could also use forked developer repo here.',
-            name: 'PSP_REPO'
-        )
-        string(
-            defaultValue: 'PSP_REL_18_STABLE',
-            description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE',
-            name: 'PSP_BRANCH'
-        )
-        string(
-            defaultValue: 'main',
-            description: 'Branch for ppg-testing testing repository',
-            name: 'TESTING_BRANCH'
-        )
-        choice(
-            name: 'IO_METHOD',
-            description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
-            choices: [
-                'worker',
-                'sync',
-                'io_uring'
-            ]
-        )
-        string(
-            defaultValue: 'https://github.com/percona/pg_tde.git',
-            description: 'pg_tde repo that we want to test, we could also use forked developer repo here.',
-            name: 'TDE_REPO'
-        )
-        string(
-            defaultValue: 'release-2.1',
-            description: 'TDE repo version/branch/tag to use; e.g main, release-2.1',
-            name: 'TDE_BRANCH'
-        )
-        booleanParam(
-            name: 'SKIP_TESTCASE',
-            description: "Enable if want to skip some test cases."
-        )string(
-            name: 'TESTCASE_TO_SKIP',
-            defaultValue: 'pg_receivewal.sh,pg_tde_change_database_key_provider_vault_v2.sh',
-            description: '''If SKIP_TESTCASE option is enabled, then testcase given here will be ignored. 
+    string(
+        name: 'VERSION',
+        defaultValue: '18.1',
+        description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3'
+    )
+    string(
+        name: 'PERCONA_SERVER_VERSION',
+        defaultValue: '18.1.1',
+        description: 'Server PG version for test, including major and minor version, e.g 17.6.1'
+    )
+    string(
+        name: 'PSP_REPO',
+        defaultValue: 'https://github.com/percona/postgres',
+        description: 'PSP repo that we want to test, we could also use forked developer repo here.'
+    )
+    string(
+        name: 'PSP_BRANCH',
+        defaultValue: 'PSP_REL_18_STABLE',
+        description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE'
+    )
+    string(
+        name: 'TESTING_BRANCH',
+        defaultValue: 'main',
+        description: 'Branch for ppg-testing testing repository'
+    )
+    choice(
+        name: 'IO_METHOD',
+        description: 'io_method to use for the server (applicable to pg-18 and onwards only).',
+        choices: ['worker', 'sync', 'io_uring']
+    )
+    string(
+        name: 'TDE_REPO',
+        defaultValue: 'https://github.com/percona/pg_tde.git',
+        description: 'pg_tde repo that we want to test, we could also use forked developer repo here.'
+    )
+    string(
+        name: 'TDE_BRANCH',
+        defaultValue: 'release-2.1',
+        description: 'TDE repo version/branch/tag to use; e.g main, release-2.1'
+    )
+    booleanParam(
+        name: 'SKIP_TESTCASE',
+        defaultValue: false,
+        description: "Enable if want to skip some test cases."
+    )
+    string(
+        name: 'TESTCASE_TO_SKIP',
+        defaultValue: 'pg_receivewal.sh,pg_tde_change_database_key_provider_vault_v2.sh',
+        description: '''If SKIP_TESTCASE option is enabled, then testcase given here will be ignored. 
         Values should be comma separated. For example:
         pg_receivewal.sh,pg_tde_change_database_key_provider_vault_v2.sh'''
-        )
-        string(
-            defaultValue: 'yes',
-            description: 'Destroy VM after tests',
-            name: 'DESTROY_ENV'
-        )
-  } 
+    )
+    // Suggestion: Changed to booleanParam for better UX
+    booleanParam(
+        name: 'DESTROY_ENV',
+        defaultValue: true,
+        description: 'Destroy VM after tests'
+    )
+}
   environment {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
       MOLECULE_DIR = "pg_tde/auxiliary";
