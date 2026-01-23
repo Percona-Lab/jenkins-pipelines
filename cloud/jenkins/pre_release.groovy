@@ -102,15 +102,21 @@ pipeline {
         }
         stage('Install dependencies') {
             steps {
-                script {
-                    echo 'Installing Python dependencies...'
-                    sh '''
-                        curl -LsSf https://astral.sh/uv/install.sh | sh
-                        export PATH="$HOME/.local/bin:$PATH"
-                        uv init
-                        uv add requests packaging
-                    '''
-                }
+                sh '''
+                    curl -LsSf https://astral.sh/uv/install.sh | sh
+                    export PATH="$HOME/.local/bin:$PATH"
+                    uv init
+                    uv add requests packaging
+
+                    GO_VERSION=$(curl -s https://go.dev/VERSION?m=text | head -1)
+                    curl -LO "https://go.dev/dl/${GO_VERSION}.linux-amd64.tar.gz"
+                    tar -xzf ${GO_VERSION}.linux-amd64.tar.gz
+                    rm ${GO_VERSION}.linux-amd64.tar.gz
+
+                    curl -LO https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+                    chmod +x yq_linux_amd64
+                    mv yq_linux_amd64 $HOME/.local/bin/yq
+                '''
             }
         }
         stage('Fetch release images') {
@@ -181,15 +187,9 @@ pipeline {
             steps {
                 sh "cp release_versions.txt operator-repo/e2e-tests/release_versions"
                 dir('operator-repo') {
-                    sh '''
-                        GO_VERSION=$(curl -s https://go.dev/VERSION?m=text | head -1)
-                        curl -LO "https://go.dev/dl/${GO_VERSION}.linux-amd64.tar.gz"
-                        tar -xzf ${GO_VERSION}.linux-amd64.tar.gz
-                        rm ${GO_VERSION}.linux-amd64.tar.gz
-                    '''
                     sh """
-                        export PATH="\$PWD/go/bin:\$PATH"
-                        export GOPATH="\$PWD/gopath"
+                        export PATH="\$HOME/.local/bin:\$WORKSPACE/go/bin:\$PATH"
+                        export GOPATH="\$WORKSPACE/gopath"
                         export PATH="\$GOPATH/bin:\$PATH"
                         make release VERSION=${params.VERSION} IMAGE_TAG_BASE=percona/${params.OPERATOR}
                     """
