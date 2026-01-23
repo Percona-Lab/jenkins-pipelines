@@ -9,7 +9,6 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 PMM_CLIENT = "2.44.1-1"
 PMM_SERVER = "2.44.1"
-LOGCOLLECTOR = "4.0.1"
 PG_MAJOR_VERSIONS = ["13", "14", "15", "16", "17"]
 
 MONTH_MAP = {
@@ -83,6 +82,7 @@ def get_image_lines(op, ver):
             "7.0": (P, "percona-server-mongodb-7.0"),
             "6.0": (P, "percona-server-mongodb-6.0"),
             "backup": (P, "percona-backup-mongodb"),
+            "logcollector": (D, "percona/fluentbit"),
             "pmm3": (P, "pmm3"),
         },
         "pxc": {
@@ -94,6 +94,7 @@ def get_image_lines(op, ver):
             "backup57": (D, "percona/percona-xtrabackup", "2.4"),
             "haproxy": (D, "percona/haproxy"),
             "proxysql": (D, "percona/proxysql2"),
+            "logcollector": (D, "percona/fluentbit"),
             "pmm3": (P, "pmm3"),
         },
         "pg": {
@@ -132,7 +133,7 @@ def get_image_lines(op, ver):
             ("PMM_SERVER", "pmm-server", PMM_SERVER),
             ("PMM3_CLIENT", "pmm-client", pmm3),
             ("PMM3_SERVER", "pmm-server", pmm3),
-            ("LOGCOLLECTOR", "fluentbit", LOGCOLLECTOR),
+            ("LOGCOLLECTOR", "fluentbit", v.get("logcollector")),
         ],
         "pxc": [
             ("OPERATOR", "percona-xtradb-cluster-operator", ver),
@@ -144,7 +145,7 @@ def get_image_lines(op, ver):
             ("BACKUP57", "percona-xtrabackup", v.get("backup57")),
             ("PROXY", "proxysql2", v.get("proxysql")),
             ("HAPROXY", "haproxy", v.get("haproxy")),
-            ("LOGCOLLECTOR", "fluentbit", LOGCOLLECTOR),
+            ("LOGCOLLECTOR", "fluentbit", v.get("logcollector")),
             ("PMM_CLIENT", "pmm-client", PMM_CLIENT),
             ("PMM_SERVER", "pmm-server", PMM_SERVER),
             ("PMM3_CLIENT", "pmm-client", pmm3),

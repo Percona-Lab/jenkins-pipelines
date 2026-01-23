@@ -461,7 +461,7 @@ def generate_dep_file(product: str, output_file: str, result: Dict) -> None:
     dep_file = output_file.replace(".json", ".dep.json")
     dep_data = generator(result)
     with open(dep_file, "w") as f:
-        json.dump(dep_data, f, indent=2)
+        json.dump(dep_data, f, indent=2, sort_keys=True)
 
 
 def parse_version_key(ver_str: str) -> Tuple:
@@ -614,7 +614,7 @@ def generate_full_release_from_fragment(
         result = trim_old_versions(result, limits)
 
     with open(output_file, "w") as f:
-        json.dump(result, f, indent=2)
+        json.dump(result, f, indent=2, sort_keys=True)
 
     return result
 
@@ -666,7 +666,7 @@ def main():
         images = parse_input_file(args.input_file)
         result = categorize_images(images)
         with open(args.output_file, "w") as f:
-            json.dump(result, f, indent=2)
+            json.dump(result, f, indent=2, sort_keys=True)
     elif args.command == "full":
         generate_full_release(
             args.fragment_file, args.previous_version, args.output_file
@@ -684,7 +684,7 @@ def main():
             images = parse_input_file(sys.argv[1])
             result = categorize_images(images)
             with open(sys.argv[2], "w") as f:
-                json.dump(result, f, indent=2)
+                json.dump(result, f, indent=2, sort_keys=True)
         else:
             parser.print_help()
 
