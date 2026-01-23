@@ -32,6 +32,11 @@ pipeline {
             description: 'PRO build',
             name: 'PROBUILD')
         choice(
+            choices: 'YES\nNO',
+            description: 'Push RHEL 10 packages',
+            name: 'PUSHRHEL10'
+        )
+        choice(
             choices: 'NO\nYES',
             description: 'Enable if focal packages have to be pushed',
             name: 'PUSHFOCAL')
@@ -85,7 +90,11 @@ pipeline {
                                        export REPOPATH="repo-copy/"\${PRO_FOLDER}\${LCREPOSITORY}"/yum"
                                     fi
                                     echo \${REPOPATH}
-                                    RHVERS=\$(ls -1 binary/redhat | grep -v 6)
+                                    if [ ${PUSHRHEL10} = YES ]; then
+                                        RHVERS=\$(ls -1 binary/redhat | grep -v 6)
+                                    else
+                                        RHVERS=\$(ls -1 binary/redhat | grep -v 10 | grep -v 6)
+                                    fi
                                     # -------------------------------------> source processing
                                     if [[ -d source/redhat ]]; then
                                         SRCRPM=\$(find source/redhat -name '*.src.rpm')
