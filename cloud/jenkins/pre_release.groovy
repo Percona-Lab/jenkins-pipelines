@@ -148,7 +148,7 @@ pipeline {
             }
         }
 
-        stage('Checkout Code') {
+        stage('Checkout and Prepare Operator Repo') {
             steps {
                 script {
                     echo 'Checking out operator repository...'
@@ -166,18 +166,12 @@ pipeline {
                         ]]
                     ])
                 }
-            }
-        }
-
-        stage('Create Release Branch') {
-            when {
-                expression { params.CREATE_BRANCH == 'YES' }
-            }
-            steps {
                 dir('operator-repo') {
                     script {
-                        echo "Creating release branch: ${env.RELEASE_BRANCH}"
-                        sh "git checkout -b ${env.RELEASE_BRANCH}"
+                        if (params.CREATE_BRANCH == 'YES') {
+                            echo "Creating release branch: ${env.RELEASE_BRANCH}"
+                            sh "git checkout -b ${env.RELEASE_BRANCH}"
+                        }
                     }
                 }
             }
@@ -185,13 +179,20 @@ pipeline {
 
         stage('Execute Makefile Release') {
             steps {
+                sh "cp release_versions.txt operator-repo/e2e-tests/release_versions"
                 dir('operator-repo') {
-                    script {
-                        echo 'Executing Makefile release rule...'
-                        sh """
-                            make release VERSION=${params.VERSION} IMAGE_TAG_BASE=percona/${params.OPERATOR}
-                        """
-                    }
+                    sh '''
+                        GO_VERSION=$(curl -s https://go.dev/VERSION?m=text | head -1)
+                        curl -LO "https://go.dev/dl/${GO_VERSION}.linux-amd64.tar.gz"
+                        tar -xzf ${GO_VERSION}.linux-amd64.tar.gz
+                        rm ${GO_VERSION}.linux-amd64.tar.gz
+                    '''
+                    sh """
+                        export PATH="\$PWD/go/bin:\$PATH"
+                        export GOPATH="\$PWD/gopath"
+                        export PATH="\$GOPATH/bin:\$PATH"
+                        make release VERSION=${params.VERSION} IMAGE_TAG_BASE=percona/${params.OPERATOR}
+                    """
                 }
             }
         }
