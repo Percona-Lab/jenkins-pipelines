@@ -154,7 +154,7 @@ pipeline {
             }
         }
 
-        stage('Checkout and Prepare Operator Repo') {
+        stage('Prepare Operator Repo') {
             steps {
                 script {
                     echo 'Checking out operator repository...'
@@ -163,11 +163,10 @@ pipeline {
                         branches: [[name: '*/main']],
                         extensions: [
                             [$class: 'CleanBeforeCheckout'],
-                            [$class: 'CloneOption', depth: 0, noTags: false, shallow: false],
+                            [$class: 'CloneOption', depth: 1, noTags: true, shallow: false],
                             [$class: 'RelativeTargetDirectory', relativeTargetDir: 'operator-repo']
                         ],
                         userRemoteConfigs: [[
-                            credentialsId: 'git-credentials',
                             url: env.GIT_REPO_URL
                         ]]
                     ])
@@ -200,7 +199,7 @@ pipeline {
         stage('Commit and Push Changes') {
             steps {
                 dir('operator-repo') {
-                    withCredentials([usernamePassword(credentialsId: 'git-credentials', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
                         script {
                             def updateBranch = "${env.RELEASE_BRANCH}-update_versions"
                             echo "Creating branch '${updateBranch}' and committing changes..."
@@ -212,7 +211,7 @@ pipeline {
                                 git add .
                                 if ! git diff --cached --exit-code; then
                                     git commit -m "Update images for ${params.VERSION} release"
-                                    git remote set-url origin https://\${GIT_USER}:\${GIT_TOKEN}@github.com/jvpasinatto/percona-server-mongodb-operator.git
+                                    git remote set-url origin https://x-access-token:\${GITHUB_TOKEN}@github.com/jvpasinatto/percona-server-mongodb-operator.git
                                     git push origin ${updateBranch}
                                     echo "Changes pushed to ${updateBranch}"
                                     echo "Please create a PR from ${updateBranch} to ${env.RELEASE_BRANCH}"
