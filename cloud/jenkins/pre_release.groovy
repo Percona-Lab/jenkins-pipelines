@@ -131,7 +131,7 @@ pipeline {
                 }
             }
         }
-        stage('Generate Version Service JSON fragment') {
+        stage('Generate VS JSON files') {
             steps {
                 script {
                     def vsFileName = "operator.${params.VERSION}.${operatorMap[params.OPERATOR]}-operator.json"
@@ -200,24 +200,27 @@ pipeline {
         stage('Commit and Push Changes') {
             steps {
                 dir('operator-repo') {
-                    script {
-                        def updateBranch = "${env.RELEASE_BRANCH}-update_versions"
-                        echo "Creating branch '${updateBranch}' from ${env.RELEASE_BRANCH} and committing changes..."
-                        sh """
-                            git config user.email "jenkins@example.com"
-                            git config user.name "Jenkins CI"
-                            git checkout -b ${updateBranch}
+                    withCredentials([usernamePassword(credentialsId: 'git-credentials', usernameVariable: 'GIT_USER', passwordVariable: 'GIT_TOKEN')]) {
+                        script {
+                            def updateBranch = "${env.RELEASE_BRANCH}-update_versions"
+                            echo "Creating branch '${updateBranch}' and committing changes..."
+                            sh """
+                                git config user.email "jenkins@example.com"
+                                git config user.name "Jenkins CI"
+                                git checkout -b ${updateBranch}
 
-                            git add .
-                            if ! git diff --cached --exit-code; then
-                                git commit -m "Update images for ${params.VERSION} release"
-                                git push origin ${updateBranch}
-                                echo "Changes pushed to ${updateBranch}"
-                                echo "Please create a PR from ${updateBranch} to ${env.RELEASE_BRANCH}"
-                            else
-                                echo "No changes to commit"
-                            fi
-                        """
+                                git add .
+                                if ! git diff --cached --exit-code; then
+                                    git commit -m "Update images for ${params.VERSION} release"
+                                    git remote set-url origin https://\${GIT_USER}:\${GIT_TOKEN}@github.com/jvpasinatto/percona-server-mongodb-operator.git
+                                    git push origin ${updateBranch}
+                                    echo "Changes pushed to ${updateBranch}"
+                                    echo "Please create a PR from ${updateBranch} to ${env.RELEASE_BRANCH}"
+                                else
+                                    echo "No changes to commit"
+                                fi
+                            """
+                        }
                     }
                 }
             }
