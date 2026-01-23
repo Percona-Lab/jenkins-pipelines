@@ -61,12 +61,12 @@ pipeline {
         booleanParam(
             name: 'SKIP_TESTCASE',
             description: "Enable if want to skip some test cases."
-        )
-        string(
+        )string(
+            name: 'TESTCASE_TO_SKIP',
             defaultValue: 'pg_receivewal.sh,pg_tde_change_database_key_provider_vault_v2.sh',
-            description: 'If SKIP_TESTCASE option is enabled, then testcase given here will be ignored. Values should be comma separated. For example 
-            pg_receivewal.sh,pg_tde_change_database_key_provider_vault_v2.sh',
-            name: 'TESTCASE_TO_SKIP'
+            description: '''If SKIP_TESTCASE option is enabled, then testcase given here will be ignored. 
+        Values should be comma separated. For example:
+        pg_receivewal.sh,pg_tde_change_database_key_provider_vault_v2.sh'''
         )
         string(
             defaultValue: 'yes',
