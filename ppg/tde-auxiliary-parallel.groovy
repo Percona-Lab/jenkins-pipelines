@@ -72,7 +72,6 @@ pipeline {
         Values should be comma separated. For example:
         pg_receivewal.sh,pg_tde_change_database_key_provider_vault_v2.sh'''
     )
-    // Suggestion: Changed to booleanParam for better UX
     booleanParam(
         name: 'DESTROY_ENV',
         defaultValue: true,
