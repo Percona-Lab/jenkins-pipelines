@@ -31,7 +31,7 @@ pipeline {
     )
     choice(
         name: 'REPO',
-        description: 'Repo for testing. Only applicable with INSTALL_FROM_PACKAGES enabled.',
+        description: 'Repo for testing. ONLY applicable with INSTALL_FROM_PACKAGES enabled.',
         choices: [
             'testing',
             'experimental',
@@ -41,12 +41,12 @@ pipeline {
     string(
         name: 'PSP_REPO',
         defaultValue: 'https://github.com/percona/postgres',
-        description: 'PSP repo that we want to test, we could also use forked developer repo here. Only applicable with INSTALL_FROM_PACKAGES enabled.'
+        description: 'PSP repo that we want to test, we could also use forked developer repo here. NOT applicable with INSTALL_FROM_PACKAGES enabled.'
     )
     string(
         name: 'PSP_BRANCH',
         defaultValue: 'PSP_REL_18_STABLE',
-        description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE. Only applicable with INSTALL_FROM_PACKAGES enabled.'
+        description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE. NOT applicable with INSTALL_FROM_PACKAGES enabled.'
     )
     string(
         name: 'TESTING_BRANCH',
@@ -61,12 +61,12 @@ pipeline {
     string(
         name: 'TDE_REPO',
         defaultValue: 'https://github.com/percona/pg_tde.git',
-        description: 'pg_tde repo that we want to test, we could also use forked developer repo here. Only applicable with INSTALL_FROM_PACKAGES enabled.'
+        description: 'pg_tde repo that we want to test, we could also use forked developer repo here. NOT applicable with INSTALL_FROM_PACKAGES enabled.'
     )
     string(
         name: 'TDE_BRANCH',
         defaultValue: 'release-2.1',
-        description: 'TDE repo version/branch/tag to use; e.g main, release-2.1. Only applicable with INSTALL_FROM_PACKAGES enabled.'
+        description: 'TDE repo version/branch/tag to use; e.g main, release-2.1. NOT applicable with INSTALL_FROM_PACKAGES enabled.'
     )
     booleanParam(
         name: 'SKIP_TESTCASE',
