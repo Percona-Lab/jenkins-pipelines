@@ -16,7 +16,7 @@ pipeline {
     )
     string(
         name: 'VERSION',
-        defaultValue: '18.1',
+        defaultValue: 'ppg-18.1',
         description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3'
     )
     booleanParam(
