@@ -226,7 +226,7 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-   sh """
+    sh """
         export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
         az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
             -g percona-operators \
