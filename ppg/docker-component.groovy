@@ -35,6 +35,10 @@ pipeline {
             description: 'Docker Server PG version being used, including both major and minor version. For example, 15.4.',
             name: 'SERVER_VERSION'
         )
+        booleanParam(
+            name: 'WITH_TDE',
+            description: "Enable if testing the component with pg_tde enabled. Only works with PSP 17+ versions."
+        )
         string(
             defaultValue: '18.1',
             description: 'TAG of the component, pgBackrest or pgBouncer, docker from perconalab/percona to use from hub.docker.com.. For example, 16, 16.1, 16.1-multi.',

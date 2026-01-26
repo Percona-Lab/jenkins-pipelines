@@ -24,6 +24,10 @@ pipeline {
         defaultValue: '18.1.1',
         description: 'Server PG version for test, including major and minor version, e.g 17.6.1'
     )
+    booleanParam(
+        name: 'INSTALL_FROM_PACKAGES',
+        description: "Enable if want to install the PSP and pg_tde from the packages, intead of building from sources."
+    )
     string(
         name: 'PSP_REPO',
         defaultValue: 'https://github.com/percona/postgres',
