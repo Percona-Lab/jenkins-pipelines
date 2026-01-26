@@ -19,24 +19,28 @@ pipeline {
         defaultValue: '18.1',
         description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3'
     )
-    string(
-        name: 'PERCONA_SERVER_VERSION',
-        defaultValue: '18.1.1',
-        description: 'Server PG version for test, including major and minor version, e.g 17.6.1'
-    )
     booleanParam(
         name: 'INSTALL_FROM_PACKAGES',
         description: "Enable if want to install the PSP and pg_tde from the packages, intead of building from sources."
     )
+    choice(
+        name: 'REPO',
+        description: 'Repo for testing. Only applicable with INSTALL_FROM_PACKAGES enabled.',
+        choices: [
+            'testing',
+            'experimental',
+            'release'
+        ]
+    )
     string(
         name: 'PSP_REPO',
         defaultValue: 'https://github.com/percona/postgres',
-        description: 'PSP repo that we want to test, we could also use forked developer repo here.'
+        description: 'PSP repo that we want to test, we could also use forked developer repo here. Only applicable with INSTALL_FROM_PACKAGES enabled.'
     )
     string(
         name: 'PSP_BRANCH',
         defaultValue: 'PSP_REL_18_STABLE',
-        description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE'
+        description: 'PSP repo version/branch/tag to use; e.g main, TDE_REL_17_STABLE.Only applicable with INSTALL_FROM_PACKAGES enabled.'
     )
     string(
         name: 'TESTING_BRANCH',
@@ -51,12 +55,12 @@ pipeline {
     string(
         name: 'TDE_REPO',
         defaultValue: 'https://github.com/percona/pg_tde.git',
-        description: 'pg_tde repo that we want to test, we could also use forked developer repo here.'
+        description: 'pg_tde repo that we want to test, we could also use forked developer repo here.Only applicable with INSTALL_FROM_PACKAGES enabled.'
     )
     string(
         name: 'TDE_BRANCH',
         defaultValue: 'release-2.1',
-        description: 'TDE repo version/branch/tag to use; e.g main, release-2.1'
+        description: 'TDE repo version/branch/tag to use; e.g main, release-2.1. Only applicable with INSTALL_FROM_PACKAGES enabled.'
     )
     booleanParam(
         name: 'SKIP_TESTCASE',
