@@ -35,7 +35,6 @@ pipeline {
 
     environment {
         RELEASE_BRANCH = "release-${params.VERSION}"
-        RESULT_FOLDER = 'release-artifacts'
     }
 
     options {
@@ -57,8 +56,13 @@ pipeline {
                     }
 
                     def repoPath = "percona/${params.OPERATOR}"
-                    env.GIT_REPO_URL = "https://github.com/jvpasinatto/percona-server-mongodb-operator.git" //for testing
+                    env.REPO_PATH = repoPath
+                    env.GIT_REPO_URL = "https://github.com/${repoPath}.git"
                     env.GITHUB_API_URL = "https://api.github.com/repos/${repoPath}/releases"
+                    env.VS_REPO_URL = "https://github.com/Percona-Lab/percona-version-service.git"
+                    env.VS_FILE_NAME = "operator.${params.VERSION}.${operatorMap[params.OPERATOR]}-operator.json"
+                    env.VS_DEP_FILE_NAME = "operator.${params.VERSION}.${operatorMap[params.OPERATOR]}-operator.dep.json"
+                    env.VS_BRANCH = "vs-${params.VERSION}-${operatorMap[params.OPERATOR]}"
 
                     echo "Validating version v${params.VERSION} for ${params.OPERATOR}..."
 
@@ -134,13 +138,11 @@ pipeline {
         stage('Generate VS JSON files') {
             steps {
                 script {
-                    def vsFileName = "operator.${params.VERSION}.${operatorMap[params.OPERATOR]}-operator.json"
-                    def vsDepFileName = "operator.${params.VERSION}.${operatorMap[params.OPERATOR]}-operator.dep.json"
                     sh """
                         export PATH="\$HOME/.local/bin:\$PATH"
-                        uv run cloud/scripts/generate_vs.py release release_versions.txt ${params.PREVIOUS_VERSION} ${vsFileName}
+                        uv run cloud/scripts/generate_vs.py release release_versions.txt ${params.PREVIOUS_VERSION} ${env.VS_FILE_NAME}
                     """
-                    archiveArtifacts artifacts: "${vsFileName}, ${vsDepFileName}", allowEmptyArchive: false, fingerprint: true
+                    archiveArtifacts artifacts: "${env.VS_FILE_NAME}, ${env.VS_DEP_FILE_NAME}", allowEmptyArchive: false, fingerprint: true
                 }
             }
         }
@@ -153,8 +155,18 @@ pipeline {
                 archiveArtifacts artifacts: 'test_plan.json, test_plan.md', allowEmptyArchive: false, fingerprint: true
             }
         }
-
-        stage('Prepare Operator Repo') {
+        stage('Exit When Not Creating Branch') {
+            when {
+                expression { params.CREATE_BRANCH == 'NO' }
+            }
+            steps {
+                script {
+                    currentBuild.result = 'ABORTED'
+                    error('CREATE_BRANCH=NO, stopping before Prepare Operator Repo stage.')
+                }
+            }
+        }
+        stage('Create Operator Release Branch') {
             steps {
                 script {
                     echo 'Checking out operator repository...'
@@ -172,33 +184,17 @@ pipeline {
                     ])
                 }
                 dir('operator-repo') {
+                    sh "cp ../release_versions.txt e2e-tests/release_versions"
                     script {
-                        if (params.CREATE_BRANCH == 'YES') {
-                            echo "Creating release branch: ${env.RELEASE_BRANCH}"
-                            sh "git checkout -b ${env.RELEASE_BRANCH}"
-                        }
+                        echo "Creating release branch: ${env.RELEASE_BRANCH}"
+                        sh "git checkout -b ${env.RELEASE_BRANCH}"
+                        sh """
+                            export PATH="\$HOME/.local/bin:\$WORKSPACE/go/bin:\$PATH"
+                            export GOPATH="\$WORKSPACE/gopath"
+                            export PATH="\$GOPATH/bin:\$PATH"
+                            make release VERSION=${params.VERSION} IMAGE_TAG_BASE=percona/${params.OPERATOR}
+                        """
                     }
-                }
-            }
-        }
-
-        stage('Execute Makefile Release') {
-            steps {
-                sh "cp release_versions.txt operator-repo/e2e-tests/release_versions"
-                dir('operator-repo') {
-                    sh """
-                        export PATH="\$HOME/.local/bin:\$WORKSPACE/go/bin:\$PATH"
-                        export GOPATH="\$WORKSPACE/gopath"
-                        export PATH="\$GOPATH/bin:\$PATH"
-                        make release VERSION=${params.VERSION} IMAGE_TAG_BASE=percona/${params.OPERATOR}
-                    """
-                }
-            }
-        }
-
-        stage('Commit and Push Changes') {
-            steps {
-                dir('operator-repo') {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
                         script {
                             def updateBranch = "${env.RELEASE_BRANCH}-update_versions"
@@ -206,15 +202,63 @@ pipeline {
                             sh """
                                 git config user.email "jenkins@example.com"
                                 git config user.name "Jenkins CI"
+                                git remote set-url origin https://x-access-token:\${GITHUB_TOKEN}@github.com/${env.REPO_PATH}.git
+                                if git ls-remote --exit-code --heads origin ${env.RELEASE_BRANCH} >/dev/null 2>&1; then
+                                    echo "Release branch ${env.RELEASE_BRANCH} already exists on origin"
+                                else
+                                    git push origin ${env.RELEASE_BRANCH}
+                                fi
                                 git checkout -b ${updateBranch}
 
                                 git add .
                                 if ! git diff --cached --exit-code; then
                                     git commit -m "Update images for ${params.VERSION} release"
-                                    git remote set-url origin https://x-access-token:\${GITHUB_TOKEN}@github.com/jvpasinatto/percona-server-mongodb-operator.git
                                     git push origin ${updateBranch}
                                     echo "Changes pushed to ${updateBranch}"
                                     echo "Please create a PR from ${updateBranch} to ${env.RELEASE_BRANCH}"
+                                else
+                                    echo "No changes to commit"
+                                fi
+                            """
+                        }
+                    }
+                }
+            }
+        }
+        stage('Create Version Service Branch') {
+            steps {
+                script {
+                    echo 'Checking out version service repository...'
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: '*/main']],
+                        extensions: [
+                            [$class: 'CleanBeforeCheckout'],
+                            [$class: 'CloneOption', depth: 1, noTags: true, shallow: false],
+                            [$class: 'RelativeTargetDirectory', relativeTargetDir: 'version-service-repo']
+                        ],
+                        userRemoteConfigs: [[
+                            url: env.VS_REPO_URL
+                        ]]
+                    ])
+                    sh "cp ${env.VS_FILE_NAME} version-service-repo/sources/${env.VS_FILE_NAME}"
+                    sh "cp ${env.VS_DEP_FILE_NAME} version-service-repo/sources/${env.VS_DEP_FILE_NAME}"
+                }
+                dir('version-service-repo') {
+                    withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
+                        script {
+                            echo "Creating branch '${env.VS_BRANCH}' and committing changes..."
+                            sh """
+                                git config user.email "jenkins@example.com"
+                                git config user.name "Jenkins CI"
+                                git checkout -b ${env.VS_BRANCH}
+
+                                git add sources/${env.VS_FILE_NAME} sources/${env.VS_DEP_FILE_NAME}
+                                if ! git diff --cached --exit-code; then
+                                    git commit -m "Add version service data for ${params.VERSION}"
+                                    git remote set-url origin https://x-access-token:\${GITHUB_TOKEN}@github.com/Percona-Lab/percona-version-service.git
+                                    git push origin ${env.VS_BRANCH}
+                                    echo "Changes pushed to ${env.VS_BRANCH}"
                                 else
                                     echo "No changes to commit"
                                 fi
