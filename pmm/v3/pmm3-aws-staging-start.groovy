@@ -96,7 +96,7 @@ pipeline {
             --database ps - Percona Server for MySQL (ex: --database ps=5.7,QUERY_SOURCE=perfschema)
             Additional options:
                 QUERY_SOURCE=perfschema|slowlog
-                SETUP_TYPE=replica(Replication)|gr(Group Replication)|(single node if no option passed)
+                SETUP_TYPE=replication(Replication)|gr(Group Replication)|(single node if no option passed)
             --database mysql - Official MySQL (ex: --database mysql,QUERY_SOURCE=perfschema)
             Additional options:
                 QUERY_SOURCE=perfschema|slowlog
