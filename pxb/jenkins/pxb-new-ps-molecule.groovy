@@ -179,7 +179,7 @@ pipeline {
 
     always {
       script {
-        archiveArtifacts artifacts: "**/inc_backup_load_tests_logs_*.tar.gz", followSymlinks: false
+        archiveArtifacts artifacts: "**/inc_backup_load_tests_logs.tar.gz", followSymlinks: false
         moleculeParallelPostDestroy(pxbTarball(), env.MOLECULE_DIR)
 
       }
