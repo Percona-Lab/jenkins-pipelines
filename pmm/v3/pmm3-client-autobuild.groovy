@@ -83,23 +83,13 @@ pipeline {
                         set -o xtrace
 
                         if [ -n "${DOCKER_RC_TAG}" ]; then
-                            docker manifest create perconalab/pmm-client:${DOCKER_RC_TAG} \
-                                --amend perconalab/pmm-client:${DOCKER_RC_TAG}-amd64 \
-                                --amend perconalab/pmm-client:${DOCKER_RC_TAG}-arm64
-
-                            docker manifest annotate --arch amd64 perconalab/pmm-client:${DOCKER_RC_TAG} perconalab/pmm-client:${DOCKER_RC_TAG}-amd64
-                            docker manifest annotate --arch arm64 perconalab/pmm-client:${DOCKER_RC_TAG} perconalab/pmm-client:${DOCKER_RC_TAG}-arm64
-
-                            docker manifest push perconalab/pmm-client:${DOCKER_RC_TAG}
+                            docker buildx imagetools create -t perconalab/pmm-client:${DOCKER_RC_TAG} \
+                                perconalab/pmm-client:${DOCKER_RC_TAG}-amd64 \
+                                perconalab/pmm-client:${DOCKER_RC_TAG}-arm64
                         else
-                            docker manifest create perconalab/pmm-client:${DOCKER_LATEST_TAG} \
-                                --amend perconalab/pmm-client:${DOCKER_LATEST_TAG}-amd64 \
-                                --amend perconalab/pmm-client:${DOCKER_LATEST_TAG}-arm64
-
-                            docker manifest annotate --arch amd64 perconalab/pmm-client:${DOCKER_LATEST_TAG} perconalab/pmm-client:${DOCKER_LATEST_TAG}-amd64
-                            docker manifest annotate --arch arm64 perconalab/pmm-client:${DOCKER_LATEST_TAG} perconalab/pmm-client:${DOCKER_LATEST_TAG}-arm64
-
-                            docker manifest push perconalab/pmm-client:${DOCKER_LATEST_TAG}
+                            docker buildx imagetools create -t perconalab/pmm-client:${DOCKER_LATEST_TAG} \
+                                perconalab/pmm-client:${DOCKER_LATEST_TAG}-amd64 \
+                                perconalab/pmm-client:${DOCKER_LATEST_TAG}-arm64
                         fi
                     '''
                 }

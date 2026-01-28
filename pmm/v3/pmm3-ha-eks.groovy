@@ -111,9 +111,9 @@ managedNodeGroups:
       - c8i-flex.xlarge
     volumeSize: 80
     spot: true
-    minSize: 5
-    maxSize: 6
-    desiredCapacity: 5
+    minSize: 6
+    maxSize: 7
+    desiredCapacity: 6
     tags:
         iit-billing-tag: "pmm"
         nodegroup: "spot"
