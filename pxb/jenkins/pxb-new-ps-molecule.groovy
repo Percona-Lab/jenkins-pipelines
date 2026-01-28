@@ -168,7 +168,9 @@ pipeline {
     stage('Run test') {
       steps {
           script {
-            echo "WORKSPACE_VAR=${WORKSPACE}" > .env.ENV_VARS
+            sh """
+                echo WORKSPACE_VAR=${WORKSPACE} >> .env.ENV_VARS
+            """
             def envMap = loadEnvFile('.env.ENV_VARS')
             withEnv(envMap) {
               withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
