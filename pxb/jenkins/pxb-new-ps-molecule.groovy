@@ -136,7 +136,6 @@ pipeline {
   }
 
   stages {
-
     stage('Set build name'){
       steps {
         script {
@@ -148,6 +147,7 @@ pipeline {
         }
       }
     }
+
     stage('Checkout') {
       steps {
         deleteDir()
@@ -155,6 +155,7 @@ pipeline {
         echo "PXB_VERSION is ${env.PXB_VERSION}"
       }
     }
+
     stage ('Prepare') {
       steps {
         script {
@@ -164,24 +165,25 @@ pipeline {
       }
     }
 
-    stage('Run tarball molecule') {
+    stage('Run test') {
       steps {
           script {
+            echo "WORKSPACE_VAR=${WORKSPACE}" > .env.ENV_VARS
+            def envMap = loadEnvFile('.env.ENV_VARS')
+            withEnv(envMap) {
               withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                   moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXBskipOSPRO())
               }
           }
       }
     }
-
   }
-  post {
 
+  post {
     always {
       script {
-        archiveArtifacts artifacts: "**/inc_backup_load_tests_logs_*.tar.gz", followSymlinks: false
+        archiveArtifacts artifacts: "**/*.tar.gz", followSymlinks: false, allowEmptyArchive: true
         moleculeParallelPostDestroy(pxbTarball(), env.MOLECULE_DIR)
-
       }
       deleteBuildInstances()
     }
