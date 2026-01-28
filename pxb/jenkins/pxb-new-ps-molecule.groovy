@@ -167,16 +167,17 @@ pipeline {
 
     stage('Run test') {
       steps {
-          script {
-            sh """
-                echo WORKSPACE_VAR=${WORKSPACE} >> .env.ENV_VARS
-            """
-            def envMap = loadEnvFile('.env.ENV_VARS')
-            withEnv(envMap) {
-              withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
-                  moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXBskipOSPRO())
-              }
+        script {
+          sh """
+              echo WORKSPACE_VAR=${WORKSPACE} >> .env.ENV_VARS
+          """
+          def envMap = loadEnvFile('.env.ENV_VARS')
+          withEnv(envMap) {
+            withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+                moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXBskipOSPRO())
+            }
           }
+        }
       }
     }
   }
