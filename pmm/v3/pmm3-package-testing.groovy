@@ -253,7 +253,7 @@ pipeline {
     }
     post {
         always {
-            try {
+//             try {
                 sh '''
                     curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 '''
@@ -263,10 +263,9 @@ pipeline {
                         destroyStaging(VM_NAME)
                     }
                 }
-            } catch (AgentOfflineException e) {
-                // ignored
-            }
-
+//             } catch (AgentOfflineException e) {
+                ignored
+//             }
         }
     }
 }
