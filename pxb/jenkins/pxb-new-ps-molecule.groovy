@@ -199,15 +199,7 @@ pipeline {
   post {
     always {
       script {
-        def envMap = loadEnvFile('.env.ENV_VARS')
-        withEnv(envMap) {
-          sh """
-              pwd
-              ls -alh
-              ls -alh ${env.WORKSPACE}
-          """
-        }
-        archiveArtifacts artifacts: "**/*.tar.gz", followSymlinks: false, allowEmptyArchive: true
+        archiveArtifacts artifacts: "*.tar.gz", followSymlinks: false, allowEmptyArchive: true
         moleculeParallelPostDestroy(pxbTarball(), env.MOLECULE_DIR)
       }
       deleteBuildInstances()
