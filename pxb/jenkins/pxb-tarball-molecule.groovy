@@ -8,7 +8,7 @@ def PXBskipOSPRO() {
 }
 
 def PXBskipOSNONPRO() {
-  return ['al-2023']
+  return []
 }
 
 
@@ -145,6 +145,7 @@ pipeline {
   }
 
   stages {
+
     stage('Set build name'){
       steps {
         script {
@@ -188,8 +189,10 @@ pipeline {
           }
       }
     }
+
   }
   post {
+
     always {
       script {
         //archiveArtifacts artifacts: "*.tar.gz" , followSymlinks: false
@@ -198,5 +201,32 @@ pipeline {
       }
       deleteBuildInstances()
     }
+
+    success {
+        script {
+            
+        def product_to_test = ""
+        
+        def PXB_RELEASE = params.PXB_VERSION.tokenize('-')[0].tokenize('.').with { it[0] + it[1] }
+
+        if (PXB_RELEASE == "80") {
+            product_to_test = "pxb_80"
+        } else if (PXB_RELEASE == "84") {
+            product_to_test = "pxb_84"
+        } else {
+            product_to_test = "pxb_innovation_lts"
+        }
+
+        build job: 'pxb-package-testing-molecule-all', propagate: false, wait: false, parameters: [
+            string(name: 'product_to_test', value: "${product_to_test}"),
+            string(name: 'install_repo', value: "${params.TESTING_REPO}"),
+            string(name: 'git_repo', value: "https://github.com/${params.TESTING_GIT_ACCOUNT}/package-testing.git"),
+            string(name: 'TESTING_BRANCH', value: "${params.TESTING_BRANCH}"),
+            string(name: 'upstream', value: "no")
+        ]
+
+        }
+    }
+
   }
 }

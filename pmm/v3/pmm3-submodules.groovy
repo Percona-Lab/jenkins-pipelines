@@ -80,7 +80,7 @@ pipeline {
                     launchable verify || true
                     echo "$(git submodule status)" || true
 
-                    launchable record build --name "${FB_COMMIT}" || true
+                    launchable record build --name "${FB_COMMIT}" --lineage "${PMM_BRANCH}" || true
                 '''
                 }
                 stash includes: 'apiBranch', name: 'apiBranch'

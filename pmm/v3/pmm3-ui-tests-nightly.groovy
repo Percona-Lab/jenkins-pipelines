@@ -21,12 +21,12 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
     def clientInstance = "yes";
     if ( CLIENT_INSTANCE == clientInstance ) {
         env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${SERVER_IP}"
-        env.PMM_UI_URL = "http://${SERVER_IP}/"
+        env.PMM_UI_URL = "https://${SERVER_IP}/"
     }
     else
     {
         env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${VM_IP}"
-        env.PMM_UI_URL = "http://${VM_IP}/"
+        env.PMM_UI_URL = "https://${VM_IP}/"
     }
 }
 
@@ -67,6 +67,29 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
     env.VM_NAME = clusterCreateJob.buildVariables.VM_NAME
     env.WORK_DIR = clusterCreateJob.buildVariables.WORK_DIR
     env.FINAL_CLUSTER_NAME = clusterCreateJob.buildVariables.FINAL_CLUSTER_NAME
+    env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${pmmHostname}"
+    env.PMM_UI_URL = "${pmmAddress}/"
+}
+
+def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD) {
+    def pmmImageTag = DOCKER_VERSION.split(":")[1]
+
+    clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
+        string(name: 'K8S_VERSION', value: K8S_VERSION),
+        string(name: 'HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
+        string(name: 'PMM_IMAGE_TAG', value: pmmImageTag),
+        string(name: 'PMM_ADMIN_PASSWORD', value: ADMIN_PASSWORD),
+        booleanParam(name: 'ENABLE_EXTERNAL_ACCESS', value: true),
+        string(name: 'RETENTION_DAYS', value: '1'),
+    ]
+
+    def pmmAddress = clusterCreateJob.buildVariables.PMM_URL
+    def pmmHostname = pmmAddress.split("//")[1]
+
+    env.VM_IP = pmmHostname
+    env.VM_NAME = clusterCreateJob.buildVariables.VM_NAME
+    env.WORK_DIR = clusterCreateJob.buildVariables.WORK_DIR
+    env.CLUSTER_NAME = clusterCreateJob.buildVariables.CLUSTER_NAME
     env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${pmmHostname}"
     env.PMM_UI_URL = "${pmmAddress}/"
 }
@@ -133,6 +156,9 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
     } else if ( NODE_TYPE == 'sharded-psmdb' ) {
         env.VM_CLIENT_IP_PSMDB_SHARDED = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_PSMDB_SHARDED = stagingJob.buildVariables.VM_NAME
+    } else if ( NODE_TYPE == 'valkey-node' ) {
+        env.VM_CLIENT_IP_VALKEY = stagingJob.buildVariables.IP
+        env.VM_CLIENT_NAME_VALKEY = stagingJob.buildVariables.VM_NAME
     } else {
         env.VM_CLIENT_IP_MONGO = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_MONGO = stagingJob.buildVariables.VM_NAME
@@ -214,11 +240,11 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: ['docker', 'ovf', 'ami', 'helm'],
+            choices: ['docker', 'ovf', 'ami', 'helm', 'ha'],
             description: "PMM Server installation type.",
             name: 'SERVER_TYPE')
         string(
@@ -238,17 +264,25 @@ pipeline {
             description: 'pmm-server admin user default password',
             name: 'ADMIN_PASSWORD')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
+        string(
+            defaultValue: 'pmmha-v3',
+            description: 'HA setup branch of percona-helm-charts repo (pmmha-v3 has both pmm-ha and pmm-ha-dependencies)',
+            name: 'HELM_CHART_BRANCH')
         choice(
             choices: ['latest', '4.19.6', '4.19.5', '4.19.4', '4.19.3', '4.19.2', '4.18.9', '4.18.8', '4.18.7', '4.18.6', '4.18.5', '4.17.9', '4.17.8', '4.17.7', '4.17.6', '4.17.5', '4.16.9', '4.16.8', '4.16.7', '4.16.6', '4.16.5'],
             description: 'OpenShift version to install (specific version or channel)',
             name: 'OPENSHIFT_VERSION')
+        choice(
+            choices: ['1.34', '1.33', '1.32', '1.31', '1.30'],
+            description: 'HA setup Kubernetes cluster version',
+            name: 'K8S_VERSION')
         choice(
             choices: ['8.0', '8.4', '5.7'],
             description: 'Percona XtraDB Cluster version',
@@ -262,11 +296,11 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['17', '16', '15', '14', '13'],
+            choices: ['17', '18', '16', '15', '14', '13'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['17', '16', '15','14', '13'],
+            choices: ['17', '18', '16', '15','14', '13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -319,7 +353,7 @@ pipeline {
                         runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
-                stage('Setup OVF Server Instance') {
+                stage('Setup OVF PMM Server Instance') {
                     when {
                         expression { env.SERVER_TYPE == "ovf" }
                     }
@@ -327,7 +361,7 @@ pipeline {
                         runOVFStagingStart(DOCKER_VERSION, PMM_QA_GIT_BRANCH)
                     }
                 }
-                stage('Setup AMI Server Instance') {
+                stage('Setup AMI PMM Server Instance') {
                     when {
                         expression { env.SERVER_TYPE == "ami" }
                     }
@@ -335,12 +369,20 @@ pipeline {
                         runAMIStagingStart(DOCKER_VERSION)
                     }
                 }
-                stage('Setup Helm Server Instance') {
+                stage('Setup Helm PMM Server Instance') {
                     when {
                         expression { env.SERVER_TYPE == "helm" }
                     }
                     steps {
                         runOpenshiftClusterCreate(OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PASSWORD)
+                    }
+                }
+                stage('Setup HA PMM Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "ha" }
+                    }
+                    steps {
+                        runHAClusterCreate(K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD)
                     }
                 }
             }
@@ -371,7 +413,7 @@ pipeline {
                 }
                 stage('ps single and mongo pss client') {
                     steps {
-                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,QUERY_SOURCE=slowlog --database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database ps,QUERY_SOURCE=slowlog,MY_ROCKS=true --database psmdb,SETUP_TYPE=pss', 'yes', env.VM_IP, 'mysql-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
                 stage('pdpgsql, pgsql and pdpgsql patroni client') {
@@ -387,6 +429,11 @@ pipeline {
                 stage('extra pxc client') {
                     steps {
                         runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database pxc', 'yes', env.VM_IP, 'extra-pxc-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
+                    }
+                }
+                stage('valkey client') {
+                    steps {
+                        runStagingClient(DOCKER_VERSION, CLIENT_VERSION, '--database valkey', 'yes', env.VM_IP, 'valkey-node', ENABLE_PULL_MODE, PXC_VERSION, PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION, QUERY_SOURCE, QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
             }
@@ -414,6 +461,8 @@ pipeline {
                     npx playwright install
                     sudo npx playwright install-deps
                     envsubst < env.list > env.generated.list
+                    echo "Triggering Advisors Background Jobs..."
+                    node utils/triggerAdvisors.js
                 """
             }
         }
@@ -459,17 +508,22 @@ pipeline {
                         checkClientNodesAgentStatus(env.VM_CLIENT_IP_EXTRA_PXC, env.PMM_QA_GIT_BRANCH)
                     }
                 }
+                stage('Check Agent Status on valkey node') {
+                    steps {
+                        checkClientNodesAgentStatus(env.VM_CLIENT_IP_VALKEY, env.PMM_QA_GIT_BRANCH)
+                    }
+                }
             }
         }
         stage('Run UI Tests') {
             options {
-                timeout(time: 150, unit: "MINUTES")
+                timeout(time: 300, unit: "MINUTES")
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                        sed -i 's+https://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                        npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
                     """
                 }
             }
@@ -495,29 +549,32 @@ pipeline {
                         string(name: 'DESTROY_REASON', value: 'testing-complete'),
                     ]
                 }
-                if(env.VM_NAME && env.SERVER_TYPE == "docker")
-                {
+                if (env.SERVER_TYPE == "ha") {
+                    build job: 'pmm3-ha-eks-cleanup', parameters: [
+                        string(name: 'ACTION', value: 'DELETE_CLUSTER'),
+                        string(name: 'CLUSTER_NAME', value: env.CLUSTER_NAME),
+                    ]
+                }
+                if(env.VM_NAME && env.SERVER_TYPE == "docker") {
                     destroyStaging(VM_NAME)
                 }
-                if(env.VM_CLIENT_NAME_MYSQL)
-                {
+                if(env.VM_CLIENT_NAME_MYSQL) {
                     destroyStaging(VM_CLIENT_NAME_MYSQL)
                 }
-                if(env.VM_CLIENT_NAME_MONGO)
-                {
+                if(env.VM_CLIENT_NAME_MONGO) {
                     destroyStaging(VM_CLIENT_NAME_MONGO)
                 }
-                if(env.VM_CLIENT_NAME_PXC)
-                {
+                if(env.VM_CLIENT_NAME_PXC) {
                     destroyStaging(VM_CLIENT_NAME_PXC)
                 }
-                if(env.VM_CLIENT_NAME_PGSQL)
-                {
+                if(env.VM_CLIENT_NAME_PGSQL) {
                     destroyStaging(VM_CLIENT_NAME_PGSQL)
                 }
-                if(env.VM_CLIENT_NAME_PGSQL)
-                {
+                if(env.VM_CLIENT_NAME_PGSQL) {
                     destroyStaging(VM_CLIENT_NAME_PS_GR)
+                }
+                if(env.VM_CLIENT_NAME_VALKEY) {
+                    destroyStaging(VM_CLIENT_NAME_VALKEY)
                 }
             }
             sh '''
@@ -528,15 +585,16 @@ pipeline {
             script {
                 junit 'tests/output/*.xml'
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                archiveArtifacts artifacts: 'logs.zip'
+                archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
             }
         }
         failure {
             script {
                 junit 'tests/output/*.xml'
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                archiveArtifacts artifacts: 'logs.zip'
-                archiveArtifacts artifacts: 'tests/output/*.png'
+                archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'tests/output/*.png', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'tests/output/trace/*.zip', allowEmptyArchive: true
             }
         }
     }

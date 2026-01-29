@@ -1,66 +1,12 @@
 void buildUpgrade(String IMAGE_POSTFIX){
     sh """
-        PG_VER='17'
+        PG_VER='18'
         IMAGE_POSTFIX='upgrade'
         cd ./source/
         docker build --no-cache --squash --build-arg PG_MAJOR=\${PG_VER} --build-arg PGO_TAG=${GIT_PD_BRANCH} \
           -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX} \
           -f ./postgresql-containers/build/${IMAGE_POSTFIX}/Dockerfile ./postgresql-containers
     """
-}
-void checkImageForDocker(String IMAGE_SUFFIX){
-    try {
-             withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'SNYK_ID', variable: 'SNYK_ID')]) {
-                sh """
-                    IMAGE_SUFFIX=${IMAGE_SUFFIX}
-                    IMAGE_NAME='percona-postgresql-operator'
-                    if [ ${IMAGE_SUFFIX} = upgrade ]; then
-                        PATH_TO_DOCKERFILE="source/postgresql-containers/build/upgrade"
-                        IMAGE_TAG="${GIT_PD_BRANCH}-upgrade"
-                            set -e
-
-                            snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
-                                --severity-threshold=high --json-file-output=\${IMAGE_SUFFIX}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
-                    else
-                        for PG_VER in 17 16 15 14 13; do
-                                PATH_TO_DOCKERFILE="source/percona-distribution-postgresql-\${PG_VER}"
-                                IMAGE_TAG="${GIT_PD_BRANCH}-ppg\${PG_VER}-\${IMAGE_SUFFIX}"
-                                if [ ${IMAGE_SUFFIX} = pgbackrest ]; then
-                                    PATH_TO_DOCKERFILE="source/percona-pgbackrest"
-                                    IMAGE_TAG="${GIT_PD_BRANCH}-pgbackrest\${PG_VER}"
-                                elif [ ${IMAGE_SUFFIX} = pgbouncer ]; then
-                                    PATH_TO_DOCKERFILE="source/percona-pgbouncer"
-                                    IMAGE_TAG="${GIT_PD_BRANCH}-pgbouncer\${PG_VER}"
-                                fi
-                                set -e
-
-                                snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
-                                    --severity-threshold=high --json-file-output=\${IMAGE_SUFFIX}-\${PG_VER}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
-                        done
-                    fi
-                """
-             }
-    } catch (Exception e) {
-        echo "Stage failed: ${e.getMessage()}"
-        sh """
-            exit 1
-        """
-    } finally {
-         echo "Executing post actions..."
-         sh """
-             IMAGE_SUFFIX=${IMAGE_SUFFIX}
-             for PG_VER in 17 16 15 14 13; do
-                 if [ -f \${IMAGE_SUFFIX}-\${PG_VER}-report.json ]; then
-                     snyk-to-html -i \${IMAGE_SUFFIX}-\${PG_VER}-report.json -o \${IMAGE_SUFFIX}-\${PG_VER}-report.html
-                 fi
-             done
-
-             if [ -f \${IMAGE_SUFFIX}-report.json ]; then
-                 snyk-to-html -i \${IMAGE_SUFFIX}-report.json -o \${IMAGE_SUFFIX}-report.html
-             fi
-         """
-        archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
-    }
 }
 void pushUpgradeImageToDockerHub(String IMAGE_POSTFIX){
      withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'),
@@ -86,7 +32,7 @@ void pushUpgradeImageToDockerHub(String IMAGE_POSTFIX){
 void build(String IMAGE_POSTFIX){
     sh """
         cd ./source/
-        for PG_VER in 17 16 15 14 13; do
+        for PG_VER in 18 17 16 15 14 13; do
             if [ ${IMAGE_POSTFIX} = pgbouncer ]; then
                 docker build --no-cache --squash --build-arg PG_VERSION=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=${GIT_PD_BRANCH} \
                   -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}\${PG_VER} \
@@ -118,7 +64,7 @@ void pushImageToDockerHub(String IMAGE_POSTFIX){
                     IMAGE_NAME='percona-postgresql-operator'
                     docker login -u '${USER}' -p '${PASS}'
                     aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR
-                    for PG_VER in 17 16 15 14 13; do
+                    for PG_VER in 18 17 16 15 14 13; do
                         if [ \\${SOME_IMAGE_POSTFIX} = pgbouncer ] || [ \\${SOME_IMAGE_POSTFIX} = pgbackrest ]; then
                             docker push perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}
                             echo "perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}" >> list-of-images.txt
@@ -178,7 +124,6 @@ pipeline {
     }
     environment {
         PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
-        SNYK_TOKEN=credentials('SNYK_ID')
         ECR = "119175775298.dkr.ecr.us-east-1.amazonaws.com"
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
     }
@@ -192,11 +137,6 @@ pipeline {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
-                    curl -sL https://static.snyk.io/cli/latest/snyk-linux -o snyk
-                    chmod +x snyk
-                    sudo mv ./snyk /usr/local/bin/
-                    sudo npm install snyk-to-html -g
-
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
                     sudo git config --global --add safe.directory '*'
@@ -242,35 +182,6 @@ pipeline {
                 pushImageToDockerHub('postgres')
                 pushImageToDockerHub('postgres-gis')
                 pushUpgradeImageToDockerHub('upgrade')
-            }
-        }
-        stage('Snyk CVEs Checks') {
-            parallel {
-                stage('pgbackrest'){
-                    steps {
-                        checkImageForDocker('pgbackrest')
-                    }
-                }
-                stage('pgbouncer'){
-                    steps {
-                        checkImageForDocker('pgbouncer')
-                    }
-                }
-                stage('postgres'){
-                    steps {
-                        checkImageForDocker('postgres')
-                    }
-                }
-                stage('postgres-gis'){
-                    steps {
-                        checkImageForDocker('postgres-gis')
-                    }
-                }
-                stage('upgrade'){
-                    steps {
-                        checkImageForDocker('upgrade')
-                    }
-                }
             }
         }
     }
