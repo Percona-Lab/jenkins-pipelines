@@ -74,11 +74,11 @@ pipeline {
             description: 'MySQL Community Server version',
             name: 'MS_VERSION')
         choice(
-            choices: ['16', '17', '15','14', '13'],
+            choices: ['16', '17', '18', '15','14', '13'],
             description: "Which version of PostgreSQL",
             name: 'PGSQL_VERSION')
         choice(
-            choices: ['16', '17', '15', '14', '13'],
+            choices: ['16', '17', '18', '15', '14', '13'],
             description: 'Percona Distribution for PostgreSQL',
             name: 'PDPGSQL_VERSION')
         choice(
@@ -96,7 +96,7 @@ pipeline {
             --database ps - Percona Server for MySQL (ex: --database ps=5.7,QUERY_SOURCE=perfschema)
             Additional options:
                 QUERY_SOURCE=perfschema|slowlog
-                SETUP_TYPE=replica(Replication)|gr(Group Replication)|(single node if no option passed)
+                SETUP_TYPE=replication(Replication)|gr(Group Replication)|(single node if no option passed)
             --database mysql - Official MySQL (ex: --database mysql,QUERY_SOURCE=perfschema)
             Additional options:
                 QUERY_SOURCE=perfschema|slowlog
