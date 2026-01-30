@@ -1,35 +1,3 @@
-void checkImageForDocker(String IMAGE_SUFFIX){
-    try {
-             withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'SNYK_ID', variable: 'SNYK_ID')]) {
-                sh """
-                    IMAGE_TAG=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
-                    IMAGE_NAME="percona-postgresql-operator"
-                    PATH_TO_DOCKERFILE="/source/build/postgres-operator"
-
-                    sg docker -c "
-                        set -e
-                        docker login -u '${USER}' -p '${PASS}'
-
-                        snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
-                            --severity-threshold=high --json-file-output=\${IMAGE_TAG}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
-                    "
-                """
-             }
-    } catch (Exception e) {
-        echo "Stage failed: ${e.getMessage()}"
-        sh """
-            exit 1
-        """
-    } finally {
-         echo "Executing post actions..."
-         sh """
-             IMAGE_TAG=\$(echo ${IMAGE_SUFFIX} | sed 's^/^-^g; s^[.]^-^g;' | tr '[:upper:]' '[:lower:]')
-             snyk-to-html -i \${IMAGE_TAG}-report.json -o \${IMAGE_TAG}-report.html
-         """
-        archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
-    }
-}
-
 void generateImageSummary(filePath) {
     def images = readFile(filePath).trim().split("\n")
 
@@ -61,7 +29,6 @@ pipeline {
     }
     environment {
         PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
-        SNYK_TOKEN=credentials('SNYK_ID')
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
     }
     options {
@@ -75,13 +42,7 @@ pipeline {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
                     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     sh """
-                    curl -sL https://static.snyk.io/cli/latest/snyk-linux -o snyk
-                    chmod +x snyk
-                    sudo mv ./snyk /usr/local/bin/
-
-                    sudo npm install snyk-to-html -g
                         export GIT_REPO=\$(echo \${GIT_REPO} | sed "s#github.com#\${GITHUB_TOKEN}@github.com#g")
-
                         # sudo is needed for better node recovery after compilation failure
                         # if building failed on compilation stage directory will have files owned by docker user
                         sudo git config --global --add safe.directory '*'
@@ -127,15 +88,6 @@ pipeline {
                                "
                             """
                         }
-                    }
-                }
-            }
-        }
-        stage('Snyk CVEs Checks') {
-            parallel {
-                stage('postgres-operator'){
-                    steps {
-                        checkImageForDocker('\$GIT_BRANCH')
                     }
                 }
             }

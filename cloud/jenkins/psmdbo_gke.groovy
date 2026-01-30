@@ -92,6 +92,9 @@ EOF
         sudo yum install -y google-cloud-cli google-cloud-cli-gke-gcloud-auth-plugin
     """
 
+    installAzureCLI()
+    azureAuth()
+
     echo "=========================[ Logging in the Kubernetes provider ]========================="
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
         sh """
@@ -377,6 +380,39 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
             gcloud container clusters delete --zone ${GKE_REGION} $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
         """
     }
+}
+
+void azureAuth() {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+        sh '''
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
+            az account set -s "$AZURE_SUBSCRIPTION_ID"
+        '''
+    }
+}
+
+void installAzureCLI() {
+    sh """
+        if ! command -v az &>/dev/null; then
+            if [ "\$JENKINS_AGENT" = "AWS" ]; then
+                curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+                printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+                sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
+            else
+                echo "Installing Azure CLI for Hetzner instances..."
+                sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+                cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
+[azure-cli]
+name=Azure CLI
+baseurl=https://packages.microsoft.com/yumrepos/azure-cli
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc
+EOF
+                sudo dnf install azure-cli -y
+            fi
+        fi
+    """
 }
 
 pipeline {

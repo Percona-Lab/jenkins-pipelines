@@ -34,16 +34,8 @@ void initParams() {
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        OC_VER="4.15.25"
         PLATFORM_VER = sh(script: "curl -s https://mirror.openshift.com/pub/openshift-v4/x86_64/clients/ocp/$PLATFORM_VER/release.txt | sed -n 's/^\\s*Version:\\s\\+\\(\\S\\+\\)\\s*\$/\\1/p'", returnStdout: true).trim()
-    } else {
-        if ("$PLATFORM_VER" <= "4.15.25") {
-            OC_VER="$PLATFORM_VER"
-        } else {
-            OC_VER="4.15.25"
-        }
     }
-    echo "OC_VER=$OC_VER"
 
     if ("$IMAGE_MYSQL") {
         cw = ("$CLUSTER_WIDE" == "YES") ? "CW" : "NON-CW"
@@ -51,7 +43,7 @@ void initParams() {
         currentBuild.description = "$PLATFORM_VER " + "$IMAGE_MYSQL".split(":")[1] + " $cw"
     }
 }
-
+ 
 void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
     sh """
@@ -111,7 +103,7 @@ void prepareAgent() {
         echo \$(kubectl kuttl --version) is installed
 
         if [[ $JENKINS_AGENT == "AWS" ]]; then
-            curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$OC_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
+            curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
         else
             curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
         fi
@@ -425,7 +417,7 @@ pipeline {
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner','AWS'],description: 'Cloud infra for build')
     }
     agent {
-        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
     }
     options {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
@@ -458,7 +450,7 @@ pipeline {
             parallel {
                 stage('cluster1') {
                     agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -468,7 +460,7 @@ pipeline {
                 }
                 stage('cluster2') {
                     agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -478,7 +470,7 @@ pipeline {
                 }
                 stage('cluster3') {
                     agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -488,7 +480,7 @@ pipeline {
                 }
                 stage('cluster4') {
                     agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
@@ -498,7 +490,7 @@ pipeline {
                 }
                 stage('cluster5') {
                     agent {
-                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
+                        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
                     }
                     steps {
                         prepareAgent()
