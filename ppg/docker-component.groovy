@@ -7,59 +7,78 @@ pipeline {
     agent {
         label 'min-ol-9-x64'
     }
-    environment {
-        PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
-        MOLECULE_DIR = "ppg/${SCENARIO}"
-    }
+
     parameters {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: ppgOperatingSystemsAMD()
-        )
-        choice(
-            name: 'FROM_REPO',
-            description: 'From this repo will be upgraded PPG',
             choices: [
-                'testing',
-                'experimental',
-                'release'
-            ]
-        )
-        choice(
-            name: 'TO_REPO',
-            description: 'Repo for testing',
-            choices: [
-                'testing',
-                'experimental',
-                'release'
+                'debian-12',
+                'rocky-9',
+                'ubuntu-jammy',
+                'rhel-10',
+                'debian-13',
+                'debian-12-arm64',
+                'rocky-9-arm64',
+                'ubuntu-jammy-arm64',
+                'rhel-10-arm64',
+                'debian-13-arm64',
             ]
         )
         string(
-            defaultValue: 'ppg-17.6',
-            description: 'From this version PPG will be updated',
-            name: 'FROM_VERSION'
+            defaultValue: '18.1',
+            description: 'TAG of the server docker from perconalab/percona to use from hub.docker.com. For example, 16, 16.1, 16.1-multi.',
+            name: 'DOCKER_SERVER_TAG'
         )
         string(
-            defaultValue: 'ppg-17.7',
-            description: 'To this version PPG will be updated',
-            name: 'VERSION'
+            defaultValue: '18.1',
+            description: 'Docker Server PG version being used, including both major and minor version. For example, 15.4.',
+            name: 'SERVER_VERSION'
+        )
+        booleanParam(
+            name: 'WITH_TDE',
+            description: "Enable if testing the component with pg_tde enabled. Only works with PSP 17+ versions."
+        )
+        string(
+            defaultValue: '18.1',
+            description: 'TAG of the component, pgBackrest or pgBouncer, docker from perconalab/percona to use from hub.docker.com.. For example, 16, 16.1, 16.1-multi.',
+            name: 'DOCKER_COMPONENT_TAG'
+        )
+        string(
+            defaultValue: '18.1',
+            description: 'Component version to test for component docker, including both major and minor version. For example, 2.6.',
+            name: 'COMPONENT_VERSION'
         )
         choice(
-            name: 'SCENARIO',
-            description: 'PG version for test',
-            choices: ppgUpgradeScenarios()
+            name: 'COMPONENT',
+            description: 'Component to test',
+            choices: [
+                'pgbackrest',
+                'pgbouncer'
+            ]
         )
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
+        choice(
+            name: 'REPOSITORY',
+            description: 'Docker hub repository to use for docker images.',
+            choices: [
+                'percona',
+                'perconalab'
+            ]
+        )
         booleanParam(
             name: 'DESTROY_ENV',
             defaultValue: true,
             description: 'Destroy VM after tests'
         )
+    }
+    environment {
+        PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+        MOLECULE_DIR = "docker/${COMPONENT}"
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
@@ -69,7 +88,7 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.SCENARIO}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-docker-${env.SERVER_VERSION}-${env.PLATFORM}-${env.COMPONENT}-${env.COMPONENT_VERSION}"
                 }
             }
         }
@@ -97,20 +116,6 @@ pipeline {
             steps {
                 script {
                     moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "converge", env.PLATFORM)
-                }
-            }
-        }
-        stage('Start testinfra tests') {
-            steps {
-                script {
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "verify", env.PLATFORM)
-                }
-            }
-        }
-        stage('Start Cleanup ') {
-            steps {
-                script {
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
                 }
             }
         }

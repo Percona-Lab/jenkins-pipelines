@@ -4,11 +4,11 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 ])
 
 pipeline {
-  agent {
-  label 'min-ol-9-x64'
-  }
+    agent {
+        label 'min-ol-9-x64'
+    }
 
-  parameters {
+    parameters {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
@@ -47,81 +47,81 @@ pipeline {
             description: 'Branch for ppg-testing testing repository',
             name: 'TESTING_BRANCH'
         )
-        string(
-            defaultValue: 'yes',
-            description: 'Destroy VM after tests',
-            name: 'DESTROY_ENV'
+        booleanParam(
+            name: 'DESTROY_ENV',
+            defaultValue: true,
+            description: 'Destroy VM after tests'
         )
         booleanParam(
             name: 'MAJOR_REPO',
             description: "Enable to use major (ppg-16) repo instead of ppg-16.2"
         )
-  }
-  environment {
-      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "pg_stat_monitor/pgsm";
-  }
-  options {
-          withCredentials(moleculeDistributionJenkinsCreds())
-          disableConcurrentBuilds()
-  }
-  stages {
-    stage('Set build name'){
-      steps {
+    }
+    environment {
+        PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+        MOLECULE_DIR = "pg_stat_monitor/pgsm"
+    }
+    options {
+        withCredentials(moleculeDistributionJenkinsCreds())
+        disableConcurrentBuilds()
+    }
+    stages {
+        stage('Set build name') {
+            steps {
                 script {
                     currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.PLATFORM}"
                 }
             }
         }
-    stage('Checkout') {
-      steps {
-            deleteDir()
-            git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/ppg-testing.git'
+        stage('Checkout') {
+            steps {
+                deleteDir()
+                git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/ppg-testing.git'
+            }
         }
-    }
-    stage ('Prepare') {
-      steps {
-          script {
-              installMoleculePython39()
+        stage('Prepare') {
+            steps {
+                script {
+                    installMoleculePython39()
+                }
+            }
+        }
+        stage('Create virtual machines') {
+            steps {
+                script {
+                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "create", env.PLATFORM)
+                }
+            }
+        }
+        stage('Run playbook for test') {
+            steps {
+                script {
+                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "converge", env.PLATFORM)
+                }
+            }
+        }
+        stage('Start testinfra tests') {
+            steps {
+                script {
+                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "verify", env.PLATFORM)
+                }
+            }
+        }
+        stage('Start Cleanup ') {
+            steps {
+                script {
+                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
+                }
             }
         }
     }
-    stage ('Create virtual machines') {
-      steps {
-          script{
-              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "create", env.PLATFORM)
+    post {
+        always {
+            script {
+                if (env.DESTROY_ENV) {
+                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                }
             }
         }
     }
-    stage ('Run playbook for test') {
-      steps {
-          script{
-              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "converge", env.PLATFORM)
-            }
-        }
-    }
-    stage ('Start testinfra tests') {
-      steps {
-            script{
-              moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "verify", env.PLATFORM)
-            }
-        }
-    }
-      stage ('Start Cleanup ') {
-        steps {
-             script {
-               moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
-            }
-        }
-    }
-  }
-  post {
-    always {
-          script {
-            if (env.DESTROY_ENV == "yes") {
-                moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
-            }
-        }
-    }
-  }
 }

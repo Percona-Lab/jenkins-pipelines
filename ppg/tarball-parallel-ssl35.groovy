@@ -3,24 +3,22 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
-def sendSlackNotification(version)
-{
- if ( currentBuild.result == "SUCCESS" ) {
-  buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
-  slackSend color : "good", message: "${buildSummary}", channel: '#postgresql-test'
- }
- else {
-  buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
-  slackSend color : "danger", message: "${buildSummary}", channel: '#postgresql-test'
- }
+def sendSlackNotification(version) {
+    if (currentBuild.result == "SUCCESS") {
+        buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nStatus: *SUCCESS*\nBuild Report: ${env.BUILD_URL}"
+        slackSend color: "good", message: "${buildSummary}", channel: '#postgresql-test'
+    } else {
+        buildSummary = "Job: ${env.JOB_NAME}\nVersion: ${version}\nStatus: *FAILURE*\nBuild number: ${env.BUILD_NUMBER}\nBuild Report :${env.BUILD_URL}"
+        slackSend color: "danger", message: "${buildSummary}", channel: '#postgresql-test'
+    }
 }
 
 
 pipeline {
-  agent {
-      label 'min-ol-9-x64'
-  }
-  parameters {
+    agent {
+        label 'min-ol-9-x64'
+    }
+    parameters {
         choice(
             name: 'SSL_VERSION',
             description: 'SSL version to use',
@@ -52,55 +50,49 @@ pipeline {
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
-        string(
-            defaultValue: 'yes',
-            description: 'Destroy VM after tests',
-            name: 'DESTROY_ENV'
-        )
-  }
-  environment {
-      PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-      MOLECULE_DIR = "ppg/pg-tarballs";
-  }
-  options {
-          withCredentials(moleculeDistributionJenkinsCreds())
-          disableConcurrentBuilds()
-  }
+    }
+    environment {
+        PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+        MOLECULE_DIR = "ppg/pg-tarballs"
+    }
+    options {
+        withCredentials(moleculeDistributionJenkinsCreds())
+    }
     stages {
-        stage('Set build name'){
-          steps {
-                    script {
-                        currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.JOB_NAME}"
-                    }
+        stage('Set build name') {
+            steps {
+                script {
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}-${env.JOB_NAME}"
                 }
             }
+        }
         stage('Checkout') {
             steps {
                 deleteDir()
                 git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/ppg-testing.git'
             }
         }
-        stage ('Prepare') {
-          steps {
+        stage('Prepare') {
+            steps {
                 script {
-                   installMoleculePython39()
-             }
-           }
+                    installMoleculePython39()
+                }
+            }
         }
         stage('Test') {
-          steps {
+            steps {
                 script {
                     moleculeParallelTestPPG(ppgOperatingSystemsSSL35(), env.MOLECULE_DIR)
                 }
             }
-         }
-  }
+        }
+    }
     post {
         always {
-          script {
-              moleculeParallelPostDestroyPPG(ppgOperatingSystemsSSL35(), env.MOLECULE_DIR)
-              sendSlackNotification(env.VERSION)
-         }
-      }
-   }
+            script {
+                moleculeParallelPostDestroyPPG(ppgOperatingSystemsSSL35(), env.MOLECULE_DIR)
+                sendSlackNotification(env.VERSION)
+            }
+        }
+    }
 }

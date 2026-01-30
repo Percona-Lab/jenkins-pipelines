@@ -7,59 +7,60 @@ pipeline {
     agent {
         label 'min-ol-9-x64'
     }
-    environment {
-        PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
-        MOLECULE_DIR = "ppg/${SCENARIO}"
-    }
+
     parameters {
         choice(
             name: 'PLATFORM',
             description: 'For what platform (OS) need to test',
-            choices: ppgOperatingSystemsAMD()
-        )
-        choice(
-            name: 'FROM_REPO',
-            description: 'From this repo will be upgraded PPG',
             choices: [
-                'testing',
-                'experimental',
-                'release'
-            ]
-        )
-        choice(
-            name: 'TO_REPO',
-            description: 'Repo for testing',
-            choices: [
-                'testing',
-                'experimental',
-                'release'
+                'debian-12',
+                'rocky-9',
+                'ubuntu-jammy',
+                'rhel-10',
+                'debian-13',
+                'debian-12-arm64',
+                'rocky-9-arm64',
+                'ubuntu-jammy-arm64',
+                'rhel-10-arm64',
+                'debian-13-arm64',
             ]
         )
         string(
-            defaultValue: 'ppg-17.6',
-            description: 'From this version PPG will be updated',
-            name: 'FROM_VERSION'
+            defaultValue: '18.1',
+            description: 'TAG of the docker to test. For example, 16, 16.1, 16.1-multi.',
+            name: 'DOCKER_TAG'
         )
         string(
-            defaultValue: 'ppg-17.7',
-            description: 'To this version PPG will be updated',
-            name: 'VERSION'
-        )
-        choice(
-            name: 'SCENARIO',
-            description: 'PG version for test',
-            choices: ppgUpgradeScenarios()
+            defaultValue: '18.1',
+            description: 'Docker PG version to test, including both major and minor version. For example, 15.4.',
+            name: 'SERVER_VERSION'
         )
         string(
             defaultValue: 'main',
             description: 'Branch for testing repository',
             name: 'TESTING_BRANCH'
         )
+        choice(
+            name: 'REPOSITORY',
+            description: 'Docker hub repository to use for docker images.',
+            choices: [
+                'percona',
+                'perconalab'
+            ]
+        )
+        booleanParam(
+            name: 'WITH_POSTGIS',
+            description: "Enable if testing a psp/ppg server docker that also contains postgis."
+        )
         booleanParam(
             name: 'DESTROY_ENV',
             defaultValue: true,
             description: 'Destroy VM after tests'
         )
+    }
+    environment {
+        PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+        MOLECULE_DIR = "docker/ppg-docker"
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
@@ -69,7 +70,11 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.PLATFORM}-${env.SCENARIO}"
+                    if (params.WITH_POSTGIS) {
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-docker-with-postgis-${env.SERVER_VERSION}-${env.PLATFORM}"
+                    } else {
+                        currentBuild.displayName = "${env.BUILD_NUMBER}-docker-${env.SERVER_VERSION}-${env.PLATFORM}"
+                    }
                 }
             }
         }
@@ -97,20 +102,6 @@ pipeline {
             steps {
                 script {
                     moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "converge", env.PLATFORM)
-                }
-            }
-        }
-        stage('Start testinfra tests') {
-            steps {
-                script {
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "verify", env.PLATFORM)
-                }
-            }
-        }
-        stage('Start Cleanup ') {
-            steps {
-                script {
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
                 }
             }
         }
