@@ -139,7 +139,7 @@ pipeline {
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
         string(
-            defaultValue: 'v3',
+            defaultValue: 'main',
             description: 'Tag/Branch for pmm qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
