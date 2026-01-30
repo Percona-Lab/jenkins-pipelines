@@ -111,8 +111,12 @@ pipeline {
     }
     parameters {
         string(
+            defaultValue: "pmm-${versions[0]}",
+            description: 'Tag/Branch for UI Tests repository for pre upgrade',
+            name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
+        string(
             defaultValue: 'PMM-14156',
-            description: 'Tag/Branch for UI Tests repository',
+            description: 'Tag/Branch for UI Tests repository for post upgrade',
             name: 'PMM_UI_GIT_BRANCH')
         string(
             defaultValue: upgradeAmiVersion,
@@ -160,7 +164,7 @@ pipeline {
                     currentBuild.description = "Upgrade AMI PMM from ${env.CLIENT_VERSION} (AMI tag: ${env.AMI_TAG}) to ${env.PMM_SERVER_LATEST}."
                 }
                 git poll: false,
-                    branch: PMM_UI_GIT_BRANCH,
+                    branch: PMM_UI_PRE_UPGRADE_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 sh '''
@@ -264,6 +268,7 @@ pipeline {
                     sh '''
                         ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@ami-ovf-pre-upgrade'
                         export ADMIN_PASSWORD="pmm3admin!"
+
                     '''
                 }
             }
@@ -276,6 +281,7 @@ pipeline {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                         ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
+                        git checkout -f \${PMM_UI_GIT_BRANCH}
                     '''
                 }
             }
