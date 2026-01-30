@@ -609,23 +609,23 @@ Resources:
             }
 
             install_software() {
-                until yum makecache; do
+                until dnf makecache; do
                     sleep 1
                     echo try again
                 done
 
-                yum -y install yum-utils wget cronie rsync bc
-                yum-config-manager --add-repo "https://openresty.org/package/amazon/2023/x86_64/"
-                rpm --import https://openresty.org/package/pubkey.gpg
-                wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-                rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
-                yum -y install java-17-amazon-corretto
-                yum -y update --security
-                yum -y install jenkins-2.462.1 certbot git dnf-automatic aws-cli xfsprogs openresty
+                dnf -y install wget cronie rsync bc git aws-cli xfsprogs
+                dnf -y update --security
+                
+                # Install Docker
+                dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+                dnf -y install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+                
+                systemctl enable --now docker
+                usermod -aG docker ec2-user
 
                 sed -i 's/upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf
                 sed -i 's/apply_updates = no/apply_updates = yes/'         /etc/dnf/automatic.conf
-                echo "exclude=java-17-amazon-corretto* jenkins*" >> /etc/dnf/automatic.conf
                 systemctl enable --now dnf-automatic.timer
             }
 
@@ -643,7 +643,7 @@ Resources:
                     --volume-id $JENKINS_VOLUME_ID \
                     || :
                 while true; do
-                    [ "x$(volume_state)" = "xavailable" ] && break || sleep 1
+                    [ "$(volume_state)" = "available" ] && break || sleep 1
                 done
 
                 aws ec2 attach-volume \
@@ -652,7 +652,7 @@ Resources:
                     --instance-id $INSTANCE_ID \
                     --volume-id $JENKINS_VOLUME_ID
                 while true; do
-                    [ "x$(volume_state)" = "xin-use" ] && break || sleep 1
+                    [ "$(volume_state)" = "in-use" ] && break || sleep 1
                 done
                 while true; do
                     [ -e /dev/xvdj ] && break || sleep 1
@@ -663,173 +663,112 @@ Resources:
                 mount /mnt
             }
 
-            start_jenkins() {
+            setup_docker_compose() {
+                # Apply system tuning
                 sysctl net.ipv4.tcp_fin_timeout=15
                 sysctl net.ipv4.tcp_tw_reuse=1
                 sysctl net.ipv6.conf.all.disable_ipv6=1
                 sysctl net.ipv6.conf.default.disable_ipv6=1
-                cat <<-EOF | tee /etc/security/limits.d/jenkins.conf
-            		jenkins    soft    core      unlimited
-            		jenkins    hard    core      unlimited
-            		jenkins    soft    fsize     unlimited
-            		jenkins    hard    fsize     unlimited
-            		jenkins    soft    nofile    4096
-            		jenkins    hard    nofile    8192
-            		jenkins    soft    nproc     30654
-            		jenkins    hard    nproc     30654
-            	EOF
 
-                install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
-                install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
-                install -o jenkins -g jenkins -d /var/log/jenkins
-                chown -R jenkins:jenkins /mnt/$JENKINS_HOST /var/log/jenkins
+                # Create directories
+                mkdir -p /mnt/$JENKINS_HOST
+                mkdir -p /mnt/$JENKINS_HOST/traefik
+                
+                # Set ownership for Jenkins container (UID 1000)
+                chown -R 1000:1000 /mnt/$JENKINS_HOST
+                
+                # Create acme.json with proper permissions
+                touch /mnt/$JENKINS_HOST/traefik/acme.json
+                chmod 600 /mnt/$JENKINS_HOST/traefik/acme.json
 
-                printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
-                    | tee -a /etc/hosts
-                mkdir -p /etc/systemd/system/jenkins.service.d
-                cat <<-EOF | tee /etc/systemd/system/jenkins.service.d/override.conf
-                     [Service]
-                     # Directory where Jenkins stores its configuration and workspaces
-                     Environment="JENKINS_HOME=/mnt/$JENKINS_HOST"
-                     WorkingDirectory=/mnt/$JENKINS_HOST
+                # Create docker-compose.yml
+                cat <<-'COMPOSE_EOF' > /mnt/$JENKINS_HOST/docker-compose.yml
+services:
+  traefik:
+    image: traefik:latest
+    container_name: traefik
+    restart: always
+    ports:
+      - "80:80"
+      - "443:443"
+    command:
+      - "--api.dashboard=true"
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--entrypoints.web.http.redirections.entryPoint.to=websecure"
+      - "--entrypoints.web.http.redirections.entryPoint.scheme=https"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+      - "--certificatesresolvers.letsencrypt.acme.email=no-reply@percona.com"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/acme.json"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - /mnt/$JENKINS_HOST/traefik/acme.json:/acme.json
+    networks:
+      - jenkins
 
-                     # Location of the exploded WAR
-                     Environment="JENKINS_WEBROOT=/var/cache/jenkins/war"
+  jenkins:
+    image: jenkins/jenkins:2.462.1-jdk21
+    container_name: jenkins
+    hostname: $JENKINS_HOST
+    restart: always
+    environment:
+      - JENKINS_OPTS=--httpPort=8080
+      - JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600
+    volumes:
+      - /mnt/$JENKINS_HOST:/var/jenkins_home
+      - /var/run/docker.sock:/var/run/docker.sock
+    extra_hosts:
+      - "vbox-01.ci.percona.com:10.30.6.220"
+      - "repo.ci.percona.com:10.30.6.9"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.jenkins.rule=Host(\\\`$JENKINS_HOST\\\`)"
+      - "traefik.http.routers.jenkins.entrypoints=websecure"
+      - "traefik.http.routers.jenkins.tls.certresolver=letsencrypt"
+      - "traefik.http.routers.jenkins.service=jenkins"
+      - "traefik.http.services.jenkins.loadbalancer.server.port=8080"
+    networks:
+      - jenkins
 
-                     # Location of the Jenkins log.
-                     Environment="JENKINS_LOG=/var/log/jenkins/jenkins.log"
+networks:
+  jenkins:
+    name: jenkins
+    driver: bridge
+COMPOSE_EOF
 
-                     # Arguments for the Jenkins JVM
-                     Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
-            	EOF
+                # Pull images
+                docker pull traefik:latest
+                docker pull jenkins/jenkins:2.462.1-jdk21
 
-                systemctl daemon-reload
-                systemctl enable --now jenkins
+                # Start services
+                cd /mnt/$JENKINS_HOST && docker compose up -d
 
-                printf "* * * * * root bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n* * * * * root sleep 30; bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n" > /etc/cron.d/terminate-check
+                # Setup graceful shutdown handler
+                cat > /etc/systemd/system/jenkins-shutdown.service <<'EOF'
+[Unit]
+Description=Graceful Jenkins shutdown handler
+Before=shutdown.target reboot.target halt.target
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+RemainAfterExit=true
+ExecStart=/bin/true
+ExecStop=/bin/bash -c 'cd /mnt/$JENKINS_HOST && docker compose down && umount /mnt'
+TimeoutStopSec=120
+
+[Install]
+WantedBy=multi-user.target
+EOF
+
+                systemctl enable jenkins-shutdown.service
+                systemctl start jenkins-shutdown.service
             }
 
-            create_fake_ssl_cert() {
-                mkdir -p /etc/nginx/ssl
-                mkdir -p /mnt/$JENKINS_HOST/ssl
-                if [ ! -f /mnt/$JENKINS_HOST/ssl/certificate.key -o ! -f /mnt/$JENKINS_HOST/ssl/certificate.crt ]; then
-                    echo "
-                        [ req ]
-                        distinguished_name = req_distinguished_name
-                        prompt             = no
-                        [ req_distinguished_name ]
-                        O                  = Main Org.
-                    " | tee /mnt/$JENKINS_HOST/ssl/certificate.conf
-                    openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-                                  -keyout /mnt/$JENKINS_HOST/ssl/certificate.key \
-                                  -out    /mnt/$JENKINS_HOST/ssl/certificate.crt \
-                                  -config /mnt/$JENKINS_HOST/ssl/certificate.conf
-                fi
-                cp /mnt/$JENKINS_HOST/ssl/certificate.key /etc/nginx/ssl/certificate.key
-                cp /mnt/$JENKINS_HOST/ssl/certificate.crt /etc/nginx/ssl/certificate.crt
-                if [ ! -f /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem ]; then
-                    openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem 4096
-                fi
-                cp /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem /etc/nginx/ssl/dhparam.pem
-                curl https://letsencrypt.org/certs/isrgrootx1.pem                          > /etc/nginx/ssl/ca-certs.pem
-                curl https://letsencrypt.org/certs/lets-encrypt-x1-cross-signed.pem       >> /etc/nginx/ssl/ca-certs.pem
-                curl https://letsencrypt.org/certs/letsencryptauthorityx1.pem             >> /etc/nginx/ssl/ca-certs.pem
-                curl https://www.identrust.com/certificates/trustid/root-download-x3.html >> /etc/nginx/ssl/ca-certs.pem
-            }
 
-            setup_nginx() {
-                if [ ! -f /mnt/$JENKINS_HOST/ssl/nginx.conf ]; then
-                    cat <<-EOF | tee /mnt/$JENKINS_HOST/ssl/nginx.conf
-            			upstream jenkins {
-            			  server 127.0.0.1:8080 fail_timeout=0;
-            			}
-
-            			server {
-            			  listen 80;
-            			  server_name $JENKINS_HOST;
-
-            			  # letsencrypt certificates validation
-            			  location /.well-known {
-            			    alias /usr/share/nginx/html/.well-known;
-            			  }
-
-            			  # or redirect to https
-            			  if (\$uri !~* ^/.well-known) {
-            			    return 301 https://\$host\$request_uri;
-            			  }
-            			}
-
-            			server {
-            			  listen 443 ssl http2;
-            			  server_name $JENKINS_HOST;
-
-            			  ssl_certificate             /etc/nginx/ssl/certificate.crt;
-            			  ssl_certificate_key         /etc/nginx/ssl/certificate.key;
-            			  ssl_trusted_certificate     /etc/nginx/ssl/ca-certs.pem;
-            			  ssl_dhparam                 /etc/nginx/ssl/dhparam.pem;
-
-            			  resolver                    8.8.8.8 ipv6=off;
-            			  lua_ssl_trusted_certificate /etc/pki/tls/certs/ca-bundle.crt;
-            			  lua_ssl_verify_depth        3;
-            			  satisfy                     any;
-
-                    ssl_session_timeout 1d;
-                    ssl_session_cache shared:MozSSL:10m;  # about 40000 sessions
-                    ssl_session_tickets off;
-
-                    ssl_protocols TLSv1.2 TLSv1.3;
-                    ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-                    ssl_prefer_server_ciphers off;
-
-            			  location / {
-            			    proxy_set_header        Host \$host:\$server_port;
-            			    proxy_set_header        X-Real-IP \$remote_addr;
-            			    proxy_set_header        X-Forwarded-For \$proxy_add_x_forwarded_for;
-            			    proxy_set_header        X-Forwarded-Proto \$scheme;
-            			    proxy_redirect http:// https://;
-            			    proxy_pass              http://jenkins;
-            			    # Required for new HTTP-based CLI
-            			    proxy_http_version 1.1;
-            			    proxy_request_buffering off;
-            			    proxy_buffering off; # Required for HTTP-based CLI to work over SSL
-            			    # workaround for https://issues.jenkins-ci.org/browse/JENKINS-45651
-            			    add_header 'X-SSH-Endpoint' '$JENKINS_HOST:50022' always;
-            			    rewrite ^/$ $scheme://$server_name/blue/pipelines/ last;
-            			  }
-            			}
-            		EOF
-                fi
-
-                ln -f -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
-                sed -i'' -e 's/listen/#listen/; s/mime.types/jenkins.conf/' /usr/local/openresty/nginx/conf/nginx.conf
-
-                systemctl enable --now openresty
-            }
-
-            setup_letsencrypt() {
-                install -d /usr/share/nginx/html
-                if [[ -d /mnt/ssl_backup ]]; then
-                  rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
-                  certbot renew
-                else
-                  certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
-                fi
-                ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
-                ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-                printf '#!/bin/sh\ncertbot renew\nsystemctl restart openresty\nrsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/\n' > /etc/cron.daily/certbot
-                chmod 755 /etc/cron.daily/certbot
-                systemctl stop openresty
-                sleep 2
-                systemctl start openresty
-            }
-
-            setup_dhparam() {
-                if [ ! -f /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem ]; then
-                    openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem 4096
-                fi
-                cp /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem /etc/nginx/ssl/dhparam.pem
-                systemctl restart openresty
-            }
 
             setup_ssh_ciphers() {
               LIST_ALLOWED_KEX="diffie-hellman-group18-sha512,diffie-hellman-group14-sha256,curve25519-sha256@libssh.org,diffie-hellman-group16-sha512"
@@ -877,11 +816,7 @@ Resources:
                 install_software
                 setup_ssh_ciphers
                 mount_data_partition
-                start_jenkins
-                create_fake_ssl_cert
-                setup_nginx
-                setup_dhparam
-                setup_letsencrypt
+                setup_docker_compose
             }
 
             main
