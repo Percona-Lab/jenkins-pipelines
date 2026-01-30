@@ -337,7 +337,7 @@ pipeline {
                            docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                        elif [[ \$i == *"ps_"* ]]; then
                            docker exec -u root \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                           docker exec -u root \$i microdnf install -y pmm-client
+                           docker exec -u root \$i dnf install -y pmm-client
                            ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                            docker exec -u root \$i kill \$ps_process_id
                            docker exec -u root -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
