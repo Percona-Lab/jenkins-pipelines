@@ -614,7 +614,7 @@ Resources:
                     echo try again
                 done
 
-                dnf -y install wget cronie rsync bc git aws-cli xfsprogs
+                dnf -y install wget rsync bc git aws-cli xfsprogs
                 dnf -y update --security
                 
                 # Install Docker
