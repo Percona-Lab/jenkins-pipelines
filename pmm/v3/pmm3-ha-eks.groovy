@@ -88,6 +88,10 @@ metadata:
     retention-days: "${RETENTION_DAYS}"
     purpose: "pmm-ha-testing"
 
+vpc:
+  nat:
+    gateway: Disable
+
 iam:
   withOIDC: true
 
@@ -107,9 +111,9 @@ managedNodeGroups:
       - c8i-flex.xlarge
     volumeSize: 80
     spot: true
-    minSize: 5
-    maxSize: 6
-    desiredCapacity: 5
+    minSize: 6
+    maxSize: 7
+    desiredCapacity: 6
     tags:
         iit-billing-tag: "pmm"
         nodegroup: "spot"
@@ -293,12 +297,41 @@ EOF
                             --dry-run=client -o yaml | kubectl apply -f -
 
                         helm dependency update charts/pmm-ha
+
+                        set +e
+
                         helm upgrade --install pmm-ha charts/pmm-ha -n pmm \
                             --set secret.create=false \
                             --set secret.name=pmm-secret \
                             --wait --timeout 15m \
                             ${PMM_IMAGE_REPOSITORY:+--set image.repository=${PMM_IMAGE_REPOSITORY}} \
                             ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}}
+
+                        HELM_EXIT_CODE=$?
+
+                        set -e
+
+                        if [ "$HELM_EXIT_CODE" -ne 0 ]; then
+                          echo "Helm failed — collecting diagnostics"
+
+                          mkdir -p helm-debug
+
+                          kubectl get pods -n pmm -o wide > helm-debug/pods.txt || true
+                          kubectl get events -n pmm --sort-by=.metadata.creationTimestamp > helm-debug/events.txt || true
+
+                          for pod in $(kubectl get pods -n pmm --no-headers | awk '{print $1}'); do
+                            kubectl describe pod "$pod" -n pmm >> helm-debug/describe-$pod.txt || true
+
+                            for container in $(kubectl get pod "$pod" -n pmm -o jsonpath='{.spec.containers[*].name}'); do
+                              kubectl logs "$pod" -n pmm -c "$container" \
+                                --tail=200 > "helm-debug/${pod}-${container}.log" || true
+                            done
+                          done
+
+                          kubectl get statefulset pmm-ha -n pmm -o yaml > helm-debug/statefulset.yaml || true
+
+                          exit $HELM_EXIT_CODE
+                        fi
 
                         kubectl rollout status statefulset/pmm-ha -n pmm --timeout=600s
                         kubectl wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=600s
@@ -420,6 +453,7 @@ EOF
         }
         failure {
             echo "Build FAILED — cleaning up cluster"
+            archiveArtifacts artifacts: 'helm-debug/**', allowEmptyArchive: true
             cleanupCluster()
         }
         aborted {
