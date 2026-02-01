@@ -1,7 +1,7 @@
 
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@add-rocky", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 
@@ -23,6 +23,10 @@ def ps80PackageTesting() {
         'rhel-9',
         'rhel-8-arm',
         'rhel-9-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
         'ubuntu-jammy',
         'ubuntu-jammy-arm',
         'ubuntu-focal',
@@ -48,6 +52,10 @@ def ps84PackageTesting() {
         'rhel-8-arm',
         'rhel-9-arm',
         'rhel-10-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
         'ubuntu-jammy',
         'ubuntu-jammy-arm',
         'ubuntu-noble',
