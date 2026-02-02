@@ -78,7 +78,7 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Package tests for PSMDB ${PSMDB_VERSION} on FIPS-enabled OSs, repo ${REPO} finished succesfully - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Package tests for PSMDB ${PSMDB_VERSION} on FIPS-enabled OSs, repo ${REPO} finished successfully - [${BUILD_URL}]")
         }
         failure {
             slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: Package tests for PSMDB ${PSMDB_VERSION} on FIPS-enabled OSs, repo ${REPO} failed - [${BUILD_URL}]")
