@@ -25,17 +25,9 @@ pipeline {
             ]
         )
         string(
-            defaultValue: '5.0.22',
+            defaultValue: '8.0.17',
             description: 'PSMDB Version for tests',
             name: 'PSMDB_VERSION'
-        )
-        choice(
-            name: 'GATED_BUILD',
-            description: 'Test private repo?',
-            choices: [
-                'true',
-                'false'
-            ]
         )
         string(
             defaultValue: 'main',
@@ -71,7 +63,6 @@ pipeline {
             steps {
                 withCredentials([
                     string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE'),
-                    usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME'),
                     usernamePassword(credentialsId: 'OIDC_ACCESS', passwordVariable: 'OIDC_CLIENT_SECRET', usernameVariable: 'OIDC_CLIENT_ID')]) {
                       script {
                         moleculeParallelTestPSMDB(fipsOS, moleculeDir)
@@ -87,10 +78,10 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Package tests for PSMDB ${PSMDB_VERSION} on FIPS-enabled OSs, repo ${REPO}, pro repo - ${GATED_BUILD} finished succesfully - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: Package tests for PSMDB ${PSMDB_VERSION} on FIPS-enabled OSs, repo ${REPO} finished successfully - [${BUILD_URL}]")
         }
         failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: Package tests for PSMDB ${PSMDB_VERSION} on FIPS-enabled OSs, repo ${REPO}, pro repo - ${GATED_BUILD} failed - [${BUILD_URL}]")
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: Package tests for PSMDB ${PSMDB_VERSION} on FIPS-enabled OSs, repo ${REPO} failed - [${BUILD_URL}]")
         }
         always {
             script {
