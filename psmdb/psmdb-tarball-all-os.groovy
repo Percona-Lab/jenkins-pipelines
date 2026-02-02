@@ -71,19 +71,19 @@ pipeline {
                     stage ('Run tests') {
                         steps {
                             script{
-                                moleculeExecuteActionWithScenario(moleculeDir, "create", PLATFORM)
-                                moleculeExecuteActionWithScenario(moleculeDir, "prepare", PLATFORM)
+                                moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "create", PLATFORM)
+                                moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "prepare", PLATFORM)
                                 for(conf in confList) {
                                     for(enc in encList) {
-                                        moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "converge", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.OLD_TARBALL}")
-                                        moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "verify", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.OLD_TARBALL}")
+                                        moleculeExecuteActionWithVariableListAndScenarioPSMDB(moleculeDir, "converge", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.OLD_TARBALL}")
+                                        moleculeExecuteActionWithVariableListAndScenarioPSMDB(moleculeDir, "verify", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.OLD_TARBALL}")
                                         junit testResults: "**/${PLATFORM}-report.xml", keepLongStdio: true
                                         if (env.NEW_TARBALL != '') {
-                                            moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "side-effect", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.NEW_TARBALL}")
-                                            moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "verify", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.NEW_TARBALL}")
+                                            moleculeExecuteActionWithVariableListAndScenarioPSMDB(moleculeDir, "side-effect", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.NEW_TARBALL}")
+                                            moleculeExecuteActionWithVariableListAndScenarioPSMDB(moleculeDir, "verify", PLATFORM, "LAYOUT_TYPE=${conf} ENCRYPTION=${enc} CIPHER=AES256-CBC PSMDB_VERSION=${params.NEW_TARBALL}")
                                             junit testResults: "**/${PLATFORM}-report.xml", keepLongStdio: true
                                         }
-                                        moleculeExecuteActionWithScenario(moleculeDir, "cleanup", PLATFORM)
+                                        moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "cleanup", PLATFORM)
                                     }
                                 }
                             }

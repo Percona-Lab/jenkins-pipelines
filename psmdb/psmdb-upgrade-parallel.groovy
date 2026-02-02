@@ -114,7 +114,7 @@ pipeline {
                 script {
                     def os = pdmdbOperatingSystems("${params.FROM_PSMDB_VERSION}")
                     os.removeAll { it.contains('al2023') }
-                    runMoleculeCommandParallel(os, moleculeDir, "create")
+                    runMoleculeCommandParallelPSMDB(os, moleculeDir, "create")
                 }
             }
          }
@@ -123,7 +123,7 @@ pipeline {
                 script {
                     def os = pdmdbOperatingSystems("${params.FROM_PSMDB_VERSION}")
                     os.removeAll { it.contains('al2023') }
-                    runMoleculeCommandParallel(os, moleculeDir, "prepare")
+                    runMoleculeCommandParallelPSMDB(os, moleculeDir, "prepare")
                 }
             }
          }
@@ -133,7 +133,7 @@ pipeline {
                 script {
                     def os = pdmdbOperatingSystems("${params.FROM_PSMDB_VERSION}")
                     os.removeAll { it.contains('al2023') }
-                    runMoleculeCommandParallelWithVariableList(os, moleculeDir, "converge", env.OLDVERSIONS)
+                    runMoleculeCommandParallelWithVariableListPSMDB(os, moleculeDir, "converge", env.OLDVERSIONS)
                 }
               }
             }
@@ -143,7 +143,7 @@ pipeline {
                 script {
                     def os = pdmdbOperatingSystems("${params.FROM_PSMDB_VERSION}")
                     os.removeAll { it.contains('al2023') }
-                    runMoleculeCommandParallelWithVariableList(os, moleculeDir, "verify", env.OLDVERSIONS)
+                    runMoleculeCommandParallelWithVariableListPSMDB(os, moleculeDir, "verify", env.OLDVERSIONS)
                 }
             }
          }
@@ -153,7 +153,7 @@ pipeline {
                 script {
                     def os = pdmdbOperatingSystems("${params.FROM_PSMDB_VERSION}")
                     os.removeAll { it.contains('al2023') }
-                    runMoleculeCommandParallelWithVariableList(os, moleculeDir, "side-effect", env.NEWVERSIONS)
+                    runMoleculeCommandParallelWithVariableListPSMDB(os, moleculeDir, "side-effect", env.NEWVERSIONS)
                 }
               }
             }
@@ -163,7 +163,7 @@ pipeline {
                 script {
                     def os = pdmdbOperatingSystems("${params.FROM_PSMDB_VERSION}")
                     os.removeAll { it.contains('al2023') }
-                    runMoleculeCommandParallelWithVariableList(os, moleculeDir, "verify", env.NEWVERSIONS)
+                    runMoleculeCommandParallelWithVariableListPSMDB(os, moleculeDir, "verify", env.NEWVERSIONS)
                 }
             }
          }
@@ -172,7 +172,7 @@ pipeline {
                 script {
                     def os = pdmdbOperatingSystems("${params.FROM_PSMDB_VERSION}")
                     os.removeAll { it.contains('al2023') }
-                    runMoleculeCommandParallel(os, moleculeDir, "cleanup")
+                    runMoleculeCommandParallelPSMDB(os, moleculeDir, "cleanup")
                 }
             }
          }
