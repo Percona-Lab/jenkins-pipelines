@@ -85,7 +85,7 @@ pipeline {
         }
         stage('Build postgresql-common generic source packages') {
             parallel {
-                stage('Build postgresql-common generic source rpm') {
+                /*stage('Build postgresql-common generic source rpm') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -97,7 +97,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     }
-                }
+                }*/
                 stage('Build postgresql-common generic source deb') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -115,7 +115,7 @@ pipeline {
         } // stage
         stage('Build postgresql-common RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Oracle Linux 8') {
+                /*stage('Oracle Linux 8') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -153,7 +153,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
-                }
+                }*/
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -224,7 +224,7 @@ pipeline {
 
         stage('Sign packages') {
             steps {
-                signRPM(params.CLOUD)
+                //signRPM(params.CLOUD)
                 signDEB(params.CLOUD)
             }
         }
