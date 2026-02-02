@@ -53,9 +53,7 @@ void runAMIStagingStart(String AMI_ID, PMM_QA_GIT_BRANCH, SSH_KEY) {
             echo \\"PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX\\" >> /home/admin/.config/systemd/user/pmm-server.env
             echo \\"PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com\\" >> /home/admin/.config/systemd/user/pmm-server.env
             echo \\"PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443\\" >> /home/admin/.config/systemd/user/pmm-server.env
-            if [ \\"$CLIENT_VERSION\\" != \\"pmm3-rc\\" ]; then
-                echo \\"PMM_DEV_UPDATE_DOCKER_IMAGE=$DOCKER_TAG_UPGRADE\\" >> /home/admin/.config/systemd/user/pmm-server.env
-            fi
+            echo \\"PMM_DEV_UPDATE_DOCKER_IMAGE=$DOCKER_TAG_UPGRADE\\" >> /home/admin/.config/systemd/user/pmm-server.env
             cat /home/admin/.config/systemd/user/pmm-server.env
 
             systemctl --user restart pmm-server
