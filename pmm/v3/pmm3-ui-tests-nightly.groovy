@@ -544,12 +544,11 @@ pipeline {
                         #!/bin/bash
                         sed -i 's+https://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         FILE="launchable-subset.json"
-                        BASE_CMD=(npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu')
 
                         if [ -s "$FILE" ]; then
-                            "${BASE_CMD[@]}" -o "$(cat "$FILE")"
+                            npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu' -o "$(cat "$FILE")"
                         else
-                            "${BASE_CMD[@]}"
+                            npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
                         fi
                     """
                 }
