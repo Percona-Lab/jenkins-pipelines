@@ -545,7 +545,7 @@ pipeline {
                         FILE="launchable-subset.json"
 
                         if [ -s "$FILE" ]; then
-                            npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu' -o "$(cat "$FILE")"
+                            npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu' -o "\$(cat "$FILE")"
                         else
                             npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
                         fi
