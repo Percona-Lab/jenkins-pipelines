@@ -515,6 +515,25 @@ pipeline {
                 }
             }
         }
+        stage('Prepare Launchable') {
+            when {
+                expression { env.SERVER_TYPE !in ['ovf', 'ami'] }
+            }
+            steps {
+                withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
+                    sh '''
+                        pip3 install --user --upgrade launchable~=1.0 || true
+                        launchable verify || true
+
+                        export DOCKER_IMAGE_ID=$(docker inspect ${DOCKER_VERSION} -f "{{.Id}}") || true
+
+                        launchable record session --build ${DOCKER_IMAGE_ID} --test-suite "nightly-ui-tests" --flavor pmm-server-tag=${DOCKER_VERSION} --flavor pmm-client-version=${CLIENT_VERSION} --flavor deployment-type=${SERVER_TYPE} > launchable-session.txt || true
+                        node launchable-prepare.js "@qan|@nightly|@menu" || true
+                        cat test_list.txt | launchable subset --session $(cat launchable-session.txt) --confidence 100% --use-case feature-branch playwright > launchable-subset.json || true
+                    '''
+                }
+            }
+        }
         stage('Run UI Tests') {
             options {
                 timeout(time: 300, unit: "MINUTES")
@@ -523,7 +542,15 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         sed -i 's+https://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                        FILE="launchable-subset.json"
+                        BASE_CMD=(npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu')
+
+                        if [ -s "$FILE" ]; then
+                            # The file is not empty.
+                            "${BASE_CMD[@]}" -o "$(cat "$FILE")"
+                        else
+                            "${BASE_CMD[@]}"
+                        fi
                     """
                 }
             }
@@ -579,6 +606,9 @@ pipeline {
             }
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+
+                sed -i "s|$(pwd)/||g" tests/output/result.xml || true
+                launchable record tests --session $(cat launchable-session.txt) codeceptjs tests/output/result.xml || true
             '''
         }
         success {
