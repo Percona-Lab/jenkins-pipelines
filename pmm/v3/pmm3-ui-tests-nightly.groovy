@@ -541,7 +541,6 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
-                        #!/bin/bash
                         sed -i 's+https://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                         FILE="launchable-subset.json"
 
