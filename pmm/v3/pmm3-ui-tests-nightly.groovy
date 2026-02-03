@@ -546,7 +546,6 @@ pipeline {
                         BASE_CMD=(npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu')
 
                         if [ -s "$FILE" ]; then
-                            # The file is not empty.
                             "${BASE_CMD[@]}" -o "$(cat "$FILE")"
                         else
                             "${BASE_CMD[@]}"
