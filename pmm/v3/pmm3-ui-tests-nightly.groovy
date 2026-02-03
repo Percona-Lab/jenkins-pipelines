@@ -529,7 +529,7 @@ pipeline {
 
                         launchable record session --build ${DOCKER_IMAGE_ID} --test-suite "nightly-ui-tests" --flavor pmm-server-tag=${DOCKER_VERSION} --flavor pmm-client-version=${CLIENT_VERSION} --flavor deployment-type=${SERVER_TYPE} > launchable-session.txt || true
                         node launchable-prepare.js "@qan|@nightly|@menu" || true
-                        cat test_list.txt | launchable subset --session $(cat launchable-session.txt) --confidence 100% --use-case feature-branch playwright > launchable-subset.json || true
+                        cat test_list.txt | launchable subset --session $(cat launchable-session.txt) --confidence 100% --use-case feature-branch codeceptjs > launchable-subset.json || true
                     '''
                 }
             }
