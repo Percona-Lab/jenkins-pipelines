@@ -542,10 +542,9 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         sed -i 's+https://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        FILE="launchable-subset.json"
 
-                        if [ -s "$FILE" ]; then
-                            npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu' -o "\$(cat "$FILE")"
+                        if [ -s "launchable-subset.json" ]; then
+                            npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu' -o "\$(cat "launchable-subset.json")"
                         else
                             npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
                         fi
