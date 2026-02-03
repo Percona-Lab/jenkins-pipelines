@@ -517,7 +517,7 @@ pipeline {
         }
         stage('Prepare Launchable') {
             when {
-                expression { env.SERVER_TYPE !in ['ovf', 'ami'] }
+                expression { !['ovf', 'ami'].contains(env.SERVER_TYPE) }
             }
             steps {
                 withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
