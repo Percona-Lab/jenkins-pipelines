@@ -57,7 +57,7 @@ pipeline {
             steps {
                 withCredentials([usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                     script{
-                        moleculeExecuteActionWithScenario(moleculeDir, "test", "aws")
+                        moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "test", "aws")
                     }
                 }
             }
@@ -71,7 +71,7 @@ pipeline {
     post {
         always {
             script {
-                moleculeExecuteActionWithScenario(moleculeDir, "destroy", "aws")
+                moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "destroy", "aws")
             }
         }
     }
