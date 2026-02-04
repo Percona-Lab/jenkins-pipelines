@@ -83,7 +83,6 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
-        disableConcurrentBuilds()
     }
     stages {
         stage('Set build name') {
@@ -117,8 +116,11 @@ pipeline {
     post {
         always {
             script {
-                if (env.DESTROY_ENV) {
+                if (params.DESTROY_ENV) {
+                    echo "DESTROY_ENV is true. Cleaning up resources..."
                     moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                } else {
+                    echo "DESTROY_ENV is false. Leaving VMs active for debugging."
                 }
                 sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION, env.PLATFORM)
             }
