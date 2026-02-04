@@ -46,7 +46,6 @@ pipeline {
                     git rev-parse --short HEAD > shortCommit
                     echo "UPLOAD/pmm3-components/yum/${DESTINATION}/${JOB_NAME}/pmm/${VERSION}/${GIT_BRANCH}/$(cat shortCommit)/${BUILD_NUMBER}" > uploadPath
                 '''
-
                 script {
                     if (params.DESTINATION == "testing") {
                         env.DOCKER_LATEST_TAG     = "${VERSION}-rc${BUILD_NUMBER}"
@@ -139,13 +138,25 @@ pipeline {
                     env.IMAGE = sh(returnStdout: true, script: "cat DOCKER_TAG").trim()
                     env.TIMESTAMP_TAG = sh(returnStdout: true, script: "cat TIMESTAMP_TAG").trim()
                 }
+                withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
+                    sh '''
+                        set -o errexit
+                        pip3 install --user --upgrade launchable~=1.0 || true
+                        launchable verify || true
+                        echo "$(git submodule status)" || true
+
+                        export DOCKER_IMAGE_ID=$(docker inspect ${IMAGE} -f "{{.Id}}") || true
+
+                        launchable record build --name "${DOCKER_IMAGE_ID}" --lineage "${IMAGE}" || true
+                    '''
+                }
             }
         }
         stage('Trigger a devcontainer build') {
             when {
                 // a guard to avoid unnecessary builds
                 expression { params.GIT_BRANCH == "v3" && params.DESTINATION == "experimental" }
-            }          
+            }
             steps {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                     sh '''
@@ -165,7 +176,7 @@ pipeline {
             }
         }
     }
-    post {        
+    post {
         success {
             script {
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${IMAGE}, URL: ${BUILD_URL}"
