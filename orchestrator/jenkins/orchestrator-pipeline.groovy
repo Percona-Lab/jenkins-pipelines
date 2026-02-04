@@ -1,5 +1,5 @@
-JENKINS_SCRIPTS_BRANCH = 'master'
-JENKINS_SCRIPTS_REPO = 'https://github.com/Percona-Lab/jenkins-pipelines'
+JENKINS_SCRIPTS_BRANCH = 'orchestrator'
+JENKINS_SCRIPTS_REPO = 'https://github.com/kamil-holubicki/jenkins-pipelines'
 LABEL = 'docker-32gb'
 MICRO_LABEL = 'micro-amazon'
 
