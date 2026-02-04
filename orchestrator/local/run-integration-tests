@@ -25,6 +25,7 @@ function process_tests_output {
 
 ROOT_DIR=$(cd $(dirname $0)/../sources/orchestrator; pwd -P)
 
+export RUN_TESTS=YES
 export TARBALL_URL=${PS_TARBALL}
 
 cd ${ROOT_DIR}
