@@ -16,9 +16,12 @@ logger.info("Cloud init started")
 // get Jenkins instance
 Jenkins jenkins = Jenkins.getInstance()
 
+// Subnet configuration for Jenkins PG workers
+// PKG-1246: Expanded from /24 (251 IPs) to /22 (1024 IPs) subnets for 1200-1500 spot instances
+// Old subnets: subnet-0fad4db6fdd8025b6 (B), subnet-0802c1d4746b8c35a (C)
 netMap = [:]
-netMap['eu-central-1b'] = 'subnet-0fad4db6fdd8025b6'
-netMap['eu-central-1c'] = 'subnet-0802c1d4746b8c35a'
+netMap['eu-central-1b'] = 'subnet-0775d65ad1e9703bc'  // JSubnetB2: 10.145.0.0/22 (1024 IPs)
+netMap['eu-central-1c'] = 'subnet-09947b46d69590c50'  // JSubnetC2: 10.145.4.0/22 (1024 IPs)
 
 imageMap = [:]
 imageMap['eu-central-1a.micro-amazon'] = 'ami-0444794b421ec32e4'
