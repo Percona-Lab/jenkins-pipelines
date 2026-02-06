@@ -73,16 +73,6 @@ pipeline {
                     env.FB_COMMIT = sh(returnStdout: true, script: "cat fbCommitSha").trim()
                     env.SHORTENED_COMMIT = env.FB_COMMIT.substring(0, 7)
                 }
-                withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
-                sh '''
-                    set -o errexit
-                    pip3 install --user --upgrade launchable~=1.0 || true
-                    launchable verify || true
-                    echo "$(git submodule status)" || true
-
-                    launchable record build --name "${FB_COMMIT}" --lineage "${PMM_BRANCH}" || true
-                '''
-                }
                 stash includes: 'apiBranch', name: 'apiBranch'
                 stash includes: 'apiURL', name: 'apiURL'
                 stash includes: 'pmmQABranch', name: 'pmmQABranch'
@@ -233,6 +223,18 @@ pipeline {
                         export DOCKERFILE=Dockerfile.el9
 
                         ${PATH_TO_SCRIPTS}/build-server-docker
+                    '''
+                }
+                withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
+                    sh '''
+                        set -o errexit
+                        pip3 install --user --upgrade launchable~=1.0 || true
+                        launchable verify || true
+                        echo "$(git submodule status)" || true
+
+                        export DOCKER_IMAGE_ID=$(docker inspect ${DOCKER_TAG} -f "{{.Id}}") || true
+
+                        launchable record build --name "${DOCKER_IMAGE_ID}" --lineage "${PMM_BRANCH}" || true
                     '''
                 }
                 stash includes: 'results/docker/TAG', name: 'IMAGE'

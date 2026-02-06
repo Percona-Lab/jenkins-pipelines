@@ -9,7 +9,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PMM_DATA_RETENTION=48h -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PMM_DATA_RETENTION=48h -e PMM_ENABLE_TELEMETRY=0'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
@@ -515,6 +515,25 @@ pipeline {
                 }
             }
         }
+        stage('Prepare Launchable') {
+            when {
+                expression { !['ovf', 'ami'].contains(env.SERVER_TYPE) }
+            }
+            steps {
+                withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
+                    sh '''
+                        pip3 install --user --upgrade launchable~=1.0 || true
+                        launchable verify || true
+
+                        export DOCKER_IMAGE_ID=$(docker inspect ${DOCKER_VERSION} -f "{{.Id}}") || true
+
+                        launchable record session --build ${DOCKER_IMAGE_ID} --test-suite "nightly-ui-tests" --flavor pmm-server-tag=${DOCKER_VERSION} --flavor pmm-client-version=${CLIENT_VERSION} --flavor deployment-type=${SERVER_TYPE} > launchable-session.txt || true
+                        node launchable-prepare.js "@qan|@nightly|@menu" || true
+                        cat test_list.txt | launchable subset --session $(cat launchable-session.txt) --confidence 100% --use-case feature-branch codeceptjs > launchable-subset.json || true
+                    '''
+                }
+            }
+        }
         stage('Run UI Tests') {
             options {
                 timeout(time: 300, unit: "MINUTES")
@@ -523,7 +542,12 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         sed -i 's+https://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
+
+                        if [ -s "launchable-subset.json" ]; then
+                            npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu' -o "\$(cat "launchable-subset.json")"
+                        else
+                            npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                        fi
                     """
                 }
             }
@@ -579,6 +603,9 @@ pipeline {
             }
             sh '''
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+
+                sed -i "s|$(pwd)/||g" tests/output/result.xml || true
+                launchable record tests --session $(cat launchable-session.txt) codeceptjs tests/output/result.xml || true
             '''
         }
         success {

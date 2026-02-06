@@ -112,7 +112,7 @@ managedNodeGroups:
     volumeSize: 80
     spot: true
     minSize: 6
-    maxSize: 7
+    maxSize: 12
     desiredCapacity: 6
     tags:
         iit-billing-tag: "pmm"
