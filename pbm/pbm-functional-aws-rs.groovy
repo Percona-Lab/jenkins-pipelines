@@ -108,20 +108,20 @@ pipeline {
 //            }
 //        }
     }
-    post {
-        always {
-            script {
-//                sh """
-//                    rm -f /tmp/pbm-agent-storage-aws.yaml
-//                    rm -f /tmp/pbm-agent-storage-aws-minio.yaml
-//                    rm -f /tmp/pbm-agent-storage-gcp.conf
-//                    rm -f /tmp/pbm-agent-storage-azure.conf
-//                    rm -f /tmp/pbm-agent-storage-gcp-hmac.conf
-//                    rm -f /tmp/pbm-agent-storage-oss.yaml
-//                """
-//                moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.SCENARIO)
-            }
-            junit testResults: "**/report.xml", keepLongStdio: true
-        }
-    }
+//    post {
+//        always {
+//            script {
+////                sh """
+////                    rm -f /tmp/pbm-agent-storage-aws.yaml
+////                    rm -f /tmp/pbm-agent-storage-aws-minio.yaml
+////                    rm -f /tmp/pbm-agent-storage-gcp.conf
+////                    rm -f /tmp/pbm-agent-storage-azure.conf
+////                    rm -f /tmp/pbm-agent-storage-gcp-hmac.conf
+////                    rm -f /tmp/pbm-agent-storage-oss.yaml
+////                """
+////                moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.SCENARIO)
+//            }
+//            junit testResults: "**/report.xml", keepLongStdio: true
+//        }
+//    }
 }
