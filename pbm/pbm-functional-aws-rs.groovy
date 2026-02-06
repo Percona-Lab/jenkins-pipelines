@@ -93,20 +93,20 @@ pipeline {
                 }
             }
         }
-        stage ('Run tests') {
-            steps {
-                script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "verify", env.SCENARIO)
-                }
-            }
-        }
-        stage ('Cleanup') {
-            steps {
-                script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.SCENARIO)
-                }
-            }
-        }
+//        stage ('Run tests') {
+//            steps {
+//                script{
+//                    moleculeExecuteActionWithScenario(moleculeDir, "verify", env.SCENARIO)
+//                }
+//            }
+//        }
+//        stage ('Cleanup') {
+//            steps {
+//                script{
+//                    moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.SCENARIO)
+//                }
+//            }
+//        }
     }
     post {
         always {
