@@ -522,7 +522,7 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
                     sh '''
-                        apt install -y python3-pip
+                        sudo apt install -y python3-pip
                         pip3 install --user --upgrade launchable~=1.0 || true
                         launchable verify || true
 
