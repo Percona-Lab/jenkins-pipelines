@@ -107,7 +107,7 @@ pipeline {
                         elif [[ "${OVA_VERSION}" == "3.0.0" ]]; then
                             wget -nv -O pmm-server.ova  https://downloads.percona.com/downloads/pmm3/${OVA_VERSION}/ova/pmm-server-${OVA_VERSION}-1.ova
                         else
-                            wget -nv -O pmm-server.ova  https://downloads.percona.com/downloads/pmm3/${OVA_VERSION}/ova/PMM3-Server-${OVA_VERSION}.ova
+                            wget -nv -O pmm-server.ova  https://downloads.percona.com/downloads/pmm3/${OVA_VERSION}/ova/pmm-server-${OVA_VERSION}.ova
                         fi
                     '''
                     sh '''
