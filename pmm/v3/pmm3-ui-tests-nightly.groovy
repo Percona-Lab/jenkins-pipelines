@@ -522,10 +522,11 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
                     sh '''
+                        apt install -y python3-pip
                         pip3 install --user --upgrade launchable~=1.0 || true
                         launchable verify || true
 
-                        export DOCKER_IMAGE_ID=$(docker inspect ${DOCKER_VERSION} -f "{{.Id}}") || true
+                        export DOCKER_IMAGE_ID=$(docker inspect -f '{{index .RepoDigests 0}}' ${DOCKER_VERSION} | cut -d@ -f2) || true
 
                         launchable record session --build ${DOCKER_IMAGE_ID} --test-suite "nightly-ui-tests" --flavor pmm-server-tag=${DOCKER_VERSION} --flavor pmm-client-version=${CLIENT_VERSION} --flavor deployment-type=${SERVER_TYPE} > launchable-session.txt || true
                         node launchable-prepare.js "@qan|@nightly|@menu" || true
