@@ -43,19 +43,12 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
                 )
             )
         } else {
-        }
-    }
-/*
-    for (pmmVersion in pmmVersions) {
-
-
-        } else {
             results.put(
                 "Upgrade AMI PMM from ${pmmVersion} (AMI tag: ${upgradeVersion}) to: perconalab/pmm-server:${upgradeVersions.last()}-rc",
                 generateStage(
                     PMM_UI_GIT_BRANCH,
-                    upgradeVersion,
-                    "perconalab/pmm-server:${upgradeVersions.last()}-rc",
+                    value,
+                    "perconalab/pmm-server:${latestVersion}-rc",
                     pmmVersion,
                     CLIENT_REPOSITORY,
                     latestVersion,
@@ -63,6 +56,14 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
                     QA_INTEGRATION_GIT_BRANCH
                 )
             )
+        }
+    }
+/*
+    for (pmmVersion in pmmVersions) {
+
+
+        } else {
+
         }
     }
 */
