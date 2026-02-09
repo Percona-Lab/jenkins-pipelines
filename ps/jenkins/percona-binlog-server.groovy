@@ -76,7 +76,7 @@ pipeline {
             description: 'Tag/Branch for binlog-server repository',
             name: 'GIT_BRANCH')
         string(
-            defaultValue: '1.0.0',
+            defaultValue: '0.1.0',
             description: 'VERSION value',
             name: 'VERSION')
         string(
@@ -92,7 +92,7 @@ pipeline {
             description: 'PBS repo name',
             name: 'PBS_REPO')
         choice(
-            choices: 'laboratory\ntesting\nexperimental',
+            choices: 'experimental\nlaboratory\ntesting',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
     }
