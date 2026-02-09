@@ -44,7 +44,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
                     "perconalab/pmm-server:${upgradeVersions.last()}-rc",
                     pmmVersion,
                     CLIENT_REPOSITORY,
-                    latestUpgradeVersion,
+                    latestVersion,
                     PMM_QA_GIT_BRANCH,
                     QA_INTEGRATION_GIT_BRANCH,
                     iterator++
