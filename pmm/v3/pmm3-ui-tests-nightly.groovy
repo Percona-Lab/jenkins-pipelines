@@ -365,7 +365,6 @@ pipeline {
                         sudo apt install  -y pipx python3-full
                         pipx ensurepath
                         pipx install "launchable~=1.0"
-                        source ~/.bashrc
                         launchable verify || true
 
                         export DOCKER_IMAGE_ID=$(sudo docker inspect -f '{{index .RepoDigests 0}}' ${DOCKER_VERSION} | cut -d@ -f2) || true
