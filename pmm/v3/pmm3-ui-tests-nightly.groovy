@@ -365,8 +365,10 @@ pipeline {
                         sudo apt install  -y pipx python3-full
                         pipx ensurepath
                         pipx install "launchable~=1.0"
+                        pipx ensurepath
                         launchable verify || true
 
+                        sudo docker pull ${DOCKER_VERSION}
                         export DOCKER_IMAGE_ID=$(sudo docker inspect -f '{{index .RepoDigests 0}}' ${DOCKER_VERSION} | cut -d@ -f2) || true
 
                         launchable record session --build ${DOCKER_IMAGE_ID} --test-suite "nightly-ui-tests" --flavor pmm-server-tag=${DOCKER_VERSION} --flavor pmm-client-version=${CLIENT_VERSION} --flavor deployment-type=${SERVER_TYPE} > launchable-session.txt || true
