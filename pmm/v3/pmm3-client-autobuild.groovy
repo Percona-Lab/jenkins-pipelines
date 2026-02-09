@@ -52,7 +52,7 @@ pipeline {
                 stage('Build pmm3 client for amd64') {
                     steps {
                         script {
-                            pmmClientAmd64 = build job: 'pmm3-client-autobuild-amd', parameters: [
+                            pmmClientAmd64 = build job: 'tbr-pmm3-client-autobuild-amd', parameters: [
                                 string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
                                 string(name: 'DESTINATION', value: params.DESTINATION)
                             ]
@@ -65,7 +65,7 @@ pipeline {
                 stage('Build pmm3 client for arm64') {
                     steps {
                         script {
-                            pmmClientArm64 = build job: 'pmm3-client-autobuild-arm', parameters: [
+                            pmmClientArm64 = build job: 'tbr-pmm3-client-autobuild-arm', parameters: [
                                 string(name: 'GIT_BRANCH', value: params.GIT_BRANCH),
                                 string(name: 'DESTINATION', value: params.DESTINATION)
                             ]

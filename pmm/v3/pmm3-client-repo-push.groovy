@@ -8,7 +8,8 @@ pipeline {
         label 'master'
     }
     parameters {
-        string(
+        choice(
+            choices: ['experimental', 'testing'],
             description: 'Publish packages to repositories: testing for RC, experimental for 3-dev-latest',
             name: 'DESTINATION'
         )
