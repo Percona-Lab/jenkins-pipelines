@@ -78,7 +78,7 @@ def generateStage(String PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIE
 
 pipeline {
     agent {
-        label 'docker'
+        label 'cli'
     }
     parameters {
         string(
@@ -91,10 +91,10 @@ pipeline {
             name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ["testing", "experimental", "release"],
-            description: 'PMM client repository',
+            description: 'PMM client repository for upgrade',
             name: 'CLIENT_REPOSITORY')
         string(
-            defaultValue: 'PMM-14156-ami-ovf',
+            defaultValue: 'main',
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
     }
