@@ -10,7 +10,6 @@ void runPackageTest(String GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, TESTS, INSTA
         string(name: 'PMM_VERSION', value: PMM_VERSION),
         string(name: 'TESTS', value: TESTS),
         string(name: 'INSTALL_REPO', value: INSTALL_REPO),
-        string(name: 'TARBALL', value: TARBALL),
         string(name: 'TARBALL_ARM', value: TARBALL_ARM),
         string(name: 'METRICS_MODE', value: METRICS_MODE),
         string(name: 'CLIENTS', value: CLIENTS)
@@ -48,10 +47,6 @@ pipeline {
             choices: ['experimental', 'testing', 'main', 'pmm-client-main'],
             description: 'Enable Repo for Client Nodes',
             name: 'INSTALL_REPO')
-        string(
-            defaultValue: '',
-            description: 'PMM Client (X64) tarball link or FB-code',
-            name: 'TARBALL')
         string(
             defaultValue: '',
             description: 'PMM Client (ARM64) tarball link or FB-code',
