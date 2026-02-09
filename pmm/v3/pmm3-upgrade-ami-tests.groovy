@@ -28,17 +28,12 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
     versionsList.each { key, value ->
         println key
         println value
-    }
-
-    for (pmmVersion in pmmVersions) {
-        println "PMM Version is: ${pmmVersion}"
-        def upgradeVersion = versionsList[pmmVersion];
         if(pmmVersion == pmmVersions.last()) {
             results.put(
-                "Upgrade AMI PMM from ${pmmVersion} (AMI tag: ${upgradeVersion}) to: 'perconalab/pmm-server:3-dev-latest'",
+                "Upgrade AMI PMM from ${key} (AMI tag: ${value}) to: 'perconalab/pmm-server:3-dev-latest'",
                 generateStage(
                     PMM_UI_GIT_BRANCH,
-                    upgradeVersion,
+                    key,
                     'perconalab/pmm-server:3-dev-latest',
                     pmmVersion,
                     CLIENT_REPOSITORY,
@@ -47,6 +42,13 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
                     QA_INTEGRATION_GIT_BRANCH
                 )
             )
+        } else {
+        }
+    }
+/*
+    for (pmmVersion in pmmVersions) {
+
+
         } else {
             results.put(
                 "Upgrade AMI PMM from ${pmmVersion} (AMI tag: ${upgradeVersion}) to: perconalab/pmm-server:${upgradeVersions.last()}-rc",
@@ -63,7 +65,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
             )
         }
     }
-
+*/
     println results
 
     return results;
