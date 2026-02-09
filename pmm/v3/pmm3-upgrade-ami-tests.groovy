@@ -22,7 +22,7 @@ void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, AMI_
     ]
 }
 
-def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion) {
+def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList, latestVersion) {
     def results = new HashMap<>();
 
     versionsList.each { pmmVersion, amiTag ->
@@ -34,7 +34,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
                     amiTag,
                     'perconalab/pmm-server:3-dev-latest',
                     pmmVersion,
-                    CLIENT_REPOSITORY,
+                    'experimental',
                     latestVersion,
                     PMM_QA_GIT_BRANCH,
                     QA_INTEGRATION_GIT_BRANCH
@@ -48,7 +48,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
                     amiTag,
                     "perconalab/pmm-server:${latestVersion}-rc",
                     pmmVersion,
-                    CLIENT_REPOSITORY,
+                    'testing',
                     latestVersion,
                     PMM_QA_GIT_BRANCH,
                     QA_INTEGRATION_GIT_BRANCH
@@ -86,10 +86,6 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
-        choice(
-            choices: ["testing", "experimental", "release"],
-            description: 'PMM client repository for upgrade',
-            name: 'CLIENT_REPOSITORY')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for qa-integration repository',
@@ -103,7 +99,7 @@ pipeline {
             steps {
                 println versionsList
                 script {
-                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion)
+                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList, latestVersion)
                 }
             }
         }
