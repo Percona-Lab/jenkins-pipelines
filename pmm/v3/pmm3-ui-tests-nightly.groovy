@@ -362,7 +362,10 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
                     sh '''
-                        pip3 install --user --upgrade launchable~=1.0 --break-system-packages || true
+                        apt install pipx python3-full
+                        pipx ensurepath
+                        pipx install --user --upgrade "launchable~=1.0"
+                        source ~/.bashrc
                         launchable verify || true
 
                         export DOCKER_IMAGE_ID=$(sudo docker inspect -f '{{index .RepoDigests 0}}' ${DOCKER_VERSION} | cut -d@ -f2) || true
