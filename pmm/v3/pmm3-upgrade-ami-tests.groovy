@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-def versionsList = pmmVersion('v3-ami').entrySet(); //.toList().takeRight(5)
+def versionsList = pmmVersion('v3-ami').findAll { k, v -> k in pmmVersion('v3')[-5..-1] }
 def amiVersions = versionsList.values().toList()[-5..-1]
 def pmmVersions = versionsList.keySet().toList()[-5..-1]
 def latestVersion = pmmVersions[pmmVersions.size() - 1]
