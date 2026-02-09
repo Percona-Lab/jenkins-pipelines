@@ -352,9 +352,6 @@ pipeline {
                     sudo apt update
                     sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
                     sudo systemctl enable --now docker
-                    sudo usermod -aG docker $USER
-                    newgrp docker
-                    docker version
                 '''
             }
         }
@@ -368,7 +365,7 @@ pipeline {
                         pip3 install --user --upgrade launchable~=1.0 --break-system-packages || true
                         launchable verify || true
 
-                        export DOCKER_IMAGE_ID=$(docker inspect -f '{{index .RepoDigests 0}}' ${DOCKER_VERSION} | cut -d@ -f2) || true
+                        export DOCKER_IMAGE_ID=$(sudo docker inspect -f '{{index .RepoDigests 0}}' ${DOCKER_VERSION} | cut -d@ -f2) || true
 
                         launchable record session --build ${DOCKER_IMAGE_ID} --test-suite "nightly-ui-tests" --flavor pmm-server-tag=${DOCKER_VERSION} --flavor pmm-client-version=${CLIENT_VERSION} --flavor deployment-type=${SERVER_TYPE} > launchable-session.txt || true
                         node launchable-prepare.js "@qan|@nightly|@menu" || true
