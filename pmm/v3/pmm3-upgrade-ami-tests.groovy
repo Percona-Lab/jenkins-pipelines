@@ -105,9 +105,9 @@ pipeline {
         stage('UI tests Upgrade Matrix') {
             steps {
                 println versionsList
-                script {
+//                 script {
 //                     parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion)
-                }
+//                 }
             }
         }
     }
