@@ -133,10 +133,6 @@ pipeline {
             name: 'INSTALL_REPO')
         string(
             defaultValue: '',
-            description: 'PMM Client (X64) tarball link or FB-code',
-            name: 'TARBALL')
-        string(
-            defaultValue: '',
             description: 'PMM Client (ARM64) tarball link or FB-code',
             name: 'TARBALL_ARM')
         string(
@@ -252,7 +248,7 @@ pipeline {
                     }
                     steps{
                         setup_debian_trixie_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
                     }
                 }
             }
