@@ -364,7 +364,7 @@ pipeline {
                     sh '''
                         sudo apt install  -y pipx python3-full
                         pipx ensurepath
-                        pipx install --user --upgrade "launchable~=1.0"
+                        pipx install "launchable~=1.0"
                         source ~/.bashrc
                         launchable verify || true
 
