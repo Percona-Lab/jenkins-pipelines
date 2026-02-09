@@ -367,6 +367,7 @@ pipeline {
                         pipx install "launchable~=1.0"
                         . ~/.bashrc
                         launchable verify || true
+                        echo $SHELL
 
                         sudo docker pull ${DOCKER_VERSION}
                         export DOCKER_IMAGE_ID=$(sudo docker inspect -f '{{index .RepoDigests 0}}' ${DOCKER_VERSION} | cut -d@ -f2) || true
