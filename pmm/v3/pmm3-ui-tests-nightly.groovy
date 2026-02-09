@@ -272,8 +272,8 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: 'pmmha-v3',
-            description: 'HA setup branch of percona-helm-charts repo (pmmha-v3 has both pmm-ha and pmm-ha-dependencies)',
+            defaultValue: 'main',
+            description: 'HA setup branch of percona-helm-charts repo',
             name: 'HELM_CHART_BRANCH')
         choice(
             choices: ['latest', '4.19.6', '4.19.5', '4.19.4', '4.19.3', '4.19.2', '4.18.9', '4.18.8', '4.18.7', '4.18.6', '4.18.5', '4.17.9', '4.17.8', '4.17.7', '4.17.6', '4.17.5', '4.16.9', '4.16.8', '4.16.7', '4.16.6', '4.16.5'],
@@ -522,8 +522,7 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
                     sh '''
-                        sudo apt install -y python3-pip
-                        pip3 install --user --upgrade launchable~=1.0 || true
+                        pip3 install --user --upgrade launchable~=1.0 --break-system-packages || true
                         launchable verify || true
 
                         export DOCKER_IMAGE_ID=$(docker inspect -f '{{index .RepoDigests 0}}' ${DOCKER_VERSION} | cut -d@ -f2) || true
