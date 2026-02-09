@@ -4,8 +4,8 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 def versionsList = pmmVersion('v3-ami')
-def amiVersions = versionsList.values().toList()[-6..-1]
-def versions = versionsList.keySet().toList()[-6..-1]
+def amiVersions = versionsList.values().toList()[-5..-1]
+def versions = versionsList.keySet().toList()[-5..-1]
 def latestVersion = versions[versions.size() - 1]
 
 void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
@@ -25,12 +25,7 @@ void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, AMI_
 def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion) {
     def results = new HashMap<>();
     def upgradeVersions = versionsList.keySet().toList()[-6..-1];
-    if(CLIENT_REPOSITORY != 'experimental') {
-        upgradeVersions.pop();
-    }
 
-    println upgradeVersions;
-    println versionsList.keySet().last();
     def iterator = 0;
 
     for (version in upgradeVersions) {
@@ -106,6 +101,7 @@ pipeline {
             steps {
                 println versionsList
                 println amiVersions
+                println versions
 //                 script {
 //                     parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion)
 //                 }
