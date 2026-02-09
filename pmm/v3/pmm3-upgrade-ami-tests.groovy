@@ -27,7 +27,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
     def upgradeVersions = versionsList.keySet().toList()[-6..-1];
 
     for (pmmVersion in versionsList) {
-        def upgradeVersion = versionsList[version];
+        def upgradeVersion = versionsList[pmmVersion];
         if(pmmVersion == versionsList.last()) {
             results.put(
                 "Run matrix upgrade tests from version: \"$pmmVersion\"",
@@ -35,7 +35,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
             )
         } else {
             results.put(
-                "Upgrade AMI PMM from ${version} (AMI tag: ${upgradeVersion}) to: perconalab/pmm-server:${versionsList.last()}-rc.",
+                "Upgrade AMI PMM from ${pmmVersion} (AMI tag: ${upgradeVersion}) to: perconalab/pmm-server:${versionsList.last()}-rc.",
                 generateStage(
                     PMM_UI_GIT_BRANCH,
                     upgradeVersion,
