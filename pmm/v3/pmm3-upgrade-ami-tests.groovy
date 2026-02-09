@@ -30,12 +30,11 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
         println value
         print "Key value is: $key and latest version is: $latestVersion"
         if(key == latestVersion) {
-            println "Version are equal!"
             results.put(
                 "Upgrade AMI PMM from ${key} (AMI tag: ${value}) to: 'perconalab/pmm-server:3-dev-latest'",
                 generateStage(
                     PMM_UI_GIT_BRANCH,
-                    key,
+                    value,
                     'perconalab/pmm-server:3-dev-latest',
                     pmmVersion,
                     CLIENT_REPOSITORY,
