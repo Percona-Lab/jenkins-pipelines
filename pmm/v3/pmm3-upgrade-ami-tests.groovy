@@ -58,15 +58,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
             )
         }
     }
-/*
-    for (pmmVersion in pmmVersions) {
 
-
-        } else {
-
-        }
-    }
-*/
     println results
 
     return results;
