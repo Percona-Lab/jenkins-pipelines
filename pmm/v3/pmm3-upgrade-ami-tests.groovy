@@ -98,9 +98,9 @@ pipeline {
                 println versionsList
                 println amiVersions
                 println versions
-//                 script {
-//                     parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion)
-//                 }
+                script {
+                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion)
+                }
             }
         }
     }
