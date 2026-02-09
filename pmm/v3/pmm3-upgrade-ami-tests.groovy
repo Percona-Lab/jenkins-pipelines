@@ -44,7 +44,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
             )
         } else {
             results.put(
-                "Upgrade AMI PMM from ${pmmVersion} (AMI tag: ${upgradeVersion}) to: perconalab/pmm-server:${upgradeVersions.last()}-rc",
+                "Upgrade AMI PMM from ${key} (AMI tag: ${value}) to: perconalab/pmm-server:${latestVersion}-rc",
                 generateStage(
                     PMM_UI_GIT_BRANCH,
                     value,
