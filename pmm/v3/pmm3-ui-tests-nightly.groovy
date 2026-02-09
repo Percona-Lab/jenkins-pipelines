@@ -362,7 +362,7 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
                     sh '''
-                        apt install  -y pipx python3-full
+                        sudo apt install  -y pipx python3-full
                         pipx ensurepath
                         pipx install --user --upgrade "launchable~=1.0"
                         source ~/.bashrc
