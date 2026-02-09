@@ -350,6 +350,7 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
                     sh '''
+                        sudo apt install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
                         docker pull ${DOCKER_VERSION}
                         pip3 install --user --upgrade launchable~=1.0 --break-system-packages || true
                         launchable verify || true
