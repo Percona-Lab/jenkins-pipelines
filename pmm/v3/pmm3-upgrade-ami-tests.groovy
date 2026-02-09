@@ -4,6 +4,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 ]) _
 
 def versionsList = pmmVersion('v3-ami')
+def pmmVersions = pmmVersion('v3')[-5..-1]
 def amiVersions = versionsList.values().toList()[-5..-1]
 def versions = versionsList.keySet().toList()[-5..-1]
 def latestVersion = versions[versions.size() - 1]
@@ -26,7 +27,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
     def results = new HashMap<>();
     def upgradeVersions = versionsList.keySet().toList()[-6..-1];
 
-    for (pmmVersion in versionsList) {
+    for (pmmVersion in pmmVersions) {
         println "PMM Version is: ${pmmVersion}"
         def upgradeVersion = versionsList[pmmVersion];
         if(pmmVersion == upgradeVersions.last()) {
