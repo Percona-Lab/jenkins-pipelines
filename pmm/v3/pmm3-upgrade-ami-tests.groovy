@@ -57,8 +57,6 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
         }
     }
 
-    println results
-
     return results;
 }
 
@@ -97,7 +95,6 @@ pipeline {
     stages {
         stage('UI tests Upgrade Matrix') {
             steps {
-                println versionsList
                 script {
                     parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList, latestVersion)
                 }
