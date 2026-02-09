@@ -26,20 +26,20 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
     def results = new HashMap<>();
     def upgradeVersions = versionsList.keySet().toList()[-6..-1];
 
-    for (pmmVersion in pmmVersions) {
+    for (pmmVersion in versionsList) {
         def upgradeVersion = versionsList[version];
-        if(pmmVersion == pmmVersions.last()) {
+        if(pmmVersion == versionsList.last()) {
             results.put(
                 "Run matrix upgrade tests from version: \"$pmmVersion\"",
                 generateStage(PMM_UI_GIT_BRANCH, "perconalab/pmm-server:${pmmVersion}-rc", 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion)
             )
         } else {
             results.put(
-                "Upgrade AMI PMM from ${version} (AMI tag: ${upgradeVersion}) to: perconalab/pmm-server:${pmmVersions.last()}-rc.",
+                "Upgrade AMI PMM from ${version} (AMI tag: ${upgradeVersion}) to: perconalab/pmm-server:${versionsList.last()}-rc.",
                 generateStage(
                     PMM_UI_GIT_BRANCH,
                     upgradeVersion,
-                    "perconalab/pmm-server:${pmmVersions.last()}-rc",
+                    "perconalab/pmm-server:${versionsList.last()}-rc",
                     pmmVersion,
                     CLIENT_REPOSITORY,
                     latestUpgradeVersion,
