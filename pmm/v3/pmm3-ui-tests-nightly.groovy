@@ -353,9 +353,15 @@ pipeline {
                     sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
                     sudo systemctl enable --now docker
 
+
                     sudo apt install  -y pipx python3-full
                     pipx ensurepath
-                    pipx install "launchable~=1.0"
+                    python3 -m pip install --user -U pipx
+                    export PATH="$HOME/.local/bin:$PATH"
+
+                    pipx install 'launchable~=1.0' || pipx upgrade 'launchable~=1.0'
+                    launchable --version
+                    launchable verify
                 '''
             }
         }
