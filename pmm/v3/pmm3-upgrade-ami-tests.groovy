@@ -46,8 +46,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
                     CLIENT_REPOSITORY,
                     latestVersion,
                     PMM_QA_GIT_BRANCH,
-                    QA_INTEGRATION_GIT_BRANCH,
-                    iterator++
+                    QA_INTEGRATION_GIT_BRANCH
                 )
             )
         }
@@ -58,7 +57,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
     return results;
 }
 
-def generateStage(String PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, int iterator) {
+def generateStage(String PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
     return {
         stage("Upgrade AMI PMM from ${CLIENT_VERSION} (AMI tag: ${amiVersion}) to repo: ${CLIENT_REPOSITORY}.") {
             retry(2) {
