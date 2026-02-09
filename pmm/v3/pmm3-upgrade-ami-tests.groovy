@@ -22,14 +22,18 @@ void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, AMI_
 //     ]
 }
 
-def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, pmmVersions, latestVersion) {
+def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion) {
     def results = new HashMap<>();
-    def upgradeVersions = versionsList.keySet().toList()[-6..-1];
+
+    versionsList.each { key, value ->
+        println key
+        println value
+    }
 
     for (pmmVersion in pmmVersions) {
         println "PMM Version is: ${pmmVersion}"
         def upgradeVersion = versionsList[pmmVersion];
-        if(pmmVersion == upgradeVersions.last()) {
+        if(pmmVersion == pmmVersions.last()) {
             results.put(
                 "Upgrade AMI PMM from ${pmmVersion} (AMI tag: ${upgradeVersion}) to: 'perconalab/pmm-server:3-dev-latest'",
                 generateStage(
@@ -107,7 +111,7 @@ pipeline {
                 println pmmVersions
                 println amiVersions
                 script {
-                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, pmmVersions, latestVersion)
+                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion)
                 }
             }
         }
