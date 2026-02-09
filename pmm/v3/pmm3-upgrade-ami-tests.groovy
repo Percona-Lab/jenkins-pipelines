@@ -26,7 +26,6 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
     def results = new HashMap<>();
 
     versionsList.each { key, value ->
-        println version
         if(key == latestVersion) {
             results.put(
                 "Upgrade AMI PMM from ${key} (AMI tag: ${value}) to: 'perconalab/pmm-server:3-dev-latest'",
