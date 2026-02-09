@@ -354,9 +354,9 @@ pipeline {
                     sudo systemctl enable --now docker
 
 
-                    sudo apt install  -y pipx python3-full
+                    sudo apt install -y pipx python3-full
                     pipx ensurepath
-                    python3 -m pip install --user -U pipx
+                    pipx environment
                     export PATH="$HOME/.local/bin:$PATH"
 
                     pipx install 'launchable~=1.0' || pipx upgrade 'launchable~=1.0'
