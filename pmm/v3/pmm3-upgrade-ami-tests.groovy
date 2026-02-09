@@ -25,16 +25,16 @@ void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, AMI_
 def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion) {
     def results = new HashMap<>();
 
-    versionsList.each { version ->
+    versionsList.each { key, value ->
         println version
-        if(version.key == latestVersion) {
+        if(key == latestVersion) {
             results.put(
-                "Upgrade AMI PMM from ${version.key} (AMI tag: ${version.value}) to: 'perconalab/pmm-server:3-dev-latest'",
+                "Upgrade AMI PMM from ${key} (AMI tag: ${value}) to: 'perconalab/pmm-server:3-dev-latest'",
                 generateStage(
                     PMM_UI_GIT_BRANCH,
                     value,
                     'perconalab/pmm-server:3-dev-latest',
-                    version.key,
+                    key,
                     CLIENT_REPOSITORY,
                     latestVersion,
                     PMM_QA_GIT_BRANCH,
@@ -43,12 +43,12 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
             )
         } else {
             results.put(
-                "Upgrade AMI PMM from ${version.key} (AMI tag: ${version.value}) to: perconalab/pmm-server:${latestVersion}-rc",
+                "Upgrade AMI PMM from ${key} (AMI tag: ${value}) to: perconalab/pmm-server:${latestVersion}-rc",
                 generateStage(
                     PMM_UI_GIT_BRANCH,
                     value,
                     "perconalab/pmm-server:${latestVersion}-rc",
-                    version.key,
+                    key,
                     CLIENT_REPOSITORY,
                     latestVersion,
                     PMM_QA_GIT_BRANCH,
