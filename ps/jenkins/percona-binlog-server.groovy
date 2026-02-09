@@ -6,6 +6,34 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
 
 import groovy.transform.Field
 
+void installCli(String PLATFORM) {
+    sh """
+        if [ \${CLOUD} = "AWS" ]; then
+            set -o xtrace
+            if [ -d aws ]; then
+                rm -rf aws
+            fi
+            if [ ${PLATFORM} = "deb" ]; then
+                sudo apt-get update
+                sudo apt-get -y install wget curl unzip
+            elif [ ${PLATFORM} = "rpm" ]; then
+                export RHVER=\$(rpm --eval %rhel)
+                if [ \${RHVER} = "7" ]; then
+                    sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
+                    sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
+                    if [ -e "/etc/yum.repos.d/CentOS-SCLo-scl.repo" ]; then
+                        cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
+                    fi
+                fi
+                sudo yum -y install wget curl unzip
+            fi
+            curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+            unzip awscliv2.zip
+            sudo ./aws/install || true
+       fi
+    """
+}
+
 void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     sh """
         set -o xtrace
