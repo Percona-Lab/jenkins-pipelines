@@ -352,6 +352,10 @@ pipeline {
                     sudo apt update
                     sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
                     sudo systemctl enable --now docker
+
+                    sudo apt install  -y pipx python3-full
+                    pipx ensurepath
+                    pipx install "launchable~=1.0"
                 '''
             }
         }
@@ -362,12 +366,7 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
                     sh '''
-                        sudo apt install  -y pipx python3-full
-                        pipx ensurepath
-                        pipx install "launchable~=1.0"
-                        . ~/.bashrc
                         launchable verify || true
-                        echo $SHELL
 
                         sudo docker pull ${DOCKER_VERSION}
                         export DOCKER_IMAGE_ID=$(sudo docker inspect -f '{{index .RepoDigests 0}}' ${DOCKER_VERSION} | cut -d@ -f2) || true
