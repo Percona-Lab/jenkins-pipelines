@@ -26,9 +26,8 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
     def results = new HashMap<>();
     def upgradeVersions = versionsList.keySet().toList()[-6..-1];
 
-    println pmmVersion
-
     for (pmmVersion in versionsList) {
+        println "PMM Version is: ${pmmVersion}"
         def upgradeVersion = versionsList[pmmVersion];
         if(pmmVersion == upgradeVersions.last()) {
             results.put(
