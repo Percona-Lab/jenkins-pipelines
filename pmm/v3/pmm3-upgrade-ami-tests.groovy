@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-def versionsList = pmmVersion('v3-ami')
+def versionsList = pmmVersion('v3-ami').entrySet().toList().takeRight(5)
 def amiVersions = versionsList.values().toList()[-5..-1]
 def pmmVersions = versionsList.keySet().toList()[-5..-1]
 def latestVersion = pmmVersions[pmmVersions.size() - 1]
@@ -25,17 +25,16 @@ void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, AMI_
 def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion) {
     def results = new HashMap<>();
 
-    versionsList.each { key, value ->
-        println key
-        println value
-        if(key == latestVersion) {
+    versionsList.each { version ->
+        println version
+        if(version.key == latestVersion) {
             results.put(
-                "Upgrade AMI PMM from ${key} (AMI tag: ${value}) to: 'perconalab/pmm-server:3-dev-latest'",
+                "Upgrade AMI PMM from ${version.key} (AMI tag: ${version.value}) to: 'perconalab/pmm-server:3-dev-latest'",
                 generateStage(
                     PMM_UI_GIT_BRANCH,
                     value,
                     'perconalab/pmm-server:3-dev-latest',
-                    key,
+                    version.key,
                     CLIENT_REPOSITORY,
                     latestVersion,
                     PMM_QA_GIT_BRANCH,
@@ -44,12 +43,12 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
             )
         } else {
             results.put(
-                "Upgrade AMI PMM from ${key} (AMI tag: ${value}) to: perconalab/pmm-server:${latestVersion}-rc",
+                "Upgrade AMI PMM from ${version.key} (AMI tag: ${version.value}) to: perconalab/pmm-server:${latestVersion}-rc",
                 generateStage(
                     PMM_UI_GIT_BRANCH,
                     value,
                     "perconalab/pmm-server:${latestVersion}-rc",
-                    key,
+                    version.key,
                     CLIENT_REPOSITORY,
                     latestVersion,
                     PMM_QA_GIT_BRANCH,
