@@ -49,7 +49,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
                     PMM_UI_GIT_BRANCH,
                     value,
                     "perconalab/pmm-server:${latestVersion}-rc",
-                    pmmVersion,
+                    key,
                     CLIENT_REPOSITORY,
                     latestVersion,
                     PMM_QA_GIT_BRANCH,
