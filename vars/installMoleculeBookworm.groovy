@@ -8,7 +8,9 @@ def call() {
             python3 -m pip install --upgrade pip
             python3 -m pip install --upgrade setuptools
             python3 -m pip install --upgrade setuptools-rust
-            python3 -m pip install --upgrade PyYaml==5.3.1 molecule==3.3.0 testinfra pytest molecule-ec2==0.3 molecule[ansible] "ansible<10.0.0" "ansible-lint>=5.1.1,<6.0.0" boto3 boto
+            python3 -m pip install --upgrade setuptools PyYaml==5.3.1 molecule==3.3.0 testinfra pytest molecule-ec2==0.3 molecule[ansible] "ansible<10.0.0" "ansible-lint>=5.1.1,<6.0.0" boto3 boto
+            python3 -m pip install --force-reinstall --no-deps setuptools
+            python3 -c 'import pkg_resources; print("pkg_resources OK")'
             sudo apt install -y jq git unzip
         """
 }
