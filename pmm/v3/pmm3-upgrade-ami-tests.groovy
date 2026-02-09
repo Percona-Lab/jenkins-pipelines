@@ -6,7 +6,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 def versionsList = pmmVersion('v3-ami')
 def amiVersions = versionsList.values().toList()[-5..-1]
 def pmmVersions = versionsList.keySet().toList()[-5..-1]
-def latestVersion = versions[versions.size() - 1]
+def latestVersion = pmmVersions[pmmVersions.size() - 1]
 
 void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, AMI_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
 //     upgradeJob = build job: 'pmm3-upgrade-ami-test-runner', parameters: [\
@@ -106,7 +106,6 @@ pipeline {
             steps {
                 println versionsList
                 println amiVersions
-                println versions
                 script {
                     parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, CLIENT_REPOSITORY, versionsList, latestVersion)
                 }
