@@ -33,7 +33,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
             results.put(
                 "Upgrade AMI PMM from ${key} (AMI tag: ${value}) to: 'perconalab/pmm-server:3-dev-latest'",
                 generateStage(
-                    "pmm-$key"
+                    "pmm-$key",
                     PMM_UI_GIT_BRANCH,
                     value,
                     'perconalab/pmm-server:3-dev-latest',
