@@ -296,26 +296,38 @@ def get_minikube():
 
 
 def get_openshift():
-    resp = _session.get("https://endoflife.date/api/red-hat-openshift.json", timeout=10)
-    resp.raise_for_status()
-    versions = sort_vers(filter_active(resp.json(), datetime.now().date()))
-    if not versions:
+    base_url = "https://mirror.openshift.com/pub/openshift-v4/amd64/clients/ocp"
+    try:
+        latest_resp = _session.get(f"{base_url}/stable/release.txt", timeout=10)
+        latest_resp.raise_for_status()
+    except Exception:
         return None, None
-    patches = {}
-    for minor in [versions[0], versions[-1]]:
-        try:
-            r = _session.get(
-                f"https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable-{minor}/release.txt",
-                timeout=10,
+
+    latest_match = re.search(r"^Name:\s*(\d+\.\d+\.\d+)\s*$", latest_resp.text, re.MULTILINE)
+    if not latest_match:
+        return None, None
+    latest_patch = latest_match.group(1)
+
+    min_patch = None
+    try:
+        eol_resp = _session.get(
+            "https://endoflife.date/api/red-hat-openshift.json", timeout=10
+        )
+        eol_resp.raise_for_status()
+        active_minors = filter_active(eol_resp.json(), datetime.now().date())
+        if active_minors:
+            min_minor = min(active_minors, key=lambda x: [int(p) for p in x.split(".")])
+            min_resp = _session.get(f"{base_url}/stable-{min_minor}/release.txt", timeout=10)
+            min_resp.raise_for_status()
+            min_match = re.search(
+                r"^Name:\s*(\d+\.\d+\.\d+)\s*$", min_resp.text, re.MULTILINE
             )
-            if r.ok:
-                for line in r.text.split("\n"):
-                    if line.startswith("Name:"):
-                        patches[minor] = line.split(":")[1].strip()
-                        break
-        except:
-            pass
-    return patches.get(versions[-1]), patches.get(versions[0])
+            if min_match:
+                min_patch = min_match.group(1)
+    except Exception:
+        min_patch = None
+
+    return min_patch, latest_patch
 
 
 def get_k8s_lines():

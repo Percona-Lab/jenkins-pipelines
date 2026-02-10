@@ -593,6 +593,39 @@ def trim_old_versions(data: Dict, limits: Dict) -> Dict:
     return data
 
 
+def sort_category_versions(
+    versions: Dict[str, Dict], recommended_position: str = "first"
+) -> Dict[str, Dict]:
+    """Sort versions semantically and keep recommended versions pinned."""
+    recommended = []
+    non_recommended = []
+
+    for ver, meta in versions.items():
+        if meta.get("status") == "recommended":
+            recommended.append((ver, meta))
+        else:
+            non_recommended.append((ver, meta))
+
+    recommended.sort(key=lambda item: parse_version_key(item[0]), reverse=True)
+    non_recommended.sort(key=lambda item: parse_version_key(item[0]), reverse=True)
+
+    if recommended_position == "last":
+        ordered = non_recommended + recommended
+    else:
+        ordered = recommended + non_recommended
+
+    return dict(ordered)
+
+
+def sort_matrix_versions(data: Dict, recommended_position: str = "first") -> Dict:
+    """Sort every matrix category by semantic version."""
+    for version_entry in data.get("versions", []):
+        matrix = version_entry.get("matrix", {})
+        for category, versions in matrix.items():
+            matrix[category] = sort_category_versions(versions, recommended_position)
+    return data
+
+
 def generate_full_release_from_fragment(
     fragment: Dict, previous_version: str, output_file: str
 ) -> Dict:
@@ -613,8 +646,10 @@ def generate_full_release_from_fragment(
     if limits:
         result = trim_old_versions(result, limits)
 
+    result = sort_matrix_versions(result, recommended_position="first")
+
     with open(output_file, "w") as f:
-        json.dump(result, f, indent=2, sort_keys=True)
+        json.dump(result, f, indent=2)
 
     return result
 
@@ -665,8 +700,9 @@ def main():
     if args.command == "frag":
         images = parse_input_file(args.input_file)
         result = categorize_images(images)
+        result = sort_matrix_versions(result, recommended_position="first")
         with open(args.output_file, "w") as f:
-            json.dump(result, f, indent=2, sort_keys=True)
+            json.dump(result, f, indent=2)
     elif args.command == "full":
         generate_full_release(
             args.fragment_file, args.previous_version, args.output_file
@@ -683,8 +719,9 @@ def main():
         if len(sys.argv) == 3:
             images = parse_input_file(sys.argv[1])
             result = categorize_images(images)
+            result = sort_matrix_versions(result, recommended_position="first")
             with open(sys.argv[2], "w") as f:
-                json.dump(result, f, indent=2, sort_keys=True)
+                json.dump(result, f, indent=2)
         else:
             parser.print_help()
 

@@ -157,14 +157,6 @@ pipeline {
                 archiveArtifacts artifacts: 'test_plan.json, test_plan.md', allowEmptyArchive: false, fingerprint: true
             }
         }
-        stage('Exit When Not Creating Branch') {
-            when {
-                expression { params.CREATE_BRANCH == 'NO' }
-            }
-            steps {
-                echo 'CREATE_BRANCH=NO, branch creation stages will be skipped. Artifacts were generated successfully.'
-            }
-        }
         stage('Create Operator Release Branch') {
             when {
                 expression { params.CREATE_BRANCH == 'YES' }
@@ -191,9 +183,8 @@ pipeline {
                         echo "Creating release branch: ${env.RELEASE_BRANCH}"
                         sh "git checkout -b ${env.RELEASE_BRANCH}"
                         sh """
-                            export PATH="\$HOME/.local/bin:\$WORKSPACE/go/bin:\$PATH"
                             export GOPATH="\$WORKSPACE/gopath"
-                            export PATH="\$GOPATH/bin:\$PATH"
+                            export PATH="\$HOME/.local/bin:\$WORKSPACE/go/bin:\$GOPATH/bin:\$PATH"
                             make release VERSION=${params.VERSION} IMAGE_TAG_BASE=percona/${params.OPERATOR}
                         """
                         sh """
