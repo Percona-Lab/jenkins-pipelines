@@ -124,7 +124,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=18
-                                def BRANCH_NAME = "release-18.1.1"
+                                def BRANCH_NAME = "release-18.2.1"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl35")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -150,7 +150,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=18
-                                def BRANCH_NAME = "release-18.1.1"
+                                def BRANCH_NAME = "release-18.2.1"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -176,7 +176,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=18
-                                def BRANCH_NAME = 'release-18.1.1'
+                                def BRANCH_NAME = 'release-18.2.1'
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -202,7 +202,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=17
-                                def BRANCH_NAME = "release-17.7.1"
+                                def BRANCH_NAME = "release-17.8.1"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl35")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -228,7 +228,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=17
-                                def BRANCH_NAME = "release-17.7.1"
+                                def BRANCH_NAME = "release-17.8.1"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -254,7 +254,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=17
-                                def BRANCH_NAME = 'release-17.7.1'
+                                def BRANCH_NAME = 'release-17.8.1'
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl1.1")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
@@ -279,21 +279,21 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PG_VERSION=17
+                                def PG_VERSION=16
                                 def BRANCH_NAME = "REL_16_STABLE"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl35")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
                                 unstash 'timestamp'
-                                AWS_STASH_PATH_17="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH_16="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH_17} > uploadPath-${PACKAGE_VERSION}
+                                        echo ${AWS_STASH_PATH_16} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
                                 """
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                                 buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_ssl35=1")
-                                pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17)
-                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17, "binary", "${PACKAGE_VERSION}")
+                                pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16)
+                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_16, "binary", "${PACKAGE_VERSION}")
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
                     }
@@ -357,21 +357,21 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PG_VERSION=17
+                                def PG_VERSION=15
                                 def BRANCH_NAME = "REL_15_STABLE"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl35")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
                                 unstash 'timestamp'
-                                AWS_STASH_PATH_17="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH_15="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH_17} > uploadPath-${PACKAGE_VERSION}
+                                        echo ${AWS_STASH_PATH_15} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
                                 """
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                                 buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_ssl35=1")
-                                pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17)
-                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17, "binary", "${PACKAGE_VERSION}")
+                                pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15)
+                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_15, "binary", "${PACKAGE_VERSION}")
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
                     }
@@ -435,21 +435,21 @@ pipeline {
                     steps {
                         cleanUpWS()
                         script {
-                                def PG_VERSION=17
+                                def PG_VERSION=14
                                 def BRANCH_NAME = "REL_14_STABLE"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl35")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Tarballs"
                                 unstash 'timestamp'
-                                AWS_STASH_PATH_17="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
+                                AWS_STASH_PATH_14="/srv/UPLOAD/${DESTINATION}/BUILDS/${PRODUCT}/${PRODUCT}-${PACKAGE_VERSION}/${TIMESTAMP}"
                                 sh """
-                                        echo ${AWS_STASH_PATH_17} > uploadPath-${PACKAGE_VERSION}
+                                        echo ${AWS_STASH_PATH_14} > uploadPath-${PACKAGE_VERSION}
                                         cat uploadPath-${PACKAGE_VERSION}
                                 """
                                 stash includes: "uploadPath-${PACKAGE_VERSION}", name: "uploadPath-${PACKAGE_VERSION}"
                                 buildStage("oraclelinux:8", "--version=${PACKAGE_VERSION} --use_ssl35=1")
-                                pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17)
-                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_17, "binary", "${PACKAGE_VERSION}")
+                                pushArtifactFolder(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14)
+                                uploadPGTarballfromAWS(params.CLOUD, "tarballs-${PACKAGE_VERSION}/", AWS_STASH_PATH_14, "binary", "${PACKAGE_VERSION}")
                                 uploadTarballToTestingDownloadServer("pg_tarballs", "${PACKAGE_VERSION}")
                         }
                     }
