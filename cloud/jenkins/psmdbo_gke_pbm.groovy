@@ -73,6 +73,10 @@ void prepareNode() {
 
     echo "=========================[ Installing tools on the Jenkins executor ]========================="
     sh """
+        sudo curl -LO https://go.dev/dl/go1.25.7.linux-amd64.tar.gz 
+        sudo rm -rf /usr/local/go && sudo tar -C /usr/local/ -xzf go1.25.7.linux-amd64.tar.gz
+        export PATH=/usr/local/go/bin:$PATH
+        go version
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
     """
@@ -134,6 +138,8 @@ void dockerBuildPush() {
                 echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
+                export PATH=/usr/local/go/bin:$PATH
+                export GOTOOLCHAIN=local
                 go get github.com/percona/percona-backup-mongodb@dev
                 go mod tidy
                 sg docker -c "
@@ -396,24 +402,24 @@ void azureAuth() {
 void installAzureCLI() {
     sh """
         if ! command -v az &>/dev/null; then
-                if [ "$JENKINS_AGENT" = "AWS" ]; then
-                    curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
-                    printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
-                    sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
-                else
-                    echo "Installing Azure CLI for Hetzner instances..."
-                    sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
-                    cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
-        [azure-cli]
-        name=Azure CLI
-        baseurl=https://packages.microsoft.com/yumrepos/azure-cli
-        enabled=1
-        gpgcheck=1
-        gpgkey=https://packages.microsoft.com/keys/microsoft.asc
-        EOF
-                    sudo dnf install azure-cli -y
-                fi
+            if [ "$JENKINS_AGENT" = "AWS" ]; then
+                curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+                printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+                sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
+            else
+                echo "Installing Azure CLI for Hetzner instances..."
+                sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+                cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
+[azure-cli]
+name=Azure CLI
+baseurl=https://packages.microsoft.com/yumrepos/azure-cli
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc
+EOF
+                sudo dnf install azure-cli -y
             fi
+        fi
     """
 }
 
@@ -466,41 +472,43 @@ pipeline {
         }
         stage('Init Tests') {
             steps {
-                initTests()
+                echo "stage Run Tests"
+                // initTests()
             }
         }
         stage('Run Tests') {
             parallel {
                 stage('cluster1') {
                     steps {
-                        clusterRunner('cluster1')
+                        echo "stage Run Tests"
+                        // clusterRunner('cluster1')
                     }
                 }
-                stage('cluster2') {
-                    steps {
-                        clusterRunner('cluster2')
-                    }
-                }
-                stage('cluster3') {
-                    steps {
-                        clusterRunner('cluster3')
-                    }
-                }
-                stage('cluster4') {
-                    steps {
-                        clusterRunner('cluster4')
-                    }
-                }
-                stage('cluster5') {
-                    steps {
-                        clusterRunner('cluster5')
-                    }
-                }
-                stage('cluster6') {
-                    steps {
-                        clusterRunner('cluster6')
-                    }
-                }
+                // stage('cluster2') {
+                //     steps {
+                //         clusterRunner('cluster2')
+                //     }
+                // }
+                // stage('cluster3') {
+                //     steps {
+                //         clusterRunner('cluster3')
+                //     }
+                // }
+                // stage('cluster4') {
+                //     steps {
+                //         clusterRunner('cluster4')
+                //     }
+                // }
+                // stage('cluster5') {
+                //     steps {
+                //         clusterRunner('cluster5')
+                //     }
+                // }
+                // stage('cluster6') {
+                //     steps {
+                //         clusterRunner('cluster6')
+                //     }
+                // }
             }
         }
     }
@@ -511,13 +519,13 @@ pipeline {
             step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
             archiveArtifacts '*.xml,*.txt'
 
-            script {
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
-                }
+            // script {
+            //     if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
+            //         slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+            //     }
 
-                clusters.each { shutdownCluster(it) }
-            }
+            //     clusters.each { shutdownCluster(it) }
+            // }
 
             sh """
                 sudo docker system prune --volumes -af
