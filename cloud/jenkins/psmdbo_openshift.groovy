@@ -474,7 +474,7 @@ pipeline {
                 script {
                     def parallelStages = [:]
                     for (int i = 1; i <= numClusters; i++) {
-                        def clusterName = "cluster${i}"
+                        def clusterName = "c${i}"
                         parallelStages[clusterName] = {
                             stage(clusterName) {
                                 clusterRunner(clusterName)
