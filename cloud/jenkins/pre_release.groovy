@@ -62,7 +62,7 @@ pipeline {
                     env.VS_REPO_URL = "https://github.com/Percona-Lab/percona-version-service.git"
                     env.VS_FILE_NAME = "operator.${params.VERSION}.${operatorMap[params.OPERATOR]}-operator.json"
                     env.VS_DEP_FILE_NAME = "operator.${params.VERSION}.${operatorMap[params.OPERATOR]}-operator.dep.json"
-                    env.VS_BRANCH = "vs-${params.VERSION}-${operatorMap[params.OPERATOR]}"
+                    env.VS_BRANCH = "release-${operatorMap[params.OPERATOR]}-${params.VERSION}"
 
                     echo "Validating version v${params.VERSION} for ${params.OPERATOR}..."
 
@@ -162,13 +162,13 @@ pipeline {
                 expression { params.CREATE_BRANCH == 'NO' }
             }
             steps {
-                script {
-                    currentBuild.result = 'ABORTED'
-                    error('CREATE_BRANCH=NO, stopping before Prepare Operator Repo stage.')
-                }
+                echo 'CREATE_BRANCH=NO, branch creation stages will be skipped. Artifacts were generated successfully.'
             }
         }
         stage('Create Operator Release Branch') {
+            when {
+                expression { params.CREATE_BRANCH == 'YES' }
+            }
             steps {
                 script {
                     echo 'Checking out operator repository...'
@@ -234,6 +234,9 @@ pipeline {
             }
         }
         stage('Create Version Service Branch') {
+            when {
+                expression { params.CREATE_BRANCH == 'YES' }
+            }
             steps {
                 script {
                     echo 'Checking out version service repository...'
@@ -263,7 +266,7 @@ pipeline {
 
                                 git add sources/${env.VS_FILE_NAME} sources/${env.VS_DEP_FILE_NAME}
                                 if ! git diff --cached --exit-code; then
-                                    git commit -m "Add version service data for ${params.VERSION}"
+                                    git commit -m "Update ${operatorMap[params.OPERATOR].toUpperCase()} operator versions for ${params.VERSION} release"
                                     git remote set-url origin https://x-access-token:\${GITHUB_TOKEN}@github.com/Percona-Lab/percona-version-service.git
                                     git push origin ${env.VS_BRANCH}
                                     echo "Changes pushed to ${env.VS_BRANCH}"
@@ -282,17 +285,40 @@ pipeline {
         success {
             script {
                 def updateBranch = "${env.RELEASE_BRANCH}-update_versions"
+                def message
+                if (params.CREATE_BRANCH == 'YES') {
+                    message = """
+                        :white_check_mark: *Pre-Release Build Successful*
+                        *Version:* ${params.VERSION}
+                        *Operator:* ${params.OPERATOR}
+                        *Release Branch:* ${env.RELEASE_BRANCH}
+                        *Update Branch:* ${updateBranch}
+                        *Build:* ${env.BUILD_URL}
+                        *Next Step:* Create PR from ${updateBranch} to ${env.RELEASE_BRANCH}
+                    """.stripIndent()
+                } else {
+                    message = """
+                        :white_check_mark: *Pre-Release Build Successful (No Branch Creation)*
+                        *Version:* ${params.VERSION}
+                        *Operator:* ${params.OPERATOR}
+                        *Build:* ${env.BUILD_URL}
+                        *Note:* Generated artifacts only. Branch creation was skipped by request.
+                    """.stripIndent()
+                }
+
+                slackSend(channel: '#cloud-dev-ci',color: 'good',message: message)
+            }
+        }
+        aborted {
+            script {
                 def message = """
-                    :white_check_mark: *Pre-Release Build Successful*
+                    :warning: *Pre-Release Build Aborted*
                     *Version:* ${params.VERSION}
                     *Operator:* ${params.OPERATOR}
-                    *Release Branch:* ${env.RELEASE_BRANCH}
-                    *Update Branch:* ${updateBranch}
                     *Build:* ${env.BUILD_URL}
-                    *Next Step:* Create PR from ${updateBranch} to ${env.RELEASE_BRANCH}
                 """.stripIndent()
 
-                //slackSend(channel: '#cloud-dev-ci',color: 'good',message: message)
+                slackSend channel: '#cloud-dev-ci', color: '#FFA500', message: message
             }
         }
         failure {
@@ -305,7 +331,7 @@ pipeline {
                     *Build:* ${env.BUILD_URL}
                 """.stripIndent()
 
-                //slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: message
+                slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: message
             }
         }
         always {
