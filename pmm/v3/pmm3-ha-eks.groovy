@@ -33,7 +33,7 @@ pipeline {
         )
         string(
             name: 'HELM_CHART_BRANCH',
-            defaultValue: 'pmmha-v3',
+            defaultValue: 'main',
             description: 'Branch of percona-helm-charts repo'
         )
         string(
