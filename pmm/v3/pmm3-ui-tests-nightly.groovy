@@ -573,6 +573,12 @@ pipeline {
     }
     post {
         always {
+            sh '''
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                export PATH="$HOME/.local/bin:$PATH"
+                sed -i "s|$(pwd)/||g" tests/output/result.xml || true
+                launchable record tests --session $(cat launchable-session.txt) codeceptjs tests/output/result.xml || true
+            '''
             // stop staging
             script {
                 if (env.SERVER_TYPE == "ovf") {
@@ -619,12 +625,6 @@ pipeline {
                     destroyStaging(VM_CLIENT_NAME_VALKEY)
                 }
             }
-            sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-
-                sed -i "s|$(pwd)/||g" tests/output/result.xml || true
-                launchable record tests --session $(cat launchable-session.txt) codeceptjs tests/output/result.xml || true
-            '''
         }
         success {
             script {
