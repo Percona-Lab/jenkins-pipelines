@@ -353,14 +353,18 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([aws(credentialsId: 'eks-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
-            done
+            if [ -s "\$KUBECONFIG" ] && kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
+                for namespace in \$(kubectl get namespaces --request-timeout=5s --no-headers | awk '{print \$1}' | grep -vE "^kube-" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                    kubectl delete deployments --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                    kubectl delete sts --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                    kubectl delete replicasets --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                    kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                    kubectl delete services --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                    kubectl delete pods --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                done
+            else
+                echo "Skipping namespace cleanup: Kubernetes API is not reachable for $CLUSTER_NAME-$CLUSTER_SUFFIX"
+            fi
 
             VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region ${EKS_REGION} -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
             if [ -n "\$VPC_ID" ]; then

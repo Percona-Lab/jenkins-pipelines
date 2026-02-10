@@ -99,6 +99,7 @@ void prepareNode() {
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
     CLUSTER_NAME = sh(script: "echo $JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+    env.CLUSTER_NAME = CLUSTER_NAME
     PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_LOGCOLLECTOR | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
@@ -205,12 +206,12 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    withCredentials([aws(credentialsId: 'openshift-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID'), file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
-            sh '''
-                CLUSTER_SUFFIX="''' + CLUSTER_SUFFIX + '''"
-                mkdir -p openshift/$CLUSTER_SUFFIX
-                timestamp="$(date +%s)"
-tee openshift/$CLUSTER_SUFFIX/install-config.yaml << EOF
+    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
+        withEnv(["CLUSTER_SUFFIX=${CLUSTER_SUFFIX}", "CLUSTER_NAME=${CLUSTER_NAME}"]) {
+            sh """
+                mkdir -p openshift/\$CLUSTER_SUFFIX
+                timestamp="\$(date +%s)"
+tee openshift/\$CLUSTER_SUFFIX/install-config.yaml << EOF
 additionalTrustBundlePolicy: Proxyonly
 credentialsMode: Mint
 apiVersion: v1
@@ -231,7 +232,7 @@ controlPlane:
   replicas: 1
 metadata:
   creationTimestamp: null
-  name: $CLUSTER_NAME-$CLUSTER_SUFFIX
+  name: \$CLUSTER_NAME-\$CLUSTER_SUFFIX
 networking:
   clusterNetwork:
   - cidr: 10.128.0.0/14
@@ -249,16 +250,14 @@ platform:
       delete-cluster-after-hours: 6
       team: cloud
       product: psmdb-operator
-      creation-time: $timestamp
+      creation-time: \$timestamp
 
 publish: External
 EOF
-                cat $OPENSHIFT_CONF_FILE >> openshift/$CLUSTER_SUFFIX/install-config.yaml
-            '''
-
+                cat $OPENSHIFT_CONF_FILE >> openshift/\$CLUSTER_SUFFIX/install-config.yaml
+            """
             sshagent(['aws-openshift-41-key']) {
                 sh '''
-                    CLUSTER_SUFFIX="''' + CLUSTER_SUFFIX + '''"
                     /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
                     export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
                     TMP=$(mktemp)
@@ -268,6 +267,7 @@ EOF
                     rm -rf $TMP
                 '''
             }
+        }
     }
 }
 
