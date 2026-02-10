@@ -184,22 +184,29 @@ void initTests() {
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated=0
+    def clusterCreated = 0
 
-    for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "skipped") {
-            tests[i]["result"] = "failure"
-            tests[i]["cluster"] = cluster
-            if (clusterCreated == 0) {
-                createCluster(cluster)
-                clusterCreated++
+    try {
+        for (int i=0; i<tests.size(); i++) {
+            if (tests[i]["result"] == "skipped") {
+                tests[i]["result"] = "failure"
+                tests[i]["cluster"] = cluster
+                if (clusterCreated == 0) {
+                    clusterCreated = 1
+                    createCluster(cluster)
+                }
+                runTest(i)
             }
-            runTest(i)
         }
-    }
-
-    if (clusterCreated >= 1) {
-        shutdownCluster(cluster)
+    } finally {
+        if (clusterCreated >= 1) {
+            try {
+                shutdownCluster(cluster)
+                clusters.remove(cluster)
+            } catch (Exception e) {
+                echo "Warning: Error shutting down cluster $cluster: ${e.getMessage()}"
+            }
+        }
     }
 }
 
@@ -218,7 +225,6 @@ void createCluster(String CLUSTER_SUFFIX) {
             --node-osdisk-size 30 \
             --network-plugin kubenet \
             --generate-ssh-keys \
-            --enable-cluster-autoscaler \
             --outbound-type loadbalancer \
             --kubernetes-version $PLATFORM_VER \
             --tags team=cloud delete-cluster-after-hours=6 creation-time=\$(date -u +%s) \
@@ -357,7 +363,7 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
                 kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
                 kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
                 kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
@@ -365,7 +371,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
                 kubectl delete services --all -n \$namespace --force --grace-period=0 || true
                 kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
             done
-            kubectl get svc --all-namespaces || true
 
             az aks delete --name $CLUSTER_NAME-$CLUSTER_SUFFIX --resource-group percona-operators --subscription eng-cloud-dev --yes || true
         """

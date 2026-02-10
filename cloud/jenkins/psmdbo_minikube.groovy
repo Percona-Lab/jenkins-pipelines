@@ -355,7 +355,7 @@ pipeline {
         }
         stage('Run Tests') {
             options {
-                timeout(time: 3, unit: 'HOURS')
+                timeout(time: 90, unit: 'MINUTES')
             }
             steps {
                 clusterRunner('cluster1')

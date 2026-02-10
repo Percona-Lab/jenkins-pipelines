@@ -176,22 +176,29 @@ void initTests() {
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated=0
+    def clusterCreated = 0
 
-    for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "skipped") {
-            tests[i]["result"] = "failure"
-            tests[i]["cluster"] = cluster
-            if (clusterCreated == 0) {
-                createCluster(cluster)
-                clusterCreated++
+    try {
+        for (int i=0; i<tests.size(); i++) {
+            if (tests[i]["result"] == "skipped") {
+                tests[i]["result"] = "failure"
+                tests[i]["cluster"] = cluster
+                if (clusterCreated == 0) {
+                    clusterCreated = 1
+                    createCluster(cluster)
+                }
+                runTest(i)
             }
-            runTest(i)
         }
-    }
-
-    if (clusterCreated >= 1) {
-        shutdownCluster(cluster)
+    } finally {
+        if (clusterCreated >= 1) {
+            try {
+                shutdownCluster(cluster)
+                clusters.remove(cluster)
+            } catch (Exception e) {
+                echo "Warning: Error shutting down cluster $cluster: ${e.getMessage()}"
+            }
+        }
     }
 }
 
@@ -199,8 +206,8 @@ void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
     withCredentials([aws(credentialsId: 'openshift-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID'), file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
-        withEnv(["CLUSTER_SUFFIX=${CLUSTER_SUFFIX}"]) {
             sh '''
+                CLUSTER_SUFFIX="''' + CLUSTER_SUFFIX + '''"
                 mkdir -p openshift/$CLUSTER_SUFFIX
                 timestamp="$(date +%s)"
 tee openshift/$CLUSTER_SUFFIX/install-config.yaml << EOF
@@ -239,7 +246,7 @@ platform:
     region: ${AWS_REGION}
     userTags:
       iit-billing-tag: openshift
-      delete-cluster-after-hours: 8
+      delete-cluster-after-hours: 6
       team: cloud
       product: psmdb-operator
       creation-time: $timestamp
@@ -251,6 +258,7 @@ EOF
 
             sshagent(['aws-openshift-41-key']) {
                 sh '''
+                    CLUSTER_SUFFIX="''' + CLUSTER_SUFFIX + '''"
                     /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
                     export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
                     TMP=$(mktemp)
@@ -260,7 +268,6 @@ EOF
                     rm -rf $TMP
                 '''
             }
-        }
     }
 }
 
@@ -372,7 +379,6 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
                     kubectl delete services --all -n \$namespace --force --grace-period=0 || true
                     kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
                 done
-                kubectl get svc --all-namespaces || true
 
                 /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
             """
