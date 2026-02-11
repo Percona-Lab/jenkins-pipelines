@@ -1,6 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
 import hudson.model.*
-import hudson.plugins.ec2.AmazonEC2Cloud
+import hudson.plugins.ec2.EC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -84,8 +84,10 @@ initMap['docker'] = '''
         echo try again
     done
 
-    sudo amazon-linux-extras install epel -y
-    sudo amazon-linux-extras install java-openjdk11 -y || :
+    if command -v amazon-linux-extras >/dev/null 2>&1; then
+        sudo amazon-linux-extras install epel -y
+    fi
+    sudo yum -y install java-17-amazon-corretto-headless tzdata-java || sudo yum -y install java-17-openjdk-headless tzdata-java || :
     sudo yum -y install git docker p7zip
     sudo yum -y remove java-1.7.0-openjdk awscli
 
@@ -207,8 +209,10 @@ initMap['rpmMap'] = '''
         fi
     fi
     if [[ $SYSREL -eq 2 ]]; then
-        sudo amazon-linux-extras install epel -y
-        sudo amazon-linux-extras install java-openjdk11 -y || :
+        if command -v amazon-linux-extras >/dev/null 2>&1; then
+            sudo amazon-linux-extras install epel -y
+        fi
+        sudo yum -y install java-17-amazon-corretto-headless tzdata-java || sudo yum -y install java-17-openjdk-headless tzdata-java || :
         PKGLIST="p7zip"
     fi
     if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
@@ -219,7 +223,7 @@ initMap['rpmMap'] = '''
         sleep 1
         echo try again
     done
-    sudo yum -y install java-11-openjdk tzdata-java git ${PKGLIST} || :
+    sudo yum -y install java-17-openjdk tzdata-java git ${PKGLIST} || :
     sudo yum -y remove java-1.7.0-openjdk || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     # CentOS 6 x32 workarounds
@@ -275,12 +279,12 @@ initMap['debMap'] = '''
         echo try again
     done
     DEB_VER=$(lsb_release -sc)
-    if [[ ${DEB_VER} == "bookworm" ]]; then
+    if [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "bullseye" ]]; then
         JAVA_VER="openjdk-17-jre-headless"
     else
         JAVA_VER="openjdk-11-jre-headless"
     fi
-    if [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "buster" ]]; then
+    if [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "bullseye" ]] || [[ ${DEB_VER} == "buster" ]]; then
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
@@ -463,7 +467,7 @@ String sshKeysCredentialsId = '48702e74-c282-45e2-a5a2-518ba58fedf6'
 String region = 'us-west-2'
 ('a'..'a').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
+    EC2Cloud ec2Cloud = new EC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
         '',                                     // String credentialsId
@@ -493,7 +497,7 @@ String region = 'us-west-2'
 
     // add cloud configuration to Jenkins
     jenkins.clouds.each {
-        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
+        if (it.hasProperty('name') && it.name == ec2Cloud.name) {
             jenkins.clouds.remove(it)
         }
     }

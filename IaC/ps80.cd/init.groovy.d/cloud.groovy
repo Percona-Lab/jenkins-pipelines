@@ -1,6 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
 import hudson.model.*
-import hudson.plugins.ec2.AmazonEC2Cloud
+import hudson.plugins.ec2.EC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -283,8 +283,10 @@ initMap['docker'] = '''
         echo try again
     done
 
-    sudo amazon-linux-extras install epel -y
-    sudo yum -y install java-17-amazon-corretto-headless tzdata-java || :
+    if command -v amazon-linux-extras >/dev/null 2>&1; then
+        sudo amazon-linux-extras install epel -y
+    fi
+    sudo yum -y install java-17-amazon-corretto-headless tzdata-java || sudo yum -y install java-17-openjdk-headless tzdata-java || :
     sudo yum -y install git docker p7zip
     sudo yum -y remove awscli
 
@@ -344,7 +346,7 @@ initMap['docker-32gb-hirsute'] = '''
         echo try again
     done
 
-    until sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-11-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-17-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
         sleep 1
         echo try again
     done
@@ -417,7 +419,7 @@ initMap['docker-32gb-bullseye'] = '''
         echo try again
     done
 
-    until sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-11-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
+    until sudo DEBIAN_FRONTEND=noninteractive apt-get -y install openjdk-17-jre-headless apt-transport-https ca-certificates curl gnupg lsb-release unzip; do
         sleep 1
         echo try again
     done
@@ -493,9 +495,18 @@ initMap['micro-amazon'] = '''
     done
     sudo yum -y remove java-1.8.0-openjdk || :
     sudo yum -y remove java-1.8.0-openjdk-headless || :
-    sudo amazon-linux-extras install epel -y || :
-    sudo amazon-linux-extras install java-openjdk11 -y || :
-    sudo yum -y install java-11-openjdk tzdata-java || :
+    if command -v amazon-linux-extras >/dev/null 2>&1; then
+        sudo amazon-linux-extras install epel -y || :
+    fi
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+    fi
+    if [ "${ID}" = "amzn" ]; then
+        JAVA_PKG="java-17-amazon-corretto-headless"
+    else
+        JAVA_PKG="java-17-openjdk-headless"
+    fi
+    sudo yum -y install ${JAVA_PKG} tzdata-java || :
     sudo yum -y install aws-cli || :
     sudo yum -y install git || :
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
@@ -657,12 +668,12 @@ initMap['min-buster-x64'] = '''
     DEB_VER=$(lsb_release -sc)
     if [[ ${DEB_VER} == "trixie" ]]; then
         JAVA_VER="openjdk-21-jre-headless"
-    elif [[ ${DEB_VER} == "bookworm" ]]; then
+    elif [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "bullseye" ]]; then
         JAVA_VER="openjdk-17-jre-headless"
     else
         JAVA_VER="openjdk-11-jre-headless"
     fi
-    if [[ ${DEB_VER} == "trixie" ]] || [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "buster" ]]; then
+    if [[ ${DEB_VER} == "trixie" ]] || [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "bullseye" ]] || [[ ${DEB_VER} == "buster" ]]; then
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo DEBIAN_FRONTEND=noninteractive sudo apt-get -y install ${JAVA_VER}
@@ -969,8 +980,8 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
 
 String privateKey = ''
 jenkins.clouds.each {
-    if (it.hasProperty('cloudName') && it['cloudName'] == 'AWS-Dev b') {
-        privateKey = it['privateKey']
+    if (it.hasProperty('name') && it.name == 'AWS-Dev b') {
+        privateKey = it.privateKey
     }
 }
 
@@ -979,7 +990,7 @@ String sshKeysCredentialsId = '8af5d00a-aeaf-45bd-a5b1-4a7680c9d500'
 String region = 'us-west-2'
 ('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
+    EC2Cloud ec2Cloud = new EC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
         '',                                     // String credentialsId
@@ -1030,7 +1041,7 @@ String region = 'us-west-2'
 
     // add cloud configuration to Jenkins
     jenkins.clouds.each {
-        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
+        if (it.hasProperty('name') && it.name == ec2Cloud.name) {
             jenkins.clouds.remove(it)
         }
     }
