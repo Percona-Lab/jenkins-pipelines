@@ -223,7 +223,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             --enable-cluster-autoscaler \
             --outbound-type loadbalancer \
             --kubernetes-version $PLATFORM_VER \
-            --tags team=cloud delete-cluster-after-hours=6 creation-time=$(date -u +%s) \
+            --tags team=cloud delete-cluster-after-hours=6 creation-time=\$(date -u +%s) \
             -l $location
         az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-$CLUSTER_SUFFIX --overwrite-existing
     """
