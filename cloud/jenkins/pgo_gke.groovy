@@ -211,9 +211,9 @@ void createCluster(String CLUSTER_SUFFIX) {
             exitCode=1
 
             cat > ${WORKSPACE}/hugepages-config-${CLUSTER_SUFFIX}.yaml <<EOF
-            kubeletConfig:
-              hugepages:
-                hugepages-2Mi: "1024"
+            linuxConfig:
+              hugepageConfig:
+                hugepage_size2m: 1024
             EOF
 
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
