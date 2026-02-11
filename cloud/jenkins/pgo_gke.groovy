@@ -210,11 +210,7 @@ void createCluster(String CLUSTER_SUFFIX) {
             maxRetries=15
             exitCode=1
 
-            cat > ${WORKSPACE}/hugepages-config-${CLUSTER_SUFFIX}.yaml <<EOF
-            linuxConfig:
-              hugepageConfig:
-                hugepage_size2m: 1024
-            EOF
+            printf 'linuxConfig:\n  hugepageConfig:\n    hugepage_size2m: 1024\n' > ${WORKSPACE}/hugepages-config-${CLUSTER_SUFFIX}.yaml
 
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
