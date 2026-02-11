@@ -593,36 +593,17 @@ def trim_old_versions(data: Dict, limits: Dict) -> Dict:
     return data
 
 
-def sort_category_versions(
-    versions: Dict[str, Dict], recommended_position: str = "first"
-) -> Dict[str, Dict]:
-    """Sort versions semantically and keep recommended versions pinned."""
-    recommended = []
-    non_recommended = []
-
-    for ver, meta in versions.items():
-        if meta.get("status") == "recommended":
-            recommended.append((ver, meta))
-        else:
-            non_recommended.append((ver, meta))
-
-    recommended.sort(key=lambda item: parse_version_key(item[0]), reverse=True)
-    non_recommended.sort(key=lambda item: parse_version_key(item[0]), reverse=True)
-
-    if recommended_position == "last":
-        ordered = non_recommended + recommended
-    else:
-        ordered = recommended + non_recommended
-
-    return dict(ordered)
+def sort_category_versions(versions: Dict[str, Dict]) -> Dict[str, Dict]:
+    """Sort category versions by semantic version (newest first)."""
+    return dict(sorted(versions.items(), key=lambda item: parse_version_key(item[0]), reverse=True))
 
 
-def sort_matrix_versions(data: Dict, recommended_position: str = "first") -> Dict:
+def sort_matrix_versions(data: Dict) -> Dict:
     """Sort every matrix category by semantic version."""
     for version_entry in data.get("versions", []):
         matrix = version_entry.get("matrix", {})
         for category, versions in matrix.items():
-            matrix[category] = sort_category_versions(versions, recommended_position)
+            matrix[category] = sort_category_versions(versions)
     return data
 
 
@@ -646,7 +627,7 @@ def generate_full_release_from_fragment(
     if limits:
         result = trim_old_versions(result, limits)
 
-    result = sort_matrix_versions(result, recommended_position="first")
+    result = sort_matrix_versions(result)
 
     with open(output_file, "w") as f:
         json.dump(result, f, indent=2)
@@ -700,7 +681,7 @@ def main():
     if args.command == "frag":
         images = parse_input_file(args.input_file)
         result = categorize_images(images)
-        result = sort_matrix_versions(result, recommended_position="first")
+        result = sort_matrix_versions(result)
         with open(args.output_file, "w") as f:
             json.dump(result, f, indent=2)
     elif args.command == "full":
@@ -719,7 +700,7 @@ def main():
         if len(sys.argv) == 3:
             images = parse_input_file(sys.argv[1])
             result = categorize_images(images)
-            result = sort_matrix_versions(result, recommended_position="first")
+            result = sort_matrix_versions(result)
             with open(sys.argv[2], "w") as f:
                 json.dump(result, f, indent=2)
         else:
