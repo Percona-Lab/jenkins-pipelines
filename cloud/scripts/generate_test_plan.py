@@ -130,7 +130,7 @@ def _get_software_versions(versions: dict[str, str], db_type: str) -> list[str]:
                 lines.append(
                     f"MongoDB {ver[0]}.{ver[1:]}: {val.split(':')[-1] if ':' in val else val}"
                 )
-        _add_if_exists(lines, versions, "IMAGE_PBM", "PBM")
+        _add_if_exists(lines, versions, "IMAGE_BACKUP", "PBM")
         _add_if_exists(lines, versions, "IMAGE_PMM2_CLIENT", "PMM Client")
         _add_if_exists(lines, versions, "IMAGE_PMM3_CLIENT", "PMM3 Client")
         _add_if_exists(lines, versions, "IMAGE_LOGCOLLECTOR", "LogCollector")
