@@ -123,6 +123,7 @@ pipeline {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
+                stash includes: 'test/percona-binlog-server.properties', name: 'properties'
                 pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                 uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
