@@ -14,6 +14,13 @@ DOCKER_REGISTRY_URL = "https://registry-1.docker.io/v2"
 VERSION_SERVICE_BASE_URL = (
     "https://raw.githubusercontent.com/Percona-Lab/percona-version-service/main/sources"
 )
+ENTRY_FIELD_ORDER = (
+    "image_path",
+    "status",
+    "critical",
+    "image_hash",
+    "image_hash_arm64",
+)
 
 
 def get_digest(
@@ -103,6 +110,15 @@ def make_entry(
     if hash_arm64:
         entry["image_hash_arm64"] = hash_arm64
     return entry
+
+
+def normalize_entry_field_order(entry: Dict) -> Dict:
+    """Normalize image entry field order for stable JSON output."""
+    normalized = {k: entry[k] for k in ENTRY_FIELD_ORDER if k in entry}
+    for k, v in entry.items():
+        if k not in normalized:
+            normalized[k] = v
+    return normalized
 
 
 def is_pmm(key: str) -> bool:
@@ -370,9 +386,7 @@ def generate_pg_dep(result: Dict) -> Dict:
         by_major = {}
         for ver in matrix[category].keys():
             major = int(ver.split(".")[0])
-            if major not in by_major:
-                by_major[major] = []
-            by_major[major].append(ver)
+            by_major.setdefault(major, []).append(ver)
 
         if not by_major:
             continue
@@ -412,9 +426,7 @@ def generate_ps_dep(result: Dict) -> Dict:
         by_major = {}
         for ver in matrix[category].keys():
             major = get_major_minor(ver)
-            if major not in by_major:
-                by_major[major] = []
-            by_major[major].append(ver)
+            by_major.setdefault(major, []).append(ver)
 
         if not by_major:
             continue
@@ -518,7 +530,7 @@ def remove_recommended_status(data: Dict, categories_to_update: set = None) -> D
                 and category not in categories_to_update
             ):
                 continue
-            for ver_key, ver_data in versions.items():
+            for _, ver_data in versions.items():
                 if ver_data.get("status") == "recommended":
                     ver_data["status"] = "available"
     return data
@@ -568,9 +580,7 @@ def trim_old_versions(data: Dict, limits: Dict) -> Dict:
                 by_major = {}
                 for ver_key in versions.keys():
                     major = get_major_minor(ver_key, major_only=use_major_only)
-                    if major not in by_major:
-                        by_major[major] = []
-                    by_major[major].append(ver_key)
+                    by_major.setdefault(major, []).append(ver_key)
 
                 versions_to_keep = set()
                 for major, ver_list in by_major.items():
@@ -595,7 +605,16 @@ def trim_old_versions(data: Dict, limits: Dict) -> Dict:
 
 def sort_category_versions(versions: Dict[str, Dict]) -> Dict[str, Dict]:
     """Sort category versions by semantic version (newest first)."""
-    return dict(sorted(versions.items(), key=lambda item: parse_version_key(item[0]), reverse=True))
+    return dict(
+        sorted(versions.items(), key=lambda item: parse_version_key(item[0]), reverse=True)
+    )
+
+
+def generate_fragment(input_file: str) -> Dict:
+    """Generate sorted fragment JSON from IMAGE_* input file."""
+    images = parse_input_file(input_file)
+    result = categorize_images(images)
+    return sort_matrix_versions(result)
 
 
 def sort_matrix_versions(data: Dict) -> Dict:
@@ -603,7 +622,11 @@ def sort_matrix_versions(data: Dict) -> Dict:
     for version_entry in data.get("versions", []):
         matrix = version_entry.get("matrix", {})
         for category, versions in matrix.items():
-            matrix[category] = sort_category_versions(versions)
+            sorted_versions = sort_category_versions(versions)
+            matrix[category] = {
+                ver: normalize_entry_field_order(entry) if isinstance(entry, dict) else entry
+                for ver, entry in sorted_versions.items()
+            }
     return data
 
 
@@ -679,9 +702,7 @@ def main():
     args = parser.parse_args()
 
     if args.command == "frag":
-        images = parse_input_file(args.input_file)
-        result = categorize_images(images)
-        result = sort_matrix_versions(result)
+        result = generate_fragment(args.input_file)
         with open(args.output_file, "w") as f:
             json.dump(result, f, indent=2)
     elif args.command == "full":
@@ -689,8 +710,7 @@ def main():
             args.fragment_file, args.previous_version, args.output_file
         )
     elif args.command == "release":
-        images = parse_input_file(args.input_file)
-        fragment = categorize_images(images)
+        fragment = generate_fragment(args.input_file)
         result = generate_full_release_from_fragment(
             fragment, args.previous_version, args.output_file
         )
@@ -698,9 +718,7 @@ def main():
         generate_dep_file(product, args.output_file, result)
     else:
         if len(sys.argv) == 3:
-            images = parse_input_file(sys.argv[1])
-            result = categorize_images(images)
-            result = sort_matrix_versions(result)
+            result = generate_fragment(sys.argv[1])
             with open(sys.argv[2], "w") as f:
                 json.dump(result, f, indent=2)
         else:
