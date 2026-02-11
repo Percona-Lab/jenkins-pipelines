@@ -98,7 +98,7 @@ void prepareNode() {
     }
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    CLUSTER_NAME = sh(script: "echo $JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+    CLUSTER_NAME = "psmdbo-${GIT_SHORT_COMMIT.take(6)}".toLowerCase()
     env.CLUSTER_NAME = CLUSTER_NAME
     PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_LOGCOLLECTOR | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
@@ -258,7 +258,10 @@ EOF
             """
             sshagent(['aws-openshift-41-key']) {
                 sh '''
-                    /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
+                    /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX --log-level=debug || {
+                        /usr/local/bin/openshift-install gather bootstrap --dir=openshift/$CLUSTER_SUFFIX || true
+                        exit 1
+                    }
                     export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
                     TMP=$(mktemp)
                     oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > $TMP
