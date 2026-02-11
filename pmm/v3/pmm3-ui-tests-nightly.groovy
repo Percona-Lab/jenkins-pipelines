@@ -573,14 +573,16 @@ pipeline {
     }
     post {
         always {
-            sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-                export PATH="$HOME/.local/bin:$PATH"
-                sed -i "s|$(pwd)/||g" tests/output/result.xml || true
-                launchable record tests --session $(cat launchable-session.txt) codeceptjs tests/output/result.xml || true
-            '''
-            // stop staging
             script {
+                withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
+                    sh '''
+                        curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                        export PATH="$HOME/.local/bin:$PATH"
+                        sed -i "s|$(pwd)/||g" tests/output/result.xml || true
+                        launchable record tests --session $(cat launchable-session.txt) codeceptjs tests/output/result.xml || true
+                    '''
+                }
+                // stop staging
                 if (env.SERVER_TYPE == "ovf") {
                     ovfStagingStopJob = build job: 'pmm-ovf-staging-stop', parameters: [
                         string(name: 'VM', value: env.OVF_INSTANCE_NAME),
