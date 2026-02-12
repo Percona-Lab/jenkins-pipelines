@@ -185,7 +185,7 @@ pipeline {
           stage('Setup Docker Server') {
               when { expression { params.SERVER_TYPE == "docker" } }
               steps {
-                runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, 'admin', SSH_KEY)
+                  runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, 'admin', SSH_KEY)
               }
           }
           stage('Setup OVF Server') {
