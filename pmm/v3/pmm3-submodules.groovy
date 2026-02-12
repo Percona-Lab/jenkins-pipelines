@@ -248,9 +248,8 @@ pipeline {
                             pip3 install --user --upgrade launchable~=1.0 || true
                             launchable verify || true
                             echo "$(git submodule status)" || true
-                            echo "tag=${DOCKER_IMAGE_TAG}"
 
-                            export DOCKER_IMAGE_ID=$(docker inspect $(cat results/docker/TAG) -f "{{.Id}}") || true
+                            export DOCKER_IMAGE_ID=$(docker inspect ${DOCKER_IMAGE_TAG} -f "{{.Id}}") || true
 
                             launchable record build --name "${DOCKER_IMAGE_ID}" --lineage "${PMM_BRANCH}" || true
                         '''
