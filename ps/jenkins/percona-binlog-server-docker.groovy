@@ -278,10 +278,9 @@ parameters {
                     '''
 
                 // 🔹 Define the image tags
-                    def PS_RELEASE = "${BRANCH}".replace('release-', '')
                     def imageList = [
-                        "${ORGANIZATION}/percona-binlog-server:${PS_RELEASE}.${RPM_RELEASE}-amd64",
-                        "${ORGANIZATION}/percona-binlog-server:${PS_RELEASE}.${RPM_RELEASE}-arm64"
+                        "${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-amd64",
+                        "${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-arm64"
                     ]
 
                 // 🔹 Scan images and store logs
