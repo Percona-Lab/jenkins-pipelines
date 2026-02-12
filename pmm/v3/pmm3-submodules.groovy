@@ -242,14 +242,14 @@ pipeline {
                 script {
                     withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
                         unstash 'IMAGE'
-                        def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
+                        env.DOCKER_IMAGE_TAG = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                         sh '''
                             set -o errexit
                             pip3 install --user --upgrade launchable~=1.0 || true
                             launchable verify || true
                             echo "$(git submodule status)" || true
 
-                            export DOCKER_IMAGE_ID=$(docker inspect ${IMAGE} -f "{{.Id}}") || true
+                            export DOCKER_IMAGE_ID=$(docker inspect ${DOCKER_IMAGE_TAG} -f "{{.Id}}") || true
 
                             launchable record build --name "${DOCKER_IMAGE_ID}" --lineage "${PMM_BRANCH}" || true
                         '''
