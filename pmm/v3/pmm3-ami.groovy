@@ -26,7 +26,7 @@ pipeline {
         parallelsAlwaysFailFast()
     }
     triggers {
-        upstream upstreamProjects: 'pmm3-server-autobuild', threshold: hudson.model.Result.SUCCESS
+        cron('@daily')
     }
     stages {
         stage('Prepare') {
