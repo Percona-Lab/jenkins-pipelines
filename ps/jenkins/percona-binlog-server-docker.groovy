@@ -157,11 +157,6 @@ parameters {
         string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
         string(defaultValue: '0.1.0', description: 'PBS Version', name: 'VERSION')
         string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
-        string(defaultValue: '1', description: 'DEB version', name: 'DEB_RELEASE')
-        choice(
-            choices: 'testing\nexperimental\nrelease',
-            description: 'Repo component to push packages to',
-            name: 'COMPONENT')
         choice(
             choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
@@ -224,21 +219,21 @@ parameters {
                         )]) {
                         sh '''
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                            sudo docker tag ${ORGANIZATION}/percona-server:${VERSION}-${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-server:${VERSION}-amd64
-                            sudo docker push ${ORGANIZATION}/percona-server:${VERSION}-${RPM_RELEASE}-amd64
-                            sudo docker push ${ORGANIZATION}/percona-server:${VERSION}-amd64
-                            sudo docker tag ${ORGANIZATION}/percona-server:${VERSION}-${RPM_RELEASE}-arm64 ${ORGANIZATION}/percona-server:${VERSION}-arm64
-                            sudo docker push ${ORGANIZATION}/percona-server:${VERSION}-${RPM_RELEASE}-arm64
-                            sudo docker push ${ORGANIZATION}/percona-server:${VERSION}-arm64
+                            sudo docker tag ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-binlog-server:${VERSION}-amd64
+                            sudo docker push ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-amd64
+                            sudo docker push ${ORGANIZATION}/percona-binlog-server:${VERSION}-amd64
+                            sudo docker tag ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-arm64 ${ORGANIZATION}/percona-binlog-server:${VERSION}-arm64
+                            sudo docker push ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-arm64
+                            sudo docker push ${ORGANIZATION}/percona-binlog-server:${VERSION}-arm64
                        '''
                        }
                        sh '''
-                           sudo docker manifest create --amend ${ORGANIZATION}/percona-server:${VERSION}-${RPM_RELEASE} \
-                               ${ORGANIZATION}/percona-server:${VERSION}-${RPM_RELEASE}-amd64 \
-                               ${ORGANIZATION}/percona-server:${VERSION}-${RPM_RELEASE}-arm64
-                           sudo docker manifest annotate ${ORGANIZATION}/percona-server:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-server:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
-                           sudo docker manifest annotate ${ORGANIZATION}/percona-server:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-server:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
-                           sudo docker manifest inspect ${ORGANIZATION}/percona-server:${VERSION}-${RPM_RELEASE}
+                           sudo docker manifest create --amend ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE} \
+                               ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-amd64 \
+                               ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-arm64
+                           sudo docker manifest annotate ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
+                           sudo docker manifest inspect ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}
                        '''
                        withCredentials([
                        usernamePassword(credentialsId: 'hub.docker.com',
@@ -250,8 +245,8 @@ parameters {
                            PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
                            PS_MAJOR_FULL_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/-.*//g")
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                           sudo docker manifest push ${ORGANIZATION}/percona-server:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-server:${VERSION} ${ORGANIZATION}/percona-server:${VERSION}-${RPM_RELEASE}
+                           sudo docker manifest push ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-binlog-server:${VERSION} ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}
                        '''
                        }
                 }
@@ -285,8 +280,8 @@ parameters {
                 // 🔹 Define the image tags
                     def PS_RELEASE = "${BRANCH}".replace('release-', '')
                     def imageList = [
-                        "${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64",
-                        "${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64"
+                        "${ORGANIZATION}/percona-binlog-server:${PS_RELEASE}.${RPM_RELEASE}-amd64",
+                        "${ORGANIZATION}/percona-binlog-server:${PS_RELEASE}.${RPM_RELEASE}-arm64"
                     ]
 
                 // 🔹 Scan images and store logs
