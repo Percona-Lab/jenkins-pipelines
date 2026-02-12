@@ -83,7 +83,6 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
-        disableConcurrentBuilds()
     }
     stages {
         stage('Set build name') {
@@ -138,7 +137,7 @@ pipeline {
     post {
         always {
             script {
-                if (env.DESTROY_ENV) {
+                if (params.DESTROY_ENV) {
                     moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
                 }
             }

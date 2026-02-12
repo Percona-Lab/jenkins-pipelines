@@ -108,7 +108,7 @@ pipeline {
     post {
         always {
             script {
-                if (env.DESTROY_ENV) {
+                if (params.DESTROY_ENV) {
                     moleculeParallelPostDestroyPPG(['rocky-9', 'rhel-10', 'debian-12', 'debian-13', 'ubuntu-jammy', 'rocky-9-arm64', 'rhel-10-arm64', 'debian-12-arm64', 'debian-13-arm64', 'ubuntu-jammy-arm64'], env.MOLECULE_DIR)
                 }
                 sendSlackNotification(env.REPOSITORY, env.SERVER_VERSION, env.DOCKER_SERVER_TAG, env.COMPONENT, env.DOCKER_COMPONENT_TAG, env.COMPONENT_VERSION)

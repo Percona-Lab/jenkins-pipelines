@@ -137,6 +137,55 @@ Resources:
       RouteTableId: !Ref JRouteTable
       SubnetId: !Ref JSubnetC
 
+  # Secondary CIDR block for expanded capacity (PKG-1246)
+  # Original VPC: 10.144.0.0/22 (1024 IPs) - too small for 1200-1500 spot instances
+  # Secondary CIDR: 10.145.0.0/21 (2048 IPs) - provides room for two /22 subnets
+  JVPCCidrBlock2:
+    Type: AWS::EC2::VPCCidrBlock
+    Properties:
+      VpcId: !Ref JVPC
+      CidrBlock: 10.145.0.0/21
+
+  JSubnetB2: # new large subnet in eu-central-1b (1024 IPs)
+    Type: AWS::EC2::Subnet
+    DependsOn: JVPCCidrBlock2
+    Properties:
+      VpcId: !Ref JVPC
+      CidrBlock: 10.145.0.0/22
+      AvailabilityZone: !Select [1, !GetAZs '']
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: !Join ['-', [!Ref JShortName, 'B2']]
+      - Key: iit-billing-tag
+        Value: !Ref JShortName
+
+  JSubnetC2: # new large subnet in eu-central-1c (1024 IPs)
+    Type: AWS::EC2::Subnet
+    DependsOn: JVPCCidrBlock2
+    Properties:
+      VpcId: !Ref JVPC
+      CidrBlock: 10.145.4.0/22
+      AvailabilityZone: eu-central-1c
+      MapPublicIpOnLaunch: true
+      Tags:
+      - Key: Name
+        Value: !Join ['-', [!Ref JShortName, 'C2']]
+      - Key: iit-billing-tag
+        Value: !Ref JShortName
+
+  SubnetB2RouteTable: # route table for new B2 subnet
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref JRouteTable
+      SubnetId: !Ref JSubnetB2
+
+  SubnetC2RouteTable: # route table for new C2 subnet
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref JRouteTable
+      SubnetId: !Ref JSubnetC2
+
   S3Endpoint: # route S3 traffic over private network
     Type: AWS::EC2::VPCEndpoint
     Properties:
@@ -552,11 +601,11 @@ Resources:
                   yum -y install yum-utils wget cronie rsync bc htop vim
                   yum-config-manager --add-repo "https://openresty.org/package/amazon/2023/x86_64/"
                   rpm --import https://openresty.org/package/pubkey.gpg
-                  wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
-                  rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+                  wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable-legacy/jenkins.repo
+                  rpm --import https://pkg.jenkins.io/redhat-stable-legacy/jenkins.io-2023.key
                   yum -y install java-17-amazon-corretto
                   yum -y update --security
-                  yum -y install jenkins-2.462.1 certbot git aws-cli xfsprogs openresty
+                  yum -y install jenkins-2.528.3 certbot git aws-cli xfsprogs openresty
 
                   yum -y install dnf-automatic
                   sed -i 's/upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf
@@ -878,3 +927,9 @@ Outputs:
   AZList:
     Description: "List of AZs available"
     Value: !Join [ ", ", !GetAZs '' ]
+  JSubnetB2Id:
+    Description: New B2 subnet ID for cloud.groovy update
+    Value: !Ref JSubnetB2
+  JSubnetC2Id:
+    Description: New C2 subnet ID for cloud.groovy update
+    Value: !Ref JSubnetC2
