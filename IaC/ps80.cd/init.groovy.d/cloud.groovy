@@ -223,7 +223,7 @@ userMap['min-trixie-aarch64']   = 'admin'
 userMap['psmdb'] = userMap['min-xenial-x64']
 
 modeMap = [:]
-modeMap['docker']            = 'Node.Mode.NORMAL'
+modeMap['docker']            = Node.Mode.NORMAL
 modeMap['docker-32gb']       = modeMap['docker']
 modeMap['docker-32gb-hirsute']  = modeMap['docker']
 modeMap['docker-32gb-jammy']    = modeMap['docker']
@@ -234,9 +234,9 @@ modeMap['docker2']           = modeMap['docker']
 modeMap['micro-amazon']      = modeMap['docker']
 modeMap['min-amazon-2-x64']  = modeMap['docker']
 modeMap['min-al2023-x64']    = modeMap['docker']
-modeMap['min-jammy-x64']     = 'Node.Mode.EXCLUSIVE'
-modeMap['min-noble-x64']     = 'Node.Mode.EXCLUSIVE'
-modeMap['min-focal-x64']     = 'Node.Mode.EXCLUSIVE'
+modeMap['min-jammy-x64']     = Node.Mode.EXCLUSIVE
+modeMap['min-noble-x64']     = Node.Mode.EXCLUSIVE
+modeMap['min-focal-x64']     = Node.Mode.EXCLUSIVE
 modeMap['min-bionic-x64']    = modeMap['min-focal-x64']
 modeMap['min-xenial-x64']    = modeMap['min-focal-x64']
 modeMap['min-centos-6-x64']  = modeMap['min-focal-x64']
@@ -252,14 +252,14 @@ modeMap['min-bookworm-x64']  = modeMap['min-focal-x64']
 modeMap['min-trixie-x64']    = modeMap['min-focal-x64']
 modeMap['min-rhel-10-x64']   = modeMap['min-focal-x64']
 
-modeMap['docker-32gb-aarch64']  = 'Node.Mode.EXCLUSIVE'
-modeMap['docker-64gb-aarch64']  = 'Node.Mode.EXCLUSIVE'
-modeMap['min-al2023-aarch64']   = 'Node.Mode.EXCLUSIVE'
-modeMap['min-jammy-aarch64']    = 'Node.Mode.EXCLUSIVE'
-modeMap['min-noble-aarch64']    = 'Node.Mode.EXCLUSIVE'
-modeMap['min-bullseye-aarch64'] = 'Node.Mode.EXCLUSIVE'
-modeMap['min-bookworm-aarch64'] = 'Node.Mode.EXCLUSIVE'
-modeMap['min-trixie-aarch64']   = 'Node.Mode.EXCLUSIVE'
+modeMap['docker-32gb-aarch64']  = Node.Mode.EXCLUSIVE
+modeMap['docker-64gb-aarch64']  = Node.Mode.EXCLUSIVE
+modeMap['min-al2023-aarch64']   = Node.Mode.EXCLUSIVE
+modeMap['min-jammy-aarch64']    = Node.Mode.EXCLUSIVE
+modeMap['min-noble-aarch64']    = Node.Mode.EXCLUSIVE
+modeMap['min-bullseye-aarch64'] = Node.Mode.EXCLUSIVE
+modeMap['min-bookworm-aarch64'] = Node.Mode.EXCLUSIVE
+modeMap['min-trixie-aarch64']   = Node.Mode.EXCLUSIVE
 
 initMap = [:]
 initMap['docker'] = '''
@@ -942,7 +942,7 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
         InstanceType.fromValue(typeMap[OSType]),    // InstanceType type
         ( typeMap[OSType].startsWith("c4") || typeMap[OSType].startsWith("m4") || typeMap[OSType].startsWith("c5") || typeMap[OSType].startsWith("m5") ), // boolean ebsOptimized
         OSType + ' ' + labelMap[OSType],            // String labelString
-        Node.Mode.NORMAL,                           // Node.Mode mode
+        modeMap.getOrDefault(OSType, Node.Mode.NORMAL), // Node.Mode mode
         OSType,                                     // String description
         initMap[OSType],                            // String initScript
         '',                                         // String tmpDir
