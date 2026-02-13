@@ -26,7 +26,7 @@ pipeline {
         parallelsAlwaysFailFast()
     }
     triggers {
-        cron('@daily')
+        cron('0 3 * * 1-5')
     }
     stages {
         stage('Prepare') {
