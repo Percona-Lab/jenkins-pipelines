@@ -141,12 +141,12 @@ parameters {
                        usernameVariable: 'USER'
                        )]) {
                        sh '''
-                           PBS_MAJOR_RELEASE=$(echo ${VERSION} | awk '{print substr($0, 0, 3)}')
+                           PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
+                           PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | awk '{print substr($0, 0, 3)}')
+                           PS_MAJOR_FULL_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/-.*//g")
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
                            sudo docker manifest push ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}
                            sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-binlog-server:${VERSION} ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-binlog-server:${PBS_MAJOR_RELEASE} ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-binlog-server:latest ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}
                        '''
                        }
                 }

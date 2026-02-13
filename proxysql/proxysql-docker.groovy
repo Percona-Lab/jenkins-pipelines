@@ -55,8 +55,8 @@ parameters {
             name: 'ORGANIZATION')
         string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
         string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
-        string(defaultValue: '0.1.0', description: 'PBS Version', name: 'VERSION')
-        string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
+        string(defaultValue: '2.7.3', description: 'Proxysql Version', name: 'VERSION')
+        string(defaultValue: '1.3', description: 'RPM version', name: 'RPM_RELEASE')
         choice(
             choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
@@ -77,7 +77,7 @@ parameters {
             steps {
                 script {
                         sh '''
-                            Dockerfile="Dockerfile"
+                            Dockerfile="Dockerfile-proxysql2"
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                             sudo apt-get -y install apparmor
                             sudo aa-status
@@ -97,18 +97,18 @@ parameters {
                             git clone ${REPO_DOCKER}
                             cd percona-docker
                             git checkout ${REPO_DOCKER_BRANCH}
-                            cd percona-binlog-server
+                            cd proxysql
                             sed -i "s/ENV PBS_VERSION.*/ENV PBS_VERSION ${VERSION}-${RPM_RELEASE}.el9/g" ${Dockerfile}
                             sudo docker --version
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker builder prune -af
-                                sudo docker build --provenance=false -t perconalab/percona-binlog-server:${VERSION}-${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f ${Dockerfile} .
-                                sudo docker buildx build --provenance=false --platform linux/arm64 -t perconalab/percona-binlog-server:${VERSION}-${RPM_RELEASE}-arm64 --load -f ${Dockerfile} .
+                                sudo docker build --provenance=false -t perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f ${Dockerfile} .
+                                sudo docker buildx build --provenance=false --platform linux/arm64 -t perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-arm64 --load -f ${Dockerfile} .
                             else
-                                sudo docker pull perconalab/percona-binlog-server:${VERSION}-${RPM_RELEASE}-amd64
-                                sudo docker tag perconalab/percona-binlog-server:${VERSION}-${RPM_RELEASE}-amd64 percona/percona-binlog-server:${VERSION}-${RPM_RELEASE}-amd64
-                                sudo docker pull perconalab/percona-binlog-server:${VERSION}-${RPM_RELEASE}-arm64
-                                sudo docker tag perconalab/percona-binlog-server:${VERSION}-${RPM_RELEASE}-arm64 percona/percona-binlog-server:${VERSION}-${RPM_RELEASE}-arm64
+                                sudo docker pull perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-amd64
+                                sudo docker tag perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 percona/proxysql2:${VERSION}-${RPM_RELEASE}-amd64
+                                sudo docker pull perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-arm64
+                                sudo docker tag perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-arm64 percona/proxysql2:${VERSION}-${RPM_RELEASE}-arm64
                             fi
                             sudo docker images
                         '''
@@ -119,21 +119,21 @@ parameters {
                         )]) {
                         sh '''
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                            sudo docker tag ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-binlog-server:${VERSION}-amd64
-                            sudo docker push ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-amd64
-                            sudo docker push ${ORGANIZATION}/percona-binlog-server:${VERSION}-amd64
-                            sudo docker tag ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-arm64 ${ORGANIZATION}/percona-binlog-server:${VERSION}-arm64
-                            sudo docker push ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-arm64
-                            sudo docker push ${ORGANIZATION}/percona-binlog-server:${VERSION}-arm64
+                            sudo docker tag ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 ${ORGANIZATION}/proxysql2:${VERSION}-amd64
+                            sudo docker push ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64
+                            sudo docker push ${ORGANIZATION}/proxysql2:${VERSION}-amd64
+                            sudo docker tag ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64 ${ORGANIZATION}/proxysql2:${VERSION}-arm64
+                            sudo docker push ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64
+                            sudo docker push ${ORGANIZATION}/proxysql2:${VERSION}-arm64
                        '''
                        }
                        sh '''
-                           sudo docker manifest create --amend ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE} \
-                               ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-amd64 \
-                               ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-arm64
-                           sudo docker manifest annotate ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
-                           sudo docker manifest annotate ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
-                           sudo docker manifest inspect ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}
+                           sudo docker manifest create --amend ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE} \
+                               ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 \
+                               ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64
+                           sudo docker manifest annotate ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
+                           sudo docker manifest inspect ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
                        '''
                        withCredentials([
                        usernamePassword(credentialsId: 'hub.docker.com',
@@ -141,12 +141,14 @@ parameters {
                        usernameVariable: 'USER'
                        )]) {
                        sh '''
-                           PBS_MAJOR_RELEASE=$(echo ${VERSION} | awk '{print substr($0, 0, 3)}')
+                           PROXYSQL_MAJOR_RELEASE=$(echo ${VERSION} | awk '{print substr($0, 0, 1)}')
+                           PROXYSQL_MAJOR_FULL_RELEASE=$(echo ${VERSION} | awk '{print substr($0, 0, 3)}')
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                           sudo docker manifest push ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-binlog-server:${VERSION} ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-binlog-server:${PBS_MAJOR_RELEASE} ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-binlog-server:latest ${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}
+                           sudo docker manifest push ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql2:${VERSION} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql2:${PROXYSQL_MAJOR_FULL_RELEASE} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql2:${PROXYSQL_MAJOR_RELEASE} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql2:latest ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
                        '''
                        }
                 }
@@ -179,8 +181,8 @@ parameters {
 
                 // 🔹 Define the image tags
                     def imageList = [
-                        "${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-amd64",
-                        "${ORGANIZATION}/percona-binlog-server:${VERSION}-${RPM_RELEASE}-arm64"
+                        "${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64",
+                        "${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64"
                     ]
 
                 // 🔹 Scan images and store logs
