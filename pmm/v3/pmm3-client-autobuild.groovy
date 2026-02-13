@@ -14,6 +14,7 @@ pipeline {
     }
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
+        disableConcurrentBuilds()
         parallelsAlwaysFailFast()
     }
     triggers {
