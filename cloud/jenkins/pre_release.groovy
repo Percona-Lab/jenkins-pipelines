@@ -157,6 +157,66 @@ pipeline {
                 archiveArtifacts artifacts: 'test_plan.json, test_plan.md', allowEmptyArchive: false, fingerprint: true
             }
         }
+        stage('Trigger PSMDB Docker Build') {
+            when {
+                expression { params.CREATE_BRANCH == 'YES' }
+            }
+            steps {
+                build job: 'psmdb-docker-build', parameters: [
+                    string(name: 'GIT_REPO', value: env.GIT_REPO_URL),
+                    string(name: 'GIT_BRANCH', value: env.RELEASE_BRANCH),
+                    string(name: 'GIT_PD_BRANCH', value: env.RELEASE_BRANCH),
+                    booleanParam(name: 'PROMOTE_TO_PERCONA', value: true)
+                ]
+            }
+        }
+        stage('Scan Release Images for Vulnerabilities') {
+            when {
+                expression { params.CREATE_BRANCH == 'YES' }
+            }
+            steps {
+                sh '''
+                    set -euo pipefail
+
+                    TRIVY_VERSION=$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | jq -r '.tag_name' | sed 's/^v//')
+                    wget -q "https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+                    tar -xzf "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+                    sudo mv trivy /usr/local/bin/trivy
+                    rm -f "trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz"
+
+                    mkdir -p vulnerability-reports
+                    report_file="vulnerability-reports/release-images-trivy-report.txt"
+                    : > "${report_file}"
+
+                    while IFS= read -r line; do
+                        image=$(echo "${line}" | cut -d'=' -f2-)
+                        if [ -z "${image}" ]; then
+                            continue
+                        fi
+
+                        safe_name=$(echo "${image}" | tr '/:' '__')
+                        image_report="vulnerability-reports/${safe_name}.txt"
+
+                        {
+                            echo "============================================================"
+                            echo "IMAGE: ${image}"
+                            echo "============================================================"
+                        } >> "${report_file}"
+
+                        if trivy image --severity HIGH,CRITICAL --format table --no-progress "${image}" > "${image_report}" 2>&1; then
+                            cat "${image_report}" >> "${report_file}"
+                        else
+                            echo "Scan failed for ${image}" >> "${report_file}"
+                            cat "${image_report}" >> "${report_file}"
+                        fi
+                        echo "" >> "${report_file}"
+                    done < <(grep '^IMAGE_' release_versions.txt)
+                '''
+
+                archiveArtifacts artifacts: 'vulnerability-reports/*.txt', allowEmptyArchive: false, fingerprint: true
+                sh 'rm -rf vulnerability-reports'
+            }
+        }
         stage('Create Operator Release Branch') {
             when {
                 expression { params.CREATE_BRANCH == 'YES' }

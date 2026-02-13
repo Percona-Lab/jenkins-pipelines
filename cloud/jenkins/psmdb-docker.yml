@@ -37,3 +37,7 @@
         name: GIT_PD_BRANCH
         default: main
         description: Tag/Branch for percona/percona-docker repository
+    - bool:
+        name: PROMOTE_TO_PERCONA
+        default: false
+        description: Allow promotion from perconalab to percona for release branches

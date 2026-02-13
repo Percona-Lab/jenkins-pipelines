@@ -1,17 +1,30 @@
+def CANDIDATE_DOCKER_REPO = 'perconalab/percona-server-mongodb-operator'
+def PRODUCTION_DOCKER_REPO = 'percona/percona-server-mongodb-operator'
+def RELEASE_BRANCH_PATTERN = /^release-(\d+\.\d+\.\d+)$/
+def SEMVER_PATTERN = /^\d+\.\d+\.\d+$/
+
+String extractReleaseVersion(String branchName) {
+    def match = branchName =~ RELEASE_BRANCH_PATTERN
+    if (!match) {
+        return null
+    }
+    return match[0][1]
+}
+
 void build(String IMAGE_SUFFIX){
     sh """
         set -e
 
         cd ./source/
         if [ ${IMAGE_SUFFIX} = backup ]; then
-            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
+            docker build --no-cache --progress plain --squash -t ${CANDIDATE_DOCKER_REPO}:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
                          -f percona-backup-mongodb/Dockerfile percona-backup-mongodb
         else
             DOCKER_FILE_PREFIX=\$(echo ${IMAGE_SUFFIX} | tr -d 'mongod')
-            docker build --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
+            docker build --no-cache --progress plain --squash -t ${CANDIDATE_DOCKER_REPO}:${GIT_PD_BRANCH}-${IMAGE_SUFFIX} \
                          -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
 
-            docker build --build-arg DEBUG=1 --no-cache --progress plain --squash -t perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}-debug \
+            docker build --build-arg DEBUG=1 --no-cache --progress plain --squash -t ${CANDIDATE_DOCKER_REPO}:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}-debug \
                          -f percona-server-mongodb-\$DOCKER_FILE_PREFIX/Dockerfile percona-server-mongodb-\$DOCKER_FILE_PREFIX
         fi
     """
@@ -24,10 +37,10 @@ void pushImageToDocker(String IMAGE_SUFFIX){
             sg docker -c "
                 set -e
                 docker login -u '${USER}' -p '${PASS}'
-                docker push perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}
+                docker push ${CANDIDATE_DOCKER_REPO}:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}
                 docker logout
             "
-            echo "perconalab/percona-server-mongodb-operator:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}" >> list-of-images.txt
+            echo "${CANDIDATE_DOCKER_REPO}:${GIT_PD_BRANCH}-${IMAGE_SUFFIX}" >> list-of-images.txt
         """
     }
 }
@@ -63,6 +76,10 @@ pipeline {
             defaultValue: 'https://github.com/percona/percona-docker',
             description: 'percona/percona-docker repository',
             name: 'GIT_PD_REPO')
+        booleanParam(
+            defaultValue: false,
+            description: 'Allow promotion from perconalab to percona for release branches',
+            name: 'PROMOTE_TO_PERCONA')
     }
     agent {
          label 'docker-x64-min'
@@ -95,6 +112,23 @@ pipeline {
                 sh '''
                     rm -rf cloud
                 '''
+                script {
+                    def releaseVersion = extractReleaseVersion(params.GIT_BRANCH)
+                    env.RELEASE_VERSION = releaseVersion ?: ''
+                    env.IS_RELEASE_BRANCH = releaseVersion ? 'YES' : 'NO'
+                    echo "Release branch detected: ${env.IS_RELEASE_BRANCH}"
+                    if (params.PROMOTE_TO_PERCONA) {
+                        if (env.IS_RELEASE_BRANCH != 'YES') {
+                            error("PROMOTE_TO_PERCONA=true is allowed only for release branches (release-x.y.z). GIT_BRANCH=${params.GIT_BRANCH}")
+                        }
+                        if (params.GIT_PD_BRANCH != params.GIT_BRANCH) {
+                            error("PROMOTE_TO_PERCONA=true requires GIT_PD_BRANCH to match GIT_BRANCH. Got GIT_BRANCH=${params.GIT_BRANCH}, GIT_PD_BRANCH=${params.GIT_PD_BRANCH}")
+                        }
+                        if (!(env.RELEASE_VERSION ==~ SEMVER_PATTERN)) {
+                            error("Extracted release version '${env.RELEASE_VERSION}' is not strict semver (x.y.z)")
+                        }
+                    }
+                }
             }
         }
 
@@ -104,18 +138,18 @@ pipeline {
                     timeout(time: 30, unit: 'MINUTES') {
                         unstash "sourceFILES"
                         withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                            sh '''
+                            sh """
                                 docker buildx create --use
                                 sg docker -c "
-                                    docker login -u '${USER}' -p '${PASS}'
+                                    docker login -u '\${USER}' -p '\${PASS}'
                                     pushd source
-                                    export IMAGE=perconalab/percona-server-mongodb-operator:${GIT_BRANCH}
+                                    export IMAGE=${CANDIDATE_DOCKER_REPO}:\${GIT_BRANCH}
                                     DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' ./e2e-tests/build
                                     popd
                                     docker logout
                                 "
-                                echo "perconalab/percona-server-mongodb-operator:${GIT_BRANCH}" >> list-of-images.txt
-                            '''
+                                echo "${CANDIDATE_DOCKER_REPO}:\${GIT_BRANCH}" >> list-of-images.txt
+                            """
                         }
                     }
                 }
@@ -158,6 +192,89 @@ pipeline {
                 pushImageToDocker('mongod8.0')
                 pushImageToDocker('mongod8.0-debug')
                 pushImageToDocker('backup')
+            }
+        }
+
+        stage('Approve percona promotion') {
+            when {
+                expression { params.PROMOTE_TO_PERCONA && env.IS_RELEASE_BRANCH == 'YES' }
+            }
+            steps {
+                script {
+                    def approval = input(
+                        message: "Promote release ${env.RELEASE_VERSION} images to ${PRODUCTION_DOCKER_REPO}?",
+                        ok: 'Promote',
+                        submitterParameter: 'APPROVED_BY',
+                        parameters: [
+                            string(
+                                defaultValue: env.RELEASE_VERSION,
+                                description: 'Type the release version to confirm promotion',
+                                name: 'RELEASE_VERSION_CONFIRM'
+                            )
+                        ]
+                    )
+                    def approvedBy = 'unknown'
+                    def confirmedVersion = ''
+                    if (approval instanceof Map) {
+                        approvedBy = approval.get('APPROVED_BY', 'unknown')
+                        confirmedVersion = approval.get('RELEASE_VERSION_CONFIRM', '')
+                    } else {
+                        approvedBy = approval ?: 'unknown'
+                        confirmedVersion = env.RELEASE_VERSION
+                    }
+                    if (confirmedVersion != env.RELEASE_VERSION) {
+                        error("Confirmation mismatch. Expected '${env.RELEASE_VERSION}', got '${confirmedVersion}'")
+                    }
+                    env.PROMOTION_APPROVED_BY = approvedBy
+                    echo "Promotion approved by: ${env.PROMOTION_APPROVED_BY}"
+                }
+            }
+        }
+
+        stage('Promote release images to percona') {
+            when {
+                expression { params.PROMOTE_TO_PERCONA && env.IS_RELEASE_BRANCH == 'YES' }
+            }
+            steps {
+                withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+                    sh """
+                        set -euo pipefail
+
+                        if ! [[ "\${RELEASE_VERSION}" =~ ^[0-9]+\\.[0-9]+\\.[0-9]+$ ]]; then
+                            echo "Invalid RELEASE_VERSION: \${RELEASE_VERSION}"
+                            exit 1
+                        fi
+
+                        promote_image() {
+                            local source_tag="$1"
+                            local destination_tag="$2"
+                            local source_ref="${CANDIDATE_DOCKER_REPO}:\${source_tag}"
+                            local destination_ref="${PRODUCTION_DOCKER_REPO}:\${destination_tag}"
+
+                            sg docker -c "
+                                set -e
+                                docker login -u '\${USER}' -p '\${PASS}'
+                                docker manifest inspect \${source_ref} >/dev/null
+                                source_digest=\$(docker buildx imagetools inspect \${source_ref} | awk '/Digest:/ {print \$2; exit}')
+                                if docker manifest inspect \${destination_ref} >/dev/null 2>&1; then
+                                    echo 'Destination image already exists: '\${destination_ref}
+                                    docker logout
+                                    exit 1
+                                fi
+                                docker buildx imagetools create --tag \${destination_ref} \${source_ref}
+                                destination_digest=\$(docker buildx imagetools inspect \${destination_ref} | awk '/Digest:/ {print \$2; exit}')
+                                echo 'Source digest: '\${source_digest}
+                                echo 'Destination digest: '\${destination_digest}
+                                docker logout
+                            "
+                            echo "\${destination_ref}" >> list-of-images.txt
+                            echo "Promoted \${source_ref} -> \${destination_ref}"
+                        }
+
+                        promote_image "\${GIT_BRANCH}" "\${RELEASE_VERSION}"
+                    """
+                }
+                echo "Release promotion completed by ${env.PROMOTION_APPROVED_BY}"
             }
         }
     }
