@@ -213,24 +213,26 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    sh """
-        export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-        az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
-            -g percona-operators \
-            --subscription eng-cloud-dev \
-            --load-balancer-sku standard \
-            --enable-managed-identity \
-            --node-count 3 \
-            --node-vm-size Standard_B4ms \
-            --node-osdisk-size 30 \
-            --network-plugin kubenet \
-            --generate-ssh-keys \
-            --outbound-type loadbalancer \
-            --kubernetes-version $PLATFORM_VER \
-            --tags team=cloud delete-cluster-after-hours=6 creation-time=\$(date -u +%s) \
-            -l $location
-        az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-$CLUSTER_SUFFIX --overwrite-existing
-    """
+    timeout(time: 30, unit: 'MINUTES') {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
+                -g percona-operators \
+                --subscription eng-cloud-dev \
+                --load-balancer-sku standard \
+                --enable-managed-identity \
+                --node-count 3 \
+                --node-vm-size Standard_B4ms \
+                --node-osdisk-size 30 \
+                --network-plugin kubenet \
+                --generate-ssh-keys \
+                --outbound-type loadbalancer \
+                --kubernetes-version $PLATFORM_VER \
+                --tags team=cloud delete-cluster-after-hours=6 creation-time=\$(date -u +%s) \
+                -l $location
+            az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-$CLUSTER_SUFFIX --overwrite-existing
+        """
+    }
 }
 
 void runTest(Integer TEST_ID) {
@@ -360,24 +362,26 @@ EOF
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            if [ -s "\$KUBECONFIG" ] && kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
-                for namespace in \$(kubectl get namespaces --request-timeout=5s --no-headers | awk '{print \$1}' | grep -vE "^kube-" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                    kubectl delete deployments --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
-                    kubectl delete sts --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
-                    kubectl delete replicasets --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
-                    kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
-                    kubectl delete services --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
-                    kubectl delete pods --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
-                done
-            else
-                echo "Skipping namespace cleanup: Kubernetes API is not reachable for $CLUSTER_NAME-$CLUSTER_SUFFIX"
-            fi
+    timeout(time: 30, unit: 'MINUTES') {
+        withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+            sh """
+                export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+                if [ -s "\$KUBECONFIG" ] && kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
+                    for namespace in \$(kubectl get namespaces --request-timeout=5s --no-headers | awk '{print \$1}' | grep -vE "^kube-" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                        kubectl delete deployments --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete sts --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete replicasets --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete services --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete pods --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                    done
+                else
+                    echo "Skipping namespace cleanup: Kubernetes API is not reachable for $CLUSTER_NAME-$CLUSTER_SUFFIX"
+                fi
 
-            az aks delete --name $CLUSTER_NAME-$CLUSTER_SUFFIX --resource-group percona-operators --subscription eng-cloud-dev --yes || true
-        """
+                az aks delete --name $CLUSTER_NAME-$CLUSTER_SUFFIX --resource-group percona-operators --subscription eng-cloud-dev --yes || true
+            """
+        }
     }
 }
 
@@ -413,6 +417,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
+        timeout(time: 6, unit: 'HOURS')
         copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
     stages {

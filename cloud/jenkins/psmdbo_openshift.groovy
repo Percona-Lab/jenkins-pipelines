@@ -206,11 +206,12 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
-        withEnv(["CLUSTER_SUFFIX=${CLUSTER_SUFFIX}", "CLUSTER_NAME=${CLUSTER_NAME}"]) {
-            sh """
-                mkdir -p openshift/\$CLUSTER_SUFFIX
-                timestamp="\$(date +%s)"
+    timeout(time: 60, unit: 'MINUTES') {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
+            withEnv(["CLUSTER_SUFFIX=${CLUSTER_SUFFIX}", "CLUSTER_NAME=${CLUSTER_NAME}"]) {
+                sh """
+                    mkdir -p openshift/\$CLUSTER_SUFFIX
+                    timestamp="\$(date +%s)"
 tee openshift/\$CLUSTER_SUFFIX/install-config.yaml << EOF
 additionalTrustBundlePolicy: Proxyonly
 credentialsMode: Mint
@@ -254,21 +255,22 @@ platform:
 
 publish: External
 EOF
-                cat $OPENSHIFT_CONF_FILE >> openshift/\$CLUSTER_SUFFIX/install-config.yaml
-            """
-            sshagent(['aws-openshift-41-key']) {
-                sh '''
-                    /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX --log-level=debug || {
-                        /usr/local/bin/openshift-install gather bootstrap --dir=openshift/$CLUSTER_SUFFIX || true
-                        exit 1
-                    }
-                    export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
-                    TMP=$(mktemp)
-                    oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > $TMP
-                    oc registry login --registry='docker.io' --auth-basic="$DOCKER_READ_USER:$DOCKER_READ_PASS" --to=$TMP
-                    oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=$TMP
-                    rm -rf $TMP
-                '''
+                    cat $OPENSHIFT_CONF_FILE >> openshift/\$CLUSTER_SUFFIX/install-config.yaml
+                """
+                sshagent(['aws-openshift-41-key']) {
+                    sh '''
+                        /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX --log-level=debug || {
+                            /usr/local/bin/openshift-install gather bootstrap --dir=openshift/$CLUSTER_SUFFIX || true
+                            exit 1
+                        }
+                        export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                        TMP=$(mktemp)
+                        oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > $TMP
+                        oc registry login --registry='docker.io' --auth-basic="$DOCKER_READ_USER:$DOCKER_READ_PASS" --to=$TMP
+                        oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=$TMP
+                        rm -rf $TMP
+                    '''
+                }
             }
         }
     }
@@ -370,25 +372,27 @@ PLATFORM_VER=$PLATFORM_VER"""
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([aws(credentialsId: 'openshift-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID'), file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
-        sshagent(['aws-openshift-41-key']) {
-            sh """
-                export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
-                if [ -s "\$KUBECONFIG" ] && kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
-                    for namespace in \$(kubectl get namespaces --request-timeout=5s --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                        kubectl delete deployments --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
-                        kubectl delete sts --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
-                        kubectl delete replicasets --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
-                        kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
-                        kubectl delete services --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
-                        kubectl delete pods --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
-                    done
-                else
-                    echo "Skipping namespace cleanup: Kubernetes API is not reachable for $CLUSTER_NAME-$CLUSTER_SUFFIX"
-                fi
+    timeout(time: 30, unit: 'MINUTES') {
+        withCredentials([aws(credentialsId: 'openshift-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID'), file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+            sshagent(['aws-openshift-41-key']) {
+                sh """
+                    export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                    if [ -s "\$KUBECONFIG" ] && kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
+                        for namespace in \$(kubectl get namespaces --request-timeout=5s --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                            kubectl delete deployments --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                            kubectl delete sts --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                            kubectl delete replicasets --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                            kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                            kubectl delete services --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                            kubectl delete pods --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        done
+                    else
+                        echo "Skipping namespace cleanup: Kubernetes API is not reachable for $CLUSTER_NAME-$CLUSTER_SUFFIX"
+                    fi
 
-                /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
-            """
+                    /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
+                """
+            }
         }
     }
 }
@@ -458,6 +462,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
+        timeout(time: 6, unit: 'HOURS')
         copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
     stages {
