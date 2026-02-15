@@ -199,8 +199,8 @@ pipeline {
                             def updateBranch = "${env.RELEASE_BRANCH}-update_versions"
                             echo "Creating branch '${updateBranch}' and committing changes..."
                             sh """
-                                git config user.email "jenkins@example.com"
-                                git config user.name "Jenkins CI"
+                                git config user.email "jenkins@percona.com"
+                                git config user.name "JNKPercona"
                                 git remote set-url origin https://x-access-token:\${GITHUB_TOKEN}@github.com/${env.REPO_PATH}.git
                                 if git ls-remote --exit-code --heads origin ${env.RELEASE_BRANCH} >/dev/null 2>&1; then
                                     echo "Release branch ${env.RELEASE_BRANCH} already exists on origin"
@@ -251,8 +251,8 @@ pipeline {
                         script {
                             echo "Creating branch '${env.VS_BRANCH}' and committing changes..."
                             sh """
-                                git config user.email "jenkins@example.com"
-                                git config user.name "Jenkins CI"
+                                git config user.email "jenkins@percona.com"
+                                git config user.name "JNKPercona"
                                 git checkout -b ${env.VS_BRANCH}
 
                                 git add sources/${env.VS_FILE_NAME} sources/${env.VS_DEP_FILE_NAME}
