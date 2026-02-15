@@ -223,7 +223,7 @@ compute:
   name: worker
   platform:
     aws:
-      type: m5.2xlarge
+      type: m5.xlarge
   replicas: 3
 controlPlane:
   architecture: amd64
@@ -248,7 +248,7 @@ platform:
     region: ${AWS_REGION}
     userTags:
       iit-billing-tag: openshift
-      delete-cluster-after-hours: 6
+      delete-cluster-after-hours: 7
       team: cloud
       product: psmdb-operator
       creation-time: \$timestamp
@@ -462,7 +462,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
-        timeout(time: 6, unit: 'HOURS')
+        timeout(time: 7, unit: 'HOURS')
         copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
     stages {
