@@ -267,7 +267,7 @@ initMap['micro-amazon'] = '''
         sleep 1
         echo try again
     done
-    if [[ -f /etc/os-release ]] && grep -q '^ID=amzn' /etc/os-release; then
+    if [[ -f /etc/os-release ]] && . /etc/os-release && [[ "${ID}" == "amzn" ]]; then
         if command -v amazon-linux-extras >/dev/null 2>&1; then
             sudo amazon-linux-extras install epel -y
         fi
