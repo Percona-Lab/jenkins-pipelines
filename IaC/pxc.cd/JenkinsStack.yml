@@ -800,7 +800,7 @@ Resources:
               }
 
               setup_ssh_keys() {
-                KEYS_LIST="evgeniy.patlan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen vadim.yalovets surabhi.bhat talha.rizwan"
+                KEYS_LIST="evgeniy.patlan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen vadim.yalovets surabhi.bhat talha.rizwan anderson.nogueira"
 
 
 

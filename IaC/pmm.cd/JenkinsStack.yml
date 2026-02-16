@@ -852,7 +852,8 @@ Resources:
                          eduardo.casarero \
                          santiago.ruiz \
                          andrew.siemen \
-                         talha.rizwan"
+                         talha.rizwan \
+                         anderson.nogueira"
               for KEY in $KEYS_LIST; do
                   RETRY="3"
                   while [ $RETRY != "0" ]; do
