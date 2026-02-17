@@ -569,6 +569,7 @@ Resources:
                   mkdir -p /etc/systemd/system/jenkins.service.d
                   cat <<-EOF | tee /etc/systemd/system/jenkins.service.d/override.conf
                        [Service]
+                       TimeoutStartSec=300
                        # Directory where Jenkins stores its configuration and workspaces
                        Environment="JENKINS_HOME=/mnt/$JENKINS_HOST"
                        WorkingDirectory=/mnt/$JENKINS_HOST
@@ -588,7 +589,7 @@ Resources:
 
                   systemctl daemon-reload
                   systemctl enable jenkins
-                  systemctl start jenkins
+                  systemctl start --no-block jenkins
 
                   #echo "/usr/bin/aws s3 sync --sse-kms-key-id alias/jenkins-pmm-backup --sse aws:kms --exclude '*/caches/*' --exclude '*/config-history/nodes/*' --exclude '*/secretFiles/*' --delete /mnt/ s3://backup.cd.percona.com/" > /etc/cron.daily/jenkins-backup
                   #chmod 755 /etc/cron.daily/jenkins-backup
