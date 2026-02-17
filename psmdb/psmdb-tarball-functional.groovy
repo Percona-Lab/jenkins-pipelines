@@ -64,7 +64,7 @@ pipeline {
                     script {
                         def os = pdmdbOperatingSystems("${PSMDB_VERSION}")
                         os.removeAll { it.contains('-arm') }
-                        moleculeParallelTest(os, moleculeDir)
+                        moleculeParallelTestPSMDB(os, moleculeDir)
                     }
                 }
             }

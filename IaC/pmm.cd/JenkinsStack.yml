@@ -710,7 +710,7 @@ services:
       - jenkins
 
   jenkins:
-    image: jenkins/jenkins:2.462.1-jdk21
+    image: jenkins/jenkins:2.528.3-jdk21
     container_name: jenkins
     hostname: $JENKINS_HOST
     restart: always
@@ -741,7 +741,7 @@ COMPOSE_EOF
 
                 # Pull images
                 docker pull traefik:latest
-                docker pull jenkins/jenkins:2.462.1-jdk21
+                docker pull jenkins/jenkins:2.528.3-jdk21
 
                 # Start services
                 cd /mnt/$JENKINS_HOST && docker compose up -d
@@ -791,7 +791,8 @@ EOF
                          eduardo.casarero \
                          santiago.ruiz \
                          andrew.siemen \
-                         talha.rizwan"
+                         talha.rizwan \
+                         anderson.nogueira"
               for KEY in $KEYS_LIST; do
                   RETRY="3"
                   while [ $RETRY != "0" ]; do

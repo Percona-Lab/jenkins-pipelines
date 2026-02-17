@@ -1,6 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
 import hudson.model.*
-import hudson.plugins.ec2.AmazonEC2Cloud
+import hudson.plugins.ec2.EC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -315,7 +315,7 @@ initMap['debMap'] = '''
 
     if [[ ${DEB_VER} == "trixie" ]]; then
         JAVA_VER="openjdk-21-jre-headless"
-    elif [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "jammy" ]] || [[ ${DEB_VER} == "noble" ]] || [[ ${DEB_VER} == "focal" ]] || [[ ${DEB_VER} == "bionic" ]] || [[ ${DEB_VER} == "xenial" ]]; then
+    elif [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "bullseye" ]] || [[ ${DEB_VER} == "jammy" ]] || [[ ${DEB_VER} == "noble" ]] || [[ ${DEB_VER} == "focal" ]] || [[ ${DEB_VER} == "bionic" ]] || [[ ${DEB_VER} == "xenial" ]]; then
         JAVA_VER="openjdk-17-jre-headless"
     else
         JAVA_VER="openjdk-11-jre-headless"
@@ -491,7 +491,7 @@ labelMap['min-noble-x64']     = ''
 labelMap['psmdb']             = ''
 labelMap['psmdb-bionic']      = ''
 
-labelMap['docker-64gb-aarch64']  = ''
+labelMap['docker-64gb-aarch64']  = 'docker-32gb-aarch64'
 labelMap['min-al2023-aarch64']   = ''
 labelMap['min-jammy-aarch64']    = ''
 labelMap['min-noble-aarch64']    = ''
@@ -590,7 +590,7 @@ String sshKeysCredentialsId = '87fbc2e7-40f8-45ba-b9a7-b92cdd2a90b3'
 String region = 'us-west-2'
 ('b'..'b').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.39/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
+    EC2Cloud ec2Cloud = new EC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
         '',                                     // String credentialsId
@@ -635,7 +635,7 @@ String region = 'us-west-2'
 
     // add cloud configuration to Jenkins
     jenkins.clouds.each {
-        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
+        if (it.hasProperty('name') && it.name == ec2Cloud.name) {
             jenkins.clouds.remove(it)
         }
     }

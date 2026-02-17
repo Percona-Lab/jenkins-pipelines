@@ -7,8 +7,12 @@
     disabled: false
     concurrent: true
     auth-token: xbparam24
-    node: micro-amazon
+    node: launcher-x64
     properties:
+    - groovy-label:
+        script: |
+            return (CLOUD == 'AWS') ? 'micro-amazon' : 'launcher-x64'
+        sandbox: true
     - build-discarder:
         days-to-keep: -1
         num-to-keep: 50
@@ -32,11 +36,11 @@
         default:
         description: make options, like VERBOSE=1
     - choice:
-        name: LABEL
+        name: CLOUD
         choices:
-        - docker-32gb
-        - docker
-        description: Run build on specified instance type. 
+        - "Hetzner"
+        - "AWS"
+        description: "Host provider for Jenkins workers"
     axes:
       - axis:
          type: user-defined
@@ -63,6 +67,7 @@
         predefined-parameters: |
           DOCKER_OS=${{DOCKER_OS}}
           CMAKE_BUILD_TYPE=${{CMAKE_BUILD_TYPE}}
+          CLOUD=${{CLOUD}}
         block: true
         block-thresholds:
           build-step-failure-threshold: FAILURE

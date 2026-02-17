@@ -111,8 +111,11 @@ pipeline {
     post {
         always {
             script {
-                if (env.DESTROY_ENV) {
-                    moleculeParallelPostDestroyPPG(ppgArchitectures(), env.MOLECULE_DIR)
+                if (params.DESTROY_ENV) {
+                    echo "DESTROY_ENV is true. Cleaning up resources..."
+                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                } else {
+                    echo "DESTROY_ENV is false. Leaving VMs active for debugging."
                 }
                 sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION)
             }
