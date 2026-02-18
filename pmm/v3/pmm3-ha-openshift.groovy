@@ -113,13 +113,14 @@ pipeline {
                         echo "Initializing ROSA (idempotent - safe to run multiple times)..."
                         rosa init --region="${REGION}" || true
 
-                        echo "Ensuring account roles exist..."
+                        echo "Ensuring account roles exist and are up-to-date..."
                         # Check if account roles already exist
                         if ! rosa list account-roles --region="${REGION}" | grep -q "ManagedOpenShift-Installer-Role"; then
                             echo "Creating account roles..."
                             rosa create account-roles --mode auto --yes --region="${REGION}"
                         else
-                            echo "Account roles already exist."
+                            echo "Account roles exist, upgrading to ensure trust policies are current..."
+                            rosa upgrade account-roles --mode auto --yes --region="${REGION}" || true
                         fi
 
                         echo "Ensuring OIDC provider exists..."
