@@ -75,7 +75,7 @@ pipeline {
 
                         rosa login --token="${ROSA_TOKEN}"
 
-                        CLUSTERS=$(rosa list clusters -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'"))')
+                        CLUSTERS=$(rosa list clusters --region="${REGION}" -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'"))')
 
                         if [ -z "$CLUSTERS" ] || [ "$CLUSTERS" = "null" ]; then
                             echo "No clusters found with prefix '${CLUSTER_PREFIX}'."
@@ -87,16 +87,16 @@ pipeline {
                         echo "====================================================================="
                         echo ""
 
-                        rosa list clusters -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'"))' | jq -s '.' | while read -r cluster; do
+                        rosa list clusters --region="${REGION}" -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'"))' | jq -s '.' | while read -r cluster; do
                             echo "$cluster" | jq -r '"Cluster: \\(.name)\\n  State: \\(.state)\\n  Version: \\(.openshift_version)\\n  Created: \\(.creation_timestamp)\\n"'
                         done
 
                         # Show detailed info for each cluster
-                        for name in $(rosa list clusters -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'")) | .name'); do
+                        for name in $(rosa list clusters --region="${REGION}" -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'")) | .name'); do
                             echo "---"
                             echo "Cluster: $name"
 
-                            CLUSTER_INFO=$(rosa describe cluster --cluster="$name" -o json 2>/dev/null)
+                            CLUSTER_INFO=$(rosa describe cluster --cluster="$name" --region="${REGION}" -o json 2>/dev/null)
                             if [ -n "$CLUSTER_INFO" ]; then
                                 STATE=$(echo "$CLUSTER_INFO" | jq -r '.state')
                                 VERSION=$(echo "$CLUSTER_INFO" | jq -r '.openshift_version')
@@ -143,7 +143,7 @@ pipeline {
 
                             def exists = sh(
                                 returnStatus: true,
-                                script: "rosa describe cluster --cluster='${clusterName}' &>/dev/null"
+                                script: "rosa describe cluster --cluster='${clusterName}' --region='${REGION}' &>/dev/null"
                             ) == 0
 
                             if (!exists) {
@@ -153,7 +153,7 @@ pipeline {
 
                             echo "Deleting cluster: ${clusterName}"
                             sh """
-                                rosa delete cluster --cluster='${clusterName}' --yes --watch || true
+                                rosa delete cluster --cluster='${clusterName}' --region='${REGION}' --yes --watch || true
                             """
                             echo "Cluster ${clusterName} deletion initiated."
                         }
@@ -172,7 +172,7 @@ pipeline {
                     sh '''
                         rosa login --token="${ROSA_TOKEN}"
 
-                        CLUSTERS=$(rosa list clusters -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'")) | .name')
+                        CLUSTERS=$(rosa list clusters --region="${REGION}" -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'")) | .name')
 
                         if [ -z "$CLUSTERS" ]; then
                             echo "No clusters found with prefix '${CLUSTER_PREFIX}'."
@@ -181,7 +181,7 @@ pipeline {
 
                         for name in $CLUSTERS; do
                             echo "Deleting cluster: $name"
-                            rosa delete cluster --cluster="$name" --yes --watch || true
+                            rosa delete cluster --cluster="$name" --region="${REGION}" --yes --watch || true
                             echo "Cluster $name deletion initiated."
                         done
                     '''
@@ -199,7 +199,7 @@ pipeline {
                     sh '''
                         rosa login --token="${ROSA_TOKEN}"
 
-                        CLUSTERS=$(rosa list clusters -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'")) | .name')
+                        CLUSTERS=$(rosa list clusters --region="${REGION}" -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'")) | .name')
 
                         if [ -z "$CLUSTERS" ]; then
                             echo "No clusters found with prefix '${CLUSTER_PREFIX}'."
@@ -211,7 +211,7 @@ pipeline {
                         for name in $CLUSTERS; do
                             echo "Checking cluster: $name"
 
-                            CLUSTER_INFO=$(rosa describe cluster --cluster="$name" -o json 2>/dev/null)
+                            CLUSTER_INFO=$(rosa describe cluster --cluster="$name" --region="${REGION}" -o json 2>/dev/null)
                             if [ -z "$CLUSTER_INFO" ]; then
                                 echo "  Could not get cluster info - skipping"
                                 continue
@@ -219,19 +219,13 @@ pipeline {
 
                             CREATED=$(echo "$CLUSTER_INFO" | jq -r '.creation_timestamp')
 
-                            # Get retention-days from AWS tags
-                            # ROSA stores tags, we need to query AWS for them
-                            CLUSTER_ID=$(echo "$CLUSTER_INFO" | jq -r '.id')
+                            # Get retention-days from ROSA cluster tags
+                            RETENTION=$(echo "$CLUSTER_INFO" | jq -r '.aws.tags["retention-days"] // empty')
 
-                            # Try to get retention from AWS tags on the cluster VPC
-                            RETENTION=$(aws ec2 describe-vpcs \
-                                --filters "Name=tag:api.openshift.com/id,Values=${CLUSTER_ID}" \
-                                --query 'Vpcs[0].Tags[?Key==`retention-days`].Value' \
-                                --output text \
-                                --region "${REGION}" 2>/dev/null || echo "1")
-
-                            if [ -z "$RETENTION" ] || [ "$RETENTION" = "None" ] || [ "$RETENTION" = "null" ]; then
+                            if [ -z "$RETENTION" ] || [ "$RETENTION" = "null" ]; then
+                                # Fallback: default to 1 day if tag not found
                                 RETENTION=1
+                                echo "  Warning: retention-days tag not found, defaulting to 1 day"
                             fi
 
                             if [ -n "$CREATED" ] && [ "$CREATED" != "null" ]; then
@@ -242,7 +236,7 @@ pipeline {
 
                                 if [ "$AGE_SECONDS" -gt "$MAX_AGE_SECONDS" ]; then
                                     echo "  Cluster $name is past retention (${RETENTION} days, age: ${AGE_HOURS}h) - deleting..."
-                                    rosa delete cluster --cluster="$name" --yes --watch || true
+                                    rosa delete cluster --cluster="$name" --region="${REGION}" --yes --watch || true
                                     echo "  Cluster $name deletion initiated."
                                 else
                                     echo "  Keeping cluster $name (age: ${AGE_HOURS}h < ${RETENTION} days retention)"
@@ -262,12 +256,17 @@ pipeline {
             script {
                 def clusterCount = 0
                 try {
-                    clusterCount = sh(
-                        returnStdout: true,
-                        script: '''
-                            rosa list clusters -o json 2>/dev/null | jq -r '[.[] | select(.name | startswith("pmm-ha-openshift-"))] | length' || echo "0"
-                        '''
-                    ).trim().toInteger()
+                    withCredentials([
+                        string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
+                    ]) {
+                        sh 'rosa login --token="${ROSA_TOKEN}"'
+                        clusterCount = sh(
+                            returnStdout: true,
+                            script: '''
+                                rosa list clusters --region="${REGION}" -o json 2>/dev/null | jq -r '[.[] | select(.name | startswith("pmm-ha-openshift-"))] | length' || echo "0"
+                            '''
+                        ).trim().toInteger()
+                    }
                 } catch (Exception e) {
                     clusterCount = 0
                 }
