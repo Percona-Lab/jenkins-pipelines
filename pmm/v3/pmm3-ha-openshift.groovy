@@ -186,7 +186,7 @@ pipeline {
                             --version="${RESOLVED_VERSION}" \
                             --replicas=3 \
                             --compute-machine-type=c5a.xlarge \
-                            --tags="iit-billing-tag=pmm,retention-days=${RETENTION_DAYS},created-by=jenkins,build-number=${BUILD_NUMBER},purpose=pmm-openshift-testing" \
+                            --tags="iit-billing-tag pmm,retention-days ${RETENTION_DAYS},created-by jenkins,build-number ${BUILD_NUMBER},purpose pmm-openshift-testing" \
                             --sts \
                             --mode=auto \
                             --yes
