@@ -33,9 +33,29 @@ pipeline {
     environment {
         REGION = "us-east-2"
         CLUSTER_PREFIX = "pmm-ha-openshift-"
+        PATH = "${HOME}/.local/bin:${PATH}"
     }
 
     stages {
+        stage('Install Tools') {
+            steps {
+                sh '''
+                    mkdir -p $HOME/.local/bin
+                    export PATH="$HOME/.local/bin:$PATH"
+
+                    # Install ROSA CLI
+                    echo "Installing ROSA CLI..."
+                    curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/rosa/latest/rosa-linux.tar.gz -o rosa.tar.gz
+                    tar xzf rosa.tar.gz
+                    mv rosa $HOME/.local/bin/
+                    chmod +x $HOME/.local/bin/rosa
+                    rm -f rosa.tar.gz
+
+                    rosa version
+                '''
+            }
+        }
+
         stage('Detect Run Type') {
             steps {
                 script {
