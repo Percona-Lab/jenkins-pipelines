@@ -29,8 +29,8 @@ pipeline {
     parameters {
         choice(
             name: 'OPENSHIFT_VERSION',
-            choices: ['4.16', '4.17', '4.18', '4.19'],
-            description: 'OpenShift version to install'
+            choices: ['4.18', '4.17', '4.16', '4.19'],
+            description: 'OpenShift version to install (latest patch auto-resolved)'
         )
         string(
             name: 'HELM_CHART_BRANCH',
@@ -165,12 +165,25 @@ pipeline {
                     sh '''
                         rosa login --token="${ROSA_TOKEN}"
 
+                        # Resolve latest patch version for the requested major.minor
+                        echo "Resolving latest patch version for OpenShift ${OPENSHIFT_VERSION}..."
+                        RESOLVED_VERSION=$(rosa list versions --region="${REGION}" -o json | \
+                            jq -r --arg ver "${OPENSHIFT_VERSION}" \
+                            '.[] | select(.raw_id | startswith($ver + ".")) | .raw_id' | sort -V | tail -1)
+
+                        if [ -z "${RESOLVED_VERSION}" ]; then
+                            echo "ERROR: Could not find available version for OpenShift ${OPENSHIFT_VERSION}"
+                            rosa list versions --region="${REGION}"
+                            exit 1
+                        fi
+                        echo "Resolved version: ${RESOLVED_VERSION}"
+
                         echo "Creating ROSA cluster ${CLUSTER_NAME} (this takes 30-45 minutes)..."
 
                         rosa create cluster \
                             --cluster-name="${CLUSTER_NAME}" \
                             --region="${REGION}" \
-                            --version="${OPENSHIFT_VERSION}" \
+                            --version="${RESOLVED_VERSION}" \
                             --replicas=3 \
                             --compute-machine-type=c5a.xlarge \
                             --tags="iit-billing-tag=pmm,retention-days=${RETENTION_DAYS},created-by=jenkins,build-number=${BUILD_NUMBER},purpose=pmm-openshift-testing" \
