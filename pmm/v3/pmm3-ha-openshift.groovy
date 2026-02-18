@@ -68,9 +68,39 @@ pipeline {
         CLUSTER_NAME = "pmm-ha-openshift-${BUILD_NUMBER}"
         REGION = "us-east-2"
         KUBECONFIG = "${WORKSPACE}/kubeconfig"
+        PATH = "${HOME}/.local/bin:${PATH}"
     }
 
     stages {
+        stage('Install Tools') {
+            steps {
+                sh '''
+                    # Create local bin directory
+                    mkdir -p $HOME/.local/bin
+                    export PATH="$HOME/.local/bin:$PATH"
+
+                    # Install ROSA CLI
+                    echo "Installing ROSA CLI..."
+                    curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/rosa/latest/rosa-linux.tar.gz -o rosa.tar.gz
+                    tar xzf rosa.tar.gz
+                    mv rosa $HOME/.local/bin/
+                    chmod +x $HOME/.local/bin/rosa
+                    rm -f rosa.tar.gz
+
+                    # Install OpenShift CLI (oc)
+                    echo "Installing OpenShift CLI..."
+                    curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz -o oc.tar.gz
+                    tar xzf oc.tar.gz -C $HOME/.local/bin oc kubectl
+                    chmod +x $HOME/.local/bin/oc $HOME/.local/bin/kubectl
+                    rm -f oc.tar.gz
+
+                    # Verify installations
+                    rosa version
+                    oc version --client
+                '''
+            }
+        }
+
         stage('Initialize ROSA') {
             steps {
                 withCredentials([
