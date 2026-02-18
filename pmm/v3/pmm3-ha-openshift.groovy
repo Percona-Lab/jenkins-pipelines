@@ -166,14 +166,16 @@ pipeline {
                         rosa login --token="${ROSA_TOKEN}"
 
                         # Resolve latest patch version for the requested major.minor
+                        # Use --channel-group stable to ensure we get versions with full architecture support
                         echo "Resolving latest patch version for OpenShift ${OPENSHIFT_VERSION}..."
-                        RESOLVED_VERSION=$(rosa list versions --region="${REGION}" -o json | \
+                        RESOLVED_VERSION=$(rosa list versions --region="${REGION}" --channel-group stable -o json | \
                             jq -r --arg ver "${OPENSHIFT_VERSION}" \
                             '.[] | select(.raw_id | startswith($ver + ".")) | .raw_id' | sort -V | tail -1)
 
                         if [ -z "${RESOLVED_VERSION}" ]; then
                             echo "ERROR: Could not find available version for OpenShift ${OPENSHIFT_VERSION}"
-                            rosa list versions --region="${REGION}"
+                            echo "Available stable versions:"
+                            rosa list versions --region="${REGION}" --channel-group stable
                             exit 1
                         fi
                         echo "Resolved version: ${RESOLVED_VERSION}"
