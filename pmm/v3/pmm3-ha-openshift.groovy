@@ -171,10 +171,8 @@ pipeline {
                             --cluster-name="${CLUSTER_NAME}" \
                             --region="${REGION}" \
                             --version="${OPENSHIFT_VERSION}" \
-                            --replicas=6 \
+                            --replicas=3 \
                             --compute-machine-type=c5a.xlarge \
-                            --use-spot-instances \
-                            --spot-max-price=on-demand \
                             --tags="iit-billing-tag=pmm,retention-days=${RETENTION_DAYS},created-by=jenkins,build-number=${BUILD_NUMBER},purpose=pmm-openshift-testing" \
                             --sts \
                             --mode=auto \
