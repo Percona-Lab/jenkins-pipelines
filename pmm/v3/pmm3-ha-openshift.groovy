@@ -115,9 +115,9 @@ pipeline {
 
                         echo "Ensuring account roles exist..."
                         # Check if account roles already exist
-                        if ! rosa list account-roles | grep -q "ManagedOpenShift-Installer-Role"; then
+                        if ! rosa list account-roles --region="${REGION}" | grep -q "ManagedOpenShift-Installer-Role"; then
                             echo "Creating account roles..."
-                            rosa create account-roles --mode auto --yes
+                            rosa create account-roles --mode auto --yes --region="${REGION}"
                         else
                             echo "Account roles already exist."
                         fi
