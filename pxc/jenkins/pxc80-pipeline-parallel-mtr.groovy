@@ -539,7 +539,7 @@ pipeline {
             description: 'path to cmake binary',
             name: 'JOB_CMAKE')
         choice(
-            choices: 'centos:7\ncentos:8\noraclelinux:9\nubuntu:focal\nubuntu:jammy\nubuntu:noble\ndebian:bullseye\ndebian:bookworm',
+            choices: 'centos:7\ncentos:8\noraclelinux:9\noraclelinux:10\nubuntu:focal\nubuntu:jammy\nubuntu:noble\ndebian:bullseye\ndebian:bookworm\ndebian:trixie',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(

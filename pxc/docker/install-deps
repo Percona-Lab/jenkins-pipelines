@@ -171,6 +171,7 @@ if [ -f /usr/bin/yum ]; then
         PKGLIST_DEVTOOLSET15+=" gcc-toolset-15-gcc gcc-toolset-15-gcc-c++ gcc-toolset-15-binutils"
         PKGLIST_DEVTOOLSET15+=" gcc-toolset-15-gcc-plugin-annobin"
         PKGLIST_DEVTOOLSET15+=" gcc-toolset-15-libatomic-devel"
+        PKGLIST_DEVTOOLSET15+=" gcc-toolset-15-libasan-devel gcc-toolset-15-libubsan-devel"
     fi
 
     # KH: why?
@@ -485,12 +486,38 @@ if [ -f /usr/bin/yum ]; then
 fi
 
 export PERL_MM_USE_DEFAULT=1
-if [[ ${RHVER} -eq 7 ]]; then
+# Memcached::libmemcached 1.001801 doesn't compile with GCC 14+ (OL10, Trixie)
+# due to -Wint-conversion treated as error in both C library and Perl XS.
+# GCC 14 made -Wint-conversion an error by default; we need to downgrade it.
+# CFLAGS covers the C library build, gcc wrappers cover Perl XS compilation.
+# On Debian, Perl calls x86_64-linux-gnu-gcc instead of gcc, so we wrap all variants.
+GCC_MAJOR=$(gcc -dumpversion 2>/dev/null | cut -d. -f1)
+if [[ ${GCC_MAJOR:-0} -ge 14 ]]; then
+    export CFLAGS="${CFLAGS:-} -Wno-error=int-conversion -Wno-error=incompatible-pointer-types"
+    mkdir -p /tmp/gcc-wrapper
+    # Wrap gcc, cc, and the Debian cross-compiler name (x86_64-linux-gnu-gcc)
+    PERL_CC=$(perl -MConfig -e 'print $Config{cc}' 2>/dev/null)
+    for compiler in gcc cc ${PERL_CC}; do
+        real_path=$(which "${compiler}" 2>/dev/null) || continue
+        cat > "/tmp/gcc-wrapper/${compiler}" <<WRAPPER
+#!/bin/bash
+exec ${real_path} -Wno-error=int-conversion -Wno-error=incompatible-pointer-types "\$@"
+WRAPPER
+        chmod +x "/tmp/gcc-wrapper/${compiler}"
+    done
+    export PATH="/tmp/gcc-wrapper:$PATH"
+fi
+if [[ ${RHVER:-0} -eq 7 ]]; then
     sudo cpan -T Memcached::libmemcached
     sudo cpan -T Cache::Memcached::libmemcached
 else
     cpan -T Memcached::libmemcached
     cpan -T Cache::Memcached::libmemcached
+fi
+if [[ ${GCC_MAJOR:-0} -ge 14 ]]; then
+    export PATH="${PATH#/tmp/gcc-wrapper:}"
+    rm -rf /tmp/gcc-wrapper
+    unset CFLAGS
 fi
 
 # getting rid of the "fatal: detected dubious ownership in repository at ..." error
