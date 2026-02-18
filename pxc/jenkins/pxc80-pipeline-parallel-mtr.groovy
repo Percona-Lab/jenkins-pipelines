@@ -18,11 +18,13 @@ OsToGlibcMap = [
     "centos:7" : "2.17",
     "centos:8" : "2.28",
     "oraclelinux:9": "2.34",
+    "oraclelinux:10": "2.39",
     "ubuntu:focal" : "2.31",
     "ubuntu:jammy" : "2.35",
     "ubuntu:noble" : "2.39",
     "debian:bullseye" : "2.31",
-    "debian:bookworm" : "2.35" ]
+    "debian:bookworm" : "2.35",
+    "debian:trixie" : "2.39" ]
 
 void uploadFileToS3(String SRC_FILE_PATH, String DST_DIRECTORY, String DST_FILE_NAME) {
     echo "Upload ${SRC_FILE_PATH} file to S3 ${S3_ROOT_DIR}/${DST_DIRECTORY}/${DST_FILE_NAME}. Max retries: ${MAX_S3_RETRIES}"

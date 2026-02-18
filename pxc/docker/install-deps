@@ -26,8 +26,10 @@ if [ -f /usr/bin/yum ]; then
       sed -i 's|#\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
   fi
 
-  yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
-  percona-release enable-only tools testing
+  if [[ ${RHVER} -lt 10 ]]; then
+      yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+      percona-release enable-only tools testing
+  fi
 
   until yum -y update; do
     yum clean all
@@ -37,10 +39,17 @@ if [ -f /usr/bin/yum ]; then
 
   PKGLIST+=" wget"
 
-  until yum -y install epel-release; do
-    echo "waiting"
-    sleep 1
-  done
+  if [[ ${RHVER} -eq 10 ]]; then
+      until yum -y install oracle-epel-release-el10; do
+          echo "waiting"
+          sleep 1
+      done
+  else
+      until yum -y install epel-release; do
+          echo "waiting"
+          sleep 1
+      done
+  fi
 
   if [[ ${RHVER} -eq 8 ]]; then
       PKGLIST+=" dnf-utils"
@@ -73,6 +82,17 @@ if [ -f /usr/bin/yum ]; then
       PKGLIST+=" libedit-devel procps-ng-devel"
   fi
 
+  if [[ ${RHVER} -eq 10 ]]; then
+      PKGLIST+=" dnf-utils"
+      until yum -y install ${PKGLIST} ; do
+        echo "waiting"
+        sleep 1
+      done
+
+      dnf config-manager --enable ol10_codeready_builder
+      PKGLIST+=" libedit-devel procps-ng-devel"
+  fi
+
   if [[ ${RHVER} -lt 8 ]]; then
       PKGLIST+=" python-docutils procps-ng-devel"
       until yum -y install centos-release-scl; do
@@ -99,14 +119,26 @@ if [ -f /usr/bin/yum ]; then
     perl-Time-HiRes openldap-devel perl-Env perl-Data-Dumper libicu-devel perl-Sys-MemInfo \
     perl-JSON perl-Digest perl-Digest-MD5 \
     numactl-devel git which make rpm-build ccache libtool sudo libasan lz4-devel \
-    libzstd-devel tzdata zstd mysql-devel perl-DBI perl-DBD-mysql jq openssl perl-XML-Simple libcurl-devel perl-Test-Simple \
+    libzstd-devel tzdata zstd perl-DBI perl-DBD-mysql jq openssl perl-XML-Simple libcurl-devel perl-Test-Simple \
     cyrus-sasl-devel cyrus-sasl-scram krb5-devel libudev-devel python3-pip python3-devel libevent-devel \
     "
 
+  # mysql-devel / mariadb-connector-c-devel
+  if [[ ${RHVER} -eq 10 ]]; then
+      PKGLIST+=" mariadb-connector-c-devel"
+  else
+      PKGLIST+=" mysql-devel"
+  fi
+
   # PXC specific
   PKGLIST+=" libmicrohttpd-devel re2-devel check-devel scons libgcrypt-devel libev-devel vim-common \
-    perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat qpress stunnel pigz net-tools netcat \
+    perl-CPAN rsync python3 patchelf automake bzip2 gnutls gnutls-devel patch lsof socat stunnel pigz net-tools netcat \
     "
+
+  # qpress comes from Percona repo (disabled on OL10)
+  if [[ ${RHVER} -lt 10 ]]; then
+      PKGLIST+=" qpress"
+  fi
 
     if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 9 ]]; then
         PKGLIST+=" lz4 perl-Memoize perl-open valgrind-devel libubsan rpcgen libtirpc-devel boost-devel"
@@ -130,16 +162,29 @@ if [ -f /usr/bin/yum ]; then
         # Next packages are required by 9.2.0
         PKGLIST_DEVTOOLSET13+=" gcc-toolset-13-gcc gcc-toolset-13-gcc-c++ gcc-toolset-13-binutils"
         PKGLIST_DEVTOOLSET13+=" gcc-toolset-13-annobin-annocheck gcc-toolset-13-annobin-plugin-gcc"
-        PKGLIST_DEVTOOLSET13+=" gcc-toolset-13-libatomic-devel" 
+        PKGLIST_DEVTOOLSET13+=" gcc-toolset-13-libatomic-devel"
+    fi
+
+    if [[ ${RHVER} -eq 10 ]]; then
+        PKGLIST+=" lz4 perl-Memoize perl-open valgrind-devel libubsan rpcgen libtirpc-devel boost-devel"
+
+        PKGLIST_DEVTOOLSET15+=" gcc-toolset-15-gcc gcc-toolset-15-gcc-c++ gcc-toolset-15-binutils"
+        PKGLIST_DEVTOOLSET15+=" gcc-toolset-15-gcc-plugin-annobin"
+        PKGLIST_DEVTOOLSET15+=" gcc-toolset-15-libatomic-devel"
     fi
 
     # KH: why?
     if [[ ${RHVER} -ne 8 ]]; then
         PKGLIST+=" asio-devel"
     fi
-    
+
+    if [[ ${RHVER} -eq 9 ]] || [[ ${RHVER} -eq 10 ]]; then
+        PKGLIST+=" gflags-devel util-linux libtirpc-devel rpcgen boost-devel"
+    fi
+
+    # compat packages available on OL9 but not on OL10
     if [[ ${RHVER} -eq 9 ]]; then
-        PKGLIST+=" gflags-devel util-linux libtirpc-devel rpcgen boost-devel libxcrypt-compat ncurses-compat-libs"
+        PKGLIST+=" libxcrypt-compat ncurses-compat-libs"
     fi
 
     if [[ ${RHVER} -lt 9 ]]; then
@@ -178,11 +223,16 @@ if [ -f /usr/bin/yum ]; then
         sleep 1
     done
 
-    if [[ ${RHVER} -eq 9 ]]; then
+    if [[ ${RHVER} -eq 10 ]]; then
+        until yum -y install ${PKGLIST_DEVTOOLSET15}; do
+            echo "waiting"
+            sleep 1
+        done
+    elif [[ ${RHVER} -eq 9 ]]; then
         until yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13}; do
             echo "waiting"
             sleep 1
-        done           
+        done
     elif [[ ${RHVER} -eq 8 ]]; then
         yum -y install centos-release-stream
         sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
@@ -204,12 +254,20 @@ if [ -f /usr/bin/yum ]; then
         update-alternatives --set python /usr/bin/python2
     fi
 
-#   this is workaround for https://bugs.mysql.com/bug.php?id=95222 as soon as the issue is fixed we need to remove it 
+    if [[ ${RHVER} -eq 9 ]] || [[ ${RHVER} -eq 10 ]]; then
+        ln -fs /usr/bin/python3 /usr/bin/python
+    fi
+
+#   this is workaround for https://bugs.mysql.com/bug.php?id=95222 as soon as the issue is fixed we need to remove it
     if [ -f '/anaconda-post.log' ]; then
         rm /anaconda-post.log
     fi
 #   Install mysql-connector for QA framework run
-    pip3 install mysql-connector mysqlclient
+    if [[ ${RHVER} -ge 10 ]]; then
+        pip3 install --break-system-packages mysql-connector mysqlclient
+    else
+        pip3 install mysql-connector mysqlclient
+    fi
 fi
 
 if [ -f /usr/bin/apt-get ]; then
@@ -238,7 +296,7 @@ if [ -f /usr/bin/apt-get ]; then
         libmecab-dev libncurses5-dev libreadline-dev libpam-dev zlib1g-dev libcurl4-openssl-dev \
         libnuma-dev libjemalloc-dev libc6-dbg valgrind libjson-perl libevent-dev pkg-config \
         libmecab2 mecab mecab-ipadic git autoconf libsasl2-dev libsasl2-modules devscripts \
-        debconf debhelper fakeroot po-debconf psmisc ccache libtool sudo liblz4-dev liblz4-tool libedit-dev libssl-dev \
+        debconf debhelper fakeroot po-debconf psmisc ccache libtool sudo liblz4-dev libedit-dev libssl-dev \
         tzdata golang libunwind-dev zstd python3-mysqldb libdbi-perl libdbd-mysql-perl \
         cpio jq openssl libxml-simple-perl \
         libsasl2-dev libsasl2-modules-gssapi-mit libkrb5-dev libudev-dev libzstd-dev libsys-meminfo-perl \
@@ -252,7 +310,14 @@ if [ -f /usr/bin/apt-get ]; then
     # PXC specific - TODO: these packages are not present in PS, but were specified in common list. Verify if/why they are needed
     PGKLIST+=" libsasl2-modules-gssapi-mit libgnutls28-dev"
 
-    if [[ ${DIST} == "bookworm" ]] || [[ ${DIST} == "noble" ]]; then
+    # liblz4-tool renamed to lz4 in Trixie
+    if [[ ${DIST} == "trixie" ]]; then
+        PKGLIST+=" lz4"
+    else
+        PKGLIST+=" liblz4-tool"
+    fi
+
+    if [[ ${DIST} == "bookworm" ]] || [[ ${DIST} == "noble" ]] || [[ ${DIST} == "trixie" ]]; then
         PKGLIST+=" gsasl-common libproc2-dev"
     else
         # this is needed for qpress installation
@@ -264,27 +329,27 @@ if [ -f /usr/bin/apt-get ]; then
 
     if [[ ${DIST} == 'jammy' ]]; then
         PKGLIST+=" python2"
-    elif [[ ${DIST} == 'bookworm' ]] || [[ ${DIST} == "noble" ]]; then 
+    elif [[ ${DIST} == 'bookworm' ]] || [[ ${DIST} == "noble" ]] || [[ ${DIST} == "trixie" ]]; then
         PKGLIST+=" dh-python"
     else
         PKGLIST+=" python"
     fi
 
-    if [[ ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' && ${DIST} != 'noble' ]]; then
+    if [[ ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' && ${DIST} != 'noble' && ${DIST} != 'trixie' ]]; then
         PKGLIST+=" dh-systemd"
     fi
 
-    if [[ ${DIST} == 'jammy' ]] || [[ ${DIST} == 'bullseye' ]] || [[ ${DIST} == 'bookworm' ]] || [[ ${DIST} == "noble" ]]; then
+    if [[ ${DIST} == 'jammy' ]] || [[ ${DIST} == 'bullseye' ]] || [[ ${DIST} == 'bookworm' ]] || [[ ${DIST} == "noble" ]] || [[ ${DIST} == "trixie" ]]; then
         PKGLIST+=" libgflags-dev util-linux"
     fi
 
-    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' && ${DIST} != 'noble' ]]; then
+    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' && ${DIST} != 'noble' && ${DIST} != 'trixie' ]]; then
         PKGLIST+=" python-mysqldb"
     else
         PKGLIST+=" python3-mysqldb"
     fi
 
-    if [[ ${DIST} == "noble" ]]; then
+    if [[ ${DIST} == "noble" ]] || [[ ${DIST} == "trixie" ]]; then
         PKGLIST+=" libtirpc-dev"
     fi
 
@@ -332,10 +397,10 @@ if [ -f /usr/bin/apt-get ]; then
     done
 
     # Install mysql-connector for QA framework run
-    if [[ ${DIST} != 'bookworm' ]] && [[ ${DIST} != 'noble' ]]; then
-	    pip3 install mysql-connector
+    if [[ ${DIST} == 'bookworm' ]] || [[ ${DIST} == 'noble' ]] || [[ ${DIST} == 'trixie' ]]; then
+        pip3 install mysql-connector --break-system-packages
     else
-      pip3 install mysql-connector --break-system-packages
+        pip3 install mysql-connector
     fi
     
     # clenup
@@ -405,7 +470,9 @@ fi
 
 if [ -f /usr/bin/yum ]; then
     RHVER="$(rpm --eval %rhel)"
-    if [[ ${RHVER} -eq 9 ]]; then
+    if [[ ${RHVER} -ge 10 ]]; then
+        pip3 install --break-system-packages --upgrade sphinx==5.3.0
+    elif [[ ${RHVER} -eq 9 ]]; then
         pip3 install --upgrade sphinx==5.3.0
     else
         pip3 install --upgrade sphinx==1.6.7
