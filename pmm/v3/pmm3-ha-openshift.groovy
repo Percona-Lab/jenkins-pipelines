@@ -6,9 +6,9 @@ def cleanupCluster() {
         sh '''
             rosa login --token="${ROSA_TOKEN}"
 
-            if rosa describe cluster --cluster="${CLUSTER_NAME}" &>/dev/null; then
+            if rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" &>/dev/null; then
                 echo "Destroying ROSA cluster ${CLUSTER_NAME}..."
-                rosa delete cluster --cluster="${CLUSTER_NAME}" --yes --watch || true
+                rosa delete cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" --yes --watch || true
             fi
         '''
     }
@@ -124,7 +124,7 @@ pipeline {
 
                         echo "Ensuring OIDC provider exists..."
                         # OIDC config is created per cluster, but we can verify account is ready
-                        rosa whoami
+                        rosa whoami --region="${REGION}"
                     '''
                 }
             }
@@ -141,12 +141,12 @@ pipeline {
 
                         rosa login --token="${ROSA_TOKEN}"
 
-                        EXISTING_CLUSTERS=$(rosa list clusters -o json | jq -r '[.[] | select(.name | startswith("pmm-ha-openshift-"))] | length')
+                        EXISTING_CLUSTERS=$(rosa list clusters --region="${REGION}" -o json | jq -r '[.[] | select(.name | startswith("pmm-ha-openshift-"))] | length')
 
                         if [ "${EXISTING_CLUSTERS}" -ge 3 ]; then
                             echo "ERROR: Maximum limit of 3 ROSA test clusters reached."
                             echo "Please delete existing clusters before creating new ones."
-                            rosa list clusters -o json | jq -r '.[] | select(.name | startswith("pmm-ha-openshift-")) | "  - \\(.name) (\\(.state))"'
+                            rosa list clusters --region="${REGION}" -o json | jq -r '.[] | select(.name | startswith("pmm-ha-openshift-")) | "  - \\(.name) (\\(.state))"'
                             exit 1
                         fi
 
@@ -194,12 +194,12 @@ pipeline {
                         rosa login --token="${ROSA_TOKEN}"
 
                         echo "Waiting for cluster to be ready..."
-                        rosa logs install --cluster="${CLUSTER_NAME}" --watch &
+                        rosa logs install --cluster="${CLUSTER_NAME}" --region="${REGION}" --watch &
                         LOGS_PID=$!
 
                         # Wait for cluster to be ready (timeout handled by pipeline)
                         while true; do
-                            STATE=$(rosa describe cluster --cluster="${CLUSTER_NAME}" -o json | jq -r '.state')
+                            STATE=$(rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" -o json | jq -r '.state')
                             echo "Cluster state: ${STATE}"
 
                             if [ "${STATE}" = "ready" ]; then
@@ -207,7 +207,7 @@ pipeline {
                                 break
                             elif [ "${STATE}" = "error" ]; then
                                 echo "ERROR: Cluster creation failed"
-                                rosa describe cluster --cluster="${CLUSTER_NAME}"
+                                rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}"
                                 kill $LOGS_PID 2>/dev/null || true
                                 exit 1
                             fi
@@ -232,7 +232,7 @@ pipeline {
                             rosa login --token="${ROSA_TOKEN}"
 
                             echo "Creating cluster admin..."
-                            rosa create admin --cluster="${CLUSTER_NAME}" --yes > admin-output.txt 2>&1 || true
+                            rosa create admin --cluster="${CLUSTER_NAME}" --region="${REGION}" --yes > admin-output.txt 2>&1 || true
                             cat admin-output.txt
                         '''
 
@@ -240,7 +240,7 @@ pipeline {
                         def adminOutput = readFile('admin-output.txt')
                         def apiUrl = sh(
                             returnStdout: true,
-                            script: "grep -oP '(?<=--server=)[^\\s]+' admin-output.txt || rosa describe cluster --cluster=${CLUSTER_NAME} -o json | jq -r '.api.url'"
+                            script: "grep -oP '(?<=--server=)[^\\s]+' admin-output.txt || rosa describe cluster --cluster=${CLUSTER_NAME} --region=${REGION} -o json | jq -r '.api.url'"
                         ).trim()
 
                         env.CLUSTER_API_URL = apiUrl
@@ -448,7 +448,7 @@ EOF
                         echo "Access Information"
                         echo "====================================================================="
                         echo ""
-                        echo "OpenShift Console:   $(rosa describe cluster --cluster=${CLUSTER_NAME} -o json | jq -r '.console.url')"
+                        echo "OpenShift Console:   $(rosa describe cluster --cluster=${CLUSTER_NAME} --region=${REGION} -o json | jq -r '.console.url')"
                         echo "API Server:          ${CLUSTER_API_URL}"
                         echo ""
                         echo "Cluster Admin:       cluster-admin"
