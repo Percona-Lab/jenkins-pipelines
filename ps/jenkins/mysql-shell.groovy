@@ -272,6 +272,9 @@ pipeline {
                     }
                 }
                 stage('Ubuntu Focal (20.04)') {
+                    when {
+                        expression { env.PS_MAJOR_RELEASE == "80" }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -355,6 +358,9 @@ pipeline {
                     }
                 }
                 stage('Debian Bullseye (11)') {
+                    when {
+                        expression { env.PS_MAJOR_RELEASE == "80" || env.PS_MAJOR_RELEASE == "84" }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -368,23 +374,19 @@ pipeline {
                     }
                 }
                 stage('Debian Bullseye (11) ARM') {
+                    when {
+                        expression { env.PS_MAJOR_RELEASE == "80" || env.PS_MAJOR_RELEASE == "84" }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                        script {
-                            PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                            if ("${PS_MAJOR_RELEASE}" == "80") {
-                                cleanUpWS()
-                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                                buildStage("debian:bullseye", "--build_deb=1")
+                       cleanUpWS()
+                       popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                       buildStage("debian:bullseye", "--build_deb=1")
 
-                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                            } else {
-                                echo "The step is skipped."
-                            }
-                        }
+                       pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                       uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bookworm (12)') {
