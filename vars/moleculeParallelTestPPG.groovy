@@ -33,8 +33,8 @@ def call(operatingSystems, moleculeDir) {
                   export ami_ubuntu22_arm64=ami-01099d45fb386e13b
                   export ami_ubuntu24_arm64=ami-0a96a698343e1007e
                   export region=eu-central-1
-                  export vpc_subnet_id_aws1=jenkins-pg-B2
-                  export vpc_subnet_id_aws2=jenkins-pg-C2
+                  export vpc_subnet_id_aws1=subnet-0775d65ad1e9703bc
+                  export vpc_subnet_id_aws2=subnet-09947b46d69590c50
                   export vpc_subnet_id_aws3=subnet-0fad4db6fdd8025b6
                   export driver=ec2
                   molecule test -s ${os}
