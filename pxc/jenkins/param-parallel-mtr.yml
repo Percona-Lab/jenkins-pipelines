@@ -23,7 +23,7 @@
     - matrix-combinations:
         name: COMBINATIONS
         description: "Select matrix combinations"
-        filter: CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="ubuntu:noble" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="ubuntu:noble" || CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="debian:bookworm" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="debian:bookworm" || CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="oraclelinux:9" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="oraclelinux:9"
+        filter: CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="ubuntu:noble" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="ubuntu:noble" || CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="debian:bookworm" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="debian:bookworm" || CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="debian:trixie" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="debian:trixie" || CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="oraclelinux:9" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="oraclelinux:9" || CMAKE_BUILD_TYPE=="Debug" && DOCKER_OS=="oraclelinux:10" || CMAKE_BUILD_TYPE=="RelWithDebInfo" && DOCKER_OS=="oraclelinux:10"
     - string:
         name: GIT_REPO
         default: "https://github.com/percona/percona-xtradb-cluster"
@@ -165,11 +165,13 @@
           - centos:7
           - centos:8
           - oraclelinux:9
+          - oraclelinux:10
           - ubuntu:focal
           - ubuntu:jammy
           - ubuntu:noble
           - debian:bullseye
           - debian:bookworm
+          - debian:trixie
     builders:
     - trigger-builds:
       - project: pxc-8.0-pipeline-parallel-mtr
