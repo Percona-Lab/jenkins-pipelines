@@ -34,12 +34,12 @@ install_software() {
     done
 
     yum -y install yum-utils wget cronie rsync bc htop vim nginx
-    wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable/jenkins.repo
+    wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable-legacy/jenkins.repo
     # rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
-    rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io-2023.key
+    rpm --import https://pkg.jenkins.io/redhat-stable-legacy/jenkins.io-2023.key
     yum -y install java-17-amazon-corretto
     yum -y update --security
-    yum -y install jenkins-2.462.1 certbot git dnf-automatic aws-cli xfsprogs
+    yum -y install jenkins-2.528.3 certbot git dnf-automatic aws-cli xfsprogs
 
     sed -i 's/upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf
     sed -i 's/apply_updates = no/apply_updates = yes/'         /etc/dnf/automatic.conf
@@ -291,7 +291,7 @@ EOF
 }
 
 setup_ssh_keys() {
-    KEYS_LIST="evgeniy.patlan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen vadim.yalovets surabhi.bhat talha.rizwan"
+    KEYS_LIST="evgeniy.patlan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen vadim.yalovets surabhi.bhat talha.rizwan anderson.nogueira"
 
     for KEY in $KEYS_LIST; do
         RETRY="3"

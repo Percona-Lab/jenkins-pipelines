@@ -1,5 +1,5 @@
 - job:
-    name: ppg-12-full-major-upgrade
+    name: tarball-multiOS-ssl3
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -8,7 +8,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'master'
+              - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ppg/ppg-12-full-major-upgrade.groovy
+      script-path: ppg/tarball-multiOS-ssl3.groovy

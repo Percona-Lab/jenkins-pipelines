@@ -33,7 +33,7 @@ pipeline {
         )
         string(
             name: 'HELM_CHART_BRANCH',
-            defaultValue: 'pmmha-v3',
+            defaultValue: 'main',
             description: 'Branch of percona-helm-charts repo'
         )
         string(
@@ -112,7 +112,7 @@ managedNodeGroups:
     volumeSize: 80
     spot: true
     minSize: 6
-    maxSize: 7
+    maxSize: 12
     desiredCapacity: 6
     tags:
         iit-billing-tag: "pmm"
