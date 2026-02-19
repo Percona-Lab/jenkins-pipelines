@@ -19,12 +19,12 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: '18.1',
+            defaultValue: '18.3',
             description: 'TAG of the server docker from perconalab/percona (hub.docker.com) to use. For example, 16, 16.1, 16.1-multi.',
             name: 'DOCKER_SERVER_TAG'
         )
         string(
-            defaultValue: '18.1',
+            defaultValue: '18.3',
             description: 'Docker Server PG version being used, including both major and minor version. For example, 15.4.',
             name: 'SERVER_VERSION'
         )
@@ -33,12 +33,12 @@ pipeline {
             description: "Enable if testing the component with pg_tde enabled. Only works with PSP 17+ versions."
         )
         string(
-            defaultValue: '2.57.0',
+            defaultValue: '2.58.0',
             description: 'TAG of the component, pgBackrest or pgBouncer, docker from perconalab/percona (hub.docker.com) to use. For example, 2.57.0.',
             name: 'DOCKER_COMPONENT_TAG'
         )
         string(
-            defaultValue: '2.57',
+            defaultValue: '2.58',
             description: 'Component version to test for component docker, including both major and minor version. For example, 2.6.',
             name: 'COMPONENT_VERSION'
         )
