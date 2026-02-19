@@ -16,7 +16,7 @@ def LABEL = 'docker-32gb'
 // We need this map to construct proper pxb tarball name
 OsToGlibcMap = [
     "centos:7" : "2.17",
-    "centos:8" : "2.28",
+    "oraclelinux:8" : "2.28",
     "oraclelinux:9": "2.34",
     "oraclelinux:10": "2.39",
     "ubuntu:focal" : "2.31",
@@ -539,7 +539,7 @@ pipeline {
             description: 'path to cmake binary',
             name: 'JOB_CMAKE')
         choice(
-            choices: 'centos:7\ncentos:8\noraclelinux:9\noraclelinux:10\nubuntu:focal\nubuntu:jammy\nubuntu:noble\ndebian:bullseye\ndebian:bookworm\ndebian:trixie',
+            choices: 'centos:7\noraclelinux:8\noraclelinux:9\noraclelinux:10\nubuntu:focal\nubuntu:jammy\nubuntu:noble\ndebian:bullseye\ndebian:bookworm\ndebian:trixie',
             description: 'OS version for compilation',
             name: 'DOCKER_OS')
         choice(

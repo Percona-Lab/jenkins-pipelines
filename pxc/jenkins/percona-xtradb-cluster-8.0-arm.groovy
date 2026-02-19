@@ -131,7 +131,7 @@ pipeline {
         } // stage
         stage('Build PXC RPMs/DEBs/Binary tarballs') {
             parallel {
-                stage('Centos 8') {
+                stage('Oracle Linux 8') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -139,7 +139,7 @@ pipeline {
                         cleanUpWS()
                         unstash 'pxc-80.properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:8", "--build_rpm=1")
+                        buildStage("oraclelinux:8", "--build_rpm=1")
 
                         stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
