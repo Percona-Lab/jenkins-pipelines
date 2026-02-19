@@ -199,7 +199,7 @@ pipeline {
   post {
     always {
       script {
-        archiveArtifacts artifacts: "*.tar.gz, **/pytest-junit*.xml", followSymlinks: false, allowEmptyArchive: true
+        archiveArtifacts artifacts: "*.tar.gz", followSymlinks: false, allowEmptyArchive: true
         junit allowEmptyResults: true, testResults: "**/pytest-junit*.xml"
         moleculeParallelPostDestroy(pxbTarball(), env.MOLECULE_DIR)
       }
