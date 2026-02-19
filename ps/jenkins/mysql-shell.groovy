@@ -162,7 +162,7 @@ pipeline {
                         uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 8 ARM') {
+                stage('Oracle Linux 8 ARM') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
