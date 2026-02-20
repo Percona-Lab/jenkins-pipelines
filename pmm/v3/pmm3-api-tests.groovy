@@ -71,6 +71,7 @@ pipeline {
                     -v ${PWD}/managed/testdata/checks:/srv/checks \
                     ${DOCKER_VERSION}
 
+                    docker compose -f api-tests/docker-compose.yml up test_db
                     docker build -f api-tests/Dockerfile -t local/pmm-api-tests .
                 '''
                 script {
