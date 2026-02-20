@@ -25,7 +25,7 @@ pipeline {
         )
         string(
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
-            description: 'PMM Server docker image version (image-name:version-tag)',
+            description: 'PMM Server docker image (image-name:tag)',
             name: 'DOCKER_VERSION'
         )
     }
@@ -66,7 +66,6 @@ pipeline {
                 sh '''
                     docker run -d \
                     -e PMM_DEBUG=1 \
-                    -p 80:8080 \
                     -p 443:8443 \
                     -v ${PWD}/managed/testdata/checks:/srv/checks \
                     ${DOCKER_VERSION}
