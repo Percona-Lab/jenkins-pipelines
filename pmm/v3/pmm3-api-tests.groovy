@@ -28,33 +28,15 @@ pipeline {
             description: 'PMM Server docker image version (image-name:version-tag)',
             name: 'DOCKER_VERSION'
         )
-        string(
-            defaultValue: 'percona:8.0',
-            description: 'Percona Server Docker Container Image',
-            name: 'MYSQL_IMAGE'
-        )
-        string(
-            defaultValue: 'postgres:14',
-            description: 'Postgresql Docker Container Image',
-            name: 'POSTGRES_IMAGE'
-        )
-        string(
-            defaultValue: 'percona/percona-server-mongodb:5.0',
-            description: 'Percona Server MongoDb Docker Container Image',
-            name: 'MONGO_IMAGE'
-        )
     }
     options {
         skipDefaultCheckout()
-    }
-    triggers {
-        upstream upstreamProjects: 'pmm3-server-autobuild', threshold: hudson.model.Result.SUCCESS
     }
     stages {
         stage('Prepare') {
             steps {
                 // fetch API tests from pmm repository
-                git poll: false, branch: GIT_BRANCH, url: GIT_URL
+                git poll: false, changelog: false, branch: GIT_BRANCH, url: GIT_URL
 
                 slackSend botUser: true,
                           channel: '#pmm-notifications',
@@ -84,21 +66,12 @@ pipeline {
                 sh '''
                     docker run -d \
                     -e PMM_DEBUG=1 \
-                    -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com \
-                    -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX \
                     -p 80:8080 \
                     -p 443:8443 \
                     -v ${PWD}/managed/testdata/checks:/srv/checks \
                     ${DOCKER_VERSION}
 
-                    docker build -t local/pmm-api-tests .
-                    cd api-tests
-                    docker-compose up test_db
-                    # MYSQL_IMAGE=${MYSQL_IMAGE} docker-compose up -d mysql
-                    # MONGO_IMAGE=${MONGO_IMAGE} docker-compose up -d mongo
-                    # POSTGRES_IMAGE=${POSTGRES_IMAGE} docker-compose up -d postgres
-                    # docker-compose up -d sysbench
-                    cd -
+                    docker build -f api-tests/Dockerfile -t local/pmm-api-tests .
                 '''
                 script {
                     env.PMM_URL = "https://admin:admin@127.0.0.1"
@@ -110,7 +83,7 @@ pipeline {
                 sh '''
                     if ! timeout 100 bash -c "until curl -skf ${PMM_URL}/ping; do sleep 1; done"; then
                         echo "PMM Server did not pass the connectivity check" >&2
-                        exit 1
+                        curl -skf ${PMM_URL}/ping
                     fi
                 '''
             }
