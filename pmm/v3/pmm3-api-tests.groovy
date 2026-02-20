@@ -95,7 +95,7 @@ pipeline {
                                -e PMM_SERVER_INSECURE_TLS=1 \
                                -e PMM_RUN_UPDATE_TEST=0 \
                                -e PMM_RUN_ADVISOR_TESTS=0 \
-                               --name pmm3-api-tests \
+                               --name api-tests \
                                --network host \
                                local/pmm-api-tests
                 '''
@@ -105,13 +105,14 @@ pipeline {
     post {
         always {
             sh '''
-                if docker cp pmm3-api-tests:/go/pmm/api-tests/pmm-api-tests-junit-report.xml ./pmm3-api-tests.xml; then
+                if docker cp api-tests:/go/pmm/api-tests/pmm-api-tests-junit-report.xml ./api-test-results.xml; then
                   curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 fi
+                docker rm -v api-tests || true
             '''
             script {
-                if (fileExists("pmm3-api-tests.xml")) {
-                    junit testResults: "pmm3-api-tests.xml", skipPublishingChecks: true
+                if (fileExists("api-test-results.xml")) {
+                    junit testResults: "api-test-results.xml", skipPublishingChecks: true
                 }
                 if (fileExists("logs.zip")) {
                     archiveArtifacts artifacts: 'logs.zip'
