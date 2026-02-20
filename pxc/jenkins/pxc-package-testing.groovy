@@ -19,8 +19,6 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         )
     ]
-
-
             
             echo "check var param_test_type ${param_test_type}"
 
@@ -409,6 +407,8 @@ void setInventories(String param_test_type){
                         SSH_USER="ec2-user"
                     }else if(("${params.node_to_test}" == "centos-7")){
                         SSH_USER="centos"
+                    }else if(("${params.node_to_test}" == "rocky-linux-8") || ("${params.node_to_test}" == "rocky-linux-8-arm") || (("${params.node_to_test}" == "rocky-linux-9") ) || (("${params.node_to_test}" == "rocky-linux-9-arm") )){
+                        SSH_USER="rocky"
                     }else{
                         echo "OS Not yet in list of Keypath setup"
                     }
@@ -734,6 +734,10 @@ properties([
                                         'rhel-9',
                                         'rhel-8-arm',
                                         'rhel-9-arm',
+                                        'rocky-linux-8',
+                                        'rocky-linux-8-arm',
+                                        'rocky-linux-9',
+                                        'rocky-linux-9-arm',
                                         'amazon-linux-2023',
                                         'amazon-linux-2023-arm'
                         ]
@@ -756,7 +760,11 @@ properties([
                                         'rhel-10',
                                         'rhel-8-arm',
                                         'rhel-9-arm',
-                                        'rhel-10-arm'
+                                        'rhel-10-arm',
+                                        'rocky-linux-8',
+                                        'rocky-linux-8-arm',
+                                        'rocky-linux-9',
+                                        'rocky-linux-9-arm',
                                         'amazon-linux-2023',
                                         'amazon-linux-2023-arm'
                         ]
@@ -1172,4 +1180,3 @@ pipeline {
         }
     }
 }
-
