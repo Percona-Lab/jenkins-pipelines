@@ -105,7 +105,7 @@ pipeline {
     post {
         always {
             sh '''
-                if docker cp pmm3-api-tests:/go/src/github.com/percona/pmm/api-tests/pmm-api-tests-junit-report.xml ./pmm3-api-tests.xml; then
+                if docker cp pmm3-api-tests:/go/pmm/api-tests/pmm-api-tests-junit-report.xml ./pmm3-api-tests.xml; then
                   curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
                 fi
             '''
