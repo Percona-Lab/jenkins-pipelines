@@ -210,6 +210,8 @@ void createCluster(String CLUSTER_SUFFIX) {
             maxRetries=15
             exitCode=1
 
+            printf 'linuxConfig:\n  hugepageConfig:\n    hugepage_size2m: 1024\n' > ${WORKSPACE}/hugepages-config-${CLUSTER_SUFFIX}.yaml
+
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
                     --release-channel $GKE_RELEASE_CHANNEL \
@@ -230,6 +232,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --logging=NONE \
                     --no-enable-managed-prometheus \
                     --workload-pool=cloud-dev-112233.svc.id.goog \
+                    --system-config-from-file=${WORKSPACE}/hugepages-config-${CLUSTER_SUFFIX}.yaml \
                     --quiet &&\
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
                 exitCode=\$?
@@ -237,6 +240,8 @@ void createCluster(String CLUSTER_SUFFIX) {
                 (( maxRetries -- ))
                 sleep 1
             done
+            rm -f ${WORKSPACE}/hugepages-config-${CLUSTER_SUFFIX}.yaml
+
             if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
         """
     }
