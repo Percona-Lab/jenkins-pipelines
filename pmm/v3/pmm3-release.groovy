@@ -35,6 +35,11 @@ pipeline {
         stage('Push RPM client to public repository') {
             steps {
                 script {
+                    slackSend botUser: true,
+                        channel: '#pmm-internal',
+                        color: '#0000FF',
+                        message: "[${JOB_NAME}]: PMM ${VERSION} release has started. \nYou can check progress at: ${BUILD_URL}"                    
+                    
                     currentBuild.description = "VERSION: ${VERSION}<br>CLIENT: ${CLIENT_IMAGE}<br>SERVER: ${SERVER_IMAGE}<br>WATCHTOWER: ${WATCHTOWER_IMAGE}<br>PATH_TO_CLIENT_AMD64: ${PATH_TO_CLIENT_AMD64}<br>PATH_TO_CLIENT_ARM64: ${PATH_TO_CLIENT_ARM64}"
                     if (!params.PATH_TO_CLIENT_AMD64 || !params.PATH_TO_CLIENT_ARM64) {
                         error("ERROR: empty parameter(s) PATH_TO_CLIENT_AMD64 or PATH_TO_CLIENT_ARM64")
@@ -539,7 +544,7 @@ ENDSSH
                             mv trivy-client-report.html trivy-client-report-${VERSION}.html
                         '''
                         archiveArtifacts "*-report-${VERSION}.*"
-                        env.SCAN_REPORT_URL = "CVE Scan Reports: ${BUILD_URL}artifact/"
+                        env.SCAN_REPORT_URL = "${BUILD_URL}artifact/"
                     }
                 }
             }
@@ -550,11 +555,12 @@ ENDSSH
             deleteDir()
         }
         success {
-            slackSend botUser: true, channel: '#pmm', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
-            slackSend botUser: true, channel: '#releases', color: '#00FF00', message: "PMM ${VERSION} was released!\nBuild URL: ${BUILD_URL}\n${env.SCAN_REPORT_URL}"
+            slackSend botUser: true, channel: '#pmm', color: '#00FF00', message: "[${JOB_NAME}]: PMM ${VERSION} was released! :rocket:\nBuild URL: ${BUILD_URL}\nCVE Scan Report: ${env.SCAN_REPORT_URL}"
+            slackSend botUser: true, channel: '#releases', color: '#00FF00', message: "[${JOB_NAME}]: PMM ${VERSION} was released! :rocket:\nBuild URL: ${BUILD_URL}\nCVE Scan Report: ${env.SCAN_REPORT_URL}"
+            slackSend botUser: true, channel: '#pmm-internal', color: '#00FF00', message: "[${JOB_NAME}]: PMM ${VERSION} was released! :rocket:\nBuild URL: ${BUILD_URL}\nCVE Scan Report: ${env.SCAN_REPORT_URL}"
         }
         failure {
-            slackSend botUser: true, channel: '#pmm-internal', color: '#FF0000', message: "[${JOB_NAME}]: release failed - ${BUILD_URL}"
+            slackSend botUser: true, channel: '#pmm-internal', color: '#FF0000', message: "[${JOB_NAME}]: PMM ${VERSION} release failed \nBuild URL: ${BUILD_URL}"
         }
     }
 }
