@@ -21,7 +21,7 @@ pipeline {
         string(
             name: 'CLUSTER_NAME',
             defaultValue: '',
-            description: 'Cluster name(s) for DELETE_CLUSTER. Supports comma-separated (e.g., pmm-ha-openshift-1,pmm-ha-openshift-2)'
+            description: 'Cluster name(s) for DELETE_CLUSTER. Supports comma-separated (e.g., pmm-ha-rosa-1,pmm-ha-rosa-2)'
         )
     }
 
@@ -32,7 +32,7 @@ pipeline {
 
     environment {
         REGION = "us-east-2"
-        CLUSTER_PREFIX = "pmm-ha-openshift-"
+        CLUSTER_PREFIX = "pmm-ha-rosa-"
         PATH = "${HOME}/.local/bin:${PATH}"
     }
 
@@ -283,7 +283,7 @@ pipeline {
                         clusterCount = sh(
                             returnStdout: true,
                             script: '''
-                                rosa list clusters --region="${REGION}" -o json 2>/dev/null | jq -r '[.[] | select(.name | startswith("pmm-ha-openshift-"))] | length' || echo "0"
+                                rosa list clusters --region="${REGION}" -o json 2>/dev/null | jq -r '[.[] | select(.name | startswith("pmm-ha-rosa-"))] | length' || echo "0"
                             '''
                         ).trim().toInteger()
                     }
