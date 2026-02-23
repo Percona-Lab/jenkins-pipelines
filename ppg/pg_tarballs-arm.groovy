@@ -55,6 +55,27 @@ void cleanUpWS() {
     """
 }
 
+Boolean shouldBuild(String pgVersion, String sslVersion) {
+    def pgSelected = false
+    def sslSelected = false
+
+    switch(pgVersion) {
+        case '14': pgSelected = params.PG_14; break
+        case '15': pgSelected = params.PG_15; break
+        case '16': pgSelected = params.PG_16; break
+        case '17': pgSelected = params.PG_17; break
+        case '18': pgSelected = params.PG_18; break
+    }
+
+    switch(sslVersion) {
+        case 'ssl1.1': sslSelected = params.SSL_1_1; break
+        case 'ssl3': sslSelected = params.SSL_3; break
+        case 'ssl3.5': sslSelected = params.SSL_3_5; break
+    }
+
+    return pgSelected && sslSelected
+}
+
 def TIMESTAMP
 
 pipeline {
@@ -87,6 +108,38 @@ pipeline {
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo destination to push packages to',
             name: 'DESTINATION')
+        booleanParam(
+            defaultValue: true,
+            description: 'Build PostgreSQL 14 tarballs',
+            name: 'PG_14')
+        booleanParam(
+            defaultValue: true,
+            description: 'Build PostgreSQL 15 tarballs',
+            name: 'PG_15')
+        booleanParam(
+            defaultValue: true,
+            description: 'Build PostgreSQL 16 tarballs',
+            name: 'PG_16')
+        booleanParam(
+            defaultValue: true,
+            description: 'Build PostgreSQL 17 tarballs',
+            name: 'PG_17')
+        booleanParam(
+            defaultValue: true,
+            description: 'Build PostgreSQL 18 tarballs',
+            name: 'PG_18')
+        booleanParam(
+            defaultValue: true,
+            description: 'Build with OpenSSL 1.1',
+            name: 'SSL_1_1')
+        booleanParam(
+            defaultValue: true,
+            description: 'Build with OpenSSL 3',
+            name: 'SSL_3')
+        booleanParam(
+            defaultValue: true,
+            description: 'Build with OpenSSL 3.5',
+            name: 'SSL_3_5')
     }
     options {
         skipDefaultCheckout()
@@ -120,6 +173,9 @@ pipeline {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
+                    when {
+                        expression { shouldBuild('18', 'ssl3.5') }
+                    }
                     steps {
                         cleanUpWS()
                         script {
@@ -145,6 +201,9 @@ pipeline {
                 stage('Build pg_tarball 18 for OpenSSL 3') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    when {
+                        expression { shouldBuild('18', 'ssl3') }
                     }
                     steps {
                         cleanUpWS()
@@ -172,6 +231,9 @@ pipeline {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
+                    when {
+                        expression { shouldBuild('18', 'ssl1.1') }
+                    }
                     steps {
                         cleanUpWS()
                         script {
@@ -197,6 +259,9 @@ pipeline {
                 stage('Build pg_tarball 17 for OpenSSL 3.5') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    when {
+                        expression { shouldBuild('17', 'ssl3.5') }
                     }
                     steps {
                         cleanUpWS()
@@ -224,6 +289,9 @@ pipeline {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
+                    when {
+                        expression { shouldBuild('17', 'ssl3') }
+                    }
                     steps {
                         cleanUpWS()
                         script {
@@ -249,6 +317,9 @@ pipeline {
                 stage('Build pg_tarball 17 for OpenSSL 1.1') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    when {
+                        expression { shouldBuild('17', 'ssl1.1') }
                     }
                     steps {
                         cleanUpWS()
@@ -276,6 +347,9 @@ pipeline {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
+                    when {
+                        expression { shouldBuild('16', 'ssl3.5') }
+                    }
                     steps {
                         cleanUpWS()
                         script {
@@ -301,6 +375,9 @@ pipeline {
                 stage('Build pg_tarball 16 for OpenSSL 3') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    when {
+                        expression { shouldBuild('16', 'ssl3') }
                     }
                     steps {
                         cleanUpWS()
@@ -328,6 +405,9 @@ pipeline {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
+                    when {
+                        expression { shouldBuild('16', 'ssl1.1') }
+                    }
                     steps {
                         cleanUpWS()
 			script {
@@ -350,9 +430,12 @@ pipeline {
 			}
                     }
                 }
-            stage('Build pg_tarball 15 for OpenSSL 3.5') {
+                stage('Build pg_tarball 15 for OpenSSL 3.5') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    when {
+                        expression { shouldBuild('15', 'ssl3.5') }
                     }
                     steps {
                         cleanUpWS()
@@ -380,6 +463,9 @@ pipeline {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
+                    when {
+                        expression { shouldBuild('15', 'ssl3') }
+                    }
                     steps {
                         cleanUpWS()
 			script {
@@ -405,6 +491,9 @@ pipeline {
 		stage('Build pg_tarball 15 for OpenSSL 1.1') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    when {
+                        expression { shouldBuild('15', 'ssl1.1') }
                     }
                     steps {
                         cleanUpWS()
@@ -432,6 +521,9 @@ pipeline {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
+                    when {
+                        expression { shouldBuild('14', 'ssl3.5') }
+                    }
                     steps {
                         cleanUpWS()
                         script {
@@ -458,6 +550,9 @@ pipeline {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
+                    when {
+                        expression { shouldBuild('14', 'ssl3') }
+                    }
                     steps {
                         cleanUpWS()
 			script {
@@ -483,6 +578,9 @@ pipeline {
 		stage('Build pg_tarball 14 for OpenSSL 1.1') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    when {
+                        expression { shouldBuild('14', 'ssl1.1') }
                     }
                     steps {
                         cleanUpWS()
