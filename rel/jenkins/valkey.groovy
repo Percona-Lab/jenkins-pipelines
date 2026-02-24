@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@valkey', retriever: modernSCM([
+library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -32,9 +32,13 @@ def AWS_STASH_PATH
 
 pipeline {
     agent {
-        label 'micro-amazon'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'micro-amazon'
     }
     parameters {
+        choice(
+             choices: [ 'Hetzner','AWS' ],
+             description: 'Cloud infra for build',
+             name: 'CLOUD' )
         string(
             defaultValue: 'https://github.com/valkey-io/valkey.git',
             description: 'URL for valkey repository',
@@ -69,7 +73,7 @@ pipeline {
     stages {
         stage('Create Valkey source tarball') {
             agent {
-                label 'docker'
+                label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
             }
             steps {
                 slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting build for ${GIT_BRANCH} - [${BUILD_URL}]")
@@ -88,35 +92,35 @@ pipeline {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
-                pushArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
+                pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
         stage('Build valkey generic source packages') {
             parallel {
                 stage('Build valkey generic source rpm') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "--build_src_rpm=1")
 
-                        pushArtifactFolder("srpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Build valkey generic source deb') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_src_deb=1")
-                        pushArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                     }
                 }
             }  //parallel
@@ -125,262 +129,262 @@ pipeline {
             parallel {
                 stage('Oracle Linux 8') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "--build_rpm=1")
 
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 8 ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:8", "--build_rpm=1")
 
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_rpm=1")
 
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 9 ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:9", "--build_rpm=1")
 
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 10') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:10", "--build_rpm=1")
 
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Oracle Linux 10 ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("oraclelinux:10", "--build_rpm=1")
 
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Amazon Linux 2023') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("amazonlinux:2023", "--build_rpm=1")
 
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Amazon Linux 2023 ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("srpm/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         buildStage("amazonlinux:2023", "--build_rpm=1")
 
-                        pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy(22.04)') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Jammy(22.04) ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:jammy", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Noble(24.04)') {
                     agent {
-                    label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
                     steps {
-                    cleanUpWS()
-                    popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                    buildStage("ubuntu:noble", "--build_deb=1")
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:noble", "--build_deb=1")
 
-                    pushArtifactFolder("deb/", AWS_STASH_PATH)
-                    uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Noble(24.04) ARM') {
                     agent {
-                    label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
-                    cleanUpWS()
-                    popArtifactFolder("source_deb/", AWS_STASH_PATH)
-                    buildStage("ubuntu:noble", "--build_deb=1")
+                        cleanUpWS()
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        buildStage("ubuntu:noble", "--build_deb=1")
 
-                    pushArtifactFolder("deb/", AWS_STASH_PATH)
-                    uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Resolute(26.04)') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:resolute", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Ubuntu Resolute(26.04) ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("ubuntu:resolute", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bullseye(11)') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bullseye(11) ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bullseye", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bookworm(12)') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Bookworm(12) ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:bookworm", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Trixie(13)') {
                     agent {
-                        label 'docker-32gb'
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker-32gb'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:trixie", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
                 stage('Debian Trixie(13) ARM') {
                     agent {
-                        label 'docker-32gb-aarch64'
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         buildStage("debian:trixie", "--build_deb=1")
 
-                        pushArtifactFolder("deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
             }
@@ -388,15 +392,15 @@ pipeline {
 
         stage('Sign packages') {
             steps {
-                signRPM()
-                signDEB()
+                signRPM(params.CLOUD)
+                signDEB(params.CLOUD)
             }
         }
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(VALKEY_REPO, COMPONENT)
-                }
+                sync2ProdAutoBuild(params.CLOUD, VALKEY_REPO, COMPONENT)
+            }
         }
     }
     post {

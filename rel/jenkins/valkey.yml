@@ -1,5 +1,5 @@
 - job:
-    name: valkey-RELEASE
+    name: hetzner-valkey-RELEASE
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -8,8 +8,7 @@
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'valkey'
+            - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
       script-path: rel/jenkins/valkey.groovy
-
