@@ -41,7 +41,7 @@ void downloadKubectl() {
 
 void prepareNode() {
     echo "=========================[ Cloning the sources ]========================="
-    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    git branch: 'cloud-slack-msg', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
         # sudo is needed for better node recovery after compilation failure
         # if building failed on compilation stage directory will have files owned by docker user
@@ -371,8 +371,22 @@ pipeline {
             archiveArtifacts '*.xml,*.txt'
 
             script {
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                try {
+                    def sendPxcSlack = load "vars/sendJobSlackNotification.groovy"
+                    if (sendPxcSlack != null) {
+                        sendPxcSlack.call(
+                            tests: tests,
+                            channel: '#cloud-dev-ci',
+                            gitBranch: GIT_BRANCH,
+                            platformVer: PLATFORM_VER,
+                            clusterWide: CLUSTER_WIDE,
+                            pillarVersion: PILLAR_VERSION
+                        )
+                    } else {
+                        echo "sendJobSlackNotification.groovy load returned null, skipping Slack notification"
+                    }
+                } catch (err) {
+                    echo "Slack helper load/call failed: ${err}"
                 }
             }
 
