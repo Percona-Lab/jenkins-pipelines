@@ -1,0 +1,14 @@
+- job:
+    name: hetzner-valkey-TESTING
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: rel/jenkins/valkey-test.groovy
