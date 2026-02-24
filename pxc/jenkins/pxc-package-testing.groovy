@@ -316,19 +316,25 @@ def install(){
 def post_install(){
 
         script {
-            try {
-                echo "3. BACKUP LOGS"
-                setInventories("install")
-                runlogsbackup(params.product_to_test, "install")
-            } catch (Exception e) {
-                echo "Failed during logs backup: ${e.message}"
+
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                try {
+                    echo "3. BACKUP LOGS"
+                    setInventories("install")
+                    runlogsbackup(params.product_to_test, "install")
+                } catch (Exception e) {
+                    echo "Failed during logs backup: ${e.message}"
+                }
             }
 
             echo "4. DESTROY"
-            try {
-                runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes")
-            } catch (Exception e) {
-                echo "Failed during Molecule destroy step: ${e.message}"
+
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                try {
+                    runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes")
+                } catch (Exception e) {
+                    echo "Failed during Molecule destroy step: ${e.message}"
+                }
             }
         
             catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
@@ -377,19 +383,23 @@ def post_upgrade(String upgrade_type){
 
         script{
 
-            try {
-                echo "5. Backup logs"
-                setInventories(upgrade_type)
-                runlogsbackup(params.product_to_test, upgrade_type)
-            } catch (Exception e) {
-                echo "Failed during logs backup: ${e.message}"
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                try {
+                    echo "5. Backup logs"
+                    setInventories(upgrade_type)
+                    runlogsbackup(params.product_to_test, upgrade_type)
+                } catch (Exception e) {
+                    echo "Failed during logs backup: ${e.message}"
+                }
             }
 
             echo "6. Destroy"
-            try {
-                runMoleculeAction("destroy", params.product_to_test, params.node_to_test, upgrade_type, params.test_repo, "yes")
-            } catch (Exception e) {
-                echo "Failed during Molecule destroy step: ${e.message}"
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                try {
+                    runMoleculeAction("destroy", params.product_to_test, params.node_to_test, upgrade_type, params.test_repo, "yes")
+                } catch (Exception e) {
+                    echo "Failed during Molecule destroy step: ${e.message}"
+                }
             }
 
             catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
