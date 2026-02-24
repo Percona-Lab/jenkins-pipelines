@@ -376,17 +376,31 @@ def upgrade(String upgrade_type){
 def post_upgrade(String upgrade_type){
 
         script{
-            echo "5. Backup logs"
-            setInventories(upgrade_type)
-            runlogsbackup(params.product_to_test, upgrade_type)
-            echo "6. Destroy"
-            runMoleculeAction("destroy", params.product_to_test, params.node_to_test, upgrade_type, params.test_repo, "yes")
-        }
-        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-            echo "7. Archive Logs and Artifacts"
-            archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
-        }
 
+            try {
+                echo "5. Backup logs"
+                setInventories(upgrade_type)
+                runlogsbackup(params.product_to_test, upgrade_type)
+            } catch (Exception e) {
+                echo "Failed during logs backup: ${e.message}"
+            }
+
+            echo "6. Destroy"
+            try {
+                runMoleculeAction("destroy", params.product_to_test, params.node_to_test, upgrade_type, params.test_repo, "yes")
+            } catch (Exception e) {
+                echo "Failed during Molecule destroy step: ${e.message}"
+            }
+
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                try {
+                    archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
+                } catch (Exception e) {
+                    echo "Failed to archive artifacts: ${e.message}"
+                }
+            }
+
+        }
 }
 
 void setInventories(String param_test_type){
