@@ -47,14 +47,26 @@ DEOF
                 -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
                 ${TEST_IMAGE}
 
-            # Wait for systemd to become ready (up to 30s)
-            for i in \$(seq 1 30); do
-                if docker exec ${CONTAINER_NAME} systemctl is-system-running --wait 2>/dev/null | grep -qE 'running|degraded'; then
-                    echo "systemd ready after \${i}s"
+            # Wait for systemd to become ready (up to 60s)
+            SYSTEMD_READY=0
+            for i in \$(seq 1 60); do
+                status=\$(docker exec ${CONTAINER_NAME} systemctl is-system-running 2>/dev/null || true)
+                if echo "\${status}" | grep -qE '^(running|degraded)\$'; then
+                    echo "systemd ready after \${i}s (status: \${status})"
+                    SYSTEMD_READY=1
                     break
                 fi
+                echo "Waiting for systemd... (attempt \${i}/60, status: \${status})"
                 sleep 1
             done
+
+            # Fail early if container died or systemd never came up
+            if [ "\${SYSTEMD_READY}" -ne 1 ]; then
+                echo "ERROR: systemd did not become ready in 60s"
+                echo "=== Container logs ==="
+                docker logs ${CONTAINER_NAME} 2>&1 || true
+                exit 1
+            fi
 
             # Copy and execute the test script
             docker cp valkey-packaging/scripts/test_packages.sh ${CONTAINER_NAME}:/test_packages.sh
