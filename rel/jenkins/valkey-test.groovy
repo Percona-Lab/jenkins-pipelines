@@ -28,6 +28,12 @@ void testStage(String DOCKER_OS) {
             sed -i 's/percona-release enable valkey-9\\.0/percona-release enable ${VALKEY_REPO}/g' \
                 valkey-packaging/scripts/test_packages.sh
 
+            # Diagnostics: show cgroup and Docker info for debugging
+            echo "=== Host environment ==="
+            cat /proc/1/comm || true
+            stat -fc %T /sys/fs/cgroup 2>/dev/null || true
+            docker info --format '{{.CgroupDriver}} / {{.CgroupVersion}}' 2>/dev/null || true
+
             # Prepare a systemd-capable Docker image
             cat > Dockerfile.test-${BUILD_NUMBER} <<'DEOF'
 FROM ${DOCKER_OS}
@@ -38,12 +44,17 @@ RUN if [ -f /etc/debian_version ]; then \\
         yum install -y systemd wget procps-ng curl; \\
     fi
 RUN [ -f /sbin/init ] || ln -s /lib/systemd/systemd /sbin/init
+STOPSIGNAL SIGRTMIN+3
 CMD ["/sbin/init"]
 DEOF
             docker build -t ${TEST_IMAGE} -f Dockerfile.test-${BUILD_NUMBER} .
 
             # Start privileged container with systemd
             docker run -d --privileged --name ${CONTAINER_NAME} \
+                --cgroupns=host \
+                --tmpfs /tmp \
+                --tmpfs /run \
+                --tmpfs /run/lock \
                 -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
                 ${TEST_IMAGE}
 
