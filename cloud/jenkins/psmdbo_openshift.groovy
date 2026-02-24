@@ -254,7 +254,6 @@ EOF
                     oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > $TMP
                     oc registry login --registry='docker.io' --auth-basic="$DOCKER_READ_USER:$DOCKER_READ_PASS" --to=$TMP
                     oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=$TMP
-                    oc get image.config.openshift.io/cluster -o yaml | oc patch image.config.openshift.io/cluster --type=merge -p '{"spec":{"registrySources":{"allowedRegistries":["docker.io"]}}}'
                     rm -rf $TMP
                 '''
             }

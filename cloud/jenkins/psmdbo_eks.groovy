@@ -271,6 +271,10 @@ void runTest(Integer TEST_ID) {
                         export IMAGE_PMM3_SERVER=$IMAGE_PMM3_SERVER
                         export IMAGE_LOGCOLLECTOR=$IMAGE_LOGCOLLECTOR
                         export KUBECONFIG=/tmp/$CLUSTER_NAME-$clusterSuffix
+                        if [ ! -s "\$KUBECONFIG" ]; then
+                            echo "Kubeconfig not found at \$KUBECONFIG, re-fetching credentials..."
+                            aws eks update-kubeconfig --region ${EKS_REGION} --name $CLUSTER_NAME-$clusterSuffix
+                        fi
 
                         e2e-tests/$testName/run
                     """
