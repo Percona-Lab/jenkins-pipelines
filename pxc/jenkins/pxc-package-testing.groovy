@@ -382,7 +382,6 @@ def upgrade(String upgrade_type){
 def post_upgrade(String upgrade_type){
 
         script{
-
             catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
                 try {
                     echo "5. Backup logs"
@@ -409,7 +408,6 @@ def post_upgrade(String upgrade_type){
                     echo "Failed to archive artifacts: ${e.message}"
                 }
             }
-
         }
 }
 
