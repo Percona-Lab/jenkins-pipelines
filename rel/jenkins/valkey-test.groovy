@@ -41,7 +41,7 @@ RUN if [ -f /etc/debian_version ]; then \\
         apt-get update -qq && \\
         DEBIAN_FRONTEND=noninteractive apt-get install -y -qq systemd systemd-sysv wget procps curl gnupg2 lsb-release; \\
     else \\
-        yum install -y systemd wget procps-ng curl; \\
+        yum install -y systemd wget procps-ng; \\
     fi
 RUN [ -f /sbin/init ] || ln -s /lib/systemd/systemd /sbin/init
 STOPSIGNAL SIGRTMIN+3
