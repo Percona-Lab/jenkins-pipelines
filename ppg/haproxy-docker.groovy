@@ -55,8 +55,8 @@ parameters {
             name: 'ORGANIZATION')
         string(defaultValue: 'https://github.com/percona/percona-docker', description: 'Dockerfiles source', name: 'REPO_DOCKER')
         string(defaultValue: 'main', description: 'Tag/Branch for percona-docker repository', name: 'REPO_DOCKER_BRANCH')
-        string(defaultValue: '3.2.6', description: 'Orchestrator Version', name: 'VERSION')
-        string(defaultValue: '20', description: 'RPM version', name: 'RPM_RELEASE')
+        string(defaultValue: '2.8.18', description: 'HAProxy Version', name: 'VERSION')
+        string(defaultValue: '1', description: 'RPM version', name: 'RPM_RELEASE')
         choice(
             choices: '#releases-ci\n#releases',
             description: 'Channel for notifications',
@@ -78,7 +78,6 @@ parameters {
                 script {
                         sh '''
                             Dockerfile="Dockerfile"
-                            sudo dpkg --configure -a
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                             sudo apt-get -y install apparmor
                             sudo aa-status
@@ -98,17 +97,17 @@ parameters {
                             git clone ${REPO_DOCKER}
                             cd percona-docker
                             git checkout ${REPO_DOCKER_BRANCH}
-                            cd orchestrator
+                            cd haproxy
                             sudo docker --version
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker builder prune -af
-                                sudo docker build --provenance=false -t perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f ${Dockerfile} .
-                                sudo docker buildx build --provenance=false --platform linux/arm64 -t perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64 --load -f ${Dockerfile} .
+                                sudo docker build --provenance=false -t perconalab/haproxy:${VERSION}-${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f ${Dockerfile} .
+                                sudo docker buildx build --provenance=false --platform linux/arm64 -t perconalab/haproxy:${VERSION}-${RPM_RELEASE}-arm64 --load -f ${Dockerfile} .
                             else
-                                sudo docker pull perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64
-                                sudo docker tag perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 percona/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64
-                                sudo docker pull perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64
-                                sudo docker tag perconalab/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64 percona/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64
+                                sudo docker pull perconalab/haproxy:${VERSION}-${RPM_RELEASE}-amd64
+                                sudo docker tag perconalab/haproxy:${VERSION}-${RPM_RELEASE}-amd64 percona/haproxy:${VERSION}-${RPM_RELEASE}-amd64
+                                sudo docker pull perconalab/haproxy:${VERSION}-${RPM_RELEASE}-arm64
+                                sudo docker tag perconalab/haproxy:${VERSION}-${RPM_RELEASE}-arm64 percona/haproxy:${VERSION}-${RPM_RELEASE}-arm64
                             fi
                             sudo docker images
                         '''
@@ -119,21 +118,21 @@ parameters {
                         )]) {
                         sh '''
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                            sudo docker tag ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-orchestrator:${VERSION}-amd64
-                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64
-                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-amd64
-                            sudo docker tag ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64 ${ORGANIZATION}/percona-orchestrator:${VERSION}-arm64
-                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64
-                            sudo docker push ${ORGANIZATION}/percona-orchestrator:${VERSION}-arm64
+                            sudo docker tag ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}-amd64 ${ORGANIZATION}/haproxy:${VERSION}-amd64
+                            sudo docker push ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}-amd64
+                            sudo docker push ${ORGANIZATION}/haproxy:${VERSION}-amd64
+                            sudo docker tag ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}-arm64 ${ORGANIZATION}/haproxy:${VERSION}-arm64
+                            sudo docker push ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}-arm64
+                            sudo docker push ${ORGANIZATION}/haproxy:${VERSION}-arm64
                        '''
                        }
                        sh '''
-                           sudo docker manifest create --amend ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE} \
-                               ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 \
-                               ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64
-                           sudo docker manifest annotate ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
-                           sudo docker manifest annotate ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
-                           sudo docker manifest inspect ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}
+                           sudo docker manifest create --amend ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE} \
+                               ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}-amd64 \
+                               ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}-arm64
+                           sudo docker manifest annotate ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
+                           sudo docker manifest inspect ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}
                        '''
                        withCredentials([
                        usernamePassword(credentialsId: 'hub.docker.com',
@@ -141,14 +140,14 @@ parameters {
                        usernameVariable: 'USER'
                        )]) {
                        sh '''
-                           MAJOR_RELEASE=$(echo ${VERSION} | awk '{print substr($0, 0, 1)}')
-                           MAJOR_FULL_RELEASE=$(echo ${VERSION} | awk '{print substr($0, 0, 3)}')
+                           PROXYSQL_MAJOR_RELEASE=$(echo ${VERSION} | awk '{print substr($0, 0, 1)}')
+                           PROXYSQL_MAJOR_FULL_RELEASE=$(echo ${VERSION} | awk '{print substr($0, 0, 3)}')
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                           sudo docker manifest push ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-orchestrator:${VERSION} ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-orchestrator:${MAJOR_FULL_RELEASE} ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-orchestrator:${MAJOR_RELEASE} ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/percona-orchestrator:latest ${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}
+                           sudo docker manifest push ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/haproxy:${VERSION} ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/haproxy:${PROXYSQL_MAJOR_FULL_RELEASE} ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/haproxy:${PROXYSQL_MAJOR_RELEASE} ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/haproxy:latest ${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}
                        '''
                        }
                 }
@@ -181,8 +180,8 @@ parameters {
 
                 // 🔹 Define the image tags
                     def imageList = [
-                        "${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-amd64",
-                        "${ORGANIZATION}/percona-orchestrator:${VERSION}-${RPM_RELEASE}-arm64"
+                        "${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}-amd64",
+                        "${ORGANIZATION}/haproxy:${VERSION}-${RPM_RELEASE}-arm64"
                     ]
 
                 // 🔹 Scan images and store logs
