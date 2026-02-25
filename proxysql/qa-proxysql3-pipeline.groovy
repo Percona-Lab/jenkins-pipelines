@@ -32,6 +32,10 @@ pipeline {
             name: 'PROXYSQL_PACKAGE_BRANCH',
             trim: true)
         string(
+            defaultValue: 'https://github.com/percona/proxysql-admin-tool.git',
+            description: 'URL for proxysql-admin-tool repository',
+            name: 'PAT_REPO')
+        string(
             defaultValue: 'v3',
             description: 'Tag/Branch for ProxySQL-admin-tool repository',
             name: 'PAT_TAG',

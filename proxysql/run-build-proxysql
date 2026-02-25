@@ -15,6 +15,7 @@ docker run --rm \
     sh -c "
     set -o errexit
     set -o xtrace
+    export PAT_REPO='${PAT_REPO}'
     export PAT_TAG='${PAT_TAG}'
 
     mkdir /tmp/results
