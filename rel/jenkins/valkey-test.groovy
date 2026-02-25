@@ -37,6 +37,7 @@ void testStage(String DOCKER_OS) {
             # Prepare a systemd-capable Docker image
             cat > Dockerfile.test-${BUILD_NUMBER} <<'DEOF'
 FROM ${DOCKER_OS}
+ENV container=docker
 RUN if [ -f /etc/debian_version ]; then \\
         apt-get update -qq && \\
         DEBIAN_FRONTEND=noninteractive apt-get install -y -qq systemd systemd-sysv wget procps curl gnupg2 lsb-release; \\
@@ -44,6 +45,7 @@ RUN if [ -f /etc/debian_version ]; then \\
         yum install -y systemd wget procps-ng; \\
     fi
 RUN [ -f /sbin/init ] || ln -s /lib/systemd/systemd /sbin/init
+RUN systemctl mask systemd-networkd-wait-online.service console-setup.service keyboard-setup.service sys-kernel-config.mount sys-kernel-debug.mount || true
 STOPSIGNAL SIGRTMIN+3
 CMD ["/sbin/init"]
 DEOF
