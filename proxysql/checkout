@@ -66,6 +66,6 @@ if [ "$SOURCE_NAME" == 'PROXYSQL' -o "$SOURCE_NAME" == 'ALL' ]; then
         fi
 
     popd
-    tar -zcvf ${ROOT_DIR}/proxysql-${BRANCH}.tar.gz ${ROOT_DIR}/proxysql --exclude=.bzr*
+    tar -zcvf ${ROOT_DIR}/proxysql-${BRANCH}.tar.gz --exclude=.bzr* ${ROOT_DIR}/proxysql
 fi
 
