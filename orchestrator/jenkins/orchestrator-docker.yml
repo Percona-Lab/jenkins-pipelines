@@ -1,0 +1,14 @@
+- job:
+    name: hetzner-orchestrator-docker-build
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/percona-lab/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: orchestrator/orchestrator-docker.groovy
