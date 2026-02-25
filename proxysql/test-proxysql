@@ -74,7 +74,7 @@ function get_glibc_version {
     "oraclelinux:8" | "ol:8")
       echo "2.28"
       ;;
-    "oraclelinux:9" | "ol:9" | "ol:9.6")
+    "oraclelinux:9" | "ol:9" | "ol:9.6" | "ol:9.7")
       echo "2.34"
       ;;
     "ubuntu:focal")
