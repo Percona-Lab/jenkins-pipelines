@@ -77,7 +77,7 @@ parameters {
             steps {
                 script {
                         sh '''
-                            Dockerfile="Dockerfile-percona-orchestrator"
+                            Dockerfile="Dockerfile"
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                             sudo apt-get -y install apparmor
                             sudo aa-status
