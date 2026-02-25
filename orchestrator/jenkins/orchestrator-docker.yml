@@ -11,4 +11,4 @@
             - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: orchestrator/orchestrator-docker.groovy
+      script-path: orchestrator/jenkins/orchestrator-docker.groovy
