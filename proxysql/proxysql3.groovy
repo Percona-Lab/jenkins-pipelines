@@ -411,7 +411,7 @@ pipeline {
                         sudo apt-get install -y qemu-system binfmt-support qemu-user-static
                         sudo qemu-system-x86_64 --version
                         sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
-                        git clone https://github.com/surbhat1595/percona-docker
+                        git clone https://github.com/percona/percona-docker
                         cd percona-docker/proxysql
                         sed -i "s/ENV PROXYSQL_VERSION.*/ENV PROXYSQL_VERSION ${VERSION}-${RPM_RELEASE}/g" Dockerfile-proxysql3
                         sed -i "s/enable proxysql testing/enable proxysql ${COMPONENT}/g" Dockerfile-proxysql3
