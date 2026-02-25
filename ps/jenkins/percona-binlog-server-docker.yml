@@ -1,0 +1,14 @@
+- job:
+    name: hetzner-pbs-docker-build
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/adivinho/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ps/jenkins/percona-binlog-server-docker.groovy
