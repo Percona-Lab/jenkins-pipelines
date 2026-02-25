@@ -78,6 +78,7 @@ parameters {
                 script {
                         sh '''
                             Dockerfile="Dockerfile"
+                            sudo dpkg --configure -a
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                             sudo apt-get -y install apparmor
                             sudo aa-status
