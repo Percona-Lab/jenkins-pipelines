@@ -1,12 +1,12 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@fix-ha", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 
 pipeline {
   agent {
-    label 'min-centos-7-x64'
+    label 'min-bookworm-x64'
   }
   environment {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
@@ -102,7 +102,7 @@ pipeline {
             stage ('Molecule: Prepare') {
               steps {
                 script {
-                  installMolecule()
+                  installMoleculeBookworm()
                 }
               }
             }
