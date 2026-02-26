@@ -9,7 +9,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PMM_DATA_RETENTION=48h -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PMM_DATA_RETENTION=48h -e PMM_ENABLE_TELEMETRY=0'),
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'),
@@ -67,6 +67,29 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
     env.VM_NAME = clusterCreateJob.buildVariables.VM_NAME
     env.WORK_DIR = clusterCreateJob.buildVariables.WORK_DIR
     env.FINAL_CLUSTER_NAME = clusterCreateJob.buildVariables.FINAL_CLUSTER_NAME
+    env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${pmmHostname}"
+    env.PMM_UI_URL = "${pmmAddress}/"
+}
+
+def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD) {
+    def pmmImageTag = DOCKER_VERSION.split(":")[1]
+
+    clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
+        string(name: 'K8S_VERSION', value: K8S_VERSION),
+        string(name: 'HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
+        string(name: 'PMM_IMAGE_TAG', value: pmmImageTag),
+        string(name: 'PMM_ADMIN_PASSWORD', value: ADMIN_PASSWORD),
+        booleanParam(name: 'ENABLE_EXTERNAL_ACCESS', value: true),
+        string(name: 'RETENTION_DAYS', value: '1'),
+    ]
+
+    def pmmAddress = clusterCreateJob.buildVariables.PMM_URL
+    def pmmHostname = pmmAddress.split("//")[1]
+
+    env.VM_IP = pmmHostname
+    env.VM_NAME = clusterCreateJob.buildVariables.VM_NAME
+    env.WORK_DIR = clusterCreateJob.buildVariables.WORK_DIR
+    env.CLUSTER_NAME = clusterCreateJob.buildVariables.CLUSTER_NAME
     env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${pmmHostname}"
     env.PMM_UI_URL = "${pmmAddress}/"
 }
@@ -221,7 +244,7 @@ pipeline {
             description: 'Tag/Branch for pmm-ui-tests repository',
             name: 'GIT_BRANCH')
         choice(
-            choices: ['docker', 'ovf', 'ami', 'helm'],
+            choices: ['docker', 'ovf', 'ami', 'helm', 'ha'],
             description: "PMM Server installation type.",
             name: 'SERVER_TYPE')
         string(
@@ -248,10 +271,18 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
+        string(
+            defaultValue: 'main',
+            description: 'HA setup branch of percona-helm-charts repo',
+            name: 'HELM_CHART_BRANCH')
         choice(
             choices: ['latest', '4.19.6', '4.19.5', '4.19.4', '4.19.3', '4.19.2', '4.18.9', '4.18.8', '4.18.7', '4.18.6', '4.18.5', '4.17.9', '4.17.8', '4.17.7', '4.17.6', '4.17.5', '4.16.9', '4.16.8', '4.16.7', '4.16.6', '4.16.5'],
             description: 'OpenShift version to install (specific version or channel)',
             name: 'OPENSHIFT_VERSION')
+        choice(
+            choices: ['1.34', '1.33', '1.32', '1.31', '1.30'],
+            description: 'HA setup Kubernetes cluster version',
+            name: 'K8S_VERSION')
         choice(
             choices: ['8.0', '8.4', '5.7'],
             description: 'Percona XtraDB Cluster version',
@@ -288,6 +319,10 @@ pipeline {
             choices: ['slowlog', 'perfschema'],
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
+        string(
+            defaultValue: '93',
+            description: 'PTS (Cloudbees Predictive Tests Selection) confidence % for selecting tests to run. Valid values are from 0 to 100.',
+            name: 'PTS_CONFIDENCE')
     }
     options {
         skipDefaultCheckout()
@@ -308,7 +343,19 @@ pipeline {
                     sudo mkdir -p /srv/qa-integration || :
                     sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
                     sudo chmod -R 755 /srv/qa-integration
-
+                    sudo apt update
+                    sudo apt install -y ca-certificates curl gnupg
+                    sudo install -m 0755 -d /etc/apt/keyrings
+                    curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+                      | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+                    sudo chmod a+r /etc/apt/keyrings/docker.gpg
+                    echo \
+                      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+                      https://download.docker.com/linux/ubuntu noble stable" \
+                      | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+                    sudo apt update
+                    sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+                    sudo systemctl enable --now docker
                 '''
             }
         }
@@ -322,7 +369,7 @@ pipeline {
                         runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', QA_INTEGRATION_GIT_BRANCH, ADMIN_PASSWORD)
                     }
                 }
-                stage('Setup OVF Server Instance') {
+                stage('Setup OVF PMM Server Instance') {
                     when {
                         expression { env.SERVER_TYPE == "ovf" }
                     }
@@ -330,7 +377,7 @@ pipeline {
                         runOVFStagingStart(DOCKER_VERSION, PMM_QA_GIT_BRANCH)
                     }
                 }
-                stage('Setup AMI Server Instance') {
+                stage('Setup AMI PMM Server Instance') {
                     when {
                         expression { env.SERVER_TYPE == "ami" }
                     }
@@ -338,12 +385,20 @@ pipeline {
                         runAMIStagingStart(DOCKER_VERSION)
                     }
                 }
-                stage('Setup Helm Server Instance') {
+                stage('Setup Helm PMM Server Instance') {
                     when {
                         expression { env.SERVER_TYPE == "helm" }
                     }
                     steps {
                         runOpenshiftClusterCreate(OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PASSWORD)
+                    }
+                }
+                stage('Setup HA PMM Server Instance') {
+                    when {
+                        expression { env.SERVER_TYPE == "ha" }
+                    }
+                    steps {
+                        runHAClusterCreate(K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD)
                     }
                 }
             }
@@ -422,6 +477,8 @@ pipeline {
                     npx playwright install
                     sudo npx playwright install-deps
                     envsubst < env.list > env.generated.list
+                    echo "Triggering Advisors Background Jobs..."
+                    node utils/triggerAdvisors.js
                 """
             }
         }
@@ -474,6 +531,31 @@ pipeline {
                 }
             }
         }
+        stage('Prepare Launchable') {
+            when {
+                expression { !['ovf', 'ami'].contains(env.SERVER_TYPE) }
+            }
+            steps {
+                withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
+                    sh '''
+                        sudo apt install -y pipx python3-full
+                        pipx ensurepath
+                        export PATH="$HOME/.local/bin:$PATH"
+
+                        pipx install 'launchable~=1.0' || pipx upgrade 'launchable~=1.0'
+                        launchable --version
+                        launchable verify
+
+                        sudo docker pull ${DOCKER_VERSION}
+                        export DOCKER_IMAGE_ID=$(sudo docker inspect -f '{{index .RepoDigests 0}}' ${DOCKER_VERSION} | cut -d@ -f2) || true
+
+                        launchable record session --build ${DOCKER_IMAGE_ID} --test-suite "nightly-ui-tests" --flavor pmm-server-tag=${DOCKER_VERSION} --flavor pmm-client-version=${CLIENT_VERSION} --flavor deployment-type=${SERVER_TYPE} > launchable-session.txt || true
+                        node launchable-prepare.js "@qan|@nightly|@menu" || true
+                        cat test_list.txt | launchable subset --session $(cat launchable-session.txt) --confidence ${PTS_CONFIDENCE}% --use-case feature-branch codeceptjs > launchable-subset.json || true
+                    '''
+                }
+            }
+        }
         stage('Run UI Tests') {
             options {
                 timeout(time: 300, unit: "MINUTES")
@@ -482,7 +564,12 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         sed -i 's+https://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
+
+                        if [ -s "launchable-subset.json" ]; then
+                            npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu' -o "\$(cat "launchable-subset.json")"
+                        else
+                            npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                        fi
                     """
                 }
             }
@@ -490,8 +577,16 @@ pipeline {
     }
     post {
         always {
-            // stop staging
             script {
+                withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
+                    sh '''
+                        curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                        export PATH="$HOME/.local/bin:$PATH"
+                        sed -i "s|$(pwd)/||g" tests/output/result.xml || true
+                        launchable record tests --session $(cat launchable-session.txt) codeceptjs tests/output/result.xml || true
+                    '''
+                }
+                // stop staging
                 if (env.SERVER_TYPE == "ovf") {
                     ovfStagingStopJob = build job: 'pmm-ovf-staging-stop', parameters: [
                         string(name: 'VM', value: env.OVF_INSTANCE_NAME),
@@ -506,6 +601,12 @@ pipeline {
                     build job: 'openshift-cluster-destroy', parameters: [
                         string(name: 'CLUSTER_NAME', value: env.FINAL_CLUSTER_NAME),
                         string(name: 'DESTROY_REASON', value: 'testing-complete'),
+                    ]
+                }
+                if (env.SERVER_TYPE == "ha") {
+                    build job: 'pmm3-ha-eks-cleanup', parameters: [
+                        string(name: 'ACTION', value: 'DELETE_CLUSTER'),
+                        string(name: 'CLUSTER_NAME', value: env.CLUSTER_NAME),
                     ]
                 }
                 if(env.VM_NAME && env.SERVER_TYPE == "docker") {
@@ -530,23 +631,21 @@ pipeline {
                     destroyStaging(VM_CLIENT_NAME_VALKEY)
                 }
             }
-            sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-            '''
         }
         success {
             script {
                 junit 'tests/output/*.xml'
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                archiveArtifacts artifacts: 'logs.zip'
+                archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
             }
         }
         failure {
             script {
                 junit 'tests/output/*.xml'
                 slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                archiveArtifacts artifacts: 'logs.zip'
-                archiveArtifacts artifacts: 'tests/output/*.png'
+                archiveArtifacts artifacts: 'logs.zip', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'tests/output/*.png', allowEmptyArchive: true
+                archiveArtifacts artifacts: 'tests/output/trace/*.zip', allowEmptyArchive: true
             }
         }
     }

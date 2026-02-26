@@ -18,7 +18,7 @@ pipeline {
                 Note: Daily cron automatically deletes clusters older than 1 day.
             '''
         )
-        string(name: 'CLUSTER_NAME', defaultValue: '', description: 'Required only for DELETE_CLUSTER')
+        string(name: 'CLUSTER_NAME', defaultValue: '', description: 'Cluster name(s) for DELETE_CLUSTER. Supports comma-separated values (e.g., pmm-ha-test-1,pmm-ha-test-2)')
     }
 
     options {
@@ -45,8 +45,13 @@ pipeline {
                     if (env.ACTION == 'DELETE_CLUSTER' && !params.CLUSTER_NAME) {
                         error("CLUSTER_NAME is required for DELETE_CLUSTER.")
                     }
-                    if (params.CLUSTER_NAME && !params.CLUSTER_NAME.startsWith(env.CLUSTER_PREFIX)) {
-                        error("Cluster name must start with ${env.CLUSTER_PREFIX}")
+                    if (params.CLUSTER_NAME) {
+                        params.CLUSTER_NAME.split(',').each { name ->
+                            def trimmed = name.trim()
+                            if (trimmed && !trimmed.startsWith(env.CLUSTER_PREFIX)) {
+                                error("Cluster name '${trimmed}' must start with ${env.CLUSTER_PREFIX}")
+                            }
+                        }
                     }
                 }
             }
@@ -88,13 +93,20 @@ pipeline {
             steps {
                 withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        if ! aws eks describe-cluster --region "${REGION}" --name "${CLUSTER_NAME}" >/dev/null 2>&1; then
-                            echo "Cluster '${CLUSTER_NAME}' not found in region '${REGION}'."
-                            exit 0
-                        fi
+                        IFS=',' read -ra CLUSTERS <<< "${CLUSTER_NAME}"
+                        for c in "${CLUSTERS[@]}"; do
+                            c=$(echo "$c" | xargs)  # trim whitespace
+                            [ -z "$c" ] && continue
 
-                        eksctl delete cluster --region "${REGION}" --name "${CLUSTER_NAME}" \
-                            --disable-nodegroup-eviction --wait
+                            if ! aws eks describe-cluster --region "${REGION}" --name "$c" >/dev/null 2>&1; then
+                                echo "Cluster '$c' not found in region '${REGION}' - skipping."
+                                continue
+                            fi
+
+                            echo "Deleting cluster: $c"
+                            eksctl delete cluster --region "${REGION}" --name "$c" \
+                                --disable-nodegroup-eviction --wait
+                        done
                     '''
                 }
             }

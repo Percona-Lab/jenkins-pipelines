@@ -1,6 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
 import hudson.model.*
-import hudson.plugins.ec2.AmazonEC2Cloud
+import hudson.plugins.ec2.EC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -338,7 +338,7 @@ initMap['debMap'] = '''
     # Determine Java version based on distribution
     if [[ ${DEB_VER} == "trixie" ]]; then
         JAVA_VER="openjdk-21-jre-headless"
-    elif [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "jammy" ]] || [[ ${DEB_VER} == "noble" ]] || [[ ${DEB_VER} == "focal" ]] || [[ ${DEB_VER} == "bionic" ]] || [[ ${DEB_VER} == "xenial" ]]; then
+    elif [[ ${DEB_VER} == "bookworm" ]] || [[ ${DEB_VER} == "bullseye" ]] || [[ ${DEB_VER} == "jammy" ]] || [[ ${DEB_VER} == "noble" ]] || [[ ${DEB_VER} == "focal" ]] || [[ ${DEB_VER} == "bionic" ]] || [[ ${DEB_VER} == "xenial" ]]; then
         JAVA_VER="openjdk-17-jre-headless"
     else
         JAVA_VER="openjdk-11-jre-headless"
@@ -580,7 +580,7 @@ String sshKeysCredentialsId = '8c46bb5e-04d9-4e07-b890-d097adfc7a2b'
 String region = 'eu-central-1'
 ('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
+    EC2Cloud ec2Cloud = new EC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
         '',                                     // String credentialsId
@@ -618,7 +618,7 @@ String region = 'eu-central-1'
 
     // add cloud configuration to Jenkins
     jenkins.clouds.each {
-        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
+        if (it.hasProperty('name') && it.name == ec2Cloud.name) {
             jenkins.clouds.remove(it)
         }
     }

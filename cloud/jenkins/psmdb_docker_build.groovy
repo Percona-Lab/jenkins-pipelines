@@ -16,45 +16,6 @@ void build(String IMAGE_SUFFIX){
         fi
     """
 }
-void checkImageForDocker(String IMAGE_SUFFIX){
-    try {
-             withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER'), string(credentialsId: 'SNYK_ID', variable: 'SNYK_ID')]) {
-                sh """
-                    IMAGE_SUFFIX=${IMAGE_SUFFIX}
-                    IMAGE_NAME='percona-server-mongodb-operator'
-                    MONGODB_VER=\$(echo ${IMAGE_SUFFIX} | tr -d '\\-debug' | tr -d 'mongod')
-                    PATH_TO_DOCKERFILE="source/percona-server-mongodb-\${MONGODB_VER}"
-                    IMAGE_TAG="\${GIT_PD_BRANCH}-\${IMAGE_SUFFIX}"
-                    if [ ${IMAGE_SUFFIX} = backup ]; then
-                        PATH_TO_DOCKERFILE="source/percona-backup-mongodb"
-                    elif [ ${IMAGE_SUFFIX} = operator ]; then
-                        PATH_TO_DOCKERFILE="operator-source/build"
-                        IMAGE_TAG=${GIT_BRANCH}
-                    fi
-
-                    sg docker -c "
-                        set -e
-                        docker login -u '${USER}' -p '${PASS}'
-
-                        snyk container test --platform=linux/amd64 --exclude-base-image-vulns --file=./\${PATH_TO_DOCKERFILE}/Dockerfile \
-                            --severity-threshold=high --json-file-output=\${IMAGE_SUFFIX}-report.json perconalab/\$IMAGE_NAME:\${IMAGE_TAG}
-                    "
-                """
-             }
-    } catch (Exception e) {
-        echo "Stage failed: ${e.getMessage()}"
-        sh """
-            exit 1
-        """
-    } finally {
-         echo "Executing post actions..."
-         sh """
-             IMAGE_SUFFIX=${IMAGE_SUFFIX}
-             snyk-to-html -i \${IMAGE_SUFFIX}-report.json -o \${IMAGE_SUFFIX}-report.html
-         """
-        archiveArtifacts artifacts: '*.html', allowEmptyArchive: true
-    }
-}
 
 void pushImageToDocker(String IMAGE_SUFFIX){
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
@@ -108,7 +69,6 @@ pipeline {
     }
     environment {
         PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
-        SNYK_TOKEN=credentials('SNYK_ID')
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
     }
     options {
@@ -121,11 +81,6 @@ pipeline {
             steps {
                 git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                 sh """
-                    curl -sL https://static.snyk.io/cli/latest/snyk-linux -o snyk
-                    chmod +x snyk
-                    sudo mv ./snyk /usr/local/bin/
-                    sudo npm install snyk-to-html -g
-
                     # sudo is needed for better node recovery after compilation failure
                     # if building failed on compilation stage directory will have files owned by docker user
                     sudo git config --global --add safe.directory '*'
@@ -203,50 +158,6 @@ pipeline {
                 pushImageToDocker('mongod8.0')
                 pushImageToDocker('mongod8.0-debug')
                 pushImageToDocker('backup')
-            }
-        }
-       stage('Snyk CVEs Check') {
-            parallel {
-                stage('psmdb operator'){
-                    steps {
-                        checkImageForDocker('operator')
-                    }
-                }
-                stage('mongod6.0'){
-                    steps {
-                        checkImageForDocker('mongod6.0')
-                    }
-                }
-                stage('mongod7.0'){
-                    steps {
-                        checkImageForDocker('mongod7.0')
-                    }
-                }
-                stage('mongod8.0'){
-                    steps {
-                        checkImageForDocker('mongod8.0')
-                    }
-                }
-                stage('mongod6.0-debug'){
-                    steps {
-                        checkImageForDocker('mongod6.0-debug')
-                    }
-                }
-                stage('mongod7.0-debug'){
-                    steps {
-                        checkImageForDocker('mongod7.0-debug')
-                    }
-                }
-                stage('mongod8.0-debug'){
-                    steps {
-                        checkImageForDocker('mongod8.0-debug')
-                    }
-                }
-                stage('PBM'){
-                    steps {
-                        checkImageForDocker('backup')
-                    }
-                }
             }
         }
     }
