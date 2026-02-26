@@ -225,8 +225,17 @@ pipeline {
                     script {
                         if (params.BUILD_RPM) {
                             sh """
-                                docker push ${IMAGE_NAME}:${VALKEY_VERSION}-amd64
-                                docker push ${IMAGE_NAME}:${VALKEY_VERSION}-arm64
+                                cd valkey-packaging/docker
+                                docker buildx build --push --provenance=true --sbom=true \
+                                    --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                    --platform linux/amd64 \
+                                    -t ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 \
+                                    -f Dockerfile .
+                                docker buildx build --push --provenance=true --sbom=true \
+                                    --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                    --platform linux/arm64 \
+                                    -t ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 \
+                                    -f Dockerfile .
 
                                 VALKEY_MINOR=\$(echo ${VALKEY_VERSION} | cut -d. -f1,2)
                                 VALKEY_MAJOR=\$(echo ${VALKEY_VERSION} | cut -d. -f1)
@@ -247,8 +256,17 @@ pipeline {
                         }
                         if (params.BUILD_HARDENED) {
                             sh """
-                                docker push ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64
-                                docker push ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64
+                                cd valkey-packaging/docker
+                                docker buildx build --push --provenance=true --sbom=true \
+                                    --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                    --platform linux/amd64 \
+                                    -t ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 \
+                                    -f Dockerfile.hardened .
+                                docker buildx build --push --provenance=true --sbom=true \
+                                    --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                    --platform linux/arm64 \
+                                    -t ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64 \
+                                    -f Dockerfile.hardened .
 
                                 VALKEY_MINOR=\$(echo ${VALKEY_VERSION} | cut -d. -f1,2)
                                 VALKEY_MAJOR=\$(echo ${VALKEY_VERSION} | cut -d. -f1)
