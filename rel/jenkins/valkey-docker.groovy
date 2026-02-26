@@ -219,60 +219,91 @@ pipeline {
                     passwordVariable: 'PASS',
                     usernameVariable: 'USER')
                 ]) {
-                    sh '''
-                        echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                    '''
+                    sh """
+                        docker login -u '${USER}' -p '${PASS}'
+                    """
                     script {
                         if (params.BUILD_RPM) {
                             sh """
-                                export DOCKER_CLI_EXPERIMENTAL=enabled
-                                sudo docker push ${IMAGE_NAME}:${VALKEY_VERSION}-amd64
-                                sudo docker push ${IMAGE_NAME}:${VALKEY_VERSION}-arm64
+                                docker push ${IMAGE_NAME}:${VALKEY_VERSION}-amd64
+                                docker push ${IMAGE_NAME}:${VALKEY_VERSION}-arm64
 
-                                sudo docker manifest create --amend ${IMAGE_NAME}:${VALKEY_VERSION} \
+                                docker manifest create --amend ${IMAGE_NAME}:${VALKEY_VERSION} \
                                     ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 \
                                     ${IMAGE_NAME}:${VALKEY_VERSION}-arm64
-                                sudo docker manifest annotate ${IMAGE_NAME}:${VALKEY_VERSION} \
+                                docker manifest annotate ${IMAGE_NAME}:${VALKEY_VERSION} \
                                     ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                                sudo docker manifest annotate ${IMAGE_NAME}:${VALKEY_VERSION} \
+                                docker manifest annotate ${IMAGE_NAME}:${VALKEY_VERSION} \
                                     ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 --os linux --arch amd64
-                                sudo docker manifest inspect ${IMAGE_NAME}:${VALKEY_VERSION}
-                                sudo docker manifest push --purge ${IMAGE_NAME}:${VALKEY_VERSION}
+                                docker manifest inspect ${IMAGE_NAME}:${VALKEY_VERSION}
+                                docker manifest push ${IMAGE_NAME}:${VALKEY_VERSION}
 
                                 VALKEY_MINOR=\$(echo ${VALKEY_VERSION} | cut -d. -f1,2)
                                 VALKEY_MAJOR=\$(echo ${VALKEY_VERSION} | cut -d. -f1)
 
-                                sudo docker buildx imagetools create -t ${IMAGE_NAME}:latest \
-                                    ${IMAGE_NAME}:${VALKEY_VERSION}
-                                sudo docker buildx imagetools create -t ${IMAGE_NAME}:\${VALKEY_MINOR} \
-                                    ${IMAGE_NAME}:${VALKEY_VERSION}
-                                sudo docker buildx imagetools create -t ${IMAGE_NAME}:\${VALKEY_MAJOR} \
-                                    ${IMAGE_NAME}:${VALKEY_VERSION}
+                                docker manifest create --amend ${IMAGE_NAME}:latest \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-arm64
+                                docker manifest annotate ${IMAGE_NAME}:latest \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 --os linux --arch arm64 --variant v8
+                                docker manifest annotate ${IMAGE_NAME}:latest \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 --os linux --arch amd64
+                                docker manifest push ${IMAGE_NAME}:latest
+
+                                docker manifest create --amend ${IMAGE_NAME}:\${VALKEY_MINOR} \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-arm64
+                                docker manifest annotate ${IMAGE_NAME}:\${VALKEY_MINOR} \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 --os linux --arch arm64 --variant v8
+                                docker manifest annotate ${IMAGE_NAME}:\${VALKEY_MINOR} \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 --os linux --arch amd64
+                                docker manifest push ${IMAGE_NAME}:\${VALKEY_MINOR}
+
+                                docker manifest create --amend ${IMAGE_NAME}:\${VALKEY_MAJOR} \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-arm64
+                                docker manifest annotate ${IMAGE_NAME}:\${VALKEY_MAJOR} \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 --os linux --arch arm64 --variant v8
+                                docker manifest annotate ${IMAGE_NAME}:\${VALKEY_MAJOR} \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 --os linux --arch amd64
+                                docker manifest push ${IMAGE_NAME}:\${VALKEY_MAJOR}
                             """
                         }
                         if (params.BUILD_HARDENED) {
                             sh """
-                                export DOCKER_CLI_EXPERIMENTAL=enabled
-                                sudo docker push ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64
-                                sudo docker push ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64
+                                docker push ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64
+                                docker push ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64
 
-                                sudo docker manifest create --amend ${IMAGE_NAME}:${VALKEY_VERSION}-hardened \
+                                docker manifest create --amend ${IMAGE_NAME}:${VALKEY_VERSION}-hardened \
                                     ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 \
                                     ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64
-                                sudo docker manifest annotate ${IMAGE_NAME}:${VALKEY_VERSION}-hardened \
+                                docker manifest annotate ${IMAGE_NAME}:${VALKEY_VERSION}-hardened \
                                     ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64 --os linux --arch arm64 --variant v8
-                                sudo docker manifest annotate ${IMAGE_NAME}:${VALKEY_VERSION}-hardened \
+                                docker manifest annotate ${IMAGE_NAME}:${VALKEY_VERSION}-hardened \
                                     ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 --os linux --arch amd64
-                                sudo docker manifest inspect ${IMAGE_NAME}:${VALKEY_VERSION}-hardened
-                                sudo docker manifest push --purge ${IMAGE_NAME}:${VALKEY_VERSION}-hardened
+                                docker manifest inspect ${IMAGE_NAME}:${VALKEY_VERSION}-hardened
+                                docker manifest push ${IMAGE_NAME}:${VALKEY_VERSION}-hardened
 
                                 VALKEY_MINOR=\$(echo ${VALKEY_VERSION} | cut -d. -f1,2)
                                 VALKEY_MAJOR=\$(echo ${VALKEY_VERSION} | cut -d. -f1)
 
-                                sudo docker buildx imagetools create -t ${IMAGE_NAME}:\${VALKEY_MINOR}-hardened \
-                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened
-                                sudo docker buildx imagetools create -t ${IMAGE_NAME}:\${VALKEY_MAJOR}-hardened \
-                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened
+                                docker manifest create --amend ${IMAGE_NAME}:\${VALKEY_MINOR}-hardened \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64
+                                docker manifest annotate ${IMAGE_NAME}:\${VALKEY_MINOR}-hardened \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64 --os linux --arch arm64 --variant v8
+                                docker manifest annotate ${IMAGE_NAME}:\${VALKEY_MINOR}-hardened \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 --os linux --arch amd64
+                                docker manifest push ${IMAGE_NAME}:\${VALKEY_MINOR}-hardened
+
+                                docker manifest create --amend ${IMAGE_NAME}:\${VALKEY_MAJOR}-hardened \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64
+                                docker manifest annotate ${IMAGE_NAME}:\${VALKEY_MAJOR}-hardened \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64 --os linux --arch arm64 --variant v8
+                                docker manifest annotate ${IMAGE_NAME}:\${VALKEY_MAJOR}-hardened \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 --os linux --arch amd64
+                                docker manifest push ${IMAGE_NAME}:\${VALKEY_MAJOR}-hardened
                             """
                         }
                     }
@@ -294,7 +325,7 @@ pipeline {
         }
         always {
             sh '''
-                sudo docker logout || true
+                docker logout || true
                 sudo rm -rf ./*
             '''
             deleteDir()
