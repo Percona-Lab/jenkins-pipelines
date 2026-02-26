@@ -120,7 +120,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=18
-                                def BRANCH_NAME = "release-18.2.1"
+                                def BRANCH_NAME = "release-18.3.1"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Source-Tarballs"
@@ -146,7 +146,7 @@ pipeline {
                         cleanUpWS()
                         script {
                                 def PG_VERSION=17
-                                def BRANCH_NAME = "release-17.8.1"
+                                def BRANCH_NAME = "release-17.9.1"
                                 def PACKAGE_VERSION = getPostgreSQLVersion(BRANCH_NAME, "configure.${PG_VERSION}.ssl3")
                                 println "Returned PACKAGE_VERSION: ${PACKAGE_VERSION}"
                                 def PRODUCT="Percona-PostgreSQL-Source-Tarballs"
