@@ -80,112 +80,136 @@ pipeline {
                 '''
             }
         }
-        stage('Build images') {
-            parallel {
-                stage('Build RPM image (amd64)') {
-                    when { expression { return params.BUILD_RPM } }
-                    steps {
-                        sh """
-                            cd valkey-packaging/docker
-                            sudo docker build --no-cache \
-                                --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
-                                --platform linux/amd64 \
-                                -t ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 \
-                                -f Dockerfile .
-                        """
-                    }
-                }
-                stage('Build RPM image (arm64)') {
-                    when { expression { return params.BUILD_RPM } }
-                    steps {
-                        sh """
-                            cd valkey-packaging/docker
-                            sudo docker build --no-cache \
-                                --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
-                                --platform linux/arm64 \
-                                -t ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 \
-                                -f Dockerfile .
-                        """
-                    }
-                }
-                stage('Build Hardened image (amd64)') {
-                    when { expression { return params.BUILD_HARDENED } }
-                    steps {
-                        withCredentials([
-                            usernamePassword(credentialsId: 'dhi.io',
-                            passwordVariable: 'DHI_PASS',
-                            usernameVariable: 'DHI_USER')
-                        ]) {
-                            sh '''
-                                echo "${DHI_PASS}" | sudo docker login dhi.io -u "${DHI_USER}" --password-stdin
-                            '''
+        stage('Build, test and scan') {
+            stages {
+                stage('Build images') {
+                    parallel {
+                        stage('Build RPM image (amd64)') {
+                            when { expression { return params.BUILD_RPM } }
+                            steps {
+                                sh """
+                                    cd valkey-packaging/docker
+                                    sudo docker build --no-cache \
+                                        --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                        --platform linux/amd64 \
+                                        -t ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 \
+                                        -f Dockerfile .
+                                """
+                            }
                         }
-                        sh """
-                            cd valkey-packaging/docker
-                            sudo docker build --no-cache \
-                                --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
-                                --platform linux/amd64 \
-                                -t ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 \
-                                -f Dockerfile.hardened .
-                        """
-                    }
-                }
-                stage('Build Hardened image (arm64)') {
-                    when { expression { return params.BUILD_HARDENED } }
-                    steps {
-                        withCredentials([
-                            usernamePassword(credentialsId: 'dhi.io',
-                            passwordVariable: 'DHI_PASS',
-                            usernameVariable: 'DHI_USER')
-                        ]) {
-                            sh '''
-                                echo "${DHI_PASS}" | sudo docker login dhi.io -u "${DHI_USER}" --password-stdin
-                            '''
+                        stage('Build RPM image (arm64)') {
+                            when { expression { return params.BUILD_RPM } }
+                            steps {
+                                sh """
+                                    cd valkey-packaging/docker
+                                    sudo docker build --no-cache \
+                                        --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                        --platform linux/arm64 \
+                                        -t ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 \
+                                        -f Dockerfile .
+                                """
+                            }
                         }
-                        sh """
-                            cd valkey-packaging/docker
-                            sudo docker build --no-cache \
-                                --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
-                                --platform linux/arm64 \
-                                -t ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64 \
-                                -f Dockerfile.hardened .
-                        """
+                        stage('Build Hardened image (amd64)') {
+                            when { expression { return params.BUILD_HARDENED } }
+                            steps {
+                                withCredentials([
+                                    usernamePassword(credentialsId: 'hub.docker.com',
+                                    passwordVariable: 'PASS',
+                                    usernameVariable: 'USER')
+                                ]) {
+                                    sh '''
+                                        echo "${PASS}" | sudo docker login dhi.io -u "${USER}" --password-stdin
+                                    '''
+                                }
+                                sh """
+                                    cd valkey-packaging/docker
+                                    sudo docker build --no-cache \
+                                        --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                        --platform linux/amd64 \
+                                        -t ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 \
+                                        -f Dockerfile.hardened .
+                                """
+                            }
+                        }
+                        stage('Build Hardened image (arm64)') {
+                            when { expression { return params.BUILD_HARDENED } }
+                            steps {
+                                withCredentials([
+                                    usernamePassword(credentialsId: 'hub.docker.com',
+                                    passwordVariable: 'PASS',
+                                    usernameVariable: 'USER')
+                                ]) {
+                                    sh '''
+                                        echo "${PASS}" | sudo docker login dhi.io -u "${USER}" --password-stdin
+                                    '''
+                                }
+                                sh """
+                                    cd valkey-packaging/docker
+                                    sudo docker build --no-cache \
+                                        --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                        --platform linux/arm64 \
+                                        -t ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64 \
+                                        -f Dockerfile.hardened .
+                                """
+                            }
+                        }
                     }
                 }
-            }
-        }
-        stage('Trivy CVE scan') {
-            steps {
-                sh '''
-                    sudo apt-get install -y wget || true
-                    wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
-                    echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
-                    sudo apt-get update
-                    sudo apt-get install -y trivy
-                '''
-                script {
-                    if (params.BUILD_RPM) {
-                        sh """
-                            echo "=== Trivy scan: RPM image (amd64) ==="
-                            sudo trivy image --severity HIGH,CRITICAL \
-                                ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 | tee trivy-rpm-amd64.txt
-                            echo "=== Trivy scan: RPM image (arm64) ==="
-                            sudo trivy image --severity HIGH,CRITICAL \
-                                ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 | tee trivy-rpm-arm64.txt
-                        """
-                    }
-                    if (params.BUILD_HARDENED) {
-                        sh """
-                            echo "=== Trivy scan: Hardened image (amd64) ==="
-                            sudo trivy image --severity HIGH,CRITICAL \
-                                ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 | tee trivy-hardened-amd64.txt
-                            echo "=== Trivy scan: Hardened image (arm64) ==="
-                            sudo trivy image --severity HIGH,CRITICAL \
-                                ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64 | tee trivy-hardened-arm64.txt
-                        """
+                stage('Test images') {
+                    steps {
+                        script {
+                            if (params.BUILD_RPM) {
+                                sh """
+                                    echo "=== Testing RPM image (amd64) ==="
+                                    cd valkey-packaging/docker
+                                    VALKEY_VERSION=${VALKEY_VERSION} sudo -E ./test-image.sh ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 rpm
+                                """
+                            }
+                            if (params.BUILD_HARDENED) {
+                                sh """
+                                    echo "=== Testing Hardened image (amd64) ==="
+                                    cd valkey-packaging/docker
+                                    VALKEY_VERSION=${VALKEY_VERSION} sudo -E ./test-image.sh ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 hardened
+                                """
+                            }
+                        }
                     }
                 }
-                archiveArtifacts artifacts: 'trivy-*.txt', allowEmptyArchive: true
+                stage('Trivy CVE scan') {
+                    steps {
+                        sh '''
+                            sudo apt-get install -y wget || true
+                            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+                            echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
+                            sudo apt-get update
+                            sudo apt-get install -y trivy
+                        '''
+                        script {
+                            if (params.BUILD_RPM) {
+                                sh """
+                                    echo "=== Trivy scan: RPM image (amd64) ==="
+                                    sudo trivy image --severity HIGH,CRITICAL \
+                                        ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 | tee trivy-rpm-amd64.txt
+                                    echo "=== Trivy scan: RPM image (arm64) ==="
+                                    sudo trivy image --severity HIGH,CRITICAL \
+                                        ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 | tee trivy-rpm-arm64.txt
+                                """
+                            }
+                            if (params.BUILD_HARDENED) {
+                                sh """
+                                    echo "=== Trivy scan: Hardened image (amd64) ==="
+                                    sudo trivy image --severity HIGH,CRITICAL \
+                                        ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 | tee trivy-hardened-amd64.txt
+                                    echo "=== Trivy scan: Hardened image (arm64) ==="
+                                    sudo trivy image --severity HIGH,CRITICAL \
+                                        ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64 | tee trivy-hardened-arm64.txt
+                                """
+                            }
+                        }
+                        archiveArtifacts artifacts: 'trivy-*.txt', allowEmptyArchive: true
+                    }
+                }
             }
         }
         stage('Push and create manifests') {
@@ -269,7 +293,6 @@ pipeline {
         always {
             sh '''
                 sudo docker logout || true
-                sudo docker logout dhi.io || true
                 sudo rm -rf ./*
             '''
             deleteDir()
