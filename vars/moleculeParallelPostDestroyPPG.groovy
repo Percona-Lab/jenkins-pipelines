@@ -5,6 +5,7 @@ def call(operatingSystems, moleculeDir) {
         sh """
             . virtenv/bin/activate
             cd ${moleculeDir}
+            export driver=ec2
             molecule destroy -s ${os}
         """
   }

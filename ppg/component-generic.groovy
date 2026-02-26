@@ -49,7 +49,7 @@ pipeline {
             name: 'COMPONENT_VERSION'
         )
         string(
-            defaultValue: 'ppg-18.1',
+            defaultValue: 'ppg-18.3',
             description: 'PPG version for test',
             name: 'VERSION'
         )

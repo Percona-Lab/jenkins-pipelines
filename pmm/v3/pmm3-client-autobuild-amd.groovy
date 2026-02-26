@@ -9,7 +9,9 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 )
 
 pipeline {
-    agent none
+    agent {
+        label 'agent-amd64-ol9'
+    }
     parameters {
         string(
             defaultValue: 'v3',
@@ -33,9 +35,6 @@ pipeline {
     }
     stages {
         stage('Build PMM Client') {
-            agent {
-                label 'agent-amd64-ol9'
-            }
             stages {
                 stage('Prepare') {
                     steps {
@@ -257,24 +256,14 @@ pipeline {
             }
         }
         stage('Push to public repository') {
-            agent {
-                label 'master'
-            }
             steps {
                 unstash 'uploadPath'
                 script {
-                  env.UPLOAD_PATH = sh(returnStdout: true, script: "cat uploadPath").trim()
-                }
-                // Upload packages to the repo defined in `DESTINATION`
-                sync2ProdPMMClientRepo(DESTINATION, env.UPLOAD_PATH, 'pmm3-client')
-                withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
-                    script {
-                        sh '''
-                            ssh -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -i ${KEY_PATH} ${USER}@repo.ci.percona.com "
-                                scp -P 2222 -o ConnectTimeout=1 -o StrictHostKeyChecking=no ${UPLOAD_PATH}/binary/tarball/*.tar.gz jenkins@jenkins-deploy.jenkins-deploy.web.r.int.percona.com:/data/downloads/TESTING/pmm/
-                            "
-                        '''
-                    }  
+                    env.UPLOAD_PATH = sh(returnStdout: true, script: "cat uploadPath").trim()
+                    build job: 'pmm3-client-repo-push', parameters: [
+                        string(name: 'DESTINATION', value: params.DESTINATION),
+                        string(name: 'UPLOAD_PATH', value: env.UPLOAD_PATH)
+                    ]
                 }
             }
         }

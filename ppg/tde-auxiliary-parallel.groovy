@@ -20,7 +20,7 @@ pipeline {
     parameters {
         string(
             name: 'VERSION',
-            defaultValue: 'ppg-18.1',
+            defaultValue: 'ppg-18.3',
             description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3'
         )
         choice(
@@ -63,7 +63,7 @@ pipeline {
         )
         string(
             name: 'TDE_BRANCH',
-            defaultValue: 'release-2.1',
+            defaultValue: 'release-2.1.2',
             description: 'TDE repo version/branch/tag to use; e.g main, release-2.1. NOT applicable with INSTALL_FROM_PACKAGES enabled.'
         )
         string(
@@ -83,7 +83,7 @@ pipeline {
         )
         string(
             name: 'TESTCASE_TO_SKIP',
-            defaultValue: 'pg_receivewal.sh,pg_tde_change_database_key_provider_vault_v2.sh',
+            defaultValue: 'pg_receivewal.sh',
             description: '''If SKIP_TESTCASE option is enabled, then testcase given here will be ignored. 
             Values should be comma separated. For example:
             pg_receivewal.sh,pg_tde_change_database_key_provider_vault_v2.sh'''
