@@ -45,8 +45,8 @@ pipeline {
                     sed -E "s/ENV PPG_REPO (.+)/ENV PPG_REPO ${params.PPG_REPO}/" -i Dockerfile-postgis
                     sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile-postgis
                     sed -E "s/ENV PPG_MINOR_VERSION (.+)/ENV PPG_MINOR_VERSION \$MIN_VER/" -i Dockerfile-postgis
-                    docker build --provenance=false --no-cache . -t percona-distribution-postgresql:\$MAJ_VER 
-                    docker build --provenance=false --no-cache . -t percona-distribution-postgresql-with-postgis:\$MAJ_VER -f Dockerfile-postgis
+                    docker build --no-cache . -t percona-distribution-postgresql:\$MAJ_VER 
+                    docker build --no-cache . -t percona-distribution-postgresql-with-postgis:\$MAJ_VER -f Dockerfile-postgis
                     """
             }
         }
