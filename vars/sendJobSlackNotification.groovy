@@ -19,14 +19,22 @@ def call(Map cfg = [:]) {
     def color = (failedCount > 0) ? '#FF0000' : '#36A64F'
     def status = (failedCount > 0) ? 'FAILED' : 'SUCCESS'
 
-    def upstreamCause = currentBuild.getBuildCauses('hudson.model.Cause$UpstreamCause')
+    def upstreamCause = currentBuild.getBuildCauses('org.jenkinsci.plugins.workflow.support.steps.build.BuildUpstreamCause')
+    if (!upstreamCause) {
+        upstreamCause = currentBuild.getBuildCauses('hudson.model.Cause$UpstreamCause')
+    }
     def userCause = currentBuild.getBuildCauses('hudson.model.Cause$UserIdCause')
+    def timerCause = currentBuild.getBuildCauses('hudson.triggers.TimerTrigger$TimerTriggerCause')
 
     def triggerDetails = null
     if (upstreamCause) {
-        triggerDetails = "${upstreamCause[0].upstreamProject} #${upstreamCause[0].upstreamBuild}"
+        def upstreamProject = upstreamCause[0].upstreamProject ?: 'unknown job'
+        def upstreamBuild = upstreamCause[0].upstreamBuild
+        triggerDetails = upstreamBuild ? "${upstreamProject} #${upstreamBuild}" : upstreamProject
     } else if (userCause) {
-        triggerDetails = userCause[0].userName
+        triggerDetails = userCause[0].userName ?: userCause[0].userId
+    } else if (timerCause) {
+        triggerDetails = 'cron schedule'
     }
 
     def isWeeklyTriggered = false
