@@ -85,6 +85,7 @@ pipeline {
 
     stage('Checkout') {
       steps {
+        cleanWs()
         deleteDir()
         git poll: false, branch: TESTING_BRANCH, url: TESTING_REPO
       }
@@ -171,6 +172,7 @@ pipeline {
               }
               post {
                 always {
+                  cleanWs()
                   junit testResults: "*-junit.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
                 }
               }
