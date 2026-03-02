@@ -1,6 +1,6 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@fix-dock-ha", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 
@@ -85,6 +85,7 @@ pipeline {
 
     stage('Checkout') {
       steps {
+        cleanWs()
         deleteDir()
         git poll: false, branch: TESTING_BRANCH, url: TESTING_REPO
       }
@@ -171,6 +172,7 @@ pipeline {
               }
               post {
                 always {
+                  cleanWs()
                   junit testResults: "*-junit.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
                 }
               }
