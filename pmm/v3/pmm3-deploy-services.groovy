@@ -7,7 +7,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 // INFRASTRUCTURE PROVISIONING
 // ===================================================================================
 
-void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
+void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin", SSH_KEY = "") {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
@@ -15,6 +15,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'CLIENT_INSTANCE', value: CLIENT_INSTANCE),
         string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_DEBUG=1 -e PMM_DATA_RETENTION=48h -e PMM_ENABLE_TELEMETRY=0'),
         string(name: 'SERVER_IP', value: SERVER_IP),
+        string(name: 'SSH_KEY', value: SSH_KEY),
         string(name: 'NOTIFY', value: 'false'),
         string(name: 'DAYS', value: '1'), 
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
@@ -101,17 +102,17 @@ pipeline {
 
   parameters {
     // --- SERVER CONFIGURATION ---
-    choice(name: 'SERVER_TYPE', choices: ['docker', 'ovf', 'ami', 'helm', 'ha'], description: 'Select PMM Server installation type')
+    choice(name: 'SERVER_TYPE', choices: ['docker', 'ovf', 'ami', 'helm', 'ha'], description: 'Select PMM Server installation type: docker (Basic Setup), ovf (PMM OVA/OVF image), ami (AWS EC2 AMI), helm (OpenShift), ha (High Availability).')
     
-    string(name: 'DOCKER_VERSION', defaultValue: 'perconalab/pmm-server:3-dev-latest', description: '[Docker/Helm/HA] Server Image. Ignored if OVF/AMI selected.')
-    string(name: 'OVA_VERSION', defaultValue: 'PMM2-Server-OVF-3.0.0-latest.ova', description: '[OVF Only] OVA File Name. Ignored for others.')
-    string(name: 'AMI_ID', defaultValue: 'ami-0669b163befffb6c3', description: '[AMI Only] AMI ID. Ignored for others.')
+    string(name: 'DOCKER_VERSION', defaultValue: 'perconalab/pmm-server:3-dev-latest', description: '[Docker/Helm/HA] PMM Server docker image (image-name:version-tag, e.g., perconalab/pmm-server:3-dev-latest). Ignored if OVF/AMI selected.')
+    string(name: 'OVA_VERSION', defaultValue: 'PMM3-Server-OVF-3.0.0-latest.ova', description: '[OVF Only] PMM Server OVA file name (e.g., PMM3-Server-OVF-3.0.0-latest.ova)')
+    string(name: 'AMI_ID', defaultValue: 'ami-0669b163befffb6c3', description: '[AMI Only] AWS AMI ID (e.g., ami-0669b163befffb6c3). Ignored for others.')
     
     // --- GLOBAL SETTINGS & VERSIONS ---
-    string(name: 'CLIENT_VERSION', defaultValue: '3-dev-latest', description: 'PMM Client version (All types)')
+    string(name: 'CLIENT_VERSION', defaultValue: '3-dev-latest', description: 'PMM Client version: "3-dev-latest" (main branch), "latest" or "X.X.X" (release), "pmm3-rc" (Release Candidate), or a feature build URL provided in pmm-submodules repo (http://...).')
     choice(name: 'ENABLE_PULL_MODE', choices: ['no', 'yes'], description: 'Enable Pull Mode for Clients')
-    string(name: 'ADMIN_PASSWORD', defaultValue: 'pmm3admin!', description: 'Final Admin Password to set after provisioning')
-    choice(name: 'DAYS', choices: ['1', '0', '2', '3', '4', '5', '7', '14', '30'], description: 'Auto-stop instances in X days (0 disables auto-removal)')
+    string(name: 'ADMIN_PASSWORD', defaultValue: 'pmm3admin!', description: 'Admin password applied after provisioning.')
+    string(name: 'SSH_KEY', defaultValue: '', description: 'Public SSH key for "ec2-user". Paste your OpenSSH public key to enable SSH access to AWS instances')
     
     // --- CLIENT SELECTION ---
     booleanParam(name: 'DEPLOY_EXTERNAL', defaultValue: false, 
@@ -144,7 +145,7 @@ pipeline {
     choice(name: 'K8S_VERSION', choices: ['1.34', '1.33', '1.32'], description: '[HA Only] K8s Version')
     
     // --- TECHNICAL/ADVANCED PARAMS ---
-    string(name: 'WATCHTOWER_VERSION', defaultValue: 'perconalab/watchtower:dev-latest', description: 'Internal tool (Watchtower)')
+    string(name: 'WATCHTOWER_VERSION', defaultValue: 'perconalab/watchtower:dev-latest', description: 'WatchTower docker image (image-name:version-tag, e.g., perconalab/watchtower:dev-latest).')
     string(name: 'PMM_QA_GIT_BRANCH', defaultValue: 'main', description: 'QA Integration Git Branch (used by provisioner scripts)')
   }
 
@@ -170,7 +171,7 @@ pipeline {
           env.OWNER    = ownerHandle ?: 'unknown'
           env.SLACK_DM = ownerHandle ? "@${ownerHandle}" : ""
 
-          currentBuild.description = "[${params.SERVER_TYPE}] Manual Environment. Expires in ${params.DAYS} days."
+          currentBuild.description = "[${params.SERVER_TYPE}] Manual Environment. Expires in 1 day."
           
           if (env.SLACK_DM) {
             slackSend botUser: true, channel: env.SLACK_DM, color: '#0000FF', message: "[${env.JOB_NAME}]: build started (${params.SERVER_TYPE}), owner: @${env.OWNER}, URL: ${env.BUILD_URL}"
@@ -184,7 +185,7 @@ pipeline {
           stage('Setup Docker Server') {
               when { expression { params.SERVER_TYPE == "docker" } }
               steps {
-                  runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, 'admin')
+                  runStagingServer(DOCKER_VERSION, CLIENT_VERSION, '--help', 'no', '127.0.0.1', PMM_QA_GIT_BRANCH, 'admin', SSH_KEY)
               }
           }
           stage('Setup OVF Server') {
@@ -415,11 +416,12 @@ void runClientWithRetry(String clientsString, String filenameLabel) {
                 string(name: 'CLIENT_VERSION', value: params.CLIENT_VERSION),
                 string(name: 'CLIENT_INSTANCE', value: 'yes'),
                 string(name: 'SERVER_IP', value: env.PMM_SERVER_IP),
+                string(name: 'SSH_KEY', value: params.SSH_KEY),
                 string(name: 'ENABLE_PULL_MODE', value: params.ENABLE_PULL_MODE),
                 string(name: 'ADMIN_PASSWORD', value: 'admin'),
                 string(name: 'PMM_QA_GIT_BRANCH', value: params.PMM_QA_GIT_BRANCH),
                 string(name: 'NOTIFY', value: 'false'),
-                string(name: 'DAYS', value: params.DAYS),
+                string(name: 'DAYS', value: '1'),
                 string(name: 'PXC_VERSION', value: params.PXC_VERSION),
                 string(name: 'PS_VERSION', value: params.PS_VERSION),
                 string(name: 'MS_VERSION', value: params.MS_VERSION),

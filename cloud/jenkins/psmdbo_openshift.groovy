@@ -1,11 +1,14 @@
-tests=[]
-clusters=[]
-release_versions="source/e2e-tests/release_versions"
+import groovy.transform.Field
+
+@Field def numClusters = 8
+@Field def tests = []
+@Field def clusters = []
+@Field def release_versions = "source/e2e-tests/release_versions"
 
 String getParam(String paramName, String keyName = null) {
     keyName = keyName ?: paramName
 
-    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
+    def param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
     if ("$param") {
         echo "$paramName=$param (from params file)"
     } else {
@@ -79,7 +82,7 @@ void prepareNode() {
     """
     downloadKubectl()
     sh """
-        curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+        curl -fsSL https://get.helm.sh/helm-v3.20.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-client-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - oc
         curl -s -L https://mirror.openshift.com/pub/openshift-v4/clients/ocp/$PLATFORM_VER/openshift-install-linux.tar.gz | sudo tar -C /usr/local/bin -xzf - openshift-install
@@ -95,28 +98,29 @@ void prepareNode() {
     }
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    CLUSTER_NAME = sh(script: "echo $JOB_NAME-$GIT_SHORT_COMMIT | tr '[:upper:]' '[:lower:]'", returnStdout: true).trim()
+    CLUSTER_NAME = "psmdbo-${GIT_SHORT_COMMIT.take(6)}".toLowerCase()
+    env.CLUSTER_NAME = CLUSTER_NAME
     PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MONGOD-$IMAGE_BACKUP-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_PMM3_CLIENT-$IMAGE_PMM3_SERVER-$IMAGE_LOGCOLLECTOR | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
+        sh '''
             if [[ "$IMAGE_OPERATOR" ]]; then
                 echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
-                sg docker -c "
+                sg docker -c '
                     docker buildx create --use
-                    docker login -u '$USER' -p '$PASS'
+                    echo "$PASS" | docker login -u "$USER" --password-stdin
                     export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                     e2e-tests/build
                     docker logout
-                "
+                '
                 sudo rm -rf build
             fi
-        """
+        '''
     }
 }
 
@@ -143,7 +147,7 @@ void initTests() {
     }
 
     echo "Marking passed tests in the tests map!"
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         if ("$IGNORE_PREVIOUS_RUN" == "NO") {
             sh """
                 aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
@@ -166,40 +170,49 @@ void initTests() {
     }
 
     withCredentials([file(credentialsId: 'cloud-secret-file-psmdb', variable: 'CLOUD_SECRET_FILE')]) {
-        sh """
+        sh '''
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
-        """
+        '''
     }
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated=0
+    def clusterCreated = 0
 
-    for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "skipped") {
-            tests[i]["result"] = "failure"
-            tests[i]["cluster"] = cluster
-            if (clusterCreated == 0) {
-                createCluster(cluster)
-                clusterCreated++
+    try {
+        for (int i=0; i<tests.size(); i++) {
+            if (tests[i]["result"] == "skipped") {
+                tests[i]["result"] = "failure"
+                tests[i]["cluster"] = cluster
+                if (clusterCreated == 0) {
+                    clusterCreated = 1
+                    createCluster(cluster)
+                }
+                runTest(i)
             }
-            runTest(i)
         }
-    }
-
-    if (clusterCreated >= 1) {
-        shutdownCluster(cluster)
+    } finally {
+        if (clusterCreated >= 1) {
+            try {
+                shutdownCluster(cluster)
+                clusters.remove(cluster)
+            } catch (Exception e) {
+                echo "Warning: Error shutting down cluster $cluster: ${e.getMessage()}"
+            }
+        }
     }
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
-        sh """
-            mkdir -p openshift/$CLUSTER_SUFFIX
-            timestamp="\$(date +%s)"
-tee openshift/$CLUSTER_SUFFIX/install-config.yaml << EOF
+    timeout(time: 60, unit: 'MINUTES') {
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift4-secrets', variable: 'OPENSHIFT_CONF_FILE'), usernamePassword(credentialsId: 'docker.io', passwordVariable: 'DOCKER_READ_PASS', usernameVariable: 'DOCKER_READ_USER')]) {
+            withEnv(["CLUSTER_SUFFIX=${CLUSTER_SUFFIX}", "CLUSTER_NAME=${CLUSTER_NAME}"]) {
+                sh """
+                    mkdir -p openshift/\$CLUSTER_SUFFIX
+                    timestamp="\$(date +%s)"
+tee openshift/\$CLUSTER_SUFFIX/install-config.yaml << EOF
 additionalTrustBundlePolicy: Proxyonly
 credentialsMode: Mint
 apiVersion: v1
@@ -210,7 +223,7 @@ compute:
   name: worker
   platform:
     aws:
-      type: m5.2xlarge
+      type: m5.xlarge
   replicas: 3
 controlPlane:
   architecture: amd64
@@ -220,7 +233,7 @@ controlPlane:
   replicas: 1
 metadata:
   creationTimestamp: null
-  name: $CLUSTER_NAME-$CLUSTER_SUFFIX
+  name: \$CLUSTER_NAME-\$CLUSTER_SUFFIX
 networking:
   clusterNetwork:
   - cidr: 10.128.0.0/14
@@ -235,27 +248,29 @@ platform:
     region: ${AWS_REGION}
     userTags:
       iit-billing-tag: openshift
-      delete-cluster-after-hours: 8
+      delete-cluster-after-hours: 7
       team: cloud
       product: psmdb-operator
       creation-time: \$timestamp
 
 publish: External
 EOF
-            cat $OPENSHIFT_CONF_FILE >> openshift/$CLUSTER_SUFFIX/install-config.yaml
-        """
-
-        withEnv(["CLUSTER_SUFFIX=${CLUSTER_SUFFIX}"]) {
-            sshagent(['aws-openshift-41-key']) {
-                sh '''
-                    /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX
-                    export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
-                    TMP=$(mktemp)
-                    oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > $TMP
-                    oc registry login --registry='docker.io' --auth-basic="$DOCKER_READ_USER:$DOCKER_READ_PASS" --to=$TMP
-                    oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=$TMP
-                    rm -rf $TMP
-                '''
+                    cat $OPENSHIFT_CONF_FILE >> openshift/\$CLUSTER_SUFFIX/install-config.yaml
+                """
+                sshagent(['aws-openshift-41-key']) {
+                    sh '''
+                        /usr/local/bin/openshift-install create cluster --dir=openshift/$CLUSTER_SUFFIX --log-level=debug || {
+                            /usr/local/bin/openshift-install gather bootstrap --dir=openshift/$CLUSTER_SUFFIX || true
+                            exit 1
+                        }
+                        export KUBECONFIG=openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                        TMP=$(mktemp)
+                        oc get secret/pull-secret -n openshift-config --template='{{index .data ".dockerconfigjson" | base64decode}}' > $TMP
+                        oc registry login --registry='docker.io' --auth-basic="$DOCKER_READ_USER:$DOCKER_READ_PASS" --to=$TMP
+                        oc set data secret/pull-secret -n openshift-config --from-file=.dockerconfigjson=$TMP
+                        rm -rf $TMP
+                    '''
+                }
             }
         }
     }
@@ -317,7 +332,7 @@ void runTest(Integer TEST_ID) {
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
             touch $FILE_NAME
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
@@ -357,22 +372,27 @@ PLATFORM_VER=$PLATFORM_VER"""
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'openshift-cicd'], file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
-        sshagent(['aws-openshift-41-key']) {
-            sh """
-                export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
-                for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                    kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete services --all -n \$namespace --force --grace-period=0 || true
-                    kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
-                done
-                kubectl get svc --all-namespaces || true
+    timeout(time: 30, unit: 'MINUTES') {
+        withCredentials([aws(credentialsId: 'openshift-cicd', accessKeyVariable: 'AWS_ACCESS_KEY_ID'), file(credentialsId: 'aws-openshift-41-key-pub', variable: 'AWS_NODES_KEY_PUB'), file(credentialsId: 'openshift-secret-file', variable: 'OPENSHIFT-CONF-FILE')]) {
+            sshagent(['aws-openshift-41-key']) {
+                sh """
+                    export KUBECONFIG=$WORKSPACE/openshift/$CLUSTER_SUFFIX/auth/kubeconfig
+                    if [ -s "\$KUBECONFIG" ] && kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
+                        for namespace in \$(kubectl get namespaces --request-timeout=5s --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                            kubectl delete deployments --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                            kubectl delete sts --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                            kubectl delete replicasets --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                            kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                            kubectl delete services --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                            kubectl delete pods --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        done
+                    else
+                        echo "Skipping namespace cleanup: Kubernetes API is not reachable for $CLUSTER_NAME-$CLUSTER_SUFFIX"
+                    fi
 
-                /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
-            """
+                    /usr/local/bin/openshift-install destroy cluster --dir=openshift/$CLUSTER_SUFFIX || true
+                """
+            }
         }
     }
 }
@@ -442,6 +462,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
+        timeout(time: 7, unit: 'HOURS')
         copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
     stages {
@@ -461,62 +482,18 @@ pipeline {
             }
         }
         stage('Run Tests') {
-            parallel {
-                stage('cluster1') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
+            steps {
+                script {
+                    def parallelStages = [:]
+                    for (int i = 1; i <= numClusters; i++) {
+                        def clusterName = "c${i}"
+                        parallelStages[clusterName] = {
+                            stage(clusterName) {
+                                clusterRunner(clusterName)
+                            }
+                        }
                     }
-                    steps {
-                        clusterRunner('c1')
-                    }
-                }
-                stage('cluster2') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
-                    }
-                    steps {
-                        clusterRunner('c2')
-                    }
-                }
-                stage('cluster3') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
-                    }
-                    steps {
-                        clusterRunner('c3')
-                    }
-                }
-                stage('cluster4') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
-                    }
-                    steps {
-                        clusterRunner('c4')
-                    }
-                }
-                stage('cluster5') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
-                    }
-                    steps {
-                        clusterRunner('c5')
-                    }
-                }
-                stage('cluster6') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
-                    }
-                    steps {
-                        clusterRunner('c6')
-                    }
-                }
-                stage('cluster7') {
-                    options {
-                        timeout(time: 3, unit: 'HOURS')
-                    }
-                    steps {
-                        clusterRunner('c7')
-                    }
+                    parallel parallelStages
                 }
             }
         }
@@ -525,7 +502,7 @@ pipeline {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
-            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            junit testResults: '*.xml', healthScaleFactor: 1.0
             archiveArtifacts '*.xml,*.txt'
 
             script {

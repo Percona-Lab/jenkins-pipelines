@@ -1,7 +1,10 @@
-location=params.AKS_LOCATION ?: getLocation(JOB_NAME)
-tests=[]
-clusters=[]
-release_versions="source/e2e-tests/release_versions"
+import groovy.transform.Field
+
+@Field def location = ""
+@Field def numClusters = 8
+@Field def tests = []
+@Field def clusters = []
+@Field def release_versions = "source/e2e-tests/release_versions"
 
 String getLocation(String job_name) {
     if ("$job_name" == 'psmdbo-aks-1') {
@@ -14,7 +17,7 @@ String getLocation(String job_name) {
 String getParam(String paramName, String keyName = null) {
     keyName = keyName ?: paramName
 
-    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
+    def param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
     if ("$param") {
         echo "$paramName=$param (from params file)"
     } else {
@@ -48,6 +51,8 @@ void downloadKubectl() {
 }
 
 void prepareNode() {
+    location = params.AKS_LOCATION ?: getLocation(JOB_NAME)
+
     echo "=========================[ Cloning the sources ]========================="
     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
@@ -84,36 +89,11 @@ void prepareNode() {
     """
     downloadKubectl()
     sh """
-    curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
-    
-    if ! command -v az &>/dev/null; then
-        if [ "$JENKINS_AGENT" = "AWS" ]; then
-            curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
-            printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
-            sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
-        else
-            echo "Installing Azure CLI for Hetzner instances..."
-            sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
-            cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
-[azure-cli]
-name=Azure CLI
-baseurl=https://packages.microsoft.com/yumrepos/azure-cli
-enabled=1
-gpgcheck=1
-gpgkey=https://packages.microsoft.com/keys/microsoft.asc
-EOF
-            sudo dnf install azure-cli -y
-        fi
-    fi
-"""
+        curl -fsSL https://get.helm.sh/helm-v3.20.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+    """
 
-    echo "=========================[ Logging in the Kubernetes provider ]========================="
-    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
-        sh """
-            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
-            az account set -s "$AZURE_SUBSCRIPTION_ID"
-        """
-    }
+    installAzureCLI()
+    azureAuth()
 
     if ("$PLATFORM_VER" == "latest") {
         PLATFORM_VER = sh(script: "az aks get-versions --location $location --output json | jq -r '.values | max_by(.patchVersions) | .patchVersions | keys[]' | sort --version-sort | tail -1", returnStdout: true).trim()
@@ -133,21 +113,21 @@ EOF
 void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
+        sh '''
             if [[ "$IMAGE_OPERATOR" ]]; then
                 echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
-                sg docker -c "
+                sg docker -c '
                     docker buildx create --use
-                    docker login -u '$USER' -p '$PASS'
+                    echo "$PASS" | docker login -u "$USER" --password-stdin
                     export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                     e2e-tests/build
                     docker logout
-                "
+                '
                 sudo rm -rf build
             fi
-        """
+        '''
     }
 }
 
@@ -174,7 +154,7 @@ void initTests() {
     }
 
     echo "Marking passed tests in the tests map!"
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         if ("$IGNORE_PREVIOUS_RUN" == "NO") {
             sh """
                 aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
@@ -197,56 +177,62 @@ void initTests() {
     }
 
     withCredentials([file(credentialsId: 'cloud-secret-file-psmdb', variable: 'CLOUD_SECRET_FILE')]) {
-        sh """
+        sh '''
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
-        """
+        '''
     }
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated=0
+    def clusterCreated = 0
 
-    for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "skipped") {
-            tests[i]["result"] = "failure"
-            tests[i]["cluster"] = cluster
-            if (clusterCreated == 0) {
-                createCluster(cluster)
-                clusterCreated++
+    try {
+        for (int i=0; i<tests.size(); i++) {
+            if (tests[i]["result"] == "skipped") {
+                tests[i]["result"] = "failure"
+                tests[i]["cluster"] = cluster
+                if (clusterCreated == 0) {
+                    clusterCreated = 1
+                    createCluster(cluster)
+                }
+                runTest(i)
             }
-            runTest(i)
         }
-    }
-
-    if (clusterCreated >= 1) {
-        shutdownCluster(cluster)
+    } finally {
+        if (clusterCreated >= 1) {
+            try {
+                shutdownCluster(cluster)
+                clusters.remove(cluster)
+            } catch (Exception e) {
+                echo "Warning: Error shutting down cluster $cluster: ${e.getMessage()}"
+            }
+        }
     }
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    sh """
-        export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-        az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
-            -g percona-operators \
-            --subscription eng-cloud-dev \
-            --load-balancer-sku standard \
-            --enable-managed-identity \
-            --node-count 3 \
-            --node-vm-size Standard_B4ms \
-            --min-count 3 \
-            --max-count 3 \
-            --node-osdisk-size 30 \
-            --network-plugin kubenet \
-            --generate-ssh-keys \
-            --enable-cluster-autoscaler \
-            --outbound-type loadbalancer \
-            --kubernetes-version $PLATFORM_VER \
-            --tags team=cloud delete-cluster-after-hours=6 creation-time=\$(date -u +%s) \
-            -l $location
-        az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-$CLUSTER_SUFFIX --overwrite-existing
-    """
+    timeout(time: 30, unit: 'MINUTES') {
+        sh """
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            az aks create -n $CLUSTER_NAME-$CLUSTER_SUFFIX \
+                -g percona-operators \
+                --subscription eng-cloud-dev \
+                --load-balancer-sku standard \
+                --enable-managed-identity \
+                --node-count 3 \
+                --node-vm-size Standard_B4ms \
+                --node-osdisk-size 30 \
+                --network-plugin kubenet \
+                --generate-ssh-keys \
+                --outbound-type loadbalancer \
+                --kubernetes-version $PLATFORM_VER \
+                --tags team=cloud delete-cluster-after-hours=6 creation-time=\$(date -u +%s) \
+                -l $location
+            az aks get-credentials --subscription eng-cloud-dev --resource-group percona-operators --name $CLUSTER_NAME-$CLUSTER_SUFFIX --overwrite-existing
+        """
+    }
 }
 
 void runTest(Integer TEST_ID) {
@@ -303,7 +289,7 @@ void runTest(Integer TEST_ID) {
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
             touch $FILE_NAME
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
@@ -342,22 +328,60 @@ PLATFORM_VER=$PLATFORM_VER"""
     )
 }
 
-void shutdownCluster(String CLUSTER_SUFFIX) {
+void azureAuth() {
     withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
-            done
-            kubectl get svc --all-namespaces || true
+        sh '''
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
+            az account set -s "$AZURE_SUBSCRIPTION_ID"
+        '''
+    }
+}
 
-            az aks delete --name $CLUSTER_NAME-$CLUSTER_SUFFIX --resource-group percona-operators --subscription eng-cloud-dev --yes || true
-        """
+void installAzureCLI() {
+    sh """
+        if ! command -v az &>/dev/null; then
+            if [ "\$JENKINS_AGENT" = "AWS" ]; then
+                curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+                printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+                sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
+            else
+                echo "Installing Azure CLI for Hetzner instances..."
+                sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+                cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
+[azure-cli]
+name=Azure CLI
+baseurl=https://packages.microsoft.com/yumrepos/azure-cli
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc
+EOF
+                sudo dnf install azure-cli -y
+            fi
+        fi
+    """
+}
+
+void shutdownCluster(String CLUSTER_SUFFIX) {
+    timeout(time: 30, unit: 'MINUTES') {
+        withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+            sh """
+                export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+                if [ -s "\$KUBECONFIG" ] && kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
+                    for namespace in \$(kubectl get namespaces --request-timeout=5s --no-headers | awk '{print \$1}' | grep -vE "^kube-" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                        kubectl delete deployments --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete sts --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete replicasets --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete services --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete pods --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                    done
+                else
+                    echo "Skipping namespace cleanup: Kubernetes API is not reachable for $CLUSTER_NAME-$CLUSTER_SUFFIX"
+                fi
+
+                az aks delete --name $CLUSTER_NAME-$CLUSTER_SUFFIX --resource-group percona-operators --subscription eng-cloud-dev --yes || true
+            """
+        }
     }
 }
 
@@ -393,6 +417,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
+        timeout(time: 6, unit: 'HOURS')
         copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
     stages {
@@ -412,31 +437,18 @@ pipeline {
             }
         }
         stage('Run Tests') {
-            parallel {
-                stage('cluster1') {
-                    steps {
-                        clusterRunner('cluster1')
+            steps {
+                script {
+                    def parallelStages = [:]
+                    for (int i = 1; i <= numClusters; i++) {
+                        def clusterName = "cluster${i}"
+                        parallelStages[clusterName] = {
+                            stage(clusterName) {
+                                clusterRunner(clusterName)
+                            }
+                        }
                     }
-                }
-                stage('cluster2') {
-                    steps {
-                        clusterRunner('cluster2')
-                    }
-                }
-                stage('cluster3') {
-                    steps {
-                        clusterRunner('cluster3')
-                    }
-                }
-                stage('cluster4') {
-                    steps {
-                        clusterRunner('cluster4')
-                    }
-                }
-                stage('cluster5') {
-                    steps {
-                        clusterRunner('cluster5')
-                    }
+                    parallel parallelStages
                 }
             }
         }
@@ -445,7 +457,7 @@ pipeline {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
-            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            junit testResults: '*.xml', healthScaleFactor: 1.0
             archiveArtifacts '*.xml,*.txt'
 
             script {

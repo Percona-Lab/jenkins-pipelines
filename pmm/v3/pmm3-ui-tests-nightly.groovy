@@ -272,8 +272,8 @@ pipeline {
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: 'pmmha-v3',
-            description: 'HA setup branch of percona-helm-charts repo (pmmha-v3 has both pmm-ha and pmm-ha-dependencies)',
+            defaultValue: 'main',
+            description: 'HA setup branch of percona-helm-charts repo',
             name: 'HELM_CHART_BRANCH')
         choice(
             choices: ['latest', '4.19.6', '4.19.5', '4.19.4', '4.19.3', '4.19.2', '4.18.9', '4.18.8', '4.18.7', '4.18.6', '4.18.5', '4.17.9', '4.17.8', '4.17.7', '4.17.6', '4.17.5', '4.16.9', '4.16.8', '4.16.7', '4.16.6', '4.16.5'],
@@ -319,6 +319,10 @@ pipeline {
             choices: ['slowlog', 'perfschema'],
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
+        string(
+            defaultValue: '93',
+            description: 'PTS (Cloudbees Predictive Tests Selection) confidence % for selecting tests to run. Valid values are from 0 to 100.',
+            name: 'PTS_CONFIDENCE')
     }
     options {
         skipDefaultCheckout()
@@ -339,7 +343,19 @@ pipeline {
                     sudo mkdir -p /srv/qa-integration || :
                     sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git /srv/qa-integration
                     sudo chmod -R 755 /srv/qa-integration
-
+                    sudo apt update
+                    sudo apt install -y ca-certificates curl gnupg
+                    sudo install -m 0755 -d /etc/apt/keyrings
+                    curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+                      | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+                    sudo chmod a+r /etc/apt/keyrings/docker.gpg
+                    echo \
+                      "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+                      https://download.docker.com/linux/ubuntu noble stable" \
+                      | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+                    sudo apt update
+                    sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+                    sudo systemctl enable --now docker
                 '''
             }
         }
@@ -515,6 +531,31 @@ pipeline {
                 }
             }
         }
+        stage('Prepare Launchable') {
+            when {
+                expression { !['ovf', 'ami'].contains(env.SERVER_TYPE) }
+            }
+            steps {
+                withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
+                    sh '''
+                        sudo apt install -y pipx python3-full
+                        pipx ensurepath
+                        export PATH="$HOME/.local/bin:$PATH"
+
+                        pipx install 'launchable~=1.0' || pipx upgrade 'launchable~=1.0'
+                        launchable --version
+                        launchable verify
+
+                        sudo docker pull ${DOCKER_VERSION}
+                        export DOCKER_IMAGE_ID=$(sudo docker inspect -f '{{index .RepoDigests 0}}' ${DOCKER_VERSION} | cut -d@ -f2) || true
+
+                        launchable record session --build ${DOCKER_IMAGE_ID} --test-suite "nightly-ui-tests" --flavor pmm-server-tag=${DOCKER_VERSION} --flavor pmm-client-version=${CLIENT_VERSION} --flavor deployment-type=${SERVER_TYPE} > launchable-session.txt || true
+                        node launchable-prepare.js "@qan|@nightly|@menu" || true
+                        cat test_list.txt | launchable subset --session $(cat launchable-session.txt) --confidence ${PTS_CONFIDENCE}% --use-case feature-branch codeceptjs > launchable-subset.json || true
+                    '''
+                }
+            }
+        }
         stage('Run UI Tests') {
             options {
                 timeout(time: 300, unit: "MINUTES")
@@ -523,7 +564,12 @@ pipeline {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     sh """
                         sed -i 's+https://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                        npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
+
+                        if [ -s "launchable-subset.json" ]; then
+                            npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu' -o "\$(cat "launchable-subset.json")"
+                        else
+                            npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
+                        fi
                     """
                 }
             }
@@ -531,8 +577,16 @@ pipeline {
     }
     post {
         always {
-            // stop staging
             script {
+                withCredentials([string(credentialsId: 'LAUNCHABLE_TOKEN', variable: 'LAUNCHABLE_TOKEN')]) {
+                    sh '''
+                        curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                        export PATH="$HOME/.local/bin:$PATH"
+                        sed -i "s|$(pwd)/||g" tests/output/result.xml || true
+                        launchable record tests --session $(cat launchable-session.txt) codeceptjs tests/output/result.xml || true
+                    '''
+                }
+                // stop staging
                 if (env.SERVER_TYPE == "ovf") {
                     ovfStagingStopJob = build job: 'pmm-ovf-staging-stop', parameters: [
                         string(name: 'VM', value: env.OVF_INSTANCE_NAME),
@@ -577,9 +631,6 @@ pipeline {
                     destroyStaging(VM_CLIENT_NAME_VALKEY)
                 }
             }
-            sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-            '''
         }
         success {
             script {

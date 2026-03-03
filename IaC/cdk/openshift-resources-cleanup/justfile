@@ -1,0 +1,324 @@
+# OpenShift Resources Cleanup - CDK Deployment Automation
+# Usage: just <command>
+
+# Default AWS profile and region
+profile := env_var_or_default("AWS_PROFILE", "default")
+region := env_var_or_default("AWS_REGION", "us-east-2")
+
+# Stack name (single source of truth)
+stack_name := "OpenShiftResourcesCleanupStack"
+
+# Lambda function name from CDK stack outputs (dynamically retrieved)
+# This ensures justfile always uses the function name defined in the CDK stack
+# Falls back to "LambdaOpenShiftCleanup" if stack doesn't exist yet
+lambda_function := `aws cloudformation describe-stacks --stack-name {{stack_name}} --profile ${AWS_PROFILE:-default} --region ${AWS_REGION:-us-east-2} --query "Stacks[0].Outputs[?OutputKey=='LambdaFunctionName'].OutputValue | [0]" --output text 2>/dev/null || echo "LambdaOpenShiftCleanup"`
+
+# Default recipe - show available commands
+default:
+    @echo "OpenShift Resources Cleanup - CDK Deployment"
+    @echo ""
+    @echo "Quick Start:"
+    @echo "  just install                       Install dependencies"
+    @echo "  just deploy                        Deploy LIVE (scans all regions)"
+    @echo "  just logs                          Tail CloudWatch logs"
+    @echo "  just invoke-aws                    Test Lambda execution"
+    @echo ""
+    @echo "Deployment (Lambda deploys to {{region}}, configurable via AWS_REGION):"
+    @echo "  just deploy                        Deploy LIVE (scans all regions)"
+    @echo "  just deploy us-east-2              Deploy LIVE (scans us-east-2 only)"
+    @echo "  just deploy us-east-1,eu-west-1    Deploy LIVE (scans specific regions)"
+    @echo "  just deploy-dry                    Deploy DRY_RUN (scans all regions)"
+    @echo "  just deploy-dry us-east-2          Deploy DRY_RUN (scans us-east-2)"
+    @echo ""
+    @echo "Examples:"
+    @echo "  AWS_REGION=us-west-1 just deploy       # Deploy Lambda to us-west-1"
+    @echo "  just deploy us-east-2                  # Scan only us-east-2"
+    @echo "  just diff                          Preview infrastructure changes"
+    @echo "  just synth                         Generate CloudFormation template"
+    @echo "  just destroy                       Destroy the entire stack"
+    @echo ""
+    @echo "Monitoring:"
+    @echo "  just logs             Tail CloudWatch logs (follow)"
+    @echo "  just logs-recent      Show logs from last hour"
+    @echo "  just invoke-aws       Manually invoke Lambda"
+    @echo "  just info             Show Lambda configuration"
+    @echo "  just outputs          Show stack outputs"
+    @echo "  just params           Show stack parameters"
+    @echo ""
+    @echo "Testing & Quality:"
+    @echo "  just test             Run unit tests"
+    @echo "  just test-coverage    Run tests with detailed coverage"
+    @echo "  just lint             Run linters"
+    @echo "  just format           Format code"
+    @echo "  just ci               Full CI pipeline (lint + test + synth)"
+    @echo ""
+    @echo "Maintenance:"
+    @echo "  just update-code      Fast Lambda code update (no CDK)"
+    @echo "  just upgrade          Upgrade all dependencies"
+    @echo "  just versions         Show installed versions"
+    @echo "  just clean            Clean build artifacts"
+    @echo "  just validate         Validate CloudFormation template"
+    @echo ""
+    @echo "Run 'just --list' for all commands"
+
+# Install dependencies
+install:
+    @echo "Installing CDK and Lambda dependencies..."
+    uv pip install -r requirements.txt
+    @echo "Installing Lambda dependencies..."
+    cd lambda && uv pip install -r openshift_resource_cleanup/requirements.txt
+
+# Bootstrap CDK (first time only)
+bootstrap:
+    @echo "Bootstrapping CDK in {{region}} with profile {{profile}}..."
+    uv run cdk bootstrap aws://$(aws sts get-caller-identity --profile {{profile}} --query Account --output text)/{{region}} \
+        --profile {{profile}} \
+        --region {{region}}
+
+# Synthesize CloudFormation template
+synth: bundle-lambda
+    @echo "Synthesizing CloudFormation template..."
+    uv run cdk synth --profile {{profile}} --region {{region}}
+
+# Check and cleanup failed stack state
+check-stack:
+    #!/usr/bin/env bash
+    set -euo pipefail
+    STACK_STATUS=$(aws cloudformation describe-stacks --stack-name {{stack_name}} --profile {{profile}} --region {{region}} --query 'Stacks[0].StackStatus' --output text 2>/dev/null || echo "NONE")
+    if [ "$STACK_STATUS" = "ROLLBACK_COMPLETE" ]; then
+        echo "[!] Stack in ROLLBACK_COMPLETE state, cleaning up..."
+        aws logs delete-log-group --log-group-name /aws/lambda/{{lambda_function}} --profile {{profile}} --region {{region}} 2>/dev/null || true
+        aws cloudformation delete-stack --stack-name {{stack_name}} --profile {{profile}} --region {{region}}
+        aws cloudformation wait stack-delete-complete --stack-name {{stack_name}} --profile {{profile}} --region {{region}}
+        echo "[OK] Cleanup complete"
+    elif [ "$STACK_STATUS" != "NONE" ] && [ "$STACK_STATUS" != "CREATE_COMPLETE" ] && [ "$STACK_STATUS" != "UPDATE_COMPLETE" ]; then
+        echo "[!] Stack in unexpected state: $STACK_STATUS"
+        echo "Please check CloudFormation console and clean up manually"
+        exit 1
+    fi
+
+# Deploy in LIVE mode (default: scan all regions)
+deploy SCAN_REGIONS="all": check-stack bundle-lambda
+    @echo "[!] Deploying Lambda in LIVE mode"
+    @echo "Lambda deployment region: {{region}}"
+    @echo "Will scan regions: {{SCAN_REGIONS}}"
+    @echo "Press Ctrl+C to cancel, or Enter to continue..."
+    @read _
+    uv run cdk deploy \
+        --profile {{profile}} \
+        --region {{region}} \
+        --parameters DryRunMode=false \
+        --parameters TargetRegions={{SCAN_REGIONS}} \
+        --require-approval never
+
+# Deploy in DRY_RUN mode for testing
+deploy-dry SCAN_REGIONS="all": check-stack bundle-lambda
+    @echo "Deploying in DRY_RUN mode (safe, logs only)"
+    @echo "Lambda deployment region: {{region}}"
+    @echo "Will scan regions: {{SCAN_REGIONS}}"
+    uv run cdk deploy \
+        --profile {{profile}} \
+        --region {{region}} \
+        --parameters DryRunMode=true \
+        --parameters TargetRegions={{SCAN_REGIONS}} \
+        --require-approval never
+
+# Deploy with custom parameters
+deploy-custom DRY_RUN="true" THRESHOLD="30" EMAIL="" REGIONS="all": bundle-lambda
+    @echo "Deploying with custom parameters..."
+    uv run cdk deploy \
+        --profile {{profile}} \
+        --region {{region}} \
+        --parameters DryRunMode={{DRY_RUN}} \
+        --parameters UntaggedThresholdMinutes={{THRESHOLD}} \
+        --parameters NotificationEmail={{EMAIL}} \
+        --parameters TargetRegions={{REGIONS}}
+
+# Destroy the stack (cleanup)
+destroy:
+    @echo "[!] WARNING: This will destroy the entire stack!"
+    @echo "Stack: {{stack_name}}"
+    @echo "Region: {{region}}"
+    @echo "Profile: {{profile}}"
+    @echo ""
+    @echo "Press Ctrl+C to cancel, or Enter to continue..."
+    @read _
+    uv run cdk destroy --profile {{profile}} --region {{region}} --force
+
+# Diff against deployed stack
+diff:
+    @echo "Comparing local changes with deployed stack..."
+    uv run cdk diff --profile {{profile}} --region {{region}}
+
+# Tail CloudWatch logs
+logs:
+    @echo "Tailing CloudWatch logs for Lambda..."
+    @aws logs tail /aws/lambda/{{lambda_function}} \
+        --follow \
+        --format short \
+        --profile {{profile}} \
+        --region {{region}} 2>/dev/null || echo "Log group not found. Lambda may not be deployed or hasn't been invoked yet. Deploy with: just deploy"
+
+# Tail recent logs (last hour)
+logs-recent:
+    @echo "Showing logs from last hour..."
+    @aws logs tail /aws/lambda/{{lambda_function}} \
+        --since 1h \
+        --format short \
+        --profile {{profile}} \
+        --region {{region}} 2>/dev/null || echo "Log group not found. Lambda may not be deployed or hasn't been invoked yet. Deploy with: just deploy"
+
+# Invoke Lambda manually (AWS)
+invoke-aws:
+    @echo "Invoking Lambda in AWS..."
+    @aws lambda invoke \
+        --function-name {{lambda_function}} \
+        --profile {{profile}} \
+        --region {{region}} \
+        --log-type Tail \
+        /tmp/lambda-response.json 2>/dev/null && \
+        (echo "\nResponse:" && cat /tmp/lambda-response.json | jq '.' && rm /tmp/lambda-response.json) || \
+        echo "Lambda not found. Deploy first with: just deploy"
+
+# Get Lambda function info
+info:
+    @echo "Lambda function information:"
+    @aws lambda get-function \
+        --function-name {{lambda_function}} \
+        --profile {{profile}} \
+        --region {{region}} \
+        --query 'Configuration.{Name:FunctionName,Runtime:Runtime,Memory:MemorySize,Timeout:Timeout,Modified:LastModified,Architecture:Architectures[0]}' \
+        --output table 2>/dev/null || echo "Lambda not found. Deploy first with: just deploy"
+
+# Run unit tests
+test:
+    @echo "Running unit tests..."
+    PYTHONPATH=lambda:$$PYTHONPATH uv run --python 3.13 --with pytest --with pytest-cov --with 'aws-lambda-powertools[tracer]' --with boto3 --with botocore --with freezegun pytest tests/ -v --cov=openshift_resource_cleanup
+
+# Run unit tests with detailed coverage report
+test-coverage:
+    @echo "Running unit tests with coverage report..."
+    PYTHONPATH=lambda:$$PYTHONPATH uv run --python 3.13 --with pytest --with pytest-cov --with 'aws-lambda-powertools[tracer]' --with boto3 --with botocore --with freezegun pytest tests/ -v --cov=openshift_resource_cleanup --cov-report=term-missing
+
+# Run linting
+lint:
+    @echo "Running linters..."
+    uv run --with ruff ruff check lambda/openshift_resource_cleanup/
+    uv run --with black black --check lambda/openshift_resource_cleanup/
+    cd lambda/openshift_resource_cleanup && uv run --with mypy mypy .
+
+# Format code
+format:
+    @echo "Formatting code..."
+    uv run --with black black lambda/openshift_resource_cleanup/
+    uv run --with ruff ruff check --fix lambda/openshift_resource_cleanup/
+
+# Clean build artifacts
+clean:
+    @echo "Cleaning build artifacts..."
+    rg -g '*.pyc' --files | xargs rm -f || true
+    rg -g '__pycache__' --files | xargs rm -rf || true
+    rm -rf cdk.out
+    rm -rf .pytest_cache
+    rm -rf tests/.pytest_cache
+    rm -rf lambda/openshift_resource_cleanup.egg-info
+    rm -f /tmp/lambda-response.json
+    @echo "Cleaning bundled Lambda dependencies..."
+    find lambda -maxdepth 1 -type f -name "*.py" ! -name "__init__.py" -delete || true
+    find lambda -maxdepth 1 -type d ! -name lambda ! -name openshift_resource_cleanup -exec rm -rf {} + 2>/dev/null || true
+
+# Full CI pipeline (lint, test, synth)
+ci: lint test synth
+    @echo "[OK] CI pipeline completed successfully"
+
+# Watch for changes and auto-deploy
+watch:
+    @echo "Watching for changes (auto-deploy on save)..."
+    uv run cdk watch --profile {{profile}} --region {{region}}
+
+# Show stack outputs
+outputs:
+    @echo "Stack outputs:"
+    @aws cloudformation describe-stacks \
+        --stack-name {{stack_name}} \
+        --profile {{profile}} \
+        --region {{region}} \
+        --query 'Stacks[0].Outputs' \
+        --output table 2>/dev/null || echo "Stack '{{stack_name}}' not found in region {{region}}. Deploy first with: just deploy"
+
+# Show stack parameters
+params:
+    @echo "Stack parameters:"
+    @aws cloudformation describe-stacks \
+        --stack-name {{stack_name}} \
+        --profile {{profile}} \
+        --region {{region}} \
+        --query 'Stacks[0].Parameters' \
+        --output table 2>/dev/null || echo "Stack '{{stack_name}}' not found in region {{region}}. Deploy first with: just deploy"
+
+# List all Lambda functions
+list-lambdas:
+    @echo "All Lambda functions in {{region}}:"
+    aws lambda list-functions \
+        --profile {{profile}} \
+        --region {{region}} \
+        --query 'Functions[?starts_with(FunctionName, `Lambda`)].{Name:FunctionName,Runtime:Runtime,Size:CodeSize,Modified:LastModified}' \
+        --output table
+
+# Bundle Lambda with dependencies
+bundle-lambda:
+    @echo "Bundling Lambda with dependencies..."
+    @echo "Installing dependencies in lambda directory..."
+    uv pip install -r lambda/openshift_resource_cleanup/requirements.txt --target lambda/
+    @echo "[OK] Lambda bundled with dependencies"
+
+# Update Lambda code only (faster than full deploy)
+update-code: bundle-lambda
+    @echo "Building Lambda package..."
+    @cd lambda && zip -r /tmp/lambda-code.zip . >/dev/null
+    @echo "Updating Lambda function code..."
+    @aws lambda update-function-code \
+        --function-name {{lambda_function}} \
+        --zip-file fileb:///tmp/lambda-code.zip \
+        --profile {{profile}} \
+        --region {{region}} >/dev/null 2>&1 && \
+        (rm /tmp/lambda-code.zip && echo "[OK] Lambda code updated") || \
+        (rm -f /tmp/lambda-code.zip && echo "Lambda not found. Deploy first with: just deploy")
+
+# Update Lambda environment variables
+update-env DRY_RUN="true":
+    @echo "Updating Lambda environment variables..."
+    @aws lambda update-function-configuration \
+        --function-name {{lambda_function}} \
+        --environment "Variables={DRY_RUN={{DRY_RUN}}}" \
+        --profile {{profile}} \
+        --region {{region}} >/dev/null 2>&1 && \
+        echo "[OK] Environment updated to DRY_RUN={{DRY_RUN}}" || \
+        echo "Lambda not found. Deploy first with: just deploy"
+
+# Validate CloudFormation template
+validate:
+    @echo "Validating CloudFormation template..."
+    uv run cdk synth --profile {{profile}} --region {{region}} > /tmp/template.yaml
+    aws cloudformation validate-template \
+        --template-body file:///tmp/template.yaml \
+        --profile {{profile}} \
+        --region {{region}}
+    @rm /tmp/template.yaml
+    @echo "[OK] Template is valid"
+
+# Upgrade all dependencies
+upgrade:
+    @echo "Upgrading CDK and Python dependencies..."
+    uv pip install --upgrade aws-cdk-lib constructs boto3
+    @echo "Upgrading dev tools..."
+    uv pip install --upgrade pytest pytest-cov moto ruff black mypy
+    @echo "[OK] All dependencies upgraded"
+    @echo "Run 'just synth' to verify CDK works"
+
+# Show versions
+versions:
+    @echo "CDK version:"
+    @uv run cdk --version
+    @echo "\nPython packages:"
+    @uv pip list | grep -E "(aws-cdk-lib|constructs|boto3|pytest|ruff|black|mypy)"

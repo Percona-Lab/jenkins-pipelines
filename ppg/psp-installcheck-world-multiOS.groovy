@@ -19,12 +19,12 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: '18.1',
+            defaultValue: '18.3',
             description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3',
             name: 'VERSION'
         )
         string(
-            defaultValue: '18.1.1',
+            defaultValue: '18.3.1',
             description: 'Server PG version for test, including major and minor version, e.g 17.6.1',
             name: 'PERCONA_SERVER_VERSION'
         )
@@ -63,7 +63,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'main',
+            defaultValue: 'release-2.1.2',
             description: 'Branch for pg_tde repository. Would only be used with check-tde, check-all and installcheck-world testsuites.',
             name: 'TDE_BRANCH'
         )

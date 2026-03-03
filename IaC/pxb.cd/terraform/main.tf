@@ -80,6 +80,10 @@ resource "aws_spot_fleet_request" "jenkins" {
     monitoring                  = "false"
     user_data                   = data.template_file.master_user_data.rendered
     associate_public_ip_address = "true"
+    root_block_device {
+      volume_size = 20
+      volume_type = "gp3"
+    }
 
     tags = {
       Name            = "${var.cloud_name}"
@@ -104,6 +108,10 @@ resource "aws_spot_fleet_request" "jenkins" {
     monitoring                  = "false"
     user_data                   = data.template_file.master_user_data.rendered
     associate_public_ip_address = "true"
+    root_block_device {
+      volume_size = 20
+      volume_type = "gp3"
+    }
 
     tags = {
       Name            = "${var.cloud_name}"
@@ -128,6 +136,10 @@ resource "aws_spot_fleet_request" "jenkins" {
     monitoring                  = "false"
     user_data                   = data.template_file.master_user_data.rendered
     associate_public_ip_address = "true"
+    root_block_device {
+      volume_size = 20
+      volume_type = "gp3"
+    }
 
     tags = {
       Name            = "${var.cloud_name}"
@@ -152,6 +164,10 @@ resource "aws_spot_fleet_request" "jenkins" {
     monitoring                  = "false"
     user_data                   = data.template_file.master_user_data.rendered
     associate_public_ip_address = "true"
+    root_block_device {
+      volume_size = 20
+      volume_type = "gp3"
+    }
 
     tags = {
       Name            = "${var.cloud_name}"
