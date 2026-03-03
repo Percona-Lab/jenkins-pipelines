@@ -542,9 +542,9 @@ EOF
                         helm dependency update charts/pmm-ha-dependencies
                         helm upgrade --install pmm-operators charts/pmm-ha-dependencies -n pmm --wait --timeout 10m
 
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=300s
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=300s
-                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n pmm --timeout=300s
+                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=10m
+                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=10m
+                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=pg-operator -n pmm --timeout=10m
 
                         # Wait for operator webhooks to be fully initialized
                         # Operators report ready before their admission webhooks have TLS certificates configured
