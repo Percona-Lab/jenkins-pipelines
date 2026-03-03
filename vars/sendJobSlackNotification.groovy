@@ -37,22 +37,12 @@ def call(Map cfg = [:]) {
         triggerDetails = 'cron schedule'
     }
 
-    def isWeeklyTriggered = false
-    if (upstreamCause) {
-        def upstreamName = upstreamCause[0].upstreamProject?.toLowerCase() ?: ''
-        isWeeklyTriggered = upstreamName.contains('weekly') || upstreamName.contains('scheduler')
-    }
-
     def message = "*<${env.BUILD_URL}|${env.JOB_NAME} #${env.BUILD_NUMBER}>* - ${status}\n"
     def platformDetails = platformChannel ? "${platformVer} (${platformChannel})" : "${platformVer}"
     message += "*Branch:* `${gitBranch}` | *Platform:* `${platformDetails}` | *Mode:* `${cw}`\n"
 
     if (triggerDetails) {
         message += "*Triggered by:* ${triggerDetails}\n"
-    }
-
-    if (isWeeklyTriggered) {
-        message += "*Trigger type:* weekly schedule\n"
     }
 
     if (isRelease) {

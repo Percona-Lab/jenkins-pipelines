@@ -58,7 +58,7 @@ void initParams() {
 
 void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
-    git branch: 'cloud-slack-msg', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
         git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
     """

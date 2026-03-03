@@ -54,7 +54,7 @@ void prepareNode() {
     location = params.AKS_LOCATION ?: getLocation(JOB_NAME)
 
     echo "=========================[ Cloning the sources ]========================="
-    git branch: 'cloud-slack-msg', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
         # sudo is needed for better node recovery after compilation failure
         # if building failed on compilation stage directory will have files owned by docker user
