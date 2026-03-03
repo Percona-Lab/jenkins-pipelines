@@ -614,8 +614,8 @@ EOF
                             exit $HELM_EXIT_CODE
                         fi
 
-                        oc rollout status statefulset/pmm-ha -n pmm --timeout=600s
-                        oc wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=600s
+                        oc rollout status statefulset/pmm-ha -n pmm --timeout=30m
+                        oc wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=10m
                         oc get pods -n pmm
                     '''
                 }
