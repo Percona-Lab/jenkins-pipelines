@@ -46,7 +46,7 @@ void initParams() {
  
 void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
-    git branch: params.JENKINS_GIT_BRANCH, url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    git branch: (env.BRANCH_NAME ?: 'master'), url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
         git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator.git source
     """
@@ -416,7 +416,6 @@ pipeline {
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'AWS_REGION', defaultValue: 'eu-west-3', description: 'AWS region to use for openshift cluster')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
-        string(name: 'JENKINS_GIT_BRANCH', defaultValue: 'master', description: 'Tag/Branch for Percona-Lab/jenkins-pipelines repository')
     }
     agent {
         label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'min-al2023-x64'
@@ -512,11 +511,10 @@ pipeline {
 
             script {
                 try {
-                    def sendPxcSlack = load "vars/sendJobSlackNotification.groovy"
-                    if (sendPxcSlack != null) {
-                        sendPxcSlack.call(
+                    def sendJobSlack = load "vars/sendJobSlackNotification.groovy"
+                    if (sendJobSlack != null) {
+                        sendJobSlack.call(
                             tests: tests,
-                            channel: '#cloud-dev-ci',
                             gitBranch: GIT_BRANCH,
                             platformVer: PLATFORM_VER,
                             clusterWide: CLUSTER_WIDE,

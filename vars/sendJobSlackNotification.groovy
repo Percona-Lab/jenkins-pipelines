@@ -16,8 +16,9 @@ def call(Map cfg = [:]) {
     def duration = (currentBuild.durationString ?: "N/A").replace(' and counting', '')
     def isRelease = ("$pillarVersion" != "none")
     def cw = ("$clusterWide" == "YES") ? "cluster-wide" : "non-cluster-wide"
-    def color = (failedCount > 0) ? '#FF0000' : '#36A64F'
-    def status = (failedCount > 0) ? 'FAILED' : 'SUCCESS'
+    def buildResult = (currentBuild.currentResult ?: currentBuild.result ?: 'SUCCESS')
+    def status = (failedCount > 0 && buildResult == 'SUCCESS') ? 'FAILED' : buildResult
+    def color = (status == 'SUCCESS') ? '#36A64F' : (status == 'UNSTABLE' ? '#DAA038' : '#FF0000')
 
     def upstreamCause = currentBuild.getBuildCauses('org.jenkinsci.plugins.workflow.support.steps.build.BuildUpstreamCause')
     if (!upstreamCause) {

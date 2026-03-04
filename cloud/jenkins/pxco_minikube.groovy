@@ -15,7 +15,7 @@ String getParam(String paramName, String keyName = null) {
 
 void prepareNode() {
     echo "=========================[ Cloning the sources ]========================="
-    git branch: params.JENKINS_GIT_BRANCH, url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    git branch: (env.BRANCH_NAME ?: 'master'), url: 'https://github.com/Percona-Lab/jenkins-pipelines'
     sh """
         # sudo is needed for better node recovery after compilation failure
         # if building failed on compilation stage directory will have files owned by docker user
@@ -307,7 +307,6 @@ pipeline {
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Run tests with debug')
-        string(name: 'JENKINS_GIT_BRANCH', defaultValue: 'master', description: 'Tag/Branch for Percona-Lab/jenkins-pipelines repository')
     }
     agent {
         label 'docker-32gb'
@@ -349,18 +348,17 @@ pipeline {
             archiveArtifacts '*.xml,*.txt'
 
             script {
-                def sendPxcSlack = load "vars/sendJobSlackNotification.groovy"
-                if (sendPxcSlack != null) {
-                    sendPxcSlack.call(
+                try {
+                    def sendJobSlack = load "vars/sendJobSlackNotification.groovy"
+                    sendJobSlack.call(
                     tests: tests,
-                    channel: '#cloud-dev-ci',
                     gitBranch: GIT_BRANCH,
                     platformVer: PLATFORM_VER,
                     clusterWide: CLUSTER_WIDE,
                     pillarVersion: PILLAR_VERSION
                     )
-                } else {
-                    echo "sendJobSlackNotification.groovy load returned null, skipping Slack notification"
+                } catch (err) {
+                    echo "Slack helper load/call failed: ${err}"
                 }
             }
 
