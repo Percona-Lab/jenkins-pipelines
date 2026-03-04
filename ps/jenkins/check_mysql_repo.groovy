@@ -41,8 +41,13 @@ pipeline {
         )
         string(
             name: 'LLM_MODEL',
-            defaultValue: 'gemini-2.0-flash',
+            defaultValue: 'gemini-3-pro',
             description: 'LLM model for AI analysis'
+        )
+        booleanParam(
+            name: 'GENERATE_PER_COMPONENT_CSV',
+            defaultValue: false,
+            description: 'Generate per-component CSV breakdown in addition to the main report'
         )
     }
     triggers {
@@ -123,13 +128,16 @@ pipeline {
                         set -o xtrace
 
                         git clone --filter=blob:none ${ReposPathMap['MySQL']} mysql-server-repo
+
+                        curl -fsSL -o mysql_commit_report.py \
+                            https://raw.githubusercontent.com/percona/mysql-eol-dev/b42ac69b49a6ed489f25400efc9f0b8d1ac1df68/scripts/mysql_commit_report.py
                     """
 
                     // Create directory for CSV output
                     sh 'mkdir -p csv_output'
 
                     // Define version patterns to track
-                    def versionPatterns = ['mysql-5.7', 'mysql-8.0', 'mysql-8.4', 'mysql-9.0', 'mysql-9.1', 'mysql-9.2']
+                    def versionPatterns = ['mysql-8.0', 'mysql-8.4']
 
                     versionPatterns.each { versionPattern ->
                         echo "Processing version series: ${versionPattern}"
@@ -158,18 +166,19 @@ pipeline {
 
                                 // AI analysis: parameter takes precedence, then env var
                                 def enableAI = params.ENABLE_AI_ANALYSIS ?: (env.ENABLE_AI_ANALYSIS == 'true')
-                                def llmModel = params.LLM_MODEL ?: env.LLM_MODEL ?: 'gemini-2.0-flash'
+                                def llmModel = params.LLM_MODEL ?: env.LLM_MODEL ?: 'gemini-3-pro'
                                 def aiFlags = enableAI ? "-a -m ${llmModel}" : '-m no-ai'
                                 def csvSuffix = enableAI ? "_${llmModel}" : '_no-ai'
+                                def componentCsvFlag = params.GENERATE_PER_COMPONENT_CSV ? '-g' : ''
 
                                 sh """
                                     set -o errexit
                                     set -o xtrace
 
-                                    python3 ps/scripts/mysql_commit_report.py \
+                                    python3 mysql_commit_report.py \
                                         -i mysql-server-repo \
                                         -o csv_output \
-                                        -g \
+                                        ${componentCsvFlag} \
                                         ${aiFlags} \
                                         ${oldTag} ${newTag}
 
