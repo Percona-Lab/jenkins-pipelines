@@ -252,6 +252,24 @@ Resources:
       - Key: iit-billing-tag
         Value: !Ref JShortName
 
+  ChaosAgentSecurityGroup: # allow CHAOS team JNLP agent access (PS-10561)
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupName: chaos-jenkins
+      GroupDescription: Allow CHAOS team to connect to Jenkins as agent
+      VpcId: !Ref JVPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 50000
+        ToPort: 50000
+        CidrIp: 40.143.89.204/30
+        Description: CHAOS team JNLP agent access
+      Tags:
+      - Key: Name
+        Value: CHAOS-TO-JENKINS-AGENT-5k
+      - Key: iit-billing-tag
+        Value: !Ref JShortName
+
   JSlaveRole: # create Role for jenkins workers (needed for assign tags)
     Type: AWS::IAM::Role
     Properties:
@@ -459,6 +477,7 @@ Resources:
           - !GetAtt JVPC.DefaultSecurityGroup
           - !GetAtt HTTPSecurityGroup.GroupId
           - !GetAtt SSHSecurityGroup.GroupId
+          - !GetAtt ChaosAgentSecurityGroup.GroupId
         TagSpecifications:
         - ResourceType: instance
           Tags:
