@@ -78,6 +78,7 @@ networkMap['cloud.cd.percona.com'] = '11334955' // cloud.cd.percona.com
 initMap = [:]
 initMap['fedora-docker'] = '''#!/bin/bash -x
     set -o xtrace
+    echo -e "nameserver 9.9.9.9\nnameserver 1.1.1.1" | sudo tee /etc/resolv.conf
     ( sudo systemctl stop sshd; sleep 300; sudo systemctl start sshd ) &
     sudo fallocate -l 32G /swapfile
     sudo chmod 600 /swapfile
@@ -123,7 +124,6 @@ initMap['fedora-docker'] = '''#!/bin/bash -x
     sudo mkdir -p /etc/docker
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl status docker || sudo systemctl start docker
-    echo "* * * * * root /usr/sbin/route add default gw 10.30.236.1 eth0" | sudo tee /etc/cron.d/fix-default-route
     sudo systemctl start sshd
 '''
 initMap['fedora42-x64-nbg1']     = initMap['fedora-docker']

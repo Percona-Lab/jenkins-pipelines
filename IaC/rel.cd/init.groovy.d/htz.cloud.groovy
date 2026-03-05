@@ -78,6 +78,7 @@ networkMap['percona-vpc-eu'] = '10442325' // percona-vpc-eu
 initMap = [:]
 initMap['deb-docker'] = '''#!/bin/bash -x
     set -o xtrace
+    echo -e "nameserver 9.9.9.9\nnameserver 1.1.1.1" | sudo tee /etc/resolv.conf
     ( sudo systemctl stop sshd; sleep 300; sudo systemctl start sshd ) &
     sudo fallocate -l 32G /swapfile
     sudo chmod 600 /swapfile
@@ -128,7 +129,6 @@ initMap['deb-docker'] = '''#!/bin/bash -x
     sudo mkdir -p /etc/docker
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl restart docker
-    echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
     sudo systemctl start sshd
 '''
 initMap['deb12-x64-nbg1']     = initMap['deb-docker']
