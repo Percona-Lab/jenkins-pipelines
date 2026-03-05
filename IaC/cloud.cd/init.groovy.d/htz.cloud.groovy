@@ -124,7 +124,6 @@ initMap['fedora-docker'] = '''#!/bin/bash -x
     sudo mkdir -p /etc/docker
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl status docker || sudo systemctl start docker
-    echo "* * * * * root /usr/sbin/route add default gw 10.30.236.1 eth0" | sudo tee /etc/cron.d/fix-default-route
     sudo systemctl start sshd
 '''
 initMap['fedora42-x64-nbg1']     = initMap['fedora-docker']
