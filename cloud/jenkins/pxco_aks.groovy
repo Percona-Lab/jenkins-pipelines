@@ -25,7 +25,7 @@ String getParam(String paramName, String keyName = null) {
 
 void prepareNode() {
     echo "=========================[ Cloning the sources ]========================="
-    git branch: (env.BRANCH_NAME ?: 'master'), url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    checkout(scm)
     sh """
         # sudo is needed for better node recovery after compilation failure
         # if building failed on compilation stage directory will have files owned by docker user

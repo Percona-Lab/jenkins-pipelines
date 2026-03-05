@@ -96,7 +96,7 @@ void initParams() {
 
 void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
-    git branch: (env.BRANCH_NAME ?: 'master'), url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    checkout(scm)
     sh """
         git clone -b $GIT_BRANCH https://github.com/percona/percona-server-mysql-operator source
     """
