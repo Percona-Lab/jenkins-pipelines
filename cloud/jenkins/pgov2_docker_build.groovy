@@ -12,6 +12,42 @@ void generateImageSummary(filePath) {
     report += "</ul>\n"
     return report
 }
+void checkImagesForDocker(String imagesListPath){
+     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
+        sh """
+            IMAGES_LIST_PATH='${imagesListPath}'
+
+            while IFS= read -r IMAGE || [ -n "\$IMAGE" ]; do
+                [ -z "\$IMAGE" ] && continue
+                IMAGE_ID=\$(echo "\$IMAGE" | sed 's#[/:]#-#g')
+                TrivyLog="$WORKSPACE/trivy-hight-\${IMAGE_ID}.xml"
+
+                sg docker -c "
+                    echo "\$PASS" | docker login -u "\$USER" --password-stdin
+                    /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL \$IMAGE
+                    docker logout
+                "
+            done < "\$IMAGES_LIST_PATH"
+        """
+    }
+}
+
+String getTrivyCveSummary(String reportGlob) {
+    int highCount = 0
+    int criticalCount = 0
+
+    findFiles(glob: reportGlob).each { file ->
+        def report = readFile(file.path)
+        highCount += report.split('\\[HIGH\\]', -1).size() - 1
+        criticalCount += report.split('\\[CRITICAL\\]', -1).size() - 1
+    }
+
+    if (highCount == 0 && criticalCount == 0) {
+        return ''
+    }
+
+    return "\n*CVE*\n*CRITICAL:* `${criticalCount}`\n*HIGH:* `${highCount}`"
+}
 
 pipeline {
     parameters {
@@ -30,6 +66,7 @@ pipeline {
     environment {
         PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
         DOCKER_REPOSITORY_PASSPHRASE = credentials('DOCKER_REPOSITORY_PASSPHRASE')
+        TRIVY_VERSION = '0.69.3'
     }
     options {
         skipDefaultCheckout()
@@ -42,6 +79,14 @@ pipeline {
                 withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
                     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     sh """
+                        wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
+                        sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
+                        rm -f trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
+
+                        if [ ! -f /tmp/junit.tpl ]; then
+                            wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
+                        fi
+
                         export GIT_REPO=\$(echo \${GIT_REPO} | sed "s#github.com#\${GITHUB_TOKEN}@github.com#g")
                         # sudo is needed for better node recovery after compilation failure
                         # if building failed on compilation stage directory will have files owned by docker user
@@ -78,7 +123,7 @@ pipeline {
                                         cp "${docker_key}" ~/.docker/trust/private/
                                     fi
 
-                                    docker login -u '${USER}' -p '${PASS}'
+                                    echo "\$PASS" | docker login -u "\$USER" --password-stdin
                                     docker buildx create --use
 
                                     DOCKER_DEFAULT_PLATFORM='linux/amd64,linux/arm64' make build-docker-image
@@ -89,6 +134,16 @@ pipeline {
                             """
                         }
                     }
+                }
+            }
+        }
+        stage('Check PGv2 docker images') {
+            steps {
+                checkImagesForDocker('./source/list-of-images.txt')
+            }
+            post {
+                always {
+                    junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "trivy-hight-*.xml"
                 }
             }
         }
@@ -109,17 +164,25 @@ pipeline {
                     echo 'No ./source/list-of-images.txt file found - skipping summary generation'
                 }
             }
+        }
+        unstable {
+            script {
+                def trivySummary = getTrivyCveSummary('trivy-hight-*.xml')
+                slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PGv2 docker images unstable.${trivySummary} Please check the log ${BUILD_URL}"
+            }
+        }
+        failure {
+            script {
+                def trivySummary = getTrivyCveSummary('trivy-hight-*.xml')
+                slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PGv2 docker images failed.${trivySummary} Please check the log ${BUILD_URL}"
+            }
+        }
+        cleanup {
             sh '''
                 sudo docker rmi -f \$(sudo docker images -q) || true
                 sudo rm -rf ./source/build
             '''
             deleteDir()
-        }
-        unstable {
-            slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PGv2 docker images unstable. Please check the log ${BUILD_URL}"
-        }
-        failure {
-            slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PGv2 docker images failed. Please check the log ${BUILD_URL}"
         }
     }
 }
