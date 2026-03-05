@@ -78,6 +78,7 @@ networkMap['cloud.cd.percona.com'] = '11334955' // cloud.cd.percona.com
 initMap = [:]
 initMap['fedora-docker'] = '''#!/bin/bash -x
     set -o xtrace
+    echo -e "nameserver 9.9.9.9\nnameserver 1.1.1.1" | sudo tee /etc/resolv.conf
     ( sudo systemctl stop sshd; sleep 300; sudo systemctl start sshd ) &
     sudo fallocate -l 32G /swapfile
     sudo chmod 600 /swapfile
