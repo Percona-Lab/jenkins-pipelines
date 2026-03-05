@@ -39,20 +39,25 @@ pipeline {
     stages {
         stage('Install Tools') {
             steps {
-                sh '''
-                    mkdir -p $HOME/.local/bin
-                    export PATH="$HOME/.local/bin:$PATH"
+                withCredentials([string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')]) {
+                    sh '''
+                        mkdir -p $HOME/.local/bin
+                        export PATH="$HOME/.local/bin:$PATH"
 
-                    # Install ROSA CLI
-                    echo "Installing ROSA CLI..."
-                    curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/rosa/latest/rosa-linux.tar.gz -o rosa.tar.gz
-                    tar xzf rosa.tar.gz
-                    mv rosa $HOME/.local/bin/
-                    chmod +x $HOME/.local/bin/rosa
-                    rm -f rosa.tar.gz
+                        # Install ROSA CLI
+                        echo "Installing ROSA CLI..."
+                        curl -sL https://mirror.openshift.com/pub/openshift-v4/clients/rosa/latest/rosa-linux.tar.gz -o rosa.tar.gz
+                        tar xzf rosa.tar.gz
+                        mv rosa $HOME/.local/bin/
+                        chmod +x $HOME/.local/bin/rosa
+                        rm -f rosa.tar.gz
 
-                    rosa version
-                '''
+                        rosa version
+
+                        # Login once for the entire pipeline
+                        rosa login --token="${ROSA_TOKEN}"
+                    '''
+                }
             }
         }
 
@@ -86,14 +91,9 @@ pipeline {
         stage('List Clusters') {
             when { expression { env.ACTION == 'LIST_ONLY' } }
             steps {
-                withCredentials([
-                    aws(credentialsId: 'pmm-staging-slave'),
-                    string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
-                ]) {
+                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
                         set +x
-
-                        rosa login --token="${ROSA_TOKEN}"
 
                         CLUSTERS=$(rosa list clusters --region="${REGION}" -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'"))')
 
@@ -144,51 +144,31 @@ pipeline {
         stage('Delete Cluster') {
             when { expression { env.ACTION == 'DELETE_CLUSTER' } }
             steps {
-                withCredentials([
-                    aws(credentialsId: 'pmm-staging-slave'),
-                    string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
-                ]) {
-                    script {
-                        sh 'rosa login --token="${ROSA_TOKEN}"'
+                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
+                    sh '''
+                        for name in ${CLUSTER_NAME//,/ }; do
+                            echo "Processing cluster: $name"
 
-                        params.CLUSTER_NAME.split(',').each { name ->
-                            def clusterName = name.trim()
-                            if (!clusterName) return
+                            # Get OIDC config ID before deletion
+                            OIDC_ID=$(rosa describe cluster --cluster="$name" --region="${REGION}" -o json 2>/dev/null | jq -r '.aws.sts.oidc_config.id // empty' || true)
 
-                            echo "Processing cluster: ${clusterName}"
+                            echo "Deleting cluster: $name"
+                            rosa delete cluster --cluster="$name" --region="${REGION}" --yes --watch || true
 
-                            // Get OIDC config ID before deletion (if cluster exists)
-                            def oidcId = sh(
-                                returnStdout: true,
-                                script: "rosa describe cluster --cluster='${clusterName}' --region='${REGION}' -o json 2>/dev/null | jq -r '.aws.sts.oidc_config.id // empty' || true"
-                            ).trim()
+                            # Clean up IAM resources
+                            echo "Cleaning up operator roles for: $name"
+                            rosa delete operator-roles --prefix "$name" --region "${REGION}" --mode auto --yes || true
 
-                            def exists = sh(
-                                returnStatus: true,
-                                script: "rosa describe cluster --cluster='${clusterName}' --region='${REGION}' &>/dev/null"
-                            ) == 0
+                            if [ -n "$OIDC_ID" ]; then
+                                echo "Cleaning up OIDC provider: $OIDC_ID"
+                                rosa delete oidc-provider --oidc-config-id "$OIDC_ID" --region "${REGION}" --mode auto --yes || true
+                                echo "Cleaning up OIDC config: $OIDC_ID"
+                                rosa delete oidc-config --oidc-config-id "$OIDC_ID" --region "${REGION}" --mode auto --yes || true
+                            fi
 
-                            if (exists) {
-                                echo "Deleting cluster: ${clusterName}"
-                                sh "rosa delete cluster --cluster='${clusterName}' --region='${REGION}' --yes --watch || true"
-                            } else {
-                                echo "Cluster '${clusterName}' not found - skipping cluster deletion."
-                            }
-
-                            // Always clean up IAM resources
-                            echo "Cleaning up operator roles for: ${clusterName}"
-                            sh "rosa delete operator-roles --prefix '${clusterName}' --region '${REGION}' --mode auto --yes || true"
-
-                            if (oidcId) {
-                                echo "Cleaning up OIDC provider: ${oidcId}"
-                                sh "rosa delete oidc-provider --oidc-config-id '${oidcId}' --region '${REGION}' --mode auto --yes || true"
-                                echo "Cleaning up OIDC config: ${oidcId}"
-                                sh "rosa delete oidc-config --oidc-config-id '${oidcId}' --region '${REGION}' --mode auto --yes || true"
-                            }
-
-                            echo "Cleanup completed for: ${clusterName}"
-                        }
-                    }
+                            echo "Cleanup completed for: $name"
+                        done
+                    '''
                 }
             }
         }
@@ -196,13 +176,8 @@ pipeline {
         stage('Delete All Clusters') {
             when { expression { env.ACTION == 'DELETE_ALL' } }
             steps {
-                withCredentials([
-                    aws(credentialsId: 'pmm-staging-slave'),
-                    string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
-                ]) {
+                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        rosa login --token="${ROSA_TOKEN}"
-
                         CLUSTERS=$(rosa list clusters --region="${REGION}" -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'")) | .name')
 
                         if [ -z "$CLUSTERS" ]; then
@@ -240,13 +215,8 @@ pipeline {
         stage('Delete Old Clusters (cron)') {
             when { expression { env.ACTION == 'DELETE_OLD' } }
             steps {
-                withCredentials([
-                    aws(credentialsId: 'pmm-staging-slave'),
-                    string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
-                ]) {
+                withCredentials([aws(credentialsId: 'pmm-staging-slave')]) {
                     sh '''
-                        rosa login --token="${ROSA_TOKEN}"
-
                         CLUSTERS=$(rosa list clusters --region="${REGION}" -o json | jq -r '.[] | select(.name | startswith("'"${CLUSTER_PREFIX}"'")) | .name')
 
                         if [ -z "$CLUSTERS" ]; then
@@ -308,30 +278,6 @@ pipeline {
                         done
                     '''
                 }
-            }
-        }
-    }
-
-    post {
-        always {
-            script {
-                def clusterCount = 0
-                try {
-                    withCredentials([
-                        string(credentialsId: 'REDHAT_OFFLINE_TOKEN', variable: 'ROSA_TOKEN')
-                    ]) {
-                        sh 'rosa login --token="${ROSA_TOKEN}"'
-                        clusterCount = sh(
-                            returnStdout: true,
-                            script: '''
-                                rosa list clusters --region="${REGION}" -o json 2>/dev/null | jq -r '[.[] | select(.name | startswith("pmm-ha-rosa-"))] | length' || echo "0"
-                            '''
-                        ).trim().toInteger()
-                    }
-                } catch (Exception e) {
-                    clusterCount = 0
-                }
-                currentBuild.description = "Action: ${env.ACTION} | Clusters: ${clusterCount}"
             }
         }
     }
