@@ -4,6 +4,11 @@ library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+library changelog: false, identifier: 'pslib@hetzner', retriever: modernSCM(
+    scm: [$class: 'GitSCMSource', remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'],
+    libraryPath: 'ps/'
+)
+
 import groovy.transform.Field
 
 void installCli(String PLATFORM) {
