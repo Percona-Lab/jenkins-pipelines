@@ -404,8 +404,10 @@ if [ -f /usr/bin/apt-get ]; then
         pip3 install mysql-connector
     fi
     
-    # clenup
-    apt-get -y purge librtmp-dev || true
+    # clenup (skip Trixie: libcurl4-openssl-dev depends on librtmp-dev)
+    if [[ "${DIST}" != "trixie" ]]; then
+        apt-get -y purge librtmp-dev || true
+    fi
     apt-get -y clean
 
 
