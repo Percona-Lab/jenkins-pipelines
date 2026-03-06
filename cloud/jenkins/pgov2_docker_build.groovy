@@ -156,6 +156,7 @@ pipeline {
             post {
                 always {
                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "trivy-hight-*.xml"
+                    archiveArtifacts artifacts: "trivy-hight-*.xml", allowEmptyArchive: true
                 }
             }
         }

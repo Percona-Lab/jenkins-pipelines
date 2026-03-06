@@ -104,6 +104,7 @@ pipeline {
             post {
                 always {
                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "*-ps.xml"
+                    archiveArtifacts artifacts: "*-ps.xml", allowEmptyArchive: true
                 }
             }
         }

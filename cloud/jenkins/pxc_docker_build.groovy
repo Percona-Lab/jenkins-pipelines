@@ -124,6 +124,7 @@ pipeline {
             post {
                 always {
                     junit allowEmptyResults: true, skipPublishingChecks: true, testResults: "trivy-hight-pxc.xml"
+                    archiveArtifacts artifacts: "trivy-hight-pxc.xml", allowEmptyArchive: true
                 }
             }
         }
