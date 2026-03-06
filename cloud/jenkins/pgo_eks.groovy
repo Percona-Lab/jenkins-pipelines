@@ -217,6 +217,10 @@ nodeGroups:
     - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
     - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
     - arn:aws:iam::aws:policy/AmazonS3FullAccess
+  preBootstrapCommands:
+    - "echo 'vm.nr_hugepages=1024' >> /etc/sysctl.conf"
+    - "echo 'vm.hugetlb_shm_group=26' >> /etc/sysctl.conf"
+    - "sysctl -p"
   tags:
     'iit-billing-tag': 'jenkins-eks'
     'delete-cluster-after-hours': '10'
