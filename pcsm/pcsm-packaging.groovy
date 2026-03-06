@@ -13,40 +13,17 @@ pipeline {
       PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
   }
   parameters {
-      string(
-          name: 'pcsm_version',
-          description: 'Release branch version (e.g. 1.0.0)',
-          defaultValue: '1.0.0')
-      choice(
-          name: 'install_repo',
-          description: 'Repo for testing',
+      string(name: 'MONGODB_VERSION', description: 'Docker release version (e.g. 8.0.19-7 for Percona, 8.0.19-ubi8 for Mongodb Community)', defaultValue: 'latest')
+      booleanParam(name: 'MONGODB_COMMUNITY', defaultValue: true, description: 'Do you want to use Mongodb Community Edition')
+      choice(name: 'install_repo', description: 'Repo for testing',
           choices: [
               'testing',
               'release',
               'experimental'
-          ]
-      )
-      choice(
-          name: 'psmdb_version',
-          description: 'Version of PSMDB PCSM will interact with',
-          choices: [
-              '6.0',
-              '7.0',
-              '8.0'
-          ]
-      )
-      string(
-          name: 'TEST_BRANCH',
-          description: 'Branch for testing repository',
-          defaultValue: 'main')
-      string(
-          name: 'SSH_USER',
-          description: 'User for debugging',
-          defaultValue: 'none')
-      string(
-          name: 'SSH_PUBKEY',
-          description: 'User ssh public key for debugging',
-          defaultValue: 'none')
+          ])
+      string(name: 'TEST_BRANCH', description: 'Branch for psmdb testing repository', defaultValue: 'main')
+      string(name: 'SSH_USER', description: 'User for debugging', defaultValue: 'none')
+      string(name: 'SSH_PUBKEY', description: 'User ssh public key for debugging', defaultValue: 'none')
   }
   options {
           withCredentials(moleculePbmJenkinsCreds())
