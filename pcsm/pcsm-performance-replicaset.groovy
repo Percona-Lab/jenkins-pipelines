@@ -14,7 +14,7 @@ pipeline {
         choice(name: 'OPERATING_SYSTEM',description: 'Operating System',choices: ['ubuntu24', 'redhat8'])
         choice(name: 'MONGODB_PROVIDER',description: 'What provider of PSMDB',choices: ['Percona_MongoDB', 'MongoDB_Community'])
         choice(name: 'PSMDB',description: 'PSMDB used for testing',choices: ['6', '7','8'])
-        string(name: 'PCSM_BRANCHVER',description: 'PCSM Branch for testing',defaultValue: 'main')
+        string(name: 'PCSM_BRANCH',description: 'PCSM Branch for testing',defaultValue: 'main')
         string(name: 'TESTING_BRANCH',description: 'Branch for testing repository',defaultValue: 'main')
         string(name: 'GO_VERSION',description: 'Version of Golang used',defaultValue: '1.24.1')
         choice(name: 'INSTANCE_TYPE',description: 'Ec2 instance type',choices: ['t2.micro','i3.large','i3en.large','i3.xlarge','i3en.xlarge','i3en.3xlarge','i3en.24xlarge'])
