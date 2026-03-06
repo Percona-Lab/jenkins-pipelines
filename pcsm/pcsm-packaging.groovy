@@ -14,7 +14,7 @@ pipeline {
   }
   parameters {
       string(name: 'MONGODB_VERSION', description: 'Docker release version (e.g. 8.0.19-7 for Percona, 8.0.19-ubi8 for Mongodb Community)', defaultValue: 'latest')
-      booleanParam(name: 'MONGODB_COMMUNITY', defaultValue: true, description: 'Do you want to use Mongodb Community Edition')
+      booleanParam(name: 'MONGODB_COMMUNITY', defaultValue: false, description: 'Do you want to use Mongodb Community Edition')
       choice(name: 'install_repo', description: 'Repo for testing',
           choices: [
               'testing',
