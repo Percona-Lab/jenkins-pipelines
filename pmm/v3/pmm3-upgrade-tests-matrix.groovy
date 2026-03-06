@@ -6,8 +6,9 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 def pmmVersions = pmmVersion('v3')[-5..-1]
 def latestVersion = pmmVersion('v3').last()
 
-void runUpgradeJob(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion) {
+void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion) {
     upgradeJob = build job: 'pmm3-upgrade-tests', parameters: [
+        string(name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH', value: PMM_UI_PRE_UPGRADE_GIT_BRANCH),
         string(name: 'PMM_UI_GIT_BRANCH', value: PMM_UI_GIT_BRANCH),
         string(name: 'DOCKER_TAG', value: DOCKER_TAG),
         string(name: 'DOCKER_TAG_UPGRADE', value: DOCKER_TAG_UPGRADE),
@@ -27,12 +28,12 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
         if(pmmVersion == pmmVersions.last()) {
             results.put(
                 "Run matrix upgrade tests from version: \"$pmmVersion\"",
-                generateStage(PMM_UI_GIT_BRANCH, "perconalab/pmm-server:${pmmVersion}-rc", 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion)
+                generateStage("pmm-${pmmVersion}-fix", PMM_UI_GIT_BRANCH, "perconalab/pmm-server:${pmmVersion}-rc", 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion)
             )
         } else {
             results.put(
                 "Run matrix upgrade tests from version: \"$pmmVersion\"",
-                generateStage(PMM_UI_GIT_BRANCH, 'percona/pmm-server:' + pmmVersion, "perconalab/pmm-server:${pmmVersions.last()}-rc", pmmVersion, 'release', PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion)
+                generateStage("pmm-${pmmVersion}-fix", PMM_UI_GIT_BRANCH, 'percona/pmm-server:' + pmmVersion, "perconalab/pmm-server:${pmmVersions.last()}-rc", pmmVersion, 'release', PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion)
             )
         }
     }
@@ -40,10 +41,10 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
     return results;
 }
 
-def generateStage(String PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion) {
+def generateStage(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion) {
     return {
         stage("Run \"$pmmVersion\" upgrade tests") {
-            runUpgradeJob(PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion);
+            runUpgradeJob(PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion);
         }
     }
 }

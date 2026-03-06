@@ -86,8 +86,12 @@ pipeline {
     }
     parameters {
         string(
+            defaultValue: "pmm-$oldestVersion",
+            description: 'Tag/Branch for UI Tests repository for pre upgrade',
+            name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
+        string(
             defaultValue: 'main',
-            description: 'Tag/Branch for UI Tests repository',
+            description: 'Tag/Branch for UI Tests repository for post upgrade',
             name: 'PMM_UI_GIT_BRANCH')
         string(
             defaultValue: "percona/pmm-server:$oldestVersion",
@@ -134,7 +138,7 @@ pipeline {
                     currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
                 git poll: false,
-                    branch: PMM_UI_GIT_BRANCH,
+                    branch: PMM_UI_PRE_UPGRADE_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 sh '''
@@ -176,7 +180,7 @@ pipeline {
                     } else if (env.UPGRADE_FLAG == "ADVISORS-ALERTING") {
                         env.PRE_UPGRADE_FLAG = "@pre-advisors-alerting-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-advisors-alerting-upgrade"
-                        env.PMM_CLIENTS = "--help"
+                        env.PMM_CLIENTS = "--database pgsql"
                     } else if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
                         env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade"
@@ -220,6 +224,7 @@ pipeline {
                             -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com \
                             -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
                             -e PMM_ENABLE_UPDATES=1 \
+                            -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
                             --publish 80:8080 --publish 443:8443 \
                             --volume pmm-volume:/srv \
                             --name pmm-server \
@@ -236,6 +241,7 @@ pipeline {
                             -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
                             -e PMM_ENABLE_UPDATES=1 \
                             -e PMM_DEV_UPDATE_DOCKER_IMAGE=\${DOCKER_TAG_UPGRADE} \
+                            -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
                             --publish 80:8080 --publish 443:8443 \
                             --volume pmm-volume:/srv \
                             --name pmm-server \
@@ -295,6 +301,7 @@ pipeline {
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         \${PMM_CLIENTS}
                     popd
+                    docker ps -a
                 '''
             }
         }
@@ -377,6 +384,7 @@ pipeline {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                         ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
+                        git checkout -f \${PMM_UI_GIT_BRANCH}
                     '''
                 }
             }
@@ -420,11 +428,11 @@ pipeline {
                                 docker exec \$i kill \$pgsql_process_id
                                 docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                             elif [[ \$i == *"ps_"* ]]; then
-                                docker exec -u root \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                                docker exec -u root \$i microdnf install -y pmm-client
+                                docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                docker exec \$i apt install -y pmm-client
                                 ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
-                                docker exec -u root \$i kill \$ps_process_id
-                                docker exec -u root -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                docker exec \$i kill \$ps_process_id
+                                docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                             elif [[ \$i == *"external_pmm"* ]]; then
                                 docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
                                 docker exec \$i apt install -y pmm-client
