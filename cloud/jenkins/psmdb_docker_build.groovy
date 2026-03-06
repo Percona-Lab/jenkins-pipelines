@@ -84,14 +84,14 @@ String getTrivyCveSummary(String reportGlob) {
 
         highCount += imageHighCount
         criticalCount += imageCriticalCount
-        perImageSummary += "*${imageName}* -> *CRITICAL:* `${imageCriticalCount}`, *HIGH:* `${imageHighCount}`\n"
+        perImageSummary += "*${imageName}*\n*CRITICAL* `${imageCriticalCount}` *HIGH* `${imageHighCount}`\n"
     }
 
     if (highCount == 0 && criticalCount == 0) {
         return ''
     }
 
-    return "\n*CVEs found*\n*CRITICAL:* `${criticalCount}`\n*HIGH:* `${highCount}`\n${perImageSummary}\n"
+    return "\n*CVEs found:*\n${perImageSummary}\n"
 }
 pipeline {
     parameters {

@@ -11,7 +11,7 @@ String getTrivyCveSummary(reportPath, imageName) {
         return ''
     }
 
-    return "\n*CVEs found*\n*CRITICAL:* `${criticalCount}`\n*HIGH:* `${highCount}`\n*${imageName}* -> *CRITICAL:* `${criticalCount}`, *HIGH:* `${highCount}`\n\n"
+    return "\n*CVEs found:*\n*${imageName}*\n*CRITICAL* `${criticalCount}` *HIGH* `${highCount}`\n"
 }
 
 pipeline {
