@@ -13,7 +13,7 @@ void generateImageSummary(filePath) {
     return report
 }
 
-String getTrivyCveSummary(reportPath) {
+String getTrivyCveSummary(reportPath, imageName) {
     if (!fileExists(reportPath)) {
         return ''
     }
@@ -26,7 +26,7 @@ String getTrivyCveSummary(reportPath) {
         return ''
     }
 
-    return "\n*CVEs found*\n*CRITICAL:* `${criticalCount}`\n*HIGH:* `${highCount}`\n"
+    return "\n*CVEs found*\n*CRITICAL:* `${criticalCount}`\n*HIGH:* `${highCount}`\n*${imageName}* -> *CRITICAL:* `${criticalCount}`, *HIGH:* `${highCount}`\n\n"
 }
 
 pipeline {
@@ -109,12 +109,14 @@ pipeline {
                     sh """
                         IMAGE_NAME='percona-xtradb-cluster-operator'
                         TrivyLog="$WORKSPACE/trivy-hight-pxc.xml"
+                        IMAGE_ID="\${IMAGE_NAME}-\${DOCKER_TAG}"
 
                         sg docker -c "
                             echo "\$PASS" | docker login -u "\$USER" --password-stdin
                             /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --timeout 5m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL perconalab/\$IMAGE_NAME:\${DOCKER_TAG}
                             docker logout
                         "
+                        perl -pi -e 's/<testcase classname="/<testcase classname="'"\$IMAGE_ID"' :: /g; s/<testcase name="/<testcase name="'"\$IMAGE_ID"' :: /g' "\$TrivyLog"
 
                     """
                 }
@@ -145,13 +147,13 @@ pipeline {
         }
         unstable {
             script {
-                def trivySummary = getTrivyCveSummary('trivy-hight-pxc.xml')
+                def trivySummary = getTrivyCveSummary('trivy-hight-pxc.xml', "perconalab/percona-xtradb-cluster-operator:${DOCKER_TAG}")
                 slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of *PXC* operator docker images unstable.${trivySummary} Please check the log ${BUILD_URL}"
             }
         }
         failure {
             script {
-                def trivySummary = getTrivyCveSummary('trivy-hight-pxc.xml')
+                def trivySummary = getTrivyCveSummary('trivy-hight-pxc.xml', "perconalab/percona-xtradb-cluster-operator:${DOCKER_TAG}")
                 slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of *PXC* operator docker image failed.${trivySummary} Please check the log ${BUILD_URL}"
             }
         }

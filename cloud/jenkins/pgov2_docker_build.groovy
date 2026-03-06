@@ -28,6 +28,12 @@ void checkImagesForDocker(String imagesListPath){
                     docker logout
                 "
             done < "\$IMAGES_LIST_PATH"
+
+            for REPORT in trivy-hight-*.xml; do
+                [ -f "\$REPORT" ] || continue
+                IMAGE_ID=\$(basename "\$REPORT" .xml | sed 's/^trivy-hight-//')
+                perl -pi -e 's/<testcase classname="/<testcase classname="'"\$IMAGE_ID"' :: /g; s/<testcase name="/<testcase name="'"\$IMAGE_ID"' :: /g' "\$REPORT"
+            done
         """
     }
 }
@@ -35,18 +41,24 @@ void checkImagesForDocker(String imagesListPath){
 String getTrivyCveSummary(String reportGlob) {
     int highCount = 0
     int criticalCount = 0
+    String perImageSummary = ''
 
     findFiles(glob: reportGlob).each { file ->
         def report = readFile(file.path)
-        highCount += report.split('\\[HIGH\\]', -1).size() - 1
-        criticalCount += report.split('\\[CRITICAL\\]', -1).size() - 1
+        int imageHighCount = report.split('\\[HIGH\\]', -1).size() - 1
+        int imageCriticalCount = report.split('\\[CRITICAL\\]', -1).size() - 1
+        String imageName = file.name.replaceFirst('^trivy-hight-', '').replaceFirst('\\.xml$', '')
+
+        highCount += imageHighCount
+        criticalCount += imageCriticalCount
+        perImageSummary += "*${imageName}* -> *CRITICAL:* `${imageCriticalCount}`, *HIGH:* `${imageHighCount}`\n"
     }
 
     if (highCount == 0 && criticalCount == 0) {
         return ''
     }
 
-    return "\n*CVEs found*\n*CRITICAL:* `${criticalCount}`\n*HIGH:* `${highCount}`\n"
+    return "\n*CVEs found*\n*CRITICAL:* `${criticalCount}`\n*HIGH:* `${highCount}`\n${perImageSummary}\n"
 }
 
 pipeline {
