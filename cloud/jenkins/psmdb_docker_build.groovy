@@ -79,7 +79,7 @@ String getTrivyCveSummary(String reportGlob) {
         return ''
     }
 
-    return "\n*CVE*\n*CRITICAL:* `${criticalCount}`\n*HIGH:* `${highCount}`"
+    return "\n*CVEs found*\n*CRITICAL:* `${criticalCount}`\n*HIGH:* `${highCount}`\n"
 }
 pipeline {
     parameters {
@@ -232,13 +232,13 @@ pipeline {
         unstable {
             script {
                 def trivySummary = getTrivyCveSummary('trivy-hight-*.xml')
-                slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of PSMDB docker images unstable.${trivySummary} Please check the log ${BUILD_URL}"
+                slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Building of *PSMDB* operator docker images unstable.${trivySummary} Please check the log ${BUILD_URL}"
             }
         }
         failure {
             script {
                 def trivySummary = getTrivyCveSummary('trivy-hight-*.xml')
-                slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of PSMDB docker images failed.${trivySummary} Please check the log ${BUILD_URL}"
+                slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Building of *PSMDB* operator docker images failed.${trivySummary} Please check the log ${BUILD_URL}"
             }
         }
         cleanup {
