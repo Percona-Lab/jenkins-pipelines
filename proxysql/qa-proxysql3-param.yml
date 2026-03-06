@@ -48,6 +48,10 @@
         default: percona-xtrabackup-2.4.29
         description: Tag/Branch for PXC repository
     - string:
+        name: PAT_REPO
+        default: https://github.com/percona/proxysql-admin-tool.git
+        description: URL to ProxySQL-admin-tool repository
+    - string:
         name: PAT_TAG
         default: v3
         description: Tag/Branch for ProxySQL-admin-tool repository
