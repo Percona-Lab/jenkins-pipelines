@@ -1,12 +1,12 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@add-8-tar", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 
 
 def operatingsystems() {
-    return ['oracle-9','ubuntu-jammy', 'ubuntu-noble', 'al-2023' , 'debian-12', 'debian-13']
+    return ['oracle-8', 'oracle-9', 'rhel-10',  'ubuntu-jammy', 'ubuntu-noble', 'al-2023' , 'debian-12', 'debian-13']
 }
 
 
