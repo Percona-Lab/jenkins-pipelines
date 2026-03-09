@@ -248,7 +248,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
@@ -267,7 +267,7 @@ pipeline {
                     }
                     steps {
                         cleanUpWS()
-                        popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:focal", "--build_source_deb=1 --enable_fipsmode=1")
@@ -295,7 +295,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                                 buildStage("oraclelinux:8", "--build_rpm=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
@@ -316,7 +316,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                                 buildStage("oraclelinux:8", "--build_rpm=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
@@ -334,7 +334,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("srpm/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
                             } else {
@@ -355,7 +355,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("srpm/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("oraclelinux:9", "--build_rpm=1 --enable_fipsmode=1")
                             } else {
@@ -379,7 +379,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                                 buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
                                 pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -398,7 +398,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("srpm/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                                 buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
                                 pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
@@ -414,7 +414,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
                             } else {
@@ -433,7 +433,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:jammy", "--build_deb=1 --enable_fipsmode=1")
                             } else {
@@ -452,7 +452,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
                             } else {
@@ -473,7 +473,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:noble", "--build_deb=1 --enable_fipsmode=1")
                             } else {
@@ -497,7 +497,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_deb=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
@@ -518,7 +518,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_deb=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
@@ -536,7 +536,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
                             } else {
@@ -557,7 +557,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
                             } else {
@@ -578,7 +578,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
                             } else {
@@ -599,7 +599,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_deb/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
                             } else {
@@ -623,7 +623,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                                 buildStage("oraclelinux:8", "--build_tarball=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
@@ -641,7 +641,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("oraclelinux:9", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
@@ -662,7 +662,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:jammy", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
@@ -681,7 +681,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("ubuntu:noble", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
@@ -705,7 +705,7 @@ pipeline {
                                 echo "The step is skipped"
                             } else {
                                 cleanUpWS()
-                                popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                                 buildStage("debian:bullseye", "--build_tarball=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
@@ -723,7 +723,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("debian:bookworm", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
@@ -744,7 +744,7 @@ pipeline {
                     steps {
                         script {
                             cleanUpWS()
-                            popArtifactFolder("source_tarball/", AWS_STASH_PATH)
+                            popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
                                 buildStage("debian:trixie", "--build_tarball=1 --enable_fipsmode=1")
                             } else {
