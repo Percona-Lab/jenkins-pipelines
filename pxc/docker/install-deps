@@ -247,7 +247,7 @@ if [ -f /usr/bin/apt-get ]; then
     # PXC specific - TODO: these packages are not present in PS, but were specified in common list. Verify if/why they are needed
     PGKLIST+=" libsasl2-modules-gssapi-mit libgnutls28-dev"
 
-    if [[ ${DIST} == "bookworm" ]] || [[ ${DIST} == "noble" ]]; then
+    if [[ ${DIST} == "bookworm" ]] || [[ ${DIST} == "noble" ]] || [[ ${DIST} == "trixie" ]]; then
         PKGLIST+=" gsasl-common libproc2-dev"
     else
         # this is needed for qpress installation
@@ -259,21 +259,21 @@ if [ -f /usr/bin/apt-get ]; then
 
     if [[ ${DIST} == 'jammy' ]]; then
         PKGLIST+=" python2"
-    elif [[ ${DIST} == 'bookworm' ]] || [[ ${DIST} == "noble" ]]; then 
+    elif [[ ${DIST} == 'bookworm' ]] || [[ ${DIST} == "noble" ]] || [[ ${DIST} == "trixie" ]]; then
         PKGLIST+=" dh-python"
     else
         PKGLIST+=" python"
     fi
 
-    if [[ ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' && ${DIST} != 'noble' ]]; then
+    if [[ ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' && ${DIST} != 'noble' && ${DIST} != 'trixie' ]]; then
         PKGLIST+=" dh-systemd"
     fi
 
-    if [[ ${DIST} == 'jammy' ]] || [[ ${DIST} == 'bullseye' ]] || [[ ${DIST} == 'bookworm' ]] || [[ ${DIST} == "noble" ]]; then
+    if [[ ${DIST} == 'jammy' ]] || [[ ${DIST} == 'bullseye' ]] || [[ ${DIST} == 'bookworm' ]] || [[ ${DIST} == "noble" ]] || [[ ${DIST} == "trixie" ]]; then
         PKGLIST+=" libgflags-dev util-linux"
     fi
 
-    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' && ${DIST} != 'noble' ]]; then
+    if [[ ${DIST} != 'focal' && ${DIST} != 'bullseye' && ${DIST} != 'jammy' && ${DIST} != 'bookworm' && ${DIST} != 'noble' && ${DIST} != 'trixie' ]]; then
         PKGLIST+=" python-mysqldb"
     else
         PKGLIST+=" python3-mysqldb"
@@ -327,14 +327,16 @@ if [ -f /usr/bin/apt-get ]; then
     done
 
     # Install mysql-connector for QA framework run
-    if [[ ${DIST} != 'bookworm' ]] && [[ ${DIST} != 'noble' ]]; then
+    if [[ ${DIST} != 'bookworm' ]] && [[ ${DIST} != 'noble' ]] && [[ ${DIST} != 'trixie' ]]; then
 	    pip3 install mysql-connector
     else
       pip3 install mysql-connector --break-system-packages
     fi
     
-    # clenup
-    apt-get -y purge librtmp-dev || true
+    # cleanup (skip Trixie: libcurl4-openssl-dev depends on librtmp-dev)
+    if [[ "${DIST}" != "trixie" ]]; then
+        apt-get -y purge librtmp-dev || true
+    fi
     apt-get -y clean
 
 
