@@ -487,48 +487,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Debian Bullseye(11)') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                                buildStage("debian:bullseye", "--build_deb=1")
-
-                                if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                    uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                }
-                            }
-                        }
-                    }
-                }
-                stage('Debian Bullseye(11) ARM') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                                buildStage("debian:bullseye", "--build_deb=1")
-
-                                if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                    uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
-                                }
-                            }
-                        }
-                    }
-                }
                 stage('Debian Bookworm(12)') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
