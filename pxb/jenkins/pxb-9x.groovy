@@ -163,7 +163,7 @@ def git_repo = "https://github.com/Percona-QA/package-testing.git"
 
 pipeline {
     agent {
-        label 'docker-32gb'
+        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
     }
     parameters {
         choice(
@@ -235,8 +235,8 @@ pipeline {
                     XB_VERSION_EXTRA = sh(returnStdout: true, script: "grep 'XB_VERSION_EXTRA' ./test/percona-xtrabackup-8.0.properties | cut -d = -f 2 | sed 's/-//g'").trim()
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
-                pushArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                uploadTarballfromAWS("source_tarball/", AWS_STASH_PATH, 'source')
+                pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
 
@@ -257,8 +257,8 @@ pipeline {
                             }
                         }
 
-                        pushArtifactFolder("srpm/", AWS_STASH_PATH)
-                        uploadRPMfromAWS("srpm/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                        uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     }
                 }
                 stage('Build PXB generic source deb') {
@@ -276,8 +276,8 @@ pipeline {
                             }
                         }
 
-                        pushArtifactFolder("source_deb/", AWS_STASH_PATH)
-                        uploadDEBfromAWS("source_deb/", AWS_STASH_PATH)
+                        pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                        uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                     }
                 }
             }  //parallel
@@ -299,8 +299,8 @@ pipeline {
                                 buildStage("oraclelinux:8", "--build_rpm=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                                    uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                    pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                    uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -320,8 +320,8 @@ pipeline {
                                 buildStage("oraclelinux:8", "--build_rpm=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                                    uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                    pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                    uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -342,8 +342,8 @@ pipeline {
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') { 
-                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -363,8 +363,8 @@ pipeline {
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -382,8 +382,8 @@ pipeline {
                                 popArtifactFolder("srpm/", AWS_STASH_PATH)
                                 buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
-                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -401,8 +401,8 @@ pipeline {
                                 popArtifactFolder("srpm/", AWS_STASH_PATH)
                                 buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
-                                pushArtifactFolder("rpm/", AWS_STASH_PATH)
-                                uploadRPMfromAWS("rpm/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -421,8 +421,8 @@ pipeline {
                                 buildStage("ubuntu:jammy", "--build_deb=1")
                             }
 
-                            pushArtifactFolder("deb/", AWS_STASH_PATH)
-                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -440,8 +440,8 @@ pipeline {
                                 buildStage("ubuntu:jammy", "--build_deb=1")
                             }
 
-                            pushArtifactFolder("deb/", AWS_STASH_PATH)
-                            uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                            pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -460,8 +460,8 @@ pipeline {
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -481,8 +481,8 @@ pipeline {
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -501,8 +501,8 @@ pipeline {
                                 buildStage("debian:bullseye", "--build_deb=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                    uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                    uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -522,8 +522,8 @@ pipeline {
                                 buildStage("debian:bullseye", "--build_deb=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                    uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                    uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                                 }
                             }
                         }
@@ -544,8 +544,8 @@ pipeline {
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -565,8 +565,8 @@ pipeline {
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -586,8 +586,8 @@ pipeline {
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -607,8 +607,8 @@ pipeline {
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("deb/", AWS_STASH_PATH)
-                                uploadDEBfromAWS("deb/", AWS_STASH_PATH)
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                             }
                         }
                     }
@@ -627,8 +627,8 @@ pipeline {
                                 buildStage("oraclelinux:8", "--build_tarball=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                                    uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                    pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                                    uploadTarballfromAWS(params.CLOUD,  "test/tarball/", AWS_STASH_PATH, 'binary')
                                 }
                             }
                         }
@@ -649,8 +649,8 @@ pipeline {
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS(params.CLOUD,  "test/tarball/", AWS_STASH_PATH, 'binary')
                             }
                         }
                     }
@@ -669,8 +669,8 @@ pipeline {
                                 buildStage("ubuntu:jammy", "--build_tarball=1")
                             }
 
-                            pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                            uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                            pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                            uploadTarballfromAWS(params.CLOUD,  "test/tarball/", AWS_STASH_PATH, 'binary')
                         }
                     }
                 }
@@ -689,8 +689,8 @@ pipeline {
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS(params.CLOUD,  "test/tarball/", AWS_STASH_PATH, 'binary')
                             }
                         }
                     }
@@ -709,8 +709,8 @@ pipeline {
                                 buildStage("debian:bullseye", "--build_tarball=1")
 
                                 if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                                    uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                    pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                                    uploadTarballfromAWS(params.CLOUD,  "test/tarball/", AWS_STASH_PATH, 'binary')
                                 }
                             }
                         }
@@ -731,8 +731,8 @@ pipeline {
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS(params.CLOUD,  "test/tarball/", AWS_STASH_PATH, 'binary')
                             }
                         }
                     }
@@ -752,8 +752,8 @@ pipeline {
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') {
-                                pushArtifactFolder("test/tarball/", AWS_STASH_PATH)
-                                uploadTarballfromAWS("test/tarball/", AWS_STASH_PATH, 'binary')
+                                pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                                uploadTarballfromAWS(params.CLOUD,  "test/tarball/", AWS_STASH_PATH, 'binary')
                             }
                         }
                     }
@@ -780,22 +780,22 @@ pipeline {
                     // sync packages
                     if ("${MYSQL_VERSION_MINOR}" == "0") {
                         if (env.FIPSMODE == 'YES') {
-                            sync2PrivateProdAutoBuild("pxb-90-pro", COMPONENT)
+                            sync2PrivateProdAutoBuild(params.CLOUD,"pxb-90-pro", COMPONENT)
                         } else {
-                            sync2ProdAutoBuild("pxb-90", COMPONENT)
+                            sync2ProdAutoBuild(params.CLOUD, "pxb-90", COMPONENT)
                         }
                     } else {
                         if (env.FIPSMODE == 'YES') {
                             if ("${MYSQL_VERSION_MINOR}" == "7") {
-                                sync2PrivateProdAutoBuild("pxb-97-pro", COMPONENT)
+                                sync2PrivateProdAutoBuild(params.CLOUD, "pxb-97-pro", COMPONENT)
                             } else {
-                                sync2PrivateProdAutoBuild("pxb-9x-innovation-pro", COMPONENT)
+                                sync2PrivateProdAutoBuild(params.CLOUD, "pxb-9x-innovation-pro", COMPONENT)
                             }
                         } else {
                             if ("${MYSQL_VERSION_MINOR}" == "7") {
-                                sync2ProdAutoBuild("pxb-97-lts", COMPONENT)
+                                sync2ProdAutoBuild(params.CLOUD, "pxb-97-lts", COMPONENT)
                             } else {
-                                sync2ProdAutoBuild("pxb-9x-innovation", COMPONENT)
+                                sync2ProdAutoBuild(params.CLOUD, "pxb-9x-innovation", COMPONENT)
                             }
                         }
                     }
