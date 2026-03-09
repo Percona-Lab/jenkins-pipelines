@@ -325,6 +325,16 @@ if [ -f /usr/bin/apt-get ]; then
         curl https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb --output /tmp/prel.deb && dpkg -i /tmp/prel.deb && rm /tmp/prel.deb
         percona-release enable-only tools testing
 
+        # Pin libdbd-mysql-perl to distro version: Percona tools repo provides
+        # an epoch 1: version that depends on libperconaserverclient22, which is
+        # unavailable on amd64. Without this pin, apt upgrades the distro package
+        # to the broken Percona version during PKGLIST install.
+        cat > /etc/apt/preferences.d/pin-libdbd-mysql-perl <<-PINEOF
+	Package: libdbd-mysql-perl
+	Pin: origin repo.percona.com
+	Pin-Priority: -1
+	PINEOF
+
         PKGLIST+=" libgsasl7 libprocps-dev qpress"
     fi
 
