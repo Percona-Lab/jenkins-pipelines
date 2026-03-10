@@ -753,6 +753,7 @@ Resources:
                     echo "Waiting for port 80... ($i/30)"
                     sleep 2
                   done
+                  curl -sf -o /dev/null http://127.0.0.1:80/ || echo "WARNING: port 80 not responding after 60s"
                   if [[ -d /mnt/ssl_backup ]]; then
                     rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
                     if ! certbot renew -q; then
@@ -779,6 +780,8 @@ Resources:
               rsync -aHSv /etc/letsencrypt/ /mnt/ssl_backup_$BACKUP_DATE/
               # also to regular backup directory
               rsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/
+              # Prune timestamped backups older than 1 year
+              find /mnt -maxdepth 1 -name 'ssl_backup_*' -mtime +365 -exec rm -rf {} +
               systemctl stop openresty
               sleep 2
               systemctl start openresty
