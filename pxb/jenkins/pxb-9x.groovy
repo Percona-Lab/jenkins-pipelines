@@ -375,16 +375,12 @@ pipeline {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'NO') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
-                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                            }
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                         }
                     }
                 }
@@ -394,16 +390,12 @@ pipeline {
                     }
                     steps {
                         script {
-                            if (env.FIPSMODE == 'NO') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                                buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
-                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                            }
+                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                         }
                     }
                 }
