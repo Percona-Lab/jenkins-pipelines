@@ -787,7 +787,7 @@ Resources:
                   # Create deploy hook directory
                   mkdir -p /etc/letsencrypt/renewal-hooks/deploy
 
-                  # Create the hook script that runs automatically after certbot renews certificates
+                  # Create the hook script that runs after successful renewal
                   cat << 'EOF' > /etc/letsencrypt/renewal-hooks/deploy/restart-openresty.sh
               #!/bin/bash
               # This script runs automatically after certbot renews certificates

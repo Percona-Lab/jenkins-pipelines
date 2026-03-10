@@ -767,7 +767,7 @@ Resources:
 
                   # Create deploy hook directory
                   mkdir -p /etc/letsencrypt/renewal-hooks/deploy
-                  
+
                   # Create the hook script that runs after successful renewal
                   cat << 'EOF' > /etc/letsencrypt/renewal-hooks/deploy/restart-openresty.sh
               #!/bin/bash
@@ -781,9 +781,9 @@ Resources:
               sleep 2
               systemctl start openresty
               EOF
-                  
+
                   chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-openresty.sh
-                  
+
                   systemctl stop openresty
                   sleep 2
                   systemctl start openresty
