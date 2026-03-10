@@ -746,9 +746,17 @@ Resources:
 
               setup_letsencrypt() {
                   install -d /usr/share/nginx/html
+                  # Wait for web server to serve port 80 (needed for ACME HTTP-01 challenge)
+                  for i in $(seq 1 30); do
+                    curl -sf -o /dev/null http://127.0.0.1:80/ && break
+                    echo "Waiting for port 80... ($i/30)"
+                    sleep 2
+                  done
                   if [[ -d /mnt/ssl_backup ]]; then
                     rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
-                    certbot renew
+                    if ! certbot renew; then
+                      echo "WARNING: certbot renew failed (backup cert still in use)"
+                    fi
                   else
                     certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
                   fi
