@@ -753,11 +753,34 @@ Resources:
                   fi
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
-                  printf '#!/bin/sh\ncertbot renew\nsystemctl restart openresty\nrsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/\n' > /etc/cron.daily/certbot
-                  chmod 755 /etc/cron.daily/certbot
+
+                  # Back up certs to EBS after successful setup
+                  rsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/
+
+                  # Create deploy hook directory
+                  mkdir -p /etc/letsencrypt/renewal-hooks/deploy
+
+                  # Create the hook script that runs after successful renewal
+                  cat << 'EOF' > /etc/letsencrypt/renewal-hooks/deploy/restart-openresty.sh
+              #!/bin/bash
+              # This script runs automatically after certbot renews certificates
+              # Create certs backup
+              BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
+              rsync -aHSv /etc/letsencrypt/ /mnt/ssl_backup_$BACKUP_DATE/
+              # also to regular backup directory
+              rsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/
+              systemctl stop openresty
+              sleep 2
+              systemctl start openresty
+              EOF
+
+                  chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-openresty.sh
+
                   systemctl stop openresty
                   sleep 2
                   systemctl start openresty
+                  systemctl enable certbot-renew.timer
+                  systemctl restart certbot-renew.timer
               }
 
               setup_dhparam() {
