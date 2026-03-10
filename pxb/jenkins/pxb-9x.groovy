@@ -379,8 +379,10 @@ pipeline {
                             popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                             buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
-                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
@@ -394,8 +396,44 @@ pipeline {
                             popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                             buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
 
-                            pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                            uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Oracle Linux 10') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("oraclelinux:10", "--build_rpm=1 --enable_fipsmode=1")
+
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Oracle Linux 10 ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                            buildStage("oraclelinux:10", "--build_rpm=1 --enable_fipsmode=1")
+
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                            }
                         }
                     }
                 }
