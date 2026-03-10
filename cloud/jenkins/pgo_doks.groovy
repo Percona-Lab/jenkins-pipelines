@@ -195,32 +195,39 @@ void createCluster(String CLUSTER_SUFFIX) {
 
     withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
         sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+        set -euo pipefail
 
-            maxRetries=15
-            exitCode=1
-            cluster_version=\$(doctl kubernetes options versions | awk -v version=$PLATFORM_VER '\$2 == version { print \$1 }')
+        export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+        cluster="$CLUSTER_NAME-$CLUSTER_SUFFIX"
+        cluster_version=\$(doctl kubernetes options versions --output json | jq -r --arg v "$PLATFORM_VER" '.[] | select(.kubernetes_version==\$v) | .slug')
 
-            while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
+        create_cluster() {
+            vpc_id=\$(get_or_create_vpc)
 
-                doctl kubernetes cluster create $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                    --region $DO_REGION \
-                    --version \$cluster_version \
-                    --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6" && \
-                doctl kubernetes cluster kubeconfig save $CLUSTER_NAME-$CLUSTER_SUFFIX
-                exitCode=\$?
+            doctl kubernetes cluster create "\$cluster" \
+                --region "$DO_REGION" \
+                --version "\$cluster_version" \
+                --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
 
-                # Move cluster to a specific project to organize resources created by the pipeline
-                cluster_id="\$(doctl kubernetes cluster list --output json | jq -r --arg name $CLUSTER_NAME-$CLUSTER_SUFFIX '.[] | select(.name == \$name) | .id')"
-                urn="do:kubernetes:\$cluster_id"
-                doctl projects resources assign \$PROJECT --resource \$urn
+            doctl kubernetes cluster kubeconfig save "\$cluster"
+        }
 
-                if [[ \$exitCode == 0 ]]; then break; fi
-                (( maxRetries -- ))
-                sleep 1
+        assign_cluster_to_project() {
+            cluster_id=\$(doctl kubernetes cluster get "\$cluster" --format ID --no-header)
+            urn="do:kubernetes:\$cluster_id"
 
-            done
-            if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
+            doctl projects resources assign "$PROJECT" --resource "\$urn"
+        }
+
+        max_retries=15
+        for ((i=1;i<=max_retries;i++)); do
+            if create_cluster && assign_cluster_to_project; then
+                break
+            fi
+
+            echo "Retry \$i/\$max_retries"
+            sleep 2
+        done
         """
     }
 }
@@ -334,6 +341,17 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            kubectl get ns -o json \
+            | jq -r '.items[].metadata.name | select(startswith("kube-") | not)' \
+            | while read ns; do
+                kubectl delete deployment --all -n "\$ns" --grace-period=0 || true
+                kubectl delete statefulset --all -n "\$ns" --grace-period=0 || true
+                kubectl delete replicaset --all -n "\$ns" --grace-period=0 || true
+                kubectl delete pod --all -n "\$ns" --grace-period=0 || true
+                kubectl delete pvc --all -n "\$ns" || true
+                kubectl delete svc --all -n "\$ns" || true
+            done
+
             doctl kubernetes cluster delete $CLUSTER_NAME-$CLUSTER_SUFFIX --force || true
         """
     }
