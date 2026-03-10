@@ -202,8 +202,6 @@ void createCluster(String CLUSTER_SUFFIX) {
         cluster_version=\$(doctl kubernetes options versions --output json | jq -r --arg v "$PLATFORM_VER" '.[] | select(.kubernetes_version==\$v) | .slug')
 
         create_cluster() {
-            vpc_id=\$(get_or_create_vpc)
-
             doctl kubernetes cluster create "\$cluster" \
                 --region "$DO_REGION" \
                 --version "\$cluster_version" \
@@ -370,8 +368,8 @@ pipeline {
         string(name: 'PG_VER', defaultValue: '', description: 'PG version')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main')
         string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-postgres')
-        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-pgbouncer')
-        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-pgbackrest')
+        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pgbouncer18')
+        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pgbackrest18')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
