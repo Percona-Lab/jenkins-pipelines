@@ -690,7 +690,7 @@ Resources:
                   done
                   if [[ -d /mnt/ssl_backup ]]; then
                     rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
-                    if ! certbot renew; then
+                    if ! certbot renew -q; then
                       echo "WARNING: certbot renew failed (backup cert still in use)"
                     fi
                   else

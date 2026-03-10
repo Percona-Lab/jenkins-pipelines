@@ -823,7 +823,7 @@ Resources:
 
                   # Renewal may fail if DNS hasn't propagated or LE rate-limits apply.
                   # The restored backup cert is still valid, so don't abort the script.
-                  if ! certbot renew; then
+                  if ! certbot renew -q; then
                     echo "WARNING: certbot renew failed (backup cert still in use)"
                   fi
                 else
