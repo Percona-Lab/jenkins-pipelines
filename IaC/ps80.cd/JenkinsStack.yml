@@ -810,7 +810,7 @@ Resources:
                           lastSuccessfulBuildID=\$(grep 'lastSuccessfulBuild' \$PATH_TO_BUILDS/permalinks | awk '{print \$2}')
 
                           PATH_TO_ALLOW_LIST="\$PATH_TO_BUILDS/\$lastSuccessfulBuildID/archive"
-                          if [ -n "\$PATH_TO_ALLOW_LIST/nginx-white-list.conf" ]; then
+                          if [ -f "\$PATH_TO_ALLOW_LIST/nginx-white-list.conf" ]; then
                               isChanged=\$(rsync -aHv \$PATH_TO_ALLOW_LIST/nginx-white-list.conf /mnt/$JENKINS_HOST/ssl/ | grep nginx-white-list.conf)
                               if [ -n "\$isChanged" ]; then
                                   openresty -s reload
