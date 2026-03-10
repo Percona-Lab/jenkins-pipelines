@@ -689,6 +689,7 @@ Resources:
                 mkdir -p /etc/systemd/system/jenkins.service.d
                 cat <<-EOF | tee /etc/systemd/system/jenkins.service.d/override.conf
                      [Service]
+                     TimeoutStartSec=300
                      # Directory where Jenkins stores its configuration and workspaces
                      Environment="JENKINS_HOME=/mnt/$JENKINS_HOST"
                      WorkingDirectory=/mnt/$JENKINS_HOST
@@ -704,7 +705,8 @@ Resources:
             	EOF
 
                 systemctl daemon-reload
-                systemctl enable --now jenkins
+                systemctl enable jenkins
+                systemctl start --no-block jenkins
 
                 printf "* * * * * root bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n* * * * * root sleep 30; bash -c 'curl -s http://169.254.169.254/latest/meta-data/spot/instance-action | grep action && sh -c \"systemctl stop jenkins; cp /var/log/jenkins/jenkins.log /mnt/jenkins-latest.log; umount /mnt\" || :'\n" > /etc/cron.d/terminate-check
             }
