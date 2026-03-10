@@ -810,14 +810,32 @@ Resources:
 
             setup_letsencrypt() {
                 install -d /usr/share/nginx/html
+
+                # Wait for OpenResty to serve port 80 (needed for ACME HTTP-01 challenge)
+                for i in $(seq 1 30); do
+                  curl -sf -o /dev/null http://127.0.0.1:80/ && break
+                  echo "Waiting for OpenResty port 80... ($i/30)"
+                  sleep 2
+                done
+
                 if [[ -d /mnt/ssl_backup ]]; then
                   rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
-                  certbot renew
+
+                  # Renewal may fail if DNS hasn't propagated or LE rate-limits apply.
+                  # The restored backup cert is still valid, so don't abort the script.
+                  if ! certbot renew; then
+                    echo "WARNING: certbot renew failed (backup cert still in use)"
+                  fi
                 else
                   certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
                 fi
+
                 ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                 ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
+
+                # Back up certs to EBS after successful setup
+                rsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/
+
                 printf '#!/bin/sh\ncertbot renew\nsystemctl restart openresty\nrsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/\n' > /etc/cron.daily/certbot
                 chmod 755 /etc/cron.daily/certbot
                 systemctl stop openresty
