@@ -763,6 +763,9 @@ Resources:
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
                   ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
 
+                  # Back up certs to EBS after successful setup
+                  rsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/
+
                   # Create deploy hook directory
                   mkdir -p /etc/letsencrypt/renewal-hooks/deploy
 
