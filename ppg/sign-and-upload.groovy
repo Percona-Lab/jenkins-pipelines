@@ -44,7 +44,7 @@ pipeline {
                 withCredentials([string(credentialsId: 'github_token', variable: 'TOKEN')]) {
                     sh '''
                     echo "Downloading artifact..."
-                    curl -L -H "Authorization: token $TOKEN" -o github-artifact.tar.gz "$ARTIFACT_URL"
+                    curl -L -f -o github-artifact.tar.gz "${ARTIFACT_URL}"
                     '''
                 }
             }
