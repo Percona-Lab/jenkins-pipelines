@@ -505,7 +505,8 @@ pipeline {
                             gitBranch: GIT_BRANCH,
                             platformVer: PLATFORM_VER,
                             clusterWide: CLUSTER_WIDE,
-                            pillarVersion: PILLAR_VERSION
+                            image: IMAGE_POSTGRESQL,
+                            operatorImage: IMAGE_OPERATOR
                         )
                     } else {
                         echo "sendJobSlackNotification.groovy load returned null, skipping Slack notification"

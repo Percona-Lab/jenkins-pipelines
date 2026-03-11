@@ -5,7 +5,8 @@ def call(Map cfg = [:]) {
     def platformVer = cfg.platformVer ?: env.PLATFORM_VER
     def platformChannel = cfg.platformChannel ?: cfg.gkeReleaseChannel ?: env.GKE_RELEASE_CHANNEL
     def clusterWide = cfg.clusterWide ?: env.CLUSTER_WIDE
-    def pillarVersion = cfg.pillarVersion ?: env.PILLAR_VERSION
+    def image = cfg.image ?: env.IMAGE_PXC ?: env.IMAGE_MYSQL ?: env.IMAGE_MONGOD ?: env.IMAGE_POSTGRESQL ?: env.IMAGE
+    def operatorImage = cfg.operatorImage ?: cfg.imageOperator ?: env.IMAGE_OPERATOR
 
     def failedTests = tests.findAll { it["result"] == "failure" }
     def passedCount = tests.count { it["result"] == "passed" }
@@ -14,7 +15,6 @@ def call(Map cfg = [:]) {
     def total = tests.size()
 
     def duration = (currentBuild.durationString ?: "N/A").replace(' and counting', '')
-    def isRelease = ("$pillarVersion" != "none")
     def cw = ("$clusterWide" == "YES") ? "cluster-wide" : "non-cluster-wide"
     def buildResult = (currentBuild.currentResult ?: currentBuild.result ?: 'SUCCESS')
     def status = (failedCount > 0 && buildResult == 'SUCCESS') ? 'FAILED' : buildResult
@@ -41,13 +41,19 @@ def call(Map cfg = [:]) {
     def message = "*<${env.BUILD_URL}|${env.JOB_NAME} #${env.BUILD_NUMBER}>* - ${status}\n"
     def platformDetails = platformChannel ? "${platformVer} (${platformChannel})" : "${platformVer}"
     message += "*Branch:* `${gitBranch}` | *Platform:* `${platformDetails}` | *Mode:* `${cw}`\n"
+    def buildDetails = []
+    if (image) {
+        buildDetails << "*Image:* `${image}`"
+    }
+    if (operatorImage) {
+        buildDetails << "*Operator image:* `${operatorImage}`"
+    }
+    if (buildDetails) {
+        message += buildDetails.join(' | ') + "\n"
+    }
 
     if (triggerDetails) {
         message += "*Triggered by:* ${triggerDetails}\n"
-    }
-
-    if (isRelease) {
-        message += "*Release run* (pillar ${pillarVersion})\n"
     }
 
     message += "*Tests:* ${passedCount} passed, ${failedCount} failed, ${skippedCount} skipped / ${total} total\n"

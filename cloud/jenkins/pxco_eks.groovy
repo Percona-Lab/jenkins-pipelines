@@ -527,7 +527,8 @@ pipeline {
                     gitBranch: GIT_BRANCH,
                     platformVer: PLATFORM_VER,
                     clusterWide: CLUSTER_WIDE,
-                    pillarVersion: PILLAR_VERSION
+                    image: IMAGE_PXC,
+                    operatorImage: IMAGE_OPERATOR
                     )
                 } catch (err) {
                     echo "Slack helper load/call failed: ${err}"

@@ -472,7 +472,8 @@ pipeline {
                             platformVer: PLATFORM_VER,
                             gkeReleaseChannel: GKE_RELEASE_CHANNEL,
                             clusterWide: CLUSTER_WIDE,
-                            pillarVersion: PILLAR_VERSION
+                            image: IMAGE_POSTGRESQL,
+                            operatorImage: IMAGE_OPERATOR
                         )
                     } else {
                         echo "sendJobSlackNotification.groovy load returned null, skipping Slack notification"
