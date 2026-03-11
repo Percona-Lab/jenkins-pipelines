@@ -195,37 +195,37 @@ void createCluster(String CLUSTER_SUFFIX) {
 
     withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
         sh """
-        set -euo pipefail
+            set -euo pipefail
 
-        export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-        cluster="$CLUSTER_NAME-$CLUSTER_SUFFIX"
-        cluster_version=\$(doctl kubernetes options versions --output json | jq -r --arg v "$PLATFORM_VER" '.[] | select(.kubernetes_version==\$v) | .slug')
+            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+            cluster="$CLUSTER_NAME-$CLUSTER_SUFFIX"
+            cluster_version=\$(doctl kubernetes options versions --output json | jq -r --arg v "$PLATFORM_VER" '.[] | select(.kubernetes_version==\$v) | .slug')
 
-        create_cluster() {
-            doctl kubernetes cluster create "\$cluster" \
-                --region "$DO_REGION" \
-                --version "\$cluster_version" \
-                --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
+            create_cluster() {
+                doctl kubernetes cluster create "\$cluster" \
+                    --region "$DO_REGION" \
+                    --version "\$cluster_version" \
+                    --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
 
-            doctl kubernetes cluster kubeconfig save "\$cluster"
-        }
+                doctl kubernetes cluster kubeconfig save "\$cluster"
+            }
 
-        assign_cluster_to_project() {
-            cluster_id=\$(doctl kubernetes cluster get "\$cluster" --format ID --no-header)
-            urn="do:kubernetes:\$cluster_id"
+            assign_cluster_to_project() {
+                cluster_id=\$(doctl kubernetes cluster get "\$cluster" --format ID --no-header)
+                urn="do:kubernetes:\$cluster_id"
 
-            doctl projects resources assign "$PROJECT" --resource "\$urn"
-        }
+                doctl projects resources assign "$PROJECT" --resource "\$urn"
+            }
 
-        max_retries=15
-        for ((i=1;i<=max_retries;i++)); do
-            if create_cluster && assign_cluster_to_project; then
-                break
-            fi
+            max_retries=15
+            for ((i=1;i<=max_retries;i++)); do
+                if create_cluster && assign_cluster_to_project; then
+                    break
+                fi
 
-            echo "Retry \$i/\$max_retries"
-            sleep 2
-        done
+                echo "Retry \$i/\$max_retries"
+                sleep 2
+            done
         """
     }
 }
@@ -339,8 +339,9 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
     withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            kubectl get ns -o json \
-            | jq -r '.items[].metadata.name | select(startswith("kube-") | not)' \
+            namespaces=\$(kubectl get ns -o json 2>/dev/null || echo '{}')
+            echo "\$namespaces" \
+            | jq -r '(.items // [])[] | .metadata.name | select(startswith("kube-") | not)' \
             | while read ns; do
                 kubectl delete deployment --all -n "\$ns" --grace-period=0 || true
                 kubectl delete statefulset --all -n "\$ns" --grace-period=0 || true
