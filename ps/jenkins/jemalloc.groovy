@@ -15,11 +15,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -x -c "
                     export ARCH=\\\$(arch)
                     export RHEL=\\\$(rpm --eval %rhel)
-                    if [ \\\${RHEL} = 8 ]; then
-                        sed -i 's/mirrorlist=/#mirrorlist=/g' /etc/yum.repos.d/CentOS-*
-                        sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
-                    fi
-
                     yum -y install rpm-build gcc gcc-c++ make automake autoconf libxslt wget
 
                     cd \${build_dir}
@@ -51,11 +46,6 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
                 docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -x -c "
                     export ARCH=\\\$(arch)
                     export RHEL=\\\$(rpm --eval %rhel)
-                    if [ \\\${RHEL} = 8 ]; then
-                        sed -i 's/mirrorlist=/#mirrorlist=/g' /etc/yum.repos.d/CentOS-*
-                        sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
-                    fi
-
                     yum -y install rpm-build gcc gcc-c++ make automake autoconf libxslt wget tree
 
                     cd \${build_dir}
@@ -209,7 +199,7 @@ pipeline {
          stage('Create jemalloc source tarball') {
             steps {
                 cleanUpWS()
-                buildStage("centos:8", "SOURCE")
+                buildStage("oraclelinux:8", "SOURCE")
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/jemalloc.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
                    AWS_STASH_PATH=$(echo ${REPO_UPLOAD_PATH} | sed  "s:UPLOAD/experimental/::")
