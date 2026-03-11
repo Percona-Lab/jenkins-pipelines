@@ -88,6 +88,8 @@ pipeline {
                     pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                     pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                    pushArtifactFolder(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                 
                     uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
                     uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
