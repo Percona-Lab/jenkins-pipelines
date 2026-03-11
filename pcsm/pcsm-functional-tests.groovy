@@ -32,6 +32,7 @@ pipeline {
     parameters {
         choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         string(name: 'PCSM_BRANCH', defaultValue: 'main', description: 'PCSM branch')
+        booleanParam(name: 'MONGODB_COMMUNITY', defaultValue: false, description: 'Do you want to use Mongodb Community Edition?')
         string(name: 'GO_VER', defaultValue: 'latest', description: 'GOLANG docker image for building PBM from sources')
         choice(name: 'ARCH', choices: ['x86','arm'], description: 'Ec2 instance type for running tests')
         string(name: 'PSMDB_TESTING_BRANCH', defaultValue: 'main', description: 'psmdb-testing repo branch')
@@ -81,7 +82,14 @@ pipeline {
 
                                 sh """
                                     cd psmdb-testing/pcsm-pytest
-                                    MONGODB_IMAGE=perconalab/percona-server-mongodb:${PSMDB} docker compose build --no-cache
+                                    if [ "${params.MONGODB_COMMUNITY}" = "true" ]; then
+                                        MONGODB_IMAGE="mongo:${PSMDB}"
+                                        echo "Using MongoDB Community Edition: \$MONGODB_IMAGE"
+                                    else
+                                        MONGODB_IMAGE="perconalab/percona-server-mongodb:${PSMDB}"
+                                        echo "Using Percona Server for MongoDB: \$MONGODB_IMAGE"
+                                    fi
+                                    MONGODB_IMAGE=\$MONGODB_IMAGE docker compose build --no-cache
                                     docker compose up -d
                                     if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
                                     if [ -n "${params.TEST_FILTER}" ]; then
