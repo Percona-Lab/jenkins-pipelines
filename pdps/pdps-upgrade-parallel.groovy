@@ -8,13 +8,65 @@ def extractMajorVersion(version) {
     return parts[0] + parts[1]
 }
 
+def pdps_80_operating_systems() {
+    return [
+        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'debian-11', 'debian-12', 'ubuntu-jammy', 'ubuntu-noble'
+    ]
+}
+
+def pdps_84_operating_systems() {
+    return [
+        'oracle-8', 'oracle-9', 'rhel-8', 'rhel-9', 'rhel-10', 'debian-11', 'debian-12', 'debian-13', 'ubuntu-jammy', 'ubuntu-noble', 'al-2023'
+    ]
+}
+
+List allOS = pdps_80_operating_systems() + pdps_84_operating_systems()
+
+def moleculeParallelTestALL(allOS, operatingSystems, moleculeDir) {
+    def tests = [:]
+    allOS.each { os ->
+        tests["${os}"] = {
+            stage("${os}") {
+                if (operatingSystems.contains(os)) {
+                    sh """
+                        . ~/virtenv/bin/activate
+                        cd ${moleculeDir}
+                        molecule test -s ${os}
+                    """
+                } else {
+                    echo "Skipping ${os} as it's not in operatingSystems"
+                }
+            }
+        }
+    }
+    parallel tests
+}
+
+def moleculeParallelPostDestroyALL(allOS, operatingSystems, moleculeDir) {
+    def posts = [:]
+    allOS.each { os ->
+        posts["${os}"] = {
+            if (operatingSystems.contains(os)) {
+                sh """
+                    . ~/virtenv/bin/activate
+                    cd ${moleculeDir}
+                    molecule destroy -s ${os}
+                """
+            } else {
+                echo "Skipping destroy for ${os} as it's not in operatingSystems"
+            }
+        }
+    }
+    parallel posts
+}
+
 pipeline {
     agent {
         label 'min-bookworm-x64'
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-        MOLECULE_DIR = "molecule/pdmysql/pdps_minor_upgrade";
+        MOLECULE_DIR = "~/package-testing/molecule/pdmysql/pdps_minor_upgrade";
     }
     parameters {
             choice(
@@ -94,7 +146,7 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.VERSION}"
                     currentBuild.description = "From: ${env.FROM_VERSION} ${env.FROM_REPO}; to: ${env.VERSION} ${env.TO_REPO}. Git br: ${env.TESTING_BRANCH}"
                 }
             }
@@ -103,23 +155,30 @@ pipeline {
         stage ('Prepare') {
             steps {
                 script {
-                    deleteDir()
                     installMoleculeBookworm_pdps()
+                    sh """
+                        sudo apt-get update -y
+                        sudo apt-get install -y jq
+                    """
                 }
             }
         }
 
         stage('Check version param and checkout') {
             steps {
-                checkOrchVersionParam()
-                git poll: false, branch: TESTING_BRANCH, url: "https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
+                script {
+                    sh "rm -rf ~/package-testing"                    
+                    sh "cd ~/ && git clone -b ${TESTING_BRANCH} https://github.com/${TESTING_GIT_ACCOUNT}/package-testing.git"
+                }
             }
         }
 
         stage('Test') {
             steps {
                 script {
-                  moleculeParallelTestPDPS(pdpsOperatingSystems(), env.MOLECULE_DIR)
+                    def selectedOSList = (env.VERSION.startsWith('8.4')) ? pdps_84_operating_systems() : pdps_80_operating_systems()
+                    echo "selectedOSList: ${selectedOSList}"
+                    moleculeParallelTestALL(allOS, selectedOSList, env.MOLECULE_DIR)
                 }
             }
         }
@@ -166,9 +225,9 @@ pipeline {
         always {
             script {
                 echo "Post destroy"
-                moleculeParallelPostDestroyPDPS(pdpsOperatingSystems(), env.MOLECULE_DIR)
+                def selectedOSList = (env.VERSION.startsWith('8.4')) ? pdps_84_operating_systems() : pdps_80_operating_systems()
+                moleculeParallelPostDestroyALL(allOS, selectedOSList, env.MOLECULE_DIR)
             }
         }
-
    }
 }        

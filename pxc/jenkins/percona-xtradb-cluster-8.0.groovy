@@ -190,7 +190,7 @@ pipeline {
 */
                     }
                 }
-                stage('Centos 8') {
+                stage('Oracle Linux 8') {
                     agent {
                         label 'docker-32gb'
                     }
@@ -202,7 +202,7 @@ pipeline {
                                 cleanUpWS()
                                 unstash 'pxc-80.properties'
                                 popArtifactFolder("srpm/", AWS_STASH_PATH)
-                                buildStage("centos:8", "--build_rpm=1")
+                                buildStage("oraclelinux:8", "--build_rpm=1")
 
                                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
                                 pushArtifactFolder("rpm/", AWS_STASH_PATH)
@@ -211,7 +211,7 @@ pipeline {
                         }
                     }
                 }
-                stage('Centos 8 ARM') {
+                stage('Oracle Linux 8 ARM') {
                     agent {
                         label 'docker-32gb-aarch64'
                     }
@@ -223,7 +223,7 @@ pipeline {
                                 cleanUpWS()
                                 unstash 'pxc-80.properties'
                                 popArtifactFolder("srpm/", AWS_STASH_PATH)
-                                buildStage("centos:8", "--build_rpm=1")
+                                buildStage("oraclelinux:8", "--build_rpm=1")
 
                                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
                                 pushArtifactFolder("rpm/", AWS_STASH_PATH)
@@ -524,7 +524,7 @@ pipeline {
                         uploadDEBfromAWS("deb/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 8 tarball') {
+                stage('Oracle Linux 8 tarball') {
                     agent {
                         label 'docker-32gb'
                     }
@@ -536,7 +536,7 @@ pipeline {
                                 cleanUpWS()
                                 unstash 'pxc-80.properties'
                                 popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                                buildStage("centos:8", "--build_tarball=1")
+                                buildStage("oraclelinux:8", "--build_tarball=1")
 
                                 stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
                                 pushArtifactFolder("test/tarball/", AWS_STASH_PATH)

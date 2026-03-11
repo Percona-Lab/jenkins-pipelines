@@ -108,28 +108,28 @@ pipeline {
         stage ('Create virtual machines') {
             steps {
                 script {
-                    moleculeExecuteActionWithScenario(moleculeDir, "create", env.PLATFORM)
+                    moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "create", env.PLATFORM)
                 }
             }
         }
         stage ('Prepare VM for test') {
             steps {
                 script {
-                    moleculeExecuteActionWithScenario(moleculeDir, "prepare", env.PLATFORM)
+                    moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "prepare", env.PLATFORM)
                 }
             }
         }
         stage ('Run playbook for test with old version') {
             steps {
                 script {
-                    moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "converge", env.PLATFORM, env.OLDVERSIONS)              
+                    moleculeExecuteActionWithVariableListAndScenarioPSMDB(moleculeDir, "converge", env.PLATFORM, env.OLDVERSIONS)
                 }
             }
         }   
         stage ('Start testinfra tests for old version') {
             steps {
                 script {
-                    moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "verify", env.PLATFORM, env.OLDVERSIONS)
+                    moleculeExecuteActionWithVariableListAndScenarioPSMDB(moleculeDir, "verify", env.PLATFORM, env.OLDVERSIONS)
                 }
                 junit testResults: "**/*-report.xml", keepLongStdio: true
             }
@@ -142,7 +142,7 @@ pipeline {
             }
             steps {
                 script {
-                    moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "side-effect", env.PLATFORM, env.NEWVERSIONS)
+                    moleculeExecuteActionWithVariableListAndScenarioPSMDB(moleculeDir, "side-effect", env.PLATFORM, env.NEWVERSIONS)
                 }
             }
         }
@@ -154,7 +154,7 @@ pipeline {
             }
             steps {
                 script {
-                    moleculeExecuteActionWithVariableListAndScenario(moleculeDir, "verify", env.PLATFORM, env.NEWVERSIONS)
+                    moleculeExecuteActionWithVariableListAndScenarioPSMDB(moleculeDir, "verify", env.PLATFORM, env.NEWVERSIONS)
                 }
                 junit testResults: "**/*-report.xml", keepLongStdio: true
             }
@@ -162,7 +162,7 @@ pipeline {
         stage ('Start Cleanup ') {
             steps {
                 script {
-                    moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.PLATFORM)
+                    moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "cleanup", env.PLATFORM)
                 }
             }
         }
@@ -170,7 +170,7 @@ pipeline {
     post {
         always {
             script {
-                moleculeExecuteActionWithScenario(moleculeDir, "destroy", env.PLATFORM)
+                moleculeExecuteActionWithScenarioPSMDB(moleculeDir, "destroy", env.PLATFORM)
             }
         }
     }

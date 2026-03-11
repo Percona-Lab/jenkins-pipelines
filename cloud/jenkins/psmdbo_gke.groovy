@@ -1,11 +1,14 @@
-tests=[]
-clusters=[]
-release_versions="source/e2e-tests/release_versions"
+import groovy.transform.Field
+
+@Field def numClusters = 8
+@Field def tests = []
+@Field def clusters = []
+@Field def release_versions = "source/e2e-tests/release_versions"
 
 String getParam(String paramName, String keyName = null) {
     keyName = keyName ?: paramName
 
-    param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
+    def param = sh(script: "grep -iE '^\\s*$keyName=' $release_versions | cut -d = -f 2 | tr -d \'\"\'| tail -1", returnStdout: true).trim()
     if ("$param") {
         echo "$paramName=$param (from params file)"
     } else {
@@ -40,7 +43,7 @@ void downloadKubectl() {
 
 void prepareNode() {
     echo "=========================[ Cloning the sources ]========================="
-    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    checkout(scm)
     sh """
         # sudo is needed for better node recovery after compilation failure
         # if building failed on compilation stage directory will have files owned by docker user
@@ -78,7 +81,7 @@ void prepareNode() {
     """
     downloadKubectl()
     sh """
-        curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+        curl -fsSL https://get.helm.sh/helm-v3.20.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
 
         sudo tee /etc/yum.repos.d/google-cloud-sdk.repo << EOF
 [google-cloud-cli]
@@ -97,10 +100,10 @@ EOF
 
     echo "=========================[ Logging in the Kubernetes provider ]========================="
     withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
+        sh '''
             gcloud auth activate-service-account --key-file $CLIENT_SECRET_FILE
             gcloud config set project $GCP_PROJECT
-        """
+        '''
     }
 
     if ("$PLATFORM_VER" == "latest") {
@@ -129,21 +132,21 @@ EOF
 void dockerBuildPush() {
     echo "=========================[ Building and Pushing the operator Docker image ]========================="
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-        sh """
+        sh '''
             if [[ "$IMAGE_OPERATOR" ]]; then
                 echo "SKIP: Build is not needed, operator image was set!"
             else
                 cd source
-                sg docker -c "
+                sg docker -c '
                     docker buildx create --use
-                    docker login -u '$USER' -p '$PASS'
+                    echo "$PASS" | docker login -u "$USER" --password-stdin
                     export IMAGE=perconalab/percona-server-mongodb-operator:$GIT_BRANCH
                     e2e-tests/build
                     docker logout
-                "
+                '
                 sudo rm -rf build
             fi
-        """
+        '''
     }
 }
 
@@ -170,7 +173,7 @@ void initTests() {
     }
 
     echo "Marking passed tests in the tests map!"
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         if ("$IGNORE_PREVIOUS_RUN" == "NO") {
             sh """
                 aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
@@ -193,80 +196,87 @@ void initTests() {
     }
 
     withCredentials([file(credentialsId: 'cloud-secret-file-psmdb', variable: 'CLOUD_SECRET_FILE')]) {
-        sh """
+        sh '''
             cp $CLOUD_SECRET_FILE source/e2e-tests/conf/cloud-secret.yml
-        """
+        '''
     }
 }
 
 void clusterRunner(String cluster) {
-    def clusterCreated=0
+    def clusterCreated = 0
 
-    for (int i=0; i<tests.size(); i++) {
-        if (tests[i]["result"] == "skipped") {
-            tests[i]["result"] = "failure"
-            tests[i]["cluster"] = cluster
-            if (clusterCreated == 0) {
-                createCluster(cluster)
-                clusterCreated++
+    try {
+        for (int i=0; i<tests.size(); i++) {
+            if (tests[i]["result"] == "skipped") {
+                tests[i]["result"] = "failure"
+                tests[i]["cluster"] = cluster
+                if (clusterCreated == 0) {
+                    clusterCreated = 1
+                    createCluster(cluster)
+                }
+                runTest(i)
             }
-            runTest(i)
         }
-    }
-
-    if (clusterCreated >= 1) {
-        shutdownCluster(cluster)
+    } finally {
+        if (clusterCreated >= 1) {
+            try {
+                shutdownCluster(cluster)
+                clusters.remove(cluster)
+            } catch (Exception e) {
+                echo "Warning: Error shutting down cluster $cluster: ${e.getMessage()}"
+            }
+        }
     }
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            maxRetries=15
-            exitCode=1
+    timeout(time: 30, unit: 'MINUTES') {
+        withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+            sh """
+                export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+                maxRetries=15
+                exitCode=1
 
-            while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
-                gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                    --release-channel $GKE_RELEASE_CHANNEL \
-                    --zone $GKE_REGION \
-                    --cluster-version $PLATFORM_VER \
-                    --preemptible \
-                    --disk-size 30 \
-                    --machine-type $MACHINE_TYPE \
-                    --num-nodes=4 \
-                    --min-nodes=4 \
-                    --max-nodes=6 \
-                    --network=jenkins-vpc \
-                    --subnetwork=jenkins-$CLUSTER_SUFFIX \
-                    --cluster-ipv4-cidr=/21 \
-                    --labels delete-cluster-after-hours=6 \
-                    --enable-ip-alias \
-                    --monitoring=NONE \
-                    --logging=NONE \
-                    --no-enable-managed-prometheus \
-                    --workload-pool=cloud-dev-112233.svc.id.goog \
-                    --quiet &&\
-                kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
-                exitCode=\$?
-                if [[ \$exitCode == 0 ]]; then break; fi
-                (( maxRetries -- ))
-                sleep 1
-            done
-            if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
+                while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
+                    gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
+                        --release-channel $GKE_RELEASE_CHANNEL \
+                        --zone $GKE_REGION \
+                        --cluster-version $PLATFORM_VER \
+                        --preemptible \
+                        --disk-size 30 \
+                        --machine-type $MACHINE_TYPE \
+                        --num-nodes=3 \
+                        --network=jenkins-vpc \
+                        --subnetwork=jenkins-$CLUSTER_SUFFIX \
+                        --cluster-ipv4-cidr=/21 \
+                        --labels delete-cluster-after-hours=6 \
+                        --enable-ip-alias \
+                        --monitoring=NONE \
+                        --logging=NONE \
+                        --no-enable-managed-prometheus \
+                        --workload-pool=cloud-dev-112233.svc.id.goog \
+                        --quiet &&\
+                    kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
+                    exitCode=\$?
+                    if [[ \$exitCode == 0 ]]; then break; fi
+                    (( maxRetries -- ))
+                    sleep 1
+                done
+                if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
 
-            CURRENT_TIME=\$(date --rfc-3339=seconds)
-            FUTURE_TIME=\$(date -d '6 hours' --rfc-3339=seconds)
+                CURRENT_TIME=\$(date --rfc-3339=seconds)
+                FUTURE_TIME=\$(date -d '6 hours' --rfc-3339=seconds)
 
-            gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \
-                --zone ${GKE_REGION} \
-                --add-maintenance-exclusion-start "\$CURRENT_TIME" \
-                --add-maintenance-exclusion-end "\$FUTURE_TIME"
+                gcloud container clusters update $CLUSTER_NAME-$CLUSTER_SUFFIX \
+                    --zone ${GKE_REGION} \
+                    --add-maintenance-exclusion-start "\$CURRENT_TIME" \
+                    --add-maintenance-exclusion-end "\$FUTURE_TIME"
 
-            kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints,AGE:.metadata.creationTimestamp"
-        """
+                kubectl get nodes -o custom-columns="NAME:.metadata.name,TAINTS:.spec.taints,AGE:.metadata.creationTimestamp"
+            """
+        }
     }
 }
 
@@ -324,7 +334,7 @@ void runTest(Integer TEST_ID) {
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(credentialsId: 'AMI/OVF', accessKeyVariable: 'AWS_ACCESS_KEY_ID', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
             touch $FILE_NAME
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
@@ -365,20 +375,25 @@ GKE_RELEASE_CHANNEL=$GKE_RELEASE_CHANNEL"""
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
-        sh """
-            export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
-            done
-            kubectl get svc --all-namespaces || true
-            gcloud container clusters delete --zone ${GKE_REGION} $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
-        """
+    timeout(time: 30, unit: 'MINUTES') {
+        withCredentials([string(credentialsId: 'GCP_PROJECT_ID', variable: 'GCP_PROJECT'), file(credentialsId: 'gcloud-key-file', variable: 'CLIENT_SECRET_FILE')]) {
+            sh """
+                export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
+                if [ -s "\$KUBECONFIG" ] && kubectl get --raw='/healthz' --request-timeout=5s >/dev/null 2>&1; then
+                    for namespace in \$(kubectl get namespaces --request-timeout=5s --no-headers | awk '{print \$1}' | grep -vE "^kube-|^gke-" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
+                        kubectl delete deployments --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete sts --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete replicasets --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete services --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                        kubectl delete pods --all -n \$namespace --force --grace-period=0 --request-timeout=10s || true
+                    done
+                else
+                    echo "Skipping namespace cleanup: Kubernetes API is not reachable for $CLUSTER_NAME-$CLUSTER_SUFFIX"
+                fi
+                gcloud container clusters delete --async --zone ${GKE_REGION} $CLUSTER_NAME-$CLUSTER_SUFFIX --quiet || true
+            """
+        }
     }
 }
 
@@ -423,13 +438,13 @@ pipeline {
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv', 'run-backups.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
-        choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'ARCH', choices: 'amd64\narm64', description: 'Architecture')
-        choice(name: 'PILLAR_VERSION', choices: 'none\n80\n70\n60', description: 'Implies release run.')
+        choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
+        choice(name: 'ARCH', choices: ['amd64', 'arm64'], description: 'Architecture')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '80', '70', '60'], description: 'Implies release run.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mongodb-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'GKE kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
-        choice(name: 'GKE_RELEASE_CHANNEL', choices: 'rapid\nstable\nregular\nNone', description: 'GKE release channel. Will be forced to stable for release run.')
-        choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
+        choice(name: 'GKE_RELEASE_CHANNEL', choices: ['rapid', 'stable', 'regular', 'None'], description: 'GKE release channel. Will be forced to stable for release run.')
+        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main')
         string(name: 'IMAGE_MONGOD', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-mongod8.0')
         string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'ex: perconalab/percona-server-mongodb-operator:main-backup')
@@ -439,8 +454,8 @@ pipeline {
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'ex: perconalab/fluentbit:main-logcollector')
         string(name: 'GKE_REGION', defaultValue: 'us-central1-a', description: 'GKE region to use for cluster')
-        choice(name: 'DEBUG_TESTS', choices: 'NO\nYES', description: 'Run tests with debug')
-        choice(name: 'JENKINS_AGENT', choices: ['Hetzner','AWS'], description: 'Cloud infra for build')
+        choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Run tests with debug')
+        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
     agent {
         label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -449,6 +464,7 @@ pipeline {
         buildDiscarder(logRotator(daysToKeepStr: '-1', artifactDaysToKeepStr: '-1', numToKeepStr: '30', artifactNumToKeepStr: '30'))
         skipDefaultCheckout()
         disableConcurrentBuilds()
+        timeout(time: 6, unit: 'HOURS')
         copyArtifactPermission('psmdb-operator-latest-scheduler');
     }
     stages {
@@ -468,36 +484,18 @@ pipeline {
             }
         }
         stage('Run Tests') {
-            parallel {
-                stage('cluster1') {
-                    steps {
-                        clusterRunner('cluster1')
+            steps {
+                script {
+                    def parallelStages = [:]
+                    for (int i = 1; i <= numClusters; i++) {
+                        def clusterName = "cluster${i}"
+                        parallelStages[clusterName] = {
+                            stage(clusterName) {
+                                clusterRunner(clusterName)
+                            }
+                        }
                     }
-                }
-                stage('cluster2') {
-                    steps {
-                        clusterRunner('cluster2')
-                    }
-                }
-                stage('cluster3') {
-                    steps {
-                        clusterRunner('cluster3')
-                    }
-                }
-                stage('cluster4') {
-                    steps {
-                        clusterRunner('cluster4')
-                    }
-                }
-                stage('cluster5') {
-                    steps {
-                        clusterRunner('cluster5')
-                    }
-                }
-                stage('cluster6') {
-                    steps {
-                        clusterRunner('cluster6')
-                    }
+                    parallel parallelStages
                 }
             }
         }
@@ -506,12 +504,26 @@ pipeline {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
-            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            junit testResults: '*.xml', healthScaleFactor: 1.0
             archiveArtifacts '*.xml,*.txt'
 
             script {
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                try {
+                    def sendJobSlack = load "vars/sendJobSlackNotification.groovy"
+                    if (sendJobSlack != null) {
+                        sendJobSlack.call(
+                            tests: tests,
+                            gitBranch: GIT_BRANCH,
+                            platformVer: PLATFORM_VER,
+                            gkeReleaseChannel: GKE_RELEASE_CHANNEL,
+                            clusterWide: CLUSTER_WIDE,
+                            pillarVersion: PILLAR_VERSION
+                        )
+                    } else {
+                        echo "sendJobSlackNotification.groovy load returned null, skipping Slack notification"
+                    }
+                } catch (err) {
+                    echo "Slack helper load/call failed: ${err}"
                 }
 
                 clusters.each { shutdownCluster(it) }
