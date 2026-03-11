@@ -150,21 +150,21 @@ pipeline {
                    export GIT_BRANCH=$GIT_PD_BRANCH
                    ./cloud/local/checkout
                 """
-                retry(3) {
-                    build('pgbackrest')
-                }
-                retry(3) {
-                    build('pgbouncer')
-                }
+                // retry(3) {
+                //     build('pgbackrest')
+                // }
+                // retry(3) {
+                //     build('pgbouncer')
+                // }
                 retry(3) {
                     build('postgres')
                 }
-                retry(3) {
-                    build('postgres-gis')
-                }
-                retry(3) {
-                    buildUpgrade('upgrade')
-                }
+                // retry(3) {
+                //     build('postgres-gis')
+                // }
+                // retry(3) {
+                //     buildUpgrade('upgrade')
+                // }
             }
         }
         stage('Push Images to Docker registry') {
