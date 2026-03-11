@@ -41,12 +41,10 @@ pipeline {
     stages {
         stage('Download artifact') {
             steps {
-                withCredentials([string(credentialsId: 'github_token', variable: 'TOKEN')]) {
                     sh '''
                     echo "Downloading artifact..."
                     curl -L -f -o github-artifact.tar.gz "${ARTIFACT_URL}"
                     '''
-                }
             }
         }
         stage('Extract artifact') {
