@@ -75,7 +75,7 @@ pipeline {
                 sh '''
                 mkdir -p GITHUB_BUILDS
                 tar -xzf github-artifact.tar.gz -C GITHUB_BUILDS
-                AWS_STASH_PATH=$(find GITHUB_BUILDS -type d -name deb -exec dirname {} \\;)
+                AWS_STASH_PATH=$(find GITHUB_BUILDS -type d -name deb -exec dirname {} \\; | head -1)
                 REPO_UPLOAD_PATH=UPLOAD/experimental/${AWS_STASH_PATH}
                 echo ${REPO_UPLOAD_PATH} > uploadPath
                 echo ${AWS_STASH_PATH} > awsUploadPath
@@ -84,14 +84,18 @@ pipeline {
                     AWS_STASH_PATH = sh(returnStdout: true, script: "cat awsUploadPath").trim()
                 }
                 stash includes: 'uploadPath', name: 'uploadPath'
-                pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
-                uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
-                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                dir("${AWS_STASH_PATH}") {
+                    pushArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                    pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                    pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                
+                    uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
+                    uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
+                    uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                
+                    uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                    uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                }
             }
         }
 
