@@ -43,6 +43,11 @@ pipeline {
             steps {
                 withCredentials([string(credentialsId: 'github_token', variable: 'TOKEN')]) {
                     sh '''
+                    echo "Install jq"
+                    if ! command -v jq > /dev/null; then
+                        sudo apt-get update
+                        sudo apt-get install -y jq
+                    fi
                     echo "Searching release: $RELEASE_NAME"
                     RELEASE_ID=$(curl -s \
                         -H "Authorization: Bearer $TOKEN" \
