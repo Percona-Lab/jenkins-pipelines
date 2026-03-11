@@ -22,8 +22,8 @@ pipeline {
              name: 'CLOUD' )
         string(
             defaultValue: '',
-            description: 'Unsigned Github Artifact URL',
-            name: 'ARTIFACT_URL')
+            description: 'Github draft-release name of the artifact',
+            name: 'RELEASE_NAME')
         string(
             defaultValue: 'ppg-17.6',
             description: 'PPG repo name',
@@ -41,15 +41,34 @@ pipeline {
     stages {
         stage('Download artifact') {
             steps {
+                withCredentials([string(credentialsId: 'github_token', variable: 'TOKEN')]) {
                     sh '''
-                    echo "Downloading artifact..."
-                    curl -L -f -o github-artifact.tar.gz "${ARTIFACT_URL}"
+                    echo "Searching release: $RELEASE_NAME"
+                    RELEASE_ID=$(curl -s \
+                        -H "Authorization: Bearer $TOKEN" \
+                        https://api.github.com/repos/Manika-Percona/postgres-packaging/releases?per_page=100 \
+                        | jq ".[] | select(.name==\\"$RELEASE_NAME\\") | .id")
+                    
+                    ASSET_ID=$(curl -s \
+                        -H "Authorization: Bearer $TOKEN" \
+                        https://api.github.com/repos/Manika-Percona/postgres-packaging/releases/$RELEASE_ID \
+                        | jq '.assets[0].id')
+                    
+
+                    echo "Downloading artifact $RELEASE_NAME..."
+                    curl -L \
+                        -H "Accept: application/octet-stream" \
+                        -H "Authorization: Bearer $TOKEN" \
+                        https://api.github.com/repos/Manika-Percona/postgres-packaging/releases/assets/$ASSET_ID \
+                        -o github-artifact.tar.gz
                     '''
+                }
             }
         }
         stage('Extract artifact') {
             steps {
                 sh '''
+                mkdir -p GITHUB_BUILDS
                 tar -xzf github-artifact.tar.gz -C GITHUB_BUILDS
                 AWS_STASH_PATH=$(find GITHUB_BUILDS -type d -name binary -exec dirname {} \\;)
                 REPO_UPLOAD_PATH=UPLOAD/experimental/${AWS_STASH_PATH}
