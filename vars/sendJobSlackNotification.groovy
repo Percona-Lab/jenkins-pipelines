@@ -41,15 +41,11 @@ def call(Map cfg = [:]) {
     def message = "*<${env.BUILD_URL}|${env.JOB_NAME} #${env.BUILD_NUMBER}>* - ${status}\n"
     def platformDetails = platformChannel ? "${platformVer} (${platformChannel})" : "${platformVer}"
     message += "*Branch:* `${gitBranch}` | *Platform:* `${platformDetails}` | *Mode:* `${cw}`\n"
-    def buildDetails = []
     if (image) {
-        buildDetails << "*Image:* `${image}`"
+        message += "*Db Image:* `${image}`\n"
     }
     if (operatorImage) {
-        buildDetails << "*Operator image:* `${operatorImage}`"
-    }
-    if (buildDetails) {
-        message += buildDetails.join(' | ') + "\n"
+        message += "*Operator image:* `${operatorImage}`\n"
     }
 
     if (triggerDetails) {
