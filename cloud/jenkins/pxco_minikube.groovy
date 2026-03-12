@@ -349,14 +349,14 @@ pipeline {
 
             script {
                 try {
-                    def sendJobSlack = load "vars/sendJobSlackNotification.groovy"
+                    def sendJobSlack = load "cloud/common/sendJobSlackNotification.groovy"
                     sendJobSlack.call(
-                    tests: tests,
-                    gitBranch: GIT_BRANCH,
-                    platformVer: PLATFORM_VER,
-                    clusterWide: CLUSTER_WIDE,
-                    image: IMAGE_PXC,
-                    operatorImage: IMAGE_OPERATOR
+                        tests: tests,
+                        gitBranch: GIT_BRANCH,
+                        platformVer: PLATFORM_VER,
+                        clusterWide: CLUSTER_WIDE,
+                        image: IMAGE_PXC,
+                        operatorImage: IMAGE_OPERATOR
                     )
                 } catch (err) {
                     echo "Slack helper load/call failed: ${err}"
