@@ -34,11 +34,10 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
 def versionsList = pmmVersion('v3')[-5..-1]
 def oldestVersion = versionsList.first()
 def latestVersion = versionsList.last()
-def oldVersions = pmmVersion('v3-old')
 
 pipeline {
     agent {
-        label 'docker2'
+        label 'agent-amd64-ol9'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
@@ -154,8 +153,6 @@ pipeline {
         stage('Select subset of tests') {
             steps {
                 script {
-                    println oldVersions;
-                    println versionsList;
                     if (env.UPGRADE_FLAG == "SSL") {
                         env.PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-ssl-upgrade"
@@ -185,8 +182,8 @@ pipeline {
                         env.POST_UPGRADE_FLAG = "@post-advisors-alerting-upgrade"
                         env.PMM_CLIENTS = "--database pgsql --database ps=8.4"
                     } else if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
-                        env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade"
+                        env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade|@pre-dashboards-upgrade|@pre-annotations-prometheus-upgrade"
+                        env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade|@post-dashboards-upgrade|@post-annotations-prometheus-upgrade"
                         env.PMM_CLIENTS = "--database pgsql --database ps=8.4 --database psmdb"
                     }
                 }
