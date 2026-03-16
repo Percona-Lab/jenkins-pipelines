@@ -304,7 +304,7 @@ pipeline {
                 }
                 stage('Debian Bookworm(12)') {
                     when {
-                       expression { false }
+                       expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -319,7 +319,7 @@ pipeline {
                 }
                 stage('Debian Bookworm(12) ARM') {
                     when {
-                       expression { false }
+                       expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -334,7 +334,7 @@ pipeline {
                 }
                 stage('Debian Trixie(13)') {
                     when {
-                       expression { false }
+                       expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -349,7 +349,7 @@ pipeline {
                 }
                 stage('Debian Trixie(13) ARM') {
                     when {
-                       expression { false }
+                       expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
