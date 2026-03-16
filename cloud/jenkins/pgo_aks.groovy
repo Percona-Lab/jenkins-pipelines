@@ -90,19 +90,10 @@ void prepareAgent() {
         # v0.22.0 kuttl version
         kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
         echo \$(kubectl kuttl --version) is installed
-
-        curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
-        sudo rm -rf /usr/azure-cli
-        printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
-        sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
-
     """
-    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
-        sh """
-            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
-            az account set -s "$AZURE_SUBSCRIPTION_ID"
-        """
-    }
+
+    installAzureCLI()
+    azureAuth()
 }
 
 void dockerBuildPush() {
@@ -344,6 +335,39 @@ void shutdownCluster(String CLUSTER_SUFFIX) {
             kubectl get svc --all-namespaces || true
 
             az aks delete --name $CLUSTER_NAME-$CLUSTER_SUFFIX --resource-group percona-operators --subscription eng-cloud-dev --yes || true
+        """
+    }
+}
+
+void installAzureCLI() {
+    sh """
+        if ! command -v az &>/dev/null; then
+            if [ "\$JENKINS_AGENT" = "AWS" ]; then
+                curl -s -L https://azurecliprod.blob.core.windows.net/install.py -o install.py
+                printf "/usr/azure-cli\\n/usr/bin" | sudo python3 install.py
+                sudo /usr/azure-cli/bin/python -m pip install "urllib3<2.0.0" > /dev/null
+            else
+                echo "Installing Azure CLI for Hetzner instances..."
+                sudo rpm --import https://packages.microsoft.com/keys/microsoft.asc
+                cat <<EOF | sudo tee /etc/yum.repos.d/azure-cli.repo
+[azure-cli]
+name=Azure CLI
+baseurl=https://packages.microsoft.com/yumrepos/azure-cli
+enabled=1
+gpgcheck=1
+gpgkey=https://packages.microsoft.com/keys/microsoft.asc
+EOF
+                sudo dnf install azure-cli -y
+            fi
+        fi
+    """
+}
+
+void azureAuth() {
+    withCredentials([azureServicePrincipal('PERCONA-OPERATORS-SP')]) {
+        sh """
+            az login --service-principal -u "$AZURE_CLIENT_ID" -p "$AZURE_CLIENT_SECRET" -t "$AZURE_TENANT_ID"  --allow-no-subscriptions
+            az account set -s "$AZURE_SUBSCRIPTION_ID"
         """
     }
 }
