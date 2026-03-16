@@ -40,7 +40,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         mkdir test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/packaging/scripts/binlog-server_builder.sh -O binlog-server_builder.sh
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/src/app_version.hpp
-        VERSION=$(grep 'semantic_version app_version' app_version.hpp | head -1 | sed 's|\\.*{\([^}]*\)}\\.*|\1|; s|U||g; s|, *|\\.|g')
+        VERSION="0.1.0"
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
