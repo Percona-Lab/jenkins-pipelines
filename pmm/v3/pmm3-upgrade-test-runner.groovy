@@ -159,7 +159,7 @@ pipeline {
                     if (env.UPGRADE_FLAG == "SSL") {
                         env.PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-ssl-upgrade"
-                        env.PMM_CLIENTS = "--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql"
+                        env.PMM_CLIENTS = "--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql --database ps=8.4"
                     } else if (env.UPGRADE_FLAG == "EXTERNAL SERVICES") {
                         env.PRE_UPGRADE_FLAG = "@pre-external-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-external-upgrade"
@@ -167,7 +167,7 @@ pipeline {
                     } else if (env.UPGRADE_FLAG == "MONGO BACKUP") {
                         env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
-                        env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss,COMPOSE_PROFILES=extra"
+                        env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss,COMPOSE_PROFILES=extra --database ps=8.4"
                     } else if (env.UPGRADE_FLAG == "CUSTOM PASSWORD") {
                         env.PRE_UPGRADE_FLAG = "@pre-custom-password-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-custom-password-upgrade"
@@ -175,7 +175,7 @@ pipeline {
                     } else if (env.UPGRADE_FLAG == "CUSTOM DASHBOARDS") {
                         env.PRE_UPGRADE_FLAG = "@pre-dashboards-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-dashboards-upgrade"
-                        env.PMM_CLIENTS = "--help"
+                        env.PMM_CLIENTS = "--database ps=8.4"
                     } else if (env.UPGRADE_FLAG == "ANNOTATIONS-PROMETHEUS") {
                         env.PRE_UPGRADE_FLAG = "@pre-annotations-prometheus-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-annotations-prometheus-upgrade"
@@ -183,7 +183,7 @@ pipeline {
                     } else if (env.UPGRADE_FLAG == "ADVISORS-ALERTING") {
                         env.PRE_UPGRADE_FLAG = "@pre-advisors-alerting-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-advisors-alerting-upgrade"
-                        env.PMM_CLIENTS = "--database pgsql"
+                        env.PMM_CLIENTS = "--database pgsql --database ps=8.4"
                     } else if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
                         env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade"
@@ -348,11 +348,17 @@ pipeline {
         stage('Check Packages before Upgrade') {
             steps {
                 script {
-                    sh '''
-                        export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
-                        sudo chmod 755 /srv/pmm-qa/support_scripts/check_upgrade.py
-                        python3 /srv/pmm-qa/support_scripts/check_upgrade.py -v \$PMM_VERSION -p pre
-                    '''
+                    def exitCode = sh(script: "docker ps --format '{{.Names}}' | grep ps_pmm", returnStatus: true)
+                    if (exitCode == 0) {
+                        sh '''
+                            export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
+                            export CLIENT_CONTAINER_NAME=\$(docker ps --format "{{.Names}}" | grep "ps_pmm")
+                            sudo chmod 755 /srv/pmm-qa/support_scripts/check_upgrade.py
+                            docker cp /srv/pmm-qa/support_scripts/check_upgrade.py \$CLIENT_CONTAINER_NAME:/check_upgrade.py
+                            docker exec \$CLIENT_CONTAINER_NAME chmod 755 /check_upgrade.py
+                            docker exec \$CLIENT_CONTAINER_NAME python3 /srv/pmm-qa/support_scripts/check_upgrade.py -v \$PMM_VERSION -p pre
+                        '''
+                    }
                 }
             }
         }
