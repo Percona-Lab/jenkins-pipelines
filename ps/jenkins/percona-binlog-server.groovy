@@ -39,6 +39,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         set -o xtrace
         mkdir test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/packaging/scripts/binlog-server_builder.sh -O binlog-server_builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/src/app_version.hpp
+        VERSION=$(grep 'semantic_version app_version' app_version.hpp | head -1 | sed 's|\\.*{\([^}]*\)}\\.*|\1|; s|U||g; s|, *|\\.|g')
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
@@ -75,10 +77,6 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for binlog-server repository',
             name: 'GIT_BRANCH')
-        string(
-            defaultValue: '0.1.0',
-            description: 'VERSION value',
-            name: 'VERSION')
         string(
             defaultValue: '1',
             description: 'RPM release value',
