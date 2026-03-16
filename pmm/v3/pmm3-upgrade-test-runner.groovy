@@ -260,29 +260,19 @@ pipeline {
                 }
             }
         }
-
-//         stage('Setup Databases  and PMM Client for PMM-Server') {
-//             parallel {
-//                 stage('Setup PMM Client') {
-//                     steps {
-//                         setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
-//                     }
-//                 }
-                stage('Install dependencies') {
-                    steps {
-                        sh '''
-                            npm ci
-                            npx playwright install
-                            envsubst < env.list > env.generated.list
-                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                            export PWD=$(pwd)
-                            export CHROMIUM_PATH=/usr/bin/chromium
-                            ansible-galaxy collection install ansible.utils
-                        '''
-                    }
-                }
-//             }
-//         }
+        stage('Install dependencies') {
+            steps {
+                sh '''
+                    npm ci
+                    npx playwright install
+                    envsubst < env.list > env.generated.list
+                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                    export PWD=$(pwd)
+                    export CHROMIUM_PATH=/usr/bin/chromium
+                    ansible-galaxy collection install ansible.utils
+                '''
+            }
+        }
         stage('Setup Databases for PMM-Server') {
             steps {
                 sh '''
