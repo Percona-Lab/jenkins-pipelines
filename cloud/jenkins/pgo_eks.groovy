@@ -187,31 +187,9 @@ void clusterRunner(String cluster) {
 void installVolumeSnapshotResources(String CLUSTER_SUFFIX) {
     def clusterName = "$CLUSTER_NAME-$CLUSTER_SUFFIX"
 
-    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-        sh """
+    sh """
             export KUBECONFIG=/tmp/${clusterName}
             export PATH=/home/ec2-user/.local/bin:$PATH
-
-            echo "Installing EKS snapshot controller add-on on ${clusterName}"
-            if aws eks describe-addon --cluster-name ${clusterName} --region ${EKS_REGION} --addon-name snapshot-controller >/dev/null 2>&1; then
-                aws eks update-addon --cluster-name ${clusterName} --region ${EKS_REGION} --addon-name snapshot-controller --resolve-conflicts OVERWRITE >/dev/null
-            else
-                aws eks create-addon --cluster-name ${clusterName} --region ${EKS_REGION} --addon-name snapshot-controller >/dev/null
-            fi
-
-            addon_status=""
-            for i in \$(seq 1 60); do
-                addon_status=\$(aws eks describe-addon --cluster-name ${clusterName} --region ${EKS_REGION} --addon-name snapshot-controller --query 'addon.status' --output text 2>/dev/null || true)
-                if [ "\$addon_status" = "ACTIVE" ]; then
-                    break
-                fi
-                if [ "\$addon_status" = "CREATE_FAILED" ] || [ "\$addon_status" = "DEGRADED" ] || [ "\$addon_status" = "DELETE_FAILED" ]; then
-                    aws eks describe-addon --cluster-name ${clusterName} --region ${EKS_REGION} --addon-name snapshot-controller
-                    exit 1
-                fi
-                sleep 10
-            done
-            [ "\$addon_status" = "ACTIVE" ]
 
             kubectl wait --for=condition=Available deployment/ebs-csi-controller -n kube-system --timeout=10m
             kubectl wait --for=condition=Available deployment/snapshot-controller -n kube-system --timeout=10m
@@ -231,8 +209,7 @@ EOF
             kubectl get crd volumesnapshots.snapshot.storage.k8s.io volumesnapshotcontents.snapshot.storage.k8s.io volumesnapshotclasses.snapshot.storage.k8s.io
             kubectl api-resources --api-group=snapshot.storage.k8s.io
             kubectl get storageclass ebs-csi-gp3
-        """
-    }
+    """
 }
 
 void createCluster(String CLUSTER_SUFFIX) {
@@ -257,6 +234,7 @@ addons:
 - name: aws-ebs-csi-driver
   wellKnownPolicies:
     ebsCSIController: true
+- name: snapshot-controller
 nodeGroups:
 - name: ng-1
   minSize: 3
