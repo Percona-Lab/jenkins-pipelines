@@ -176,17 +176,9 @@ pipeline {
                         env.PRE_UPGRADE_FLAG = "@pre-dashboards-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-dashboards-upgrade"
                         env.PMM_CLIENTS = "--database ps=8.4"
-                    } else if (env.UPGRADE_FLAG == "ANNOTATIONS-PROMETHEUS") {
-                        env.PRE_UPGRADE_FLAG = "@pre-annotations-prometheus-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-annotations-prometheus-upgrade"
-                        env.PMM_CLIENTS = "--database ps=8.4 --database pgsql --database psmdb"
-                    } else if (env.UPGRADE_FLAG == "ADVISORS-ALERTING") {
-                        env.PRE_UPGRADE_FLAG = "@pre-advisors-alerting-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-advisors-alerting-upgrade"
-                        env.PMM_CLIENTS = "--database pgsql"
                     } else if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
-                        env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade"
+                        env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade|@pre-advisors-alerting-upgrade|@pre-annotations-prometheus-upgrade"
+                        env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade|@post-advisors-alerting-upgrade|@post-annotations-prometheus-upgrade"
                         env.PMM_CLIENTS = "--database pgsql --database ps=8.4 --database psmdb"
                     }
                 }
