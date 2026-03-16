@@ -261,7 +261,7 @@ pipeline {
             }
         }
 
-        stage('Setup Databases  and PMM Client for PMM-Server') {
+//         stage('Setup Databases  and PMM Client for PMM-Server') {
 //             parallel {
 //                 stage('Setup PMM Client') {
 //                     steps {
@@ -282,7 +282,7 @@ pipeline {
                     }
                 }
 //             }
-        }
+//         }
         stage('Setup Databases for PMM-Server') {
             steps {
                 sh '''
