@@ -192,8 +192,23 @@ void installVolumeSnapshotResources(String CLUSTER_SUFFIX) {
             export KUBECONFIG=/tmp/${clusterName}
             export PATH=/home/ec2-user/.local/bin:$PATH
 
-            kubectl wait --for=condition=Available deployment/ebs-csi-controller -n kube-system --timeout=10m
-            kubectl wait --for=condition=Available deployment/snapshot-controller -n kube-system --timeout=10m
+            wait_for_deployment() {
+                local deployment_name="\$1"
+
+                for i in \$(seq 1 60); do
+                    if kubectl get deployment "\$deployment_name" -n kube-system >/dev/null 2>&1; then
+                        kubectl wait --for=condition=Available deployment/"\$deployment_name" -n kube-system --timeout=10m
+                        return 0
+                    fi
+                    sleep 10
+                done
+
+                kubectl get deployment -n kube-system
+                return 1
+            }
+
+            wait_for_deployment ebs-csi-controller
+            wait_for_deployment snapshot-controller
 
             cat <<'EOF' | kubectl apply -f -
 apiVersion: storage.k8s.io/v1
