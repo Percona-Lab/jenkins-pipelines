@@ -218,6 +218,10 @@ nodeGroups:
     - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
     - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
     - arn:aws:iam::aws:policy/AmazonS3FullAccess
+  preBootstrapCommands:
+    - "echo 'vm.nr_hugepages=1024' >> /etc/sysctl.conf"
+    - "echo 'vm.hugetlb_shm_group=26' >> /etc/sysctl.conf"
+    - "sysctl -p"
   tags:
     'iit-billing-tag': 'jenkins-eks'
     'delete-cluster-after-hours': '10'
@@ -402,8 +406,8 @@ pipeline {
         string(name: 'PG_VER', defaultValue: '', description: 'PG version')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main')
         string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-postgres')
-        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-pgbouncer')
-        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-pgbackrest')
+        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pgbouncer18')
+        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pgbackrest18')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')

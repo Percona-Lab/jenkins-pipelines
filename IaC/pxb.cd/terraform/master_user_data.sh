@@ -33,13 +33,14 @@ install_software() {
         echo try again
     done
 
-    yum -y install yum-utils wget cronie rsync bc htop vim nginx
+    yum -y install yum-utils wget cronie rsync bc htop vim
+    yum-config-manager --add-repo "https://openresty.org/package/amazon/2023/x86_64/"
+    rpm --import https://openresty.org/package/pubkey.gpg
     wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable-legacy/jenkins.repo
-    # rpm --import https://pkg.jenkins.io/redhat-stable/jenkins.io.key
     rpm --import https://pkg.jenkins.io/redhat-stable-legacy/jenkins.io-2023.key
     yum -y install java-17-amazon-corretto
     yum -y update --security
-    yum -y install jenkins-2.528.3 certbot git dnf-automatic aws-cli xfsprogs
+    yum -y install jenkins-2.528.3 certbot git dnf-automatic aws-cli xfsprogs openresty
 
     sed -i 's/upgrade_type = default/upgrade_type = security/' /etc/dnf/automatic.conf
     sed -i 's/apply_updates = no/apply_updates = yes/'         /etc/dnf/automatic.conf
@@ -166,78 +167,97 @@ create_fake_ssl_cert() {
 }
 
 setup_nginx() {
-    sed -i'' -e 's/listen/#listen/' /etc/nginx/nginx.conf
-    cat <<-EOF | tee /etc/nginx/conf.d/jenkins.conf
-		upstream jenkins {
-		  server 127.0.0.1:8080 fail_timeout=0;
-		}
+    if [ ! -f /mnt/$JENKINS_HOST/ssl/nginx.conf ]; then
+        cat <<-EOF | tee /mnt/$JENKINS_HOST/ssl/nginx.conf
+			upstream jenkins {
+			  server 127.0.0.1:8080 fail_timeout=0;
+			}
 
-		server {
-		  listen 80;
-		  server_name $JENKINS_HOST;
+			server {
+			  listen 80;
+			  server_name $JENKINS_HOST;
 
-		  # letsencrypt certificates validation
-		  location /.well-known {
-		    alias /usr/share/nginx/html/.well-known;
-		  }
+			  # letsencrypt certificates validation
+			  location /.well-known {
+			    alias /usr/share/nginx/html/.well-known;
+			  }
 
-		  # or redirect to https
-		  if (\$uri !~* ^/.well-known) {
-		    return 301 https://\$host\$request_uri;
-		  }
-		}
+			  # or redirect to https
+			  if (\$uri !~* ^/.well-known) {
+			    return 301 https://\$host\$request_uri;
+			  }
+			}
 
-		server {
-		  listen 443 ssl;
-		  server_name $JENKINS_HOST;
+			server {
+			  listen 443 ssl;
+			  server_name $JENKINS_HOST;
 
-		  ssl_certificate /etc/nginx/ssl/certificate.crt;
-		  ssl_certificate_key /etc/nginx/ssl/certificate.key;
-		  ssl_trusted_certificate /etc/nginx/ssl/ca-certs.pem;
-		  ssl_dhparam     /etc/nginx/ssl/dhparam.pem;
-                 include         /etc/nginx/conf.d/*-list.conf;
-                 satisfy         any;
+			  ssl_certificate             /etc/nginx/ssl/certificate.crt;
+			  ssl_certificate_key         /etc/nginx/ssl/certificate.key;
+			  ssl_trusted_certificate     /etc/nginx/ssl/ca-certs.pem;
+			  ssl_dhparam                 /etc/nginx/ssl/dhparam.pem;
 
-		  ssl_protocols TLSv1.2;
-		  ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
-		  ssl_prefer_server_ciphers off;
+			  ssl_protocols TLSv1.2;
+			  ssl_ciphers ECDHE-ECDSA-AES128-GCM-SHA256:ECDHE-RSA-AES128-GCM-SHA256:ECDHE-ECDSA-AES256-GCM-SHA384:ECDHE-RSA-AES256-GCM-SHA384:ECDHE-ECDSA-CHACHA20-POLY1305:ECDHE-RSA-CHACHA20-POLY1305:DHE-RSA-AES128-GCM-SHA256:DHE-RSA-AES256-GCM-SHA384;
+			  ssl_prefer_server_ciphers off;
 
-		  location / {
-		    proxy_set_header        Host \$host:\$server_port;
-		    proxy_set_header        X-Real-IP \$remote_addr;
-		    proxy_set_header        X-Forwarded-For \$proxy_add_x_forwarded_for;
-		    proxy_set_header        X-Forwarded-Proto \$scheme;
-		    proxy_redirect http:// https://;
-		    proxy_pass              http://jenkins;
-		    # Required for new HTTP-based CLI
-		    proxy_http_version 1.1;
-		    proxy_request_buffering off;
-		    proxy_buffering off; # Required for HTTP-based CLI to work over SSL
-		    # workaround for https://issues.jenkins-ci.org/browse/JENKINS-45651
-		    add_header 'X-SSH-Endpoint' '$JENKINS_HOST:50022' always;
-		  }
-		}
-	EOF
-    systemctl enable nginx
-    systemctl start nginx
+			  resolver                    8.8.8.8 ipv6=off;
+			  lua_ssl_trusted_certificate /etc/pki/tls/certs/ca-bundle.crt;
+			  lua_ssl_verify_depth        3;
+			  include                     /mnt/$JENKINS_HOST/ssl/*-list.conf;
+			  satisfy                     any;
+
+			  location / {
+			    proxy_set_header        Host \$host:\$server_port;
+			    proxy_set_header        X-Real-IP \$remote_addr;
+			    proxy_set_header        X-Forwarded-For \$proxy_add_x_forwarded_for;
+			    proxy_set_header        X-Forwarded-Proto \$scheme;
+			    proxy_redirect http:// https://;
+			    proxy_pass              http://jenkins;
+			    # Required for new HTTP-based CLI
+			    proxy_http_version 1.1;
+			    proxy_request_buffering off;
+			    proxy_buffering off; # Required for HTTP-based CLI to work over SSL
+			    # workaround for https://issues.jenkins-ci.org/browse/JENKINS-45651
+			    add_header 'X-SSH-Endpoint' '$JENKINS_HOST:50022' always;
+			  }
+			}
+		EOF
+    fi
+
+    ln -f -s /mnt/$JENKINS_HOST/ssl/nginx.conf /usr/local/openresty/nginx/conf/jenkins.conf
+    sed -i'' -e 's/listen/#listen/; s/mime.types/jenkins.conf/' /usr/local/openresty/nginx/conf/nginx.conf
+    systemctl enable --now openresty
 }
 
 setup_letsencrypt() {
     install -d /usr/share/nginx/html
+    # Wait for web server to serve port 80 (needed for ACME HTTP-01 challenge)
+    for i in $(seq 1 30); do
+        curl -sf -o /dev/null http://127.0.0.1:80/ && break
+        echo "Waiting for port 80... ($i/30)"
+        sleep 2
+    done
+    curl -sf -o /dev/null http://127.0.0.1:80/ || echo "WARNING: port 80 not responding after 60s"
     if [[ -d /mnt/ssl_backup ]]; then
         rsync -aHSv --delete /mnt/ssl_backup/ /etc/letsencrypt/
-        certbot renew
+        if ! certbot renew -q; then
+            echo "WARNING: certbot renew failed (backup cert still in use)"
+        fi
     else
         certbot --debug --non-interactive certonly --agree-tos --register-unsafely-without-email --webroot -w /usr/share/nginx/html --keep -d $JENKINS_HOST
     fi
     ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/fullchain.pem /etc/nginx/ssl/certificate.crt
     ln -f -s /etc/letsencrypt/live/$JENKINS_HOST/privkey.pem   /etc/nginx/ssl/certificate.key
 
+    # Back up certs to EBS after successful setup
+    rsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/
+
     # Create deploy hook directory
     mkdir -p /etc/letsencrypt/renewal-hooks/deploy
 
     # Create the hook script that runs after successful renewal
-    cat << 'EOF' > /etc/letsencrypt/renewal-hooks/deploy/restart-nginx.sh
+    cat << 'EOF' > /etc/letsencrypt/renewal-hooks/deploy/restart-openresty.sh
 #!/bin/bash
 # This script runs automatically after certbot renews certificates
 # Create certs backup
@@ -245,16 +265,18 @@ BACKUP_DATE=$(date +%Y%m%d_%H%M%S)
 rsync -aHSv /etc/letsencrypt/ /mnt/ssl_backup_$${BACKUP_DATE}/
 # also to regular backup directory
 rsync -aHSv --delete /etc/letsencrypt/ /mnt/ssl_backup/
-systemctl stop nginx
+# Prune timestamped backups older than 1 year
+find /mnt -maxdepth 1 -name 'ssl_backup_*' -mtime +365 -exec rm -rf {} +
+systemctl stop openresty
 sleep 2
-systemctl start nginx
+systemctl start openresty
 EOF
 
-    chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-nginx.sh
+    chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-openresty.sh
 
-    systemctl stop nginx
+    systemctl stop openresty
     sleep 2
-    systemctl start nginx
+    systemctl start openresty
     systemctl enable certbot-renew.timer
     systemctl restart certbot-renew.timer
 }
@@ -264,7 +286,7 @@ setup_dhparam() {
         openssl dhparam -out /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem 4096
     fi
     cp /mnt/$JENKINS_HOST/ssl/dhparam-4096.pem /etc/nginx/ssl/dhparam.pem
-    systemctl restart nginx
+    systemctl restart openresty
 }
 
 setup_nginx_allow_list() {
@@ -277,10 +299,10 @@ setup_nginx_allow_list() {
                 lastSuccessfulBuildID=\$(grep 'lastSuccessfulBuild' \$PATH_TO_BUILDS/permalinks | awk '{print \$2}')
 
                 PATH_TO_ALLOW_LIST="\$PATH_TO_BUILDS/\$lastSuccessfulBuildID/archive"
-                if [ -n "\$PATH_TO_ALLOW_LIST/nginx-white-list.conf" ]; then
-                    isChanged=\$(rsync -aHv \$PATH_TO_ALLOW_LIST/nginx-white-list.conf /etc/nginx/conf.d | grep nginx-white-list.conf)
+                if [ -f "\$PATH_TO_ALLOW_LIST/nginx-white-list.conf" ]; then
+                    isChanged=\$(rsync -aHv \$PATH_TO_ALLOW_LIST/nginx-white-list.conf /mnt/$JENKINS_HOST/ssl/ | grep nginx-white-list.conf)
                     if [ -n "\$isChanged" ]; then
-                        nginx -s reload
+                        openresty -s reload
                     fi
                 fi
             fi
