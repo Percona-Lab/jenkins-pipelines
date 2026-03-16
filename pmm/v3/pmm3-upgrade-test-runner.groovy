@@ -38,7 +38,7 @@ def oldVersions = pmmVersion('v3-old')
 
 pipeline {
     agent {
-        label 'docker-32gb'
+        label 'docker2'
     }
     environment {
         REMOTE_AWS_MYSQL_USER=credentials('pmm-dev-mysql-remote-user')
