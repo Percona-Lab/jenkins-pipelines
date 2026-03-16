@@ -21,7 +21,7 @@ void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCK
     ]
 }
 
-def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions, latestVersion) {
+def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions, oldVersions, latestVersion) {
     def results = new HashMap<>();
 
     for (pmmVersion in pmmVersions) {
@@ -79,7 +79,7 @@ pipeline {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
-                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions, latestVersion)
+                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions, oldVersions, latestVersion)
                 }
             }
         }
