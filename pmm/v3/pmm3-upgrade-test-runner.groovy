@@ -262,12 +262,12 @@ pipeline {
         }
 
         stage('Setup Databases  and PMM Client for PMM-Server') {
-            parallel {
-                stage('Setup PMM Client') {
-                    steps {
-                        setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
-                    }
-                }
+//             parallel {
+//                 stage('Setup PMM Client') {
+//                     steps {
+//                         setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
+//                     }
+//                 }
                 stage('Install dependencies') {
                     steps {
                         sh '''
@@ -281,7 +281,7 @@ pipeline {
                         '''
                     }
                 }
-            }
+//             }
         }
         stage('Setup Databases for PMM-Server') {
             steps {
