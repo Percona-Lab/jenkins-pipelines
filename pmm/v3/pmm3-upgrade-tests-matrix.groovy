@@ -5,6 +5,7 @@ library changelog: false, identifier: 'lib@PMM-7-fix-new-navigation-upgrade', re
 
 def pmmVersions = pmmVersion('v3')[-5..-1]
 def latestVersion = pmmVersion('v3').last()
+def oldVersions = pmmVersion('v3-old')
 
 void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion) {
     upgradeJob = build job: 'pmm3-upgrade-tests', parameters: [
@@ -23,17 +24,19 @@ void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCK
 def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, pmmVersions, latestVersion) {
     def results = new HashMap<>();
 
-// 3.0.0, 3.1.0, 3.2.0, 3.3.0, 3.3.1, 3.4.0, 3.4.1, 3.5.0
     for (pmmVersion in pmmVersions) {
         if(pmmVersion == pmmVersions.last()) {
+            def pmmClientVersion = 'pmm3-rc';
             results.put(
                 "Run matrix upgrade tests from version: \"$pmmVersion\"",
-                generateStage("pmm-${pmmVersion}", PMM_UI_GIT_BRANCH, "perconalab/pmm-server:${pmmVersion}-rc", 'perconalab/pmm-server:3-dev-latest', 'pmm3-rc', 'testing', PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion)
+                generateStage("pmm-${pmmVersion}", PMM_UI_GIT_BRANCH, "perconalab/pmm-server:${pmmVersion}-rc", 'perconalab/pmm-server:3-dev-latest', pmmClientVersion, 'testing', PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion)
             )
         } else {
+            def pmmClientVersion = pmmVersion in oldVersions ? "https://downloads.percona.com/downloads/pmm3/${pmmVersion}/binary/tarball/pmm-client-${pmmVersion}-x86_64.tar.gz" : pmmVersion;
+            println pmmClientVersion
             results.put(
                 "Run matrix upgrade tests from version: \"$pmmVersion\"",
-                generateStage("pmm-${pmmVersion}", PMM_UI_GIT_BRANCH, 'percona/pmm-server:' + pmmVersion, "perconalab/pmm-server:${pmmVersions.last()}-rc", pmmVersion, 'release', PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion)
+                generateStage("pmm-${pmmVersion}", PMM_UI_GIT_BRANCH, 'percona/pmm-server:' + pmmVersion, "perconalab/pmm-server:${pmmVersions.last()}-rc", , 'release', PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion)
             )
         }
     }
