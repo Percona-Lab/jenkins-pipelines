@@ -40,7 +40,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         mkdir test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/packaging/scripts/binlog-server_builder.sh -O binlog-server_builder.sh
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/src/app_version.hpp
-        VERSION="0.1.0"
+        export VERSION=\$(grep 'semantic_version app_version' app_version.hpp | head -1 | sed 's|\\.*{\([^}]*\)}\\.*|\1|; s|U||g; s|, *|\\.|g')
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
@@ -48,7 +48,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./binlog-server_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./binlog-server_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./binlog-server_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=\${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
