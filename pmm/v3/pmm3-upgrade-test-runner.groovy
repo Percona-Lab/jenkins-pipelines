@@ -165,25 +165,25 @@ pipeline {
                         env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
                         env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss,COMPOSE_PROFILES=extra --database ps=8.4"
-                    } else if (env.UPGRADE_FLAG == "CUSTOM PASSWORD") {
-                        env.PRE_UPGRADE_FLAG = "@pre-custom-password-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-custom-password-upgrade"
-                        env.PMM_CLIENTS = "--database ps=8.4 --database pgsql --database psmdb"
-                    } else if (env.UPGRADE_FLAG == "CUSTOM DASHBOARDS") {
-                        env.PRE_UPGRADE_FLAG = "@pre-dashboards-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-dashboards-upgrade"
-                        env.PMM_CLIENTS = "--database ps=8.4"
-                    } else if (env.UPGRADE_FLAG == "ANNOTATIONS-PROMETHEUS") {
-                        env.PRE_UPGRADE_FLAG = "@pre-annotations-prometheus-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-annotations-prometheus-upgrade"
-                        env.PMM_CLIENTS = "--database ps=8.4 --database pgsql --database psmdb"
-                    } else if (env.UPGRADE_FLAG == "ADVISORS-ALERTING") {
-                        env.PRE_UPGRADE_FLAG = "@pre-advisors-alerting-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-advisors-alerting-upgrade"
-                        env.PMM_CLIENTS = "--database pgsql --database ps=8.4"
+//                     } else if (env.UPGRADE_FLAG == "CUSTOM PASSWORD") {
+//                         env.PRE_UPGRADE_FLAG = "@pre-custom-password-upgrade"
+//                         env.POST_UPGRADE_FLAG = "@post-custom-password-upgrade"
+//                         env.PMM_CLIENTS = "--database ps=8.4 --database pgsql --database psmdb"
+//                     } else if (env.UPGRADE_FLAG == "CUSTOM DASHBOARDS") {
+//                         env.PRE_UPGRADE_FLAG = "@pre-dashboards-upgrade"
+//                         env.POST_UPGRADE_FLAG = "@post-dashboards-upgrade"
+//                         env.PMM_CLIENTS = "--database ps=8.4"
+//                     } else if (env.UPGRADE_FLAG == "ANNOTATIONS-PROMETHEUS") {
+//                         env.PRE_UPGRADE_FLAG = "@pre-annotations-prometheus-upgrade"
+//                         env.POST_UPGRADE_FLAG = "@post-annotations-prometheus-upgrade"
+//                         env.PMM_CLIENTS = "--database ps=8.4 --database pgsql --database psmdb"
+//                     } else if (env.UPGRADE_FLAG == "ADVISORS-ALERTING") {
+//                         env.PRE_UPGRADE_FLAG = "@pre-advisors-alerting-upgrade"
+//                         env.POST_UPGRADE_FLAG = "@post-advisors-alerting-upgrade"
+//                         env.PMM_CLIENTS = "--database pgsql --database ps=8.4"
                     } else if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
-                        env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade|@pre-dashboards-upgrade|@pre-annotations-prometheus-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade|@post-dashboards-upgrade|@post-annotations-prometheus-upgrade"
+                        env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade|@pre-dashboards-upgrade|@pre-annotations-prometheus-upgrade|@pre-advisors-alerting-upgrade|@pre-custom-password-upgrade"
+                        env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade|@post-dashboards-upgrade|@post-annotations-prometheus-upgrade|@post-advisors-alerting-upgrade|@post-custom-password-upgrade"
                         env.PMM_CLIENTS = "--database pgsql --database ps=8.4 --database psmdb"
                     }
                 }
@@ -353,7 +353,7 @@ pipeline {
                             sudo chmod 755 /srv/pmm-qa/support_scripts/check_upgrade.py
                             docker cp /srv/pmm-qa/support_scripts/check_upgrade.py \$CLIENT_CONTAINER_NAME:/check_upgrade.py
                             docker exec \$CLIENT_CONTAINER_NAME chmod 755 /check_upgrade.py
-                            docker exec \$CLIENT_CONTAINER_NAME python3 /srv/pmm-qa/support_scripts/check_upgrade.py -v \$PMM_VERSION -p pre
+                            docker exec \$CLIENT_CONTAINER_NAME python3 /check_upgrade.py -v \$PMM_VERSION -p pre
                         '''
                     }
                 }
