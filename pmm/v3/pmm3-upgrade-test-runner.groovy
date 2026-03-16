@@ -34,6 +34,7 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
 def versionsList = pmmVersion('v3')[-5..-1]
 def oldestVersion = versionsList.first()
 def latestVersion = versionsList.last()
+def oldVersions = pmmVersion('v3-old')
 
 pipeline {
     agent {
@@ -153,6 +154,7 @@ pipeline {
         stage('Select subset of tests') {
             steps {
                 script {
+                    println oldVersions;
                     if (env.UPGRADE_FLAG == "SSL") {
                         env.PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-ssl-upgrade"
