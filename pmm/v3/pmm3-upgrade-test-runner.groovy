@@ -122,7 +122,7 @@ pipeline {
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(
-            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"],
+            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "OTHERS"],
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
     }
@@ -181,7 +181,7 @@ pipeline {
 //                         env.PRE_UPGRADE_FLAG = "@pre-advisors-alerting-upgrade"
 //                         env.POST_UPGRADE_FLAG = "@post-advisors-alerting-upgrade"
 //                         env.PMM_CLIENTS = "--database pgsql --database ps=8.4"
-                    } else if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
+                    } else if (env.UPGRADE_FLAG == "OTHERS") {
                         env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade|@pre-dashboards-upgrade|@pre-annotations-prometheus-upgrade|@pre-advisors-alerting-upgrade|@pre-custom-password-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade|@post-dashboards-upgrade|@post-annotations-prometheus-upgrade|@post-advisors-alerting-upgrade|@post-custom-password-upgrade"
                         env.PMM_CLIENTS = "--database pgsql --database ps=8.4 --database psmdb"
@@ -303,7 +303,7 @@ pipeline {
         stage('Setup Custom queries') {
             steps {
                 script {
-                    if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
+                    if (env.UPGRADE_FLAG == "OTHERS") {
                         sh '''
                             containers=$(docker ps -a)
                             echo $containers
@@ -317,12 +317,12 @@ pipeline {
                             echo "Adding Custom Queries for postgres"
                             docker cp pmm-custom-queries/postgresql/. $pgsqlContainerName:/usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
                             echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
-                            sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
+                            docker cp node_role.prom $pgsqlContainerName:/usr/local/percona/pmm/collectors/textfile-collector/high-resolution/node_role.prom
                             docker exec -u root $psContainerName pkill -f mysqld_exporter
                             docker exec $pgsqlContainerName pkill -f postgres_exporter
                             docker exec $pgsqlContainerName pmm-admin list
                             docker exec $psContainerName pmm-admin list
-                            sudo pkill -f node_exporter
+                            docker exec $pgsqlContainerName pkill -f node_exporter
                             sleep 5
                             echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
                             docker ps -a --format "{{.Names}}"
