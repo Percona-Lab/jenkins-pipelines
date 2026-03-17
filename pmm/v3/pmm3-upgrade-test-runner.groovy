@@ -427,10 +427,22 @@ pipeline {
                 }
             }
         }
+        stage('Run post upgrade Playwright E2E tests') {
+            steps {
+                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                    sh '''
+                        pushd /srv/pmm-qa/e2e_tests/
+                            npm ci
+                            npx playwright test --grep "@rta"
+                        popd
+                    '''
+                }
+            }
+        }
         stage('Check Packages after Upgrade') {
             steps {
                 script {
-                    sh '''
+                    sh '''/srv/pmm-qa/
                         export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
                         sudo chmod 755 /srv/pmm-qa/support_scripts/check_upgrade.py
                         python3 /srv/pmm-qa/support_scripts/check_upgrade.py -v \$PMM_VERSION -p post
