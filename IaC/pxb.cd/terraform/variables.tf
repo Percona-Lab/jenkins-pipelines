@@ -30,7 +30,7 @@ variable "hostedzone" {
 
 variable "key_name" {
   description = "Name of AWS key pair for jenkins master"
-  default     = "jenkins-master"
+  default     = "percona-jenkins"
 }
 
 data "aws_ami" "amazon-linux-2023" {
@@ -43,12 +43,3 @@ data "aws_ami" "amazon-linux-2023" {
   }
 }
 
-data "template_file" "master_user_data" {
-  template = file("master_user_data.sh")
-
-  vars = {
-    JHostName             = "${var.hostname}"
-    MasterIP_AllocationId = "${aws_eip.jenkins.id}"
-    JDataVolume           = "${aws_ebs_volume.jenkins.id}"
-  }
-}
