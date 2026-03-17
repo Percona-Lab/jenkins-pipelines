@@ -123,7 +123,7 @@ pipeline {
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(
-            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"],
+            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "OTHERS"],
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
     }
@@ -176,7 +176,7 @@ pipeline {
                         env.PRE_UPGRADE_FLAG = "@pre-dashboards-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-dashboards-upgrade"
                         env.PMM_CLIENTS = "--database ps=8.4"
-                    } else if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
+                    } else if (env.UPGRADE_FLAG == "OTHERS") {
                         env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade|@pre-advisors-alerting-upgrade|@pre-annotations-prometheus-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade|@post-advisors-alerting-upgrade|@post-annotations-prometheus-upgrade"
                         env.PMM_CLIENTS = "--database pgsql --database ps=8.4 --database psmdb"
