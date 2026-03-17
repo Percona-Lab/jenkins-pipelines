@@ -433,6 +433,7 @@ pipeline {
                     sh '''
                         pushd /srv/pmm-qa/e2e_tests/
                             sudo npm ci
+                            sudo npx playwright install chromium
                             sudo npx playwright test --grep "@rta"
                         popd
                     '''
