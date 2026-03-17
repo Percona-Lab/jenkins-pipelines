@@ -164,14 +164,10 @@ pipeline {
                         env.PRE_UPGRADE_FLAG = "@pre-external-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-external-upgrade"
                         env.PMM_CLIENTS = "--database external --database ps=8.4 --database pdpgsql --database psmdb --database pxc"
-                    } else if (env.UPGRADE_FLAG == "MONGO BACKUP") {
-                        env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
-                        env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss,COMPOSE_PROFILES=extra"
                     } else if (env.UPGRADE_FLAG == "OTHERS") {
-                        env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade|@pre-advisors-alerting-upgrade|@pre-annotations-prometheus-upgrade|@pre-dashboards-upgrade|@pre-custom-password-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade|@post-advisors-alerting-upgrade|@post-annotations-prometheus-upgrade|@post-dashboards-upgrade|@post-custom-password-upgrade"
-                        env.PMM_CLIENTS = "--database pgsql --database ps=8.4 --database psmdb"
+                        env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade|@pre-advisors-alerting-upgrade|@pre-annotations-prometheus-upgrade|@pre-dashboards-upgrade|@pre-custom-password-upgrade|@pre-mongo-backup-upgrade"
+                        env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade|@post-advisors-alerting-upgrade|@post-annotations-prometheus-upgrade|@post-dashboards-upgrade|@post-custom-password-upgrade|@post-mongo-backup-upgrade"
+                        env.PMM_CLIENTS = "--database pgsql --database ps=8.4 --database psmdb,SETUP_TYPE=pss,COMPOSE_PROFILES=extra"
                     }
                 }
             }
