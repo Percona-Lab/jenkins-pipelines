@@ -123,7 +123,7 @@ pipeline {
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(
-            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "OTHERS"],
+            choices: ["SSL", "EXTERNAL SERVICES", "OTHERS"],
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
     }
