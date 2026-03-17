@@ -244,7 +244,7 @@ pipeline {
             steps {
                 sh '''
                     npm ci
-                    npx playwright install
+                    npx playwright install chromium
                     envsubst < env.list > env.generated.list
                     sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=$(pwd)
