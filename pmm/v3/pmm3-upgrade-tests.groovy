@@ -76,7 +76,7 @@ pipeline {
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
         string(
-            defaultValue: 'main',
+            defaultValue: 'PMM-7-fix-check-client-upgrade',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(

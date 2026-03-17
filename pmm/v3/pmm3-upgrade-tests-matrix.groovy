@@ -64,7 +64,7 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
-            defaultValue: 'main',
+            defaultValue: 'PMM-7-fix-check-client-upgrade',
             description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
