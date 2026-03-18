@@ -544,9 +544,9 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
                 docker cp pmm-server:/srv/logs srv-logs
-                cp -r /srv/pmm-qa/e2e_tests/playwright-report .
-                cp -r /srv/pmm-qa/e2e_tests/screenshots .
-                cp -r /srv/pmm-qa/e2e_tests/logs .
+                cp -r /srv/pmm-qa/e2e_tests/playwright-report . || true
+                cp -r /srv/pmm-qa/e2e_tests/screenshots . || true
+                cp -r /srv/pmm-qa/e2e_tests/logs . || true
                 tar -zcvf srv-logs.tar.gz srv-logs
                 ls
             '''
