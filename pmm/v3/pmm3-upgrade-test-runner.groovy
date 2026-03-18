@@ -521,6 +521,7 @@ pipeline {
                         export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
                         sudo chmod 755 /srv/pmm-qa/support_scripts/check_upgrade.py
                         python3 /srv/pmm-qa/support_scripts/check_upgrade.py -v \$PMM_VERSION -p post
+                        ls /srv/pmm-qa/e2e_tests/
                     '''
                 }
             }
