@@ -387,7 +387,7 @@ pipeline {
                         for i in \$containers; do
                             if [[ \$i == *"rs10"* ]]; then
                                 if [ "$CLIENT_TARBALL_UPGRADE" != "" ]; then
-                                    sudo wget -O /pmm-client.tar.gz "$CLIENT_TARBALL_UPGRADE"
+                                    sudo wget -q -O /pmm-client.tar.gz "$CLIENT_TARBALL_UPGRADE"
                                     sudo tar -zxpf /pmm-client.tar.gz
                                     PMM_CLIENT=`ls -1td pmm-client* 2>/dev/null | grep -v ".tar" | grep -v ".sh" | head -n1` &&
                                     sudo rm -rf pmm-client
