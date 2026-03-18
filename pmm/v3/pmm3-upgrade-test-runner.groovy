@@ -418,29 +418,73 @@ pipeline {
                                     docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
                                 fi
                             elif [[ \$i == *"pdpgsql"* ]]; then
-                                docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                                docker exec \$i apt install -y pmm-client
-                                pdpgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
-                                docker exec \$i kill \$pdpgsql_process_id
-                                docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                if [ "$CLIENT_TARBALL_UPGRADE" != "" ]; then
+                                    docker exec \$i wget -q -O /pmm-client.tar.gz "$CLIENT_TARBALL_UPGRADE"
+                                    docker exec \$i tar -zxpf /pmm-client.tar.gz
+                                    PMM_CLIENT=`ls -1td pmm-client* 2>/dev/null | grep -v ".tar" | grep -v ".sh" | head -n1` &&
+                                    docker exec \$i rm -rf pmm-client
+                                    docker exec \$i mv ${PMM_CLIENT} pmm-client
+                                    docker exec \$i rm -rf /usr/local/bin/pmm-client
+                                    docker exec \$i mv -f pmm-client /usr/local/bin
+                                    docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
+                                else
+                                    docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i apt install -y pmm-client
+                                    pdpgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
+                                    docker exec \$i kill \$pdpgsql_process_id
+                                    docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                fi
                             elif [[ \$i == *"pgsql"* ]]; then
-                                docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                                docker exec \$i apt install -y pmm-client
-                                pgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
-                                docker exec \$i kill \$pgsql_process_id
-                                docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                if [ "$CLIENT_TARBALL_UPGRADE" != "" ]; then
+                                    docker exec \$i wget -q -O /pmm-client.tar.gz "$CLIENT_TARBALL_UPGRADE"
+                                    docker exec \$i tar -zxpf /pmm-client.tar.gz
+                                    PMM_CLIENT=`ls -1td pmm-client* 2>/dev/null | grep -v ".tar" | grep -v ".sh" | head -n1` &&
+                                    docker exec \$i rm -rf pmm-client
+                                    docker exec \$i mv ${PMM_CLIENT} pmm-client
+                                    docker exec \$i rm -rf /usr/local/bin/pmm-client
+                                    docker exec \$i mv -f pmm-client /usr/local/bin
+                                    docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
+                                else
+                                    docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i apt install -y pmm-client
+                                    pgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
+                                    docker exec \$i kill \$pgsql_process_id
+                                    docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                fi
                             elif [[ \$i == *"ps_"* ]]; then
-                                docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                                docker exec \$i apt install -y pmm-client
-                                ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
-                                docker exec \$i kill \$ps_process_id
-                                docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                if [ "$CLIENT_TARBALL_UPGRADE" != "" ]; then
+                                    docker exec \$i wget -q -O /pmm-client.tar.gz "$CLIENT_TARBALL_UPGRADE"
+                                    docker exec \$i tar -zxpf /pmm-client.tar.gz
+                                    PMM_CLIENT=`ls -1td pmm-client* 2>/dev/null | grep -v ".tar" | grep -v ".sh" | head -n1` &&
+                                    docker exec \$i rm -rf pmm-client
+                                    docker exec \$i mv ${PMM_CLIENT} pmm-client
+                                    docker exec \$i rm -rf /usr/local/bin/pmm-client
+                                    docker exec \$i mv -f pmm-client /usr/local/bin
+                                    docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
+                                else
+                                    docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i apt install -y pmm-client
+                                    ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
+                                    docker exec \$i kill \$ps_process_id
+                                    docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                fi
                             elif [[ \$i == *"external_pmm"* ]]; then
-                                docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                                docker exec \$i apt install -y pmm-client
-                                ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
-                                docker exec \$i kill \$ps_process_id
-                                docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                                                if [ "$CLIENT_TARBALL_UPGRADE" != "" ]; then
+                                    docker exec \$i wget -q -O /pmm-client.tar.gz "$CLIENT_TARBALL_UPGRADE"
+                                    docker exec \$i tar -zxpf /pmm-client.tar.gz
+                                    PMM_CLIENT=`ls -1td pmm-client* 2>/dev/null | grep -v ".tar" | grep -v ".sh" | head -n1` &&
+                                    docker exec \$i rm -rf pmm-client
+                                    docker exec \$i mv ${PMM_CLIENT} pmm-client
+                                    docker exec \$i rm -rf /usr/local/bin/pmm-client
+                                    docker exec \$i mv -f pmm-client /usr/local/bin
+                                    docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
+                                else
+                                    docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i apt install -y pmm-client
+                                    ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
+                                    docker exec \$i kill \$ps_process_id
+                                    docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                fi
                             fi
                         done
                     '''
@@ -499,7 +543,6 @@ pipeline {
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
                 docker cp pmm-server:/srv/logs srv-logs
                 tar -zcvf srv-logs.tar.gz srv-logs
-
             '''
             script {
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
@@ -507,6 +550,9 @@ pipeline {
                 archiveArtifacts artifacts: 'pmm-agent.log'
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'srv-logs.tar.gz'
+                archiveArtifacts artifacts: '/srv/pmm-qa/e2e_tests/playwright-report/**'
+                archiveArtifacts artifacts: '/srv/pmm-qa/e2e_tests/screenshots/**'
+                archiveArtifacts artifacts: '/srv/pmm-qa/e2e_tests/logs/**'
 
                 def PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
                 try {
