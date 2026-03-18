@@ -560,9 +560,9 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
                 docker cp pmm-server:/srv/logs srv-logs
-                cp -r /srv/pmm-qa/e2e_tests/playwright-report . || true
-                cp -r /srv/pmm-qa/e2e_tests/screenshots . || true
-                cp -r /srv/pmm-qa/e2e_tests/logs . || true
+                tar -zcvf playwright-report.tar.gz /srv/pmm-qa/e2e_tests/playwright-report || true
+                tar -zcvf playwright-screenshots.tar.gz /srv/pmm-qa/e2e_tests/screenshots || true
+                tar -zcvf playwright-logs.tar.gz /srv/pmm-qa/e2e_tests/logs || true
                 tar -zcvf srv-logs.tar.gz srv-logs
                 ls
             '''
@@ -572,7 +572,9 @@ pipeline {
                 archiveArtifacts artifacts: 'pmm-agent.log'
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'srv-logs.tar.gz'
-                archiveArtifacts artifacts: 'playwright-report/**,screenshots/**,logs/**'
+                archiveArtifacts artifacts: 'playwright-report.tar.gz'
+                archiveArtifacts artifacts: 'playwright-screenshots.tar.gz'
+                archiveArtifacts artifacts: 'playwright-logs.tar.gz'
 
                 def PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
                 try {
