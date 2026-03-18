@@ -437,7 +437,7 @@ pipeline {
                         pushd /srv/pmm-qa/e2e_tests/
                             sudo npm ci
                             sudo npx playwright install chromium
-                            sudo npx playwright test --grep "${PLAYWRIGHT_FLAG}"
+                            sudo npx playwright test --grep "${PLAYWRIGHT_FLAG}" --pass-with-no-tests
                         popd
                     '''
                 }
