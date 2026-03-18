@@ -52,7 +52,7 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository for pre upgrade',
             name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
         string(
-            defaultValue: 'main',
+            defaultValue: 'pmm-3.7.0-rc',
             description: 'Tag/Branch for UI Tests repository for post upgrade',
             name: 'PMM_UI_GIT_BRANCH')
         string(

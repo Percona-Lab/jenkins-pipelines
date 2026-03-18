@@ -60,7 +60,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'main',
+            defaultValue: 'pmm-3.7.0-rc',
             description: 'Tag/Branch for UI Tests repository',
             name: 'PMM_UI_GIT_BRANCH')
         string(
