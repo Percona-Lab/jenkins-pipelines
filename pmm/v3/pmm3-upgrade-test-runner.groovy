@@ -91,7 +91,7 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository for pre upgrade',
             name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
         string(
-            defaultValue: 'main',
+            defaultValue: 'pmm-3.7.0-rc',
             description: 'Tag/Branch for UI Tests repository for post upgrade',
             name: 'PMM_UI_GIT_BRANCH')
         string(
@@ -286,35 +286,34 @@ pipeline {
         stage('Setup Custom queries') {
             steps {
                 script {
-                    if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
-                        sh '''
-                            containers=$(docker ps -a)
-                            echo $containers
-                            psContainerName=$(docker ps -a --format "{{.Names}}" | grep "ps_pmm")
-                            echo "$psContainerName"
-                            pgsqlContainerName=$(docker ps -a --format "{{.Names}}" | grep "pgsql_pg")
-                            echo "$pgsqlContainerName"
-                            echo "Creating Custom Queries"
-                            git clone https://github.com/Percona-Lab/pmm-custom-queries
-                            docker cp pmm-custom-queries/mysql/. $psContainerName:/usr/local/percona/pmm/collectors/custom-queries/mysql/high-resolution/
-                            echo "Adding Custom Queries for postgres"
-                            docker cp pmm-custom-queries/postgresql/. $pgsqlContainerName:/usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
-                            echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
-                            sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
-                            docker exec -u root $psContainerName pkill -f mysqld_exporter
-                            docker exec $pgsqlContainerName pkill -f postgres_exporter
-                            docker exec $pgsqlContainerName pmm-admin list
-                            docker exec $psContainerName pmm-admin list
-                            sudo pkill -f node_exporter
-                            sleep 5
-                            echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
-                            docker ps -a --format "{{.Names}}"
+                    sh '''
+                        containers=$(docker ps -a)
+                        echo $containers
+                        psContainerName=$(docker ps -a --format "{{.Names}}" | grep "ps_pmm")
+                        echo "$psContainerName"
+                        pgsqlContainerName=$(docker ps -a --format "{{.Names}}" | grep "pgsql_pg")
+                        echo "$pgsqlContainerName"
+                        echo "Creating Custom Queries"
+                        git clone https://github.com/Percona-Lab/pmm-custom-queries
+                        docker cp pmm-custom-queries/mysql/. $psContainerName:/usr/local/percona/pmm/collectors/custom-queries/mysql/high-resolution/
+                        echo "Adding Custom Queries for postgres"
+                        docker cp pmm-custom-queries/postgresql/. $pgsqlContainerName:/usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
+                        echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
+                        docker cp node_role.prom $pgsqlContainerName:/usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
+                        docker exec -u root $psContainerName pkill -f mysqld_exporter
+                        docker exec $pgsqlContainerName pkill -f postgres_exporter
+                        docker exec $pgsqlContainerName pmm-admin list
+                        docker exec $psContainerName pmm-admin list
+                        docker exec $pgsqlContainerName pkill -f node_exporter
+                        sleep 5
+                        echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
+                        docker ps -a --format "{{.Names}}"
 
-                            docker exec $psContainerName pmm-admin list | grep mysqld_exporter
+                        docker exec $psContainerName pmm-admin list | grep mysqld_exporter
 
-                            psAgentId=$(docker exec $psContainerName pmm-admin list | grep mysqld_exporter | awk -F' ' '{ print $4 }')
-                            psAgentPort=$(docker exec $psContainerName pmm-admin list | grep mysqld_exporter | awk -F' ' '{ print $6 }')
-                            echo $psAgentPort
+                        psAgentId=$(docker exec $psContainerName pmm-admin list | grep mysqld_exporter | awk -F' ' '{ print $4 }')
+                        psAgentPort=$(docker exec $psContainerName pmm-admin list | grep mysqld_exporter | awk -F' ' '{ print $6 }')
+                        echo $psAgentPort
                         '''
                     }
                 }
