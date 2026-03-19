@@ -195,9 +195,9 @@ pipeline {
                     agent {
                         label 'min-alma-10-arm64'
                     }
-                    environment {
-                        PS_REPOSITORY='testing'
-                    }
+//                     environment {
+//                         PS_REPOSITORY='testing'
+//                     }
                     steps{
                         setup_rhel_10_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
@@ -240,9 +240,9 @@ pipeline {
                     }
                 }
                 stage('Debian 13 Trixie - ARM64') {
-                    when {
-                        expression { !TESTS.contains("upgrade") }
-                    }
+//                     when {
+//                         expression { !TESTS.contains("upgrade") }
+//                     }
                     agent {
                         label 'min-trixie-arm64'
                     }
