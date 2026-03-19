@@ -22,18 +22,19 @@ void runUpgradeJob(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, AMI_
     ]
 }
 
-def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList, latestVersion) {
+def generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList, latestVersion, IS_RC_TESTING) {
     def results = new HashMap<>();
 
     versionsList.each { pmmVersion, amiTag ->
         if(pmmVersion == latestVersion) {
+            def pmmClientVersion = IS_RC_TESTING ? "pmm3-rc" : "3-dev-latest"
             results.put(
                 "Upgrade AMI PMM from ${pmmVersion} (AMI tag: ${amiTag}) to: 'perconalab/pmm-server:3-dev-latest'",
                 generateStage(
                     PMM_UI_GIT_BRANCH,
                     amiTag,
                     'perconalab/pmm-server:3-dev-latest',
-                    pmmVersion,
+                    pmmClientVersion,
                     'experimental',
                     latestVersion,
                     PMM_QA_GIT_BRANCH,
@@ -64,7 +65,7 @@ def generateStage(String PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIE
     return {
         stage("Upgrade AMI PMM from ${CLIENT_VERSION} (AMI tag: ${amiVersion}) to: '${DOCKER_TAG_UPGRADE}'") {
             retry(2) {
-                runUpgradeJob("pmm-$CLIENT_VERSION", PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH);
+                runUpgradeJob("pmm-$CLIENT_VERSION", PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH,IS_RC_TESTING);
             }
         }
     }
@@ -88,6 +89,10 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
+        booleanParam(
+            defaultValue: true,
+            description: 'Teting for RC version if true, if false - testing for latest dev version',
+            name: 'IS_RC_TESTING')
     }
     options {
         timeout(time: 300, unit: 'MINUTES')
@@ -96,7 +101,7 @@ pipeline {
         stage('UI tests Upgrade Matrix') {
             steps {
                 script {
-                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList, latestVersion)
+                    parallel generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, versionsList, latestVersion, IS_RC_TESTING)
                 }
             }
         }
