@@ -32,6 +32,7 @@ def generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BR
             results.put(
                 "Upgrade AMI PMM from ${pmmVersion} (AMI tag: ${amiTag}) to: 'perconalab/pmm-server:3-dev-latest'",
                 generateStage(
+                    "pmm-$pmmVersion",
                     PMM_UI_GIT_BRANCH,
                     amiTag,
                     'perconalab/pmm-server:3-dev-latest',
@@ -46,6 +47,7 @@ def generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BR
             results.put(
                 "Upgrade AMI PMM from ${pmmVersion} (AMI tag: ${amiTag}) to: perconalab/pmm-server:${latestVersion}-rc",
                 generateStage(
+                    "pmm-$pmmVersion",
                     PMM_UI_GIT_BRANCH,
                     amiTag,
                     "perconalab/pmm-server:${latestVersion}-rc",
@@ -62,11 +64,11 @@ def generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BR
     return results;
 }
 
-def generateStage(String PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
+def generateStage(String PMM_PRE_UPGRADE, UI_GIT_BRANCH, PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH) {
     return {
         stage("Upgrade AMI PMM from ${CLIENT_VERSION} (AMI tag: ${amiVersion}) to: '${DOCKER_TAG_UPGRADE}'") {
             retry(2) {
-                runUpgradeJob("pmm-$CLIENT_VERSION", PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH);
+                runUpgradeJob(PMM_PRE_UPGRADE, PMM_UI_GIT_BRANCH, amiVersion, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_SERVER_LATEST, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH);
             }
         }
     }
