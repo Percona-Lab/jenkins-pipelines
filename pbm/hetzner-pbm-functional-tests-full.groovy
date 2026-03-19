@@ -97,15 +97,15 @@ pipeline {
             }
         }
     }
-    post {
-        success {
-           slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - all tests passed [${BUILD_URL}testReport/]")
-        }
-        unstable {
-            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - some tests failed [${BUILD_URL}testReport/]")
-        }
-        failure {
-            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - unexpected failure [${BUILD_URL}]")
-        }
-    }
+//    post {
+//        success {
+//           slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - all tests passed [${BUILD_URL}testReport/]")
+//        }
+//        unstable {
+//            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - some tests failed [${BUILD_URL}testReport/]")
+//        }
+//        failure {
+//            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - unexpected failure [${BUILD_URL}]")
+//        }
+//    }
 }
