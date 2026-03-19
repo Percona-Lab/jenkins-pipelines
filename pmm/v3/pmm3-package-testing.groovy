@@ -86,6 +86,7 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO, Str
         export install_repo=${INSTALL_REPO}
         export TARBALL_LINK=${TARBALL}
         git clone https://github.com/Percona-QA/ppg-testing
+        export PATH="$HOME/.local/bin:$PATH"
         ansible-playbook \
         -vvvvv \
         --connection=local \
