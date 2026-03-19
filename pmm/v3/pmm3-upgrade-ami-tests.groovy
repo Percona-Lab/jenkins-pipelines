@@ -27,7 +27,8 @@ def generateVariants(PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BR
 
     versionsList.each { pmmVersion, amiTag ->
         if(pmmVersion == latestVersion) {
-            def pmmClientVersion = IS_RC_TESTING ? "pmm3-rc" : "3-dev-latest"
+            boolean isRcTesting = IS_RC_TESTING?.toString()?.toBoolean()
+            def pmmClientVersion = isRcTesting ? "pmm3-rc" : "3-dev-latest"
             results.put(
                 "Upgrade AMI PMM from ${pmmVersion} (AMI tag: ${amiTag}) to: 'perconalab/pmm-server:3-dev-latest'",
                 generateStage(
