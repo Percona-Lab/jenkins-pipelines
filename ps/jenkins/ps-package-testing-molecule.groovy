@@ -8,7 +8,21 @@ library changelog: false, identifier: "lib@master", retriever: modernSCM([
 def ps90PackageTesting() {
     return [
         'ubuntu-noble',
-        'ubuntu-noble-arm'
+        'ubuntu-noble-arm',
+        'ubuntu-jammy',
+        'ubuntu-jammy-arm',
+        'debian-12',
+        'debian-12-arm',
+        'debian-13',
+        'debian-13-arm',
+        'oracle-8',
+        'oracle-9',
+        'rhel-8',
+        'rhel-8-arm',
+        'rhel-9',
+        'rhel-9-arm',
+        'rhel-10',
+        'rhel-10-arm'
     ]
 }
 
@@ -20,13 +34,16 @@ def ps80PackageTesting() {
         'debian-12-arm',
         'oracle-8',
         'oracle-9',
+        'rhel-8',
         'rhel-9',
         'rhel-8-arm',
         'rhel-9-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
         'ubuntu-jammy',
         'ubuntu-jammy-arm',
-        'ubuntu-focal',
-        'ubuntu-focal-arm',
         'ubuntu-noble',
         'ubuntu-noble-arm',
         'amazon-linux-2023',
@@ -41,13 +58,19 @@ def ps84PackageTesting() {
         'debian-12',
         'debian-12-arm',
         'debian-13',
+        'debian-13-arm',
         'oracle-8',
         'oracle-9',
+        'rhel-8',
         'rhel-9',
         'rhel-10',
         'rhel-8-arm',
         'rhel-9-arm',
         'rhel-10-arm',
+        'rocky-8',
+        'rocky-8-arm',
+        'rocky-9',
+        'rocky-9-arm',
         'ubuntu-jammy',
         'ubuntu-jammy-arm',
         'ubuntu-noble',
@@ -176,7 +199,7 @@ def installMolecule() {
             . virtenv/bin/activate
             python3 --version
             python3 -m pip install --upgrade pip
-            python3 -m pip install --upgrade setuptools
+            python3 -m pip install --upgrade "setuptools<81"
             python3 -m pip install --upgrade setuptools-rust
             python3 -m pip install --upgrade PyYaml==5.3.1 molecule==3.3.0 testinfra pytest molecule-ec2==0.3 molecule[ansible] "ansible<10.0.0" "ansible-lint>=5.1.1,<6.0.0" boto3 boto
         """
@@ -458,7 +481,7 @@ pipeline {
                                 }
                                 else if (action_to_test == 'major_upgrade')     {
                                     sh """
-                                        echo PLAYBOOK_VAR="ps_major_upgrade" > .env.ENV_VARS
+                                         echo PLAYBOOK_VAR="ps_major_upgrade" > .env.ENV_VARS
                                     """
                                 }
                                 else {

@@ -1,0 +1,390 @@
+# aws cloudformation --region us-east-2 create-stack --template-body file://IaC/PerconaOpenShiftIAM.yml --capabilities CAPABILITY_NAMED_IAM --stack-name percona-openshift-iam --tags Key=iit-billing-tag,Value=percona-openshift
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: IAM User with comprehensive OpenShift cluster management permissions
+
+Parameters:
+  UserName:
+    Description: Name for the IAM user
+    Type: String
+    Default: percona-openshift-user
+    AllowedPattern: '^[a-zA-Z0-9+=,.@_-]+$'
+    ConstraintDescription: Must be a valid IAM user name
+
+  DomainName:
+    Description: Domain name for OpenShift clusters (for Route53 permissions)
+    Type: String
+    Default: cd.percona.com
+    AllowedPattern: '^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](\.[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9])*$'
+    ConstraintDescription: Must be a valid domain name
+
+  ProjectTag:
+    Description: Project tag for resource identification
+    Type: String
+    Default: percona-openshift
+
+  BucketName:
+    Description: S3 bucket name for OpenShift cluster state (leave empty for auto-generated)
+    Type: String
+    Default: ''
+
+Conditions:
+  HasBucketName: !Not [!Equals [!Ref BucketName, '']]
+
+Resources:
+  # S3 Bucket for OpenShift cluster state storage
+  OpenShiftClusterBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !If
+        - HasBucketName
+        - !Ref BucketName
+        - !Sub 'openshift-clusters-${AWS::AccountId}-${AWS::Region}'
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+            BucketKeyEnabled: true
+      VersioningConfiguration:
+        Status: Enabled
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      LifecycleConfiguration:
+        Rules:
+          - Id: DeleteIncompleteMultipartUploads
+            Status: Enabled
+            AbortIncompleteMultipartUpload:
+              DaysAfterInitiation: 7
+          - Id: TransitionToIA
+            Status: Enabled
+            Transition:
+              StorageClass: STANDARD_IA
+              TransitionInDays: 30
+          - Id: TransitionToGlacier
+            Status: Enabled
+            Transition:
+              StorageClass: GLACIER
+              TransitionInDays: 365
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Purpose
+          Value: OpenShift-Cluster-State-Storage
+        - Key: CreatedBy
+          Value: CloudFormation
+
+  # CloudWatch Log Group for S3 notifications
+  OpenShiftClusterLogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/s3/${AWS::StackName}-openshift-clusters'
+      RetentionInDays: 90
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: CreatedBy
+          Value: CloudFormation
+
+  # Comprehensive OpenShift Management Policy
+  OpenShiftManagementPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: !Sub '${UserName}-openshift-management-policy'
+      Description: Comprehensive permissions for OpenShift cluster management
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          # EC2 Permissions for cluster infrastructure
+          - Sid: EC2FullAccess
+            Effect: Allow
+            Action:
+              - ec2:*
+            Resource: '*'
+
+          # ELB/ALB Permissions for load balancers
+          - Sid: LoadBalancerAccess
+            Effect: Allow
+            Action:
+              - elasticloadbalancing:*
+            Resource: '*'
+
+          # Auto Scaling for worker node management
+          - Sid: AutoScalingAccess
+            Effect: Allow
+            Action:
+              - autoscaling:*
+            Resource: '*'
+
+          # IAM Permissions for cluster service accounts
+          - Sid: IAMClusterManagement
+            Effect: Allow
+            Action:
+              - iam:CreateRole
+              - iam:DeleteRole
+              - iam:GetRole
+              - iam:ListRoles
+              - iam:PassRole
+              - iam:UpdateRole
+              - iam:TagRole
+              - iam:UntagRole
+              - iam:CreateInstanceProfile
+              - iam:DeleteInstanceProfile
+              - iam:GetInstanceProfile
+              - iam:ListInstanceProfiles
+              - iam:ListInstanceProfilesForRole
+              - iam:TagInstanceProfile
+              - iam:AddRoleToInstanceProfile
+              - iam:RemoveRoleFromInstanceProfile
+              - iam:GetRolePolicy
+              - iam:ListRolePolicies
+              - iam:ListAttachedRolePolicies
+              - iam:AttachRolePolicy
+              - iam:DetachRolePolicy
+              - iam:PutRolePolicy
+              - iam:DeleteRolePolicy
+              - iam:CreateUser
+              - iam:DeleteUser
+              - iam:GetUser
+              - iam:ListUsers
+              - iam:TagUser
+              - iam:UntagUser
+              - iam:GetUserPolicy
+              - iam:ListUserPolicies
+              - iam:AttachUserPolicy
+              - iam:DetachUserPolicy
+              - iam:DeleteUserPolicy
+              - iam:PutUserPolicy
+              - iam:CreateAccessKey
+              - iam:DeleteAccessKey
+              - iam:ListAccessKeys
+              - iam:GetAccessKeyLastUsed
+              - iam:UpdateAccessKey
+              - iam:SimulatePrincipalPolicy
+              - iam:ListRoleTags
+              - iam:ListUserTags
+              - iam:CreateOpenIDConnectProvider
+              - iam:DeleteOpenIDConnectProvider
+              - iam:GetOpenIDConnectProvider
+              - iam:ListOpenIDConnectProviders
+              - iam:TagOpenIDConnectProvider
+              - iam:UntagOpenIDConnectProvider
+              - iam:ListOpenIDConnectProviderTags
+            Resource: '*'
+
+          # Route53 for DNS management
+          - Sid: Route53FullAccess
+            Effect: Allow
+            Action:
+              - route53:*
+            Resource: '*'
+
+          # S3 for cluster state and backups
+          - Sid: S3FullAccess
+            Effect: Allow
+            Action:
+              - s3:*
+            Resource: '*'
+
+          # CloudFormation for infrastructure as code
+          - Sid: CloudFormationAccess
+            Effect: Allow
+            Action:
+              - cloudformation:*
+            Resource: '*'
+
+          # STS for role assumption
+          - Sid: STSAccess
+            Effect: Allow
+            Action:
+              - sts:AssumeRole
+              - sts:GetCallerIdentity
+              - sts:GetSessionToken
+            Resource: '*'
+
+          # Support for service quotas and limits
+          - Sid: SupportAccess
+            Effect: Allow
+            Action:
+              - support:*
+              - servicequotas:*
+            Resource: '*'
+
+          # CloudWatch for monitoring
+          - Sid: CloudWatchAccess
+            Effect: Allow
+            Action:
+              - cloudwatch:*
+              - logs:*
+            Resource: '*'
+
+          # VPC Endpoint Management for S3 access
+          - Sid: VPCEndpointAccess
+            Effect: Allow
+            Action:
+              - ec2:DescribeVpcEndpoints
+              - ec2:CreateVpcEndpoint
+              - ec2:ModifyVpcEndpoint
+              - ec2:DeleteVpcEndpoint
+              - ec2:DescribeVpcs
+              - ec2:DescribeSubnets
+              - ec2:DescribeRouteTables
+              - ec2:CreateRoute
+              - ec2:DeleteRoute
+              - ec2:AssociateRouteTable
+              - ec2:DisassociateRouteTable
+            Resource: '*'
+
+          # VPC Flow Logs
+          - Sid: VPCFlowLogsAccess
+            Effect: Allow
+            Action:
+              - logs:CreateLogGroup
+              - logs:CreateLogStream
+              - logs:PutLogEvents
+              - logs:DescribeLogGroups
+              - logs:DescribeLogStreams
+            Resource: '*'
+
+          # SNS/SQS for notifications
+          - Sid: MessagingAccess
+            Effect: Allow
+            Action:
+              - sns:*
+              - sqs:*
+            Resource: '*'
+
+          # Secrets Manager for sensitive data
+          - Sid: SecretsManagerAccess
+            Effect: Allow
+            Action:
+              - secretsmanager:*
+            Resource: '*'
+
+          # KMS for encryption
+          - Sid: KMSAccess
+            Effect: Allow
+            Action:
+              - kms:*
+            Resource: '*'
+
+          # CloudTrail for auditing
+          - Sid: CloudTrailAccess
+            Effect: Allow
+            Action:
+              - cloudtrail:*
+            Resource: '*'
+
+          # Cost and Billing (read-only)
+          - Sid: CostAccess
+            Effect: Allow
+            Action:
+              - ce:*
+              - cur:*
+              - aws-portal:View*
+            Resource: '*'
+
+          # Resource Groups and Tagging
+          - Sid: ResourceGroupsAccess
+            Effect: Allow
+            Action:
+              - resource-groups:*
+              - tag:*
+            Resource: '*'
+
+          # Additional S3 permissions for VPC endpoint compatibility
+          - Sid: S3VPCEndpointCompatibility
+            Effect: Allow
+            Action:
+              - s3:PutBucketPolicy
+              - s3:GetBucketPolicy
+              - s3:DeleteBucketPolicy
+              - s3:PutBucketTagging
+              - s3:GetBucketTagging
+              - s3:DeleteBucketTagging
+              - s3:GetBucketAcl
+              - s3:PutBucketAcl
+              - s3:GetBucketVersioning
+              - s3:PutBucketVersioning
+              - s3:GetBucketNotification
+              - s3:PutBucketNotification
+              - s3:GetBucketLogging
+              - s3:PutBucketLogging
+            Resource: '*'
+
+  # IAM User for OpenShift operations
+  OpenShiftUser:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: !Ref UserName
+      Path: /
+      ManagedPolicyArns:
+        - !Ref OpenShiftManagementPolicy
+      Tags:
+        - Key: Project
+          Value: !Ref ProjectTag
+        - Key: Purpose
+          Value: OpenShift-Cluster-Management
+        - Key: CreatedBy
+          Value: CloudFormation
+
+  # Access Key for programmatic access
+  OpenShiftUserAccessKey:
+    Type: AWS::IAM::AccessKey
+    DependsOn:
+      - OpenShiftUser
+      - OpenShiftManagementPolicy
+    Properties:
+      UserName: !Ref OpenShiftUser
+      Status: Active
+
+Outputs:
+  UserName:
+    Description: IAM User name for OpenShift operations
+    Value: !Ref OpenShiftUser
+    Export:
+      Name: !Sub '${AWS::StackName}-UserName'
+
+  AccessKeyId:
+    Description: Access Key ID for the OpenShift user
+    Value: !Ref OpenShiftUserAccessKey
+    Export:
+      Name: !Sub '${AWS::StackName}-AccessKeyId'
+
+  SecretAccessKey:
+    Description: Secret Access Key for the OpenShift user
+    Value: !GetAtt OpenShiftUserAccessKey.SecretAccessKey
+    Export:
+      Name: !Sub '${AWS::StackName}-SecretAccessKey'
+
+  PolicyArn:
+    Description: ARN of the OpenShift management policy
+    Value: !Ref OpenShiftManagementPolicy
+    Export:
+      Name: !Sub '${AWS::StackName}-PolicyArn'
+
+  UserArn:
+    Description: ARN of the OpenShift IAM user
+    Value: !GetAtt OpenShiftUser.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-UserArn'
+
+  S3BucketName:
+    Description: S3 bucket name for OpenShift cluster state storage
+    Value: !Ref OpenShiftClusterBucket
+    Export:
+      Name: !Sub '${AWS::StackName}-S3BucketName'
+
+  S3BucketArn:
+    Description: ARN of the S3 bucket for OpenShift cluster state
+    Value: !GetAtt OpenShiftClusterBucket.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-S3BucketArn'
+
+  CloudWatchLogGroup:
+    Description: CloudWatch Log Group for S3 notifications
+    Value: !Ref OpenShiftClusterLogGroup
+    Export:
+      Name: !Sub '${AWS::StackName}-CloudWatchLogGroup'

@@ -16,7 +16,7 @@ String getParam(String paramName, String keyName = null) {
 
 void prepareNode() {
     echo "=========================[ Cloning the sources ]========================="
-    git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+    checkout(scm)
     sh """
         # sudo is needed for better node recovery after compilation failure
         # if building failed on compilation stage directory will have files owned by docker user
@@ -63,7 +63,7 @@ void prepareNode() {
         sudo curl -fsSL https://github.com/mikefarah/yq/releases/download/v4.44.1/yq_linux_amd64 -o /usr/local/bin/yq && sudo chmod +x /usr/local/bin/yq
         sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
 
-        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+        sudo yum install -y https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
         sudo percona-release enable pxb-84-lts
         sudo yum install -y percona-xtrabackup-84
 
@@ -400,86 +400,26 @@ pipeline {
         DB_TAG = sh(script: "[[ \"$IMAGE_PXC\" ]] && echo $IMAGE_PXC | awk -F':' '{print \$2}' || echo main", returnStdout: true).trim()
     }
     parameters {
-        choice(
-            choices: ['run-release.csv', 'run-distro.csv'],
-            description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.',
-            name: 'TEST_SUITE')
-        text(
-            defaultValue: '',
-            description: 'List of tests to run separated by new line',
-            name: 'TEST_LIST')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Ignore passed tests in previous run (run all)',
-            name: 'IGNORE_PREVIOUS_RUN')
-        choice(
-            choices: 'none\n84\n80\n57',
-            description: 'Implies release run.',
-            name: 'PILLAR_VERSION')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository',
-            name: 'GIT_BRANCH')
-        string(
-            defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator',
-            description: 'percona-xtradb-cluster-operator repository',
-            name: 'GIT_REPO')
-        string(
-            defaultValue: 'latest',
-            description: 'OpenShift kubernetes version. If set to min or max, value will be automatically taken from release_versions file.',
-            name: 'PLATFORM_VER')
-        choice(
-            choices: 'YES\nNO',
-            description: 'Run tests in cluster wide mode',
-            name: 'CLUSTER_WIDE')
-        string(
-            defaultValue: '',
-            description: 'Operator image: perconalab/percona-xtradb-cluster-operator:main',
-            name: 'IMAGE_OPERATOR')
-        string(
-            defaultValue: '',
-            description: 'PXC image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0',
-            name: 'IMAGE_PXC')
-        string(
-            defaultValue: '',
-            description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:main-proxysql',
-            name: 'IMAGE_PROXY')
-        string(
-            defaultValue: '',
-            description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:main-haproxy',
-            name: 'IMAGE_HAPROXY')
-        string(
-            defaultValue: '',
-            description: 'Backup image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup',
-            name: 'IMAGE_BACKUP')
-        string(
-            defaultValue: '',
-            description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector',
-            name: 'IMAGE_LOGCOLLECTOR')
-        string(
-            defaultValue: '',
-            description: 'PMM client image: perconalab/pmm-client:dev-latest',
-            name: 'IMAGE_PMM_CLIENT')
-        string(
-            defaultValue: '',
-            description: 'PMM server image: perconalab/pmm-server:dev-latest',
-            name: 'IMAGE_PMM_SERVER')
-        string(
-            defaultValue: '',
-            description: 'ex: perconalab/pmm-client:3-dev-latest',
-            name: 'IMAGE_PMM3_CLIENT')
-        string(
-            defaultValue: '',
-            description: 'ex: perconalab/pmm-server:3-dev-latest',
-            name: 'IMAGE_PMM3_SERVER')
-        string(
-            defaultValue: 'eu-west-2',
-            description: 'AWS region to use for openshift cluster',
-            name: 'AWS_REGION')
-        choice(
-            choices: 'NO\nYES',
-            description: 'Run tests with debug',
-            name: 'DEBUG_TESTS')
+        choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
+        text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
+        choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '84', '80', '57'], description: 'Implies release run.')
+        string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-xtradb-cluster-operator repository')
+        string(name: 'GIT_REPO', defaultValue: 'https://github.com/percona/percona-xtradb-cluster-operator', description: 'percona-xtradb-cluster-operator repository')
+        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'OpenShift kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
+        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
+        string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'Operator image: perconalab/percona-xtradb-cluster-operator:main')
+        string(name: 'IMAGE_PXC', defaultValue: '', description: 'PXC image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0')
+        string(name: 'IMAGE_PROXY', defaultValue: '', description: 'PXC proxy image: perconalab/percona-xtradb-cluster-operator:main-proxysql')
+        string(name: 'IMAGE_HAPROXY', defaultValue: '', description: 'PXC haproxy image: perconalab/percona-xtradb-cluster-operator:main-haproxy')
+        string(name: 'IMAGE_BACKUP', defaultValue: '', description: 'Backup image: perconalab/percona-xtradb-cluster-operator:main-pxc8.0-backup')
+        string(name: 'IMAGE_LOGCOLLECTOR', defaultValue: '', description: 'PXC logcollector image: perconalab/percona-xtradb-cluster-operator:main-logcollector')
+        string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'PMM client image: perconalab/pmm-client:dev-latest')
+        string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'PMM server image: perconalab/pmm-server:dev-latest')
+        string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
+        string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
+        string(name: 'AWS_REGION', defaultValue: 'eu-west-2', description: 'AWS region to use for openshift cluster')
+        choice(name: 'DEBUG_TESTS', choices: ['NO', 'YES'], description: 'Run tests with debug')
     }
     agent {
         label 'min-al2023-x64'
@@ -575,8 +515,18 @@ pipeline {
             archiveArtifacts '*.xml,*.txt'
 
             script {
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                try {
+                    def sendJobSlack = load "cloud/common/sendJobSlackNotification.groovy"
+                    sendJobSlack.call(
+                        tests: tests,
+                        gitBranch: GIT_BRANCH,
+                        platformVer: PLATFORM_VER,
+                        clusterWide: CLUSTER_WIDE,
+                        image: IMAGE_PXC,
+                        operatorImage: IMAGE_OPERATOR
+                    )
+                } catch (err) {
+                    echo "Slack helper load/call failed: ${err}"
                 }
 
                 clusters.each { shutdownCluster(it) }

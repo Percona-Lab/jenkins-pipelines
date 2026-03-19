@@ -19,8 +19,6 @@ def runMoleculeAction(String action, String product_to_test, String scenario, St
             secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
         )
     ]
-
-
             
             echo "check var param_test_type ${param_test_type}"
 
@@ -318,19 +316,25 @@ def install(){
 def post_install(){
 
         script {
-            try {
-                echo "3. BACKUP LOGS"
-                setInventories("install")
-                runlogsbackup(params.product_to_test, "install")
-            } catch (Exception e) {
-                echo "Failed during logs backup: ${e.message}"
+
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                try {
+                    echo "3. BACKUP LOGS"
+                    setInventories("install")
+                    runlogsbackup(params.product_to_test, "install")
+                } catch (Exception e) {
+                    echo "Failed during logs backup: ${e.message}"
+                }
             }
 
             echo "4. DESTROY"
-            try {
-                runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes")
-            } catch (Exception e) {
-                echo "Failed during Molecule destroy step: ${e.message}"
+
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                try {
+                    runMoleculeAction("destroy", params.product_to_test, params.node_to_test, "install", params.test_repo, "yes")
+                } catch (Exception e) {
+                    echo "Failed during Molecule destroy step: ${e.message}"
+                }
             }
         
             catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
@@ -378,17 +382,33 @@ def upgrade(String upgrade_type){
 def post_upgrade(String upgrade_type){
 
         script{
-            echo "5. Backup logs"
-            setInventories(upgrade_type)
-            runlogsbackup(params.product_to_test, upgrade_type)
-            echo "6. Destroy"
-            runMoleculeAction("destroy", params.product_to_test, params.node_to_test, upgrade_type, params.test_repo, "yes")
-        }
-        catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE'){
-            echo "7. Archive Logs and Artifacts"
-            archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
-        }
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                try {
+                    echo "5. Backup logs"
+                    setInventories(upgrade_type)
+                    runlogsbackup(params.product_to_test, upgrade_type)
+                } catch (Exception e) {
+                    echo "Failed during logs backup: ${e.message}"
+                }
+            }
 
+            echo "6. Destroy"
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                try {
+                    runMoleculeAction("destroy", params.product_to_test, params.node_to_test, upgrade_type, params.test_repo, "yes")
+                } catch (Exception e) {
+                    echo "Failed during Molecule destroy step: ${e.message}"
+                }
+            }
+
+            catchError(buildResult: 'UNSTABLE', stageResult: 'FAILURE') {
+                try {
+                    archiveArtifacts artifacts: 'PXC/**/*.tar.gz' , followSymlinks: false
+                } catch (Exception e) {
+                    echo "Failed to archive artifacts: ${e.message}"
+                }
+            }
+        }
 }
 
 void setInventories(String param_test_type){
@@ -409,6 +429,8 @@ void setInventories(String param_test_type){
                         SSH_USER="ec2-user"
                     }else if(("${params.node_to_test}" == "centos-7")){
                         SSH_USER="centos"
+                    }else if(("${params.node_to_test}" == "rocky-linux-8") || ("${params.node_to_test}" == "rocky-linux-8-arm") || (("${params.node_to_test}" == "rocky-linux-9") ) || (("${params.node_to_test}" == "rocky-linux-9-arm") )){
+                        SSH_USER="rocky"
                     }else{
                         echo "OS Not yet in list of Keypath setup"
                     }
@@ -734,6 +756,10 @@ properties([
                                         'rhel-9',
                                         'rhel-8-arm',
                                         'rhel-9-arm',
+                                        'rocky-linux-8',
+                                        'rocky-linux-8-arm',
+                                        'rocky-linux-9',
+                                        'rocky-linux-9-arm',
                                         'amazon-linux-2023',
                                         'amazon-linux-2023-arm'
                         ]
@@ -756,7 +782,11 @@ properties([
                                         'rhel-10',
                                         'rhel-8-arm',
                                         'rhel-9-arm',
-                                        'rhel-10-arm'
+                                        'rhel-10-arm',
+                                        'rocky-linux-8',
+                                        'rocky-linux-8-arm',
+                                        'rocky-linux-9',
+                                        'rocky-linux-9-arm',
                                         'amazon-linux-2023',
                                         'amazon-linux-2023-arm'
                         ]
@@ -1172,4 +1202,3 @@ pipeline {
         }
     }
 }
-
