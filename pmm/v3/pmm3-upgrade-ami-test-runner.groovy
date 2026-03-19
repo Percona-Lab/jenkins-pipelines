@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@PMM-14156', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -113,7 +113,7 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository for pre upgrade',
             name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
         string(
-            defaultValue: 'PMM-14156',
+            defaultValue: 'main',
             description: 'Tag/Branch for UI Tests repository for post upgrade',
             name: 'PMM_UI_GIT_BRANCH')
         string(
@@ -141,7 +141,7 @@ pipeline {
             description: 'Tag/Branch for pmm qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: 'PMM-14156-ami-ovf',
+            defaultValue: 'main',
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         string(
