@@ -512,7 +512,6 @@ parameters {
                    //    expression { env.FIPSMODE == 'NO' }
                        expression { false }
                     }
-                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
