@@ -438,9 +438,9 @@ parameters {
                 installCli("deb")
                 script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("none", "--get_sources=1 --enable_fipsmode=1")
+                                buildStage("ubuntu:focal", "--get_sources=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("none", "--get_sources=1")
+                                buildStage("ubuntu:focal", "--get_sources=1")
                             }
                        }
                 sh '''
