@@ -812,9 +812,7 @@ parameters {
                 stage('Ubuntu Focal(20.04) ARM') {
                     when {
                         expression { false }
-                    }
-                    when {
-                        expression { env.FIPSMODE == 'NO' }
+                        //expression { env.FIPSMODE == 'NO' }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
