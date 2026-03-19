@@ -681,10 +681,8 @@ parameters {
                 stage('Ubuntu Focal(20.04)') {
                     when {
                         expression { false }
-                    }
-                    //when {
                     //    expression { env.FIPSMODE == 'NO' }
-                    //}
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -947,9 +945,7 @@ parameters {
                 stage('Oracle Linux 8 binary tarball') {
                     when {
                         expression { false }
-                    }
-                    when {
-                        expression { env.FIPSMODE == 'NO' }
+                    //    expression { env.FIPSMODE == 'NO' }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -1161,7 +1157,7 @@ parameters {
                 installCli("rpm")
                 unstash 'properties'
 
-                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+//                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                 uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                 uploadTarballfromAWS(params.CLOUD, "tarball/", AWS_STASH_PATH, 'binary')
             }
@@ -1169,7 +1165,7 @@ parameters {
 
         stage('Sign packages') {
             steps {
-                signRPM()
+//                signRPM()
                 signDEB()
             }
         }
