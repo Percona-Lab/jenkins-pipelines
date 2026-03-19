@@ -33,12 +33,12 @@ pipeline {
             name: 'TDE_REPO'
         )
         string(
-            defaultValue: 'release-2.1',
+            defaultValue: 'release-2.1.2',
             description: 'TDE repo version/branch/tag to use; e.g main, release-2.1',
             name: 'TDE_BRANCH'
         )
         string(
-            defaultValue: 'ppg-18.1',
+            defaultValue: 'ppg-18.3',
             description: 'Server PG version for test, including major and minor version, e.g ppg-17.4, ppg-17.3',
             name: 'VERSION'
         )

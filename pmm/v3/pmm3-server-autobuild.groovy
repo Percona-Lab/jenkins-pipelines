@@ -145,9 +145,9 @@ pipeline {
                         launchable verify || true
                         echo "$(git submodule status)" || true
 
-                        export DOCKER_IMAGE_ID=$(docker inspect ${IMAGE} -f "{{.Id}}") || true
+                        export DOCKER_IMAGE_ID=$(docker inspect perconalab/pmm-server:${IMAGE} -f "{{.Id}}") || true
 
-                        launchable record build --name "${DOCKER_IMAGE_ID}" --lineage "${IMAGE}" || true
+                        launchable record build --name "${DOCKER_IMAGE_ID}" --lineage "perconalab/pmm-server:${IMAGE}" || true
                     '''
                 }
             }

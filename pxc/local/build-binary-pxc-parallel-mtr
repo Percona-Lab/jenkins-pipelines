@@ -40,7 +40,7 @@ cat /proc/meminfo
 # TODO: Is it needed here?
 if [ -f /etc/redhat-release ]; then
     RHEL=$(rpm --eval %rhel)
-    if [ "${RHEL}" == 8 ]; then
+    if [ "${RHEL}" == 7 ]; then
         pushd /etc/yum.repos.d/
         sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
         sudo sed -i 's|#baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*

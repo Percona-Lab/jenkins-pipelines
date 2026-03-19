@@ -24,7 +24,7 @@ pipeline {
             ]
         )
         string(
-            defaultValue: 'ppg-18.0',
+            defaultValue: 'ppg-18.3',
             description: 'PG version for test',
             name: 'VERSION'
         )

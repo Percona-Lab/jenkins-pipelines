@@ -1,6 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
 import hudson.model.*
-import hudson.plugins.ec2.AmazonEC2Cloud
+import hudson.plugins.ec2.EC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -212,7 +212,7 @@ String sshKeysCredentialsId = 'aws-jenkins'
 String region = 'eu-central-1'
 ('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
+    EC2Cloud ec2Cloud = new EC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
         '',                                     // String credentialsId
@@ -234,7 +234,7 @@ String region = 'eu-central-1'
 
     // add cloud configuration to Jenkins
     jenkins.clouds.each {
-        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
+        if (it.hasProperty('name') && it.name == ec2Cloud.name) {
             jenkins.clouds.remove(it)
         }
     }
