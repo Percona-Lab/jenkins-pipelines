@@ -507,6 +507,7 @@ parameters {
         } // stage
         stage('Build PS RPMs/DEBs/Binary tarballs') {
             parallel {
+/*
                 stage('Oracle Linux 8') {
                     when {
                    //    expression { env.FIPSMODE == 'NO' }
@@ -743,6 +744,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+*/
                 stage('Debian Bullseye(11)') {
                     when {
                         expression { env.FIPSMODE == 'NO' }
@@ -762,6 +764,7 @@ parameters {
                         }
                     }
                 }
+/*
                 stage('Debian Bookworm(12)') {
                     when {
                         expression { false }
@@ -874,6 +877,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
+*/
                 stage('Debian Bullseye(11) ARM') {
                     when {
                         expression { env.FIPSMODE == 'NO' }
@@ -893,6 +897,7 @@ parameters {
                         }
                     }
                 }
+/*
                 stage('Debian Bookworm(12) ARM') {
                     when {
                         expression { false }
@@ -1046,6 +1051,7 @@ parameters {
                         pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                     }
                 }
+*/
                 stage('Ubuntu Focal(20.04) tarball') {
                     when {
                         expression { env.FIPSMODE == 'NO' }
