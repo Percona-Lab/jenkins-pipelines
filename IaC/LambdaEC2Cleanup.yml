@@ -82,7 +82,7 @@ Resources:
       Description: >-
         Terminate untagged EC2 instances, auto-tag Cirrus CI,
         clean up orphaned EKS clusters
-      Runtime: python3.12
+      Runtime: python3.13
       Handler: index.lambda_handler
       MemorySize: 128
       Timeout: 120
