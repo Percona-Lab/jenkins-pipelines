@@ -62,9 +62,8 @@ void setup_debian_trixie_package_tests()
     sh '''
         sudo apt-get update
         sudo apt-get install -y gpg wget dirmngr gnupg2 git pipx python3-venv
-        pipx ensurepath
-        pipx install --include-deps ansible
-        pipx ensurepath
+        export PATH="$HOME/.local/bin:$PATH"
+        pipx install --include-deps --force ansible
         ansible --version
     '''
 }
