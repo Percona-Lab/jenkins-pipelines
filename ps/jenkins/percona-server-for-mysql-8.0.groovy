@@ -509,7 +509,9 @@ parameters {
             parallel {
                 stage('Oracle Linux 8') {
                     when {
-                       expression { env.FIPSMODE == 'NO' }
+                   //    expression { env.FIPSMODE == 'NO' }
+                       expression { false }
+                    }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -528,7 +530,8 @@ parameters {
                 }
                 stage('Centos 8 ARM') {
                     when {
-                        expression { env.FIPSMODE == 'NO' }
+                        // expression { env.FIPSMODE == 'NO' }
+                        expression { false }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -546,6 +549,9 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 9') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -566,6 +572,9 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 9 ARM') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -586,6 +595,9 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 10') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -606,6 +618,9 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 10 ARM') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -626,6 +641,9 @@ parameters {
                     }
                 }
                 stage('Amazon Linux 2023') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -642,6 +660,9 @@ parameters {
                     }
                 }
                 stage('Amazon Linux 2023 ARM') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -659,8 +680,11 @@ parameters {
                 }
                 stage('Ubuntu Focal(20.04)') {
                     when {
-                        expression { env.FIPSMODE == 'NO' }
+                        expression { false }
                     }
+                    //when {
+                    //    expression { env.FIPSMODE == 'NO' }
+                    //}
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -677,6 +701,9 @@ parameters {
                     }
                 }
                 stage('Ubuntu Jammy(22.04)') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -697,6 +724,9 @@ parameters {
                     }
                 }
                 stage('Ubuntu Noble(24.04)') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -736,6 +766,9 @@ parameters {
                     }
                 }
                 stage('Debian Bookworm(12)') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -756,6 +789,9 @@ parameters {
                     }
                 }
                 stage('Debian Trixie(13)') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -777,6 +813,9 @@ parameters {
                 }
                 stage('Ubuntu Focal(20.04) ARM') {
                     when {
+                        expression { false }
+                    }
+                    when {
                         expression { env.FIPSMODE == 'NO' }
                     }
                     agent {
@@ -795,6 +834,9 @@ parameters {
                     }
                 }
                 stage('Ubuntu Jammy(22.04) ARM') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -815,6 +857,9 @@ parameters {
                     }
                 }
                 stage('Ubuntu Noble(24.04) ARM') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -854,6 +899,9 @@ parameters {
                     }
                 }
                 stage('Debian Bookworm(12) ARM') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -874,6 +922,9 @@ parameters {
                     }
                 }
                 stage('Debian Trixie(13) ARM') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -895,6 +946,9 @@ parameters {
                 }
                 stage('Oracle Linux 8 binary tarball') {
                     when {
+                        expression { false }
+                    }
+                    when {
                         expression { env.FIPSMODE == 'NO' }
                     }
                     agent {
@@ -914,6 +968,9 @@ parameters {
                 }
                 stage('Oracle Linux 8 debug tarball') {
                     when {
+                        expression { false }
+                    }
+                    when {
                         expression { env.FIPSMODE == 'NO' }
                     }
                     agent {
@@ -932,6 +989,9 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 9 tarball') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -953,8 +1013,11 @@ parameters {
                 }
                 stage('Oracle Linux 9 ZenFS tarball') {
                     when {
-                        expression { env.FIPSMODE == 'NO' }
+                        expression { false }
                     }
+                   // when {
+                   //     expression { env.FIPSMODE == 'NO' }
+                   // }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -970,6 +1033,9 @@ parameters {
                     }
                 }
                 stage('Oracle Linux 9 debug tarball') {
+                    when {
+                        expression { false }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
