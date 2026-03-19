@@ -568,9 +568,9 @@ pipeline {
                             cleanUpWS()
                             popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
+                                buildStage("debian:trixie", "--build_deb=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("debian:bookworm", "--build_deb=1")
+                                buildStage("debian:trixie", "--build_deb=1")
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') {
@@ -589,9 +589,9 @@ pipeline {
                             cleanUpWS()
                             popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
+                                buildStage("debian:trixie", "--build_deb=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("debian:bookworm", "--build_deb=1")
+                                buildStage("debian:trixie", "--build_deb=1")
                             }
 
                             if (env.EXPERIMENTALMODE == 'NO') {
