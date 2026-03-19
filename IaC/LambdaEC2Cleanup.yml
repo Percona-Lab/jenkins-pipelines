@@ -84,6 +84,8 @@ Resources:
         clean up orphaned EKS clusters
       Runtime: python3.13
       Handler: index.lambda_handler
+      Architectures:
+        - arm64
       MemorySize: 128
       Timeout: 120
       Role: !GetAtt RoleEC2Cleanup.Arn
