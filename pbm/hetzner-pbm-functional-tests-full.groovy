@@ -34,11 +34,11 @@ pipeline {
                 axes {
                     axis {
                         name 'SHARD'
-                        values '0'
+                        values '0','1','2','3','4','5','6','7','8','9'
                     }
                     axis {
                         name 'PSMDB'
-                        values '8.0'
+                        values '7.0', '8.0'
                     }
                 }
                 stages {
@@ -73,9 +73,7 @@ pipeline {
                                     PSMDB=perconalab/percona-server-mongodb:${PSMDB} docker compose build easyrsa
                                     PSMDB=perconalab/percona-server-mongodb:${PSMDB} docker compose build
                                     docker compose up -d
-                                    for i in \$(seq 1 20); do
-                                        KMS_ID="${KMS_ID}" docker compose run test pytest -s test_PBM-1681.py --junitxml=junit.xml -k T307 \$JENKINS_FLAG || true
-                                    done
+                                    KMS_ID="${KMS_ID}" docker compose run test pytest -s --junitxml=junit.xml --shard-id=${SHARD} --num-shards=10 \$JENKINS_FLAG ${params.PYTEST_PARAMS} || true
                                     docker compose down -v --remove-orphans
                                     curl -H "Content-Type:multipart/form-data" -H "Authorization: Bearer ${ZEPHYR_TOKEN}" -F "file=@junit.xml;type=application/xml" 'https://api.zephyrscale.smartbear.com/v2/automations/executions/junit?projectKey=PBM' -F 'testCycle={"name":"${JOB_NAME}-${BUILD_NUMBER}","customFields": { "PBM branch": "${PBM_BRANCH}","PSMDB docker image": "percona/percona-server-mongodb:${PSMDB}","instance": "${instance}"}};type=application/json' -i || true
                                 """
@@ -97,15 +95,15 @@ pipeline {
             }
         }
     }
-//    post {
-//        success {
-//           slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - all tests passed [${BUILD_URL}testReport/]")
-//        }
-//        unstable {
-//            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - some tests failed [${BUILD_URL}testReport/]")
-//        }
-//        failure {
-//            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - unexpected failure [${BUILD_URL}]")
-//        }
-//    }
+    post {
+        success {
+           slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - all tests passed [${BUILD_URL}testReport/]")
+        }
+        unstable {
+            slackNotify("#mongodb_autofeed", "#F6F930", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - some tests failed [${BUILD_URL}testReport/]")
+        }
+        failure {
+            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: PBM ${PBM_BRANCH} - unexpected failure [${BUILD_URL}]")
+        }
+    }
 }
