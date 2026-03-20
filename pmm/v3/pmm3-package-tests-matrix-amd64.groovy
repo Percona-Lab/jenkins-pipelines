@@ -36,7 +36,7 @@ void runStaging(String DOCKER_VERSION, CLIENTS) {
 }
 
 void runPackageTest(String GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, TESTS, INSTALL_REPO, TARBALL, METRICS_MODE, CLIENTS) {
-    packageTestJob = build job: 'pmm3-package-testing-arm', parameters: [
+    packageTestJob = build job: 'pmm3-package-testing', parameters: [
         string(name: 'GIT_BRANCH', value: GIT_BRANCH),
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'PMM_VERSION', value: PMM_VERSION),
@@ -46,75 +46,6 @@ void runPackageTest(String GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, TESTS, INSTA
         string(name: 'METRICS_MODE', value: METRICS_MODE),
         string(name: 'CLIENTS', value: CLIENTS)
     ]
-}
-
-def generateVariants(String playbookName) {
-    def results = new HashMap<>();
-    def labels = ["min-bookworm-arm64", "min-bullseye-arm64", "min-noble-arm64", "min-jammy-arm64", "min-focal-arm64", "min-ol-9-arm64", "min-ol-8-arm64"]
-
-
-    for(label in labels) {
-        results.put("${label}-${playbookName}", generateStage(label, playbookName))
-    }
-
-    return results;
-}
-
-def generateRunnerVariants() {
-    def results = new HashMap<>();
-    def agents = ["min-bookworm-arm64", "min-bullseye-arm64"]
-    def playbooks = ["pmm3-client", "pmm3-client_custom_path", "pmm3-client_integration", "pmm3-client_integration_auth_config", "pmm3-client_integration_auth_register", "pmm3-client_integration_custom_path", "pmm3-client_integration_custom_port", "pmm3-client_integration_upgrade", "pmm3-client_integration_upgrade_custom_path", "pmm3-client_integration_upgrade_custom_port", "pmm3-client_upgrade"]
-
-    for(agent in agents) {
-        for(playbook in playbooks) {
-            results.put("${agent}-${playbook}", generateStage(agent, playbook))
-        }
-    }
-
-    return results;
-}
-
-
-def generateStage(LABEL, PLAYBOOK) {
-    return {
-        stage("${LABEL}-${PLAYBOOK}") {
-            retry(5) {
-                agent {
-                    label "${LABEL}"
-                }
-                node(LABEL) {
-                    String DISTRIBUTION = sh(script: "cat /proc/version", , returnStdout: true).trim()
-                    if(DISTRIBUTION.contains("Red Hat")) {
-                        sh '''
-                            sudo dnf install -y epel-release
-                            sudo dnf -y update
-                            sudo dnf install -y ansible-core git wget dpkg
-                        '''
-                    } else if (DISTRIBUTION.contains("Ubuntu")) {
-                        sh '''
-                            sudo apt update -y
-                            sudo apt install -y software-properties-common
-                            sudo apt-add-repository --yes --update ppa:ansible/ansible
-                            sudo apt-get install -y ansible git wget
-                       '''
-                    } else {
-                       sh '''
-                            sudo apt-get install -y dirmngr gnupg2
-                            echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
-                            sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
-                            sudo apt update -y
-                            sudo apt-get install -y ansible git wget
-                       '''
-                    }
-                    run_package_tests(
-                        GIT_BRANCH,
-                        PLAYBOOK,
-                        INSTALL_REPO,
-                    )
-                }
-            }
-        }
-    }
 }
 
 def latestVersion = pmmVersion('v3')[0]

@@ -17,7 +17,7 @@ void runStaging(String DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS) {
     env.PMM_SERVER_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     env.ADMIN_PASSWORD = stagingJob.buildVariables.ADMIN_PASSWORD
-    env.PMM_URL = "http://admin:${ADMIN_PASSWORD}@${VM_IP}"
+    env.PMM_URL = "https://admin:${ADMIN_PASSWORD}@${VM_IP}"
 }
 
 void destroyStaging(IP) {
@@ -57,6 +57,15 @@ void setup_debian_package_tests()
     '''
 }
 
+void setup_debian_trixie_package_tests()
+{
+    sh '''
+        set -e
+        sudo apt-get update -y
+        sudo apt-get install -y gpg wget dirmngr gnupg2 git ansible
+    '''
+}
+
 void setup_ubuntu_package_tests()
 {
     sh '''
@@ -71,16 +80,16 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO, Str
 {
     deleteDir()
     git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/package-testing'
-    sh '''
-        export install_repo=\${INSTALL_REPO}
-        export TARBALL_LINK=\${TARBALL}
+    sh """
+        export install_repo=${INSTALL_REPO}
+        export TARBALL_LINK=${TARBALL}
         git clone https://github.com/Percona-QA/ppg-testing
         ansible-playbook \
-        -vvv \
+        -vvvvv \
         --connection=local \
         --inventory 127.0.0.1, \
-        --limit 127.0.0.1 playbooks/\${TESTS}.yml
-    '''
+        --limit 127.0.0.1 playbooks/${TESTS}.yml
+    """
 }
 
 def latestVersion = pmmVersion('v3').last()
@@ -121,7 +130,7 @@ pipeline {
             name: 'INSTALL_REPO')
         string(
             defaultValue: '',
-            description: 'PMM Client tarball link or FB-code',
+            description: 'PMM Client (X64) tarball link or FB-code',
             name: 'TARBALL')
         string(
             defaultValue: 'pmm3admin!',
@@ -138,9 +147,7 @@ pipeline {
     }
     options {
         skipDefaultCheckout()
-    }
-    triggers {
-        cron('0 2 * * *')
+        timeout(time: 90, unit: 'MINUTES')
     }
     stages {
         stage('Setup Server Instance') {
@@ -158,44 +165,29 @@ pipeline {
                 }
             }
         }
-        stage('Execute Package Tests') {
+        stage('Execute AMD 64 Package Tests') {
             parallel {
-                stage('ol-8-arm64') {
+                stage('Oracle Linux 8 - AMD64') {
                     agent {
-                        label 'min-ol-8-arm64'
+                        label 'min-ol-8-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
                 }
-                stage('ol-9-arm64') {
+                stage('Oracle Linux 9 - AMD64') {
                     agent {
-                        label 'min-ol-9-arm64'
+                        label 'min-ol-9-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
                 }
-                stage('alma-10-arm64') {
-                    when {
-                        expression {
-                            !(env.TESTS ?: '').contains('upgrade')
-                        }
-                    }
+                stage('Almalinux 10 - AMD64') {
                     agent {
-                        label 'min-alma-10-arm64'
+                        label 'min-alma-10-x64'
                     }
                     environment {
                         PS_REPOSITORY='testing'
@@ -204,66 +196,53 @@ pipeline {
                         setup_rhel_10_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
                 }
-                stage('jammy-arm64') {
+                stage('Ubuntu 22.04 Jammy - AMD64') {
                     agent {
-                        label 'min-jammy-arm64'
+                        label 'min-jammy-x64'
                     }
                     steps{
                         setup_ubuntu_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
                 }
-                stage('noble-arm64') {
+                stage('Ubuntu 24.04 Noble - AMD64') {
                     agent {
-                        label 'min-noble-arm64'
+                        label 'min-noble-x64'
                     }
                     steps {
                         setup_ubuntu_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
                 }
-                stage('bookworm-arm64') {
+                stage('Debian 11 Bullseye - AMD64') {
                     agent {
-                        label 'min-bookworm-arm64'
+                        label 'min-bullseye-x64'
                     }
                     steps{
                         setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
-                    post {
-                        always {
-                            deleteDir()
-                        }
-                    }
                 }
-                stage('bullseye-arm64') {
+                stage('Debian 12 Bookworm - AMD64') {
                     agent {
-                        label 'min-bullseye-arm64'
+                        label 'min-bookworm-x64'
                     }
                     steps{
                         setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
-                    post {
-                        always {
-                            deleteDir()
-                        }
+                }
+                stage('Debian 13 Trixie - AMD64') {
+                    when {
+                        expression { !TESTS.contains("upgrade") }
+                    }
+                    agent {
+                        label 'min-trixie-x64'
+                    }
+                    steps{
+                        setup_debian_trixie_package_tests()
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
             }
@@ -271,21 +250,19 @@ pipeline {
     }
     post {
         always {
-            sh '''
-                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-            '''
-            script {
-                if(env.VM_NAME)
-                {
-                    archiveArtifacts artifacts: 'logs.zip'
-                    destroyStaging(VM_NAME)
+//             try {
+                sh '''
+                    curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+                '''
+                script {
+                    if(env.VM_NAME) {
+                        archiveArtifacts artifacts: 'logs.zip'
+                        destroyStaging(VM_NAME)
+                    }
                 }
-                if (currentBuild.result == 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                } else {
-                    slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
-                }
-            }
+//             } catch (AgentOfflineException e) {
+//                 ignored
+//             }
         }
     }
 }
