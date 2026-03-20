@@ -80,6 +80,7 @@ initMap['deb-docker'] = '''#!/bin/bash -x
     set -o xtrace
     echo -e "nameserver 9.9.9.9\nnameserver 1.1.1.1" | sudo tee /etc/resolv.conf
     ( sudo systemctl stop sshd; sleep 300; sudo systemctl start sshd ) &
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     sudo fallocate -l 32G /swapfile
     sudo chmod 600 /swapfile
     sudo mkswap /swapfile
@@ -113,7 +114,6 @@ initMap['deb-docker'] = '''#!/bin/bash -x
         unzip -o /tmp/awscliv2.zip -d /tmp
         cd /tmp/aws && sudo ./install
     fi
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     sudo sysctl net.ipv4.tcp_fin_timeout=15
     sudo sysctl net.ipv4.tcp_tw_reuse=1
     sudo sysctl net.ipv6.conf.all.disable_ipv6=1
