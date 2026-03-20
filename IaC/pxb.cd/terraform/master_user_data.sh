@@ -108,6 +108,7 @@ start_jenkins() {
     mkdir -p /etc/systemd/system/jenkins.service.d
     cat <<-EOF | tee /etc/systemd/system/jenkins.service.d/override.conf
          [Service]
+         TimeoutStartSec=300
          # Directory where Jenkins stores its configuration and workspaces
          Environment="JENKINS_HOME=/mnt/$JENKINS_HOST"
          WorkingDirectory=/mnt/$JENKINS_HOST
