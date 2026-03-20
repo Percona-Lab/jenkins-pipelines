@@ -466,18 +466,22 @@ pipeline {
                         steps {
                             script {
                                 if (action_to_test == 'install') {
-                                     sh """
-                                        echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
+                                    def formatted_product_to_test = product_to_test.replace('ps', 'ps_')
+                                    sh """
+                                        echo "Formatted product_to_test: ${formatted_product_to_test}"
+                                        echo PLAYBOOK_VAR="${formatted_product_to_test}" > .env.ENV_VARS
                                     """
                                 } 
                                 else if (action_to_test == 'upgrade') {
+                                    def formatted_product_to_test = product_to_test.replace('ps', 'ps_')
                                     sh """
-                                        echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
+                                        echo PLAYBOOK_VAR="ps_upgrade" > .env.ENV_VARS
+                                        echo PLAYBOOK_VAR="${formatted_product_to_test}" > .env.ENV_VARS
                                     """
                                 }
                                 else if (action_to_test == 'major_upgrade')     {
                                     sh """
-                                        echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
+                                         echo PLAYBOOK_VAR="ps_major_upgrade" > .env.ENV_VARS
                                     """
                                 }
                                 else {
