@@ -522,24 +522,13 @@ pipeline {
                 retry(2) {
                     withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                         sh '''
-                            pushd /srv/pmm-qa/
-                                docker build -f Dockerfile.playwright -t playwright-runner:latest .
-                                docker run -d -e PMM_UI_URL="$PMM_UI_URL" \
-                                 -e ADMIN_PASSWORD="$ADMIN_PASSWORD" \
-                                 --restart always --network="pmm-qa" \
-                                 --privileged --cgroupns=host \
-                                 -v /sys/fs/cgroup:/sys/fs/cgroup:rw \
-                                 -v /var/lib/containerd \
-                                 --name playwright-runner \
-                                 playwright-runner:latest
-                                 docker exec playwright-runner npx playwright test --grep "${PLAYWRIGHT_FLAG}" --pass-with-no-tests
+                            pushd /srv/pmm-qa/e2e_tests/
+                                sudo npm ci
+                                sudo npx playwright install chromium
+                                sudo npx playwright test --grep "${PLAYWRIGHT_FLAG}" --pass-with-no-tests
                             popd
                         '''
-//                             pushd /srv/pmm-qa/e2e_tests/
-//                                 sudo npm ci
-//                                 sudo npx playwright install chromium
-//                                 sudo npx playwright test --grep "${PLAYWRIGHT_FLAG}" --pass-with-no-tests
-//                             popd
+
                     }
                 }
             }
