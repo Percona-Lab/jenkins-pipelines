@@ -134,7 +134,7 @@ pipeline {
                 uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
             }
         }
-/*        stage('Build PSMDB generic source packages') {
+        stage('Build PSMDB generic source packages') {
             when {
                 expression { return params.BUILD_PACKAGES == 'true' }
             }
@@ -171,13 +171,13 @@ pipeline {
                     }
                 }
             }  //parallel
-        } // stage */
+        } // stage
         stage('Build PSMDB RPMs/DEBs/Binary tarballs') {
             when {
                 expression { return params.BUILD_PACKAGES == 'true' }
             }
             parallel {
-/*                stage('Oracle Linux 8(x86_64)') {
+                stage('Oracle Linux 8(x86_64)') {
                     agent {
                         label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
                     }
@@ -386,7 +386,7 @@ pipeline {
                             pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
-                }*/
+                }
                 stage('Ubuntu Noble(24.04) binary tarball(glibc2.39)') {
                     agent {
                         label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
@@ -401,7 +401,7 @@ pipeline {
                         }
                     }
                 }
-/*                stage('Debian Bookworm(12) binary tarball(glibc2.36)') {
+                stage('Debian Bookworm(12) binary tarball(glibc2.36)') {
                     agent {
                         label params.CLOUD == 'AWS' ? 'docker-64gb' : 'docker-x64'
                     }
@@ -414,7 +414,7 @@ pipeline {
                             pushArtifactFolder(params.CLOUD, "tarball/", AWS_STASH_PATH)
                         }
                     }
-                }*/
+                }
             }
         }
 
@@ -427,14 +427,14 @@ pipeline {
             }
             steps {
                 cleanUpWS()
-                // Only tarball for 24.04 build
-                // uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
-                // uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+
+                uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
+                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                 uploadTarballfromAWS(params.CLOUD, "tarball/", AWS_STASH_PATH, 'binary')
             }
         }
 
-/*        stage('Sign packages') {
+        stage('Sign packages') {
             when {
                 expression { return params.BUILD_PACKAGES == 'true' }
             }
@@ -453,7 +453,7 @@ pipeline {
                     sync2ProdAutoBuild(params.CLOUD, PSMDB_REPO, COMPONENT)
                 }
             }
-        }*/
+        }
         stage('Push Tarballs to TESTING download area') {
             when {
                 expression { return params.BUILD_PACKAGES == 'true' }
@@ -470,7 +470,7 @@ pipeline {
                 }
             }
         }
-/*        stage('Run testing job') {
+        stage('Run testing job') {
             when {
                 allOf {
                     expression { return params.BUILD_PACKAGES == 'true' }
@@ -484,7 +484,7 @@ pipeline {
                     build job: 'psmdb-parallel', propagate: false, wait: false, parameters: [string(name: 'REPO', value: 'testing'), string(name: 'PSMDB_VERSION', value: PSMDB_VERSION), string(name: 'ENABLE_TOOLKIT', value: 'false'), string(name: 'TESTING_BRANCH', value: 'main')]
                 }
             }
-        }*/
+        }
     }
     post {
         success {
