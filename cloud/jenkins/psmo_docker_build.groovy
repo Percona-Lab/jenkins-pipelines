@@ -111,8 +111,6 @@ pipeline {
     }
 
     post {
-        always {
-        }
         unstable {
             script {
                 def trivySummary = getTrivyCveSummary('trivy-ps.xml', "perconalab/percona-server-mysql-operator:${DOCKER_TAG}")
