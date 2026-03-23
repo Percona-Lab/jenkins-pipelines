@@ -49,11 +49,9 @@ void setup_rhel_10_package_tests()
 void setup_debian_package_tests()
 {
     sh '''
-        sudo apt-get install -y dirmngr gnupg2
-        echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
-        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
-        sudo apt update -y
-        sudo apt-get install -y ansible git wget
+        set -e
+        sudo apt-get update -y
+        sudo apt-get install -y gpg wget dirmngr gnupg2 git ansible
     '''
 }
 
@@ -62,7 +60,6 @@ void setup_debian_trixie_package_tests()
     sh '''
         sudo apt-get update
         sudo apt-get install -y gpg wget dirmngr gnupg2 git pipx python3-venv
-        export PATH="$HOME/.local/bin:$PATH"
         pipx install --include-deps --force ansible
         ansible --version
     '''
@@ -133,7 +130,7 @@ pipeline {
             name: 'INSTALL_REPO')
         string(
             defaultValue: '',
-            description: 'PMM Client tarball link or FB-code',
+            description: 'PMM Client (X64) tarball link or FB-code',
             name: 'TARBALL')
         string(
             defaultValue: 'pmm3admin!',
@@ -152,9 +149,6 @@ pipeline {
         skipDefaultCheckout()
         timeout(time: 90, unit: 'MINUTES')
     }
-    triggers {
-        cron('0 2 * * *')
-    }
     stages {
         stage('Setup Server Instance') {
             steps {
@@ -171,74 +165,74 @@ pipeline {
                 }
             }
         }
-        stage('Execute ARM 64 Package Tests') {
+        stage('Execute AMD 64 Package Tests') {
             parallel {
-                stage('Oracle Linux 8 - ARM64') {
+                stage('Oracle Linux 8 - AMD64') {
                     agent {
-                        label 'min-ol-8-arm64'
+                        label 'min-ol-8-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Oracle Linux 9 - ARM64') {
+                stage('Oracle Linux 9 - AMD64') {
                     agent {
-                        label 'min-ol-9-arm64'
+                        label 'min-ol-9-x64'
                     }
                     steps{
                         setup_rhel_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Almalinux 10 - ARM64') {
+                stage('Almalinux 10 - AMD64') {
                     agent {
-                        label 'min-alma-10-arm64'
+                        label 'min-alma-10-x64'
                     }
                     steps{
                         setup_rhel_10_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Ubuntu 22.04 Jammy - ARM64') {
+                stage('Ubuntu 22.04 Jammy - AMD64') {
                     agent {
-                        label 'min-jammy-arm64'
+                        label 'min-jammy-x64'
                     }
                     steps{
                         setup_ubuntu_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Ubuntu 24.04 Noble - ARM64') {
+                stage('Ubuntu 24.04 Noble - AMD64') {
                     agent {
-                        label 'min-noble-arm64'
+                        label 'min-noble-x64'
                     }
                     steps {
                         setup_ubuntu_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Debian 11 Bullseye - ARM64') {
+                stage('Debian 11 Bullseye - AMD64') {
                     agent {
-                        label 'min-bullseye-arm64'
+                        label 'min-bullseye-x64'
                     }
                     steps{
                         setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Debian 12 Bookworm - ARM64') {
+                stage('Debian 12 Bookworm - AMD64') {
                     agent {
-                        label 'min-bookworm-arm64'
+                        label 'min-bookworm-x64'
                     }
                     steps{
                         setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Debian 13 Trixie - ARM64') {
+                stage('Debian 13 Trixie - AMD64') {
                     agent {
-                        label 'min-trixie-arm64'
+                        label 'min-trixie-x64'
                     }
                     steps{
                         setup_debian_trixie_package_tests()
