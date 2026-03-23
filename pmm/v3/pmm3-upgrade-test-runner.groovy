@@ -397,7 +397,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
-                                    docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i dnf install -y pmm-client
                                     docker exec \$i systemctl restart pmm-agent
                                 fi
@@ -412,7 +412,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
-                                    docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     mysql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                                     docker exec \$i kill \$mysql_process_id
@@ -429,7 +429,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
-                                    docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     pdpgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                                     docker exec \$i kill \$pdpgsql_process_id
@@ -446,7 +446,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
-                                    docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     pgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                                     docker exec \$i kill \$pgsql_process_id
@@ -463,7 +463,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
-                                    docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                                     docker exec \$i kill \$ps_process_id
@@ -480,7 +480,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
-                                    docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i apt install -y pmm-client
                                     ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
                                     docker exec \$i kill \$ps_process_id
@@ -498,7 +498,7 @@ pipeline {
                                     docker exec \$i mv -f pmm-client /usr/local/bin
                                     docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
                                 else
-                                    docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
                                     docker exec \$i dnf install -y pmm-client
                                     docker exec \$i systemctl restart pmm-agent
                                 fi
