@@ -209,22 +209,22 @@ void installVolumeSnapshotResources(String CLUSTER_SUFFIX) {
 
             wait_for_deployment ebs-csi-controller
             wait_for_deployment snapshot-controller
+        """
+    }
 
-            cat <<'EOF' | kubectl apply -f -
-apiVersion: storage.k8s.io/v1
-kind: StorageClass
-metadata:
-  name: ebs-csi-gp3
-provisioner: ebs.csi.aws.com
-volumeBindingMode: WaitForFirstConsumer
-allowVolumeExpansion: true
-parameters:
-  type: gp3
-EOF
+    verifyVolumeSnapshotResources(CLUSTER_SUFFIX)
+}
+
+void verifyVolumeSnapshotResources(String CLUSTER_SUFFIX) {
+    def clusterName = "$CLUSTER_NAME-$CLUSTER_SUFFIX"
+
+    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+        sh """
+            export KUBECONFIG=/tmp/${clusterName}
+            export PATH=/home/ec2-user/.local/bin:$PATH
 
             kubectl get crd volumesnapshots.snapshot.storage.k8s.io volumesnapshotcontents.snapshot.storage.k8s.io volumesnapshotclasses.snapshot.storage.k8s.io
             kubectl api-resources --api-group=snapshot.storage.k8s.io
-            kubectl get storageclass ebs-csi-gp3
         """
     }
 }
