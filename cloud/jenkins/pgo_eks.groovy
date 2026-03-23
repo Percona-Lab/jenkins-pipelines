@@ -184,7 +184,7 @@ void clusterRunner(String cluster) {
     }
 }
 
-void installVolumeSnapshotResources(String CLUSTER_SUFFIX) {
+void verifyVolumeSnapshotResources(String CLUSTER_SUFFIX) {
     def clusterName = "$CLUSTER_NAME-$CLUSTER_SUFFIX"
 
     withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
@@ -209,19 +209,6 @@ void installVolumeSnapshotResources(String CLUSTER_SUFFIX) {
 
             wait_for_deployment ebs-csi-controller
             wait_for_deployment snapshot-controller
-        """
-    }
-
-    verifyVolumeSnapshotResources(CLUSTER_SUFFIX)
-}
-
-void verifyVolumeSnapshotResources(String CLUSTER_SUFFIX) {
-    def clusterName = "$CLUSTER_NAME-$CLUSTER_SUFFIX"
-
-    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-        sh """
-            export KUBECONFIG=/tmp/${clusterName}
-            export PATH=/home/ec2-user/.local/bin:$PATH
 
             kubectl get crd volumesnapshots.snapshot.storage.k8s.io volumesnapshotcontents.snapshot.storage.k8s.io volumesnapshotclasses.snapshot.storage.k8s.io
             kubectl api-resources --api-group=snapshot.storage.k8s.io
@@ -289,7 +276,7 @@ EOF
         """
     }
 
-    installVolumeSnapshotResources(CLUSTER_SUFFIX)
+    verifyVolumeSnapshotResources(CLUSTER_SUFFIX)
 }
 
 void runTest(Integer TEST_ID) {
