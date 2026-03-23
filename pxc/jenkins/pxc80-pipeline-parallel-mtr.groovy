@@ -52,19 +52,37 @@ void downloadFileFromS3(String SRC_DIRECTORY, String SRC_FILE_NAME, String DST_P
 }
 
 void downloadPackage(String PACKAGE_URL, String OUTPUT_FILE_PATH) {
-    // Try do download
     echo "Downloading package ${PACKAGE_URL}"
-    packageDownloadResult = sh (
-    script: """
-        wget --server-response ${PACKAGE_URL} -O ${OUTPUT_FILE_PATH} 2>&1 | awk '/^  HTTP/{print \$2}'
-        """,
-        returnStdout: true
-    ).trim()
 
-    if (packageDownloadResult != '200') {
-        echo "Unable to download package ${PACKAGE_URL} result: ${packageDownloadResult}"
+    if (PACKAGE_URL.startsWith("s3://")) {
+        // Download from S3
+        def result = sh(
+            script: """
+                aws s3 cp "${PACKAGE_URL}" "${OUTPUT_FILE_PATH}"
+            """,
+            returnStatus: true
+        )
+
+        if (result != 0) {
+            echo "Unable to download S3 package ${PACKAGE_URL} (exit code: ${result})"
+        } else {
+            echo "S3 package ${PACKAGE_URL} downloaded as ${OUTPUT_FILE_PATH}"
+        }
+
     } else {
-        echo "Package ${PACKAGE_URL} downloaded as ${OUTPUT_FILE_PATH}"
+        // Download via HTTP/HTTPS
+        def packageDownloadResult = sh(
+            script: """
+                wget --server-response "${PACKAGE_URL}" -O "${OUTPUT_FILE_PATH}" 2>&1 | awk '/^  HTTP/{print \$2}' | tail -1
+            """,
+            returnStdout: true
+        ).trim()
+
+        if (packageDownloadResult != '200') {
+            echo "Unable to download package ${PACKAGE_URL} result: ${packageDownloadResult}"
+        } else {
+            echo "Package ${PACKAGE_URL} downloaded as ${OUTPUT_FILE_PATH}"
+        }
     }
 }
 
