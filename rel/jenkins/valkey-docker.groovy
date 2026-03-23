@@ -179,11 +179,18 @@ pipeline {
                 stage('Trivy CVE scan') {
                     steps {
                         sh '''
-                            sudo apt-get install -y wget || true
-                            wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
-                            echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
-                            sudo apt-get update
-                            sudo apt-get install -y trivy
+                            TRIVY_EXPECTED="0.69.3"
+                            TRIVY_CURRENT=$(trivy --version 2>/dev/null | sed -n 's/.*Version: \([0-9.]*\).*/\1/p'); TRIVY_CURRENT=${TRIVY_CURRENT:-none}
+                            if [ "$TRIVY_CURRENT" != "$TRIVY_EXPECTED" ]; then
+                                echo "Installing Trivy $TRIVY_EXPECTED (current: $TRIVY_CURRENT)..."
+                                sudo apt-get install -y wget || true
+                                wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | gpg --dearmor | sudo tee /usr/share/keyrings/trivy.gpg > /dev/null
+                                echo "deb [signed-by=/usr/share/keyrings/trivy.gpg] https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main" | sudo tee /etc/apt/sources.list.d/trivy.list
+                                sudo apt-get update
+                                sudo apt-get install -y trivy=0.69.3-1
+                            else
+                                echo "Trivy $TRIVY_EXPECTED already installed."
+                            fi
                         '''
                         script {
                             if (params.BUILD_RPM) {

@@ -165,16 +165,18 @@ parameters {
                 try {
                     // 🔹 Install Trivy if not present
                     sh '''
-                        if ! command -v trivy &> /dev/null; then
-                            echo "🔄 Installing Trivy..."
+                        TRIVY_EXPECTED="0.69.3"
+                        TRIVY_CURRENT=$(trivy --version 2>/dev/null | sed -n 's/.*Version: \([0-9.]*\).*/\1/p'); TRIVY_CURRENT=${TRIVY_CURRENT:-none}
+                        if [ "$TRIVY_CURRENT" != "$TRIVY_EXPECTED" ]; then
+                            echo "Installing Trivy $TRIVY_EXPECTED (current: $TRIVY_CURRENT)..."
                             sudo apt-get update
                             sudo apt-get -y install wget apt-transport-https gnupg lsb-release
                             wget -qO - https://aquasecurity.github.io/trivy-repo/deb/public.key | sudo apt-key add -
                             echo deb https://aquasecurity.github.io/trivy-repo/deb $(lsb_release -sc) main | sudo tee -a /etc/apt/sources.list.d/trivy.list
                             sudo apt-get update
-                            sudo apt-get -y install trivy
+                            sudo apt-get -y install trivy=0.69.3-1
                         else
-                            echo "✅ Trivy is already installed."
+                            echo "Trivy $TRIVY_EXPECTED already installed."
                         fi
                     '''
 
