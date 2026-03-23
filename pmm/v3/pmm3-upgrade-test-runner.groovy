@@ -119,7 +119,7 @@ pipeline {
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
         string(
-            defaultValue: 'PMM-7-fix-check-client-upgrade',
+            defaultValue: 'PMM-7-fix-check-client-upgrade-fix',
             description: 'Tag/Branch for pmm qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
