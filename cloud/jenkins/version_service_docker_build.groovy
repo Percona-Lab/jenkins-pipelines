@@ -34,17 +34,8 @@ pipeline {
         stage('Prepare') {
             steps {
                 git poll: true, branch: "${GIT_BRANCH}", url: 'https://github.com/Percona-Lab/percona-version-service'
+                installTrivy(method: 'binary', junitTpl: true)
                 sh """
-                    TRIVY_VERSION="0.69.3"
-                    TRIVY_CHECKSUM="1816b632dfe529869c740c0913e36bd1629cb7688bd5634f4a858c1d57c88b75"
-                    wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                    echo "\${TRIVY_CHECKSUM}  trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz" | sha256sum -c -
-                    sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
-
-                    if [ ! -f junit.tpl ]; then
-                        wget --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
-                    fi
-
                     wget 'https://github.com/FiloSottile/mkcert/releases/download/v1.4.3/mkcert-v1.4.3-linux-amd64'
                     sudo install -m 0755 -D mkcert-v1.4.3-linux-amd64 /usr/local/bin/mkcert
                     /usr/local/bin/mkcert -install
