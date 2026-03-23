@@ -77,10 +77,6 @@ pipeline {
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
         choice(
-            name: 'BUILD_PACKAGES',
-            choices: ['true', 'false'],
-            description: 'Build packages and tarballs (default: true)')
-        choice(
             name: 'TESTS',
             choices: ['yes', 'no'],
             description: 'Run functional tests on packages and tarballs after building')
@@ -93,9 +89,7 @@ pipeline {
     }
     stages {
         stage('Create PSMDB source tarball') {
-            when {
-                expression { return params.BUILD_PACKAGES == 'true' }
-            }
+
             agent {
                 label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker'
             }
@@ -124,9 +118,7 @@ pipeline {
             }
         }
         stage('Build PSMDB generic source packages') {
-            when {
-                expression { return params.BUILD_PACKAGES == 'true' }
-            }
+
             parallel {
                 stage('Build PSMDB generic source rpm') {
                     agent {
@@ -162,9 +154,7 @@ pipeline {
             }  //parallel
         } // stage
         stage('Build PSMDB RPMs/DEBs/Binary tarballs') {
-            when {
-                expression { return params.BUILD_PACKAGES == 'true' }
-            }
+
             parallel {
                 stage('Oracle Linux 8(x86_64)') {
                     agent {
@@ -408,9 +398,7 @@ pipeline {
         }
 
         stage('Upload packages and tarballs from S3') {
-            when {
-                expression { return params.BUILD_PACKAGES == 'true' }
-            }
+
             agent {
                 label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-64gb'
             }
@@ -424,18 +412,14 @@ pipeline {
         }
 
         stage('Sign packages') {
-            when {
-                expression { return params.BUILD_PACKAGES == 'true' }
-            }
+
             steps {
                 signRPM()
                 signDEB()
             }
         }
         stage('Push to public repository') {
-            when {
-                expression { return params.BUILD_PACKAGES == 'true' }
-            }
+
             steps {
                 // sync packages
                 script {
@@ -444,9 +428,7 @@ pipeline {
             }
         }
         stage('Push Tarballs to TESTING download area') {
-            when {
-                expression { return params.BUILD_PACKAGES == 'true' }
-            }
+
             steps {
                 script {
                     try {
@@ -461,16 +443,12 @@ pipeline {
         }
         stage('Run testing job') {
             when {
-                allOf {
-                    expression { return params.BUILD_PACKAGES == 'true' }
-                    expression { return params.TESTS == 'yes' }
-                }
+                expression { return params.TESTS == 'yes' }
             }
             steps {
+                sleep 600
                 script {
-                    def version = "${PSMDB_VERSION}-${PSMDB_RELEASE}"
-                    build job: 'psmdb-tarball-functional', propagate: false, wait: true, parameters: [string(name: 'PSMDB_VERSION', value: version), string(name: 'TESTING_BRANCH', value: 'main')]
-                    build job: 'psmdb-parallel', propagate: false, wait: false, parameters: [string(name: 'REPO', value: 'testing'), string(name: 'PSMDB_VERSION', value: PSMDB_VERSION), string(name: 'ENABLE_TOOLKIT', value: 'false'), string(name: 'TESTING_BRANCH', value: 'main')]
+                    build job: 'hetzner-psmdb-multijob-testing', propagate: false, wait: false, parameters: [string(name: 'PSMDB_VERSION', value: PSMDB_VERSION), string(name: 'PSMDB_RELEASE', value: PSMDB_RELEASE)]
                 }
             }
         }
