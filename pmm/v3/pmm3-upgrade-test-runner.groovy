@@ -132,7 +132,7 @@ pipeline {
             description: 'Tag/Branch for pmm qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
-            defaultValue: 'PMM-7-fix-rc-setup-psmdb',
+            defaultValue: 'main',
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(
