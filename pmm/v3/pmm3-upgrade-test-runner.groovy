@@ -8,7 +8,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
   libraryPath: 'pmm/v3/'
 )
 
-void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) {
+void checkClientBeforeUpgrade(String CLIENT_VERSION) {
     def PMM_VERSION = CLIENT_VERSION.trim();
     env.PMM_VERSION = PMM_VERSION;
     if (PMM_VERSION == '3-dev-latest') {
@@ -29,6 +29,15 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
             python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${PMM_VERSION}
         '''
     }
+}
+
+void checkClientAfterUpgrade(String CLIENT_VERSION) {
+    def PMM_VERSION = CLIENT_VERSION.trim();
+    env.PMM_VERSION = PMM_VERSION;
+    sh '''
+        sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
+        python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${PMM_VERSION}
+    '''
 }
 
 def versionsList = pmmVersion('v3')[-5..-1]
@@ -346,7 +355,7 @@ pipeline {
         stage('Check Client before Upgrade') {
             steps {
                 script {
-                    checkClientBeforeUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION)
+                    checkClientBeforeUpgrade(CLIENT_VERSION)
                 }
             }
         }
@@ -505,6 +514,13 @@ pipeline {
                             fi
                         done
                     '''
+                }
+            }
+        }
+        stage('Check Client after Upgrade') {
+            steps {
+                script {
+                    checkClientAfterUpgrade(latestVersion)
                 }
             }
         }
