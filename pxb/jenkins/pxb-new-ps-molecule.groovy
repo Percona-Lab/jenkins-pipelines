@@ -186,8 +186,27 @@ pipeline {
               echo WORKSPACE_VAR=${WORKSPACE} >> .env.ENV_VARS
           """
           def envMap = loadEnvFile('.env.ENV_VARS')
+          def testCredentials = [
+            usernamePassword(
+                credentialsId: 'PS_PRIVATE_REPO_ACCESS',
+                passwordVariable: 'PASSWORD',
+                usernameVariable: 'USERNAME'
+            ),
+            fortanixEmail(
+                credentialsId: 'FORTANIX_EMAIL',
+                variable: 'FORTANIX_EMAIL'
+            ),
+            fortanixPassword(
+                credentialsId: 'FORTANIX_PASSWORD',
+                variable: 'FORTANIX_PASSWORD'
+            ),
+            kmsKeyId(
+                credentialsId: 'KMS_TESTING_KEY_ID',
+                variable: 'KMS_KEYID'
+            ),
+          ]
           withEnv(envMap) {
-            withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
+            withCredentials(testCredentials) {
                 moleculeParallelTestSkip(pxbTarball(), env.MOLECULE_DIR, PXBskipOSPRO())
             }
           }
