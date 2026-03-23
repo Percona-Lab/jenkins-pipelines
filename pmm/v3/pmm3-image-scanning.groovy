@@ -25,10 +25,10 @@ pipeline {
 [trivy]
 name=Trivy repository
 baseurl=https://aquasecurity.github.io/trivy-repo/rpm/releases/$releasever/$basearch/
-gpgcheck=0
+gpgcheck=1
 enabled=1
 EOF
-                        sudo dnf install -y trivy
+                        sudo dnf install -y trivy-0.69.3
 
                         # Download HTML template for Trivy
                         mkdir -p contrib
