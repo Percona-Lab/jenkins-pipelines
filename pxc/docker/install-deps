@@ -21,7 +21,7 @@ if [ -f /usr/bin/yum ]; then
   
   yum list installed
 
-  if [[ ${RHVER} -eq 8 ]] || [[ ${RHVER} -eq 7 ]]; then
+  if [[ ${RHVER} -eq 7 ]]; then
       sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
       sed -i 's|#\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
   fi
@@ -41,6 +41,11 @@ if [ -f /usr/bin/yum ]; then
 
   if [[ ${RHVER} -eq 10 ]]; then
       until yum -y install oracle-epel-release-el10; do
+          echo "waiting"
+          sleep 1
+      done
+  elif [[ ${RHVER} -eq 8 ]]; then
+      until yum -y install oracle-epel-release-el8; do
           echo "waiting"
           sleep 1
       done
@@ -67,7 +72,7 @@ if [ -f /usr/bin/yum ]; then
       yum -y install /tmp/python2-scons-3.0.1-9.el8.noarch.rpm || true
       rm /tmp/procps-ng-3.3.15-14.0.1.el8.x86_64.rpm /tmp/procps-ng-devel-3.3.15-14.0.1.el8.x86_64.rpm /tmp/python2-scons-3.0.1-9.el8.noarch.rpm /tmp/MySQL-python-1.3.6-3.el8.x86_64.rpm
 
-      dnf config-manager --set-enabled powertools
+      dnf config-manager --enable ol8_codeready_builder
       PKGLIST+=" libedit-devel python3-docutils"
   fi
 
@@ -109,7 +114,7 @@ if [ -f /usr/bin/yum ]; then
   done
 
   if [[ ${RHVER} -eq 8 ]]; then
-      dnf config-manager --set-enabled powertools
+      dnf config-manager --enable ol8_codeready_builder
   fi
 
   # Percona Server
@@ -163,6 +168,11 @@ if [ -f /usr/bin/yum ]; then
         PKGLIST_DEVTOOLSET13+=" gcc-toolset-13-gcc gcc-toolset-13-gcc-c++ gcc-toolset-13-binutils"
         PKGLIST_DEVTOOLSET13+=" gcc-toolset-13-annobin-annocheck gcc-toolset-13-annobin-plugin-gcc"
         PKGLIST_DEVTOOLSET13+=" gcc-toolset-13-libatomic-devel"
+
+        # Next packages are required by 9.6.0
+        PKGLIST_DEVTOOLSET14+=" gcc-toolset-14-gcc gcc-toolset-14-gcc-c++ gcc-toolset-14-binutils"
+        PKGLIST_DEVTOOLSET14+=" gcc-toolset-14-annobin-annocheck gcc-toolset-14-annobin-plugin-gcc"
+        PKGLIST_DEVTOOLSET14+=" gcc-toolset-14-libatomic-devel"
     fi
 
     if [[ ${RHVER} -eq 10 ]]; then
@@ -235,14 +245,10 @@ if [ -f /usr/bin/yum ]; then
             sleep 1
         done
     elif [[ ${RHVER} -eq 8 ]]; then
-        yum -y install centos-release-stream
-        sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-*
-        sed -i 's|#\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-*
-        until yum -y install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11} ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13}; do
+        until yum -y install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11} ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13} ${PKGLIST_DEVTOOLSET14}; do
             echo "waiting"
             sleep 1
-        done       
-        yum -y remove centos-release-stream
+        done
     elif [[ ${RHVER} -eq 7 ]]; then
         until yum -y --enablerepo=centos-sclo-rh-testing install ${PKGLIST_DEVTOOLSET10} ${PKGLIST_DEVTOOLSET11}; do
             echo "waiting"
@@ -325,6 +331,16 @@ if [ -f /usr/bin/apt-get ]; then
         curl https://repo.percona.com/apt/percona-release_latest.$(lsb_release -sc)_all.deb --output /tmp/prel.deb && dpkg -i /tmp/prel.deb && rm /tmp/prel.deb
         percona-release enable-only tools testing
 
+        # Pin libdbd-mysql-perl to distro version: Percona tools repo provides
+        # an epoch 1: version that depends on libperconaserverclient22, which is
+        # unavailable on amd64. Without this pin, apt upgrades the distro package
+        # to the broken Percona version during PKGLIST install.
+        cat > /etc/apt/preferences.d/pin-libdbd-mysql-perl <<-PINEOF
+	Package: libdbd-mysql-perl
+	Pin: origin repo.percona.com
+	Pin-Priority: -1
+	PINEOF
+
         PKGLIST+=" libgsasl7 libprocps-dev qpress"
     fi
 
@@ -404,8 +420,10 @@ if [ -f /usr/bin/apt-get ]; then
         pip3 install mysql-connector
     fi
     
-    # clenup
-    apt-get -y purge librtmp-dev || true
+    # cleanup (skip Trixie: libcurl4-openssl-dev depends on librtmp-dev)
+    if [[ "${DIST}" != "trixie" ]]; then
+        apt-get -y purge librtmp-dev || true
+    fi
     apt-get -y clean
 
 
