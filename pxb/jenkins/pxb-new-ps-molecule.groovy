@@ -192,15 +192,15 @@ pipeline {
                 passwordVariable: 'PASSWORD',
                 usernameVariable: 'USERNAME'
             ),
-            fortanixEmail(
+            string(
                 credentialsId: 'FORTANIX_EMAIL',
                 variable: 'FORTANIX_EMAIL'
             ),
-            fortanixPassword(
+            string(
                 credentialsId: 'FORTANIX_PASSWORD',
                 variable: 'FORTANIX_PASSWORD'
             ),
-            kmsKeyId(
+            string(
                 credentialsId: 'KMS_TESTING_KEY_ID',
                 variable: 'KMS_KEYID'
             ),
