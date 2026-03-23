@@ -250,19 +250,15 @@ pipeline {
     }
     post {
         always {
-//             try {
-                sh '''
-                    curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
-                '''
-                script {
-                    if(env.VM_NAME) {
-                        archiveArtifacts artifacts: 'logs.zip'
-                        destroyStaging(VM_NAME)
-                    }
+            sh '''
+                curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
+            '''
+            script {
+                if(env.VM_NAME) {
+                    archiveArtifacts artifacts: 'logs.zip'
+                    destroyStaging(VM_NAME)
                 }
-//             } catch (AgentOfflineException e) {
-//                 ignored
-//             }
+            }
         }
     }
 }
