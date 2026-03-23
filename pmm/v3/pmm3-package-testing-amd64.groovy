@@ -38,20 +38,22 @@ void setup_rhel_package_tests()
 void setup_rhel_10_package_tests()
 {
     sh '''
-        sudo apt-get install -y dirmngr gnupg2
-        echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
-        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
-        sudo apt update -y
-        sudo apt-get install -y ansible git wget
+        sudo dnf config-manager --set-enabled crb
+        sudo dnf clean all && dnf makecache
+        sudo dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm
+        sudo dnf -y update
+        sudo dnf install -y ansible-core git wget
     '''
 }
 
 void setup_debian_package_tests()
 {
     sh '''
-        set -e
-        sudo apt-get update -y
-        sudo apt-get install -y gpg wget dirmngr gnupg2 git ansible
+        sudo apt-get install -y dirmngr gnupg2
+        echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
+        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
+        sudo apt update -y
+        sudo apt-get install -y ansible git wget
     '''
 }
 
