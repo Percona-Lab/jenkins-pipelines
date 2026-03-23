@@ -38,11 +38,11 @@ void setup_rhel_package_tests()
 void setup_rhel_10_package_tests()
 {
     sh '''
-        sudo dnf config-manager --set-enabled crb
-        sudo dnf clean all && dnf makecache
-        sudo dnf -y install https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm
-        sudo dnf -y update
-        sudo dnf install -y ansible-core git wget
+        sudo apt-get install -y dirmngr gnupg2
+        echo "deb http://ppa.launchpad.net/ansible/ansible/ubuntu trusty main" | sudo tee -a /etc/apt/sources.list > /dev/null
+        sudo apt-key adv --keyserver keyserver.ubuntu.com --recv-keys 93C4A3FD7BB9C367
+        sudo apt update -y
+        sudo apt-get install -y ansible git wget
     '''
 }
 
@@ -58,10 +58,9 @@ void setup_debian_package_tests()
 void setup_debian_trixie_package_tests()
 {
     sh '''
-        sudo apt-get update
-        sudo apt-get install -y gpg wget dirmngr gnupg2 git pipx python3-venv
-        pipx install --include-deps --force ansible
-        ansible --version
+        set -e
+        sudo apt-get update -y
+        sudo apt-get install -y gpg wget dirmngr gnupg2 git ansible
     '''
 }
 
@@ -83,7 +82,6 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO, Str
         export install_repo=${INSTALL_REPO}
         export TARBALL_LINK=${TARBALL}
         git clone https://github.com/Percona-QA/ppg-testing
-        export PATH="$HOME/.local/bin:$PATH"
         ansible-playbook \
         -vvvvv \
         --connection=local \
@@ -248,15 +246,9 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             script {
-                if(env.VM_NAME)
-                {
+                if(env.VM_NAME) {
                     archiveArtifacts artifacts: 'logs.zip'
                     destroyStaging(VM_NAME)
-                }
-                if (currentBuild.result == 'SUCCESS') {
-                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
-                } else {
-                    slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
         }
