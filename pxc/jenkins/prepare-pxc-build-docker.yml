@@ -41,7 +41,7 @@
             stages {
                 stage('Prepare') {
                     steps {
-                        git poll: true, branch: 'fix/pxc-docker-ol8-boost187', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
+                        git poll: true, branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                         sh '''
                             git reset --hard
                             git clean -xdf
