@@ -85,7 +85,7 @@ pipeline {
             name: 'QA_INTEGRATION_GIT_BRANCH')
     }
     options {
-        timeout(time: 90, unit: 'MINUTES')
+        timeout(time: 180, unit: 'MINUTES')
     }
     triggers {
         cron('0 3 * * *')
