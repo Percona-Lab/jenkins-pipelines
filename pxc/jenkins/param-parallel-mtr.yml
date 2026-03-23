@@ -171,14 +171,14 @@
          type: user-defined
          name: DOCKER_OS
          values:
-          - centos:7
-          - centos:8
+          - oraclelinux:8
           - oraclelinux:9
-          - ubuntu:focal
+          - oraclelinux:10
           - ubuntu:jammy
           - ubuntu:noble
           - debian:bullseye
           - debian:bookworm
+          - debian:trixie
     builders:
     - trigger-builds:
       - project: pxc-8.x-pipeline-parallel-mtr
