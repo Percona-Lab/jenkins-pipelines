@@ -133,8 +133,8 @@ pipeline {
             name: 'INSTALL_REPO')
         string(
             defaultValue: '',
-            description: 'PMM Client (ARM64) tarball link or FB-code',
-            name: 'TARBALL_ARM')
+            description: 'PMM Client tarball link or FB-code',
+            name: 'TARBALL')
         string(
             defaultValue: 'pmm3admin!',
             description: 'Password for pmm server admin user',
@@ -179,7 +179,7 @@ pipeline {
                     }
                     steps{
                         setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
                 stage('Oracle Linux 9 - ARM64') {
@@ -188,19 +188,16 @@ pipeline {
                     }
                     steps{
                         setup_rhel_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
                 stage('Almalinux 10 - ARM64') {
                     agent {
                         label 'min-alma-10-arm64'
                     }
-//                     environment {
-//                         PS_REPOSITORY='testing'
-//                     }
                     steps{
                         setup_rhel_10_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
                 stage('Ubuntu 22.04 Jammy - ARM64') {
@@ -209,7 +206,7 @@ pipeline {
                     }
                     steps{
                         setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
                 stage('Ubuntu 24.04 Noble - ARM64') {
@@ -218,7 +215,7 @@ pipeline {
                     }
                     steps {
                         setup_ubuntu_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
                 stage('Debian 11 Bullseye - ARM64') {
@@ -227,7 +224,7 @@ pipeline {
                     }
                     steps{
                         setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
                 stage('Debian 12 Bookworm - ARM64') {
@@ -236,19 +233,16 @@ pipeline {
                     }
                     steps{
                         setup_debian_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
                 stage('Debian 13 Trixie - ARM64') {
-//                     when {
-//                         expression { !TESTS.contains("upgrade") }
-//                     }
                     agent {
                         label 'min-trixie-arm64'
                     }
                     steps{
                         setup_debian_trixie_package_tests()
-                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL_ARM)
+                        run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
             }
