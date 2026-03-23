@@ -58,19 +58,21 @@ void downloadPackage(String PACKAGE_URL, String OUTPUT_FILE_PATH) {
 
     if (PACKAGE_URL.startsWith("s3://")) {
         // Download from S3
-        def result = sh(
-            script: """
-                aws s3 cp "${PACKAGE_URL}" "${OUTPUT_FILE_PATH}"
-            """,
-            returnStatus: true
-        )
 
-        if (result != 0) {
-            echo "Unable to download S3 package ${PACKAGE_URL} (exit code: ${result})"
-        } else {
-            echo "S3 package ${PACKAGE_URL} downloaded as ${OUTPUT_FILE_PATH}"
+        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: AWS_CREDENTIALS_ID, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+            def result = sh(
+                script: """
+                    aws s3 cp "${PACKAGE_URL}" "${OUTPUT_FILE_PATH}"
+                """,
+                returnStatus: true
+            )
+
+            if (result != 0) {
+                echo "Unable to download S3 package ${PACKAGE_URL} (exit code: ${result})"
+            } else {
+                echo "S3 package ${PACKAGE_URL} downloaded as ${OUTPUT_FILE_PATH}"
+            }
         }
-
     } else {
         // Download via HTTP/HTTPS
         def packageDownloadResult = sh(
