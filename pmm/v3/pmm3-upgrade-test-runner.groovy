@@ -520,7 +520,7 @@ pipeline {
         stage('Check Client after Upgrade') {
             steps {
                 script {
-                    checkClientAfterUpgrade(latestVersion)
+                    checkClientAfterUpgrade(PMM_SERVER_LATEST)
                 }
             }
         }
