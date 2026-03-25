@@ -19,7 +19,7 @@ docker run --rm \
     export BRANCH='${BRANCH}'
 
     mkdir /tmp/results
-    cp /tmp/proxysql/results/*.tar.gz /tmp/results
+    cp /tmp/proxysql/results/proxysql-${BRANCH}.tar.gz /tmp/results
 
     bash -x /tmp/scripts/test-proxysql /tmp/results
     rsync -a --prune-empty-dirs --include '*/' --include '*.err' --exclude '*' /tmp/results/WORKDIR/logs
