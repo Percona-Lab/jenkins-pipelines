@@ -24,6 +24,10 @@ pipeline {
             defaultValue: '',
             description: 'Github draft-release name of the artifact',
             name: 'RELEASE_NAME')
+        choice(
+             choices: [ 'RPM','DEB','BOTH' ],
+             description: 'Distro to be uploaded',
+             name: 'DISTRO' )
         string(
             defaultValue: 'ppg-17.6',
             description: 'PPG repo name',
@@ -103,8 +107,15 @@ pipeline {
 
         stage('Sign packages') {
             steps {
-                signRPM(params.CLOUD)
-                signDEB(params.CLOUD)
+                script {
+                    if (params.DISTRO == 'RPM' || params.DISTRO == 'BOTH') {
+                        signRPM(params.CLOUD)
+                    }
+
+                    if (params.DISTRO == 'DEB' || params.DISTRO == 'BOTH') {
+                        signDEB(params.CLOUD)
+                    }
+                }
             }
         }
         stage('Push to public repository') {
