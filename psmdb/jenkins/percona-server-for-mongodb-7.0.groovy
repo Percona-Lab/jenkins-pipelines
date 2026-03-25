@@ -442,9 +442,8 @@ pipeline {
                 expression { return params.TESTS == 'yes' }
             }
             steps {
-                sleep 600
                 script {
-                    build job: 'hetzner-psmdb-multijob-testing', propagate: false, wait: false, parameters: [string(name: 'PSMDB_VERSION', value: PSMDB_VERSION), string(name: 'PSMDB_RELEASE', value: PSMDB_RELEASE)]
+                    build job: 'hetzner-psmdb-multijob-testing', propagate: false, wait: false, quietPeriod: 1800, parameters: [string(name: 'PSMDB_VERSION', value: PSMDB_VERSION), string(name: 'PSMDB_RELEASE', value: PSMDB_RELEASE)]
                 }
             }
         }
