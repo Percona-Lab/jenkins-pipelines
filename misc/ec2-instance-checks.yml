@@ -1,5 +1,5 @@
 - job:
-    name: ec2-instance-checks
+    name: ec2-instance-checks-test
     project-type: pipeline
     description: |
         Work in progress, please ignore
@@ -16,7 +16,7 @@
             - git:
                 url: https://github.com/Percona-Lab/jenkins-pipelines.git
                 branches:
-                    - 'master'
+                    - 'pt-aws-ec2-instance-delete-job-mods-1'
                 wipe-workspace: true
         lightweight-checkout: true
         script-path: misc/ec2-instance-checks.groovy
