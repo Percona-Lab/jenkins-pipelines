@@ -42,7 +42,6 @@ pipeline {
                     sudo systemctl restart docker
                     sudo apt-get install -y qemu-system binfmt-support qemu-user-static
                     sudo qemu-system-x86_64 --version
-                    sudo lscpu | grep -q 'sse4_2' && grep -q 'popcnt' /proc/cpuinfo && echo "Supports x86-64-v2" || echo "Does NOT support x86-64-v2"
                     sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
 
