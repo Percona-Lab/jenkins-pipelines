@@ -100,7 +100,7 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository for pre upgrade',
             name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
         string(
-            defaultValue: 'pmm-3.7.0-rc',
+            defaultValue: 'main',
             description: 'Tag/Branch for UI Tests repository for post upgrade',
             name: 'PMM_UI_GIT_BRANCH')
         string(
@@ -167,8 +167,6 @@ pipeline {
         stage('Select subset of tests') {
             steps {
                 script {
-                    println oldVersions;
-                    println versionsList;
                     if (env.UPGRADE_FLAG == "SSL") {
                         env.PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-ssl-upgrade"
@@ -290,7 +288,6 @@ pipeline {
                         --pmm-server-password=\${ADMIN_PASSWORD} \
                         \${PMM_CLIENTS}
                     popd
-                    docker ps -a
                 '''
             }
         }
@@ -556,7 +553,6 @@ pipeline {
                         export PMM_VERSION=\$(curl --location --user admin:admin 'http://localhost/v1/server/version' | jq -r '.version' | awk -F "-" \'{print \$1}\')
                         sudo chmod 755 /srv/pmm-qa/support_scripts/check_upgrade.py
                         python3 /srv/pmm-qa/support_scripts/check_upgrade.py -v \$PMM_VERSION -p post
-                        ls /srv/pmm-qa/e2e_tests/
                     '''
                 }
             }
@@ -583,7 +579,6 @@ pipeline {
                 tar -zcvf playwright-screenshots.tar.gz /srv/pmm-qa/e2e_tests/screenshots || true
                 tar -zcvf playwright-logs.tar.gz /srv/pmm-qa/e2e_tests/logs || true
                 tar -zcvf srv-logs.tar.gz srv-logs
-                ls
             '''
             script {
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
