@@ -848,7 +848,7 @@ Resources:
               systemctl stop openresty
               sleep 2
               systemctl start openresty
-              EOF
+            EOF
 
                 chmod +x /etc/letsencrypt/renewal-hooks/deploy/restart-openresty.sh
 
