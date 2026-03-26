@@ -539,7 +539,7 @@ pipeline {
                                 export CI=true
                                 sudo npm ci
                                 sudo npx playwright install chromium
-                                sudo npx playwright test --grep "${PLAYWRIGHT_FLAG}" --pass-with-no-tests
+                                sudo CI=true npx playwright test --grep "${PLAYWRIGHT_FLAG}" --pass-with-no-tests
                             popd
                         '''
 
