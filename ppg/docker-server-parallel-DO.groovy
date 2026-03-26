@@ -48,7 +48,7 @@ pipeline {
             steps {
                 script {
                     def suffix = params.WITH_POSTGIS ? "with-postgis" : "no-postgis"
-                    currentBuild.displayName = "#${env.BUILD_NUMBER}-${suffix}-${params.SERVER_VERSION}"
+                    currentBuild.displayName = "#${env.BUILD_NUMBER}-docker-DO-${suffix}-${params.SERVER_VERSION}"
                 }
             }
         }
