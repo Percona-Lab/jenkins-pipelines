@@ -35,6 +35,10 @@ pipeline {
                     echo \$MAJ_VER
                     MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
                     echo \$MIN_VER
+                    sudo rm -f /usr/libexec/docker/cli-plugins/docker-buildx
+                    sudo curl -L https://github.com/docker/buildx/releases/download/v0.30.0/buildx-v0.30.0.linux-arm64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                    sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                    sudo systemctl restart docker
                     git clone https://github.com/Manika-Percona/percona-docker
                     cd percona-docker/percona-distribution-postgresql-\$MAJ_VER-extras
                     sed -E "s/ENV PPG_VERSION (.+)/ENV PPG_VERSION ${params.PPG_VERSION}/" -i Dockerfile-postgis.aarch64
