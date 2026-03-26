@@ -36,6 +36,8 @@ pipeline {
                     MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
                     echo \$MIN_VER
                     sudo rm -f /usr/libexec/docker/cli-plugins/docker-buildx
+                    export DOCKER_CLI_EXPERIMENTAL=enabled
+                    sudo mkdir -p /usr/libexec/docker/cli-plugins/
                     sudo curl -L https://github.com/docker/buildx/releases/download/v0.30.0/buildx-v0.30.0.linux-arm64 -o /usr/libexec/docker/cli-plugins/docker-buildx
                     sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
                     sudo systemctl restart docker
@@ -46,7 +48,7 @@ pipeline {
                     sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile-postgis.aarch64
                     sed -E "s/ENV PPG_MINOR_VERSION (.+)/ENV PPG_MINOR_VERSION \$MIN_VER/" -i Dockerfile-postgis.aarch64
                     export DOCKER_BUILDKIT=1
-                    docker build --platform=linux/arm64 --no-cache -t percona-distribution-postgresql-custom -f Dockerfile-postgis.aarch64 .
+                    docker build --platform=linux/arm64 --no-cache --provenance=false -t percona-distribution-postgresql-custom -f Dockerfile-postgis.aarch64 .
                     """
             }
         }
