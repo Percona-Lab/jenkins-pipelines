@@ -134,6 +134,10 @@
                                     """
                                 }
 
+                                sh """
+                                    echo IIT_BILLING_TAG="${product_to_test}_package_testing" >> .env.ENV_VARS
+                                """
+                                
                                 def envMap = loadEnvFile('.env.ENV_VARS')
                                 
                                 withEnv(envMap) {
