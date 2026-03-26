@@ -157,7 +157,7 @@ void initTests() {
 void clusterRunner(String cluster) {
     sh """
         export CHANGE_MINIKUBE_NONE_USER=true
-        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G
+        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G --force
     """
 
     for (int i=0; i<tests.size(); i++) {
