@@ -905,6 +905,7 @@ pipeline {
 
     environment {
         pro = "no"
+        IIT_BILLING_TAG="${product_to_test}_package_testing"
     }
 
     stages {
