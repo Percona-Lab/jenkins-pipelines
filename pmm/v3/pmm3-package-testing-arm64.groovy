@@ -7,7 +7,7 @@ void runStaging(String DOCKER_VERSION, ADMIN_PASSWORD, CLIENTS) {
     stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: '3-dev-latest'),
-        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_ENABLE_TELEMETRY=false -e PMM_DATA_RETENTION=48h -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTg+ZmCCjt7O8eWeAmTLAqW+1ozUbpRSKSwNTmO+exlS5KEIPYWuYdX -e PMM_ENABLE_NOMAD=1'),
+        string(name: 'DOCKER_ENV_VARIABLE', value: '-e PMM_ENABLE_TELEMETRY=0 -e PMM_DATA_RETENTION=48h -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 -e PMM_ENABLE_NOMAD=1'),
         string(name: 'CLIENTS', value: CLIENTS),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD),
         string(name: 'NOTIFY', value: 'false'),
@@ -60,9 +60,11 @@ void setup_debian_package_tests()
 void setup_debian_trixie_package_tests()
 {
     sh '''
-        set -e
-        sudo apt-get update -y
-        sudo apt-get install -y gpg wget dirmngr gnupg2 git ansible
+        sudo apt-get update
+        sudo apt-get install -y gpg wget dirmngr gnupg2 git pipx python3-venv
+        export PATH="$HOME/.local/bin:$PATH"
+        pipx install --include-deps --force ansible
+        ansible --version
     '''
 }
 
@@ -84,6 +86,7 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO, Str
         export install_repo=${INSTALL_REPO}
         export TARBALL_LINK=${TARBALL}
         git clone https://github.com/Percona-QA/ppg-testing
+        export PATH="$HOME/.local/bin:$PATH"
         ansible-playbook \
         -vvvvv \
         --connection=local \
@@ -130,7 +133,7 @@ pipeline {
             name: 'INSTALL_REPO')
         string(
             defaultValue: '',
-            description: 'PMM Client (X64) tarball link or FB-code',
+            description: 'PMM Client tarball link or FB-code',
             name: 'TARBALL')
         string(
             defaultValue: 'pmm3admin!',
@@ -149,6 +152,9 @@ pipeline {
         skipDefaultCheckout()
         timeout(time: 90, unit: 'MINUTES')
     }
+    triggers {
+        cron('0 2 * * *')
+    }
     stages {
         stage('Setup Server Instance') {
             steps {
@@ -165,74 +171,74 @@ pipeline {
                 }
             }
         }
-        stage('Execute AMD 64 Package Tests') {
+        stage('Execute ARM 64 Package Tests') {
             parallel {
-                stage('Oracle Linux 8 - AMD64') {
+                stage('Oracle Linux 8 - ARM64') {
                     agent {
-                        label 'min-ol-8-x64'
+                        label 'min-ol-8-arm64'
                     }
                     steps{
                         setup_rhel_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Oracle Linux 9 - AMD64') {
+                stage('Oracle Linux 9 - ARM64') {
                     agent {
-                        label 'min-ol-9-x64'
+                        label 'min-ol-9-arm64'
                     }
                     steps{
                         setup_rhel_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Almalinux 10 - AMD64') {
+                stage('Almalinux 10 - ARM64') {
                     agent {
-                        label 'min-alma-10-x64'
+                        label 'min-alma-10-arm64'
                     }
                     steps{
                         setup_rhel_10_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Ubuntu 22.04 Jammy - AMD64') {
+                stage('Ubuntu 22.04 Jammy - ARM64') {
                     agent {
-                        label 'min-jammy-x64'
+                        label 'min-jammy-arm64'
                     }
                     steps{
                         setup_ubuntu_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Ubuntu 24.04 Noble - AMD64') {
+                stage('Ubuntu 24.04 Noble - ARM64') {
                     agent {
-                        label 'min-noble-x64'
+                        label 'min-noble-arm64'
                     }
                     steps {
                         setup_ubuntu_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Debian 11 Bullseye - AMD64') {
+                stage('Debian 11 Bullseye - ARM64') {
                     agent {
-                        label 'min-bullseye-x64'
+                        label 'min-bullseye-arm64'
                     }
                     steps{
                         setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Debian 12 Bookworm - AMD64') {
+                stage('Debian 12 Bookworm - ARM64') {
                     agent {
-                        label 'min-bookworm-x64'
+                        label 'min-bookworm-arm64'
                     }
                     steps{
                         setup_debian_package_tests()
                         run_package_tests(GIT_BRANCH, TESTS, INSTALL_REPO, TARBALL)
                     }
                 }
-                stage('Debian 13 Trixie - AMD64') {
+                stage('Debian 13 Trixie - ARM64') {
                     agent {
-                        label 'min-trixie-x64'
+                        label 'min-trixie-arm64'
                     }
                     steps{
                         setup_debian_trixie_package_tests()
@@ -248,9 +254,15 @@ pipeline {
                 curl --insecure ${PMM_URL}/logs.zip --output logs.zip || true
             '''
             script {
-                if(env.VM_NAME) {
+                if(env.VM_NAME)
+                {
                     archiveArtifacts artifacts: 'logs.zip'
                     destroyStaging(VM_NAME)
+                }
+                if (currentBuild.result == 'SUCCESS') {
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
+                } else {
+                    slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                 }
             }
         }
