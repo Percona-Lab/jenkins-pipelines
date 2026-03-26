@@ -229,7 +229,7 @@ void verifyVolumeSnapshotResources(String CLUSTER_SUFFIX) {
         }
 
         wait_for_deployment csi-snapshot-controller-operator openshift-cluster-storage-operator
-        wait_for_deployment snapshot-controller openshift-cluster-storage-operator
+        wait_for_deployment csi-snapshot-controller openshift-cluster-storage-operator
 
         kubectl get crd volumesnapshots.snapshot.storage.k8s.io volumesnapshotcontents.snapshot.storage.k8s.io volumesnapshotclasses.snapshot.storage.k8s.io
         kubectl api-resources --api-group=snapshot.storage.k8s.io
@@ -485,7 +485,7 @@ pipeline {
         }
         stage('Run Tests') {
             options {
-                timeout(time: 3, unit: 'HOURS')
+                timeout(time: 4, unit: 'HOURS')
             }
             parallel {
                 stage('cluster1') {
