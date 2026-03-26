@@ -73,6 +73,68 @@ def fetch_dockerhub_tag(repo, prefix=None):
     return max(versions)[1] if versions else None
 
 
+def fetch_pg_postgis_tag(operator_version, pg_major):
+    resp = _session.get(
+        "https://registry.hub.docker.com/v2/repositories/percona/percona-postgresql-operator/tags",
+        params={"page_size": 100, "name": f"{operator_version}-ppg{pg_major}"},
+    )
+    resp.raise_for_status()
+
+    versions = []
+    pattern = re.compile(
+        rf"^{re.escape(operator_version)}-ppg{re.escape(pg_major)}(?:\.(\d+(?:\.\d+)*))?-postgres-gis(\d+(?:\.\d+)*)?$"
+    )
+    for tag in resp.json()["results"]:
+        name = tag["name"]
+        if m := pattern.match(name):
+            pg_minor = tuple(int(p) for p in m.group(1).split(".")) if m.group(1) else ()
+            gis_version = tuple(int(p) for p in m.group(2).split(".")) if m.group(2) else ()
+            versions.append((pg_minor, gis_version, name))
+    return max(versions)[1] if versions else None
+
+
+def build_pg_image_lines(operator_version, versions, pmm3):
+    lines = [f"IMAGE_OPERATOR=percona/percona-postgresql-operator:{operator_version}"]
+
+    for major in PG_MAJOR_VERSIONS:
+        pg_tag = versions.get(major)
+        if not pg_tag:
+            continue
+
+        postgis_tag = fetch_pg_postgis_tag(operator_version, major)
+
+        lines.append("")
+        lines.append(
+            f"IMAGE_POSTGRESQL{major}=percona/percona-distribution-postgresql:{pg_tag}"
+        )
+        if pgbouncer_tag := versions.get("pgbouncer"):
+            lines.append(f"IMAGE_PGBOUNCER{major}=percona/percona-pgbouncer:{pgbouncer_tag}")
+        if postgis_tag:
+            lines.append(
+                f"IMAGE_POSTGIS{major}=percona/percona-postgresql-operator:{postgis_tag}"
+            )
+        if backrest_tag := versions.get("pgbackrest"):
+            lines.append(f"IMAGE_BACKREST{major}=percona/percona-pgbackrest:{backrest_tag}")
+
+    lines.extend(
+        [
+            "",
+            f"IMAGE_UPGRADE=percona/percona-postgresql-operator:{operator_version}-upgrade",
+            "",
+            f"IMAGE_PMM_CLIENT=percona/pmm-client:{PMM_CLIENT}",
+            f"IMAGE_PMM_SERVER=percona/pmm-server:{PMM_SERVER}",
+        ]
+    )
+    if pmm3:
+        lines.extend(
+            [
+                f"IMAGE_PMM3_CLIENT=percona/pmm-client:{pmm3}",
+                f"IMAGE_PMM3_SERVER=percona/pmm-server:{pmm3}",
+            ]
+        )
+    return lines
+
+
 def get_image_lines(op, ver):
     P, D = fetch_percona_version, fetch_dockerhub_tag
 
@@ -122,6 +184,8 @@ def get_image_lines(op, ver):
 
     v = fetch_parallel(base)
     pmm3 = v.pop("pmm3", None)
+    if op == "pg":
+        return build_pg_image_lines(ver, v, pmm3)
 
     img = {
         "psmdb": [
@@ -147,30 +211,6 @@ def get_image_lines(op, ver):
             ("PROXY", "proxysql2", v.get("proxysql")),
             ("HAPROXY", "haproxy", v.get("haproxy")),
             ("LOGCOLLECTOR", "fluentbit", v.get("logcollector")),
-            ("PMM_CLIENT", "pmm-client", PMM_CLIENT),
-            ("PMM_SERVER", "pmm-server", PMM_SERVER),
-            ("PMM3_CLIENT", "pmm-client", pmm3),
-            ("PMM3_SERVER", "pmm-server", pmm3),
-        ],
-        "pg": [("OPERATOR", "percona-postgresql-operator", ver)]
-        + [
-            (f"POSTGRESQL{n}", "percona-distribution-postgresql", v.get(n))
-            for n in PG_MAJOR_VERSIONS
-        ]
-        + [
-            (f"PGBACKREST{n}", "percona-pgbackrest", v.get("pgbackrest"))
-            for n in PG_MAJOR_VERSIONS
-        ]
-        + [
-            (f"PGBOUNCER{n}", "percona-pgbouncer", v.get("pgbouncer"))
-            for n in PG_MAJOR_VERSIONS
-        ]
-        + [
-            (f"POSTGIS{n}", "percona-postgresql-operator", "postgis")
-            for n in PG_MAJOR_VERSIONS
-        ]
-        + [
-            ("UPGRADE", "percona-postgresql-operator", f"{ver}-upgrade"),
             ("PMM_CLIENT", "pmm-client", PMM_CLIENT),
             ("PMM_SERVER", "pmm-server", PMM_SERVER),
             ("PMM3_CLIENT", "pmm-client", pmm3),
