@@ -229,15 +229,17 @@ def _add_unique_versions(
 
 def _add_postgis_versions(lines: list[str], versions: dict[str, str]):
     """Extract PostGis versions as 'pg_version: gis_version' pairs."""
-    pairs = []
+    values = []
     for key, val in sorted(versions.items()):
         if key.startswith("IMAGE_POSTGIS") and val:
             tag = val.split(":")[-1] if ":" in val else val
             match = re.search(r"ppg([\d.]+)-postgres-gis([\d.]+)", tag)
             if match:
-                pairs.append(f"{match.group(1)}: {match.group(2)}")
-    if pairs:
-        lines.append(f"PostGis: {', '.join(pairs)}")
+                values.append(f"{match.group(1)}: {match.group(2)}")
+            else:
+                values.append(tag)
+    if values:
+        lines.append(f"PostGis: {', '.join(values)}")
 
 
 def generate_test_plan(versions_file: str, primary_platform: str = "GKE") -> list[dict]:

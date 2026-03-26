@@ -73,26 +73,6 @@ def fetch_dockerhub_tag(repo, prefix=None):
     return max(versions)[1] if versions else None
 
 
-def fetch_pg_postgis_tag(operator_version, pg_major):
-    resp = _session.get(
-        "https://registry.hub.docker.com/v2/repositories/percona/percona-postgresql-operator/tags",
-        params={"page_size": 100, "name": f"{operator_version}-ppg{pg_major}"},
-    )
-    resp.raise_for_status()
-
-    versions = []
-    pattern = re.compile(
-        rf"^{re.escape(operator_version)}-ppg{re.escape(pg_major)}(?:\.(\d+(?:\.\d+)*))?-postgres-gis(\d+(?:\.\d+)*)?$"
-    )
-    for tag in resp.json()["results"]:
-        name = tag["name"]
-        if m := pattern.match(name):
-            pg_minor = tuple(int(p) for p in m.group(1).split(".")) if m.group(1) else ()
-            gis_version = tuple(int(p) for p in m.group(2).split(".")) if m.group(2) else ()
-            versions.append((pg_minor, gis_version, name))
-    return max(versions)[1] if versions else None
-
-
 def build_pg_image_lines(operator_version, versions, pmm3):
     lines = [f"IMAGE_OPERATOR=percona/percona-postgresql-operator:{operator_version}"]
 
@@ -101,17 +81,15 @@ def build_pg_image_lines(operator_version, versions, pmm3):
         if not pg_tag:
             continue
 
-        postgis_tag = fetch_pg_postgis_tag(operator_version, major)
-
         lines.append("")
         lines.append(
             f"IMAGE_POSTGRESQL{major}=percona/percona-distribution-postgresql:{pg_tag}"
         )
         if pgbouncer_tag := versions.get("pgbouncer"):
             lines.append(f"IMAGE_PGBOUNCER{major}=percona/percona-pgbouncer:{pgbouncer_tag}")
-        if postgis_tag:
+        if postgis_tag := versions.get(f"postgis{major}"):
             lines.append(
-                f"IMAGE_POSTGIS{major}=percona/percona-postgresql-operator:{postgis_tag}"
+                f"IMAGE_POSTGIS{major}=percona/percona-distribution-postgresql-with-postgis:{postgis_tag}"
             )
         if backrest_tag := versions.get("pgbackrest"):
             lines.append(f"IMAGE_BACKREST{major}=percona/percona-pgbackrest:{backrest_tag}")
@@ -166,6 +144,36 @@ def get_image_lines(op, ver):
             "15": (D, "percona/percona-distribution-postgresql", "15"),
             "14": (D, "percona/percona-distribution-postgresql", "14"),
             "13": (D, "percona/percona-distribution-postgresql", "13"),
+            "postgis18": (
+                D,
+                "percona/percona-distribution-postgresql-with-postgis",
+                "18",
+            ),
+            "postgis17": (
+                D,
+                "percona/percona-distribution-postgresql-with-postgis",
+                "17",
+            ),
+            "postgis16": (
+                D,
+                "percona/percona-distribution-postgresql-with-postgis",
+                "16",
+            ),
+            "postgis15": (
+                D,
+                "percona/percona-distribution-postgresql-with-postgis",
+                "15",
+            ),
+            "postgis14": (
+                D,
+                "percona/percona-distribution-postgresql-with-postgis",
+                "14",
+            ),
+            "postgis13": (
+                D,
+                "percona/percona-distribution-postgresql-with-postgis",
+                "13",
+            ),
             "pgbackrest": (D, "percona/percona-pgbackrest"),
             "pgbouncer": (D, "percona/percona-pgbouncer"),
             "pmm3": (P, "pmm3"),
@@ -331,7 +339,7 @@ def get_minikube():
     )
     resp.raise_for_status()
     body = resp.json().get("body", "")
-    if m := re.search(r"Kubernetes v?(\d+\.\d+\.\d+)", body):
+    if m := re.search(r"Kubernetes(?: version)? v?(\d+\.\d+\.\d+)", body, re.IGNORECASE):
         return m.group(1)
     return None
 
