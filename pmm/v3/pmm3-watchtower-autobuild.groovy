@@ -5,7 +5,7 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label params.USE_ONDEMAND ? 'agent-amd64-ol9-ondemand' : 'agent-amd64-ol9'
     }
     parameters {
         string(
@@ -17,6 +17,11 @@ pipeline {
             defaultValue: 'dev-latest',
             description: 'Tag type for the watchtower build, e.g. "dev-latest", "rc"',
             name: 'TAG_TYPE'
+        )
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release builds)',
+            name: 'USE_ONDEMAND'
         )
     }
     options {

@@ -10,7 +10,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label params.USE_ONDEMAND ? 'agent-amd64-ol9-ondemand' : 'agent-amd64-ol9'
     }
     parameters {
         string(
@@ -22,6 +22,11 @@ pipeline {
             choices: ['experimental', 'testing'],
             description: 'Publish packages to repositories: testing for RC, experimental for 3-dev-latest',
             name: 'DESTINATION'
+        )
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release builds)',
+            name: 'USE_ONDEMAND'
         )
     }
     options {
