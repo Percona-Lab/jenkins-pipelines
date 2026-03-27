@@ -107,6 +107,10 @@ pipeline {
         stage('Install dependencies') {
             steps {
                 sh '''
+                    if ! command -v ruby >/dev/null 2>&1; then
+                        sudo dnf install -y ruby
+                    fi
+
                     curl -LsSf https://astral.sh/uv/install.sh | sh
                     export PATH="$HOME/.local/bin:$PATH"
                     uv init
