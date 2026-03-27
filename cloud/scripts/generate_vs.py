@@ -332,10 +332,10 @@ PS_VERSION_LIMITS = {
 }
 
 PG_VERSION_LIMITS = {
-    "postgresql": {"13": 2, "14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
-    "pgbackrest": {"13": 2, "14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
-    "pgbouncer": {"13": 2, "14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
-    "postgis": {"13": 2, "14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
+    "postgresql": {"14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
+    "pgbackrest": {"14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
+    "pgbouncer": {"14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
+    "postgis": {"14": 2, "15": 2, "16": 2, "17": 2, "18": 2},
     "pmm": {"2": 1, "3": 1},
     "operator": 1,
 }
@@ -630,6 +630,21 @@ def sort_matrix_versions(data: Dict) -> Dict:
     return data
 
 
+def filter_supported_pg_majors(data: Dict) -> Dict:
+    supported = {"14", "15", "16", "17", "18"}
+    for version_entry in data.get("versions", []):
+        matrix = version_entry.get("matrix", {})
+        for category in ["postgresql", "pgbackrest", "pgbouncer", "postgis"]:
+            if category not in matrix:
+                continue
+            matrix[category] = {
+                ver: entry
+                for ver, entry in matrix[category].items()
+                if get_major_minor(ver, major_only=True) in supported
+            }
+    return data
+
+
 def generate_full_release_from_fragment(
     fragment: Dict, previous_version: str, output_file: str
 ) -> Dict:
@@ -645,6 +660,9 @@ def generate_full_release_from_fragment(
     else:
         old_data = remove_recommended_status(old_data, frag_categories)
         result = merge_fragment(old_data, fragment)
+
+    if product == "pg-operator":
+        result = filter_supported_pg_majors(result)
 
     limits = VERSION_LIMITS.get(product, {})
     if limits:

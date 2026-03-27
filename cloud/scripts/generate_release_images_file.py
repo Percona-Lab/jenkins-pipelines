@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 PMM_CLIENT = "2.44.1-1"
 PMM_SERVER = "2.44.1"
-PG_MAJOR_VERSIONS = ["13", "14", "15", "16", "17", "18"]
+PG_MAJOR_VERSIONS = ["14", "15", "16", "17", "18"]
 
 MONTH_MAP = {
     "jan": 1,
@@ -73,6 +73,46 @@ def fetch_dockerhub_tag(repo, prefix=None):
     return max(versions)[1] if versions else None
 
 
+def build_pg_image_lines(operator_version, versions, pmm3):
+    lines = [f"IMAGE_OPERATOR=percona/percona-postgresql-operator:{operator_version}"]
+
+    for major in PG_MAJOR_VERSIONS:
+        pg_tag = versions.get(major)
+        if not pg_tag:
+            continue
+
+        lines.append("")
+        lines.append(
+            f"IMAGE_POSTGRESQL{major}=percona/percona-distribution-postgresql:{pg_tag}"
+        )
+        if pgbouncer_tag := versions.get("pgbouncer"):
+            lines.append(f"IMAGE_PGBOUNCER{major}=percona/percona-pgbouncer:{pgbouncer_tag}")
+        if postgis_tag := versions.get(f"postgis{major}"):
+            lines.append(
+                f"IMAGE_POSTGIS{major}=percona/percona-distribution-postgresql-with-postgis:{postgis_tag}"
+            )
+        if backrest_tag := versions.get("pgbackrest"):
+            lines.append(f"IMAGE_BACKREST{major}=percona/percona-pgbackrest:{backrest_tag}")
+
+    lines.extend(
+        [
+            "",
+            f"IMAGE_UPGRADE=percona/percona-postgresql-operator:{operator_version}-upgrade",
+            "",
+            f"IMAGE_PMM_CLIENT=percona/pmm-client:{PMM_CLIENT}",
+            f"IMAGE_PMM_SERVER=percona/pmm-server:{PMM_SERVER}",
+        ]
+    )
+    if pmm3:
+        lines.extend(
+            [
+                f"IMAGE_PMM3_CLIENT=percona/pmm-client:{pmm3}",
+                f"IMAGE_PMM3_SERVER=percona/pmm-server:{pmm3}",
+            ]
+        )
+    return lines
+
+
 def get_image_lines(op, ver):
     P, D = fetch_percona_version, fetch_dockerhub_tag
 
@@ -103,7 +143,31 @@ def get_image_lines(op, ver):
             "16": (D, "percona/percona-distribution-postgresql", "16"),
             "15": (D, "percona/percona-distribution-postgresql", "15"),
             "14": (D, "percona/percona-distribution-postgresql", "14"),
-            "13": (D, "percona/percona-distribution-postgresql", "13"),
+            "postgis18": (
+                D,
+                "percona/percona-distribution-postgresql-with-postgis",
+                "18",
+            ),
+            "postgis17": (
+                D,
+                "percona/percona-distribution-postgresql-with-postgis",
+                "17",
+            ),
+            "postgis16": (
+                D,
+                "percona/percona-distribution-postgresql-with-postgis",
+                "16",
+            ),
+            "postgis15": (
+                D,
+                "percona/percona-distribution-postgresql-with-postgis",
+                "15",
+            ),
+            "postgis14": (
+                D,
+                "percona/percona-distribution-postgresql-with-postgis",
+                "14",
+            ),
             "pgbackrest": (D, "percona/percona-pgbackrest"),
             "pgbouncer": (D, "percona/percona-pgbouncer"),
             "pmm3": (P, "pmm3"),
@@ -122,6 +186,8 @@ def get_image_lines(op, ver):
 
     v = fetch_parallel(base)
     pmm3 = v.pop("pmm3", None)
+    if op == "pg":
+        return build_pg_image_lines(ver, v, pmm3)
 
     img = {
         "psmdb": [
@@ -147,30 +213,6 @@ def get_image_lines(op, ver):
             ("PROXY", "proxysql2", v.get("proxysql")),
             ("HAPROXY", "haproxy", v.get("haproxy")),
             ("LOGCOLLECTOR", "fluentbit", v.get("logcollector")),
-            ("PMM_CLIENT", "pmm-client", PMM_CLIENT),
-            ("PMM_SERVER", "pmm-server", PMM_SERVER),
-            ("PMM3_CLIENT", "pmm-client", pmm3),
-            ("PMM3_SERVER", "pmm-server", pmm3),
-        ],
-        "pg": [("OPERATOR", "percona-postgresql-operator", ver)]
-        + [
-            (f"POSTGRESQL{n}", "percona-distribution-postgresql", v.get(n))
-            for n in PG_MAJOR_VERSIONS
-        ]
-        + [
-            (f"PGBACKREST{n}", "percona-pgbackrest", v.get("pgbackrest"))
-            for n in PG_MAJOR_VERSIONS
-        ]
-        + [
-            (f"PGBOUNCER{n}", "percona-pgbouncer", v.get("pgbouncer"))
-            for n in PG_MAJOR_VERSIONS
-        ]
-        + [
-            (f"POSTGIS{n}", "percona-postgresql-operator", "postgis")
-            for n in PG_MAJOR_VERSIONS
-        ]
-        + [
-            ("UPGRADE", "percona-postgresql-operator", f"{ver}-upgrade"),
             ("PMM_CLIENT", "pmm-client", PMM_CLIENT),
             ("PMM_SERVER", "pmm-server", PMM_SERVER),
             ("PMM3_CLIENT", "pmm-client", pmm3),
@@ -291,7 +333,7 @@ def get_minikube():
     )
     resp.raise_for_status()
     body = resp.json().get("body", "")
-    if m := re.search(r"Kubernetes v?(\d+\.\d+\.\d+)", body):
+    if m := re.search(r"Kubernetes(?: version)? v?(\d+\.\d+\.\d+)", body, re.IGNORECASE):
         return m.group(1)
     return None
 
