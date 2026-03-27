@@ -46,6 +46,14 @@ pipeline {
         }
         stage('Checkout') {
             steps {
+                sh """
+                    rm -f /tmp/pbm-agent-storage-aws.yaml
+                    rm -f /tmp/pbm-agent-storage-aws-minio.yaml
+                    rm -f /tmp/pbm-agent-storage-gcp.conf
+                    rm -f /tmp/pbm-agent-storage-gcp-hmac.conf
+                    rm -f /tmp/pbm-agent-storage-azure.conf
+                    rm -f /tmp/pbm-agent-storage-oss.yaml
+                """
                 deleteDir()
                 git poll: false, branch: TESTING_BRANCH, url: 'https://github.com/Percona-QA/psmdb-testing.git'
             }
