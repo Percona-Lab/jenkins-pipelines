@@ -491,7 +491,13 @@ pipeline {
                                         echo PLAYBOOK_VAR="${product_to_test}_${action_to_test}" > .env.ENV_VARS
                                     """
                                 }
+                                
+                                sh """
+                                    echo IIT_BILLING_TAG="${product_to_test}_package_testing" >> .env.ENV_VARS
+                                """
+
                                 def envMap = loadEnvFile('.env.ENV_VARS')
+
                                 withEnv(envMap) {
                                     if (product_to_test == "ps_lts_innovation") {
                                         moleculeParallelTestALL(allOS, ps90PackageTesting(), "molecule/ps/")

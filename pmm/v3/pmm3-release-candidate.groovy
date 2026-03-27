@@ -249,7 +249,7 @@ pipeline {
             }
             steps {
                 script {
-                    rewindSubmodule = build job: 'pmm3-rewind-submodules-fb', propagate: false, parameters: [
+                    def rewindSubmodule = build job: 'pmm3-rewind-submodules-fb', propagate: false, parameters: [
                         string(name: 'GIT_BRANCH', value: RELEASE_BRANCH)
                     ]
                 }
@@ -263,7 +263,7 @@ pipeline {
                 stage('Start PMM3 Server Autobuild') {
                     steps {
                         script {
-                            pmmServer = build job: 'pmm3-server-autobuild', parameters: [
+                            def pmmServer = build job: 'pmm3-server-autobuild', parameters: [
                                 string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
                                 string(name: 'DESTINATION', value: 'testing'),
                                 booleanParam(name: 'USE_ONDEMAND', value: true)
@@ -275,7 +275,7 @@ pipeline {
                 stage('Start PMM3 Client Autobuild') {
                     steps {
                         script {
-                            pmmClient = build job: 'pmm3-client-autobuild', parameters: [
+                            def pmmClient = build job: 'pmm3-client-autobuild', parameters: [
                                 string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
                                 string(name: 'DESTINATION', value: 'testing'),
                                 booleanParam(name: 'USE_ONDEMAND', value: true)
@@ -291,7 +291,7 @@ pipeline {
                 stage('Start PMM3 Watchtower Autobuild') {
                     steps {
                         script {
-                            pmmWatchtower = build job: 'pmm3-watchtower-autobuild', parameters: [
+                            def pmmWatchtower = build job: 'pmm3-watchtower-autobuild', parameters: [
                                 string(name: 'GIT_BRANCH', value: RELEASE_BRANCH),
                                 string(name: 'TAG_TYPE', value: 'rc'),
                                 booleanParam(name: 'USE_ONDEMAND', value: true)
@@ -310,7 +310,7 @@ pipeline {
                 stage('Start AMI RC Build') {
                     steps {
                         script {
-                            pmmAMI = build job: 'pmm3-ami', parameters: [
+                            def pmmAMI = build job: 'pmm3-ami', parameters: [
                                 string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
                                 string(name: 'PMM_SERVER_IMAGE', value: "docker.io/${PMM_SERVER_IMAGE}"),
                                 string(name: 'WATCHTOWER_IMAGE', value: "docker.io/${WATCHTOWER_IMAGE}"),
@@ -324,7 +324,7 @@ pipeline {
                 stage('Start OVF RC Build') {
                     steps {
                         script {
-                            pmmOVF = build job: 'pmm3-ovf', parameters: [
+                            def pmmOVF = build job: 'pmm3-ovf', parameters: [
                                 string(name: 'PMM_BRANCH', value: "pmm-${VERSION}"),
                                 string(name: 'PMM_SERVER_IMAGE', value: "docker.io/${PMM_SERVER_IMAGE}"),
                                 string(name: 'WATCHTOWER_IMAGE', value: "docker.io/${WATCHTOWER_IMAGE}"),
@@ -341,7 +341,7 @@ pipeline {
             }
             steps {
                 script {
-                    imageScan = build job: 'pmm3-image-scanning', propagate: false, parameters: [
+                    def imageScan = build job: 'pmm3-image-scanning', propagate: false, parameters: [
                         string(name: 'PMM_CLIENT_IMAGE', value: "perconalab/pmm-client:${VERSION}-rc"),
                         string(name: 'PMM_SERVER_IMAGE', value: "perconalab/pmm-server:${VERSION}-rc"),
                         booleanParam(name: 'USE_ONDEMAND', value: true)

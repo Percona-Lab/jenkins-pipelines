@@ -127,6 +127,12 @@ pipeline {
 
                     export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
                     export DOCKERFILE=Dockerfile.el9
+                    if [ -z "${DOCKER_RC_TAG}" ]; then
+                        DOCKERFILE_PATH=$(realpath "${PATH_TO_SCRIPTS}/../docker/server/${DOCKERFILE}")
+                        awk 'NR==9 { print "ENV PMM_ENABLE_TELEMETRY=0" } { print }' "${DOCKERFILE_PATH}" > "${DOCKERFILE_PATH}.tmp"
+                        mv "${DOCKERFILE_PATH}.tmp" "${DOCKERFILE_PATH}"
+                    fi
+
                     ${PATH_TO_SCRIPTS}/build-server-docker
 
                     if [ -n "${DOCKER_RC_TAG}" ]; then

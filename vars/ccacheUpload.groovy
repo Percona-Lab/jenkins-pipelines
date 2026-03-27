@@ -18,8 +18,8 @@ def call(Map config = [:]) {
     //
     // Set default values
     def cloud = config.get('cloud', env.CLOUD ?: 'AWS')
-    def awsCredentialsId = config.get('awsCredentialsId', 'AWS_CREDENTIALS_ID')
-    def s3Bucket = config.get('s3Bucket', 's3://ps-build-cache/')
+    def awsCredentialsId = config.get('awsCredentialsId') ?: (cloud == 'Hetzner' ? 'HTZ_STASH' : 'AWS_CREDENTIALS_ID')
+    def s3Bucket = config.get('s3Bucket') ?: (cloud == 'Hetzner' ? 's3://percona-jenkins-artifactory/' : 's3://ps-build-cache/')
     def workspace = config.get('workspace', env.WORKSPACE)
     def branch = config.get('branch', env.BRANCH ?: '8.0')
     def dockerOs = config.get('dockerOs', env.DOCKER_OS)
@@ -40,12 +40,6 @@ def call(Map config = [:]) {
     // See: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-retries.html
     def awsMaxAttempts = (awsRetries.toInteger() + 1).toString()
 
-    // Override credentials and endpoint for Hetzner
-    if (cloud == 'Hetzner') {
-        awsCredentialsId = config.get('awsCredentialsId', 'HTZ_STASH')
-        // Use existing Hetzner bucket
-        s3Bucket = config.get('s3Bucket', 's3://percona-jenkins-artifactory/')
-    }
     def s3Endpoint = (cloud == 'Hetzner') ? '--endpoint-url https://fsn1.your-objectstorage.com' : ''
 
     if (env.USE_CCACHE != 'yes' && env.USE_CCACHE != 'true') {
@@ -131,10 +125,15 @@ def call(Map config = [:]) {
                 UPLOAD_TIME=\$(((\$(date +%s) - UPLOAD_START)))
 
                 # Add retention tags for lifecycle policy
-                aws s3api put-object-tagging ${s3Endpoint} \
-                    --bucket \$(echo "${s3Path}" | cut -d'/' -f3) \
-                    --key \$(echo "${s3Path}" | sed 's|s3://[^/]*/||') \
-                    --tagging "TagSet=[{Key=RetentionDays,Value=${cacheRetentionDays}},{Key=Project,Value=${projectName}},{Key=CacheType,Value=ccache},{Key=CreatedDate,Value=\$(date -u +%Y-%m-%d)}]"
+                # Hetzner Object Storage does not support tag-based lifecycle rules
+                if [ -z "${s3Endpoint}" ]; then
+                    aws s3api put-object-tagging \
+                        --bucket \$(echo "${s3Path}" | cut -d'/' -f3) \
+                        --key \$(echo "${s3Path}" | sed 's|s3://[^/]*/||') \
+                        --tagging "TagSet=[{Key=RetentionDays,Value=${cacheRetentionDays}},{Key=Project,Value=${projectName}},{Key=CacheType,Value=ccache},{Key=CreatedDate,Value=\$(date -u +%Y-%m-%d)}]"
+                else
+                    echo "Skipping S3 object tagging (not supported on Hetzner Object Storage)"
+                fi
 
                 rm -f "${cacheArchiveName}"
 

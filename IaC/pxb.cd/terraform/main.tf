@@ -6,10 +6,6 @@ terraform {
     key     = "terraform.tfstate"
   }
   required_providers {
-    template = {
-      source  = "hashicorp/template"
-      version = "2.2.0"
-    }
     aws = {
       source  = "hashicorp/aws"
       version = "4.18.0"
@@ -17,12 +13,10 @@ terraform {
   }
 }
 
-# Specify the provider and access details"${var.aws_region}"
+# Specify the provider and access details
 provider "aws" {
   region = var.aws_region
 }
-
-provider "template" {}
 
 resource "aws_eip" "jenkins" {
   vpc = true
@@ -48,6 +42,14 @@ resource "aws_ebs_volume" "jenkins" {
     Name            = "${var.cloud_name} DATA, do not remove"
     iit-billing-tag = "${var.cloud_name}"
   }
+}
+
+locals {
+  user_data = templatefile("master_user_data.sh", {
+    JHostName             = var.hostname
+    MasterIP_AllocationId = aws_eip.jenkins.id
+    JDataVolume           = aws_ebs_volume.jenkins.id
+  })
 }
 
 # Request a jenkins master Spot fleet
@@ -78,7 +80,7 @@ resource "aws_spot_fleet_request" "jenkins" {
     ebs_optimized               = "true"
     key_name                    = var.key_name
     monitoring                  = "false"
-    user_data                   = data.template_file.master_user_data.rendered
+    user_data                   = local.user_data
     associate_public_ip_address = "true"
     root_block_device {
       volume_size = 20
@@ -106,7 +108,7 @@ resource "aws_spot_fleet_request" "jenkins" {
     ebs_optimized               = "true"
     key_name                    = var.key_name
     monitoring                  = "false"
-    user_data                   = data.template_file.master_user_data.rendered
+    user_data                   = local.user_data
     associate_public_ip_address = "true"
     root_block_device {
       volume_size = 20
@@ -134,7 +136,7 @@ resource "aws_spot_fleet_request" "jenkins" {
     ebs_optimized               = "true"
     key_name                    = var.key_name
     monitoring                  = "false"
-    user_data                   = data.template_file.master_user_data.rendered
+    user_data                   = local.user_data
     associate_public_ip_address = "true"
     root_block_device {
       volume_size = 20
@@ -162,7 +164,7 @@ resource "aws_spot_fleet_request" "jenkins" {
     ebs_optimized               = "true"
     key_name                    = var.key_name
     monitoring                  = "false"
-    user_data                   = data.template_file.master_user_data.rendered
+    user_data                   = local.user_data
     associate_public_ip_address = "true"
     root_block_device {
       volume_size = 20
