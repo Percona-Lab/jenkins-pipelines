@@ -45,7 +45,7 @@ pipeline {
                     sudo lscpu | grep -q 'sse4_2' && grep -q 'popcnt' /proc/cpuinfo && echo "Supports x86-64-v2" || echo "Does NOT support x86-64-v2"
                     sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
 
-                    git clone https://github.com/Manika-Percona/percona-docker
+                    git clone https://github.com/percona/percona-docker
                     cd percona-docker/percona-distribution-postgresql-\$MAJ_VER-extras
                     sed -E "s/ENV PPG_VERSION (.+)/ENV PPG_VERSION ${params.PPG_VERSION}/" -i Dockerfile-postgis
                     sed -E "s/ENV PPG_REPO (.+)/ENV PPG_REPO ${params.PPG_REPO}/" -i Dockerfile-postgis
