@@ -572,6 +572,7 @@ Resources:
                   rpm --import https://openresty.org/package/pubkey.gpg
                   wget -O /etc/yum.repos.d/jenkins.repo https://pkg.jenkins.io/redhat-stable-legacy/jenkins.repo
                   sed -i 's/^repo_gpgcheck=1/repo_gpgcheck=0/' /etc/yum.repos.d/jenkins.repo
+                  grep -q 'repo_gpgcheck=0' /etc/yum.repos.d/jenkins.repo
                   rpm --import https://pkg.jenkins.io/redhat-stable-legacy/jenkins.io-2023.key
                   rpm --import https://pkg.jenkins.io/redhat-stable-legacy/jenkins.io-2026.key
                   yum -y install java-17-amazon-corretto
