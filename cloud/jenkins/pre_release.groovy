@@ -194,7 +194,7 @@ pipeline {
                         sh """
                             export PATH="\$HOME/.local/bin:\$WORKSPACE/go/bin:\$HOME/go/bin:\$PATH"
                             git fetch --depth=1 origin "refs/tags/v${params.PREVIOUS_VERSION}:refs/tags/v${params.PREVIOUS_VERSION}"
-                            crdify 'git://v${params.PREVIOUS_VERSION}?path=deploy/crd.yaml' 'git://${env.RELEASE_BRANCH}?path=deploy/crd.yaml' > ../crd_diff.txt
+                            crdify 'git://v${params.PREVIOUS_VERSION}?path=deploy/crd.yaml' 'git://${env.RELEASE_BRANCH}?path=deploy/crd.yaml' > crd_diff.txt
                         """
                     }
                     archiveArtifacts artifacts: 'crd_diff.txt', allowEmptyArchive: false, fingerprint: true
