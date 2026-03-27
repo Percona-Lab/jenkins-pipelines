@@ -120,7 +120,11 @@ pipeline {
         always {
             script {
                 if (params.SSH_USER != 'none') {
-                    sleep time: 2, unit: 'HOURS'
+                    try {
+                        sleep time: 1, unit: 'HOURS'
+                    } catch (InterruptedException e) {
+                        echo 'Sleep interrupted, proceeding to destroy'
+                    }
                 }
                 sh """
                     rm -f /tmp/pbm-agent-storage-aws.yaml
