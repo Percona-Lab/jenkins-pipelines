@@ -8,7 +8,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
   libraryPath: 'pmm/v3/'
 )
 
-void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) {
+void checkClientBeforeUpgrade(String CLIENT_VERSION) {
     def PMM_VERSION = CLIENT_VERSION.trim();
     env.PMM_VERSION = PMM_VERSION;
     if (PMM_VERSION == '3-dev-latest') {
@@ -31,9 +31,19 @@ void checkClientBeforeUpgrade(String PMM_SERVER_VERSION, String CLIENT_VERSION) 
     }
 }
 
+void checkClientAfterUpgrade(String CLIENT_VERSION) {
+    def PMM_VERSION = CLIENT_VERSION.trim();
+    env.PMM_VERSION = PMM_VERSION;
+    sh '''
+        sudo chmod 755 /srv/pmm-qa/support_scripts/check_client_upgrade.py
+        python3 /srv/pmm-qa/support_scripts/check_client_upgrade.py ${PMM_VERSION}
+    '''
+}
+
 def versionsList = pmmVersion('v3')[-5..-1]
 def oldestVersion = versionsList.first()
 def latestVersion = versionsList.last()
+def oldVersions = pmmVersion('v3-old')
 
 pipeline {
     agent {
@@ -86,8 +96,12 @@ pipeline {
     }
     parameters {
         string(
+            defaultValue: "pmm-$oldestVersion",
+            description: 'Tag/Branch for UI Tests repository for pre upgrade',
+            name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
+        string(
             defaultValue: 'main',
-            description: 'Tag/Branch for UI Tests repository',
+            description: 'Tag/Branch for UI Tests repository for post upgrade',
             name: 'PMM_UI_GIT_BRANCH')
         string(
             defaultValue: "percona/pmm-server:$oldestVersion",
@@ -105,6 +119,10 @@ pipeline {
             defaultValue: latestVersion,
             description: 'latest PMM Server Version',
             name: 'PMM_SERVER_LATEST')
+        string(
+            defaultValue: '',
+            description: 'PMM Client tarball to upgrade to, leave empty to use repository version',
+            name: 'CLIENT_TARBALL_UPGRADE')
         choice(
             choices: ["experimental", "testing", "release"],
             description: 'PMM client repository',
@@ -118,13 +136,13 @@ pipeline {
             description: 'Tag/Branch for qa-integration repository',
             name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(
-            choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"],
+            choices: ["SSL", "EXTERNAL SERVICES", "OTHERS"],
             description: 'Subset of tests for the upgrade',
             name: 'UPGRADE_FLAG')
     }
     options {
         skipDefaultCheckout()
-        timeout(time: 60, unit: 'MINUTES')
+        timeout(time: 90, unit: 'MINUTES')
     }
     stages {
         stage('Prepare') {
@@ -134,7 +152,7 @@ pipeline {
                     currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
                 git poll: false,
-                    branch: PMM_UI_GIT_BRANCH,
+                    branch: PMM_UI_PRE_UPGRADE_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 sh '''
@@ -152,35 +170,18 @@ pipeline {
                     if (env.UPGRADE_FLAG == "SSL") {
                         env.PRE_UPGRADE_FLAG = "@pre-ssl-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-ssl-upgrade"
+                        env.PLAYWRIGHT_FLAG= "noTestsRunning"
                         env.PMM_CLIENTS = "--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql"
                     } else if (env.UPGRADE_FLAG == "EXTERNAL SERVICES") {
                         env.PRE_UPGRADE_FLAG = "@pre-external-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-external-upgrade"
+                        env.PLAYWRIGHT_FLAG= "@rta"
                         env.PMM_CLIENTS = "--database external --database ps=8.4 --database pdpgsql --database psmdb --database pxc"
-                    } else if (env.UPGRADE_FLAG == "MONGO BACKUP") {
-                        env.PRE_UPGRADE_FLAG = "@pre-mongo-backup-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-mongo-backup-upgrade"
-                        env.PMM_CLIENTS = "--database psmdb,SETUP_TYPE=pss,COMPOSE_PROFILES=extra"
-                    } else if (env.UPGRADE_FLAG == "CUSTOM PASSWORD") {
-                        env.PRE_UPGRADE_FLAG = "@pre-custom-password-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-custom-password-upgrade"
-                        env.PMM_CLIENTS = "--database ps=8.4 --database pgsql --database psmdb"
-                    } else if (env.UPGRADE_FLAG == "CUSTOM DASHBOARDS") {
-                        env.PRE_UPGRADE_FLAG = "@pre-dashboards-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-dashboards-upgrade"
-                        env.PMM_CLIENTS = "--help"
-                    } else if (env.UPGRADE_FLAG == "ANNOTATIONS-PROMETHEUS") {
-                        env.PRE_UPGRADE_FLAG = "@pre-annotations-prometheus-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-annotations-prometheus-upgrade"
-                        env.PMM_CLIENTS = "--database ps=8.4 --database pgsql --database psmdb"
-                    } else if (env.UPGRADE_FLAG == "ADVISORS-ALERTING") {
-                        env.PRE_UPGRADE_FLAG = "@pre-advisors-alerting-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-advisors-alerting-upgrade"
-                        env.PMM_CLIENTS = "--help"
-                    } else if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
-                        env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade"
-                        env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade"
-                        env.PMM_CLIENTS = "--database pgsql --database ps=8.4 --database psmdb"
+                    } else if (env.UPGRADE_FLAG == "OTHERS") {
+                        env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade|@pre-advisors-alerting-upgrade|@pre-annotations-prometheus-upgrade|@pre-dashboards-upgrade|@pre-custom-password-upgrade|@pre-mongo-backup-upgrade"
+                        env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade|@post-advisors-alerting-upgrade|@post-annotations-prometheus-upgrade|@post-dashboards-upgrade|@post-custom-password-upgrade|@post-mongo-backup-upgrade"
+                        env.PLAYWRIGHT_FLAG= "@rta"
+                        env.PMM_CLIENTS = "--database pgsql --database ps=8.4 --database psmdb,SETUP_TYPE=pss,COMPOSE_PROFILES=extra"
                     }
                 }
             }
@@ -220,6 +221,7 @@ pipeline {
                             -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com \
                             -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
                             -e PMM_ENABLE_UPDATES=1 \
+                            -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
                             --publish 80:8080 --publish 443:8443 \
                             --volume pmm-volume:/srv \
                             --name pmm-server \
@@ -236,6 +238,7 @@ pipeline {
                             -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
                             -e PMM_ENABLE_UPDATES=1 \
                             -e PMM_DEV_UPDATE_DOCKER_IMAGE=\${DOCKER_TAG_UPGRADE} \
+                            -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
                             --publish 80:8080 --publish 443:8443 \
                             --volume pmm-volume:/srv \
                             --name pmm-server \
@@ -251,27 +254,17 @@ pipeline {
                 }
             }
         }
-
-        stage('Setup Databases  and PMM Client for PMM-Server') {
-            parallel {
-                stage('Setup PMM Client') {
-                    steps {
-                        setupPMM3Client(SERVER_IP, CLIENT_VERSION.trim(), 'pmm', 'no', 'no', 'no', 'upgrade', 'admin', 'no')
-                    }
-                }
-                stage('Install dependencies') {
-                    steps {
-                        sh '''
-                            npm ci
-                            npx playwright install
-                            envsubst < env.list > env.generated.list
-                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                            export PWD=$(pwd)
-                            export CHROMIUM_PATH=/usr/bin/chromium
-                            ansible-galaxy collection install ansible.utils
-                        '''
-                    }
-                }
+        stage('Install dependencies') {
+            steps {
+                sh '''
+                    npm ci
+                    npx playwright install chromium
+                    envsubst < env.list > env.generated.list
+                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                    export PWD=$(pwd)
+                    export CHROMIUM_PATH=/usr/bin/chromium
+                    ansible-galaxy collection install ansible.utils
+                '''
             }
         }
         stage('Setup Databases for PMM-Server') {
@@ -306,7 +299,7 @@ pipeline {
         stage('Setup Custom queries') {
             steps {
                 script {
-                    if (env.UPGRADE_FLAG == "SETTINGS-METRICS") {
+                    if (env.UPGRADE_FLAG == "OTHERS") {
                         sh '''
                             containers=$(docker ps -a)
                             echo $containers
@@ -320,12 +313,12 @@ pipeline {
                             echo "Adding Custom Queries for postgres"
                             docker cp pmm-custom-queries/postgresql/. $pgsqlContainerName:/usr/local/percona/pmm/collectors/custom-queries/postgresql/high-resolution/
                             echo 'node_role{role="my_monitored_server_1"} 1' > node_role.prom
-                            sudo cp node_role.prom /usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
+                            docker cp node_role.prom $pgsqlContainerName:/usr/local/percona/pmm/collectors/textfile-collector/high-resolution/
                             docker exec -u root $psContainerName pkill -f mysqld_exporter
                             docker exec $pgsqlContainerName pkill -f postgres_exporter
                             docker exec $pgsqlContainerName pmm-admin list
                             docker exec $psContainerName pmm-admin list
-                            sudo pkill -f node_exporter
+                            docker exec $pgsqlContainerName pkill -f node_exporter
                             sleep 5
                             echo "Setup for Custom Queries Completed along with custom text file collector Metrics"
                             docker ps -a --format "{{.Names}}"
@@ -359,7 +352,7 @@ pipeline {
         stage('Check Client before Upgrade') {
             steps {
                 script {
-                    checkClientBeforeUpgrade(PMM_SERVER_LATEST, CLIENT_VERSION)
+                    checkClientBeforeUpgrade(CLIENT_VERSION)
                 }
             }
         }
@@ -377,6 +370,7 @@ pipeline {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                         ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
+                        git checkout -f \${PMM_UI_GIT_BRANCH}
                     '''
                 }
             }
@@ -398,44 +392,132 @@ pipeline {
 
                         for i in \$containers; do
                             if [[ \$i == *"rs10"* ]]; then
-                                docker exec rs101 percona-release enable pmm3-client $CLIENT_REPOSITORY
-                                docker exec rs101 dnf install -y pmm-client
-                                docker exec rs101 systemctl restart pmm-agent
+                                if [ "$CLIENT_TARBALL_UPGRADE" != "" ]; then
+                                    docker exec \$i dnf install -y wget
+                                    docker exec \$i wget -q -O /pmm-client.tar.gz "$CLIENT_TARBALL_UPGRADE"
+                                    docker exec \$i tar -zxpf /pmm-client.tar.gz
+                                    PMM_CLIENT=`ls -1td pmm-client* 2>/dev/null | grep -v ".tar" | grep -v ".sh" | head -n1` &&
+                                    docker exec \$i rm -rf pmm-client
+                                    docker exec \$i mv ${PMM_CLIENT} pmm-client
+                                    docker exec \$i rm -rf /usr/local/bin/pmm-client
+                                    docker exec \$i mv -f pmm-client /usr/local/bin
+                                    docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
+                                else
+                                    docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i dnf install -y pmm-client
+                                    docker exec \$i systemctl restart pmm-agent
+                                fi
                             elif [[ \$i == *"mysql_"* ]]; then
-                                docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                                docker exec \$i apt install -y pmm-client
-                                mysql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
-                                docker exec \$i kill \$mysql_process_id
-                                docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                if [ "$CLIENT_TARBALL_UPGRADE" != "" ]; then
+                                    docker exec \$i wget -q -O /pmm-client.tar.gz "$CLIENT_TARBALL_UPGRADE"
+                                    docker exec \$i tar -zxpf /pmm-client.tar.gz
+                                    PMM_CLIENT=`ls -1td pmm-client* 2>/dev/null | grep -v ".tar" | grep -v ".sh" | head -n1` &&
+                                    docker exec \$i rm -rf pmm-client
+                                    docker exec \$i mv ${PMM_CLIENT} pmm-client
+                                    docker exec \$i rm -rf /usr/local/bin/pmm-client
+                                    docker exec \$i mv -f pmm-client /usr/local/bin
+                                    docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
+                                else
+                                    docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i apt install -y pmm-client
+                                    mysql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
+                                    docker exec \$i kill \$mysql_process_id
+                                    docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                fi
                             elif [[ \$i == *"pdpgsql"* ]]; then
-                                docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                                docker exec \$i apt install -y pmm-client
-                                pdpgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
-                                docker exec \$i kill \$pdpgsql_process_id
-                                docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                if [ "$CLIENT_TARBALL_UPGRADE" != "" ]; then
+                                    docker exec \$i wget -q -O /pmm-client.tar.gz "$CLIENT_TARBALL_UPGRADE"
+                                    docker exec \$i tar -zxpf /pmm-client.tar.gz
+                                    PMM_CLIENT=`ls -1td pmm-client* 2>/dev/null | grep -v ".tar" | grep -v ".sh" | head -n1` &&
+                                    docker exec \$i rm -rf pmm-client
+                                    docker exec \$i mv ${PMM_CLIENT} pmm-client
+                                    docker exec \$i rm -rf /usr/local/bin/pmm-client
+                                    docker exec \$i mv -f pmm-client /usr/local/bin
+                                    docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
+                                else
+                                    docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i apt install -y pmm-client
+                                    pdpgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
+                                    docker exec \$i kill \$pdpgsql_process_id
+                                    docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                fi
                             elif [[ \$i == *"pgsql"* ]]; then
-                                docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                                docker exec \$i apt install -y pmm-client
-                                pgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
-                                docker exec \$i kill \$pgsql_process_id
-                                docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                if [ "$CLIENT_TARBALL_UPGRADE" != "" ]; then
+                                    docker exec \$i wget -q -O /pmm-client.tar.gz "$CLIENT_TARBALL_UPGRADE"
+                                    docker exec \$i tar -zxpf /pmm-client.tar.gz
+                                    PMM_CLIENT=`ls -1td pmm-client* 2>/dev/null | grep -v ".tar" | grep -v ".sh" | head -n1` &&
+                                    docker exec \$i rm -rf pmm-client
+                                    docker exec \$i mv ${PMM_CLIENT} pmm-client
+                                    docker exec \$i rm -rf /usr/local/bin/pmm-client
+                                    docker exec \$i mv -f pmm-client /usr/local/bin
+                                    docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
+                                else
+                                    docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i apt install -y pmm-client
+                                    pgsql_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
+                                    docker exec \$i kill \$pgsql_process_id
+                                    docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                fi
                             elif [[ \$i == *"ps_"* ]]; then
-                                docker exec -u root \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                                docker exec -u root \$i microdnf install -y pmm-client
-                                ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
-                                docker exec -u root \$i kill \$ps_process_id
-                                docker exec -u root -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                if [ "$CLIENT_TARBALL_UPGRADE" != "" ]; then
+                                    docker exec \$i wget -q -O /pmm-client.tar.gz "$CLIENT_TARBALL_UPGRADE"
+                                    docker exec \$i tar -zxpf /pmm-client.tar.gz
+                                    PMM_CLIENT=`ls -1td pmm-client* 2>/dev/null | grep -v ".tar" | grep -v ".sh" | head -n1` &&
+                                    docker exec \$i rm -rf pmm-client
+                                    docker exec \$i mv ${PMM_CLIENT} pmm-client
+                                    docker exec \$i rm -rf /usr/local/bin/pmm-client
+                                    docker exec \$i mv -f pmm-client /usr/local/bin
+                                    docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
+                                else
+                                    docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i apt install -y pmm-client
+                                    ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
+                                    docker exec \$i kill \$ps_process_id
+                                    docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                fi
                             elif [[ \$i == *"external_pmm"* ]]; then
-                                docker exec \$i percona-release enable pmm3-client $CLIENT_REPOSITORY
-                                docker exec \$i apt install -y pmm-client
-                                ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
-                                docker exec \$i kill \$ps_process_id
-                                docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                if [ "$CLIENT_TARBALL_UPGRADE" != "" ]; then
+                                    docker exec \$i wget -q -O /pmm-client.tar.gz "$CLIENT_TARBALL_UPGRADE"
+                                    docker exec \$i tar -zxpf /pmm-client.tar.gz
+                                    PMM_CLIENT=`ls -1td pmm-client* 2>/dev/null | grep -v ".tar" | grep -v ".sh" | head -n1` &&
+                                    docker exec \$i rm -rf pmm-client
+                                    docker exec \$i mv ${PMM_CLIENT} pmm-client
+                                    docker exec \$i rm -rf /usr/local/bin/pmm-client
+                                    docker exec \$i mv -f pmm-client /usr/local/bin
+                                    docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
+                                else
+                                    docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i apt install -y pmm-client
+                                    ps_process_id=\$(docker exec \$i ps aux | grep pmm-agent | awk -F " " '{print \$2}')
+                                    docker exec \$i kill \$ps_process_id
+                                    docker exec -d \$i pmm-agent --config-file=/usr/local/percona/pmm/config/pmm-agent.yaml
+                                fi
+                            elif [[ \$i == *"psmdb-server"* ]]; then
+                                if [ "$CLIENT_TARBALL_UPGRADE" != "" ]; then
+                                    docker exec \$i dnf install -y wget
+                                    docker exec \$i wget -q -O /pmm-client.tar.gz "$CLIENT_TARBALL_UPGRADE"
+                                    docker exec \$i tar -zxpf /pmm-client.tar.gz
+                                    PMM_CLIENT=`ls -1td pmm-client* 2>/dev/null | grep -v ".tar" | grep -v ".sh" | head -n1` &&
+                                    docker exec \$i rm -rf pmm-client
+                                    docker exec \$i mv ${PMM_CLIENT} pmm-client
+                                    docker exec \$i rm -rf /usr/local/bin/pmm-client
+                                    docker exec \$i mv -f pmm-client /usr/local/bin
+                                    docker exec \$i bash -x /usr/local/bin/pmm-client/install_tarball -u
+                                else
+                                    docker exec \$i percona-release enable-only pmm3-client $CLIENT_REPOSITORY
+                                    docker exec \$i dnf install -y pmm-client
+                                    docker exec \$i systemctl restart pmm-agent
+                                fi
                             fi
                         done
-                        sudo percona-release enable pmm3-client $CLIENT_REPOSITORY
-                        sudo dnf install -y pmm-client
                     '''
+                }
+            }
+        }
+        stage('Check Client after Upgrade') {
+            steps {
+                script {
+                    checkClientAfterUpgrade(PMM_SERVER_LATEST)
                 }
             }
         }
@@ -445,6 +527,23 @@ pipeline {
                     sh '''
                         ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep \${POST_UPGRADE_FLAG}
                     '''
+                }
+            }
+        }
+        stage('Run post upgrade Playwright E2E tests') {
+            steps {
+                retry(2) {
+                    withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                        sh '''
+                            pushd /srv/pmm-qa/e2e_tests/
+                                export CI=true
+                                sudo npm ci
+                                sudo npx playwright install chromium
+                                sudo CI=true npx playwright test --grep "${PLAYWRIGHT_FLAG}" --pass-with-no-tests
+                            popd
+                        '''
+
+                    }
                 }
             }
         }
@@ -477,8 +576,10 @@ pipeline {
                 docker exec pmm-server cat /srv/logs/pmm-update-perform.log >> pmm-update-perform.log || true
                 echo --- pmm-update-perform logs from pmm-server --- >> pmm-update-perform.log
                 docker cp pmm-server:/srv/logs srv-logs
+                tar -zcvf playwright-report.tar.gz /srv/pmm-qa/e2e_tests/playwright-report || true
+                tar -zcvf playwright-screenshots.tar.gz /srv/pmm-qa/e2e_tests/screenshots || true
+                tar -zcvf playwright-logs.tar.gz /srv/pmm-qa/e2e_tests/logs || true
                 tar -zcvf srv-logs.tar.gz srv-logs
-
             '''
             script {
                 archiveArtifacts artifacts: 'pmm-managed-full.log'
@@ -486,6 +587,9 @@ pipeline {
                 archiveArtifacts artifacts: 'pmm-agent.log'
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'srv-logs.tar.gz'
+                archiveArtifacts artifacts: 'playwright-report.tar.gz'
+                archiveArtifacts artifacts: 'playwright-screenshots.tar.gz'
+                archiveArtifacts artifacts: 'playwright-logs.tar.gz'
 
                 def PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
                 try {

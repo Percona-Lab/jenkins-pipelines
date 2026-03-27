@@ -100,10 +100,10 @@ def call(String type='dev-latest') {
       return versionsList
     case 'ovf':
       return ovfVersions
-    case 'dbaas':
-      return dbaasVersions
     case 'v3':
       return v3
+    case 'v3-old':
+      return v3[0..-6]
     case 'v3-ami':
       return v3Versions
   }
