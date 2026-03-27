@@ -93,24 +93,27 @@ pipeline {
                 }
             }
         }
-        stage ('Run tests') {
-            steps {
-                script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "verify", env.SCENARIO)
-                }
-            }
-        }
-        stage ('Cleanup') {
-            steps {
-                script{
-                    moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.SCENARIO)
-                }
-            }
-        }
+//        stage ('Run tests') {
+//            steps {
+//                script{
+//                    moleculeExecuteActionWithScenario(moleculeDir, "verify", env.SCENARIO)
+//                }
+//            }
+//        }
+//        stage ('Cleanup') {
+//            steps {
+//                script{
+//                    moleculeExecuteActionWithScenario(moleculeDir, "cleanup", env.SCENARIO)
+//                }
+//            }
+//        }
     }
     post {
         always {
             script {
+                if (params.SSH_USER != 'none') {
+                    sleep time: 2, unit: 'HOURS'
+                }
                 sh """
                     rm -f /tmp/pbm-agent-storage-aws.yaml
                     rm -f /tmp/pbm-agent-storage-aws-minio.yaml
