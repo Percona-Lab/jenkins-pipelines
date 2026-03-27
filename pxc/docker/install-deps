@@ -240,7 +240,7 @@ if [ -f /usr/bin/yum ]; then
             sleep 1
         done
     elif [[ ${RHVER} -eq 9 ]]; then
-        until yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13}; do
+        until yum -y install ${PKGLIST_DEVTOOLSET12} ${PKGLIST_DEVTOOLSET13} ${PKGLIST_DEVTOOLSET14}; do
             echo "waiting"
             sleep 1
         done
@@ -556,6 +556,12 @@ wget_loop 'boost_1_84_0.tar.bz2' 'https://archives.boost.io/release/1.84.0/sourc
 
 # boost 1.85.0 needed for percona-server 9.x
 wget_loop 'boost_1_85_0.tar.bz2' 'https://archives.boost.io/release/1.85.0/source/boost_1_85_0.tar.bz2'
+# boost 1.87.0 needed for percona-server 9.6
+wget_loop 'boost_1_87_0.tar.bz2' 'https://archives.boost.io/release/1.87.0/source/boost_1_87_0.tar.bz2'
 
 # googletest 1.8.0 needed for percona-server versions 5.6 to 8.0
 wget_loop 'googletest-release-1.8.0.zip' 'https://github.com/google/googletest/archive/release-1.8.0.zip'
+
+# googletest 1.17.0 needed for percona-server versions 9.6
+wget_loop 'googletest-release-1.17.0.zip' 'https://github.com/google/googletest/releases/download/v1.17.0/googletest-1.17.0.tar.gz'
+
