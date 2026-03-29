@@ -269,20 +269,9 @@ def docker_test() {
                     script{
                         sh """
                             sudo yum install -y curl wget git
-                            TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
-                            ARCH=\$(uname -m)
-                            if [[ "\$ARCH" == "aarch64" ]]; then
-                                ARCH_NAME="ARM64"
-                            elif [[ "\$ARCH" == "x86_64" ]]; then
-                                ARCH_NAME="64bit"
-                            else
-                                echo "Unsupported architecture: \$ARCH"
-                                exit 1
-                            fi
-                            echo "Detected architecture: \$ARCH, using Trivy for Linux-\$ARCH_NAME"
-                            wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-\${ARCH_NAME}.tar.gz
-                            sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-\${ARCH_NAME}.tar.gz -C /usr/local/bin/
-                            wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
+                        """
+                        installTrivy(method: 'binary', junitTpl: true)
+                        sh """
                             /usr/local/bin/trivy image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
                             --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_ACC}/percona-server:${PS_RELEASE}-arm64 || true
                             echo "Ran succesfully for arm"
@@ -336,10 +325,9 @@ def docker_test() {
                     script {
                         sh """
                             sudo yum install -y curl wget git
-                            TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
-                            wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                            sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
-                            wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
+                        """
+                        installTrivy(method: 'binary', junitTpl: true)
+                        sh """
                             /usr/local/bin/trivy image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
                             --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_ACC}/percona-server:${PS_RELEASE}-amd64 || true
                             echo "ran succesfully for amd docker trivy"

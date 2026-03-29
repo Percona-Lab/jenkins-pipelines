@@ -72,6 +72,7 @@ SOURCE_DIR=$(cd ${2:-./build/proxysql}; pwd -P)
 
 status=0
 sudo sed -i "4 a PAT_TAG=${PAT_TAG}" ${SOURCE_DIR}/proxysql-packaging/scripts/build_binary.sh
+sudo sed -i "4 a PAT_REPO=${PAT_REPO}" ${SOURCE_DIR}/proxysql-packaging/scripts/build_binary.sh
 [ -f /opt/rh/devtoolset-8/enable ] && source /opt/rh/devtoolset-8/enable
 sudo bash -x ${SOURCE_DIR}/proxysql-packaging/scripts/build_binary.sh ${WORKDIR_ABS} || status=$?
 exit $status

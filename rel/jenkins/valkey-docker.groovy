@@ -1,0 +1,304 @@
+library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+]) _
+
+void cleanUpWS() {
+    sh """
+        sudo rm -rf ./*
+    """
+}
+
+pipeline {
+    agent {
+        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+    }
+    parameters {
+        choice(
+            choices: ['Hetzner', 'AWS'],
+            description: 'Cloud infra for build',
+            name: 'CLOUD')
+        string(
+            defaultValue: 'https://github.com/EvgeniyPatlan/valkey-packaging.git',
+            description: 'URL for valkey-packaging repository',
+            name: 'PACKAGING_REPO')
+        string(
+            defaultValue: 'main',
+            description: 'Branch for valkey-packaging repository',
+            name: 'PACKAGING_BRANCH')
+        string(
+            defaultValue: '9.0.3',
+            description: 'Valkey version',
+            name: 'VALKEY_VERSION')
+        choice(
+            choices: 'experimental\ntesting\nrelease',
+            description: 'Percona repo channel for packages inside the image',
+            name: 'REPO_CHANNEL')
+        string(
+            defaultValue: 'perconalab/valkey',
+            description: 'Docker image name on DockerHub',
+            name: 'IMAGE_NAME')
+        booleanParam(
+            defaultValue: true,
+            description: 'Build RPM-based (UBI9) image',
+            name: 'BUILD_RPM')
+        booleanParam(
+            defaultValue: true,
+            description: 'Build Hardened (DHI) image',
+            name: 'BUILD_HARDENED')
+    }
+    options {
+        skipDefaultCheckout()
+        disableConcurrentBuilds()
+        buildDiscarder(logRotator(numToKeepStr: '10', artifactNumToKeepStr: '10'))
+        timestamps()
+    }
+    stages {
+        stage('Checkout and prepare') {
+            steps {
+                slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: starting Docker image build for Valkey ${VALKEY_VERSION} - [${BUILD_URL}]")
+                cleanUpWS()
+                sh """
+                    git clone ${PACKAGING_REPO} valkey-packaging
+                    cd valkey-packaging
+                    git checkout ${PACKAGING_BRANCH}
+                """
+            }
+        }
+        stage('Setup multiarch') {
+            steps {
+                sh '''
+                    sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common || true
+                    sudo apt-get install -y docker-ce docker-ce-cli containerd.io || true
+                    export DOCKER_CLI_EXPERIMENTAL=enabled
+                    sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                    sudo curl -L https://github.com/docker/buildx/releases/download/v0.21.2/buildx-v0.21.2.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                    sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                    sudo systemctl restart docker
+                    sudo apt-get install -y qemu-system binfmt-support qemu-user-static || true
+                    sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+                '''
+            }
+        }
+        stage('Build, test and scan') {
+            stages {
+                stage('Build images') {
+                    parallel {
+                        stage('Build RPM image (amd64)') {
+                            when { expression { return params.BUILD_RPM } }
+                            steps {
+                                sh """
+                                    cd valkey-packaging/docker
+                                    sudo docker build --no-cache \
+                                        --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                        --platform linux/amd64 \
+                                        -t ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 \
+                                        -f Dockerfile .
+                                """
+                            }
+                        }
+                        stage('Build RPM image (arm64)') {
+                            when { expression { return params.BUILD_RPM } }
+                            steps {
+                                sh """
+                                    cd valkey-packaging/docker
+                                    sudo docker build --no-cache \
+                                        --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                        --platform linux/arm64 \
+                                        -t ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 \
+                                        -f Dockerfile .
+                                """
+                            }
+                        }
+                        stage('Build Hardened image (amd64)') {
+                            when { expression { return params.BUILD_HARDENED } }
+                            steps {
+                                withCredentials([
+                                    usernamePassword(credentialsId: 'hub.docker.com',
+                                    passwordVariable: 'PASS',
+                                    usernameVariable: 'USER')
+                                ]) {
+                                    sh '''
+                                        echo "${PASS}" | sudo docker login dhi.io -u "${USER}" --password-stdin
+                                    '''
+                                }
+                                sh """
+                                    cd valkey-packaging/docker
+                                    sudo docker build --no-cache \
+                                        --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                        --platform linux/amd64 \
+                                        -t ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 \
+                                        -f Dockerfile.hardened .
+                                """
+                            }
+                        }
+                        stage('Build Hardened image (arm64)') {
+                            when { expression { return params.BUILD_HARDENED } }
+                            steps {
+                                withCredentials([
+                                    usernamePassword(credentialsId: 'hub.docker.com',
+                                    passwordVariable: 'PASS',
+                                    usernameVariable: 'USER')
+                                ]) {
+                                    sh '''
+                                        echo "${PASS}" | sudo docker login dhi.io -u "${USER}" --password-stdin
+                                    '''
+                                }
+                                sh """
+                                    cd valkey-packaging/docker
+                                    sudo docker build --no-cache \
+                                        --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                        --platform linux/arm64 \
+                                        -t ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64 \
+                                        -f Dockerfile.hardened .
+                                """
+                            }
+                        }
+                    }
+                }
+                stage('Test images') {
+                    steps {
+                        script {
+                            if (params.BUILD_RPM) {
+                                sh """
+                                    echo "=== Testing RPM image (amd64) ==="
+                                    cd valkey-packaging/docker
+                                    VALKEY_VERSION=${VALKEY_VERSION} sudo -E ./test-image.sh ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 rpm
+                                """
+                            }
+                            if (params.BUILD_HARDENED) {
+                                sh """
+                                    echo "=== Testing Hardened image (amd64) ==="
+                                    cd valkey-packaging/docker
+                                    VALKEY_VERSION=${VALKEY_VERSION} sudo -E ./test-image.sh ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 hardened
+                                """
+                            }
+                        }
+                    }
+                }
+                stage('Trivy CVE scan') {
+                    steps {
+                        installTrivy(method: 'apt')
+                        script {
+                            if (params.BUILD_RPM) {
+                                sh """
+                                    echo "=== Trivy scan: RPM image (amd64) ==="
+                                    sudo trivy image --severity HIGH,CRITICAL \
+                                        ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 | tee trivy-rpm-amd64.txt
+                                    echo "=== Trivy scan: RPM image (arm64) ==="
+                                    sudo trivy image --severity HIGH,CRITICAL \
+                                        ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 | tee trivy-rpm-arm64.txt
+                                """
+                            }
+                            if (params.BUILD_HARDENED) {
+                                sh """
+                                    echo "=== Trivy scan: Hardened image (amd64) ==="
+                                    sudo trivy image --severity HIGH,CRITICAL \
+                                        ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 | tee trivy-hardened-amd64.txt
+                                    echo "=== Trivy scan: Hardened image (arm64) ==="
+                                    sudo trivy image --severity HIGH,CRITICAL \
+                                        ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64 | tee trivy-hardened-arm64.txt
+                                """
+                            }
+                        }
+                        archiveArtifacts artifacts: 'trivy-*.txt', allowEmptyArchive: true
+                    }
+                }
+            }
+        }
+        stage('Push and create manifests') {
+            steps {
+                withCredentials([
+                    usernamePassword(credentialsId: 'hub.docker.com',
+                    passwordVariable: 'PASS',
+                    usernameVariable: 'USER')
+                ]) {
+                    sh """
+                        docker login -u '${USER}' -p '${PASS}'
+                    """
+                    script {
+                        if (params.BUILD_RPM) {
+                            sh """
+                                cd valkey-packaging/docker
+                                docker buildx build --push --provenance=true --sbom=true \
+                                    --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                    --platform linux/amd64 \
+                                    -t ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 \
+                                    -f Dockerfile .
+                                docker buildx build --push --provenance=true --sbom=true \
+                                    --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                    --platform linux/arm64 \
+                                    -t ${IMAGE_NAME}:${VALKEY_VERSION}-arm64 \
+                                    -f Dockerfile .
+
+                                VALKEY_MINOR=\$(echo ${VALKEY_VERSION} | cut -d. -f1,2)
+                                VALKEY_MAJOR=\$(echo ${VALKEY_VERSION} | cut -d. -f1)
+
+                                docker buildx imagetools create -t ${IMAGE_NAME}:${VALKEY_VERSION} \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-arm64
+                                docker buildx imagetools create -t ${IMAGE_NAME}:latest \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-arm64
+                                docker buildx imagetools create -t ${IMAGE_NAME}:\${VALKEY_MINOR} \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-arm64
+                                docker buildx imagetools create -t ${IMAGE_NAME}:\${VALKEY_MAJOR} \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-amd64 \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-arm64
+                            """
+                        }
+                        if (params.BUILD_HARDENED) {
+                            sh """
+                                cd valkey-packaging/docker
+                                docker buildx build --push --provenance=true --sbom=true \
+                                    --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                    --platform linux/amd64 \
+                                    -t ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 \
+                                    -f Dockerfile.hardened .
+                                docker buildx build --push --provenance=true --sbom=true \
+                                    --build-arg REPO_CHANNEL=${REPO_CHANNEL} \
+                                    --platform linux/arm64 \
+                                    -t ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64 \
+                                    -f Dockerfile.hardened .
+
+                                VALKEY_MINOR=\$(echo ${VALKEY_VERSION} | cut -d. -f1,2)
+                                VALKEY_MAJOR=\$(echo ${VALKEY_VERSION} | cut -d. -f1)
+
+                                docker buildx imagetools create -t ${IMAGE_NAME}:${VALKEY_VERSION}-hardened \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64
+                                docker buildx imagetools create -t ${IMAGE_NAME}:\${VALKEY_MINOR}-hardened \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64
+                                docker buildx imagetools create -t ${IMAGE_NAME}:\${VALKEY_MAJOR}-hardened \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-amd64 \
+                                    ${IMAGE_NAME}:${VALKEY_VERSION}-hardened-arm64
+                            """
+                        }
+                    }
+                }
+            }
+        }
+    }
+    post {
+        success {
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Docker images built and pushed for Valkey ${VALKEY_VERSION} - [${BUILD_URL}]")
+            script {
+                currentBuild.description = "Valkey ${VALKEY_VERSION} Docker images pushed to ${IMAGE_NAME}"
+            }
+            deleteDir()
+        }
+        failure {
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Docker image build failed for Valkey ${VALKEY_VERSION} - [${BUILD_URL}]")
+            deleteDir()
+        }
+        always {
+            sh '''
+                docker logout || true
+                sudo rm -rf ./*
+            '''
+            deleteDir()
+        }
+    }
+}

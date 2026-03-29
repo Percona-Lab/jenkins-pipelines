@@ -78,6 +78,8 @@ networkMap['percona-vpc-eu'] = '10442325' // percona-vpc-eu
 initMap = [:]
 initMap['deb-docker'] = '''#!/bin/bash -x
     set -o xtrace
+    echo -e "nameserver 9.9.9.9\nnameserver 1.1.1.1" | sudo tee /etc/resolv.conf
+    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     sudo fallocate -l 32G /swapfile
     sudo chmod 600 /swapfile
     sudo mkswap /swapfile
@@ -111,7 +113,6 @@ initMap['deb-docker'] = '''#!/bin/bash -x
         unzip -o /tmp/awscliv2.zip -d /tmp
         cd /tmp/aws && sudo ./install
     fi
-    sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     sudo sysctl net.ipv4.tcp_fin_timeout=15
     sudo sysctl net.ipv4.tcp_tw_reuse=1
     sudo sysctl net.ipv6.conf.all.disable_ipv6=1
@@ -127,7 +128,6 @@ initMap['deb-docker'] = '''#!/bin/bash -x
     sudo mkdir -p /etc/docker
     echo '{"experimental": true, "ipv6": true, "fixed-cidr-v6": "fd3c:a8b0:18eb:5c06::/64"}' | sudo tee /etc/docker/daemon.json
     sudo systemctl restart docker
-    echo "* * * * * root /usr/sbin/route add default gw 10.177.1.1 eth0" | sudo tee /etc/cron.d/fix-default-route
 '''
 initMap['deb12-x64-nbg1']     = initMap['deb-docker']
 initMap['deb12-x64-hel1']     = initMap['deb-docker']

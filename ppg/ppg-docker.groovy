@@ -45,20 +45,17 @@ pipeline {
                     sed -E "s/ENV PPG_REPO (.+)/ENV PPG_REPO ${params.PPG_REPO}/" -i Dockerfile-postgis
                     sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile-postgis
                     sed -E "s/ENV PPG_MINOR_VERSION (.+)/ENV PPG_MINOR_VERSION \$MIN_VER/" -i Dockerfile-postgis
-                    docker build . -t percona-distribution-postgresql:\$MAJ_VER 
-                    docker build . -t percona-distribution-postgresql-with-postgis:\$MAJ_VER -f Dockerfile-postgis
+                    docker build --platform=linux/amd64 --no-cache --provenance=false -t percona-distribution-postgresql:\$MAJ_VER .
+                    docker build --platform=linux/amd64 --no-cache --provenance=false -t percona-distribution-postgresql-with-postgis:\$MAJ_VER -f Dockerfile-postgis .
                     """
             }
         }
         stage ('Run trivy analyzer') {
             steps {
+                installTrivy(method: 'binary', junitTpl: true)
                 sh """
                     MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                     MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | cut -d'"' -f4 | sed 's/^v//')
-                    wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz
-                    sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-64bit.tar.gz -C /usr/local/bin/
-                    wget https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
                     if [ ${params.PPG_REPO} = "release" ]; then
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
                                          --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-distribution-postgresql:\$MAJ_VER

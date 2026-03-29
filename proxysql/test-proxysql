@@ -74,8 +74,11 @@ function get_glibc_version {
     "oraclelinux:8" | "ol:8")
       echo "2.28"
       ;;
-    "oraclelinux:9" | "ol:9" | "ol:9.6")
+    "oraclelinux:9" | "ol:9" | "ol:9.6" | "ol:9.7")
       echo "2.34"
+      ;;
+    "oraclelinux:10"* | "ol:10"*)
+      echo "2.35"
       ;;
     "ubuntu:focal")
       echo "2.31"
@@ -86,7 +89,7 @@ function get_glibc_version {
     "debian:bullseye")
       echo "2.31"
       ;;
-    "debian:bookworm")
+    "debian:bookworm" | "debian:trixie")
       echo "2.35"
       ;;
     *)
@@ -164,10 +167,6 @@ if [ -f /usr/bin/apt ]; then
   # In Linux distributions that rely on dpkg, the packages wget, gnupg2, curl and lsb-release are already installed. However, these packages may be missing from Docker base images. In this case, install them manually before running dpkg
   install_package wget gnupg2 lsb-release curl
 fi
-
-# Installing proxysql 3.0.latest package
-enable_repo proxysql testing
-install_package proxysql3
 
 if [[ "${PXC_VERSION}" == "PXC84" ]]; then
   # Fetch PXC versions

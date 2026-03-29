@@ -1,9 +1,8 @@
 - job:
-    name: qa-proxysql3-pipeline
+    name: hetzner-valkey-DOCKER
     project-type: pipeline
     description: |
         Do not edit this job through the web!
-    concurrent: true
     pipeline-scm:
       scm:
         - git:
@@ -12,5 +11,4 @@
             - 'hetzner'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: proxysql/qa-proxysql3-pipeline.groovy
-
+      script-path: rel/jenkins/valkey-docker.groovy
