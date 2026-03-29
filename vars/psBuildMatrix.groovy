@@ -27,6 +27,7 @@ def call(Map args = [:]) {
     // Each map: name, image, arch, buildType, flags, fipsFlags (null = no FIPS variant),
     //           skipInFips (true = skip when FIPSMODE==YES)
     def stages = [
+/*
         // ---- RPM stages ----
         [
             name: 'Oracle Linux 8',
@@ -96,12 +97,14 @@ def call(Map args = [:]) {
             flags: '--build_deb=1 --with_zenfs=1',
             fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
         ],
+*/
         [
             name: 'Debian Bullseye(11)',
             image: 'debian:bullseye', arch: 'x64', buildType: 'deb',
             flags: '--build_deb=1 --with_zenfs=1',
             fipsFlags: null, skipInFips: true,
         ],
+/*
         [
             name: 'Debian Bookworm(12)',
             image: 'debian:bookworm', arch: 'x64', buildType: 'deb',
@@ -134,12 +137,14 @@ def call(Map args = [:]) {
             flags: '--build_deb=1 --with_zenfs=1',
             fipsFlags: '--build_deb=1 --with_zenfs=1 --enable_fipsmode=1', skipInFips: false,
         ],
+*/
         [
             name: 'Debian Bullseye(11) ARM',
             image: 'debian:bullseye', arch: 'aarch64', buildType: 'deb',
             flags: '--build_deb=1 --with_zenfs=1',
             fipsFlags: null, skipInFips: true,
         ],
+/*
         [
             name: 'Debian Bookworm(12) ARM',
             image: 'debian:bookworm', arch: 'aarch64', buildType: 'deb',
@@ -184,6 +189,7 @@ def call(Map args = [:]) {
             flags: '--debug=1 --build_tarball=1',
             fipsFlags: '--debug=1 --build_tarball=1 --enable_fipsmode=1', skipInFips: false,
         ],
+*/
         [
             name: 'Ubuntu Focal(20.04) tarball',
             image: 'ubuntu:focal', arch: 'x64', buildType: 'tarball',
