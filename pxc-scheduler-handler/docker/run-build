@@ -1,0 +1,27 @@
+#!/bin/bash
+
+set -o errexit
+set -o xtrace
+
+ROOT_DIR=$(cd $(dirname $0)/../sources/pxc_scheduler_handler; pwd -P)
+SCRIPTS_DIR=$(cd $(dirname $0)/../local; pwd -P)
+SOURCE_IMAGE=${1:-ubuntu:focal}
+
+echo ROOT_DIR: $ROOT_DIR
+
+docker run --rm \
+    --cap-add SYS_PTRACE \
+    --mount type=bind,source=${ROOT_DIR},destination=/tmp/pxc-scheduler-handler \
+    --mount type=bind,source=${SCRIPTS_DIR},destination=/tmp/scripts \
+    public.ecr.aws/e7j3v3n0/pxc-build:${SOURCE_IMAGE//[:\/]/-} \
+    sh -c "
+    set -o errexit
+    set -o xtrace
+
+    sudo bash -x /tmp/scripts/build-binary-pxc-scheduler-handler /tmp/pxc-scheduler-handler /tmp/pxc-scheduler-handler
+
+    sudo rm -rf /tmp/pxc-scheduler-handler/results
+    sudo mkdir /tmp/pxc-scheduler-handler/results
+    sudo mv /tmp/pxc-scheduler-handler/*.tar.gz /tmp/pxc-scheduler-handler/results/
+    sudo chown -R $(id -u):$(id -g) /tmp/pxc-scheduler-handler/results
+"
