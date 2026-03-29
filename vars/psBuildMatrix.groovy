@@ -254,7 +254,7 @@ def call(Map args = [:]) {
                 }
 
                 node(agentLabel) {
-                    cleanUpWS()
+                    // cleanUpWS()
                     installCli("rpm")
                     unstash 'properties'
                     popArtifactFolder(cloud, sourceFolder, awsStashPath)
