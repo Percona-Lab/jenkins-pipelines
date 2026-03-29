@@ -39,6 +39,8 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
         set -o xtrace
         mkdir test
         wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/packaging/scripts/binlog-server_builder.sh -O binlog-server_builder.sh
+        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/src/app_version.hpp
+        export VERSION=\$(grep 'semantic_version app_version' app_version.hpp | head -1 | awk -F'[{}]' '{print \$2}' | sed 's:U::g; s:, *:\\.:g')
         pwd -P
         ls -laR
         export build_dir=\$(pwd -P)
@@ -46,7 +48,7 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
             set -o xtrace
             cd \${build_dir}
             bash -x ./binlog-server_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./binlog-server_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
+            bash -x ./binlog-server_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --version=\${VERSION} --branch=${GIT_BRANCH} --rpm_release=${RPM_RELEASE} --deb_release=${DEB_RELEASE} ${STAGE_PARAM}"
     """
 }
 
@@ -75,10 +77,6 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for binlog-server repository',
             name: 'GIT_BRANCH')
-        string(
-            defaultValue: '0.1.0',
-            description: 'VERSION value',
-            name: 'VERSION')
         string(
             defaultValue: '1',
             description: 'RPM release value',
@@ -306,7 +304,7 @@ pipeline {
                 }
                 stage('Debian Bookworm(12)') {
                     when {
-                       expression { false }
+                       expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -321,7 +319,7 @@ pipeline {
                 }
                 stage('Debian Bookworm(12) ARM') {
                     when {
-                       expression { false }
+                       expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
@@ -336,7 +334,7 @@ pipeline {
                 }
                 stage('Debian Trixie(13)') {
                     when {
-                       expression { false }
+                       expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
@@ -351,7 +349,7 @@ pipeline {
                 }
                 stage('Debian Trixie(13) ARM') {
                     when {
-                       expression { false }
+                       expression { true }
                     }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'

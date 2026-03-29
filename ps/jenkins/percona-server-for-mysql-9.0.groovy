@@ -985,15 +985,14 @@ parameters {
                 }
             }
         }
-/*
         stage('Push Tarballs to TESTING download area') {
             steps {
                 script {
                     try {
                         if (env.FIPSMODE == 'YES') {
-                            uploadTarballToDownloadsTesting("ps-gated", "${BRANCH}")
+                            uploadTarballToDownloadsTesting(params.CLOUD, "ps-gated", "${BRANCH}")
                         } else {
-                            uploadTarballToDownloadsTesting("ps", "${BRANCH}")
+                            uploadTarballToDownloadsTesting(params.CLOUD, "ps", "${BRANCH}")
                         }
                     }
                     catch (err) {
@@ -1003,7 +1002,6 @@ parameters {
                 }
             }
         }
-*/
     }
     post {
         success {
