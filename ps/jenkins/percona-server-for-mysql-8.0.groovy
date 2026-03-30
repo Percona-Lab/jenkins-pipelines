@@ -521,7 +521,7 @@ parameters {
 
         stage('Sign packages') {
             steps {
-                signRPM()
+//                signRPM()
                 signDEB()
             }
         }

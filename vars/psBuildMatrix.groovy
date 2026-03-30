@@ -351,7 +351,7 @@ def call(Map args = [:]) {
 
                 node(agentLabel) {
                     cleanUpWS()
-                    installCli("rpm")
+                    installCli("deb")
                     unstash 'properties'
                     popArtifactFolder(cloud, sourceFolder, awsStashPath)
 
