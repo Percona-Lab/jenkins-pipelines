@@ -523,10 +523,10 @@ Resources:
               - InstanceType: g4ad.xlarge
                 AvailabilityZone:
                   Fn::Select: [1, !GetAZs ""]
-              - InstanceType: m5dn.xlarge
+              - InstanceType: m7a.xlarge
                 AvailabilityZone:
                   Fn::Select: [1, !GetAZs ""]
-              - InstanceType: m5zn.xlarge
+              - InstanceType: m7i-flex.xlarge
                 AvailabilityZone:
                   Fn::Select: [1, !GetAZs ""]
 
