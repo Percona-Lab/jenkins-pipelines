@@ -11,6 +11,39 @@
  *       fipsMode: env.FIPSMODE
  *   )
  */
+
+void installCli(String PLATFORM) {
+    sh """
+        set -o xtrace
+        if [ -d aws ]; then
+            rm -rf aws
+        fi
+        if [ ${PLATFORM} = "deb" ]; then
+            sudo apt-get update
+            sudo apt-get -y install wget curl unzip
+        elif [ ${PLATFORM} = "rpm" ]; then
+            export RHVER=\$(rpm --eval %rhel)
+            if [ \${RHVER} = "7" ]; then
+                sudo sed -i 's/mirrorlist/#mirrorlist/g' /etc/yum.repos.d/CentOS-* || true
+                sudo sed -i 's|#\\s*baseurl=http://mirror.centos.org|baseurl=http://vault.centos.org|g' /etc/yum.repos.d/CentOS-* || true
+                if [ -e "/etc/yum.repos.d/CentOS-SCLo-scl.repo" ]; then
+                    cat /etc/yum.repos.d/CentOS-SCLo-scl.repo
+                fi
+            fi
+            sudo yum -y install wget curl unzip
+        fi
+        curl https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip
+        unzip awscliv2.zip
+        sudo ./aws/install || true
+    """
+}
+
+void cleanUpWS() {
+    sh """
+        sudo rm -rf ./*
+    """
+}
+
 def call(Map args = [:]) {
     def cloud        = args.get('cloud', '')
     def awsStashPath = args.get('awsStashPath', '')
@@ -254,7 +287,7 @@ def call(Map args = [:]) {
                 }
 
                 node(agentLabel) {
-                    // cleanUpWS()
+                    cleanUpWS()
                     installCli("rpm")
                     unstash 'properties'
                     popArtifactFolder(cloud, sourceFolder, awsStashPath)
