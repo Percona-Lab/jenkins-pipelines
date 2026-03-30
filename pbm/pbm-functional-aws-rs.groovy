@@ -121,7 +121,7 @@ pipeline {
             script {
                 if (params.SSH_USER != 'none') {
                     try {
-                        sleep time: 1, unit: 'HOURS'
+                        sleep time: 6, unit: 'HOURS'
                     } catch (InterruptedException e) {
                         echo 'Sleep interrupted, proceeding to destroy'
                     }
