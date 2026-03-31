@@ -326,16 +326,15 @@ void makeReport() {
     echo "=========================[ Generating Parameters Report ]========================="
     pipelineParameters = """
         testsuite name=$JOB_NAME
-        PG_VER=${PG_VER ?: 'e2e_defaults'}
         IMAGE_OPERATOR=${IMAGE_OPERATOR ?: 'e2e_defaults'}
-        IMAGE_POSTGRESQL=${IMAGE_POSTGRESQL ?: 'e2e_defaults'}
-        IMAGE_PGBOUNCER=${IMAGE_PGBOUNCER ?: 'e2e_defaults'}
-        IMAGE_BACKREST=${IMAGE_BACKREST ?: 'e2e_defaults'}
+        IMAGE_MYSQL=${IMAGE_MYSQL ?: 'e2e_defaults'}
+        IMAGE_BACKUP=${IMAGE_BACKUP ?: 'e2e_defaults'}
+        IMAGE_ROUTER=${IMAGE_ROUTER ?: 'e2e_defaults'}
+        IMAGE_HAPROXY=${IMAGE_HAPROXY ?: 'e2e_defaults'}
+        IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR ?: 'e2e_defaults'}
+        IMAGE_TOOLKIT=${IMAGE_TOOLKIT ?: 'e2e_defaults'}
         IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
         IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
-        IMAGE_PMM3_CLIENT=${IMAGE_PMM3_CLIENT ?: 'e2e_defaults'}
-        IMAGE_PMM3_SERVER=${IMAGE_PMM3_SERVER ?: 'e2e_defaults'}
-        IMAGE_UPGRADE=${IMAGE_UPGRADE ?: 'e2e_defaults'}
         PLATFORM_VER=$PLATFORM_VER
     """.trim().replaceAll('  ', '')
 
