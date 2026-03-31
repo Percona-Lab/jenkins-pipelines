@@ -31,11 +31,11 @@ pipeline {
                     """
 
                     script {
-                        runEc2Check = (currentBuild.number % 4 == 0)
+                        env.RUN_EC2_CHECK = (currentBuild.number % 4 == 0).toString()
 
-                        echo "Dec Build #${currentBuild.number} — runEc2Check: ${runEc2Check}"
+                        echo "Dec Build #${currentBuild.number} — RUN_EC2_CHECK: ${env.RUN_EC2_CHECK}"
 
-                        if (runEc2Check) {
+                        if (env.RUN_EC2_CHECK == 'true') {
                             sh """
                             wget https://raw.githubusercontent.com/Percona-QA/package-testing/master/scripts/check-ec2-instances.sh
                             chmod +x check-ec2-instances.sh
@@ -60,7 +60,7 @@ pipeline {
 
 
                             // Runs every 24 hrs (every 4th build) — general EC2 checks
-                            if (runEc2Check) {
+                            if (env.RUN_EC2_CHECK == 'true') {
                                 sh " bash -x ./check-ec2-instances.sh"
 
                                 env.OPALL = sh(script: "cat ${WORKSPACE}/OUTPUT-ALL.txt", returnStdout: true).trim()
@@ -89,7 +89,7 @@ pipeline {
 
 
                         // EC2 general output (every 4th build only)
-                        if (runEc2Check) {
+                        if (env.RUN_EC2_CHECK == 'true') {
                             echo "Print the OUTPUT ALL\n ${env.OPALL}"
                             echo "Print the overview all\n ${env.ovall}"
                             echo "Print the OUTPUT QA\n ${env.OPQA}"
@@ -171,7 +171,7 @@ pipeline {
                     }
 
                     // === EC2 General: Runs every 4th build (every 24 hrs) ===
-                    if (runEc2Check) {
+                    if (env.RUN_EC2_CHECK == 'true') {
                         def region = ""
                         def instanceIdRegionPairs = []
                         def lines = readFile('OUTPUT-QA.txt').readLines()
@@ -199,9 +199,19 @@ pipeline {
                 // === Slack notifications ===
 
                 // PGSQL Slack (every build)
+
+
                 if (pgsqlTerminatePairs.size() > 0) {
                     slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
                     Terminated PGSQL instances running since past 6 hours:
+                    ---------------------------------------------------
+                    ${env.ovQaPgsqlTerminate}
+                    ---------------------------------------------------
+                    ${artifactBaseUrl}/DESTROY-QA-PGSQL.txt
+                    """
+                } else {
+                    slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
+                    No PGSQL instances to terminate (running > 6 hrs)
                     ---------------------------------------------------
                     ${env.ovQaPgsqlTerminate}
                     ---------------------------------------------------
@@ -217,12 +227,21 @@ pipeline {
                     ---------------------------------------------------
                     ${artifactBaseUrl}/STOP-QA-PGSQL.txt
                     """
+                } else {
+                    slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
+                    No PGSQL instances to stop (running > 12 hrs)
+                    ---------------------------------------------------
+                    ${env.ovQaPgsqlStop}
+                    ---------------------------------------------------
+                    ${artifactBaseUrl}/STOP-QA-PGSQL.txt
+                    """
                 }
 
                 // EC2 General Slack (every 4th build)
-                if (runEc2Check) {
+                if (env.RUN_EC2_CHECK == 'true') {
                     slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
                     ${env.ovall}
+                    GENERAL
                     =========================
                     ${artifactBaseUrl}/OUTPUT-ALL.txt is the url for the detailed info of all running instances
                     =========================
