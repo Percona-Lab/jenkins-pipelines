@@ -112,7 +112,7 @@ pipeline {
             name: 'GIT_PD_REPO')
     }
     agent {
-         label 'docker-x64'
+         label 'docker'
     }
     environment {
         PATH = "${WORKSPACE}/node_modules/.bin:$PATH" // Add local npm bin to PATH
