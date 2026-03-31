@@ -247,7 +247,7 @@ pipeline {
                     =========================
                     """
 
-                    if ("${env.ovqacount}".toInteger() >= 1) {
+                    if ((env.ovqacount ?: '0').toInteger() >= 1) {
                         slackSend channel: '#dev-server-qa', color: '#DEFF13', message: """
                         Terminated instances with molecule QA Tests up since past 2 days:
                         ---------------------------------------------------
