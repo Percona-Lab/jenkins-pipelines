@@ -89,6 +89,7 @@ pipeline {
                                         MONGODB_IMAGE="perconalab/percona-server-mongodb:${PSMDB}"
                                         echo "Using Percona Server for MongoDB: \$MONGODB_IMAGE"
                                     fi
+                                    MONGODB_IMAGE=\$MONGODB_IMAGE docker compose build easyrsa --no-cache
                                     MONGODB_IMAGE=\$MONGODB_IMAGE docker compose build --no-cache
                                     docker compose up -d
                                     if [ "${ADD_JENKINS_MARKED_TESTS}" = "true" ]; then JENKINS_FLAG="--jenkins"; else JENKINS_FLAG=""; fi
