@@ -43,7 +43,7 @@ pipeline {
                         }
 
                         sh """
-                        wget https://raw.githubusercontent.com/Percona-QA/package-testing/master/scripts/check-ec2-instances-pgsql.sh                    
+                        wget https://raw.githubusercontent.com/Percona-QA/package-testing/refs/heads/pg-ec2-intance-checks-fixes-1/scripts/check-ec2-instances-pgsql.sh                    
                         chmod +x check-ec2-instances-pgsql.sh
                         """
 
