@@ -517,7 +517,7 @@ pipeline {
         stage('Check Client after Upgrade') {
             steps {
                 script {
-                    checkClientAfterUpgrade(PMM_SERVER_LATEST)
+                    checkClientAfterUpgrade("3.8.0")
                 }
             }
         }
