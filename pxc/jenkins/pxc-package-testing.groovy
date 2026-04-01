@@ -793,9 +793,21 @@ properties([
 
                         def pxc_innovation_lts = [
                                         'ubuntu-noble',
-                                        'ubuntu-jammy',
                                         'ubuntu-noble-arm',
-                                        'ubuntu-jammy-arm'
+                                        'ubuntu-jammy',
+                                        'ubuntu-jammy-arm',
+                                        'debian-12',
+                                        'debian-12-arm',
+                                        'debian-13',
+                                        'debian-13-arm',
+                                        'ol-8',
+                                        'ol-9',
+                                        'rhel-8',
+                                        'rhel-8-arm',
+                                        'rhel-9',
+                                        'rhel-9-arm',
+                                        'rhel-10',
+                                        'rhel-10-arm'
                         ]
 
                         def pxc57_nodes = [
