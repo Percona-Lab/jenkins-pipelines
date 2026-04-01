@@ -7,8 +7,8 @@ import java.util.logging.Logger
 def cloudName = "cloud-htz"
 
 imageMap = [:]                          // ID          TYPE     NAME                 DESCRIPTION          ARCHITECTURE   IMAGE SIZE   DISK SIZE   CREATED                         DEPRECATED
-imageMap['fedora42-x64']     = '232895138' // 232895138   system   fedora-42            Fedora 42            x86            -            5 GB        Thu Apr 24 10:00:32 EEST 2025   -
-imageMap['fedora42-aarch64'] = '232895264' // 232895264   system   fedora-42            Fedora 42            arm            -            5 GB        Thu Apr 24 10:01:01 EEST 2025   -
+imageMap['fedora42-x64']     = '342035601' // 342035601   system   fedora-43            Fedora 43            x86
+imageMap['fedora42-aarch64'] = '342035605' // 342035605   system   fedora-43            Fedora 43            arm
 imageMap['launcher-x64']  = imageMap['fedora42-x64']
 
 execMap = [:]
