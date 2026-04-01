@@ -5,71 +5,72 @@ import jenkins.model.Jenkins
 import java.util.logging.Logger
 
 def cloudName = "cloud-htz"
+def os = "fedora43"
 
 imageMap = [:]                          // ID          TYPE     NAME                 DESCRIPTION          ARCHITECTURE   IMAGE SIZE   DISK SIZE   CREATED                         DEPRECATED
-imageMap['fedora42-x64']     = '342035601' // 342035601   system   fedora-43            Fedora 43            x86
-imageMap['fedora42-aarch64'] = '342035605' // 342035605   system   fedora-43            Fedora 43            arm
-imageMap['launcher-x64']  = imageMap['fedora42-x64']
+imageMap["${os}-x64"]     = '342035601' // 342035601   system   fedora-43            Fedora 43            x86            -            5 GB        Thu Dec 18 14:14:36 CET 2025    -
+imageMap["${os}-aarch64"] = '342035605' // 342035605   system   fedora-43            Fedora 43            arm            -            5 GB        Thu Dec 18 14:15:23 CET 2025    -
+imageMap['launcher-x64']  = imageMap["${os}-x64"]
 
 execMap = [:]
 execMap['fedora']                = 1
-execMap['fedora42-x64-nbg1']     = execMap['fedora']
-execMap['fedora42-x64-hel1']     = execMap['fedora']
-execMap['fedora42-x64-fsn1']     = execMap['fedora']
-execMap['fedora42-aarch64-nbg1'] = execMap['fedora']
-execMap['fedora42-aarch64-hel1'] = execMap['fedora']
-execMap['fedora42-aarch64-fsn1'] = execMap['fedora']
-execMap['fedora42-x64-nbg1-min']     = execMap['fedora']
-execMap['fedora42-x64-hel1-min']     = execMap['fedora']
-execMap['fedora42-x64-fsn1-min']     = execMap['fedora']
-execMap['fedora42-aarch64-nbg1-min'] = execMap['fedora']
-execMap['fedora42-aarch64-hel1-min'] = execMap['fedora']
-execMap['fedora42-aarch64-fsn1-min'] = execMap['fedora']
+execMap["${os}-x64-nbg1"]     = execMap['fedora']
+execMap["${os}-x64-hel1"]     = execMap['fedora']
+execMap["${os}-x64-fsn1"]     = execMap['fedora']
+execMap["${os}-aarch64-nbg1"] = execMap['fedora']
+execMap["${os}-aarch64-hel1"] = execMap['fedora']
+execMap["${os}-aarch64-fsn1"] = execMap['fedora']
+execMap["${os}-x64-nbg1-min"]     = execMap['fedora']
+execMap["${os}-x64-hel1-min"]     = execMap['fedora']
+execMap["${os}-x64-fsn1-min"]     = execMap['fedora']
+execMap["${os}-aarch64-nbg1-min"] = execMap['fedora']
+execMap["${os}-aarch64-hel1-min"] = execMap['fedora']
+execMap["${os}-aarch64-fsn1-min"] = execMap['fedora']
 execMap['launcher-x64-nbg1']  = 30
 execMap['launcher-x64-hel1']  = 30
 execMap['launcher-x64-fsn1']  = 30
 
 bootDeadlineMap =[:]
 bootDeadlineMap['default']            = 7
-bootDeadlineMap['fedora42-x64-nbg1']     = bootDeadlineMap['default']
-bootDeadlineMap['fedora42-x64-hel1']     = bootDeadlineMap['default']
-bootDeadlineMap['fedora42-x64-fsn1']     = bootDeadlineMap['default']
-bootDeadlineMap['fedora42-aarch64-nbg1'] = bootDeadlineMap['default']
-bootDeadlineMap['fedora42-aarch64-hel1'] = bootDeadlineMap['default']
-bootDeadlineMap['fedora42-aarch64-fsn1'] = bootDeadlineMap['default']
-bootDeadlineMap['fedora42-x64-nbg1-min']     = bootDeadlineMap['default']
-bootDeadlineMap['fedora42-x64-hel1-min']     = bootDeadlineMap['default']
-bootDeadlineMap['fedora42-x64-fsn1-min']     = bootDeadlineMap['default']
-bootDeadlineMap['fedora42-aarch64-nbg1-min'] = bootDeadlineMap['default']
-bootDeadlineMap['fedora42-aarch64-hel1-min'] = bootDeadlineMap['default']
-bootDeadlineMap['fedora42-aarch64-fsn1-min'] = bootDeadlineMap['default']
+bootDeadlineMap["${os}-x64-nbg1"]     = bootDeadlineMap['default']
+bootDeadlineMap["${os}-x64-hel1"]     = bootDeadlineMap['default']
+bootDeadlineMap["${os}-x64-fsn1"]     = bootDeadlineMap['default']
+bootDeadlineMap["${os}-aarch64-nbg1"] = bootDeadlineMap['default']
+bootDeadlineMap["${os}-aarch64-hel1"] = bootDeadlineMap['default']
+bootDeadlineMap["${os}-aarch64-fsn1"] = bootDeadlineMap['default']
+bootDeadlineMap["${os}-x64-nbg1-min"]     = bootDeadlineMap['default']
+bootDeadlineMap["${os}-x64-hel1-min"]     = bootDeadlineMap['default']
+bootDeadlineMap["${os}-x64-fsn1-min"]     = bootDeadlineMap['default']
+bootDeadlineMap["${os}-aarch64-nbg1-min"] = bootDeadlineMap['default']
+bootDeadlineMap["${os}-aarch64-hel1-min"] = bootDeadlineMap['default']
+bootDeadlineMap["${os}-aarch64-fsn1-min"] = bootDeadlineMap['default']
 bootDeadlineMap['launcher-x64-nbg1']  = bootDeadlineMap['default']
 bootDeadlineMap['launcher-x64-hel1']  = bootDeadlineMap['default']
 bootDeadlineMap['launcher-x64-fsn1']  = bootDeadlineMap['default']
 
 jvmOptsMap = [:]
-jvmOptsMap['fedora42']         = '-Xms4g -Xmx16g -Xss4m -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
-jvmOptsMap['fedora42-x64-nbg1']     = jvmOptsMap['fedora42']
-jvmOptsMap['fedora42-x64-hel1']     = jvmOptsMap['fedora42']
-jvmOptsMap['fedora42-x64-fsn1']     = jvmOptsMap['fedora42']
-jvmOptsMap['fedora42-aarch64-nbg1'] = jvmOptsMap['fedora42']
-jvmOptsMap['fedora42-aarch64-hel1'] = jvmOptsMap['fedora42']
-jvmOptsMap['fedora42-aarch64-fsn1'] = jvmOptsMap['fedora42']
-jvmOptsMap['fedora42-x64-nbg1-min']     = jvmOptsMap['fedora42']
-jvmOptsMap['fedora42-x64-hel1-min']     = jvmOptsMap['fedora42']
-jvmOptsMap['fedora42-x64-fsn1-min']     = jvmOptsMap['fedora42']
-jvmOptsMap['fedora42-aarch64-nbg1-min'] = jvmOptsMap['fedora42']
-jvmOptsMap['fedora42-aarch64-hel1-min'] = jvmOptsMap['fedora42']
-jvmOptsMap['fedora42-aarch64-fsn1-min'] = jvmOptsMap['fedora42']
-jvmOptsMap['launcher-x64-nbg1']  = jvmOptsMap['fedora42']
-jvmOptsMap['launcher-x64-hel1']  = jvmOptsMap['fedora42']
-jvmOptsMap['launcher-x64-fsn1']  = jvmOptsMap['fedora42']
+jvmOptsMap["${os}"]         = '-Xms4g -Xmx16g -Xss4m -XX:+UseG1GC -XX:+ParallelRefProcEnabled -XX:+AlwaysPreTouch --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
+jvmOptsMap["${os}-x64-nbg1"]     = jvmOptsMap["${os}"]
+jvmOptsMap["${os}-x64-hel1"]     = jvmOptsMap["${os}"]
+jvmOptsMap["${os}-x64-fsn1"]     = jvmOptsMap["${os}"]
+jvmOptsMap["${os}-aarch64-nbg1"] = jvmOptsMap["${os}"]
+jvmOptsMap["${os}-aarch64-hel1"] = jvmOptsMap["${os}"]
+jvmOptsMap["${os}-aarch64-fsn1"] = jvmOptsMap["${os}"]
+jvmOptsMap["${os}-x64-nbg1-min"]     = jvmOptsMap["${os}"]
+jvmOptsMap["${os}-x64-hel1-min"]     = jvmOptsMap["${os}"]
+jvmOptsMap["${os}-x64-fsn1-min"]     = jvmOptsMap["${os}"]
+jvmOptsMap["${os}-aarch64-nbg1-min"] = jvmOptsMap["${os}"]
+jvmOptsMap["${os}-aarch64-hel1-min"] = jvmOptsMap["${os}"]
+jvmOptsMap["${os}-aarch64-fsn1-min"] = jvmOptsMap["${os}"]
+jvmOptsMap['launcher-x64-nbg1']  = jvmOptsMap["${os}"]
+jvmOptsMap['launcher-x64-hel1']  = jvmOptsMap["${os}"]
+jvmOptsMap['launcher-x64-fsn1']  = jvmOptsMap["${os}"]
 
 labelMap = [:]
-labelMap['fedora42-x64-min']     = 'docker-x64-min docker-fedora42-x64-min fedora42-x64-min'
-labelMap['fedora42-aarch64-min'] = 'docker-aarch64-min docker-fedora42-aarch64-min fedora42-aarch64-min'
-labelMap['fedora42-x64']         = 'docker-x64 docker-fedora42-x64 fedora42-x64'
-labelMap['fedora42-aarch64']     = 'docker-aarch64 docker-fedora42-aarch64 fedora42-aarch64'
+labelMap["${os}-x64-min"]     = "docker-x64-min docker-${os}-x64-min ${os}-x64-min"
+labelMap["${os}-aarch64-min"] = "docker-aarch64-min docker-${os}-aarch64-min ${os}-aarch64-min"
+labelMap["${os}-x64"]         = "docker-x64 docker-${os}-x64 ${os}-x64"
+labelMap["${os}-aarch64"]     = "docker-aarch64 docker-${os}-aarch64 ${os}-aarch64"
 labelMap['launcher-x64']      = 'launcher-x64'
 
 networkMap = [:]
@@ -126,18 +127,18 @@ initMap['fedora-docker'] = '''#!/bin/bash -x
     sudo systemctl status docker || sudo systemctl start docker
     sudo systemctl start sshd
 '''
-initMap['fedora42-x64-nbg1']     = initMap['fedora-docker']
-initMap['fedora42-x64-hel1']     = initMap['fedora-docker']
-initMap['fedora42-x64-fsn1']     = initMap['fedora-docker']
-initMap['fedora42-aarch64-nbg1'] = initMap['fedora-docker']
-initMap['fedora42-aarch64-hel1'] = initMap['fedora-docker']
-initMap['fedora42-aarch64-fsn1'] = initMap['fedora-docker']
-initMap['fedora42-x64-nbg1-min']     = initMap['fedora-docker']
-initMap['fedora42-x64-hel1-min']     = initMap['fedora-docker']
-initMap['fedora42-x64-fsn1-min']     = initMap['fedora-docker']
-initMap['fedora42-aarch64-nbg1-min'] = initMap['fedora-docker']
-initMap['fedora42-aarch64-hel1-min'] = initMap['fedora-docker']
-initMap['fedora42-aarch64-fsn1-min'] = initMap['fedora-docker']
+initMap["${os}-x64-nbg1"]     = initMap['fedora-docker']
+initMap["${os}-x64-hel1"]     = initMap['fedora-docker']
+initMap["${os}-x64-fsn1"]     = initMap['fedora-docker']
+initMap["${os}-aarch64-nbg1"] = initMap['fedora-docker']
+initMap["${os}-aarch64-hel1"] = initMap['fedora-docker']
+initMap["${os}-aarch64-fsn1"] = initMap['fedora-docker']
+initMap["${os}-x64-nbg1-min"]     = initMap['fedora-docker']
+initMap["${os}-x64-hel1-min"]     = initMap['fedora-docker']
+initMap["${os}-x64-fsn1-min"]     = initMap['fedora-docker']
+initMap["${os}-aarch64-nbg1-min"] = initMap['fedora-docker']
+initMap["${os}-aarch64-hel1-min"] = initMap['fedora-docker']
+initMap["${os}-aarch64-fsn1-min"] = initMap['fedora-docker']
 initMap['launcher-x64-nbg1']  = initMap['fedora-docker']
 initMap['launcher-x64-hel1']  = initMap['fedora-docker']
 initMap['launcher-x64-fsn1']  = initMap['fedora-docker']
@@ -145,18 +146,18 @@ initMap['launcher-x64-fsn1']  = initMap['fedora-docker']
 def templates = [
        /* new HetznerServerTemplate("ubuntu20-cx21", "java", "name=ubuntu20-docker", "fsn1", "cx21"), */
         //                        tmplName                  tmplLabels                     tmplImage                  region server type
-        new HetznerServerTemplate("fedora42-x64-nbg1-min",     labelMap['fedora42-x64-min'],     imageMap['fedora42-x64'],     "nbg1", "cpx42"),
-        new HetznerServerTemplate("fedora42-aarch64-nbg1-min", labelMap['fedora42-aarch64-min'], imageMap['fedora42-aarch64'], "nbg1", "cax31"),
-        new HetznerServerTemplate("fedora42-x64-hel1-min",     labelMap['fedora42-x64-min'],     imageMap['fedora42-x64'],     "hel1", "cpx42"),
-        new HetznerServerTemplate("fedora42-aarch64-hel1-min", labelMap['fedora42-aarch64-min'], imageMap['fedora42-aarch64'], "hel1", "cax31"),
-        new HetznerServerTemplate("fedora42-x64-fsn1-min",     labelMap['fedora42-x64-min'],     imageMap['fedora42-x64'],     "fsn1", "cpx42"),
-        new HetznerServerTemplate("fedora42-aarch64-fsn1-min", labelMap['fedora42-aarch64-min'], imageMap['fedora42-aarch64'], "fsn1", "cax31"),
-        new HetznerServerTemplate("fedora42-x64-nbg1",         labelMap['fedora42-x64'],         imageMap['fedora42-x64'],     "nbg1", "cpx62"),
-        new HetznerServerTemplate("fedora42-aarch64-nbg1",     labelMap['fedora42-aarch64'],     imageMap['fedora42-aarch64'], "nbg1", "cax41"),
-        new HetznerServerTemplate("fedora42-x64-hel1",         labelMap['fedora42-x64'],         imageMap['fedora42-x64'],     "hel1", "cpx62"),
-        new HetznerServerTemplate("fedora42-aarch64-hel1",     labelMap['fedora42-aarch64'],     imageMap['fedora42-aarch64'], "hel1", "cax41"),
-        new HetznerServerTemplate("fedora42-x64-fsn1",         labelMap['fedora42-x64'],         imageMap['fedora42-x64'],     "fsn1", "cpx62"),
-        new HetznerServerTemplate("fedora42-aarch64-fsn1",     labelMap['fedora42-aarch64'],     imageMap['fedora42-aarch64'], "fsn1", "cax41"),
+        new HetznerServerTemplate("${os}-x64-nbg1-min",     labelMap["${os}-x64-min"],     imageMap["${os}-x64"],     "nbg1", "cpx42"),
+        new HetznerServerTemplate("${os}-aarch64-nbg1-min", labelMap["${os}-aarch64-min"], imageMap["${os}-aarch64"], "nbg1", "cax31"),
+        new HetznerServerTemplate("${os}-x64-hel1-min",     labelMap["${os}-x64-min"],     imageMap["${os}-x64"],     "hel1", "cpx42"),
+        new HetznerServerTemplate("${os}-aarch64-hel1-min", labelMap["${os}-aarch64-min"], imageMap["${os}-aarch64"], "hel1", "cax31"),
+        new HetznerServerTemplate("${os}-x64-fsn1-min",     labelMap["${os}-x64-min"],     imageMap["${os}-x64"],     "fsn1", "cpx42"),
+        new HetznerServerTemplate("${os}-aarch64-fsn1-min", labelMap["${os}-aarch64-min"], imageMap["${os}-aarch64"], "fsn1", "cax31"),
+        new HetznerServerTemplate("${os}-x64-nbg1",         labelMap["${os}-x64"],         imageMap["${os}-x64"],     "nbg1", "cpx62"),
+        new HetznerServerTemplate("${os}-aarch64-nbg1",     labelMap["${os}-aarch64"],     imageMap["${os}-aarch64"], "nbg1", "cax41"),
+        new HetznerServerTemplate("${os}-x64-hel1",         labelMap["${os}-x64"],         imageMap["${os}-x64"],     "hel1", "cpx62"),
+        new HetznerServerTemplate("${os}-aarch64-hel1",     labelMap["${os}-aarch64"],     imageMap["${os}-aarch64"], "hel1", "cax41"),
+        new HetznerServerTemplate("${os}-x64-fsn1",         labelMap["${os}-x64"],         imageMap["${os}-x64"],     "fsn1", "cpx62"),
+        new HetznerServerTemplate("${os}-aarch64-fsn1",     labelMap["${os}-aarch64"],     imageMap["${os}-aarch64"], "fsn1", "cax41"),
         new HetznerServerTemplate("launcher-x64-nbg1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "nbg1", "cpx22"),
         new HetznerServerTemplate("launcher-x64-hel1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "hel1", "cpx22"),
         new HetznerServerTemplate("launcher-x64-fsn1",      labelMap['launcher-x64'],      imageMap['launcher-x64'],  "fsn1", "cpx22")
