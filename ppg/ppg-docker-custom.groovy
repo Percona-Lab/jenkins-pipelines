@@ -52,7 +52,7 @@ pipeline {
                     sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile-postgis
                     sed -E "s/ENV PPG_MINOR_VERSION (.+)/ENV PPG_MINOR_VERSION \$MIN_VER/" -i Dockerfile-postgis
                     export DOCKER_BUILDKIT=1
-                    docker build --platform=linux/amd64 --no-cache --provenance=false -t percona-distribution-postgresql-custom:\$MAJ_VER -f Dockerfile-postgis .
+                    docker build --platform=linux/amd64 --no-cache --provenance=false -t percona-distribution-postgresql-custom:\$MAJ_VER-v2 -f Dockerfile-postgis .
                     """
             }
         }
@@ -87,14 +87,14 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                          MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                         docker tag percona-distribution-postgresql-custom:\$MAJ_VER perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-amd64
-                         docker push perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-amd64
-                         docker tag percona-distribution-postgresql-custom:\$MAJ_VER perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-amd64
-                         docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-amd64
-                         docker tag percona-distribution-postgresql-custom:\$MAJ_VER perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-amd64
-                         docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-amd64
+                         docker tag percona-distribution-postgresql-custom:\$MAJ_VER-v2 perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v2-amd64
+                         docker push perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v2-amd64
+                         docker tag percona-distribution-postgresql-custom:\$MAJ_VER-v2 perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v2-amd64
+                         docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v2-amd64
+                         docker tag percona-distribution-postgresql-custom:\$MAJ_VER-v2 perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v2-amd64
+                         docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v2-amd64
                          if [ ${params.LATEST} = "yes" ]; then
-                            docker tag percona-distribution-postgresql-custom:\$MAJ_VER perconalab/percona-distribution-postgresql-custom:latest
+                            docker tag percona-distribution-postgresql-custom:\$MAJ_VER-v2 perconalab/percona-distribution-postgresql-custom:latest
                             docker push perconalab/percona-distribution-postgresql-custom:latest
                          fi
                      """
