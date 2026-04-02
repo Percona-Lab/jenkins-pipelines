@@ -224,14 +224,14 @@ properties([
         [
             $class: 'ChoiceParameter',
             choiceType: 'PT_SINGLE_SELECT',
-            description: 'Choose the product version to test: PS8.0 OR ps_lts_innovation',
+            description: 'Choose the product version to test: PS8.0 OR ps_innovation',
             name: 'product_to_test',
             script: [
                 $class: 'GroovyScript',
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["ps57", "ps80", "ps84", "ps_lts_innovation", "client_test"]'
+                    script: 'return ["ps_57", "ps_80", "ps_84", "ps_innovation", "client_test"]'
                 ]
             ]
         ],
@@ -263,7 +263,7 @@ properties([
                         if (product_to_test == "ps57") {
                             return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
-                        else if (product_to_test == "ps80" || product_to_test == "ps84") {
+                        else if (product_to_test == "ps_80" || product_to_test == "ps_84") {
                             return ["install", "upgrade", "major_upgrade", "kmip", "kms"]
                         }
                         else {
@@ -309,14 +309,14 @@ properties([
                     sandbox: true,
                     script: '''
                         if (action_to_test == "major_upgrade") {
-                            if (product_to_test == "ps80") {
-                                return ["ps80","ps57", "ps84"]
+                            if (product_to_test == "ps_80") {
+                                return ["ps_80","ps_57", "ps_84"]
                             }
-                            else if (product_to_test == "ps84") {
-                                return ["ps80","ps84"]
+                            else if (product_to_test == "ps_84") {
+                                return ["ps_80","ps_84"]
                             }
-                            else if (product_to_test == "ps57") {
-                                return ["ps57", "ps80"]
+                            else if (product_to_test == "ps_57") {
+                                return ["ps_57", "ps_80"]
                             }
                             else {
                                 return ["NA"]
@@ -364,14 +364,14 @@ properties([
                     sandbox: true,
                     script: '''
                         if (action_to_test == "major_upgrade") {
-                            if (product_to_test == "ps80") {
-                                return ["ps80","ps57", "ps84"]
+                            if (product_to_test == "ps_80") {
+                                return ["ps_80","ps_57", "ps_84"]
                             }
-                            else if (product_to_test == "ps84") {
-                                return ["ps80","ps84"]
+                            else if (product_to_test == "ps_84") {
+                                return ["ps_80","ps_84"]
                             }
-                            else if (product_to_test == "ps57") {
-                                return ["ps57", "ps80"]
+                            else if (product_to_test == "ps_57") {
+                                return ["ps_57", "ps_80"]
                             }
                             else {
                                 return ["NA"]
@@ -466,28 +466,22 @@ pipeline {
                         steps {
                             script {
                                 if (action_to_test == 'install') {
-                                    def formatted_product_to_test = product_to_test.replace('ps', 'ps_')
                                     sh """
-                                        echo "Formatted product_to_test: ${formatted_product_to_test}"
-                                        echo PLAYBOOK_VAR="${formatted_product_to_test}" > .env.ENV_VARS
+                                        echo PLAYBOOK_VAR="${product_to_test}" > .env.ENV_VARS
                                     """
                                 } 
                                 else if (action_to_test == 'upgrade') {
-                                    def formatted_product_to_test = product_to_test.replace('ps', 'ps_')
                                     sh """
-                                        echo PLAYBOOK_VAR="ps_upgrade" > .env.ENV_VARS
-                                        echo PLAYBOOK_VAR="${formatted_product_to_test}" > .env.ENV_VARS
+                                        echo PLAYBOOK_VAR="${product_to_test}_upgrade" > .env.ENV_VARS
                                     """
                                 }
                                 else if (action_to_test == 'major_upgrade')     {
                                     sh """
-                                         echo PLAYBOOK_VAR="ps_major_upgrade" > .env.ENV_VARS
+                                         echo PLAYBOOK_VAR="${product_to_test}_major_upgrade_to" > .env.ENV_VARS
                                     """
                                 }
                                 else {
-                                    def formatted_product_to_test = product_to_test.replace('ps', 'ps_')
                                     sh """
-                                        echo "Formatted product_to_test: ${formatted_product_to_test}"
                                         echo PLAYBOOK_VAR="${product_to_test}_${action_to_test}" > .env.ENV_VARS
                                     """
                                 }
@@ -499,18 +493,18 @@ pipeline {
                                 def envMap = loadEnvFile('.env.ENV_VARS')
 
                                 withEnv(envMap) {
-                                    if (product_to_test == "ps_lts_innovation") {
+                                    if (product_to_test == "ps_innovation") {
                                         moleculeParallelTestALL(allOS, ps90PackageTesting(), "molecule/ps/")
                                     } 
-                                    else if (product_to_test == "ps57") {
+                                    else if (product_to_test == "ps_57") {
                                         withCredentials([usernamePassword(credentialsId: 'PS_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME')]) {
                                             moleculeParallelTestALL(allOS, ps57PackageTesting(), "molecule/ps/")
                                         }
                                     }
-                                    else if (product_to_test == "ps80") {
+                                    else if (product_to_test == "ps_80") {
                                         moleculeParallelTestALL(allOS, ps80PackageTesting(), "molecule/ps/")
                                     }
-                                    else if (product_to_test == "ps84") {
+                                    else if (product_to_test == "ps_84") {
                                         moleculeParallelTestALL(allOS, ps84PackageTesting(), "molecule/ps/")
                                     }
                                     else {
