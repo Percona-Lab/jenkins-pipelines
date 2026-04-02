@@ -10,14 +10,14 @@
             [
                 $class: 'ChoiceParameter',
                 choiceType: 'PT_SINGLE_SELECT',
-                description: 'Choose the product version to test: PXB8.0, PXB8.4 OR pxb_innovation_lts',
+                description: 'Choose the product version to test: PXB8.0, PXB8.4 OR pxb_innovation',
                 name: 'product_to_test',
                 script: [
                     $class: 'GroovyScript',
                     script: [
                         classpath: [],
                         sandbox: true,
-                        script: 'return ["pxb_80", "pxb_innovation_lts", "pxb_84"]'
+                        script: 'return ["pxb_80", "pxb_innovation", "pxb_84"]'
                     ]
                 ]
             ],
@@ -39,11 +39,11 @@
                             else if (product_to_test == "pxb_84") {
                                 return ["ps-84", "ms-84"]
                             }
-                            else if (product_to_test == "pxb_innovation_lts") {
-                                return ["ps_innovation_lts", "ms_innovation_lts"]
+                            else if (product_to_test == "pxb_innovation") {
+                                return ["ps_innovation", "ms_innovation"]
                             }
                             else {
-                                return ["ps_innovation_lts", "ms_innovation_lts", "ps-80", "ms-80", "ps-84", "ms-84"]
+                                return ["ps_innovation", "ms_innovation", "ps-80", "ms-80", "ps-84", "ms-84"]
                             }
                         '''
                     ]
