@@ -128,6 +128,8 @@ pipeline {
                         mv "${DOCKERFILE_PATH}.tmp" "${DOCKERFILE_PATH}"
                     fi
 
+                    echo "Building Docker image with tag ${DOCKER_TAG} using ${DOCKERFILE_PATH}"
+                    cat "${DOCKERFILE_PATH}"
                     ${PATH_TO_SCRIPTS}/build-server-docker
 
                     if [ -n "${DOCKER_RC_TAG}" ]; then
