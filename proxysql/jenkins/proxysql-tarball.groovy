@@ -1,12 +1,12 @@
-library changelog: false, identifier: "lib@master", retriever: modernSCM([
+library changelog: false, identifier: "lib@proxy-f", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ])
 
 
 
 def operatingsystems() {
-    return ['ubuntu-noble','ubuntu-jammy','debian-11','debian-12','oracle-8','oracle-9','rhel-10']
+    return ['ubuntu-noble','ubuntu-jammy','debian-11','debian-12','debian-13','oracle-8','oracle-9','rhel-10','al-2023']
 }
 
 
