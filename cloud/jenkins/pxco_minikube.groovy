@@ -157,7 +157,7 @@ void initTests() {
 void clusterRunner(String cluster) {
     sh """
         export CHANGE_MINIKUBE_NONE_USER=true
-        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G
+        minikube start --kubernetes-version $PLATFORM_VER --cpus=6 --memory=28G --force
     """
 
     for (int i=0; i<tests.size(); i++) {
@@ -349,13 +349,14 @@ pipeline {
 
             script {
                 try {
-                    def sendJobSlack = load "vars/sendJobSlackNotification.groovy"
+                    def sendJobSlack = load "cloud/common/sendJobSlackNotification.groovy"
                     sendJobSlack.call(
-                    tests: tests,
-                    gitBranch: GIT_BRANCH,
-                    platformVer: PLATFORM_VER,
-                    clusterWide: CLUSTER_WIDE,
-                    pillarVersion: PILLAR_VERSION
+                        tests: tests,
+                        gitBranch: GIT_BRANCH,
+                        platformVer: PLATFORM_VER,
+                        clusterWide: CLUSTER_WIDE,
+                        image: IMAGE_PXC,
+                        operatorImage: IMAGE_OPERATOR
                     )
                 } catch (err) {
                     echo "Slack helper load/call failed: ${err}"

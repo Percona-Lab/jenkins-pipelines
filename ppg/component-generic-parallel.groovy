@@ -113,7 +113,7 @@ pipeline {
             script {
                 if (params.DESTROY_ENV) {
                     echo "DESTROY_ENV is true. Cleaning up resources..."
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                    moleculeParallelPostDestroyPPG(ppgArchitectures(), env.MOLECULE_DIR)
                 } else {
                     echo "DESTROY_ENV is false. Leaving VMs active for debugging."
                 }

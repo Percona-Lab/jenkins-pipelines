@@ -47,15 +47,15 @@ void prepareAgent() {
     """
     downloadKubectl()
     sh """
-        curl -fsSL https://get.helm.sh/helm-v3.18.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+        curl -fsSL https://get.helm.sh/helm-v3.20.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
         curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
         ./krew-linux_amd64 install krew
         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
 
         kubectl krew install assert
 
-        # v0.22.0 kuttl version
-        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/02d5befb2bc9554fdcd8386b8bfbed2732d6802e/plugins/kuttl.yaml
+        # v0.25.0 kuttl version
+        kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/c16c6269999a2c2558e4fdc25df6eced0ab3dc27/plugins/kuttl.yaml
         echo \$(kubectl kuttl --version) is installed
 
         curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
@@ -82,7 +82,7 @@ void initParams() {
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
             PLATFORM_VER = sh(script: "aws eks describe-addon-versions --query 'addons[].addonVersions[].compatibilities[].clusterVersion' --output json | jq -r 'flatten | unique | sort | reverse | .[0]'", returnStdout: true).trim()
         }
     }
@@ -117,7 +117,7 @@ void dockerBuildPush() {
             else
                 cd source
                 sg docker -c "
-                    docker login -u '$USER' -p '$PASS'
+                    echo '$PASS' | docker login -u '$USER' --password-stdin
                     export IMAGE=perconalab/percona-server-mysql-operator:$GIT_BRANCH
                     e2e-tests/build
                     docker logout
@@ -151,7 +151,7 @@ void initTests() {
     }
 
     echo "Marking passed tests in the tests map!"
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         if ("$IGNORE_PREVIOUS_RUN" == "NO") {
             sh """
                 aws s3 ls s3://percona-jenkins-artifactory/$JOB_NAME/$GIT_SHORT_COMMIT/ || :
@@ -244,7 +244,7 @@ nodeGroups:
 EOF
     """
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
@@ -266,7 +266,7 @@ void runTest(Integer TEST_ID) {
             tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'], file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
+                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'), file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
                     sh """
                         cd source
 
@@ -312,7 +312,7 @@ void runTest(Integer TEST_ID) {
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+   withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
             touch $FILE_NAME
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
@@ -353,7 +353,7 @@ PLATFORM_VER=$PLATFORM_VER"""
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
             for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
@@ -492,23 +492,21 @@ pipeline {
         always {
             echo "CLUSTER ASSIGNMENTS\n" + tests.toString().replace("], ","]\n").replace("]]","]").replaceFirst("\\[","")
             makeReport()
-            step([$class: 'JUnitResultArchiver', testResults: '*.xml', healthScaleFactor: 1.0])
+            junit testResults: '*.xml', healthScaleFactor: 1.0
             archiveArtifacts '*.xml,*.txt'
 
             script {
                 try {
-                    def sendJobSlack = load "vars/sendJobSlackNotification.groovy"
-                    if (sendJobSlack != null) {
-                        sendJobSlack.call(
-                            tests: tests,
-                            gitBranch: GIT_BRANCH,
-                            platformVer: PLATFORM_VER,
-                            clusterWide: CLUSTER_WIDE,
-                            pillarVersion: PILLAR_VERSION
-                        )
-                    } else {
-                        echo "sendJobSlackNotification.groovy load returned null, skipping Slack notification"
-                    }
+                    def sendJobSlack = load "cloud/common/sendJobSlackNotification.groovy"
+                    sendJobSlack.call(
+                        tests: tests,
+                        gitBranch: GIT_BRANCH,
+                        platformVer: PLATFORM_VER,
+                        clusterWide: CLUSTER_WIDE,
+                        image: IMAGE_MYSQL,
+                        operatorImage: IMAGE_OPERATOR
+                    )
+
                 } catch (err) {
                     echo "Slack helper load/call failed: ${err}"
                 }

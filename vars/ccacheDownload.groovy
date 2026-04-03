@@ -8,8 +8,8 @@ def call(Map config = [:]) {
     //
     // Set default values
     def cloud = config.get('cloud', env.CLOUD ?: 'AWS')
-    def awsCredentialsId = config.get('awsCredentialsId', 'AWS_CREDENTIALS_ID')
-    def s3Bucket = config.get('s3Bucket', 's3://ps-build-cache/')
+    def awsCredentialsId = config.get('awsCredentialsId') ?: (cloud == 'Hetzner' ? 'HTZ_STASH' : 'AWS_CREDENTIALS_ID')
+    def s3Bucket = config.get('s3Bucket') ?: (cloud == 'Hetzner' ? 's3://percona-jenkins-artifactory/' : 's3://ps-build-cache/')
     def workspace = config.get('workspace', env.WORKSPACE)
     def dockerOs = config.get('dockerOs', env.DOCKER_OS)
     def cmakeBuildType = config.get('cmakeBuildType', env.CMAKE_BUILD_TYPE)
@@ -26,12 +26,6 @@ def call(Map config = [:]) {
     // See: https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-retries.html
     def awsMaxAttempts = (awsRetries.toInteger() + 1).toString()
 
-    // Override credentials and endpoint for Hetzner
-    if (cloud == 'Hetzner') {
-        awsCredentialsId = config.get('awsCredentialsId', 'HTZ_STASH')
-        // Use existing Hetzner bucket
-        s3Bucket = config.get('s3Bucket', 's3://percona-jenkins-artifactory/')
-    }
     def s3Endpoint = (cloud == 'Hetzner') ? '--endpoint-url https://fsn1.your-objectstorage.com' : ''
 
     if (env.USE_CCACHE != 'yes' && env.USE_CCACHE != 'true') {

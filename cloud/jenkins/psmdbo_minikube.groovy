@@ -372,18 +372,16 @@ pipeline {
 
             script {
                 try {
-                    def sendJobSlack = load "vars/sendJobSlackNotification.groovy"
-                    if (sendJobSlack != null) {
-                        sendJobSlack.call(
-                            tests: tests,
-                            gitBranch: GIT_BRANCH,
-                            platformVer: PLATFORM_VER,
-                            clusterWide: CLUSTER_WIDE,
-                            pillarVersion: PILLAR_VERSION
-                        )
-                    } else {
-                        echo "sendJobSlackNotification.groovy load returned null, skipping Slack notification"
-                    }
+                    def sendJobSlack = load "cloud/common/sendJobSlackNotification.groovy"
+                    sendJobSlack.call(
+                        tests: tests,
+                        gitBranch: GIT_BRANCH,
+                        platformVer: PLATFORM_VER,
+                        clusterWide: CLUSTER_WIDE,
+                        image: IMAGE_MONGOD,
+                        operatorImage: IMAGE_OPERATOR
+                    )
+
                 } catch (err) {
                     echo "Slack helper load/call failed: ${err}"
                 }
