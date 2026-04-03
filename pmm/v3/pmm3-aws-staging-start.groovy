@@ -248,7 +248,7 @@ pipeline {
                                         ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 
-                                    sleep 10
+                                    sleep 30
                                     docker logs pmm-server
 
                                     if [ ${ADMIN_PASSWORD} != admin ]; then
