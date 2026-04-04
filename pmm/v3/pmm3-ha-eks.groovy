@@ -28,7 +28,7 @@ pipeline {
     parameters {
         choice(
             name: 'K8S_VERSION',
-            choices: ['1.35', '1.34', '1.33', '1.32'],
+            choices: ['1.35', '1.34', '1.33'],
             description: 'Select Kubernetes cluster version'
         )
         string(

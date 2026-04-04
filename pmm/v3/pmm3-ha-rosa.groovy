@@ -38,7 +38,7 @@ pipeline {
     parameters {
         choice(
             name: 'OCP_VERSION',
-            choices: ['4.18', '4.17', '4.16'],
+            choices: ['4.21', '4.20', '4.19', '4.18'],
             description: 'Select OpenShift cluster version'
         )
         string(
