@@ -44,7 +44,7 @@ pipeline {
             name: 'COMPONENT_VERSION'
         )
         string(
-            defaultValue: 'ppg-18.1',
+            defaultValue: 'ppg-18.3',
             description: 'PPG version for test',
             name: 'VERSION'
         )
@@ -111,8 +111,11 @@ pipeline {
     post {
         always {
             script {
-                if (env.DESTROY_ENV) {
+                if (params.DESTROY_ENV) {
+                    echo "DESTROY_ENV is true. Cleaning up resources..."
                     moleculeParallelPostDestroyPPG(ppgArchitectures(), env.MOLECULE_DIR)
+                } else {
+                    echo "DESTROY_ENV is false. Leaving VMs active for debugging."
                 }
                 sendSlackNotification(env.PRODUCT, env.VERSION, env.COMPONENT_VERSION)
             }

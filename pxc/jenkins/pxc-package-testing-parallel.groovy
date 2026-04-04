@@ -47,6 +47,10 @@ List non_pro_pxc80 = [
                 'rhel-9',
                 'rhel-8-arm',
                 'rhel-9-arm',
+                'rocky-linux-8',
+                'rocky-linux-8-arm',
+                'rocky-linux-9',
+                'rocky-linux-9-arm',
                 'amazon-linux-2023',
                 'amazon-linux-2023-arm'
 ]
@@ -70,6 +74,10 @@ List non_pro_pxc84 = [
                 'rhel-8-arm',
                 'rhel-9-arm',
                 'rhel-10-arm',
+                'rocky-linux-8',
+                'rocky-linux-8-arm',
+                'rocky-linux-9',
+                'rocky-linux-9-arm',
                 'amazon-linux-2023',
                 'amazon-linux-2023-arm'
 ]
@@ -79,6 +87,19 @@ List pxc_innovation_lts = [
                 'ubuntu-jammy',
                 'ubuntu-noble-arm',
                 'ubuntu-jammy-arm',
+                'debian-12',
+                'debian-12-arm',
+                'debian-13',
+                'debian-13-arm',
+                'ol-8',
+                'ol-9',
+                'rhel-8',
+                'rhel-8-arm',
+                'rhel-9',
+                'rhel-9-arm',
+                'rhel-10',
+                'rhel-10-arm'
+                
 ]
 
 List pxc57_nodes = [

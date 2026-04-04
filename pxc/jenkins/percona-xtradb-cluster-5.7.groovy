@@ -169,7 +169,7 @@ pipeline {
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
                     }
                 }
-                stage('Centos 8') {
+                stage('Oracle Linux 8') {
                     agent {
                         label 'docker-32gb'
                     }
@@ -177,7 +177,7 @@ pipeline {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
                         popArtifactFolder("srpm/", AWS_STASH_PATH)
-                        buildStage("centos:8", "--build_rpm=1")
+                        buildStage("oraclelinux:8", "--build_rpm=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("rpm/", AWS_STASH_PATH)
@@ -325,7 +325,7 @@ pipeline {
                     }
                 }
 */
-                stage('Centos 8 tarball') {
+                stage('Oracle Linux 8 tarball') {
                     agent {
                         label 'docker-32gb'
                     }
@@ -333,7 +333,7 @@ pipeline {
                         cleanUpWS()
                         unstash 'pxc-57.properties'
                         popArtifactFolder("source_tarball/", AWS_STASH_PATH)
-                        buildStage("centos:8", "--build_tarball=1")
+                        buildStage("oraclelinux:8", "--build_tarball=1")
 
                         stash includes: 'test/pxc-57.properties', name: 'pxc-57.properties'
                         pushArtifactFolder("test/tarball/", AWS_STASH_PATH)

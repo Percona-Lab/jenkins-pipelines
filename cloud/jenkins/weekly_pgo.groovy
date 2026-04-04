@@ -1,12 +1,29 @@
 void triggerJobMultiple(String jobName) {
-    for (int i = 1; i <= 3; i++) {
-        build job: "$jobName", propagate: false, wait: true
+    int maxAttempts = 2
+    int attempt = 0
+
+    while (attempt < maxAttempts) {
+        def result = build job: jobName, propagate: false, wait: true
+
+        if (result.result == 'SUCCESS') {
+            echo "Job ${jobName} succeeded on attempt ${attempt + 1}."
+            return
+        }
+
+        echo "Job ${jobName} finished with status ${result.result} on attempt ${attempt + 1}."
+        attempt++
+
+        if (attempt < maxAttempts) {
+            echo "Retrying job ${jobName}..."
+        }
     }
+
+    error "Job ${jobName} failed after ${maxAttempts} attempts."
 }
 
 pipeline {
     agent {
-        label 'docker'
+        label 'docker-x64-min'
     }
     options {
         skipDefaultCheckout()
@@ -19,22 +36,22 @@ pipeline {
     stages {
         stage("Run parallel") {
             parallel {
-                stage('Trigger pgo-gke-1 job 3 times') {
+                stage('Trigger pgo-gke-1 job 2 times') {
                     steps {
                         triggerJobMultiple("pgo-gke-1")
                     }
                 }
-                stage('Trigger pgo-eks-1 job 3 times') {
+                stage('Trigger pgo-eks-1 job 2 times') {
                     steps {
                         triggerJobMultiple("pgo-eks-1")
                     }
                 }
-                stage('Trigger pgo-aks-1 job 3 times') {
+                stage('Trigger pgo-aks-1 job 2 times') {
                     steps {
                         triggerJobMultiple("pgo-aks-1")
                     }
                 }
-                stage('Trigger pgo-openshift-1 job 3 times') {
+                stage('Trigger pgo-openshift-1 job 2 times') {
                     steps {
                         triggerJobMultiple("pgo-openshift-1")
                     }

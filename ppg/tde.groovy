@@ -29,12 +29,12 @@ pipeline {
             name: 'TDE_REPO'
         )
         string(
-            defaultValue: 'release-2.1',
+            defaultValue: 'release-2.1.2',
             description: 'TDE repo version/branch/tag to use; e.g main, release-2.1',
             name: 'TDE_BRANCH'
         )
         string(
-            defaultValue: 'ppg-18.1',
+            defaultValue: 'ppg-18.3',
             description: 'Server PG version for test, including major and minor version, e.g ppg-17.4, ppg-17.3',
             name: 'VERSION'
         )
@@ -68,7 +68,6 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
-        disableConcurrentBuilds()
     }
     stages {
         stage('Set build name') {
@@ -123,8 +122,11 @@ pipeline {
     post {
         always {
             script {
-                if (env.DESTROY_ENV) {
+                if (params.DESTROY_ENV) {
+                    echo "DESTROY_ENV is true. Cleaning up resources..."
                     moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                } else {
+                    echo "DESTROY_ENV is false. Leaving VMs active for debugging."
                 }
             }
         }

@@ -1,3 +1,12 @@
+// Default to Hetzner
+String LABEL = 'docker-x64'
+String MICRO_LABEL = 'launcher-x64'
+
+if (params.CLOUD == 'AWS') {
+    LABEL = 'docker-32gb'
+    MICRO_LABEL = 'micro-amazon'
+}
+
 pipeline {
     parameters {
         choice(
@@ -45,12 +54,12 @@ pipeline {
             defaultValue: true,
             description: 'Run kmip tests')
         choice(
-            choices: 'docker-32gb\ndocker',
-            description: 'Run build on specified instance type',
-            name: 'LABEL')
+            choices: 'Hetzner\nAWS',
+            description: 'Host provider for Jenkins workers',
+            name: 'CLOUD')
     }
     agent {
-        label 'micro-amazon'
+        label MICRO_LABEL
     }
     options {
         skipDefaultCheckout()
@@ -68,7 +77,7 @@ pipeline {
                     }
                     sh 'echo Prepare: \$(date -u "+%s")'
                     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
-                    sh '''
+                    sh '''#!/bin/bash
                         # sudo is needed for better node recovery after compilation failure
                         # if building failed on compilation stage directory will have files owned by docker user
                         sudo git reset --hard
@@ -80,8 +89,7 @@ pipeline {
                         '''
                     copyArtifacts filter: 'COMPILE_BUILD_TAG', projectName: 'percona-xtrabackup-8.1-compile-param', selector: specific("${USE_BINARIES_FROM_BUILD_ID}")
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '24e68886-c552-4033-8503-ed85bbaa31f3', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                        sh '''
-                            #!/bin/bash
+                        sh '''#!/bin/bash
                             for file in $(find . -name "COMPILE_BUILD_TAG"); do
                                 COMPILE_BUILD_TAG_VAR+=" $(cat $file)"
                             done
@@ -141,7 +149,7 @@ pipeline {
             }
         }
         stage('Archive Test Results') {
-            agent { label 'micro-amazon' }
+            agent { label MICRO_LABEL }
             steps {
                 retry(3) {
                 deleteDir()

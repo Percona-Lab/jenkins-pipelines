@@ -97,7 +97,9 @@ if [[ "${DOCKER_OS}" = "centos-7" ]]; then
 fi
 
 if [[ "${DOCKER_OS}" = "centos-8" ]] || [[ "${DOCKER_OS}" = "asan" ]]; then
-  if [[ ${XB_VERSION_MAJOR} -ge 8 ]] && [[ -f /opt/rh/gcc-toolset-10/enable ]]; then
+  if [[ ${XB_VERSION_MAJOR} -ge 9 ]] && [[ -f /opt/rh/gcc-toolset-12/enable ]]; then
+    source /opt/rh/gcc-toolset-12/enable
+  elif [[ ${XB_VERSION_MAJOR} -ge 8 ]] && [[ -f /opt/rh/gcc-toolset-10/enable ]]; then
     source /opt/rh/gcc-toolset-10/enable
   fi
 fi

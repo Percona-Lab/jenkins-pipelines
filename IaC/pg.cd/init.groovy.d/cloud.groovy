@@ -1,6 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
 import hudson.model.*
-import hudson.plugins.ec2.AmazonEC2Cloud
+import hudson.plugins.ec2.EC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -16,9 +16,12 @@ logger.info("Cloud init started")
 // get Jenkins instance
 Jenkins jenkins = Jenkins.getInstance()
 
+// Subnet configuration for Jenkins PG workers
+// PKG-1246: Expanded from /24 (251 IPs) to /22 (1024 IPs) subnets for 1200-1500 spot instances
+// Old subnets: subnet-0fad4db6fdd8025b6 (B), subnet-0802c1d4746b8c35a (C)
 netMap = [:]
-netMap['eu-central-1b'] = 'subnet-0fad4db6fdd8025b6'
-netMap['eu-central-1c'] = 'subnet-0802c1d4746b8c35a'
+netMap['eu-central-1b'] = 'subnet-0775d65ad1e9703bc'  // JSubnetB2: 10.145.0.0/22 (1024 IPs)
+netMap['eu-central-1c'] = 'subnet-09947b46d69590c50'  // JSubnetC2: 10.145.4.0/22 (1024 IPs)
 
 imageMap = [:]
 imageMap['eu-central-1a.micro-amazon'] = 'ami-0444794b421ec32e4'
@@ -209,7 +212,7 @@ String sshKeysCredentialsId = 'aws-jenkins'
 String region = 'eu-central-1'
 ('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
+    EC2Cloud ec2Cloud = new EC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
         '',                                     // String credentialsId
@@ -231,7 +234,7 @@ String region = 'eu-central-1'
 
     // add cloud configuration to Jenkins
     jenkins.clouds.each {
-        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
+        if (it.hasProperty('name') && it.name == ec2Cloud.name) {
             jenkins.clouds.remove(it)
         }
     }

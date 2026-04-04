@@ -52,6 +52,7 @@ void initParams() {
 
 void prepareSources() {
     echo "=========================[ Cloning the sources ]========================="
+    checkout(scm)
     sh """
         git clone -b $GIT_BRANCH https://github.com/percona/percona-postgresql-operator.git  source
     """
@@ -210,6 +211,8 @@ void createCluster(String CLUSTER_SUFFIX) {
             maxRetries=15
             exitCode=1
 
+            printf 'linuxConfig:\n  hugepageConfig:\n    hugepage_size2m: 1024\n' > ${WORKSPACE}/hugepages-config-${CLUSTER_SUFFIX}.yaml
+
             while [[ \$exitCode != 0 && \$maxRetries > 0 ]]; do
                 gcloud container clusters create $CLUSTER_NAME-$CLUSTER_SUFFIX \
                     --release-channel $GKE_RELEASE_CHANNEL \
@@ -230,6 +233,7 @@ void createCluster(String CLUSTER_SUFFIX) {
                     --logging=NONE \
                     --no-enable-managed-prometheus \
                     --workload-pool=cloud-dev-112233.svc.id.goog \
+                    --system-config-from-file=${WORKSPACE}/hugepages-config-${CLUSTER_SUFFIX}.yaml \
                     --quiet &&\
                 kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user=\$(gcloud config get-value core/account)
                 exitCode=\$?
@@ -237,6 +241,8 @@ void createCluster(String CLUSTER_SUFFIX) {
                 (( maxRetries -- ))
                 sleep 1
             done
+            rm -f ${WORKSPACE}/hugepages-config-${CLUSTER_SUFFIX}.yaml
+
             if [[ \$exitCode != 0 ]]; then exit \$exitCode; fi
         """
     }
@@ -358,24 +364,24 @@ pipeline {
     parameters {
         choice(name: 'TEST_SUITE', choices: ['run-release.csv', 'run-distro.csv'], description: 'Choose test suite from file (e2e-tests/run-*), used only if TEST_LIST not specified.')
         text(name: 'TEST_LIST', defaultValue: '', description: 'List of tests to run separated by new line')
-        choice(name: 'IGNORE_PREVIOUS_RUN', choices: 'NO\nYES', description: 'Ignore passed tests in previous run (run all)')
-        choice(name: 'PILLAR_VERSION', choices: 'none\n12\n13\n14\n15\n16\n17\n18', description: 'For release runs. PG version to test. Job takes images from release_versions when set.')
+        choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
+        choice(name: 'PILLAR_VERSION', choices: ['none', '13', '14', '15', '16', '17', '18'], description: 'For release runs. PG version to test. Job takes images from release_versions when set.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-postgresql-operator repository')
         string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'GKE kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
-        choice(name: 'GKE_RELEASE_CHANNEL', choices: 'rapid\nstable\nregular\nNone', description: 'GKE release channel. Will be forced to stable for release run.')
-        choice(name: 'CLUSTER_WIDE', choices: 'YES\nNO', description: 'Run tests in cluster wide mode')
+        choice(name: 'GKE_RELEASE_CHANNEL', choices: ['rapid', 'stable', 'regular', 'None'], description: 'GKE release channel. Will be forced to stable for release run.')
+        choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
         string(name: 'PG_VER', defaultValue: '', description: 'PG version')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main')
         string(name: 'IMAGE_POSTGRESQL', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-postgres')
-        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-pgbouncer')
-        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-ppg18-pgbackrest')
+        string(name: 'IMAGE_PGBOUNCER', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pgbouncer18')
+        string(name: 'IMAGE_BACKREST', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-pgbackrest18')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
         string(name: 'IMAGE_PMM3_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:3-dev-latest')
         string(name: 'IMAGE_PMM3_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:3-dev-latest')
         string(name: 'IMAGE_UPGRADE', defaultValue: '', description: 'ex: perconalab/percona-postgresql-operator:main-upgrade')
         string(name: 'GKE_REGION', defaultValue: 'us-central1-c', description: 'GKE region to use for cluster')
-        choice(name: 'SKIP_TEST_WARNINGS', choices: 'false\ntrue', description: 'Skip test warnings that requires release documentation')
+        choice(name: 'SKIP_TEST_WARNINGS', choices: ['false', 'true'], description: 'Skip test warnings that requires release documentation')
     }
     agent {
         label 'docker'
@@ -462,8 +468,20 @@ pipeline {
             archiveArtifacts '*.xml,*.txt'
 
             script {
-                if (currentBuild.result != null && currentBuild.result != 'SUCCESS') {
-                    slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "[$JOB_NAME]: build $currentBuild.result, $BUILD_URL"
+                try {
+                    def sendJobSlack = load "cloud/common/sendJobSlackNotification.groovy"
+                    sendJobSlack.call(
+                        tests: tests,
+                        gitBranch: GIT_BRANCH,
+                        platformVer: PLATFORM_VER,
+                        gkeReleaseChannel: GKE_RELEASE_CHANNEL,
+                        clusterWide: CLUSTER_WIDE,
+                        image: IMAGE_POSTGRESQL,
+                        operatorImage: IMAGE_OPERATOR
+                    )
+
+                } catch (err) {
+                    echo "Slack helper load/call failed: ${err}"
                 }
 
                 clusters.each { shutdownCluster(it) }

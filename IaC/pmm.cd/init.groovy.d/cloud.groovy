@@ -1,6 +1,6 @@
 import com.amazonaws.services.ec2.model.InstanceType
 import hudson.model.*
-import hudson.plugins.ec2.AmazonEC2Cloud
+import hudson.plugins.ec2.EC2Cloud
 import hudson.plugins.ec2.EC2Tag
 import hudson.plugins.ec2.SlaveTemplate
 import hudson.plugins.ec2.SpotConfiguration
@@ -140,7 +140,7 @@ initMap['rpmMap'] = '''
     if [[ $SYSREL -ge 10 ]]; then
         PKGLIST="tar coreutils java-21-openjdk-headless tzdata-java"
     elif [[ $SYSREL -ge 8 ]]; then
-        PKGLIST="tar coreutils java-11-openjdk tzdata-java"
+        PKGLIST="tar coreutils java-17-openjdk-headless tzdata-java"
     fi
 
     if [[ ${RHVER} -eq 8 ]]; then
@@ -194,13 +194,11 @@ initMap['debMap'] = '''
 
     if [ "${DEB_VERSION}" == "trixie" ]; then
         JDK_PACKAGE="openjdk-21-jdk-headless"
-    elif [ "${DEB_VERSION}" == "bookworm" ]; then
-        JDK_PACKAGE="openjdk-17-jre-headless"
     else
-        JDK_PACKAGE="openjdk-11-jre-headless"
+        JDK_PACKAGE="openjdk-17-jre-headless"
     fi
 
-    if [ "${DEB_VERSION}" = "bookworm" ] || [ "${DEB_VERSION}" = "trixie" ]; then
+    if [ "${DEB_VERSION}" = "bookworm" ] || [ "${DEB_VERSION}" = "bullseye" ] || [ "${DEB_VERSION}" = "trixie" ] || [ "${DEB_VERSION}" = "noble" ]; then
         sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ${JDK_PACKAGE} git
         sudo mv /etc/ssl /etc/ssl_old
         sudo DEBIAN_FRONTEND=noninteractive apt-get -y install ${JDK_PACKAGE}
@@ -397,8 +395,8 @@ SlaveTemplate getTemplate(String OSType, String AZ) {
 
 String privateKey = ''
 jenkins.clouds.each {
-    if (it.hasProperty('cloudName') && it['cloudName'] == 'AWS-Dev b') {
-        privateKey = it['privateKey']
+    if (it.hasProperty('name') && it.name == 'AWS-Dev b') {
+        privateKey = it.privateKey
     }
 }
 
@@ -407,7 +405,7 @@ String sshKeysCredentialsId = '9498028f-01d9-4066-b45c-6c813d51d11b'
 String region = 'us-east-2'
 ('b'..'c').each {
     // https://github.com/jenkinsci/ec2-plugin/blob/ec2-1.41/src/main/java/hudson/plugins/ec2/AmazonEC2Cloud.java
-    AmazonEC2Cloud ec2Cloud = new AmazonEC2Cloud(
+    EC2Cloud ec2Cloud = new EC2Cloud(
         "AWS-Dev ${it}",                        // String cloudName
         true,                                   // boolean useInstanceProfileForCredentials
         '',                                     // String credentialsId
@@ -441,7 +439,7 @@ String region = 'us-east-2'
 
     // add cloud configuration to Jenkins
     jenkins.clouds.each {
-        if (it.hasProperty('cloudName') && it['cloudName'] == ec2Cloud['cloudName']) {
+        if (it.hasProperty('name') && it.name == ec2Cloud.name) {
             jenkins.clouds.remove(it)
         }
     }

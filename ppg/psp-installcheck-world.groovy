@@ -15,12 +15,12 @@ pipeline {
             choices: ppgOperatingSystemsALL()
         )
         string(
-            defaultValue: '18.1',
+            defaultValue: '18.3',
             description: 'Server PG version for test, including major and minor version, e.g 17.4, 17.3',
             name: 'VERSION'
         )
         string(
-            defaultValue: '18.1.1',
+            defaultValue: '18.3.1',
             description: 'Server PG version for test, including major and minor version, e.g 17.6.1',
             name: 'PERCONA_SERVER_VERSION'
         )
@@ -70,7 +70,6 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
-        disableConcurrentBuilds()
     }
     stages {
         stage('Set build name') {
@@ -125,8 +124,11 @@ pipeline {
     post {
         always {
             script {
-                if (env.DESTROY_ENV) {
+                if (params.DESTROY_ENV) {
+                    echo "DESTROY_ENV is true. Cleaning up resources..."
                     moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                } else {
+                    echo "DESTROY_ENV is false. Leaving VMs active for debugging."
                 }
             }
         }

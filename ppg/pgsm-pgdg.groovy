@@ -25,7 +25,7 @@ pipeline {
             name: 'PGSM_BRANCH'
         )
         string(
-            defaultValue: 'ppg-18.0',
+            defaultValue: 'ppg-18.3',
             description: 'PGDG Server PG version for test, including major and minor version, e.g pg-16.2, pg-15.5',
             name: 'VERSION'
         )
@@ -41,7 +41,6 @@ pipeline {
     }
     options {
         withCredentials(moleculeDistributionJenkinsCreds())
-        disableConcurrentBuilds()
     }
     stages {
         stage('Set build name') {
@@ -96,8 +95,11 @@ pipeline {
     post {
         always {
             script {
-                if (env.DESTROY_ENV == "yes") {
+                if (params.DESTROY_ENV) {
+                    echo "DESTROY_ENV is true. Cleaning up resources..."
                     moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                } else {
+                    echo "DESTROY_ENV is false. Leaving VMs active for debugging."
                 }
             }
         }

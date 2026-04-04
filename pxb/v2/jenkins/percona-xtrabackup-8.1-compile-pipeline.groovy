@@ -1,3 +1,12 @@
+// Default to Hetzner
+String LABEL = 'docker-x64'
+String MICRO_LABEL = 'launcher-x64'
+
+if (params.CLOUD == 'AWS') {
+    LABEL = 'docker-32gb'
+    MICRO_LABEL = 'micro-amazon'
+}
+
 pipeline {
     parameters {
         string(
@@ -27,12 +36,12 @@ pipeline {
             description: 'make options, like VERBOSE=1',
             name: 'MAKE_OPTS')
         choice(
-            choices: 'docker-32gb\ndocker',
-            description: 'Run build on specified instance type',
-            name: 'LABEL')
+            choices: 'Hetzner\nAWS',
+            description: 'Host provider for Jenkins workers',
+            name: 'CLOUD')
     }
     agent {
-        label 'micro-amazon'
+        label MICRO_LABEL
     }
     options {
         skipDefaultCheckout()
@@ -50,7 +59,7 @@ pipeline {
                     }
                     sh 'echo Prepare: \$(date -u "+%s")'
                     echo 'Checking Percona XtraBackup branch version, JEN-913 prevent wrong version run'
-                    sh '''
+                    sh '''#!/bin/bash
                         MY_BRANCH_BASE_MAJOR=8
                         MY_BRANCH_BASE_MINOR=0
                         RAW_VERSION_LINK=$(echo ${GIT_REPO%.git} | sed -e "s:github.com:raw.githubusercontent.com:g")
@@ -66,7 +75,7 @@ pipeline {
                     '''
                     git branch: 'master', url: 'https://github.com/Percona-Lab/jenkins-pipelines'
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: '24e68886-c552-4033-8503-ed85bbaa31f3', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                        sh '''
+                        sh '''#!/bin/bash
                             # sudo is needed for better node recovery after compilation failure
                             # if building failed on compilation stage directory will have files owned by docker user
                             sudo git reset --hard
@@ -113,7 +122,7 @@ pipeline {
             }
         }
         stage('Archive Build') {
-            agent { label 'micro-amazon' }
+            agent { label MICRO_LABEL }
             steps {
                 timeout(time: 60, unit: 'MINUTES')  {
                     retry(3) {
