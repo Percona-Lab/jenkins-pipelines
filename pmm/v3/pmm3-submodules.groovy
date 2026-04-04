@@ -222,10 +222,6 @@ pipeline {
                         export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${SHORTENED_COMMIT}
                         export DOCKERFILE=Dockerfile.el9
 
-                        DOCKERFILE_PATH="tmp/source/pmm/build/docker/server/${DOCKERFILE}"
-                        awk 'NR==9 { print "ENV PMM_ENABLE_TELEMETRY=0" } { print }' "${DOCKERFILE_PATH}" > "${DOCKERFILE_PATH}.tmp"
-                        mv "${DOCKERFILE_PATH}.tmp" "${DOCKERFILE_PATH}"
-
                         ${PATH_TO_SCRIPTS}/build-server-docker
                     '''
                 }
