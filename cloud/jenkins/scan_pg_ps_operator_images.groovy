@@ -1,12 +1,13 @@
-void checkImagesForDocker(String imagesListPath) {
+void checkImagesForDocker(String imagesListPath, String operatorFamily) {
     withCredentials([usernamePassword(credentialsId: 'hub.docker.com', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
         sh """
             IMAGES_LIST_PATH='${imagesListPath}'
+            OP_FAMILY='${operatorFamily}'
 
             while IFS= read -r IMAGE || [ -n "\$IMAGE" ]; do
                 [ -z "\$IMAGE" ] && continue
                 IMAGE_ID=\$(echo "\$IMAGE" | sed 's#[/:]#-#g')
-                TrivyLog="$WORKSPACE/trivy-hight-\${IMAGE_ID}.xml"
+                TrivyLog="$WORKSPACE/trivy-hight-\${OP_FAMILY}-\${IMAGE_ID}.xml"
 
                 sg docker -c "
                     echo "\$PASS" | docker login -u "\$USER" --password-stdin
@@ -15,10 +16,10 @@ void checkImagesForDocker(String imagesListPath) {
                 "
             done < "\$IMAGES_LIST_PATH"
 
-            for REPORT in trivy-hight-*.xml; do
+            for REPORT in "$WORKSPACE"/trivy-hight-\${OP_FAMILY}-*.xml; do
                 [ -f "\$REPORT" ] || continue
-                IMAGE_ID=\$(basename "\$REPORT" .xml | sed 's/^trivy-hight-//')
-                perl -pi -e 's/<testcase classname="/<testcase classname="'"\$IMAGE_ID"' :: /g; s/<testcase name="/<testcase name="'"\$IMAGE_ID"' :: /g' "\$REPORT"
+                IMAGE_ID=\$(basename "\$REPORT" .xml | sed "s/^trivy-hight-\${OP_FAMILY}-//")
+                perl -pi -e 's/<testcase classname="/<testcase classname="'"\$OP_FAMILY"' :: '"\$IMAGE_ID"' :: /g; s/<testcase name="/<testcase name="'"\$OP_FAMILY"' :: '"\$IMAGE_ID"' :: /g' "\$REPORT"
             done
         """
     }
@@ -51,7 +52,15 @@ String getTrivyCveSummary(String reportGlob) {
         def report = readFile(file.path)
         int imageHighCount = report.split('\\[HIGH\\]', -1).size() - 1
         int imageCriticalCount = report.split('\\[CRITICAL\\]', -1).size() - 1
-        String imageName = file.name.replaceFirst('^trivy-hight-', '').replaceFirst('\\.xml$', '')
+        String stripped = file.name.replaceFirst('^trivy-hight-', '').replaceFirst('\\.xml$', '')
+        String imageName
+        if (stripped.startsWith('PG-')) {
+            imageName = "[PostgreSQL operator] ${stripped.substring(3)}"
+        } else if (stripped.startsWith('PS-')) {
+            imageName = "[MySQL PS operator] ${stripped.substring(3)}"
+        } else {
+            imageName = stripped
+        }
 
         highCount += imageHighCount
         criticalCount += imageCriticalCount
@@ -119,21 +128,33 @@ pipeline {
                     set -euo pipefail
                     BASE='${params.CHECK_SERVICE_BASE}'
                     PG_PIN='${params.PG_OPERATOR_VER}'
-                    json=\$(curl -fsS "\${BASE}/pg-operator")
+                    URL="\${BASE}/pg-operator"
+                    tmp=\$(mktemp)
+                    trap 'rm -f "\$tmp"' EXIT
+                    curl -fsS "\$URL" -o "\$tmp"
+                    count=\$(jq '.versions | length' "\$tmp")
+                    if [ "\$count" -eq 0 ]; then
+                        echo "ERROR: Check Service returned no versions (GET \$URL)." >&2
+                        exit 1
+                    fi
                     if [ -n "\$PG_PIN" ]; then
                         ver="\$PG_PIN"
                     else
-                        ver=\$(echo "\$json" | jq -r '.versions[].operator' | sort -V | tail -n1)
+                        ver=\$(jq -r '.versions[].operator' "\$tmp" | sort -V | tail -n1)
+                    fi
+                    if [ -z "\$ver" ]; then
+                        echo "ERROR: empty operator version (GET \$URL)." >&2
+                        exit 1
                     fi
                     echo "product=pg-operator operator_version=\${ver}" >&2
-                    echo "\$json" | jq -r --arg v "\$ver" '
+                    jq -r --arg v "\$ver" '
                         .versions[]
                         | select(.operator == \$v)
                         | .matrix
                         | .. | objects
                         | select(has("imagePath") and .status == "recommended")
                         | .imagePath
-                    ' | sort -u > list-of-pg-images.txt
+                    ' "\$tmp" | sort -u > list-of-pg-images.txt
                     echo "--- PG images to scan (\$(wc -l < list-of-pg-images.txt)) ---" >&2
                     cat list-of-pg-images.txt >&2
                 """
@@ -146,21 +167,33 @@ pipeline {
                     set -euo pipefail
                     BASE='${params.CHECK_SERVICE_BASE}'
                     PS_PIN='${params.PS_OPERATOR_VER}'
-                    json=\$(curl -fsS "\${BASE}/ps-operator")
+                    URL="\${BASE}/ps-operator"
+                    tmp=\$(mktemp)
+                    trap 'rm -f "\$tmp"' EXIT
+                    curl -fsS "\$URL" -o "\$tmp"
+                    count=\$(jq '.versions | length' "\$tmp")
+                    if [ "\$count" -eq 0 ]; then
+                        echo "ERROR: Check Service returned no versions (GET \$URL)." >&2
+                        exit 1
+                    fi
                     if [ -n "\$PS_PIN" ]; then
                         ver="\$PS_PIN"
                     else
-                        ver=\$(echo "\$json" | jq -r '.versions[].operator' | sort -V | tail -n1)
+                        ver=\$(jq -r '.versions[].operator' "\$tmp" | sort -V | tail -n1)
+                    fi
+                    if [ -z "\$ver" ]; then
+                        echo "ERROR: empty operator version (GET \$URL)." >&2
+                        exit 1
                     fi
                     echo "product=ps-operator operator_version=\${ver}" >&2
-                    echo "\$json" | jq -r --arg v "\$ver" '
+                    jq -r --arg v "\$ver" '
                         .versions[]
                         | select(.operator == \$v)
                         | .matrix
                         | .. | objects
                         | select(has("imagePath") and .status == "recommended")
                         | .imagePath
-                    ' | sort -u > list-of-ps-images.txt
+                    ' "\$tmp" | sort -u > list-of-ps-images.txt
                     echo "--- PS images to scan (\$(wc -l < list-of-ps-images.txt)) ---" >&2
                     cat list-of-ps-images.txt >&2
                 """
@@ -169,13 +202,13 @@ pipeline {
 
         stage('Trivy scan PG operator images') {
             steps {
-                checkImagesForDocker('list-of-pg-images.txt')
+                checkImagesForDocker('list-of-pg-images.txt', 'PG')
             }
         }
 
         stage('Trivy scan PS operator images') {
             steps {
-                checkImagesForDocker('list-of-ps-images.txt')
+                checkImagesForDocker('list-of-ps-images.txt', 'PS')
             }
         }
     }
