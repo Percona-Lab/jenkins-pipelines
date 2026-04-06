@@ -1,5 +1,5 @@
 def call(String CLOUD_NAME, String FOLDER_NAME, String AWS_STASH_PATH) {
-    def nodeLabel = (CLOUD_NAME == 'Hetzner') ? 'launcher-x64' : 'micro-amazon'
+    def nodeLabel = (CLOUD_NAME == 'Hetzner') ? 'docker-x64-min' : 'micro-amazon'
     node(nodeLabel) {
         deleteDir()
         popArtifactFolder(CLOUD_NAME, FOLDER_NAME, AWS_STASH_PATH)
