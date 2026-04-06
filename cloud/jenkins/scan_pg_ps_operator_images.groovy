@@ -107,6 +107,8 @@ pipeline {
                     if [ ! -f /tmp/junit.tpl ]; then
                         wget -q --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
                     fi
+
+                    sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
                 """
             }
         }
