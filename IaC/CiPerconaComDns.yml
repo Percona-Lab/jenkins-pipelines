@@ -1,0 +1,50 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  DNS records for ci.percona.com (internal signing and build infrastructure).
+  The ci.percona.com hosted zone was created manually in Route53
+  (Z054000137840MI1QV5CT) and requires NS delegation from the percona.com
+  zone owner. This stack manages only the A records, not the zone itself.
+
+Parameters:
+  ZoneId:
+    Description: Route53 hosted zone ID for ci.percona.com
+    Type: AWS::Route53::HostedZone::Id
+    Default: Z054000137840MI1QV5CT
+
+Resources:
+  RepoRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref ZoneId
+      Name: repo.ci.percona.com.
+      Type: A
+      TTL: 300
+      ResourceRecords:
+        - 10.30.6.9
+
+  VboxRecord:
+    Type: AWS::Route53::RecordSet
+    Properties:
+      HostedZoneId: !Ref ZoneId
+      Name: vbox-01.ci.percona.com.
+      Type: A
+      TTL: 300
+      ResourceRecords:
+        - 10.30.6.220
+
+Outputs:
+  RepoHost:
+    Description: Signing server hostname
+    Value: repo.ci.percona.com
+  RepoIp:
+    Description: Signing server IP
+    Value: 10.30.6.9
+  VboxHost:
+    Description: Legacy VirtualBox host
+    Value: vbox-01.ci.percona.com
+  VboxIp:
+    Description: Legacy VirtualBox IP
+    Value: 10.30.6.220
+  ZoneId:
+    Description: ci.percona.com hosted zone ID
+    Value: !Ref ZoneId
