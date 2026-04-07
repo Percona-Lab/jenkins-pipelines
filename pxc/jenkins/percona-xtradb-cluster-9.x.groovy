@@ -86,7 +86,7 @@ pipeline {
             description: 'Enable fipsmode',
             name: 'FIPSMODE')
         choice(
-            choices: 'YES\nNO',
+            choices: 'NO\nYES',
             description: 'Experimental packages only',
             name: 'EXPERIMENTALMODE')
         choice(
@@ -481,6 +481,52 @@ pipeline {
                                 buildStage("debian:bookworm", "--build_deb=1 --enable_fipsmode=1")
                             } else {
                                 buildStage("debian:bookworm", "--build_deb=1")
+                            }
+
+                            stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Debian Trixie(13)') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            unstash 'pxc-9x.properties'
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("debian:trixie", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:trixie", "--build_deb=1")
+                            }
+
+                            stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
+                            if (env.EXPERIMENTALMODE == 'NO') {
+                                pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
+                                uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
+                            }
+                        }
+                    }
+                }
+                stage('Debian Trixie(13) ARM') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
+                    }
+                    steps {
+                        script {
+                            cleanUpWS()
+                            unstash 'pxc-9x.properties'
+                            popArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                            if (env.FIPSMODE == 'YES') {
+                                buildStage("debian:trixie", "--build_deb=1 --enable_fipsmode=1")
+                            } else {
+                                buildStage("debian:trixie", "--build_deb=1")
                             }
 
                             stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
