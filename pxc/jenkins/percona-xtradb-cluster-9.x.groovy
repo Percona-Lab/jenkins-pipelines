@@ -318,9 +318,6 @@ pipeline {
                     }
                 }
                 stage('Amazon Linux 2023') {
-                    when {
-                        expression { env.FIPSMODE == 'YES' }
-                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
@@ -329,7 +326,7 @@ pipeline {
                             cleanUpWS()
                             unstash 'pxc-9x.properties'
                             popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                            buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            buildStage("amazonlinux:2023", "--build_rpm=1")
 
                             stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
                             if (env.EXPERIMENTALMODE == 'NO') {
@@ -340,9 +337,6 @@ pipeline {
                     }
                 }
                 stage('Amazon Linux 2023 ARM') {
-                    when {
-                        expression { env.FIPSMODE == 'YES' }
-                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-aarch64' : 'docker-32gb-aarch64'
                     }
@@ -351,7 +345,7 @@ pipeline {
                             cleanUpWS()
                             unstash 'pxc-9x.properties'
                             popArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                            buildStage("amazonlinux:2023", "--build_rpm=1 --enable_fipsmode=1")
+                            buildStage("amazonlinux:2023", "--build_rpm=1")
 
                             stash includes: 'test/pxc-9x.properties', name: 'pxc-9x.properties'
                             if (env.EXPERIMENTALMODE == 'NO') {
