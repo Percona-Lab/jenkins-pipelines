@@ -79,6 +79,7 @@ initMap = [:]
 initMap['fedora-docker'] = '''#!/bin/bash -x
     set -o xtrace
     echo -e "nameserver 9.9.9.9\nnameserver 1.1.1.1" | sudo tee /etc/resolv.conf
+    echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
     ( sudo systemctl stop sshd; sleep 300; sudo systemctl start sshd ) &
     sudo install -o $(id -u -n) -g $(id -g -n) -d /mnt/jenkins
     sudo fallocate -l 32G /swapfile
