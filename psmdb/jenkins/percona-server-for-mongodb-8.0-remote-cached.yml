@@ -1,0 +1,17 @@
+- job:
+    name: hetzner-psmdb80-autobuild-RELEASE-remote-cached
+    project-type: pipeline
+    description: |
+        PSMDB 8.0 release build with pre-baked Docker images and bazel-remote
+        HTTP cache (lazy fetch from S3). Coexists with the disk-cache pipeline;
+        use this one when testing remote-cache performance.
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'cache_tests'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: psmdb/jenkins/percona-server-for-mongodb-8.0-remote-cached.groovy

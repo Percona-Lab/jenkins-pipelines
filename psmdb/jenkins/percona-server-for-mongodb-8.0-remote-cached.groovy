@@ -38,7 +38,15 @@ String getOSPrefix(String dockerOS) {
 }
 
 @Field def S3_CREDENTIALS = 'AWS_STASH'
-@Field def LOCAL_CACHE = '/mnt/bazel-disk-cache'
+// bazel-remote config: single binary, downloaded at runtime inside the build
+// container, started in background, reached via http://127.0.0.1:8080.
+// Bazel fetches only the blobs it actually needs (lazy) instead of pre-syncing
+// the entire disk cache.
+@Field def BAZEL_REMOTE_VERSION = 'v2.6.1'
+@Field def BAZEL_REMOTE_PORT = '8080'
+@Field def BAZEL_REMOTE_BUCKET = 'percona-jenkins-artifactory'
+@Field def BAZEL_REMOTE_PREFIX_ROOT = 'bazel-remote'
+@Field def BAZEL_REMOTE_MAX_SIZE_GB = '10'
 
 // Relocate containerd data-root from root partition to /mnt to fix
 // "no space left on device" when pulling large pre-built images.
@@ -78,32 +86,76 @@ void prepareContainerd() {
     '''
 }
 
-// Download Bazel disk cache from S3 before build
-void downloadCache(String branch, String dockerOS, String arch) {
+// Container-side path where the host credentials file is mounted read-only.
+@Field def BAZEL_REMOTE_CREDS_CONTAINER_PATH = '/bazel-remote-creds/credentials'
+
+// Build the shell snippet that starts bazel-remote inside the build container.
+// NOTE: this snippet is embedded inside an outer `sh -c "..."` double-quoted
+// argument. That outer double-quoted context would expand any `$!` or
+// `${VAR}` references at the outer bash layer (where they're empty), and any
+// embedded `"` would break the outer quoting and cause word splitting. So
+// this snippet deliberately:
+//   - Does NOT track a PID (no `$!`, no `${PID}`)
+//   - Does NOT use embedded double quotes in echoes
+//   - Relies solely on the HTTP /status endpoint to confirm liveness
+//
+// AWS credentials: bazel-remote uses --s3.auth_method=aws_credentials_file
+// and reads from a file mounted read-only into the container. The file is
+// written on the host inside a withCredentials block in buildStage() — keys
+// never appear on a command line or as container env vars.
+String bazelRemoteStartSnippet(String branch, String dockerOS, String arch) {
     def cachePrefix = getCachePrefix(branch)
     def osPrefix = getOSPrefix(dockerOS)
-    def S3_CACHE_PATH = "s3://percona-jenkins-artifactory/bazel-cache/${cachePrefix}/${osPrefix}/${arch}/disk-cache"
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: S3_CREDENTIALS, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            sudo mkdir -p ${LOCAL_CACHE} && sudo chmod 777 ${LOCAL_CACHE}
-            echo "Downloading Bazel cache from ${S3_CACHE_PATH}/ ..."
-            aws s3 sync ${S3_CACHE_PATH}/ ${LOCAL_CACHE}/ --quiet --no-progress 2>/dev/null || echo "No existing cache (first run)"
-            echo "Local cache: \$(du -sh ${LOCAL_CACHE} 2>/dev/null | cut -f1 || echo '0')"
-        """
-    }
+    def s3Prefix = "${BAZEL_REMOTE_PREFIX_ROOT}/${cachePrefix}/${osPrefix}/${arch}"
+    def binUrl = "https://github.com/buchgr/bazel-remote/releases/download/${BAZEL_REMOTE_VERSION}/bazel-remote-${BAZEL_REMOTE_VERSION.replace('v','')}-linux-amd64"
+    return """
+                echo === Starting bazel-remote S3 prefix ${s3Prefix} ===
+                if [ ! -x /tmp/bazel-remote ]; then
+                    curl -fsSL -o /tmp/bazel-remote ${binUrl}
+                    chmod +x /tmp/bazel-remote
+                fi
+                mkdir -p /tmp/bazel-remote-data
+                /tmp/bazel-remote \\
+                    --dir=/tmp/bazel-remote-data \\
+                    --max_size=${BAZEL_REMOTE_MAX_SIZE_GB} \\
+                    --http_address=127.0.0.1:${BAZEL_REMOTE_PORT} \\
+                    --s3.endpoint=s3.amazonaws.com \\
+                    --s3.bucket=${BAZEL_REMOTE_BUCKET} \\
+                    --s3.prefix=${s3Prefix} \\
+                    --s3.auth_method=aws_credentials_file \\
+                    --s3.aws_shared_credentials_file=${BAZEL_REMOTE_CREDS_CONTAINER_PATH} \\
+                    --s3.aws_profile=default \\
+                    > /tmp/bazel-remote.log 2>&1 &
+                for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+                    if curl -fs http://127.0.0.1:${BAZEL_REMOTE_PORT}/status >/dev/null 2>&1; then
+                        echo bazel-remote is healthy
+                        break
+                    fi
+                    sleep 1
+                done
+                if ! curl -fs http://127.0.0.1:${BAZEL_REMOTE_PORT}/status >/dev/null 2>&1; then
+                    echo ERROR bazel-remote failed to start
+                    cat /tmp/bazel-remote.log
+                    exit 1
+                fi
+
+                echo === bazel-remote status BEFORE build ===
+                curl -s http://127.0.0.1:${BAZEL_REMOTE_PORT}/status 2>/dev/null || true
+                echo
+                echo === bazel-remote metrics BEFORE build ===
+                curl -s http://127.0.0.1:${BAZEL_REMOTE_PORT}/metrics 2>/dev/null | grep -E bazel_remote_ | head -30 || true
+    """
 }
 
-// Upload Bazel disk cache to S3 after build
-void uploadCache(String branch, String dockerOS, String arch) {
-    def cachePrefix = getCachePrefix(branch)
-    def osPrefix = getOSPrefix(dockerOS)
-    def S3_CACHE_PATH = "s3://percona-jenkins-artifactory/bazel-cache/${cachePrefix}/${osPrefix}/${arch}/disk-cache"
-    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: S3_CREDENTIALS, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            echo "Uploading Bazel cache to ${S3_CACHE_PATH}/ ..."
-            aws s3 sync ${LOCAL_CACHE}/ ${S3_CACHE_PATH}/ --quiet --no-progress
-        """
-    }
+// Helper snippet: print bazel-remote stats AFTER a build to see hit/miss counts.
+String bazelRemoteStatsSnippet() {
+    return """
+                echo === bazel-remote status AFTER build ===
+                curl -s http://127.0.0.1:${BAZEL_REMOTE_PORT}/status 2>/dev/null || true
+                echo
+                echo === bazel-remote metrics AFTER build ===
+                curl -s http://127.0.0.1:${BAZEL_REMOTE_PORT}/metrics 2>/dev/null | grep -E bazel_remote_ | head -50 || true
+    """
 }
 
 // Stages that invoke Bazel and therefore benefit from the disk cache.
@@ -125,53 +177,81 @@ void buildStage(String DOCKER_OS, String STAGE_PARAM) {
     def usesBazel = stageUsesBazel(STAGE_PARAM)
 
     echo "Stage image: ${image} (${usePrebuilt ? 'pre-built' : 'bare OS + install_deps'})"
+    echo "Cache mode: ${usesBazel ? 'bazel-remote (lazy fetch from S3)' : 'none'}"
 
     // Step 0: Relocate containerd data-root to /mnt (always — docker pull is heavy)
     prepareContainerd()
 
-    // Step 1: Download cache from S3 (only for Bazel-consuming stages)
-    if (usesBazel) {
-        echo "Stage uses Bazel (${STAGE_PARAM}) — syncing disk cache from S3"
-        downloadCache(GIT_BRANCH, DOCKER_OS, arch)
-    } else {
-        echo "Stage does not use Bazel (${STAGE_PARAM}) — skipping cache download"
-    }
-
-    // Conditionally build the cache-mount docker args. Empty for non-Bazel stages.
-    def cacheDockerArgs = usesBazel ? "-e BAZEL_DISK_CACHE=/cache/bazel -v ${LOCAL_CACHE}:/cache/bazel" : ""
     // Skip install_deps for pre-built images (deps already baked in); run it for bare OS.
     def installDepsCmd = usePrebuilt ? '' : "bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1"
+    // Start bazel-remote only for Bazel-consuming stages.
+    def bazelRemoteStart = usesBazel ? bazelRemoteStartSnippet(GIT_BRANCH, DOCKER_OS, arch) : ''
+    // Print cache stats AFTER the build so we can see hit/miss counts in the log.
+    def bazelRemoteStats = usesBazel ? bazelRemoteStatsSnippet() : ''
+    // Set BAZEL_REMOTE_CACHE env so psmdb_builder.sh / spec / debian/rules add --remote_cache=...
+    def bazelRemoteEnv = usesBazel ? "-e BAZEL_REMOTE_CACHE=http://127.0.0.1:${BAZEL_REMOTE_PORT}" : ""
+    // Host-side credentials file that gets mounted read-only into the container.
+    // Matches the withCredentials pattern used by the disk-cache warmup pipeline.
+    def credsHostDir = "${env.WORKSPACE}/.bazel-remote-creds"
+    def credsMount = usesBazel ? "-v ${credsHostDir}:/bazel-remote-creds:ro" : ""
 
-    try {
-        sh """
-            set -o xtrace
-            ls -laR ./
-            # Backup properties file if it exists
-            if [ -f test/percona-server-mongodb-80.properties ]; then
-                cp test/percona-server-mongodb-80.properties percona-server-mongodb-80.properties.backup
-            fi
-            rm -rf test/*
-            mkdir -p test
-            # Restore properties file if it was backed up
-            if [ -f percona-server-mongodb-80.properties.backup ]; then
-                mv percona-server-mongodb-80.properties.backup test/percona-server-mongodb-80.properties
-            fi
-            wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-packaging/scripts/psmdb_builder.sh -O psmdb_builder.sh
-            pwd -P
-            ls -laR
-            export build_dir=\$(pwd -P)
-            docker run -u root \
-                ${cacheDockerArgs} \
-                -v \${build_dir}:\${build_dir} ${image} sh -c "
-                set -o xtrace
-                cd \${build_dir}
-                ${installDepsCmd}
-                bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
-        """
-    } finally {
-        // Step 3: Upload updated cache back to S3 (only for Bazel-consuming stages)
+    withCredentials([[
+        $class: 'AmazonWebServicesCredentialsBinding',
+        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+        credentialsId: S3_CREDENTIALS,
+        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+    ]]) {
+        // Write AWS credentials to host file (only for Bazel stages that need them).
+        // set +x keeps the values out of xtrace; Jenkins masks them in console regardless.
         if (usesBazel) {
-            uploadCache(GIT_BRANCH, DOCKER_OS, arch)
+            sh '''
+                set +x
+                mkdir -p "${WORKSPACE}/.bazel-remote-creds"
+                chmod 700 "${WORKSPACE}/.bazel-remote-creds"
+                umask 077
+                cat > "${WORKSPACE}/.bazel-remote-creds/credentials" <<EOF
+[default]
+aws_access_key_id = ${AWS_ACCESS_KEY_ID}
+aws_secret_access_key = ${AWS_SECRET_ACCESS_KEY}
+EOF
+                chmod 600 "${WORKSPACE}/.bazel-remote-creds/credentials"
+                set -x
+            '''
+        }
+        try {
+            sh """
+                set -o xtrace
+                ls -laR ./
+                # Backup properties file if it exists
+                if [ -f test/percona-server-mongodb-80.properties ]; then
+                    cp test/percona-server-mongodb-80.properties percona-server-mongodb-80.properties.backup
+                fi
+                rm -rf test/*
+                mkdir -p test
+                # Restore properties file if it was backed up
+                if [ -f percona-server-mongodb-80.properties.backup ]; then
+                    mv percona-server-mongodb-80.properties.backup test/percona-server-mongodb-80.properties
+                fi
+                wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-packaging/scripts/psmdb_builder.sh -O psmdb_builder.sh
+                pwd -P
+                ls -laR
+                export build_dir=\$(pwd -P)
+                docker run -u root \
+                    ${bazelRemoteEnv} \
+                    ${credsMount} \
+                    -v \${build_dir}:\${build_dir} ${image} sh -c "
+                    set -o xtrace
+                    cd \${build_dir}
+                    ${installDepsCmd}
+                    ${bazelRemoteStart}
+                    bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}
+                    ${bazelRemoteStats}"
+            """
+        } finally {
+            // Scrub the credentials file from the host.
+            if (usesBazel) {
+                sh(script: "rm -rf ${credsHostDir}", returnStatus: true)
+            }
         }
     }
 }

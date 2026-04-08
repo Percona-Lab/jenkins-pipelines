@@ -1,15 +1,16 @@
 - job:
-    name: hetzner-psmdb80-autobuild-RELEASE
+    name: hetzner-psmdb80-autobuild-RELEASE-cached
     project-type: pipeline
     description: |
+        PSMDB 8.0 release build with pre-baked Docker images and S3 Bazel cache.
         Do not edit this job through the web!
     pipeline-scm:
       scm:
         - git:
             url: https://github.com/Percona-Lab/jenkins-pipelines.git
             branches:
-            - 'hetzner'
+            - 'cache_tests'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: psmdb/jenkins/percona-server-for-mongodb-8.0.groovy
+      script-path: psmdb/jenkins/percona-server-for-mongodb-8.0-cached.groovy
 

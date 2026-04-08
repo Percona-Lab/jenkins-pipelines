@@ -1,0 +1,23 @@
+- job:
+    name: psmdb80-remote-cache-warmup
+    project-type: pipeline
+    description: |
+        Nightly Bazel REMOTE cache warm-up for PSMDB 8.0 using bazel-remote.
+        Runs a full build on each platform with bazel-remote pointed at
+        s3://percona-jenkins-artifactory/bazel-remote/... — the build itself
+        populates S3 as it compiles. No pre-download / post-upload sync.
+        Coexists with psmdb80-cache-warmup (disk-cache); use this one once
+        the remote-cached build pipeline is the primary path.
+        Skips if HEAD commit matches the last-warmed marker.
+        Do not edit this job through the web!
+    triggers:
+      - timed: "0 0 * * *"
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'cache_tests'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: psmdb/jenkins/percona-server-for-mongodb-8.0-remote-cache-warmup.groovy

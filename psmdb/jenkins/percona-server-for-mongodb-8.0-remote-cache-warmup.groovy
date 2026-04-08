@@ -59,7 +59,7 @@ String checkCacheStatus(String repo, String branch, String cachePrefix) {
     def lastWarmed
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: S3_CREDENTIALS, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
         lastWarmed = sh(
-            script: "aws s3 cp s3://percona-jenkins-artifactory/bazel-cache/${cachePrefix}/.last-warmed-commit - 2>/dev/null || echo 'none'",
+            script: "aws s3 cp s3://${BAZEL_REMOTE_BUCKET}/${BAZEL_REMOTE_PREFIX_ROOT}/${cachePrefix}/.last-warmed-commit - 2>/dev/null || echo 'none'",
             returnStdout: true
         ).trim()
     }
@@ -76,6 +76,14 @@ String checkCacheStatus(String repo, String branch, String cachePrefix) {
 
 // Jenkins credential ID for S3 cache access
 @Field def S3_CREDENTIALS = 'AWS_STASH'
+// bazel-remote config — matches the remote-cached build pipeline so both
+// read/write the same S3 prefix. Each platform has its own sub-prefix so
+// commits across platforms don't poison each other's cache.
+@Field def BAZEL_REMOTE_VERSION = 'v2.6.1'
+@Field def BAZEL_REMOTE_PORT = '8080'
+@Field def BAZEL_REMOTE_BUCKET = 'percona-jenkins-artifactory'
+@Field def BAZEL_REMOTE_PREFIX_ROOT = 'bazel-remote'
+@Field def BAZEL_REMOTE_MAX_SIZE_GB = '10'
 
 // Relocate containerd data-root from root partition to /mnt to fix
 // "no space left on device" when pulling large pre-built images.
@@ -115,91 +123,143 @@ void prepareContainerd() {
     '''
 }
 
-// Warm cache for a single platform
+// Warm cache for a single platform by running a full build with bazel-remote
+// pointed at S3. First run = cold compile uploads everything. Subsequent runs
+// = fast (only new blobs get uploaded). No pre-download / post-upload sync —
+// bazel-remote handles it lazily during the build itself.
 void warmPlatform(String branch, String commit, String cachePrefix, String dockerOS, String arch) {
     def osPrefix = getOSPrefix(dockerOS)
     def baseImage = DOCKER_IMAGE_MAP[dockerOS]
     def image = baseImage ? baseImage.replace(':latest', ':latest-amd64') : dockerOS
     def usePrebuilt = (baseImage != null)
-    def S3_CACHE_PATH = "s3://percona-jenkins-artifactory/bazel-cache/${cachePrefix}/${osPrefix}/${arch}"
-    def LOCAL_CACHE = "/mnt/bazel-disk-cache"
+    def s3Prefix = "${BAZEL_REMOTE_PREFIX_ROOT}/${cachePrefix}/${osPrefix}/${arch}"
+    def binUrl = "https://github.com/buchgr/bazel-remote/releases/download/${BAZEL_REMOTE_VERSION}/bazel-remote-${BAZEL_REMOTE_VERSION.replace('v','')}-linux-amd64"
+    // Host-side path for the credentials file that will be mounted into the container.
+    // Jenkins masks the file contents in console output because it's written inside withCredentials.
+    def credsHostDir = "${env.WORKSPACE}/.bazel-remote-creds"
+    def credsHostFile = "${credsHostDir}/credentials"
+    def credsContainerFile = "/bazel-remote-creds/credentials"
 
     // Step 0: Relocate containerd data-root to /mnt (fixes image-pull OOD)
     prepareContainerd()
 
-    // Step 1: Download existing cache from S3
+    // Run the build with bazel-remote as a sidecar INSIDE the container.
+    // Credentials are written to a host-local file inside the withCredentials
+    // block, then mounted read-only into the container. bazel-remote reads them
+    // via --s3.auth_method=aws_credentials_file. Keys never appear on a command
+    // line and are never passed as container env vars.
     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: S3_CREDENTIALS, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-        sh """
-            sudo mkdir -p ${LOCAL_CACHE} && sudo chmod 777 ${LOCAL_CACHE}
-            echo "Downloading cache from ${S3_CACHE_PATH}/ ..."
-            aws s3 sync ${S3_CACHE_PATH}/disk-cache/ ${LOCAL_CACHE}/ --quiet --no-progress 2>/dev/null || echo "No existing cache (first run)"
-            echo "Local cache: \$(du -sh ${LOCAL_CACHE} 2>/dev/null | cut -f1 || echo '0')"
-        """
-    }
-
-    try {
-        // Step 2: Compile with --disk_cache mounted from host
-        def installDepsCmd = usePrebuilt ? '' : 'bash -x percona-packaging/scripts/psmdb_builder.sh --builddir=/tmp/build --install_deps=1 &&'
-        sh """
-            docker run --rm \
-                -v ${LOCAL_CACHE}:/cache/bazel \
-                ${image} \
-                bash -c '
-                    set -ex
-                    cd /tmp
-                    git clone --depth 1 --branch ${branch} ${params.GIT_REPO} psmdb
-                    cd psmdb
-
-                    # Install build dependencies (skipped for pre-built images)
-                    ${installDepsCmd}
-
-                    # Install bazel
-                    python3 buildscripts/install_bazel.py || true
-                    export PATH=/root/.local/bin:\$PATH
-
-                    # Extract version
-                    BRANCH_NAME=${branch}
-                    if echo \${BRANCH_NAME} | grep -q "^release-"; then
-                        PSM_VER=\$(echo \${BRANCH_NAME} | sed "s/release-//")
-                    else
-                        PSM_VER="8.0.0-0"
-                    fi
-                    GIT_HASH=\$(git rev-parse HEAD)
-
-                    # Poetry setup
-                    poetry env use /opt/mongodbtoolchain/v4/bin/python3 2>/dev/null || true
-                    poetry install --no-root --sync 2>/dev/null || true
-
-                    # Compile with local disk cache
-                    bazel build --config=psmdb_opt_release \
-                        --disk_cache=/cache/bazel \
-                        --define=MONGO_VERSION=\${PSM_VER:-8.0.0} \
-                        --define=GIT_COMMIT_HASH=\${GIT_HASH} \
-                        install-dist-test
-                '
-        """
-
-        // Step 3: Upload updated cache back to S3
-        sh """
-            echo "=== Local disk cache after build ==="
-            ls ${LOCAL_CACHE}/ 2>/dev/null | head -20 || echo "EMPTY or not found"
-            du -sh ${LOCAL_CACHE}/ 2>/dev/null || echo "Cannot stat ${LOCAL_CACHE}"
-            echo "=== End cache check ==="
-        """
-        withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: S3_CREDENTIALS, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        // Write creds file on host (set +x keeps the values out of xtrace; Jenkins masks anyway).
+        sh '''
+            set +x
+            mkdir -p "${WORKSPACE}/.bazel-remote-creds"
+            chmod 700 "${WORKSPACE}/.bazel-remote-creds"
+            umask 077
+            cat > "${WORKSPACE}/.bazel-remote-creds/credentials" <<EOF
+[default]
+aws_access_key_id = ${AWS_ACCESS_KEY_ID}
+aws_secret_access_key = ${AWS_SECRET_ACCESS_KEY}
+EOF
+            chmod 600 "${WORKSPACE}/.bazel-remote-creds/credentials"
+            set -x
+        '''
+        try {
+            def installDepsCmd = usePrebuilt ? '' : 'bash -x percona-packaging/scripts/psmdb_builder.sh --builddir=/tmp/build --install_deps=1 &&'
             sh """
-                echo "Uploading cache to ${S3_CACHE_PATH}/disk-cache/ ..."
-                aws s3 sync ${LOCAL_CACHE}/ ${S3_CACHE_PATH}/disk-cache/ --quiet --no-progress
-                echo '${commit}' | aws s3 cp - ${S3_CACHE_PATH}/.last-warmed-commit
-                echo "Cache size on S3: \$(aws s3 ls ${S3_CACHE_PATH}/disk-cache/ --recursive --summarize 2>/dev/null | grep 'Total Size' || echo 'unknown')"
-            """
-        }
-        echo "Cache warmed: ${cachePrefix}/${osPrefix}/${arch} @ ${commit.take(7)}"
+                docker run --rm \
+                    -v ${credsHostDir}:/bazel-remote-creds:ro \
+                    ${image} \
+                    bash -c '
+                        set -ex
+                        cd /tmp
+                        git clone --depth 1 --branch ${branch} ${params.GIT_REPO} psmdb
+                        cd psmdb
 
-    } finally {
-        // Cleanup local cache
-        sh(script: "rm -rf ${LOCAL_CACHE}", returnStatus: true)
+                        # Install build dependencies (skipped for pre-built images)
+                        ${installDepsCmd}
+
+                        # Install bazel
+                        python3 buildscripts/install_bazel.py || true
+                        export PATH=/root/.local/bin:\$PATH
+
+                        # Extract version
+                        BRANCH_NAME=${branch}
+                        if echo \${BRANCH_NAME} | grep -q "^release-"; then
+                            PSM_VER=\$(echo \${BRANCH_NAME} | sed "s/release-//")
+                        else
+                            PSM_VER="8.0.0-0"
+                        fi
+                        GIT_HASH=\$(git rev-parse HEAD)
+
+                        # Poetry setup
+                        poetry env use /opt/mongodbtoolchain/v4/bin/python3 2>/dev/null || true
+                        poetry install --no-root --sync 2>/dev/null || true
+
+                        # Start bazel-remote pointed at S3 with credentials-file auth.
+                        # NOTE: this block is inside an outer bash -c single-quoted arg,
+                        # so shell expansions happen at the INNER shell. Groovy interpolation
+                        # is resolved before the script ever runs. We avoid PID tracking
+                        # and embedded double quotes to keep quoting simple.
+                        echo === Starting bazel-remote S3 prefix ${s3Prefix} ===
+                        if [ ! -x /tmp/bazel-remote ]; then
+                            curl -fsSL -o /tmp/bazel-remote ${binUrl}
+                            chmod +x /tmp/bazel-remote
+                        fi
+                        mkdir -p /tmp/bazel-remote-data
+                        /tmp/bazel-remote \\
+                            --dir=/tmp/bazel-remote-data \\
+                            --max_size=${BAZEL_REMOTE_MAX_SIZE_GB} \\
+                            --http_address=127.0.0.1:${BAZEL_REMOTE_PORT} \\
+                            --s3.endpoint=s3.amazonaws.com \\
+                            --s3.bucket=${BAZEL_REMOTE_BUCKET} \\
+                            --s3.prefix=${s3Prefix} \\
+                            --s3.auth_method=aws_credentials_file \\
+                            --s3.aws_shared_credentials_file=${credsContainerFile} \\
+                            --s3.aws_profile=default \\
+                            > /tmp/bazel-remote.log 2>&1 &
+                        for i in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15; do
+                            if curl -fs http://127.0.0.1:${BAZEL_REMOTE_PORT}/status >/dev/null 2>&1; then
+                                echo bazel-remote is healthy
+                                break
+                            fi
+                            sleep 1
+                        done
+                        if ! curl -fs http://127.0.0.1:${BAZEL_REMOTE_PORT}/status >/dev/null 2>&1; then
+                            echo ERROR bazel-remote failed to start
+                            cat /tmp/bazel-remote.log
+                            exit 1
+                        fi
+
+                        # Compile with remote cache. bazel-remote uploads every new
+                        # blob to S3 during the build, so this IS the warmup.
+                        # Note: --remote_upload_local_results=true overrides the false
+                        # default in .bazelrc.psmdb so locally-built results get pushed
+                        # to the cache. Without this the warmup compiles but uploads nothing.
+                        bazel build --config=psmdb_opt_release \\
+                            --remote_cache=http://127.0.0.1:${BAZEL_REMOTE_PORT} \\
+                            --remote_upload_local_results=true \\
+                            --define=MONGO_VERSION=\${PSM_VER:-8.0.0} \\
+                            --define=GIT_COMMIT_HASH=\${GIT_HASH} \\
+                            install-dist-test
+
+                        # Print cache stats
+                        echo === bazel-remote stats after build ===
+                        curl -s http://127.0.0.1:${BAZEL_REMOTE_PORT}/metrics 2>/dev/null | grep -E bazel_remote_ | head -20 || true
+                    '
+            """
+
+            // Write per-platform marker (aws s3 cp still sees withCredentials env vars)
+            sh """
+                echo '${commit}' | aws s3 cp - \
+                    s3://${BAZEL_REMOTE_BUCKET}/${s3Prefix}/.last-warmed-commit
+            """
+        } finally {
+            // Scrub the credentials file from the host — belt and braces even though
+            // Jenkins cleans the workspace between runs.
+            sh(script: "rm -rf ${credsHostDir}", returnStatus: true)
+        }
     }
+    echo "Cache warmed: ${cachePrefix}/${osPrefix}/${arch} @ ${commit.take(7)}"
 }
 
 @Field def needsWarmup = []
@@ -316,7 +376,7 @@ pipeline {
                             withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: S3_CREDENTIALS, secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                                 sh """
                                     echo '${branchInfo.commit}' | aws s3 cp - \
-                                        s3://percona-jenkins-artifactory/bazel-cache/${branchInfo.prefix}/.last-warmed-commit
+                                        s3://${BAZEL_REMOTE_BUCKET}/${BAZEL_REMOTE_PREFIX_ROOT}/${branchInfo.prefix}/.last-warmed-commit
                                 """
                             }
                             echo "All platforms warmed for ${branchInfo.branch}"
