@@ -79,7 +79,7 @@ pipeline {
                 sh '''
                 mkdir -p GITHUB_BUILDS
                 tar -xzf github-artifact.tar.gz -C GITHUB_BUILDS
-                AWS_STASH_PATH=$(find GITHUB_BUILDS -type d -name deb -exec dirname {} \\; | head -1)
+                AWS_STASH_PATH=$(find GITHUB_BUILDS -type d -name source_tarball -exec dirname {} \\; | head -1)
                 REPO_UPLOAD_PATH=UPLOAD/experimental/${AWS_STASH_PATH}
                 echo ${REPO_UPLOAD_PATH} > uploadPath
                 echo ${AWS_STASH_PATH} > awsUploadPath
