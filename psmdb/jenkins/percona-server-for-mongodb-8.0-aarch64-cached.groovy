@@ -3,20 +3,93 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-void buildStage(String DOCKER_OS, String STAGE_PARAM) {
+// Map Docker OS names to pre-baked image names
+def DOCKER_IMAGE_MAP = [
+    'oraclelinux:8':    'ghcr.io/evgeniypatlan/psmdb-build-oraclelinux8:latest',
+    'oraclelinux:9':    'ghcr.io/evgeniypatlan/psmdb-build-oraclelinux9:latest',
+    'ubuntu:focal':     'ghcr.io/evgeniypatlan/psmdb-build-focal:latest',
+    'ubuntu:jammy':     'ghcr.io/evgeniypatlan/psmdb-build-jammy:latest',
+    'ubuntu:noble':     'ghcr.io/evgeniypatlan/psmdb-build-noble:latest',
+    'debian:bullseye':  'ghcr.io/evgeniypatlan/psmdb-build-bullseye:latest',
+    'debian:bookworm':  'ghcr.io/evgeniypatlan/psmdb-build-bookworm:latest',
+    'amazonlinux:2023': 'ghcr.io/evgeniypatlan/psmdb-build-amzn2023:latest',
+]
+
+String getCachePrefix(String branch) {
+    def m = (branch =~ /release-(\d+\.\d+\.\d+)/)
+    if (m.find()) {
+        return "release-${m.group(1)}"
+    }
+    return "trunk"
+}
+
+String getOSPrefix(String dockerOS) {
+    def map = [
+        'oraclelinux:8': 'el8', 'oraclelinux:9': 'el9',
+        'ubuntu:focal': 'focal', 'ubuntu:jammy': 'jammy', 'ubuntu:noble': 'noble',
+        'debian:bullseye': 'bullseye', 'debian:bookworm': 'bookworm',
+        'amazonlinux:2023': 'amzn2023',
+    ]
+    return map[dockerOS] ?: dockerOS.replaceAll('[:/]', '-')
+}
+
+void startBazelCache(String containerName, String branch, String dockerOS, String arch = 'aarch64') {
+    def cachePrefix = getCachePrefix(branch)
+    def osPrefix = getOSPrefix(dockerOS)
     sh """
-        set -o xtrace
-        mkdir test
-        wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-packaging/scripts/psmdb_builder.sh -O psmdb_builder.sh
-        pwd -P
-        ls -laR
-        export build_dir=\$(pwd -P)
-        docker run -u root -v \${build_dir}:\${build_dir} ${DOCKER_OS} sh -c "
-            set -o xtrace
-            cd \${build_dir}
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1
-            bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
+        docker run -d --name ${containerName} \
+            --network=host \
+            buchgr/bazel-remote-cache:v2.4.4 \
+            --max_size=50 --dir=/tmp/cache \
+            --s3.endpoint=s3.us-east-1.amazonaws.com \
+            --s3.bucket=psmdb-bazel-cache \
+            --s3.prefix=${cachePrefix}/${osPrefix}/${arch}/ \
+            --s3.auth_method=iam_role \
+            --grpc_address=0.0.0.0:9092 \
+            --http_address=0.0.0.0:8080
+        sleep 3
     """
+}
+
+void stopBazelCache(String containerName) {
+    sh "docker stop ${containerName} 2>/dev/null; docker rm ${containerName} 2>/dev/null || true"
+}
+
+void buildStage(String DOCKER_OS, String STAGE_PARAM) {
+    def prebakedImage = DOCKER_IMAGE_MAP[DOCKER_OS]
+    def useCache = (prebakedImage != null)
+    def image = useCache ? prebakedImage : DOCKER_OS
+    def osPrefix = getOSPrefix(DOCKER_OS)
+    def cacheName = "bazel-cache-${env.BUILD_NUMBER}-${osPrefix}"
+
+    if (useCache) {
+        startBazelCache(cacheName, GIT_BRANCH, DOCKER_OS, 'aarch64')
+    }
+
+    def cacheEnv = useCache ? '-e BAZEL_REMOTE_CACHE=grpc://localhost:9092' : ''
+    def installDeps = useCache ? '' : "bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --install_deps=1 &&"
+
+    try {
+        sh """
+            set -o xtrace
+            mkdir test
+            wget \$(echo ${GIT_REPO} | sed -re 's|github.com|raw.githubusercontent.com|; s|\\.git\$||')/${GIT_BRANCH}/percona-packaging/scripts/psmdb_builder.sh -O psmdb_builder.sh
+            pwd -P
+            ls -laR
+            export build_dir=\$(pwd -P)
+            docker run -u root --network=host \
+                ${cacheEnv} \
+                -v \${build_dir}:\${build_dir} ${image} sh -c "
+                set -o xtrace
+                cd \${build_dir}
+                ${installDeps}
+                bash -x ./psmdb_builder.sh --builddir=\${build_dir}/test --repo=${GIT_REPO} --branch=${GIT_BRANCH} --psm_ver=${PSMDB_VERSION} --psm_release=${PSMDB_RELEASE} --mongo_tools_tag=${MONGO_TOOLS_TAG} ${STAGE_PARAM}"
+        """
+    } finally {
+        if (useCache) {
+            stopBazelCache(cacheName)
+        }
+    }
 }
 
 void cleanUpWS() {
