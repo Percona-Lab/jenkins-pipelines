@@ -1,3 +1,11 @@
+/* groovylint-disable DuplicateStringLiteral, GStringExpressionWithinString, LineLength */
+library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
+    $class: 'GitSCMSource',
+    remote: 'https://github.com/adivinho/jenkins-pipelines.git'
+]) _
+
+import groovy.transform.Field
+
 pipeline {
     agent {
         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
