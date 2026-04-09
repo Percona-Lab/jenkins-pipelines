@@ -214,9 +214,9 @@ pipeline {
                 cleanUpWS()
                 script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("ubuntu:focal", "--get_sources=1 --enable_fipsmode=1")
+                                buildStage("ubuntu:jammy", "--get_sources=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("ubuntu:focal", "--get_sources=1")
+                                buildStage("ubuntu:jammy", "--get_sources=1")
                             }
                        }
                 sh '''
