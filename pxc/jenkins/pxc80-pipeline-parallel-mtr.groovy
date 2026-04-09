@@ -23,7 +23,7 @@ OsToGlibcMap = [
     "ubuntu:noble" : "2.35",
     "debian:bullseye" : "2.31",
     "debian:bookworm" : "2.35",
-    "debian:trixie" : "2.41" ]
+    "debian:trixie" : "2.39" ]  // should be 2.41, but there is no PXB tarball with glibc 2.41 at the moment
 
 void uploadFileToS3(String SRC_FILE_PATH, String DST_DIRECTORY, String DST_FILE_NAME) {
     echo "Upload ${SRC_FILE_PATH} file to S3 ${S3_ROOT_DIR}/${DST_DIRECTORY}/${DST_FILE_NAME}. Max retries: ${MAX_S3_RETRIES}"
