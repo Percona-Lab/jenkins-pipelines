@@ -106,7 +106,8 @@ pipeline {
     PXB_VERSION = "${params.PXB_VERSION}";
     PS_VERSION = "${params.PS_VERSION}";
     TESTING_BRANCH = "${params.TESTING_BRANCH}";
-    SELECT_TEST = "${params.SELECT_TEST}";
+    SELECT_TEST_INC_BACKUP_LOAD = "${params.SELECT_TEST_INC_BACKUP_LOAD}";
+    SELECT_TEST_INNODB_MYROCKS = "${params.SELECT_TEST_INNODB_MYROCKS}";
   }
   parameters {
     string(
@@ -145,9 +146,14 @@ pipeline {
       name: 'TESTING_BRANCH'
     )
     string(
-      name: 'SELECT_TEST',
+      name: 'SELECT_TEST_INC_BACKUP_LOAD',
       defaultValue: 'all',
-      description: 'Pytest -k filter expression. Use "all" to run every test, or a pytest -k expression like "test_normal_backup or test_rocksdb_backup"'
+      description: 'Pytest -k filter expression. Use "all" to run every test from inc_backup_load_tests.py, or a pytest -k expression like "test_normal_backup or test_rocksdb_backup"'
+    )
+    string(
+      name: 'SELECT_TEST_INNODB_MYROCKS',
+      defaultValue: 'all',
+      description: 'Pytest -k filter expression. Use "all" to run every test from innodb_myrocks_backup_tests.py, or a pytest -k expression like "test_ssl_backup"'
     )
   }
   options {
