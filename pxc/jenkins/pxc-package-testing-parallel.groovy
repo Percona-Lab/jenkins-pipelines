@@ -125,7 +125,7 @@ void runNodeBuild(String node_to_test) {
         echo "${test_type}"
     }
 
-    if (params.product_to_test == "pxc-innovation" || params.product_to_test == "pxc57") {
+    if (params.product_to_test == "pxc_innovation" || params.product_to_test == "pxc57") {
         if (pro_repo == "yes") {
             echo "PRO is not supported for PXC-5.7 or PXC-innovation testing"
         } else {
@@ -216,7 +216,7 @@ properties([
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["pxc84", "pxc80", "pxc57", "pxc-innovation"]'
+                    script: 'return ["pxc84", "pxc80", "pxc57", "pxc_innovation"]'
                 ]
             ]
         ],
@@ -301,7 +301,7 @@ properties([
                                 result.add("min_upgrade_pxc_84")
                             }
                         } 
-                        else if (product_to_test == "pxc-innovation") {
+                        else if (product_to_test == "pxc_innovation") {
                             result.add("min_upgrade_pxc_innovation")
                         }
                         
@@ -386,7 +386,7 @@ pipeline {
                         selectedNodes = (params.pro_repo == "yes") ? pro_pxc84 : non_pro_pxc84
                         jobType = (params.pro_repo == "yes") ? "PXC 8.4 PRO" : "PXC 8.4 Non Pro"
                         allPossibleNodes = all_possible_nodes
-                    } else if (params.product_to_test == "pxc-innovation") {
+                    } else if (params.product_to_test == "pxc_innovation") {
                         selectedNodes = pxc_innovation
                         jobType = "PXC Innovation LTS"
                         allPossibleNodes = all_possible_nodes
