@@ -1,0 +1,28 @@
+- job:
+    name: hetzner-ps8.0-build-docker-test
+    project-type: pipeline
+    description: |
+        Test build of Percona Server 8.0.
+
+        On each arch (x86_64 / aarch64) a single Jenkins node:
+          * builds the source tarball, source RPM and binary RPMs
+            (all three flags in one ps_builder.sh invocation) inside an
+            oraclelinux:9 container,
+          * builds a Docker image from those local RPMs using the
+            Dockerfile vendored in ps/jenkins/docker-test-build/,
+          * pushes the resulting per-arch tag to hub.docker.com
+            (perconalab/percona-server).
+
+        A final stage creates the multi-arch manifest. Packages are NOT
+        published to any Percona repo.
+
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines.git
+            branches:
+            - 'hetzner'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: ps/jenkins/percona-server-for-mysql-8.0-build-docker-test.groovy
