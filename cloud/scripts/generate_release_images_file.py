@@ -86,13 +86,17 @@ def build_pg_image_lines(operator_version, versions, pmm3):
             f"IMAGE_POSTGRESQL{major}=percona/percona-distribution-postgresql:{pg_tag}"
         )
         if pgbouncer_tag := versions.get("pgbouncer"):
-            lines.append(f"IMAGE_PGBOUNCER{major}=percona/percona-pgbouncer:{pgbouncer_tag}")
+            lines.append(
+                f"IMAGE_PGBOUNCER{major}=percona/percona-pgbouncer:{pgbouncer_tag}"
+            )
         if postgis_tag := versions.get(f"postgis{major}"):
             lines.append(
                 f"IMAGE_POSTGIS{major}=percona/percona-distribution-postgresql-with-postgis:{postgis_tag}"
             )
         if backrest_tag := versions.get("pgbackrest"):
-            lines.append(f"IMAGE_BACKREST{major}=percona/percona-pgbackrest:{backrest_tag}")
+            lines.append(
+                f"IMAGE_BACKREST{major}=percona/percona-pgbackrest:{backrest_tag}"
+            )
 
     lines.extend(
         [
@@ -333,7 +337,9 @@ def get_minikube():
     )
     resp.raise_for_status()
     body = resp.json().get("body", "")
-    if m := re.search(r"Kubernetes(?: version)? v?(\d+\.\d+\.\d+)", body, re.IGNORECASE):
+    if m := re.search(
+        r"Kubernetes(?: version)? v?(\d+\.\d+\.\d+)", body, re.IGNORECASE
+    ):
         return m.group(1)
     return None
 
@@ -346,7 +352,9 @@ def get_openshift():
     except Exception:
         return None, None
 
-    latest_match = re.search(r"^Name:\s*(\d+\.\d+\.\d+)\s*$", latest_resp.text, re.MULTILINE)
+    latest_match = re.search(
+        r"^Name:\s*(\d+\.\d+\.\d+)\s*$", latest_resp.text, re.MULTILINE
+    )
     if not latest_match:
         return None, None
     latest_patch = latest_match.group(1)
@@ -360,7 +368,9 @@ def get_openshift():
         active_minors = filter_active(eol_resp.json(), datetime.now().date())
         if active_minors:
             min_minor = min(active_minors, key=lambda x: [int(p) for p in x.split(".")])
-            min_resp = _session.get(f"{base_url}/stable-{min_minor}/release.txt", timeout=10)
+            min_resp = _session.get(
+                f"{base_url}/stable-{min_minor}/release.txt", timeout=10
+            )
             min_resp.raise_for_status()
             min_match = re.search(
                 r"^Name:\s*(\d+\.\d+\.\d+)\s*$", min_resp.text, re.MULTILINE

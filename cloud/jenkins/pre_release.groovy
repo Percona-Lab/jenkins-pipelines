@@ -213,6 +213,7 @@ pipeline {
                                 fi
                                 git checkout -b ${updateBranch}
 
+                                rm -f crd_diff.txt
                                 git add .
                                 if ! git diff --cached --exit-code; then
                                     git commit -m "Update images for ${params.VERSION} release"

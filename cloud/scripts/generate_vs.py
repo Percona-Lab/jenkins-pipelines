@@ -606,7 +606,9 @@ def trim_old_versions(data: Dict, limits: Dict) -> Dict:
 def sort_category_versions(versions: Dict[str, Dict]) -> Dict[str, Dict]:
     """Sort category versions by semantic version (newest first)."""
     return dict(
-        sorted(versions.items(), key=lambda item: parse_version_key(item[0]), reverse=True)
+        sorted(
+            versions.items(), key=lambda item: parse_version_key(item[0]), reverse=True
+        )
     )
 
 
@@ -624,7 +626,9 @@ def sort_matrix_versions(data: Dict) -> Dict:
         for category, versions in matrix.items():
             sorted_versions = sort_category_versions(versions)
             matrix[category] = {
-                ver: normalize_entry_field_order(entry) if isinstance(entry, dict) else entry
+                ver: normalize_entry_field_order(entry)
+                if isinstance(entry, dict)
+                else entry
                 for ver, entry in sorted_versions.items()
             }
     return data
