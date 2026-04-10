@@ -4,15 +4,15 @@ def call(operatingSystems, moleculeDir) {
    tests["${os}"] =  {
         stage("${os}") {
             if (
-              ("${os}" == 'ubuntu-focal' && params.server_to_test == 'ms_innovation_lts') ||
+              ("${os}" == 'ubuntu-focal' && params.server_to_test == 'ms_innovation') ||
               (params.scenario_to_test == 'kms' && params.server_to_test == 'ms-80')  ||
               (params.scenario_to_test == 'kmip' && params.server_to_test == 'ms-80') ||
-              (params.product_to_test == 'pxb_80' && params.server_to_test == 'ps_innovation_lts') ||
-              (params.product_to_test == 'pxb_80' && params.server_to_test == 'ms_innovation_lts') ||
-              (params.product_to_test == 'pxb_innovation_lts' && params.server_to_test == 'ps-80') ||
-              (params.product_to_test == 'pxb_innovation_lts' && params.server_to_test == 'ms-80') ||
-              (params.scenario_to_test == 'kmip' && params.server_to_test == 'ms_innovation_lts') ||
-              (params.scenario_to_test == 'kms' && params.server_to_test == 'ms_innovation_lts') ||
+              (params.product_to_test == 'pxb_80' && params.server_to_test == 'ps_innovation') ||
+              (params.product_to_test == 'pxb_80' && params.server_to_test == 'ms_innovation') ||
+              (params.product_to_test == 'pxb_innovation' && params.server_to_test == 'ps-80') ||
+              (params.product_to_test == 'pxb_innovation' && params.server_to_test == 'ms-80') ||
+              (params.scenario_to_test == 'kmip' && params.server_to_test == 'ms_innovation') ||
+              (params.scenario_to_test == 'kms' && params.server_to_test == 'ms_innovation') ||
               (params.REPO_TYPE == 'PRO' && params.product_to_test == 'pxb_84' && "${os}" == 'debian-11' ) ||
               (params.REPO_TYPE == 'PRO' && params.product_to_test == 'pxb_84' && "${os}" == 'ubuntu-focal' ) ||
               (params.REPO_TYPE == 'PRO' && params.product_to_test == 'pxb_84' && "${os}" == 'rhel-8-arm' ) ||

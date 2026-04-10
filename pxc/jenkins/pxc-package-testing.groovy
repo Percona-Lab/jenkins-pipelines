@@ -725,7 +725,7 @@ properties([
                 script: [
                     classpath: [],
                     sandbox: true,
-                    script: 'return ["pxc84", "pxc80", "pxc57", "pxc-innovation-lts"]'
+                    script: 'return ["pxc84", "pxc80", "pxc57", "pxc_innovation"]'
                 ]
             ]
         ],
@@ -791,11 +791,23 @@ properties([
                                         'amazon-linux-2023-arm'
                         ]
 
-                        def pxc_innovation_lts = [
+                        def pxc_innovation = [
                                         'ubuntu-noble',
-                                        'ubuntu-jammy',
                                         'ubuntu-noble-arm',
-                                        'ubuntu-jammy-arm'
+                                        'ubuntu-jammy',
+                                        'ubuntu-jammy-arm',
+                                        'debian-12',
+                                        'debian-12-arm',
+                                        'debian-13',
+                                        'debian-13-arm',
+                                        'ol-8',
+                                        'ol-9',
+                                        'rhel-8',
+                                        'rhel-8-arm',
+                                        'rhel-9',
+                                        'rhel-9-arm',
+                                        'rhel-10',
+                                        'rhel-10-arm'
                         ]
 
                         def pxc57_nodes = [
@@ -813,8 +825,8 @@ properties([
                             return non_pro_pxc80
                         } else if (product_to_test == "pxc84") {
                             return non_pro_pxc84
-                        } else if (product_to_test == "pxc-innovation-lts") {
-                            return pxc_innovation_lts
+                        } else if (product_to_test == "pxc_innovation") {
+                            return pxc_innovation
                         } else {
                             return ["N/A"]
                         }
@@ -872,7 +884,7 @@ properties([
                         else if (product_to_test == "pxc84") {
                             result.add("min_upgrade_pxc_84")
                         } 
-                        else if (product_to_test == "pxc-innovation-lts") {
+                        else if (product_to_test == "pxc_innovation") {
                             result.add("min_upgrade_pxc_innovation")
                         }
                         
@@ -957,7 +969,7 @@ pipeline {
                                 allOf{
                                     expression{params.test_type == "min_upgrade_pxc_innovation"}
                                     expression{params.test_repo != "main"}
-                                    expression{params.product_to_test == "pxc-innovation-lts"}                
+                                    expression{params.product_to_test == "pxc_innovation"}                
                                 }
                             }
 

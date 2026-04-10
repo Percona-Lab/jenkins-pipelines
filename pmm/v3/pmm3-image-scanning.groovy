@@ -28,6 +28,7 @@ baseurl=https://aquasecurity.github.io/trivy-repo/rpm/releases/$releasever/$base
 gpgcheck=1
 enabled=1
 EOF
+                        sudo rpm --import https://aquasecurity.github.io/trivy-repo/rpm/public.key
                         sudo dnf install -y trivy-0.69.3
 
                         # Download HTML template for Trivy

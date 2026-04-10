@@ -48,6 +48,7 @@ void prepareAgent() {
     downloadKubectl()
     sh """
         curl -fsSL https://get.helm.sh/helm-v3.20.0-linux-amd64.tar.gz | sudo tar -C /usr/local/bin --strip-components 1 -xzf - linux-amd64/helm
+
         curl -fsSL https://github.com/kubernetes-sigs/krew/releases/latest/download/krew-linux_amd64.tar.gz | tar -xzf -
         ./krew-linux_amd64 install krew
         export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
@@ -58,13 +59,16 @@ void prepareAgent() {
         kubectl krew install --manifest-url https://raw.githubusercontent.com/kubernetes-sigs/krew-index/c16c6269999a2c2558e4fdc25df6eced0ab3dc27/plugins/kuttl.yaml
         echo \$(kubectl kuttl --version) is installed
 
-        curl -sL https://github.com/eksctl-io/eksctl/releases/latest/download/eksctl_\$(uname -s)_amd64.tar.gz | sudo tar -C /usr/local/bin -xzf - && sudo chmod +x /usr/local/bin/eksctl
+        client_version=\$(curl -s https://api.github.com/repos/digitalocean/doctl/releases/latest | grep '"tag_name":' | cut -d '"' -f4 | sed 's/^v//')
+        curl -sL "https://github.com/digitalocean/doctl/releases/download/v\$client_version/doctl-\$client_version-linux-amd64.tar.gz" | tar -xz && sudo mv doctl /usr/local/bin
+        doctl version
     """
 }
 
 void initParams() {
     if ("$PILLAR_VERSION" != "none") {
         echo "=========================[ Getting parameters for release test ]========================="
+
         IMAGE_OPERATOR = IMAGE_OPERATOR ?: getParam("IMAGE_OPERATOR")
         IMAGE_MYSQL = IMAGE_MYSQL ?: getParam("IMAGE_MYSQL", "IMAGE_MYSQL${PILLAR_VERSION}")
         IMAGE_BACKUP = IMAGE_BACKUP ?: getParam("IMAGE_BACKUP", "IMAGE_BACKUP${PILLAR_VERSION}")
@@ -75,15 +79,16 @@ void initParams() {
         IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
         if ("$PLATFORM_VER".toLowerCase() == "min" || "$PLATFORM_VER".toLowerCase() == "max") {
-            PLATFORM_VER = getParam("PLATFORM_VER", "EKS_${PLATFORM_VER}")
+            PLATFORM_VER = getParam("PLATFORM_VER", "DOKS_${PLATFORM_VER}")
         }
     } else {
         echo "=========================[ Not a release run. Using job params only! ]========================="
     }
 
     if ("$PLATFORM_VER" == "latest") {
-        withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-            PLATFORM_VER = sh(script: "aws eks describe-addon-versions --query 'addons[].addonVersions[].compatibilities[].clusterVersion' --output json | jq -r 'flatten | unique | sort | reverse | .[0]'", returnStdout: true).trim()
+        withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
+            PLATFORM_VER = sh(script: "doctl kubernetes options versions | awk 'NR==2 { print \$2 }'", returnStdout: true).trim()
+            echo "Latest platform version is $PLATFORM_VER"
         }
     }
 
@@ -205,51 +210,39 @@ void clusterRunner(String cluster) {
 void createCluster(String CLUSTER_SUFFIX) {
     clusters.add("$CLUSTER_SUFFIX")
 
-    sh """
-        timestamp="\$(date +%s)"
-tee cluster-${CLUSTER_SUFFIX}.yaml << EOF
-apiVersion: eksctl.io/v1alpha5
-kind: ClusterConfig
-metadata:
-  name: $CLUSTER_NAME-$CLUSTER_SUFFIX
-  region: ${EKS_REGION}
-  version: "$PLATFORM_VER"
-  tags:
-    'delete-cluster-after-hours': '10'
-    'creation-time': '\$timestamp'
-    'team': 'cloud'
-iam:
-  withOIDC: true
-addons:
-- name: aws-ebs-csi-driver
-  wellKnownPolicies:
-    ebsCSIController: true
-nodeGroups:
-- name: ng-1
-  minSize: 3
-  maxSize: 5
-  instanceType: 'm5.xlarge'
-  iam:
-    attachPolicyARNs:
-    - arn:aws:iam::aws:policy/AmazonEKSWorkerNodePolicy
-    - arn:aws:iam::aws:policy/AmazonEKS_CNI_Policy
-    - arn:aws:iam::aws:policy/AmazonEC2ContainerRegistryReadOnly
-    - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
-    - arn:aws:iam::aws:policy/AmazonS3FullAccess
-  tags:
-    'iit-billing-tag': 'jenkins-eks'
-    'delete-cluster-after-hours': '10'
-    'team': 'cloud'
-    'product': 'ps-operator'
-EOF
-    """
-
-    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+    withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
         sh """
+            set -euo pipefail
+
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            eksctl create cluster -f cluster-${CLUSTER_SUFFIX}.yaml
-            kubectl annotate storageclass gp2 storageclass.kubernetes.io/is-default-class=true
-            kubectl create clusterrolebinding cluster-admin-binding1 --clusterrole=cluster-admin --user="\$(aws sts get-caller-identity|jq -r '.Arn')"
+            cluster="$CLUSTER_NAME-$CLUSTER_SUFFIX"
+            cluster_version=\$(doctl kubernetes options versions --output json | jq -r --arg v "$PLATFORM_VER" '.[] | select(.kubernetes_version==\$v) | .slug')
+
+            create_cluster() {
+                doctl kubernetes cluster create "\$cluster" \
+                    --region "$DO_REGION" \
+                    --version "\$cluster_version" \
+                    --node-pool "name=default-pool;size=s-4vcpu-16gb-amd;tag=worker;auto-scale=true;count=4;min-nodes=4;max-nodes=6"
+
+                doctl kubernetes cluster kubeconfig save "\$cluster"
+            }
+
+            assign_cluster_to_project() {
+                cluster_id=\$(doctl kubernetes cluster get "\$cluster" --format ID --no-header)
+                urn="do:kubernetes:\$cluster_id"
+
+                doctl projects resources assign "$PROJECT" --resource "\$urn"
+            }
+
+            max_retries=15
+            for ((i=1;i<=max_retries;i++)); do
+                if create_cluster && assign_cluster_to_project; then
+                    break
+                fi
+
+                echo "Retry \$i/\$max_retries"
+                sleep 2
+            done
         """
     }
 }
@@ -266,7 +259,7 @@ void runTest(Integer TEST_ID) {
             tests[TEST_ID]["result"] = "failure"
 
             timeout(time: 90, unit: 'MINUTES') {
-                withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd'), file(credentialsId: 'eks-conf-file', variable: 'EKS_CONF_FILE')]) {
+                withCredentials([string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
                     sh """
                         cd source
 
@@ -312,7 +305,7 @@ void runTest(Integer TEST_ID) {
 void pushArtifactFile(String FILE_NAME) {
     echo "Push $FILE_NAME file to S3!"
 
-   withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
         sh """
             touch $FILE_NAME
             S3_PATH=s3://percona-jenkins-artifactory/\$JOB_NAME/$GIT_SHORT_COMMIT
@@ -332,17 +325,18 @@ void makeReport() {
 
     echo "=========================[ Generating Parameters Report ]========================="
     pipelineParameters = """
-testsuite name=$JOB_NAME
-IMAGE_OPERATOR=${IMAGE_OPERATOR ?: 'e2e_defaults'}
-IMAGE_MYSQL=${IMAGE_MYSQL ?: 'e2e_defaults'}
-IMAGE_BACKUP=${IMAGE_BACKUP ?: 'e2e_defaults'}
-IMAGE_ROUTER=${IMAGE_ROUTER ?: 'e2e_defaults'}
-IMAGE_HAPROXY=${IMAGE_HAPROXY ?: 'e2e_defaults'}
-IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR ?: 'e2e_defaults'}
-IMAGE_TOOLKIT=${IMAGE_TOOLKIT ?: 'e2e_defaults'}
-IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
-IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
-PLATFORM_VER=$PLATFORM_VER"""
+        testsuite name=$JOB_NAME
+        IMAGE_OPERATOR=${IMAGE_OPERATOR ?: 'e2e_defaults'}
+        IMAGE_MYSQL=${IMAGE_MYSQL ?: 'e2e_defaults'}
+        IMAGE_BACKUP=${IMAGE_BACKUP ?: 'e2e_defaults'}
+        IMAGE_ROUTER=${IMAGE_ROUTER ?: 'e2e_defaults'}
+        IMAGE_HAPROXY=${IMAGE_HAPROXY ?: 'e2e_defaults'}
+        IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR ?: 'e2e_defaults'}
+        IMAGE_TOOLKIT=${IMAGE_TOOLKIT ?: 'e2e_defaults'}
+        IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
+        IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
+        PLATFORM_VER=$PLATFORM_VER
+    """.trim().replaceAll('  ', '')
 
     writeFile file: "TestsReport.xml", text: testsReport
     writeFile file: 'PipelineParameters.txt', text: pipelineParameters
@@ -353,45 +347,22 @@ PLATFORM_VER=$PLATFORM_VER"""
 }
 
 void shutdownCluster(String CLUSTER_SUFFIX) {
-    withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'eks-cicd', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+      withCredentials([string(credentialsId: 'DOKS_PROJECT_ID', variable: 'PROJECT'), string(credentialsId: 'DOKS_TOKEN', variable: 'DIGITALOCEAN_ACCESS_TOKEN')]) {
         sh """
             export KUBECONFIG=/tmp/$CLUSTER_NAME-$CLUSTER_SUFFIX
-            for namespace in \$(kubectl get namespaces --no-headers | awk '{print \$1}' | grep -vE "^kube-|^openshift" | sed '/-operator/ s/^/1-/' | sort | sed 's/^1-//'); do
-                kubectl delete deployments --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete sts --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete replicasets --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete poddisruptionbudget --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete services --all -n \$namespace --force --grace-period=0 || true
-                kubectl delete pods --all -n \$namespace --force --grace-period=0 || true
+            namespaces=\$(kubectl get ns -o json 2>/dev/null || echo '{}')
+            echo "\$namespaces" \
+            | jq -r '(.items // [])[] | .metadata.name | select(startswith("kube-") | not)' \
+            | while read ns; do
+                kubectl delete deployment --all -n "\$ns" --grace-period=0 || true
+                kubectl delete statefulset --all -n "\$ns" --grace-period=0 || true
+                kubectl delete replicaset --all -n "\$ns" --grace-period=0 || true
+                kubectl delete pod --all -n "\$ns" --grace-period=0 || true
+                kubectl delete pvc --all -n "\$ns" || true
+                kubectl delete svc --all -n "\$ns" || true
             done
-            kubectl get svc --all-namespaces || true
 
-            VPC_ID=\$(eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region ${EKS_REGION} -ojson | jq --raw-output '.[0].ResourcesVpcConfig.VpcId' || true)
-            if [ -n "\$VPC_ID" ]; then
-                LOADBALS=\$(aws elb describe-load-balancers --region ${EKS_REGION} --output json | jq --raw-output '.LoadBalancerDescriptions[] | select(.VPCId == "'\$VPC_ID'").LoadBalancerName')
-                for loadbal in \$LOADBALS; do
-                    aws elb delete-load-balancer --load-balancer-name \$loadbal --region ${EKS_REGION}
-                done
-                eksctl delete cluster -f cluster-${CLUSTER_SUFFIX}.yaml --wait --force --disable-nodegroup-eviction || true
-
-                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region ${EKS_REGION} || true)
-                if [ -n "\$VPC_DESC" ]; then
-                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region ${EKS_REGION} || true
-                fi
-                VPC_DESC=\$(aws ec2 describe-vpcs --vpc-id \$VPC_ID --region ${EKS_REGION} || true)
-                if [ -n "\$VPC_DESC" ]; then
-                    for secgroup in \$(aws ec2 describe-security-groups --filters Name=vpc-id,Values=\$VPC_ID --query 'SecurityGroups[*].GroupId' --output text --region ${EKS_REGION}); do
-                        aws ec2 delete-security-group --group-id \$secgroup --region ${EKS_REGION} || true
-                    done
-
-                    aws ec2 delete-vpc --vpc-id \$VPC_ID --region ${EKS_REGION} || true
-                fi
-            fi
-            aws cloudformation delete-stack --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region ${EKS_REGION} || true
-            aws cloudformation wait stack-delete-complete --stack-name eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster --region ${EKS_REGION} || true
-
-            eksctl get cluster --name $CLUSTER_NAME-$CLUSTER_SUFFIX --region ${EKS_REGION} || true
-            aws cloudformation list-stacks --region ${EKS_REGION} | jq '.StackSummaries[] | select(.StackName | startswith("'eksctl-$CLUSTER_NAME-$CLUSTER_SUFFIX-cluster'"))' || true
+            doctl kubernetes cluster delete $CLUSTER_NAME-$CLUSTER_SUFFIX --force || true
         """
     }
 }
@@ -407,7 +378,7 @@ pipeline {
         choice(name: 'IGNORE_PREVIOUS_RUN', choices: ['NO', 'YES'], description: 'Ignore passed tests in previous run (run all)')
         choice(name: 'PILLAR_VERSION', choices: ['none', '84', '80'], description: 'Implies release run.')
         string(name: 'GIT_BRANCH', defaultValue: 'main', description: 'Tag/Branch for percona/percona-server-mysql-operator repository')
-        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'EKS kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
+        string(name: 'PLATFORM_VER', defaultValue: 'latest', description: 'Digital Ocean kubernetes version. If set to min or max, value will be automatically taken from release_versions file.')
         choice(name: 'CLUSTER_WIDE', choices: ['YES', 'NO'], description: 'Run tests in cluster wide mode')
         string(name: 'IMAGE_OPERATOR', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main')
         string(name: 'IMAGE_MYSQL', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-psmysql8.0')
@@ -418,7 +389,7 @@ pipeline {
         string(name: 'IMAGE_TOOLKIT', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-toolkit')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
-        string(name: 'EKS_REGION', defaultValue: 'eu-west-2', description: 'EKS region to use for cluster')
+        string(name: 'DO_REGION', defaultValue: 'nyc1', description: 'Digital Ocean region to use for cluster')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
     agent {
@@ -483,6 +454,14 @@ pipeline {
                         prepareAgent()
                         unstash "sourceFILES"
                         clusterRunner('cluster4')
+                    }
+                }
+                stage('cluster5') {
+                    agent { label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker' }
+                    steps {
+                        prepareAgent()
+                        unstash "sourceFILES"
+                        clusterRunner('cluster5')
                     }
                 }
             }

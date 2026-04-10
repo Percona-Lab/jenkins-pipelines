@@ -106,7 +106,7 @@ def installDependencies(def nodeName) {
 def runPlaybook(def nodeName) {
 
     try {
-        def playbook = "pxb_innovation_lts.yml"
+        def playbook = "pxb_innovation.yml"
         def playbook_path = "package-testing/playbooks/${playbook}"
 
         sh '''
@@ -156,7 +156,7 @@ def package_tests_pxb(def nodes) {
 }
 
 @Field def mini_test_error = "False"
-def product_to_test = "pxb_innovation_lts"
+def product_to_test = "pxb_innovation"
 def install_repo = "testing"
 def git_repo = "https://github.com/Percona-QA/package-testing.git"
 
