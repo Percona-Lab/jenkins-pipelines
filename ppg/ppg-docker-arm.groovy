@@ -35,6 +35,16 @@ pipeline {
                     echo \$MAJ_VER
                     MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
                     echo \$MIN_VER
+                    export DOCKER_CLI_EXPERIMENTAL=enabled
+                    sudo mkdir -p /usr/libexec/docker/cli-plugins/
+                    sudo curl -L https://github.com/docker/buildx/releases/download/v0.30.0/buildx-v0.30.0.linux-amd64 -o /usr/libexec/docker/cli-plugins/docker-buildx
+                    sudo chmod +x /usr/libexec/docker/cli-plugins/docker-buildx
+                    sudo systemctl restart docker
+                    sudo apt-get install -y qemu-system binfmt-support qemu-user-static
+                    sudo qemu-system-x86_64 --version
+                    sudo lscpu | grep -q 'sse4_2' && grep -q 'popcnt' /proc/cpuinfo && echo "Supports x86-64-v2" || echo "Does NOT support x86-64-v2"
+                    sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
+
                     git clone https://github.com/percona/percona-docker
                     cd percona-docker/percona-distribution-postgresql-\$MAJ_VER
                     sed -E "s/ENV PPG_VERSION (.+)/ENV PPG_VERSION ${params.PPG_VERSION}/" -i Dockerfile.aarch64
@@ -45,6 +55,7 @@ pipeline {
                     sed -E "s/ENV PPG_REPO (.+)/ENV PPG_REPO ${params.PPG_REPO}/" -i Dockerfile-postgis.aarch64
                     sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile-postgis.aarch64
                     sed -E "s/ENV PPG_MINOR_VERSION (.+)/ENV PPG_MINOR_VERSION \$MIN_VER/" -i Dockerfile-postgis.aarch64
+                    export DOCKER_BUILDKIT=1
                     docker build --platform=linux/arm64 --no-cache -t percona-distribution-postgresql -f Dockerfile.aarch64 .
                     docker build --platform=linux/arm64 --no-cache -t percona-distribution-postgresql-with-postgis -f Dockerfile-postgis.aarch64 .
                     """
