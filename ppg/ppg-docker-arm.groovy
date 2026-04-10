@@ -53,8 +53,8 @@ pipeline {
                     sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile-postgis.aarch64
                     sed -E "s/ENV PPG_MINOR_VERSION (.+)/ENV PPG_MINOR_VERSION \$MIN_VER/" -i Dockerfile-postgis.aarch64
                     export DOCKER_BUILDKIT=1
-                    docker build --platform=linux/arm64 --no-cache -t percona-distribution-postgresql -f Dockerfile.aarch64 .
-                    docker build --platform=linux/arm64 --no-cache -t percona-distribution-postgresql-with-postgis -f Dockerfile-postgis.aarch64 .
+                    docker build --platform=linux/arm64 --provenance=false --no-cache -t percona-distribution-postgresql -f Dockerfile.aarch64 .
+                    docker build --platform=linux/arm64 --provenance=false --no-cache -t percona-distribution-postgresql-with-postgis -f Dockerfile-postgis.aarch64 .
                     """
             }
         }
