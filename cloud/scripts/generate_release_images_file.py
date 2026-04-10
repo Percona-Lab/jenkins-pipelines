@@ -73,8 +73,19 @@ def fetch_dockerhub_tag(repo, prefix=None):
     return max(versions)[1] if versions else None
 
 
+def format_image_line(name, repo, tag):
+    return f"IMAGE_{name}=percona/{repo}:{tag}"
+
+
+def append_image_line(lines, name, repo, tag):
+    if tag:
+        lines.append(format_image_line(name, repo, tag))
+
+
 def build_pg_image_lines(operator_version, versions, pmm3):
-    lines = [f"IMAGE_OPERATOR=percona/percona-postgresql-operator:{operator_version}"]
+    lines = [
+        format_image_line("OPERATOR", "percona-postgresql-operator", operator_version)
+    ]
 
     for major in PG_MAJOR_VERSIONS:
         pg_tag = versions.get(major)
@@ -82,45 +93,55 @@ def build_pg_image_lines(operator_version, versions, pmm3):
             continue
 
         lines.append("")
-        lines.append(
-            f"IMAGE_POSTGRESQL{major}=percona/percona-distribution-postgresql:{pg_tag}"
+        append_image_line(
+            lines, f"POSTGRESQL{major}", "percona-distribution-postgresql", pg_tag
         )
-        if pgbouncer_tag := versions.get("pgbouncer"):
-            lines.append(
-                f"IMAGE_PGBOUNCER{major}=percona/percona-pgbouncer:{pgbouncer_tag}"
-            )
-        if postgis_tag := versions.get(f"postgis{major}"):
-            lines.append(
-                f"IMAGE_POSTGIS{major}=percona/percona-distribution-postgresql-with-postgis:{postgis_tag}"
-            )
-        if backrest_tag := versions.get("pgbackrest"):
-            lines.append(
-                f"IMAGE_BACKREST{major}=percona/percona-pgbackrest:{backrest_tag}"
-            )
+        append_image_line(
+            lines,
+            f"PGBOUNCER{major}",
+            "percona-pgbouncer",
+            versions.get("pgbouncer"),
+        )
+        append_image_line(
+            lines,
+            f"POSTGIS{major}",
+            "percona-distribution-postgresql-with-postgis",
+            versions.get(f"postgis{major}"),
+        )
+        append_image_line(
+            lines,
+            f"BACKREST{major}",
+            "percona-pgbackrest",
+            versions.get("pgbackrest"),
+        )
 
     lines.extend(
         [
             "",
-            f"IMAGE_UPGRADE=percona/percona-postgresql-operator:{operator_version}-upgrade",
+            format_image_line(
+                "UPGRADE",
+                "percona-postgresql-operator",
+                f"{operator_version}-upgrade",
+            ),
             "",
-            f"IMAGE_PMM_CLIENT=percona/pmm-client:{PMM_CLIENT}",
-            f"IMAGE_PMM_SERVER=percona/pmm-server:{PMM_SERVER}",
+            format_image_line("PMM_CLIENT", "pmm-client", PMM_CLIENT),
+            format_image_line("PMM_SERVER", "pmm-server", PMM_SERVER),
         ]
     )
     if pmm3:
         lines.extend(
             [
-                f"IMAGE_PMM3_CLIENT=percona/pmm-client:{pmm3}",
-                f"IMAGE_PMM3_SERVER=percona/pmm-server:{pmm3}",
+                format_image_line("PMM3_CLIENT", "pmm-client", pmm3),
+                format_image_line("PMM3_SERVER", "pmm-server", pmm3),
             ]
         )
     return lines
 
 
-def get_image_lines(op, ver):
+def get_image_tasks(op):
     P, D = fetch_percona_version, fetch_dockerhub_tag
 
-    base = {
+    return {
         "psmdb": {
             "8.0": (P, "percona-server-mongodb-8.0"),
             "7.0": (P, "percona-server-mongodb-7.0"),
@@ -188,65 +209,70 @@ def get_image_lines(op, ver):
         },
     }.get(op, {})
 
-    v = fetch_parallel(base)
-    pmm3 = v.pop("pmm3", None)
-    if op == "pg":
-        return build_pg_image_lines(ver, v, pmm3)
 
-    img = {
+def build_standard_image_lines(op, operator_version, versions, pmm3):
+    image_defs = {
         "psmdb": [
-            ("OPERATOR", "percona-server-mongodb-operator", ver),
-            ("MONGOD80", "percona-server-mongodb", v.get("8.0")),
-            ("MONGOD70", "percona-server-mongodb", v.get("7.0")),
-            ("MONGOD60", "percona-server-mongodb", v.get("6.0")),
-            ("BACKUP", "percona-backup-mongodb", v.get("backup")),
+            ("OPERATOR", "percona-server-mongodb-operator", operator_version),
+            ("MONGOD80", "percona-server-mongodb", versions.get("8.0")),
+            ("MONGOD70", "percona-server-mongodb", versions.get("7.0")),
+            ("MONGOD60", "percona-server-mongodb", versions.get("6.0")),
+            ("BACKUP", "percona-backup-mongodb", versions.get("backup")),
             ("PMM_CLIENT", "pmm-client", PMM_CLIENT),
             ("PMM_SERVER", "pmm-server", PMM_SERVER),
             ("PMM3_CLIENT", "pmm-client", pmm3),
             ("PMM3_SERVER", "pmm-server", pmm3),
-            ("LOGCOLLECTOR", "fluentbit", v.get("logcollector")),
+            ("LOGCOLLECTOR", "fluentbit", versions.get("logcollector")),
         ],
         "pxc": [
-            ("OPERATOR", "percona-xtradb-cluster-operator", ver),
-            ("PXC84", "percona-xtradb-cluster", v.get("8.4")),
-            ("PXC80", "percona-xtradb-cluster", v.get("8.0")),
-            ("PXC57", "percona-xtradb-cluster", v.get("5.7")),
-            ("BACKUP84", "percona-xtrabackup", v.get("backup84")),
-            ("BACKUP80", "percona-xtrabackup", v.get("backup80")),
-            ("BACKUP57", "percona-xtrabackup", v.get("backup57")),
-            ("PROXY", "proxysql2", v.get("proxysql")),
-            ("HAPROXY", "haproxy", v.get("haproxy")),
-            ("LOGCOLLECTOR", "fluentbit", v.get("logcollector")),
+            ("OPERATOR", "percona-xtradb-cluster-operator", operator_version),
+            ("PXC84", "percona-xtradb-cluster", versions.get("8.4")),
+            ("PXC80", "percona-xtradb-cluster", versions.get("8.0")),
+            ("PXC57", "percona-xtradb-cluster", versions.get("5.7")),
+            ("BACKUP84", "percona-xtrabackup", versions.get("backup84")),
+            ("BACKUP80", "percona-xtrabackup", versions.get("backup80")),
+            ("BACKUP57", "percona-xtrabackup", versions.get("backup57")),
+            ("PROXY", "proxysql2", versions.get("proxysql")),
+            ("HAPROXY", "haproxy", versions.get("haproxy")),
+            ("LOGCOLLECTOR", "fluentbit", versions.get("logcollector")),
             ("PMM_CLIENT", "pmm-client", PMM_CLIENT),
             ("PMM_SERVER", "pmm-server", PMM_SERVER),
             ("PMM3_CLIENT", "pmm-client", pmm3),
             ("PMM3_SERVER", "pmm-server", pmm3),
         ],
         "ps": [
-            ("OPERATOR", "percona-server-mysql-operator", ver),
-            ("MYSQL84", "percona-server", v.get("8.4")),
-            ("BACKUP84", "percona-xtrabackup", v.get("backup84")),
+            ("OPERATOR", "percona-server-mysql-operator", operator_version),
+            ("MYSQL84", "percona-server", versions.get("8.4")),
+            ("BACKUP84", "percona-xtrabackup", versions.get("backup84")),
             (
                 "ROUTER84",
                 "percona-mysql-router",
-                v.get("8.4", "").split("-")[0] or None,
+                versions.get("8.4", "").split("-")[0] or None,
             ),
-            ("MYSQL80", "percona-server", v.get("8.0")),
-            ("BACKUP80", "percona-xtrabackup", v.get("backup80")),
+            ("MYSQL80", "percona-server", versions.get("8.0")),
+            ("BACKUP80", "percona-xtrabackup", versions.get("backup80")),
             (
                 "ROUTER80",
                 "percona-mysql-router",
-                v.get("8.0", "").split("-")[0] or None,
+                versions.get("8.0", "").split("-")[0] or None,
             ),
-            ("HAPROXY", "haproxy", v.get("haproxy")),
-            ("ORCHESTRATOR", "percona-orchestrator", v.get("orchestrator")),
-            ("TOOLKIT", "percona-toolkit", v.get("toolkit")),
+            ("HAPROXY", "haproxy", versions.get("haproxy")),
+            ("ORCHESTRATOR", "percona-orchestrator", versions.get("orchestrator")),
+            ("TOOLKIT", "percona-toolkit", versions.get("toolkit")),
             ("PMM3_CLIENT", "pmm-client", pmm3),
             ("PMM3_SERVER", "pmm-server", pmm3),
         ],
     }.get(op, [])
 
-    return [f"IMAGE_{name}=percona/{repo}:{tag}" for name, repo, tag in img if tag]
+    return [format_image_line(name, repo, tag) for name, repo, tag in image_defs if tag]
+
+
+def get_image_lines(op, ver):
+    versions = fetch_parallel(get_image_tasks(op))
+    pmm3 = versions.pop("pmm3", None)
+    if op == "pg":
+        return build_pg_image_lines(ver, versions, pmm3)
+    return build_standard_image_lines(op, ver, versions, pmm3)
 
 
 def sort_vers(vers, rev=True):
@@ -286,49 +312,61 @@ def get_gke():
     return None
 
 
-def get_aks():
-    today = datetime.now().date()
-    try:
-        resp = _session.get(
-            "https://learn.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli",
-            timeout=15,
-        )
-        resp.raise_for_status()
-        versions = []
-        for ver, _, _, ga, eol in re.findall(
-            r"<tr[^>]*>.*?<td>(\d+\.\d+)</td>.*?<td>([^<]+)</td>.*?<td>([^<]+)</td>.*?<td>([^<]+)</td>.*?<td>([^<]+)</td>.*?</tr>",
-            resp.text,
-            re.DOTALL,
-        ):
-            ga, eol = ga.strip().lower(), eol.strip().lower()
-            if not ga or ga == "-" or not eol or eol == "-":
+def parse_aks_versions(html, today):
+    versions = []
+    for ver, _, _, ga, eol in re.findall(
+        r"<tr[^>]*>.*?<td>(\d+\.\d+)</td>.*?<td>([^<]+)</td>.*?<td>([^<]+)</td>.*?<td>([^<]+)</td>.*?<td>([^<]+)</td>.*?</tr>",
+        html,
+        re.DOTALL,
+    ):
+        ga, eol = ga.strip().lower(), eol.strip().lower()
+        if not ga or ga == "-" or not eol or eol == "-":
+            continue
+        try:
+            ga_p, eol_p = ga.replace(",", "").split(), eol.replace(",", "").split()
+            if (int(ga_p[-1]), MONTH_MAP.get(ga_p[0][:3], 0)) > (
+                today.year,
+                today.month,
+            ):
                 continue
-            try:
-                ga_p, eol_p = ga.replace(",", "").split(), eol.replace(",", "").split()
-                if (int(ga_p[-1]), MONTH_MAP.get(ga_p[0][:3], 0)) > (
-                    today.year,
-                    today.month,
-                ):
-                    continue
-                eol_day = int(eol_p[1]) if len(eol_p) == 3 else 28
-                if (
-                    datetime(
-                        int(eol_p[-1]), MONTH_MAP.get(eol_p[0][:3], 1), min(eol_day, 28)
-                    ).date()
-                    >= today
-                ):
-                    versions.append(ver)
-            except:
-                continue
-        if versions:
-            return sort_vers(list(set(versions)))
-    except:
-        pass
+            eol_day = int(eol_p[1]) if len(eol_p) == 3 else 28
+            if (
+                datetime(
+                    int(eol_p[-1]), MONTH_MAP.get(eol_p[0][:3], 1), min(eol_day, 28)
+                ).date()
+                >= today
+            ):
+                versions.append(ver)
+        except Exception:
+            continue
+    return sort_vers(list(set(versions))) if versions else None
+
+
+def get_aks_from_docs(today):
+    resp = _session.get(
+        "https://learn.microsoft.com/en-us/azure/aks/supported-kubernetes-versions?tabs=azure-cli",
+        timeout=15,
+    )
+    resp.raise_for_status()
+    return parse_aks_versions(resp.text, today)
+
+
+def get_aks_from_eol(today):
     resp = _session.get(
         "https://endoflife.date/api/azure-kubernetes-service.json", timeout=10
     )
     resp.raise_for_status()
     return sort_vers(filter_active(resp.json(), today))
+
+
+def get_aks():
+    today = datetime.now().date()
+    try:
+        if versions := get_aks_from_docs(today):
+            return versions
+    except Exception:
+        pass
+    return get_aks_from_eol(today)
 
 
 def get_minikube():
@@ -383,24 +421,43 @@ def get_openshift():
     return min_patch, latest_patch
 
 
-def get_k8s_lines():
+K8S_VERSION_FETCHERS = {
+    "GKE": ("gke", get_gke),
+    "EKS": ("eks", get_eks),
+    "AKS": ("aks", get_aks),
+    "OPENSHIFT": ("os", get_openshift),
+    "MINIKUBE": ("mk", get_minikube),
+}
+
+
+def get_supported_platforms(operator):
+    platforms = ["GKE", "EKS", "OPENSHIFT", "MINIKUBE"]
+    if operator != "ps":
+        platforms.insert(2, "AKS")
+    return platforms
+
+
+def get_k8s_lines(operator):
+    platforms = get_supported_platforms(operator)
     tasks = {
-        "eks": (get_eks,),
-        "gke": (get_gke,),
-        "aks": (get_aks,),
-        "mk": (get_minikube,),
-        "os": (get_openshift,),
+        key: (fetcher,)
+        for platform in platforms
+        for key, fetcher in [K8S_VERSION_FETCHERS[platform]]
     }
     r = fetch_parallel(tasks)
     lines = []
-    for name, key in [("GKE", "gke"), ("EKS", "eks"), ("AKS", "aks")]:
+    for platform in ("GKE", "EKS", "AKS"):
+        if platform not in platforms:
+            continue
+        key, _ = K8S_VERSION_FETCHERS[platform]
         if v := r.get(key):
-            lines += [f"{name}_MIN={v[-1]}", f"{name}_MAX={v[0]}"]
-    if os := r.get("os"):
+            lines += [f"{platform}_MIN={v[-1]}", f"{platform}_MAX={v[0]}"]
+    if "OPENSHIFT" in platforms and (os := r.get("os")):
         if os[0] and os[1]:
             lines += [f"OPENSHIFT_MIN={os[0]}", f"OPENSHIFT_MAX={os[1]}"]
-    if mk := r.get("mk"):
-        lines.append(f"MINIKUBE_REL={mk}")
+    if "MINIKUBE" in platforms and (mk := r.get("mk")):
+        minikube_key = "MINIKUBE_MAX" if operator in {"ps", "pg"} else "MINIKUBE_REL"
+        lines.append(f"{minikube_key}={mk}")
     return lines
 
 
@@ -413,7 +470,7 @@ def main():
     args = parser.parse_args()
 
     print(f"Fetching versions for {args.operator} {args.version}...")
-    lines = get_image_lines(args.operator, args.version) + get_k8s_lines()
+    lines = get_image_lines(args.operator, args.version) + get_k8s_lines(args.operator)
     file_name = f"release_versions.txt"
     with open(file_name, "w") as f:
         f.write("\n".join(lines) + "\n")
