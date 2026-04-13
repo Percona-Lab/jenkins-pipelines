@@ -683,27 +683,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Debian Bullseye(11) tarball') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                                buildStage("debian:bullseye", "--build_tarball=1")
-
-                                if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
-                                    uploadTarballfromAWS(params.CLOUD,  "test/tarball/", AWS_STASH_PATH, 'binary')
-                                }
-                            }
-                        }
-                    }
-                }
                 stage('Debian Bookworm(12) tarball') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
