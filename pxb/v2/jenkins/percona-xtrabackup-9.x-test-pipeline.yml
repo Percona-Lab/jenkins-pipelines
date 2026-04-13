@@ -1,0 +1,80 @@
+- job:
+    name: percona-xtrabackup-9.x-test-pipeline
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    concurrent: true
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines
+            branches:
+            - "master"
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pxb/v2/jenkins/percona-xtrabackup-9.x-test-pipeline.groovy
+    parameters:
+    - choice:
+        name: DOCKER_OS
+        choices:
+          - oraclelinux:9
+          - ubuntu:jammy
+          - ubuntu:noble
+          - debian:bookworm
+          - debian:trixie
+          - asan
+        description: OS version for compilation
+    - choice:
+        name: CMAKE_BUILD_TYPE
+        choices:
+          - RelWithDebInfo
+          - Debug
+        description: Type of build to produce
+    - choice:
+        name: XTRABACKUP_TARGET
+        choices:
+        - innodb9x
+        - xtradb9x
+        description: MySQL server flavour for QA run
+    - string:
+        name: BOOTSTRAP_URL
+        default: ""
+        description:
+    - string:
+        name: USE_BINARIES_FROM_BUILD_ID
+        default: "lastSuccessfulBuild"
+        description: Specific percona-xtrabackup-9.x-compile-param build id to use binaries from.
+    - string:
+        name: INNODB9X_VERSION
+        default: "9.6.0"
+        description: Version of MySQL InnoDB which will be used for bootstrap.sh script
+    - string:
+        name: XTRADB9X_VERSION
+        default: "9.6.0-1"
+        description: Version of Percona XtraDB which will be used for bootstrap.sh script
+    - string:
+        name: XBTR_ARGS
+        default:
+        description: "./run.sh options, for options like: -j N Run tests in N parallel processes, -T seconds, -x options Extra options to pass to xtrabackup"
+    - bool:
+        name: WITH_AZURITE
+        default: false
+        description: "Starts Microsoft Azurite emulator and tests xbcloud against it"
+    - bool:
+        name: WITH_XBCLOUD_TESTS
+        default: true
+        description: "Run xbcloud tests"
+    - bool:
+        name: WITH_VAULT_TESTS
+        default: true
+        description: "Run vault tests"
+    - bool:
+        name: WITH_KMIP_TESTS
+        default: true
+        description: "Run kmip tests"
+    - choice:
+        name: CLOUD
+        choices:
+        - "Hetzner"
+        - "AWS"
+        description: "Host provider for Jenkins workers"
