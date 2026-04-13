@@ -22,7 +22,7 @@ test: Compilation & Test run for this flavour(${XTRABACKUP_TARGET}) is masked as
 time: $(date +%Y-%m-%d) $(date +%H:%M:%S)
 success: Compilation & Test run for this flavour(${XTRABACKUP_TARGET}) is masked as its not supported on selected platform
 EOF
-  iconv -t UTF-8 ${WORKDIR_ABS}/test_results.subunit | eval ${SUBUNIT2JUNITXML_CMD} > ${WORKDIR_ABS}/junit.xml || true
+  iconv -c -t UTF-8 ${WORKDIR_ABS}/test_results.subunit | eval ${SUBUNIT2JUNITXML_CMD} > ${WORKDIR_ABS}/junit.xml || true
   echo "${SSL_VER} is not supported for ${XTRABACKUP_TARGET} target, this is a stub we decided to implement in PXB-2368"
   exit 0
 }
@@ -82,7 +82,7 @@ else
         errmsg
       fi
       ;;
-    noble|bookworm)
+    noble|bookworm|trixie)
       sudo apt update
       sudo DEBIAN_FRONTEND=noninteractive apt install -y python3-subunit python3-junitxml
       SUBUNIT2JUNITXML_CMD="./subunit2junitxml_python3"
@@ -164,5 +164,5 @@ fi
 cat results/setup
 sudo cp -r ${TEST_DIR}/results/ ${WORKDIR_ABS}/
 cp test_results.subunit ${WORKDIR_ABS}
-iconv -t UTF-8 test_results.subunit | eval ${SUBUNIT2JUNITXML_CMD} > ${WORKDIR_ABS}/junit.xml || true
+iconv -c -t UTF-8 test_results.subunit | eval ${SUBUNIT2JUNITXML_CMD} > ${WORKDIR_ABS}/junit.xml || true
 exit $status

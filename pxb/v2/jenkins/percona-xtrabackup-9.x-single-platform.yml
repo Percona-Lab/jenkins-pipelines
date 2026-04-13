@@ -1,0 +1,93 @@
+- job:
+    name: pxb9x-single-platform-run
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+        Ad-hoc single-platform compile and test for PXB 9.x.
+    concurrent: true
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/Percona-Lab/jenkins-pipelines
+            branches:
+            - "master"
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pxb/v2/jenkins/pxb9x-single-platform-run.groovy
+    parameters:
+    - string:
+        name: GIT_REPO
+        default: "https://github.com/percona/percona-xtrabackup"
+        description: URL to PXB repository
+    - string:
+        name: BRANCH
+        default: "trunk"
+        description: Tag/Branch for PXB repository
+    - choice:
+        name: DOCKER_OS
+        choices:
+        - oraclelinux:9
+        - ubuntu:jammy
+        - ubuntu:noble
+        - debian:bookworm
+        - debian:trixie
+        description: OS version for compilation and testing
+    - choice:
+        name: XTRABACKUP_TARGET
+        choices:
+        - "both"
+        - "innodb9x"
+        - "xtradb9x"
+        description: MySQL server flavour for QA run (both runs innodb9x then xtradb9x)
+    - string:
+        name: INNODB9X_VERSION
+        default: "9.6.0"
+        description: Version of MySQL InnoDB which will be used for bootstrap.sh script
+    - string:
+        name: XTRADB9X_VERSION
+        default: "9.6.0-1"
+        description: Version of Percona XtraDB which will be used for bootstrap.sh script
+    - string:
+        name: BOOTSTRAP_URL
+        default: ""
+        description: "Pass an URL for downloading bootstrap.sh, If empty will use from repository"
+    - choice:
+        name: CMAKE_BUILD_TYPE
+        choices:
+        - RelWithDebInfo
+        - Debug
+        description: Type of build to produce
+    - string:
+        name: CMAKE_OPTS
+        default:
+        description: cmake options
+    - string:
+        name: MAKE_OPTS
+        default:
+        description: make options, like VERBOSE=1
+    - string:
+        name: XBTR_ARGS
+        default: "-j 2"
+        description: "./run.sh options, for options like: -j N Run tests in N parallel processes, -T seconds, -x options Extra options to pass to xtrabackup"
+    - bool:
+        name: WITH_AZURITE
+        default: false
+        description: "Starts Microsoft Azurite emulator and tests xbcloud against it"
+    - bool:
+        name: WITH_XBCLOUD_TESTS
+        default: false
+        description: "Run xbcloud tests"
+    - bool:
+        name: WITH_VAULT_TESTS
+        default: false
+        description: "Run vault tests"
+    - bool:
+        name: WITH_KMIP_TESTS
+        default: false
+        description: "Run kmip tests"
+    - choice:
+        name: CLOUD
+        choices:
+        - "Hetzner"
+        - "AWS"
+        description: "Host provider for Jenkins workers"
