@@ -96,9 +96,9 @@ pipeline {
                             cd percona-docker
                             git checkout ${REPO_DOCKER_BRANCH}
                             if [ \${MYSQL_VERSION_MINOR} = "0" ]; then
-                                cd percona-xtrabackup-8.0
+                                cd percona-xtrabackup-\${XB_VERSION_MAJOR}.0
                             else
-                                cd percona-xtrabackup-8.x
+                                cd percona-xtrabackup-\${XB_VERSION_MAJOR}.x
                             fi
                             sed -i "s/ENV XTRABACKUP_VERSION.*/ENV XTRABACKUP_VERSION ${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.1/g" Dockerfile
