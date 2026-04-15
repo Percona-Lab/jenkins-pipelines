@@ -83,12 +83,12 @@ void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO, Str
     sh """
         export install_repo=${INSTALL_REPO}
         export TARBALL_LINK=${TARBALL}
-        ls
+        ls qa/package_tests/
         ansible-playbook \
         -vvvvv \
         --connection=local \
         --inventory 127.0.0.1, \
-        --limit 127.0.0.1 qa/package_tests${TESTS}.yml
+        --limit 127.0.0.1 qa/package_tests/${TESTS}.yml
     """
 }
 
