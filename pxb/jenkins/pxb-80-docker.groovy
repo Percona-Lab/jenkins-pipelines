@@ -85,7 +85,11 @@ pipeline {
                             sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                             curl -O https://raw.githubusercontent.com/percona/percona-xtrabackup/${BRANCH}/XB_VERSION
                             . ./XB_VERSION
-                            curl -O https://raw.githubusercontent.com/percona/percona-server/refs/heads/${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}/MYSQL_VERSION
+                            if [ \${XB_VERSION_MAJOR} = "9" ]; then
+                                curl -O https://raw.githubusercontent.com/percona/percona-server/refs/heads/trunk/MYSQL_VERSION
+                            else
+                                curl -O https://raw.githubusercontent.com/percona/percona-server/refs/heads/${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}/MYSQL_VERSION
+                            fi
                             . ./MYSQL_VERSION
                             rm -rf percona-docker
                             git clone ${REPO_DOCKER}
