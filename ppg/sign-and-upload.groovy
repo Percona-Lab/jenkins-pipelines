@@ -55,12 +55,12 @@ pipeline {
                     echo "Searching release: $RELEASE_NAME"
                     RELEASE_ID=$(curl -s \
                         -H "Authorization: Bearer $TOKEN" \
-                        https://api.github.com/repos/Manika-Percona/postgres-packaging/releases?per_page=100 \
+                        https://api.github.com/repos/percona/postgres-packaging/releases?per_page=100 \
                         | jq ".[] | select(.name==\\"$RELEASE_NAME\\") | .id")
                     
                     ASSET_ID=$(curl -s \
                         -H "Authorization: Bearer $TOKEN" \
-                        https://api.github.com/repos/Manika-Percona/postgres-packaging/releases/$RELEASE_ID \
+                        https://api.github.com/repos/percona/postgres-packaging/releases/$RELEASE_ID \
                         | jq '.assets[0].id')
                     
 
@@ -68,7 +68,7 @@ pipeline {
                     curl -L \
                         -H "Accept: application/octet-stream" \
                         -H "Authorization: Bearer $TOKEN" \
-                        https://api.github.com/repos/Manika-Percona/postgres-packaging/releases/assets/$ASSET_ID \
+                        https://api.github.com/repos/percona/postgres-packaging/releases/assets/$ASSET_ID \
                         -o github-artifact.tar.gz
                     '''
                 }
