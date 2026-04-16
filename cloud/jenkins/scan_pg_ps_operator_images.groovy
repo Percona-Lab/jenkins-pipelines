@@ -8,10 +8,12 @@ void checkImagesForDocker(String imagesListPath, String operatorFamily) {
                 [ -z "\$IMAGE" ] && continue
                 IMAGE_ID=\$(echo "\$IMAGE" | sed 's#[/:]#-#g')
                 TrivyLog="$WORKSPACE/trivy-hight-\${OP_FAMILY}-\${IMAGE_ID}.xml"
+                TrivyLogTxt="$WORKSPACE/trivy-hight-\${OP_FAMILY}-\${IMAGE_ID}.txt"
 
                 sg docker -c "
                     echo "\$PASS" | docker login -u "\$USER" --password-stdin
                     /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image --format template --template @/tmp/junit.tpl -o \$TrivyLog --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL \$IMAGE
+                    /usr/local/bin/trivy -q --cache-dir /mnt/jenkins/trivy-${JOB_NAME}/ image -o \$TrivyLogTxt --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL \$IMAGE
                     docker logout
                 "
             done < "\$IMAGES_LIST_PATH"
@@ -254,7 +256,7 @@ pipeline {
     post {
         always {
             junit allowEmptyResults: true, skipPublishingChecks: true, testResults: 'trivy-hight-*.xml'
-            archiveArtifacts artifacts: 'trivy-hight-*.xml', allowEmptyArchive: true
+            archiveArtifacts artifacts: 'trivy-hight-*.xml, trivy-hight-*.txt', allowEmptyArchive: true
             script {
                 if (fileExists('list-of-pg-images.txt') || fileExists('list-of-ps-images.txt')) {
                     def summary = generateImageSummary('list-of-pg-images.txt', 'list-of-ps-images.txt')
