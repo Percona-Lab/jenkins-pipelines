@@ -142,7 +142,7 @@ pipeline {
         stage('Push to public repository') {
             agent { label 'docker' }
             steps {
-                sync2ProdAutoBuild(params.CLOUD, PPG_REPO, COMPONENT)
+                sync2ProdAutoBuildPG(params.CLOUD, PPG_REPO, COMPONENT)
             }
         }
     }

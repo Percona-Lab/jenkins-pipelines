@@ -341,7 +341,7 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(params.CLOUD, PPG_REPO, COMPONENT)
+                sync2ProdAutoBuildPG(params.CLOUD, PPG_REPO, COMPONENT)
             }
         }
 
