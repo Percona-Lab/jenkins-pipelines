@@ -85,16 +85,20 @@ pipeline {
                             sudo docker run --rm --privileged multiarch/qemu-user-static --reset -p yes
                             curl -O https://raw.githubusercontent.com/percona/percona-xtrabackup/${BRANCH}/XB_VERSION
                             . ./XB_VERSION
-                            curl -O https://raw.githubusercontent.com/percona/percona-server/refs/heads/${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}/MYSQL_VERSION
+                            if [ \${XB_VERSION_MAJOR} = "9" ]; then
+                                curl -O https://raw.githubusercontent.com/percona/percona-server/refs/heads/trunk/MYSQL_VERSION
+                            else
+                                curl -O https://raw.githubusercontent.com/percona/percona-server/refs/heads/${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}/MYSQL_VERSION
+                            fi
                             . ./MYSQL_VERSION
                             rm -rf percona-docker
                             git clone ${REPO_DOCKER}
                             cd percona-docker
                             git checkout ${REPO_DOCKER_BRANCH}
                             if [ \${MYSQL_VERSION_MINOR} = "0" ]; then
-                                cd percona-xtrabackup-8.0
+                                cd percona-xtrabackup-\${XB_VERSION_MAJOR}.0
                             else
-                                cd percona-xtrabackup-8.x
+                                cd percona-xtrabackup-\${XB_VERSION_MAJOR}.x
                             fi
                             sed -i "s/ENV XTRABACKUP_VERSION.*/ENV XTRABACKUP_VERSION ${XB_VERSION_MAJOR}.${XB_VERSION_MINOR}.${XB_VERSION_PATCH}${XB_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.1/g" Dockerfile

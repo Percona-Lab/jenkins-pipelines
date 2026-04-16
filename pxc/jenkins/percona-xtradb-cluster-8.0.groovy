@@ -644,6 +644,21 @@ pipeline {
                         uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
                     }
                 }
+                stage('Debian Trixie(13) tarball') {
+                    agent {
+                        label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
+                    }
+                    steps {
+                        cleanUpWS()
+                        unstash 'pxc-80.properties'
+                        popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
+                        buildStage("debian:trixie", "--build_tarball=1")
+
+                        stash includes: 'test/pxc-80.properties', name: 'pxc-80.properties'
+                        pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
+                        uploadTarballfromAWS(params.CLOUD, "test/tarball/", AWS_STASH_PATH, 'binary')
+                    }
+                }
             }
         }
 

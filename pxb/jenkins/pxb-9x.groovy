@@ -214,9 +214,9 @@ pipeline {
                 cleanUpWS()
                 script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("ubuntu:focal", "--get_sources=1 --enable_fipsmode=1")
+                                buildStage("ubuntu:jammy", "--get_sources=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("ubuntu:focal", "--get_sources=1")
+                                buildStage("ubuntu:jammy", "--get_sources=1")
                             }
                        }
                 sh '''
@@ -251,9 +251,9 @@ pipeline {
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
                         script {
                             if (env.FIPSMODE == 'YES') {
-                                buildStage("centos:7", "--build_src_rpm=1 --enable_fipsmode=1")
+                                buildStage("oraclelinux:8", "--build_src_rpm=1 --enable_fipsmode=1")
                             } else {
-                                buildStage("centos:7", "--build_src_rpm=1")
+                                buildStage("oraclelinux:8", "--build_src_rpm=1")
                             }
                         }
 
@@ -683,27 +683,6 @@ pipeline {
                         }
                     }
                 }
-                stage('Debian Bullseye(11) tarball') {
-                    agent {
-                        label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
-                    }
-                    steps {
-                        script {
-                            if (env.FIPSMODE == 'YES') {
-                                echo "The step is skipped"
-                            } else {
-                                cleanUpWS()
-                                popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                                buildStage("debian:bullseye", "--build_tarball=1")
-
-                                if (env.EXPERIMENTALMODE == 'NO') {
-                                    pushArtifactFolder(params.CLOUD, "test/tarball/", AWS_STASH_PATH)
-                                    uploadTarballfromAWS(params.CLOUD,  "test/tarball/", AWS_STASH_PATH, 'binary')
-                                }
-                            }
-                        }
-                    }
-                }
                 stage('Debian Bookworm(12) tarball') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'deb12-x64' : 'min-focal-x64'
@@ -759,7 +738,19 @@ pipeline {
                 signDEB()
             }
         }
-        
+        stage('Push Tarballs to TESTING download area') {
+            steps {
+                script {
+                    try {
+                        uploadTarballToDownloadsTesting(params.CLOUD, "pxb", "${BRANCH}")
+                    }
+                    catch (err) {
+                        echo "Caught: ${err}"
+                        currentBuild.result = 'UNSTABLE'
+                    }
+                }
+            }
+        }
         stage('Push to public repository') {
             steps {
                 script {
