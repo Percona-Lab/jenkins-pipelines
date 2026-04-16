@@ -1,7 +1,7 @@
 /* groovylint-disable DuplicateStringLiteral, GStringExpressionWithinString, LineLength */
 library changelog: false, identifier: 'lib@hetzner', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/adivinho/jenkins-pipelines.git'
 ]) _
 
 import groovy.transform.Field
@@ -102,13 +102,13 @@ parameters {
                             sudo docker --version
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker builder prune -af
-                                sudo docker build --provenance=false -t perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f ${Dockerfile} .
-                                sudo docker buildx build --provenance=false --platform linux/arm64 -t perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-arm64 --load -f ${Dockerfile} .
+                                sudo docker build --provenance=false -t perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f ${Dockerfile} .
+                                sudo docker buildx build --provenance=false --platform linux/arm64 -t perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64 --load -f ${Dockerfile} .
                             else
-                                sudo docker pull perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-amd64
-                                sudo docker tag perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 percona/proxysql2:${VERSION}-${RPM_RELEASE}-amd64
-                                sudo docker pull perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-arm64
-                                sudo docker tag perconalab/proxysql2:${VERSION}-${RPM_RELEASE}-arm64 percona/proxysql2:${VERSION}-${RPM_RELEASE}-arm64
+                                sudo docker pull perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64
+                                sudo docker tag perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64 percona/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64
+                                sudo docker pull perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64
+                                sudo docker tag perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64 percona/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64
                             fi
                             sudo docker images
                         '''
@@ -119,21 +119,21 @@ parameters {
                         )]) {
                         sh '''
                             echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                            sudo docker tag ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 ${ORGANIZATION}/proxysql2:${VERSION}-amd64
-                            sudo docker push ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64
-                            sudo docker push ${ORGANIZATION}/proxysql2:${VERSION}-amd64
-                            sudo docker tag ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64 ${ORGANIZATION}/proxysql2:${VERSION}-arm64
-                            sudo docker push ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64
-                            sudo docker push ${ORGANIZATION}/proxysql2:${VERSION}-arm64
+                            sudo docker tag ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64 ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-amd64
+                            sudo docker push ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64
+                            sudo docker push ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-amd64
+                            sudo docker tag ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64 ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-arm64
+                            sudo docker push ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64
+                            sudo docker push ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-arm64
                        '''
                        }
                        sh '''
-                           sudo docker manifest create --amend ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE} \
-                               ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 \
-                               ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64
-                           sudo docker manifest annotate ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
-                           sudo docker manifest annotate ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
-                           sudo docker manifest inspect ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
+                           sudo docker manifest create --amend ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE} \
+                               ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64 \
+                               ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64
+                           sudo docker manifest annotate ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64 --os linux --arch arm64 --variant v8
+                           sudo docker manifest annotate ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE} ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64 --os linux --arch amd64
+                           sudo docker manifest inspect ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}
                        '''
                        withCredentials([
                        usernamePassword(credentialsId: 'hub.docker.com',
@@ -144,11 +144,11 @@ parameters {
                            PROXYSQL_MAJOR_RELEASE=$(echo ${VERSION} | awk '{print substr($0, 0, 1)}')
                            PROXYSQL_MAJOR_FULL_RELEASE=$(echo ${VERSION} | awk '{print substr($0, 0, 3)}')
                            echo "${PASS}" | sudo docker login -u "${USER}" --password-stdin
-                           sudo docker manifest push ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql2:${VERSION} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql2:${PROXYSQL_MAJOR_FULL_RELEASE} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql2:${PROXYSQL_MAJOR_RELEASE} ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
-                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql2:latest ${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}
+                           sudo docker manifest push ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION} ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql${VERSION%%.*}:${PROXYSQL_MAJOR_FULL_RELEASE} ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql${VERSION%%.*}:${PROXYSQL_MAJOR_RELEASE} ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}
+                           sudo docker buildx imagetools create -t ${ORGANIZATION}/proxysql${VERSION%%.*}:latest ${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}
                        '''
                        }
                 }
@@ -169,8 +169,8 @@ parameters {
 
                 // 🔹 Define the image tags
                     def imageList = [
-                        "${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-amd64",
-                        "${ORGANIZATION}/proxysql2:${VERSION}-${RPM_RELEASE}-arm64"
+                        "${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64",
+                        "${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64"
                     ]
 
                 // 🔹 Scan images and store logs
