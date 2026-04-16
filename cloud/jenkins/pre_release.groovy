@@ -67,6 +67,9 @@ pipeline {
                     echo "Validating version v${params.VERSION} for ${params.OPERATOR}..."
 
                     sh """
+                        if ! command -v jq >/dev/null 2>&1; then
+                            sudo dnf install -y jq
+                        fi
                         curl -s ${env.GITHUB_API_URL} > /tmp/releases.json
                     """
                     def versionExists = sh(
