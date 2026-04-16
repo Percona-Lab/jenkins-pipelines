@@ -102,13 +102,13 @@ parameters {
                             sudo docker --version
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker builder prune -af
-                                sudo docker build --provenance=false -t perconalab/proxysql"${VERSION%%.*}":${VERSION}-${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f ${Dockerfile} .
-                                sudo docker buildx build --provenance=false --platform linux/arm64 -t perconalab/proxysql"${VERSION%%.*}":${VERSION}-${RPM_RELEASE}-arm64 --load -f ${Dockerfile} .
+                                sudo docker build --provenance=false -t perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f ${Dockerfile} .
+                                sudo docker buildx build --provenance=false --platform linux/arm64 -t perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64 --load -f ${Dockerfile} .
                             else
-                                sudo docker pull perconalab/proxysql"${VERSION%%.*}":${VERSION}-${RPM_RELEASE}-amd64
-                                sudo docker tag perconalab/proxysql"${VERSION%%.*}":${VERSION}-${RPM_RELEASE}-amd64 percona/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64
-                                sudo docker pull perconalab/proxysql"${VERSION%%.*}":${VERSION}-${RPM_RELEASE}-arm64
-                                sudo docker tag perconalab/proxysql"${VERSION%%.*}":${VERSION}-${RPM_RELEASE}-arm64 percona/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64
+                                sudo docker pull perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64
+                                sudo docker tag perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64 percona/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64
+                                sudo docker pull perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64
+                                sudo docker tag perconalab/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64 percona/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64
                             fi
                             sudo docker images
                         '''
@@ -167,10 +167,13 @@ parameters {
                     // 🔹 Install Trivy if not present
                     installTrivy(method: 'apt')
 
+                // 🔹 Extract major version (equivalent of ${VERSION%%.*} in bash)
+                def majorVersion = VERSION.split('\\.')[0]
+
                 // 🔹 Define the image tags
                     def imageList = [
-                        "${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-amd64",
-                        "${ORGANIZATION}/proxysql${VERSION%%.*}:${VERSION}-${RPM_RELEASE}-arm64"
+                        "${ORGANIZATION}/proxysql${majorVersion}:${VERSION}-${RPM_RELEASE}-amd64",
+                        "${ORGANIZATION}/proxysql${majorVersion}:${VERSION}-${RPM_RELEASE}-arm64"
                     ]
 
                 // 🔹 Scan images and store logs
