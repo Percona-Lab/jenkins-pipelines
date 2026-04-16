@@ -25,11 +25,74 @@ void checkImagesForDocker(String imagesListPath, String operatorFamily) {
     }
 }
 
+void resolveImagesFromReleaseVersions(
+    String operatorName,
+    String repoGitUrl,
+    String rawRepoUrl,
+    String outputListPath,
+    String customListPath = ''
+) {
+    withEnv([
+        "OPERATOR_NAME=${operatorName}",
+        "REPO_GIT_URL=${repoGitUrl}",
+        "RAW_REPO_URL=${rawRepoUrl}",
+        "OUTPUT_LIST_PATH=${outputListPath}",
+        "CUSTOM_LIST_PATH=${customListPath}"
+    ]) {
+        sh '''
+            set -euo pipefail
+
+            RELEASE_FILE=$(mktemp)
+            trap 'rm -f "$RELEASE_FILE"' EXIT
+
+            if [ -n "$CUSTOM_LIST_PATH" ] && [ -s "$CUSTOM_LIST_PATH" ]; then
+                cp "$CUSTOM_LIST_PATH" "$RELEASE_FILE"
+                echo "Using custom image list for ${OPERATOR_NAME}: $CUSTOM_LIST_PATH" >&2
+            else
+                LATEST_TAG=$(git ls-remote --refs --tags "$REPO_GIT_URL" "v*" \
+                    | awk -F/ '$3 ~ /^v[0-9]+\\.[0-9]+\\.[0-9]+$/ { print $3 }' \
+                    | sort -V \
+                    | tail -n1)
+
+                if [ -z "$LATEST_TAG" ]; then
+                    echo "ERROR: failed to resolve latest semantic tag for ${OPERATOR_NAME} from $REPO_GIT_URL" >&2
+                    exit 1
+                fi
+
+                RELEASE_URL="${RAW_REPO_URL}/refs/tags/${LATEST_TAG}/e2e-tests/release_versions"
+                echo "Using ${OPERATOR_NAME} tag ${LATEST_TAG}" >&2
+                echo "Fetching ${RELEASE_URL}" >&2
+                curl -fsS "$RELEASE_URL" -o "$RELEASE_FILE"
+            fi
+
+            awk -F= '
+                /^[[:space:]]*IMAGE_[A-Za-z0-9_]+[[:space:]]*=/ {
+                    value=$2
+                    sub(/^[[:space:]]+/, "", value)
+                    sub(/[[:space:]]+$/, "", value)
+                    gsub(/"/, "", value)
+                    if (value ~ /.+\\/.+:.+/) {
+                        print value
+                    }
+                }
+            ' "$RELEASE_FILE" | sort -u > "$OUTPUT_LIST_PATH"
+
+            if [ ! -s "$OUTPUT_LIST_PATH" ]; then
+                echo "ERROR: no IMAGE_* entries resolved for ${OPERATOR_NAME}" >&2
+                exit 1
+            fi
+
+            echo "--- ${OPERATOR_NAME} images to scan ($(wc -l < "$OUTPUT_LIST_PATH")) ---" >&2
+            cat "$OUTPUT_LIST_PATH" >&2
+        '''
+    }
+}
+
 void generateImageSummary(String pgListPath, String psListPath) {
     def pgImages = fileExists(pgListPath) ? readFile(pgListPath).trim().split("\n").findAll { it } : []
     def psImages = fileExists(psListPath) ? readFile(psListPath).trim().split("\n").findAll { it } : []
 
-    def report = "<h2>Image Summary Report (Check Service recommended)</h2>\n"
+    def report = "<h2>Image Summary Report</h2>\n"
 
     report += "<h3>PostgreSQL operator (${pgImages.size()} images)</h3>\n<ul>\n"
     pgImages.each { image -> report += "<li>${image}</li>\n" }
@@ -76,18 +139,22 @@ String getTrivyCveSummary(String reportGlob) {
 
 pipeline {
     parameters {
-        string(
-            defaultValue: 'https://check.percona.com/versions/v1',
-            description: 'Percona Check Service API base (no trailing slash on path segments after v1)',
-            name: 'CHECK_SERVICE_BASE')
-        string(
+        booleanParam(
+            defaultValue: true,
+            description: 'Enable PostgreSQL operator image resolution and scan.',
+            name: 'SCAN_PG_IMAGES')
+        booleanParam(
+            defaultValue: true,
+            description: 'Enable MySQL (PS) operator image resolution and scan.',
+            name: 'SCAN_PS_IMAGES')
+        text(
             defaultValue: '',
-            description: 'Pin PostgreSQL operator version (e.g. 2.9.0). Empty = latest from Check Service.',
-            name: 'PG_OPERATOR_VER')
-        string(
+            description: 'Optional custom PG image list in release_versions format (IMAGE_*=repo/image:tag). If set, only these images are checked.',
+            name: 'PG_CUSTOM_IMAGE_LIST')
+        text(
             defaultValue: '',
-            description: 'Pin MySQL (PS) operator version (e.g. 1.0.0). Empty = latest from Check Service.',
-            name: 'PS_OPERATOR_VER')
+            description: 'Optional custom PS image list in release_versions format (IMAGE_*=repo/image:tag). If set, only these images are checked.',
+            name: 'PS_CUSTOM_IMAGE_LIST')
     }
     agent {
         label 'docker-x64-min'
@@ -117,96 +184,67 @@ pipeline {
                         wget -q --directory-prefix=/tmp https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
                     fi
 
-                    sudo curl -fsSL https://github.com/jqlang/jq/releases/download/jq-1.7.1/jq-linux64 -o /usr/local/bin/jq && sudo chmod +x /usr/local/bin/jq
                 """
             }
         }
 
-        stage('Resolve PG operator images from Check Service') {
+        stage('Resolve PG operator images') {
+            when {
+                expression { return params.SCAN_PG_IMAGES }
+            }
             steps {
-                sh """
-                    set -euo pipefail
-                    BASE='${params.CHECK_SERVICE_BASE}'
-                    PG_PIN='${params.PG_OPERATOR_VER}'
-                    URL="\${BASE}/pg-operator"
-                    tmp=\$(mktemp)
-                    trap 'rm -f "\$tmp"' EXIT
-                    curl -fsS "\$URL" -o "\$tmp"
-                    count=\$(jq '.versions | length' "\$tmp")
-                    if [ "\$count" -eq 0 ]; then
-                        echo "ERROR: Check Service returned no versions (GET \$URL)." >&2
-                        exit 1
-                    fi
-                    if [ -n "\$PG_PIN" ]; then
-                        ver="\$PG_PIN"
-                    else
-                        ver=\$(jq -r '.versions[].operator' "\$tmp" | sort -V | tail -n1)
-                    fi
-                    if [ -z "\$ver" ]; then
-                        echo "ERROR: empty operator version (GET \$URL)." >&2
-                        exit 1
-                    fi
-                    echo "product=pg-operator operator_version=\${ver}" >&2
-                    jq -r --arg v "\$ver" '
-                        .versions[]
-                        | select(.operator == \$v)
-                        | .matrix
-                        | .. | objects
-                        | select(has("imagePath") and .status == "recommended")
-                        | .imagePath
-                    ' "\$tmp" | sort -u > list-of-pg-images.txt
-                    echo "--- PG images to scan (\$(wc -l < list-of-pg-images.txt)) ---" >&2
-                    cat list-of-pg-images.txt >&2
-                """
+                script {
+                    String customPath = ''
+                    if (params.PG_CUSTOM_IMAGE_LIST?.trim()) {
+                        customPath = 'pg-custom-release_versions.txt'
+                        writeFile file: customPath, text: params.PG_CUSTOM_IMAGE_LIST.trim() + '\n'
+                    }
+                    resolveImagesFromReleaseVersions(
+                        'PG operator',
+                        'https://github.com/percona/percona-postgresql-operator.git',
+                        'https://raw.githubusercontent.com/percona/percona-postgresql-operator',
+                        'list-of-pg-images.txt',
+                        customPath
+                    )
+                }
             }
         }
 
-        stage('Resolve PS operator images from Check Service') {
+        stage('Resolve PS operator images') {
+            when {
+                expression { return params.SCAN_PS_IMAGES }
+            }
             steps {
-                sh """
-                    set -euo pipefail
-                    BASE='${params.CHECK_SERVICE_BASE}'
-                    PS_PIN='${params.PS_OPERATOR_VER}'
-                    URL="\${BASE}/ps-operator"
-                    tmp=\$(mktemp)
-                    trap 'rm -f "\$tmp"' EXIT
-                    curl -fsS "\$URL" -o "\$tmp"
-                    count=\$(jq '.versions | length' "\$tmp")
-                    if [ "\$count" -eq 0 ]; then
-                        echo "ERROR: Check Service returned no versions (GET \$URL)." >&2
-                        exit 1
-                    fi
-                    if [ -n "\$PS_PIN" ]; then
-                        ver="\$PS_PIN"
-                    else
-                        ver=\$(jq -r '.versions[].operator' "\$tmp" | sort -V | tail -n1)
-                    fi
-                    if [ -z "\$ver" ]; then
-                        echo "ERROR: empty operator version (GET \$URL)." >&2
-                        exit 1
-                    fi
-                    echo "product=ps-operator operator_version=\${ver}" >&2
-                    jq -r --arg v "\$ver" '
-                        .versions[]
-                        | select(.operator == \$v)
-                        | .matrix
-                        | .. | objects
-                        | select(has("imagePath") and .status == "recommended")
-                        | .imagePath
-                    ' "\$tmp" | sort -u > list-of-ps-images.txt
-                    echo "--- PS images to scan (\$(wc -l < list-of-ps-images.txt)) ---" >&2
-                    cat list-of-ps-images.txt >&2
-                """
+                script {
+                    String customPath = ''
+                    if (params.PS_CUSTOM_IMAGE_LIST?.trim()) {
+                        customPath = 'ps-custom-release_versions.txt'
+                        writeFile file: customPath, text: params.PS_CUSTOM_IMAGE_LIST.trim() + '\n'
+                    }
+                    resolveImagesFromReleaseVersions(
+                        'PS operator',
+                        'https://github.com/percona/percona-server-mysql-operator.git',
+                        'https://raw.githubusercontent.com/percona/percona-server-mysql-operator',
+                        'list-of-ps-images.txt',
+                        customPath
+                    )
+                }
             }
         }
 
         stage('Trivy scan PG operator images') {
+            when {
+                expression { return params.SCAN_PG_IMAGES }
+            }
             steps {
                 checkImagesForDocker('list-of-pg-images.txt', 'PG')
             }
         }
 
         stage('Trivy scan PS operator images') {
+            when {
+                expression { return params.SCAN_PS_IMAGES }
+            }
             steps {
                 checkImagesForDocker('list-of-ps-images.txt', 'PS')
             }
@@ -231,13 +269,13 @@ pipeline {
         unstable {
             script {
                 def trivySummary = getTrivyCveSummary('trivy-hight-*.xml')
-                // slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Trivy scan for *PG + PS operator* images (Check Service recommended) unstable.${trivySummary} ${BUILD_URL}"
+                // slackSend channel: '#cloud-dev-ci', color: '#F6F930', message: "Trivy scan for *PG + PS operator* images unstable.${trivySummary} ${BUILD_URL}"
             }
         }
         failure {
             script {
                 def trivySummary = getTrivyCveSummary('trivy-hight-*.xml')
-                // slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Trivy scan for *PG + PS operator* images (Check Service recommended) failed.${trivySummary} ${BUILD_URL}"
+                // slackSend channel: '#cloud-dev-ci', color: '#FF0000', message: "Trivy scan for *PG + PS operator* images failed.${trivySummary} ${BUILD_URL}"
             }
         }
         cleanup {
