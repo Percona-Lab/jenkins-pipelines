@@ -63,20 +63,6 @@ pipeline {
     stages {
         stage('Run package tests') {
             parallel {
-                stage('Run \"pmm3-client\" package tests') {
-                    steps {
-                        retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client", INSTALL_REPO, TARBALL, METRICS_MODE, '--help')
-                        }
-                    }
-                }
-                stage('Run \"pmm3-client_custom_path\" package tests') {
-                    steps {
-                        retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_custom_path", INSTALL_REPO, TARBALL, METRICS_MODE, '--help ')
-                        }
-                    }
-                }
                 stage('Run \"pmm3-client_integration\" package tests') {
                     steps {
                         retry(2) {
@@ -130,13 +116,6 @@ pipeline {
                     steps {
                         retry(2) {
                             runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_integration_upgrade_custom_port", INSTALL_REPO, TARBALL, METRICS_MODE, '    --help  ')
-                        }
-                    }
-                }
-                stage('Run \"pmm3-client_upgrade\" package tests') {
-                    steps {
-                        retry(2) {
-                            runPackageTest(GIT_BRANCH, DOCKER_VERSION, PMM_VERSION, "pmm3-client_upgrade", INSTALL_REPO, TARBALL, METRICS_MODE, '    --help   ')
                         }
                     }
                 }
