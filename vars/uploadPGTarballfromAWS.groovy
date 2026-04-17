@@ -1,4 +1,4 @@
-def call(String CLOUD_NAME, String FOLDER_NAME, String AWS_STASH_PATH, String TarballType, String PRODUCT_VERSION) {
+def call(String CLOUD_NAME, String FOLDER_NAME, String AWS_STASH_PATH, String TarballType, String PRODUCT_VERSION, boolean copyToLatest = false) {
     def nodeLabel = (CLOUD_NAME == 'Hetzner') ? 'launcher-x64' : 'micro-amazon'
     node(nodeLabel) {
         deleteDir()
@@ -21,6 +21,15 @@ def call(String CLOUD_NAME, String FOLDER_NAME, String AWS_STASH_PATH, String Ta
                     ${USER}@repo.ci.percona.com:\${path_to_build}/${TarballType}/tarball/
 
             """
+            if (copyToLatest) {
+                sh """
+                    export path_to_build=`cat uploadPath-${PRODUCT_VERSION}`
+                    LATEST_PATH=\$(echo \${path_to_build} | sed 's|/[0-9]\\{14\\}\$|/latest|')
+
+                    ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \\
+                        "mkdir -p \${LATEST_PATH}/${TarballType}/tarball && cp -f \${path_to_build}/${TarballType}/tarball/*.tar.* \${LATEST_PATH}/${TarballType}/tarball/"
+                """
+            }
         }
         deleteDir()
     }
