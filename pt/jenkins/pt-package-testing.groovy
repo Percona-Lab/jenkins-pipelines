@@ -23,7 +23,7 @@ setup_rhel10_package_tests = { ->
     sh '''
         sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm
         sudo yum -y update
-        sudo yum install -y ansible
+        sudo yum install -y ansible-core
     '''
 }
 
