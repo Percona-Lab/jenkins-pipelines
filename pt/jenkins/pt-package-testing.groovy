@@ -24,6 +24,7 @@ setup_rhel10_package_tests = { ->
         sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm
         sudo yum -y update
         sudo yum install -y ansible-core
+        sudo ansible-galaxy collection install ansible.posix
     '''
 }
 
