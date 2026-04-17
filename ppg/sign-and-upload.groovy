@@ -32,6 +32,10 @@ pipeline {
             defaultValue: 'ppg-17.6',
             description: 'PPG repo name',
             name: 'PPG_REPO')
+        string(
+            defaultValue: 'percona/postgres-packaging',
+            description: 'packaging repo name',
+            name: 'PACKAGING_REPO')
         choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
@@ -55,20 +59,29 @@ pipeline {
                     echo "Searching release: $RELEASE_NAME"
                     RELEASE_ID=$(curl -s \
                         -H "Authorization: Bearer $TOKEN" \
-                        https://api.github.com/repos/percona/postgres-packaging/releases?per_page=100 \
-                        | jq ".[] | select(.name==\\"$RELEASE_NAME\\") | .id")
+                        https://api.github.com/repos/$PACKAGING_REPO/releases?per_page=100 \
+                        | jq --arg name "$RELEASE_NAME" '.[] | select(.name==$name) | .id')
+
+                    if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
+                        echo "Release not found: $RELEASE_NAME"
+                        exit 1
+                    fi
                     
                     ASSET_ID=$(curl -s \
                         -H "Authorization: Bearer $TOKEN" \
-                        https://api.github.com/repos/percona/postgres-packaging/releases/$RELEASE_ID \
-                        | jq '.assets[0].id')
-                    
+                        https://api.github.com/repos/$PACKAGING_REPO/releases/$RELEASE_ID \
+                        | jq '.assets[] | select(.name | endswith(".tar.gz")) | .id')
 
+                    if [ -z "$ASSET_ID" ] || [ "$ASSET_ID" = "null" ]; then
+                        echo "Asset not found in release"
+                        exit 1
+                    fi
+                    
                     echo "Downloading artifact $RELEASE_NAME..."
                     curl -L \
                         -H "Accept: application/octet-stream" \
                         -H "Authorization: Bearer $TOKEN" \
-                        https://api.github.com/repos/percona/postgres-packaging/releases/assets/$ASSET_ID \
+                        https://api.github.com/repos/$PACKAGING_REPO/releases/assets/$ASSET_ID \
                         -o github-artifact.tar.gz
                     '''
                 }
