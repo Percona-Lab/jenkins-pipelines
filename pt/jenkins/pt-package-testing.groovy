@@ -19,6 +19,14 @@ setup_rhel_package_tests = { ->
     '''
 }
 
+setup_rhel10_package_tests = { ->
+    sh '''
+        yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-10.noarch.rpm
+        sudo yum -y update
+        sudo yum install -y ansible
+    '''
+}
+
 setup_ol8_package_tests = { ->
 sh """
         sudo yum install -y https://dl.fedoraproject.org/pub/epel/epel-release-latest-8.noarch.rpm
@@ -56,7 +64,7 @@ node_setups = [
     "min-trixie-x64": setup_debian_package_tests,
     "min-ol-8-x64": setup_ol8_package_tests,
     "min-ol-9-x64": setup_rhel_package_tests,
-    "min-rhel-10-x64": setup_rhel_package_tests,
+    "min-rhel-10-x64": setup_rhel10_package_tests,
     "min-al2023-x64": setup_rhel_package_tests,
     "min-focal-x64": setup_ubuntu_package_tests,
     "min-jammy-x64": setup_ubuntu_package_tests,
