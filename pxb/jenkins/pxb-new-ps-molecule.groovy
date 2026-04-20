@@ -159,14 +159,6 @@ pipeline {
   options {
     withCredentials(moleculepxbJenkinsCreds())
     disableConcurrentBuilds()
-    // Resilience against AWS spot-instance reclaim of the `min-bookworm-x64` build
-    // agent: only retry when the build failure is caused by agent loss
-    // (AgentOfflineException / ChannelClosedException) or a non-resumable Jenkins
-    // controller event. Real pytest / molecule failures do NOT trigger a retry.
-    // Leaked molecule target EC2 instances from an aborted attempt are swept on
-    // the next attempt by the tag-based filter in `deleteBuildInstances()`.
-    retry(count: 2, conditions: [agent(), nonresumable()])
-    timeout(time: 8, unit: 'HOURS')
   }
 
   stages {
