@@ -13,14 +13,14 @@ def call(String CLOUD_NAME, String FOLDER_NAME, String AWS_STASH_PATH) {
                 echo '10.30.6.9 repo.ci.percona.com' >> ./hosts
                 sudo cp ./hosts /etc/ || true
 
-                dsc=$(find . -name '*.dsc' | head -n 1)
+                dsc=`find . -name '*.dsc' | head -n 1`
                 if [ -f "\${dsc}" ]; then
                     ssh -o StrictHostKeyChecking=no -i ${KEY_PATH} ${USER}@repo.ci.percona.com \
                         mkdir -p \${path_to_build}/source/debian
-                    dir=$(dirname "\${dsc}")
-                    scp -o StrictHostKeyChecking=no -i "$KEY_PATH" \
+                    dir=`dirname \${dsc}`
+                    scp -o StrictHostKeyChecking=no -i ${KEY_PATH} \
                         \${dir}/* \
-                        \${USER}@repo.ci.percona.com:\${path_to_build}/source/debian/
+                        ${USER}@repo.ci.percona.com:\${path_to_build}/source/debian/
                 fi
 
                 for deb in \$(find . -name '*.deb'); do
