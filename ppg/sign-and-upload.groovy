@@ -141,7 +141,7 @@ pipeline {
     }
     post {
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${RELEASE_NAME} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${RELEASE_NAME}-${PPG_REPO} - [${BUILD_URL}]")
             script {
                 currentBuild.description = "Built for ${RELEASE_NAME}"
             }
