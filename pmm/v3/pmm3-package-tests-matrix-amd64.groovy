@@ -24,7 +24,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'master',
+            defaultValue: 'PMM-14987',
             description: 'Tag/Branch for package-testing repository',
             name: 'GIT_BRANCH',
             trim: true)
