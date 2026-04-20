@@ -81,17 +81,16 @@ void setup_ubuntu_package_tests()
 void run_package_tests(String GIT_BRANCH, String TESTS, String INSTALL_REPO, String TARBALL)
 {
     deleteDir()
-    git poll: false, branch: GIT_BRANCH, url: 'https://github.com/Percona-QA/package-testing'
+    git poll: false, branch: GIT_BRANCH, url: 'https://github.com/percona/pmm-qa'
     sh """
         export install_repo=${INSTALL_REPO}
         export TARBALL_LINK=${TARBALL}
-        git clone https://github.com/Percona-QA/ppg-testing
-        export PATH="$HOME/.local/bin:$PATH"
+        ls package_tests/
         ansible-playbook \
         -vvvvv \
         --connection=local \
         --inventory 127.0.0.1, \
-        --limit 127.0.0.1 playbooks/${TESTS}.yml
+        --limit 127.0.0.1 package_tests/${TESTS}.yml
     """
 }
 
