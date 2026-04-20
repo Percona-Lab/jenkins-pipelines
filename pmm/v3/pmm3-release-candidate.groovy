@@ -357,6 +357,28 @@ pipeline {
                 }
             }
         }
+        stage('Queue RC testing') {
+            when {
+                expression { env.REMOVE_RELEASE_BRANCH == 'no' }
+            }
+            steps {
+                script {
+                    try {
+                        build job: 'pmm3-rc-testing', wait: false, propagate: false, parameters: [
+                                string(name: 'RC_VERSION', value: env.VERSION),
+                                string(name: 'PMM_CLIENT_TARBALL', value: env.TARBALL_AMD64_URL.trim()),
+                                string(name: 'PMM_CLIENT_TARBALL_ARM64', value: env.TARBALL_ARM64_URL.trim()),
+                                string(name: 'PMM_CLIENT_TARBALL_OL8', value: env.TARBALL_AMD64_DYNAMIC_OL8_URL.trim()),
+                                string(name: 'PMM_CLIENT_TARBALL_OL9', value: env.TARBALL_AMD64_DYNAMIC_OL9_URL.trim()),
+                                string(name: 'AMI_ID', value: env.AMI_ID.trim()),
+                            ]
+                        echo "[rc-tests] Release Candidate testing queued for ${env.VERSION}."
+                    } catch (Throwable e) {
+                        echo "[rc-tests] Could not queue pmm3-rc-testing: ${e.message}"
+                    }
+                }
+            }
+        }
     }
     post {
         success {
