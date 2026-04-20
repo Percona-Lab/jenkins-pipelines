@@ -110,7 +110,7 @@ pipeline {
                 
                     uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
                     uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                    uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                    uploadSourceDebfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                 
                     uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
