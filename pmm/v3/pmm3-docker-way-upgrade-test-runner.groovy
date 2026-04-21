@@ -108,8 +108,8 @@ pipeline {
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
         string(
-            defaultValue: '',
-            description: 'PMM Server Version to upgrade to, if empty docker tag will be used from version service.',
+            defaultValue: 'perconalab/pmm-server:3-dev-latest',
+            description: 'PMM Server Version to upgrade to.',
             name: 'DOCKER_TAG_UPGRADE')
         string(
             defaultValue: "$oldestVersion",
