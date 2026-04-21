@@ -222,7 +222,7 @@ pipeline {
                 '''
             }
         }
-        stage('Prepare nightly tests on migrated pmm.') {
+        stage('Prepare tests on migrated pmm.') {
             steps {
                 dir('pmm-ui-tests-v2') {
                     script {
@@ -312,6 +312,8 @@ pipeline {
                     dir('codeceptjs-e2e') {
                         sh """
                             sed -i 's+http://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
+                            npm ci
+                            npx playwright install
                             export PWD=\$(pwd);
                             npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-migration'
                         """
