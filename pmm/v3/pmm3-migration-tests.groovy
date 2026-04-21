@@ -53,7 +53,7 @@ pipeline {
             name: 'PMM_V3_UI_GIT_BRANCH')
         string(
             defaultValue: 'v2',
-            description: 'Tag/Branch for pmm-ui-tests repository (PMM V2 docker-compose stack only)',
+            description: 'Tag/Branch for pmm-ui-tests repository for old tests code to run pre migration tests',
             name: 'PMM_V2_UI_GIT_BRANCH')
         string(
             defaultValue: 'perconalab/pmm-server:' + latestVersion,
@@ -69,7 +69,7 @@ pipeline {
             name: 'ADMIN_PASSWORD')
         string(
             defaultValue: 'v2',
-            description: 'Tag/Branch for pmm-qa repository',
+            description: 'Tag/Branch for pmm-qa repository for old pmm-framework.sh setup before upgrade',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ['experimental', 'testing', 'release'],
@@ -115,7 +115,9 @@ pipeline {
                 waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
                 sleep 20
                 sh """
-                    bash -x pmm-ui-tests-v2/testdata/db_setup.sh
+                    pushd pmm-ui-tests-v2
+                    bash -x testdata/db_setup.sh
+                    popd
                     docker network connect pmm-qa pmm-server
                 """
                 script {
