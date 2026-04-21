@@ -49,11 +49,11 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for pmm-ui-tests repository (PMM V3 / pre-migration Codecept)',
+            description: 'Tag/Branch for pmm-qa repository (Codecept in codeceptjs-e2e/ for migration tests)',
             name: 'PMM_V3_UI_GIT_BRANCH')
         string(
             defaultValue: 'v2',
-            description: 'Tag/Branch for pmm-ui-tests repository (PMM V2)',
+            description: 'Tag/Branch for pmm-ui-tests repository (PMM V2 docker-compose stack only)',
             name: 'PMM_V2_UI_GIT_BRANCH')
         string(
             defaultValue: 'perconalab/pmm-server:' + latestVersion,
@@ -82,10 +82,10 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                // pmm-ui-tests: V2 compose + V3 Codecept branches for migration testing; pmm-qa on /srv for pmm-framework scripts
+                // Workspace: pmm-qa (Codecept in codeceptjs-e2e/). V2 stack: separate pmm-ui-tests clone. /srv: pmm-qa for pmm-framework.sh
                 git poll: false,
                     branch: PMM_V3_UI_GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-ui-tests.git'
+                    url: 'https://github.com/percona/pmm-qa.git'
 
                 slackSend channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
                 sh """
@@ -95,6 +95,8 @@ pipeline {
                     pushd /srv/pmm-qa
                         sudo git clone --single-branch --branch ${params.PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                     popd
+                    rm -rf pmm-ui-tests-v2
+                    git clone --single-branch --branch ${params.PMM_V2_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git pmm-ui-tests-v2
                     sudo ln -sf /usr/bin/chromium-browser /usr/bin/chromium
                 """
             }
@@ -103,7 +105,7 @@ pipeline {
             steps {
                 sh '''
                     docker network create pmm-qa || true
-                    git checkout ${PMM_V2_UI_GIT_BRANCH}
+                    cd pmm-ui-tests-v2
                     PWD=$(pwd) PMM_SERVER_IMAGE=${DOCKER_VERSION} docker-compose up -d
 
                 '''
@@ -113,7 +115,7 @@ pipeline {
                 waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
                 sleep 20
                 sh """
-                    bash -x testdata/db_setup.sh
+                    bash -x pmm-ui-tests-v2/testdata/db_setup.sh
                     docker network connect pmm-qa pmm-server
                 """
                 script {
@@ -220,15 +222,17 @@ pipeline {
         }
         stage('Prepare nightly tests on migrated pmm.') {
             steps {
-                script {
-                    sh """
-                        curl -sL https://rpm.nodesource.com/setup_20.x | sudo bash -
-                        sudo dnf install -y nodejs
-                        node --version
-                        npm ci
-                        npx playwright install
-                        envsubst < env.list > env.generated.list
-                    """
+                dir('pmm-ui-tests-v2') {
+                    script {
+                        sh """
+                            curl -sL https://rpm.nodesource.com/setup_20.x | sudo bash -
+                            sudo dnf install -y nodejs
+                            node --version
+                            npm ci
+                            npx playwright install
+                            envsubst < env.list > env.generated.list
+                        """
+                    }
                 }
             }
         }
@@ -238,12 +242,13 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        sed -i 's+http://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
-                        export PWD=\$(pwd);
-                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-pre-migration'
-                        git checkout ${params.PMM_V3_UI_GIT_BRANCH}
-                    """
+                    dir('pmm-ui-tests-v2') {
+                        sh """
+                            sed -i 's+http://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
+                            export PWD=\$(pwd);
+                            npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-pre-migration'
+                        """
+                    }
                 }
             }
         }
@@ -302,11 +307,13 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                    sh """
-                        sed -i 's+http://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
-                        export PWD=\$(pwd);
-                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-migration'
-                    """
+                    dir('codeceptjs-e2e') {
+                        sh """
+                            sed -i 's+http://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
+                            export PWD=\$(pwd);
+                            npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-migration'
+                        """
+                    }
                 }
             }
         }
@@ -330,8 +337,8 @@ pipeline {
                 docker cp pmm-server:/srv/logs srv-logs
                 tar -zcvf srv-logs.tar.gz srv-logs
 
-                # stop the containers
-                docker-compose down || true
+                # stop the containers (V2 stack from pmm-ui-tests clone)
+                cd pmm-ui-tests-v2 && docker-compose down || true
                 docker rm -f $(sudo docker ps -a -q) || true
                 docker volume rm $(sudo docker volume ls -q) || true
                 sudo chown -R ec2-user:ec2-user . || true
@@ -344,14 +351,14 @@ pipeline {
                 archiveArtifacts artifacts: 'srv-logs.tar.gz'
 
                 if (currentBuild.result == null || currentBuild.result == 'SUCCESS') {
-                    junit 'tests/output/*.xml'
+                    junit 'codeceptjs-e2e/tests/output/*.xml'
                     slackSend botUser: true, channel: '#pmm-notifications', color: '#00FF00', message: "[${JOB_NAME}]: build finished - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
                 } else {
-                    junit 'tests/output/*.xml'
+                    junit 'codeceptjs-e2e/tests/output/*.xml'
                     slackSend botUser: true, channel: '#pmm-notifications', color: '#FF0000', message: "[${JOB_NAME}]: build ${currentBuild.result} - ${BUILD_URL}"
                     archiveArtifacts artifacts: 'logs.zip'
-                    archiveArtifacts artifacts: 'tests/output/*.png'
+                    archiveArtifacts artifacts: 'codeceptjs-e2e/tests/output/*.png'
                 }
             }
         }
