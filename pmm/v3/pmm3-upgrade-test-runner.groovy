@@ -222,6 +222,7 @@ pipeline {
                             -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
                             -e PMM_ENABLE_UPDATES=1 \
                             -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
+                            -e PMM_ENABLE_TELEMETRY=0 \
                             --publish 80:8080 --publish 443:8443 \
                             --volume pmm-volume:/srv \
                             --name pmm-server \
@@ -239,6 +240,7 @@ pipeline {
                             -e PMM_ENABLE_UPDATES=1 \
                             -e PMM_DEV_UPDATE_DOCKER_IMAGE=\${DOCKER_TAG_UPGRADE} \
                             -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
+                            -e PMM_ENABLE_TELEMETRY=0 \
                             --publish 80:8080 --publish 443:8443 \
                             --volume pmm-volume:/srv \
                             --name pmm-server \
