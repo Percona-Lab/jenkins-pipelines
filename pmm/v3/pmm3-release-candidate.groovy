@@ -8,7 +8,6 @@ def pmm_submodules() {
         "pmm",
         "grafana-dashboards",
         "grafana",
-        "pmm-ui-tests",
         "pmm-qa",
         "mysqld_exporter",
         "node_exporter",

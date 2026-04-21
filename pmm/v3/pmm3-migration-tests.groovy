@@ -49,11 +49,11 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for UI Tests repository PMM V3',
+            description: 'Tag/Branch for pmm-ui-tests repository (PMM V3 / pre-migration Codecept)',
             name: 'PMM_V3_UI_GIT_BRANCH')
         string(
             defaultValue: 'v2',
-            description: 'Tag/Branch for UI Tests repository PMM V2',
+            description: 'Tag/Branch for pmm-ui-tests repository (PMM V2)',
             name: 'PMM_V2_UI_GIT_BRANCH')
         string(
             defaultValue: 'perconalab/pmm-server:' + latestVersion,
@@ -82,20 +82,21 @@ pipeline {
     stages {
         stage('Prepare') {
             steps {
-                // fetch pmm-ui-tests repository
+                // pmm-ui-tests: V2 compose + V3 Codecept branches for migration testing; pmm-qa on /srv for pmm-framework scripts
                 git poll: false,
                     branch: PMM_V3_UI_GIT_BRANCH,
                     url: 'https://github.com/percona/pmm-ui-tests.git'
 
                 slackSend channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                sh '''
-                    sudo mkdir -p /srv/pmm-qa || :
+                sh """
+                    set -o errexit
+                    sudo rm -rf /srv/pmm-qa
+                    sudo mkdir -p /srv/pmm-qa
                     pushd /srv/pmm-qa
-                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                        sudo git checkout ${PMM_QA_GIT_COMMIT_HASH}
+                        sudo git clone --single-branch --branch ${params.PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                     popd
-                    sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
-                '''
+                    sudo ln -sf /usr/bin/chromium-browser /usr/bin/chromium
+                """
             }
         }
         stage('Start Server Instance') {
@@ -237,12 +238,12 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                sh """
-                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    export PWD=\$(pwd);
-                    npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-pre-migration'
-                    git checkout ${PMM_V3_UI_GIT_BRANCH}
-                """
+                    sh """
+                        sed -i 's+http://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
+                        export PWD=\$(pwd);
+                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-pre-migration'
+                        git checkout ${params.PMM_V3_UI_GIT_BRANCH}
+                    """
                 }
             }
         }
@@ -301,11 +302,11 @@ pipeline {
             }
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                sh """
-                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    export PWD=\$(pwd);
-                    npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-migration'
-                """
+                    sh """
+                        sed -i 's+http://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
+                        export PWD=\$(pwd);
+                        npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-migration'
+                    """
                 }
             }
         }

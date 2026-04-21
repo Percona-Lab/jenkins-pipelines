@@ -7,10 +7,6 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for pmm-ui-tests repository',
-            name: 'GIT_BRANCH')
-        string(
             defaultValue: '',
             description: 'Commit hash for the branch',
             name: 'GIT_COMMIT_HASH')
@@ -208,12 +204,13 @@ pipeline {
                 withCredentials([sshUserPrivateKey(credentialsId: 'aws-jenkins-admin', keyFileVariable: 'KEY_PATH', passphraseVariable: '', usernameVariable: 'USER')]) {
                     sh '''
                         ssh -i "${KEY_PATH}" -o ConnectTimeout=1 -o StrictHostKeyChecking=no admin@${PUBLIC_IP} "
-                            sudo git clone --single-branch --branch ${GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git
-                            cd pmm-ui-tests
-                            sudo PWD=$(pwd) docker-compose up -d mysql
-                            sudo PWD=$(pwd) docker-compose up -d mongo
-                            sudo PWD=$(pwd) docker-compose up -d postgres
-                            sudo PWD=$(pwd) docker-compose up -d proxysql
+                            sudo rm -rf pmm-qa
+                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git
+                            cd pmm-qa/codeceptjs-e2e
+                            sudo PWD=\$(pwd) docker-compose up -d mysql
+                            sudo PWD=\$(pwd) docker-compose up -d mongo
+                            sudo PWD=\$(pwd) docker-compose up -d postgres
+                            sudo PWD=\$(pwd) docker-compose up -d proxysql
                             sleep 30
                             sudo bash -x testdata/db_setup.sh
                         "

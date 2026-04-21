@@ -17,7 +17,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'SERVER_IP', value: SERVER_IP),
         string(name: 'SSH_KEY', value: SSH_KEY),
         string(name: 'NOTIFY', value: 'false'),
-        string(name: 'DAYS', value: '1'), 
+        string(name: 'DAYS', value: '1'),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
     ]
@@ -33,7 +33,7 @@ void runOVFStagingStart(String SERVER_VERSION, PMM_QA_GIT_BRANCH) {
     ]
     env.OVF_INSTANCE_NAME = ovfStagingJob.buildVariables.VM_NAME
     env.OVF_INSTANCE_IP = ovfStagingJob.buildVariables.IP
-    env.VM_IP = ovfStagingJob.buildVariables.IP 
+    env.VM_IP = ovfStagingJob.buildVariables.IP
     env.PMM_UI_URL = "https://${env.OVF_INSTANCE_IP}/"
 }
 
@@ -44,7 +44,7 @@ void runAMIStagingStart(String AMI_ID) {
     env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
     env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
     env.AMI_ADMIN_PASS  = amiStagingJob.buildVariables.INSTANCE_ID
-    env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP 
+    env.VM_IP = amiStagingJob.buildVariables.PUBLIC_IP
     env.PMM_UI_URL = "https://${env.AMI_INSTANCE_IP}/"
 }
 
@@ -103,31 +103,31 @@ pipeline {
   parameters {
     // --- SERVER CONFIGURATION ---
     choice(name: 'SERVER_TYPE', choices: ['docker', 'ovf', 'ami', 'helm', 'ha'], description: 'Select PMM Server installation type: docker (Basic Setup), ovf (PMM OVA/OVF image), ami (AWS EC2 AMI), helm (OpenShift), ha (High Availability).')
-    
+
     string(name: 'DOCKER_VERSION', defaultValue: 'perconalab/pmm-server:3-dev-latest', description: '[Docker/Helm/HA] PMM Server docker image (image-name:version-tag, e.g., perconalab/pmm-server:3-dev-latest). Ignored if OVF/AMI selected.')
     string(name: 'OVA_VERSION', defaultValue: 'PMM3-Server-OVF-3.0.0-latest.ova', description: '[OVF Only] PMM Server OVA file name (e.g., PMM3-Server-OVF-3.0.0-latest.ova)')
     string(name: 'AMI_ID', defaultValue: 'ami-0669b163befffb6c3', description: '[AMI Only] AWS AMI ID (e.g., ami-0669b163befffb6c3). Ignored for others.')
-    
+
     // --- GLOBAL SETTINGS & VERSIONS ---
     string(name: 'CLIENT_VERSION', defaultValue: '3-dev-latest', description: 'PMM Client version: "3-dev-latest" (main branch), "latest" or "X.X.X" (release), "pmm3-rc" (Release Candidate), or a feature build URL provided in pmm-submodules repo (http://...).')
     choice(name: 'ENABLE_PULL_MODE', choices: ['no', 'yes'], description: 'Enable Pull Mode for Clients')
     string(name: 'ADMIN_PASSWORD', defaultValue: 'pmm3admin!', description: 'Admin password applied after provisioning.')
     string(name: 'SSH_KEY', defaultValue: '', description: 'Public SSH key for "ec2-user". Paste your OpenSSH public key to enable SSH access to AWS instances')
-    
+
     // --- CLIENT SELECTION ---
-    booleanParam(name: 'DEPLOY_EXTERNAL', defaultValue: false, 
+    booleanParam(name: 'DEPLOY_EXTERNAL', defaultValue: false,
                  description: '<b>External Group:</b><br>Deploys 1 VM containing an External Node test and HAProxy Node test.')
 
-    booleanParam(name: 'DEPLOY_MYSQL_GROUP', defaultValue: false, 
+    booleanParam(name: 'DEPLOY_MYSQL_GROUP', defaultValue: false,
                  description: '<b>MySQL Group:</b><br>Deploys 4 VMs covering: Group Replication, PXC Cluster, Async Replication, and a Standalone node (shared with Mongo PSS).')
 
-    booleanParam(name: 'DEPLOY_POSTGRES_GROUP', defaultValue: false, 
+    booleanParam(name: 'DEPLOY_POSTGRES_GROUP', defaultValue: false,
                  description: '<b>PostgreSQL Group:</b><br>Deploys 1 VM containing: Standard PostgreSQL, Percona Distribution for PGSQL, and Patroni High Availability stack.')
 
-    booleanParam(name: 'DEPLOY_MONGO_GROUP', defaultValue: false, 
+    booleanParam(name: 'DEPLOY_MONGO_GROUP', defaultValue: false,
                  description: '<b>MongoDB Group:</b><br>Deploys 2 VMs covering: PSMDB Sharded Cluster and a PSS Replica Set (shared with MySQL Single).')
 
-    booleanParam(name: 'DEPLOY_VALKEY', defaultValue: false, 
+    booleanParam(name: 'DEPLOY_VALKEY', defaultValue: false,
                  description: '<b>Valkey:</b><br>Deploys 1 VM containing a Valkey instance.')
 
     // --- DB VERSIONS ---
@@ -138,15 +138,15 @@ pipeline {
     choice(name: 'PDPGSQL_VERSION', choices: ['17', '18', '16', '15', '14', '13'], description: 'Version for Percona Dist PGSQL nodes')
     choice(name: 'PSMDB_VERSION', choices: ['8.0', '7.0', '6.0', '5.0', '4.4'], description: 'Version for PSMDB nodes')
     choice(name: 'MODB_VERSION', choices: ['8.0', '7.0', '6.0', '5.0', '4.4'], description: 'Version for MongoDB nodes')
-    
+
     // --- HELM/HA SPECIFIC ---
     string(name: 'HELM_CHART_BRANCH', defaultValue: 'pmmha-v3', description: '[HA Only] Helm chart branch')
     choice(name: 'OPENSHIFT_VERSION', choices: ['latest', '4.19.6', '4.17.9'], description: '[Helm Only] OpenShift Version')
     choice(name: 'K8S_VERSION', choices: ['1.34', '1.33', '1.32'], description: '[HA Only] K8s Version')
-    
+
     // --- TECHNICAL/ADVANCED PARAMS ---
     string(name: 'WATCHTOWER_VERSION', defaultValue: 'perconalab/watchtower:dev-latest', description: 'WatchTower docker image (image-name:version-tag, e.g., perconalab/watchtower:dev-latest).')
-    string(name: 'PMM_QA_GIT_BRANCH', defaultValue: 'main', description: 'QA Integration Git Branch (used by provisioner scripts)')
+    string(name: 'PMM_QA_GIT_BRANCH', defaultValue: 'main', description: 'pmm-qa Git branch (used by provisioner scripts)')
   }
 
   options {
@@ -158,9 +158,9 @@ pipeline {
     stage('Prepare') {
       steps {
         script {
-          getPMMBuildParams('pmm-') 
+          getPMMBuildParams('pmm-')
           def ownerHandle = env.OWNER?.trim() ?: env.OWNER_SLACK?.trim()
-          
+
           if (!ownerHandle) {
              try {
                def cause = currentBuild?.rawBuild?.getCause(hudson.model.Cause$UserIdCause)
@@ -172,7 +172,7 @@ pipeline {
           env.SLACK_DM = ownerHandle ? "@${ownerHandle}" : ""
 
           currentBuild.description = "[${params.SERVER_TYPE}] Manual Environment. Expires in 1 day."
-          
+
           if (env.SLACK_DM) {
             slackSend botUser: true, channel: env.SLACK_DM, color: '#0000FF', message: "[${env.JOB_NAME}]: build started (${params.SERVER_TYPE}), owner: @${env.OWNER}, URL: ${env.BUILD_URL}"
           }
@@ -223,10 +223,10 @@ pipeline {
                 } else {
                     error "Could not determine Server IP from the helper functions. Pipeline cannot proceed."
                 }
-                
+
                 writeFile file: "vm_server_${env.BUILD_NUMBER}.txt", text: "${env.PMM_SERVER_IP}"
                 echo "PMM Server Ready. IP: ${env.PMM_SERVER_IP}"
-                
+
                 if (env.SLACK_DM) {
                   slackSend botUser: true, channel: env.SLACK_DM, color: '#439FE0', message: "[${env.JOB_NAME}]: Server (${params.SERVER_TYPE}) ready: https://${env.PMM_SERVER_IP}\nStarting clients... URL: ${env.BUILD_URL}"
                 }
@@ -298,7 +298,7 @@ pipeline {
       steps {
         script {
           echo "Environment is stable. Updating password..."
-          
+
           def currentPass = 'admin'
           if (env.AMI_ADMIN_PASS) {
              currentPass = env.AMI_ADMIN_PASS
@@ -315,7 +315,7 @@ pipeline {
           }
 
           if (env.SLACK_DM) {
-            slackSend botUser: true, channel: env.SLACK_DM, color: '#00FF00', 
+            slackSend botUser: true, channel: env.SLACK_DM, color: '#00FF00',
             message: "[${env.JOB_NAME}]: All systems GO! 🚀\nOwner: @${env.OWNER}\nPMM URL: https://${env.PMM_SERVER_IP}\nPassword: ${params.ADMIN_PASSWORD}\nType: ${params.SERVER_TYPE}\nEnvironment is ready. Pipeline is holding for 24h.\nURL: ${env.BUILD_URL}"
           }
         }
@@ -367,20 +367,20 @@ void cleanupResources() {
     // 1. Clean Server based on Type
     if (env.SERVER_TYPE == "ovf" && env.OVF_INSTANCE_NAME) {
          build job: 'pmm-ovf-staging-stop', parameters: [ string(name: 'VM', value: env.OVF_INSTANCE_NAME) ]
-    } 
+    }
     else if (env.SERVER_TYPE == "ami" && env.AMI_INSTANCE_ID) {
          build job: 'pmm3-ami-staging-stop', parameters: [ string(name: 'AMI_ID', value: env.AMI_INSTANCE_ID) ]
-    } 
+    }
     else if (env.SERVER_TYPE == "helm" && env.FINAL_CLUSTER_NAME) {
-         build job: 'openshift-cluster-destroy', parameters: [ 
+         build job: 'openshift-cluster-destroy', parameters: [
             string(name: 'CLUSTER_NAME', value: env.FINAL_CLUSTER_NAME),
-            string(name: 'DESTROY_REASON', value: 'testing-complete') 
+            string(name: 'DESTROY_REASON', value: 'testing-complete')
          ]
     }
     else if (env.SERVER_TYPE == "ha" && env.CLUSTER_NAME) {
-         build job: 'pmm3-ha-eks-cleanup', parameters: [ 
+         build job: 'pmm3-ha-eks-cleanup', parameters: [
             string(name: 'ACTION', value: 'DELETE_CLUSTER'),
-            string(name: 'CLUSTER_NAME', value: env.CLUSTER_NAME) 
+            string(name: 'CLUSTER_NAME', value: env.CLUSTER_NAME)
          ]
     }
     else if (env.VM_NAME) {
@@ -396,7 +396,7 @@ void cleanupResources() {
         build job: 'aws-staging-stop', parameters: [ string(name: 'VM', value: ip) ]
       }
     }
-    
+
     sh "rm -f vm_*_${env.BUILD_NUMBER}.txt"
     if (env.SLACK_DM) {
       slackSend botUser: true, channel: env.SLACK_DM, color: '#808080', message: "[${env.JOB_NAME}]: aborted/failed/cleaned up, owner: @${env.OWNER}\nURL: ${env.BUILD_URL}"
@@ -408,7 +408,7 @@ void runClientWithRetry(String clientsString, String filenameLabel) {
         int retries = 3
         int count = 0
         boolean success = false
-        
+
         while (count < retries && !success) {
             count++
             def b = build job: 'pmm3-aws-staging-start', propagate: false, parameters: [
