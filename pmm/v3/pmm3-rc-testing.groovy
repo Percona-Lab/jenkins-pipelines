@@ -76,6 +76,23 @@ pipeline {
                     }
                     env.PMM_SERVER_IMAGE = "perconalab/pmm-server:${params.RC_VERSION.trim()}-rc"
 
+                    def compatTagsOut = sh(
+                        returnStdout: true,
+                        script: '''
+                            set -euo pipefail
+                            wget -q 'https://registry.hub.docker.com/v2/repositories/percona/pmm-client/tags?page_size=250' -O - \
+                                | jq -r '.results[].name' \
+                                | grep -v latest \
+                                | sort -V \
+                                | grep -E '[[:digit:]]\\.[[:digit:]]+\\.[[:digit:]]' \
+                                | tail -n 5
+                        '''
+                    ).trim()
+                    if (!compatTagsOut) {
+                        error('Plan: failed to fetch GA percona/pmm-client tags from Docker Hub (empty result)')
+                    }
+                    writeFile file: 'compat-tags.txt', text: compatTagsOut + '\n'
+
                     currentBuild.description = "rc=${params.RC_VERSION.trim()} server=${env.PMM_SERVER_IMAGE}"
                 }
             }
@@ -226,7 +243,72 @@ pipeline {
                         }
                     }
                 }
-
+                stage('HA nightly') {
+                    steps {
+                        script {
+                            triggerJenkinsRc('pmm3-ui-tests-nightly (ha)', 'pmm3-ui-tests-nightly', [
+                                string(name: 'GIT_BRANCH',              value: 'main'),
+                                string(name: 'SERVER_TYPE',             value: 'ha'),
+                                string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
+                                string(name: 'CLIENT_VERSION',          value: 'pmm3-rc'),
+                                string(name: 'ENABLE_PULL_MODE',        value: 'no'),
+                                string(name: 'ADMIN_PASSWORD',          value: 'admin1'),
+                                string(name: 'QA_INTEGRATION_GIT_BRANCH', value: 'main'),
+                                string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
+                                string(name: 'HELM_CHART_BRANCH',       value: 'main'),
+                                string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
+                                string(name: 'K8S_VERSION',             value: '1.34'),
+                                string(name: 'PXC_VERSION',             value: '8.0'),
+                                string(name: 'PS_VERSION',              value: '8.4'),
+                                string(name: 'MS_VERSION',              value: '8.4'),
+                                string(name: 'PGSQL_VERSION',           value: '17'),
+                                string(name: 'PDPGSQL_VERSION',         value: '17'),
+                                string(name: 'MD_VERSION',              value: '10.6'),
+                                string(name: 'PSMDB_VERSION',           value: '8.0'),
+                                string(name: 'MODB_VERSION',            value: '8.0'),
+                                string(name: 'QUERY_SOURCE',            value: 'slowlog'),
+                                string(name: 'PTS_CONFIDENCE',          value: '93'),
+                            ])
+                        }
+                    }
+                }
+                stage('Compatibility nightlies (GA matrix)') {
+                    steps {
+                        script {
+                            def tags = readFile('compat-tags.txt').trim().split('\n').collect { it.trim() }.findAll { it }
+                            def branches = [:]
+                            tags.each { t ->
+                                def ver = t.toString()
+                                branches["compat ${ver}"] = {
+                                    triggerJenkinsRc("pmm3-ui-tests-nightly (compat ${ver})", 'pmm3-ui-tests-nightly', [
+                                        string(name: 'GIT_BRANCH',              value: 'main'),
+                                        string(name: 'SERVER_TYPE',             value: 'docker'),
+                                        string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
+                                        string(name: 'CLIENT_VERSION',          value: ver),
+                                        string(name: 'ENABLE_PULL_MODE',        value: 'no'),
+                                        string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
+                                        string(name: 'QA_INTEGRATION_GIT_BRANCH', value: 'main'),
+                                        string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
+                                        string(name: 'HELM_CHART_BRANCH',       value: 'main'),
+                                        string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
+                                        string(name: 'K8S_VERSION',             value: '1.34'),
+                                        string(name: 'PXC_VERSION',             value: '8.0'),
+                                        string(name: 'PS_VERSION',              value: '8.4'),
+                                        string(name: 'MS_VERSION',              value: '8.4'),
+                                        string(name: 'PGSQL_VERSION',           value: '17'),
+                                        string(name: 'PDPGSQL_VERSION',         value: '17'),
+                                        string(name: 'MD_VERSION',              value: '10.6'),
+                                        string(name: 'PSMDB_VERSION',           value: '8.0'),
+                                        string(name: 'MODB_VERSION',            value: '8.0'),
+                                        string(name: 'QUERY_SOURCE',            value: 'slowlog'),
+                                        string(name: 'PTS_CONFIDENCE',          value: '93'),
+                                    ])
+                                }
+                            }
+                            parallel branches
+                        }
+                    }
+                }
                 stage('GSSAPI nightly') {
                     steps {
                         script {
