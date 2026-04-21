@@ -1,6 +1,6 @@
 library changelog: false, identifier: "lib@hetzner", retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Manika-Percona/jenkins-pipelines.git'
+    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
 pipeline {
@@ -90,14 +90,14 @@ pipeline {
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                          MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
                          docker tag percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3 perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-amd64
-                         #docker push perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-amd64
+                         docker push perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-amd64
                          docker tag percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3 perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3-amd64
-                         #docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3-amd64
+                         docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3-amd64
                          docker tag percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3 perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-amd64
-                         #docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-amd64
+                         docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-amd64
                          if [ ${params.LATEST} = "yes" ]; then
                             docker tag percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3 perconalab/percona-distribution-postgresql-custom:latest
-                            #docker push perconalab/percona-distribution-postgresql-custom:latest
+                            docker push perconalab/percona-distribution-postgresql-custom:latest
                          fi
                      """
                 }
