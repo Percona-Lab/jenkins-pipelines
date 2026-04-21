@@ -135,7 +135,7 @@ pipeline {
                             --resources $INSTANCE_ID \
                             --region $AWS_DEFAULT_REGION \
                             --tags Key=Name,Value=${VM_NAME} \
-                            Key=iit-billing-tag,Value=qa \
+                            Key=iit-billing-tag,Value=pmm \
                             Key=stop-after-days,Value=${DAYS}
 
 

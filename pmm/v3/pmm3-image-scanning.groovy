@@ -21,15 +21,17 @@ pipeline {
             steps {
                 script {
                     sh '''
+                        # https://trivy.dev/docs/latest/getting-started/installation/#rhelcentos-official
                         sudo tee /etc/yum.repos.d/trivy.repo <<'EOF'
 [trivy]
 name=Trivy repository
-baseurl=https://aquasecurity.github.io/trivy-repo/rpm/releases/$releasever/$basearch/
+baseurl=https://aquasecurity.github.io/trivy-repo/rpm/releases/\$basearch/
 gpgcheck=1
 enabled=1
+gpgkey=https://aquasecurity.github.io/trivy-repo/rpm/public.key
 EOF
-                        sudo rpm --import https://aquasecurity.github.io/trivy-repo/rpm/public.key
-                        sudo dnf install -y trivy-0.69.3
+
+                        sudo dnf install -y trivy-0.70.0
 
                         # Download HTML template for Trivy
                         mkdir -p contrib
