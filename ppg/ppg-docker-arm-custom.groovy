@@ -9,11 +9,13 @@ pipeline {
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+        IMAGE_VER = "${params.PPG_VERSION.tokenize('-')[0]}-${params.BUILD_NUMBER}"
     }
     parameters {
         choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         choice(name: 'PPG_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PPG_VERSION', defaultValue: '12.19-1', description: 'PPG version')
+        string(name: 'BUILD_NUMBER', defaultValue: '1', description: 'Image Build Number')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab'], description: 'Target repo for docker custom image, use PerconaLab only')
         choice(name: 'LATEST', choices: ['no','yes'], description: 'Tag image as latest')
     }
@@ -24,7 +26,7 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                    currentBuild.displayName = "${params.PPG_REPO}-${params.PPG_VERSION}-extras"
+                    currentBuild.displayName = "${params.PPG_REPO}-${env.IMAGE_VER} v3"
                 }
             }
         }
@@ -62,22 +64,22 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                          MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                         docker tag percona-distribution-postgresql-custom perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v3-arm64
+                         docker tag percona-distribution-postgresql-custom perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-arm64
                          docker tag percona-distribution-postgresql-custom perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3-arm64
                          docker tag percona-distribution-postgresql-custom perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-arm64
-                         docker push perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v3-arm64
+                         docker push perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-arm64
                          docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3-arm64
                          docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-arm64
 
-                         docker manifest create --amend perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v3 \
-                            perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v3-amd64 \
-                            perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v3-arm64
-                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v3 \
-                            perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v3-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v3 \
-                            perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v3-amd64 --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v3
-                         docker manifest push perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v3
+                         docker manifest create --amend perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3 \
+                            perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-amd64 \
+                            perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-arm64
+                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3 \
+                            perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3 \
+                            perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3
+                         docker manifest push perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3
 
                          docker manifest create --amend perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3 \
                             perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3-amd64 \
@@ -125,13 +127,13 @@ pipeline {
             deleteDir()
         }
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of PPG ${PPG_VERSION} for ARM, repo ${PPG_REPO} succeed")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER}-v3 for ARM, repo ${PPG_REPO} succeed")
         }
         unstable {
-            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of PPG ${PPG_VERSION} fro ARM, repo ${PPG_REPO} unstable - [${BUILD_URL}testReport/]")
+            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER}-v3 for ARM, repo ${PPG_REPO} unstable - [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of PPG ${PPG_VERSION} for ARM, repo ${PPG_REPO} failed - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER}-v3 for ARM, repo ${PPG_REPO} failed - [${BUILD_URL}]")
         }
     }
 }
