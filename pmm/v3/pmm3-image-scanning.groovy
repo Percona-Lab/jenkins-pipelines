@@ -25,7 +25,7 @@ pipeline {
                         sudo tee /etc/yum.repos.d/trivy.repo <<'EOF'
 [trivy]
 name=Trivy repository
-baseurl=https://aquasecurity.github.io/trivy-repo/rpm/releases/\$basearch/
+baseurl=https://aquasecurity.github.io/trivy-repo/rpm/releases/$basearch/
 gpgcheck=1
 enabled=1
 gpgkey=https://aquasecurity.github.io/trivy-repo/rpm/public.key
