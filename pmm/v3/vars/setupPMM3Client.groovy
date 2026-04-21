@@ -14,7 +14,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 echo "Exiting..."
                 exit 1
             fi
-            
+
             if [ "${SETUP_TYPE}" = compose_setup ]; then
                 export IP=192.168.0.1
             fi
@@ -25,6 +25,10 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 rm -f percona-release-latest.noarch.rpm
                 sudo dnf clean all
                 sudo dnf makecache
+            fi
+
+            if [[ "${CLIENT_VERSION}" == "latest-tarball" ]]; then
+                CLIENT_VERSION="https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz"
             fi
 
             if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
