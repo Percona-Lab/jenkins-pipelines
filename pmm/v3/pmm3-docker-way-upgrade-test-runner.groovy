@@ -343,6 +343,7 @@ pipeline {
                             --volumes-from pmm-server-old \
                             --name pmm-server \
                             ${DOCKER_TAG_UPGRADE}
+                        git checkout -f \${PMM_UI_GIT_BRANCH}
                     '''
                 }
             }
