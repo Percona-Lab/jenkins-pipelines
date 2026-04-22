@@ -267,11 +267,11 @@ pipeline {
                         set -o errexit
                         set -o xtrace
                         # Exit if no CLIENTS are provided
-                        [ -z "\${CLIENTS// }" ] && exit 0
+                        [ -z "${CLIENTS// }" ] && exit 0
 
-                        export PATH=\$PATH:/usr/sbin
-                        export PMM_CLIENT_VERSION=\${CLIENT_VERSION}
-                        if [ "\${CLIENT_VERSION}" = 3-dev-latest ]; then
+                        export PATH=$PATH:/usr/sbin
+                        export PMM_CLIENT_VERSION=${CLIENT_VERSION}
+                        if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
                             export PMM_CLIENT_VERSION="3-dev-latest"
                         fi
 
@@ -288,9 +288,9 @@ pipeline {
                             pip install -r requirements.txt
 
                             python pmm-framework.py --v \
-                                --pmm-server-password=\${ADMIN_PASSWORD} \
-                                --client-version=\${PMM_CLIENT_VERSION} \
-                                \${CLIENTS}
+                                --pmm-server-password=${ADMIN_PASSWORD} \
+                                --client-version=${PMM_CLIENT_VERSION} \
+                                ${CLIENTS}
                         popd
                     '''
             }
