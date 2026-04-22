@@ -79,8 +79,6 @@ pipeline {
                 stash includes: 'pmmQABranch', name: 'pmmQABranch'
                 stash includes: 'apiCommitSha', name: 'apiCommitSha'
                 stash includes: 'pmmQACommitSha', name: 'pmmQACommitSha'
-                stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
-                stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
                 stash includes: 'fbCommitSha', name: 'fbCommitSha'
                 slackSend channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: v3 build started, URL: ${BUILD_URL}"
             }
@@ -307,7 +305,6 @@ pipeline {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         unstash 'IMAGE'
                         unstash 'pmmQABranch'
-                        unstash 'pmmUITestBranch'
                         unstash 'fbCommitSha'
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
