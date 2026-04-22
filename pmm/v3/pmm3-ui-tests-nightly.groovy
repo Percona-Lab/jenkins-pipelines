@@ -457,7 +457,7 @@ pipeline {
         stage('Setup Node') {
             steps {
                 dir('codeceptjs-e2e') {
-                    sh """
+                    sh '''
                         curl -sL https://deb.nodesource.com/setup_18.x -o nodesource_setup.sh
                         sudo bash nodesource_setup.sh
                         sudo apt install nodejs
@@ -468,7 +468,7 @@ pipeline {
                         envsubst < env.list > env.generated.list
                         echo "Triggering Advisors Background Jobs..."
                         node utils/triggerAdvisors.js
-                    """
+                    '''
                 }
             }
         }
@@ -555,7 +555,7 @@ pipeline {
             steps {
                 dir('codeceptjs-e2e') {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                        sh """
+                        sh '''
                             sed -i 's+https://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
 
                             if [ -s "launchable-subset.json" ]; then
@@ -563,7 +563,7 @@ pipeline {
                             else
                                 npx codeceptjs run --reporter mocha-multi --verbose -c pr.codecept.js --grep '@qan|@nightly|@menu'
                             fi
-                        """
+                        '''
                     }
                 }
             }

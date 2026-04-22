@@ -212,14 +212,14 @@ pipeline {
                 slackSend channel: '#pmm-notifications',
                           color: '#0000FF',
                           message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                sh """
+                sh '''
                     sudo rm -rf /srv/pmm-qa
                     sudo mkdir -p /srv/pmm-qa
                     sudo rsync -a ${env.WORKSPACE}/ /srv/pmm-qa/
                     sudo curl -o /srv/pmm-qa/get_download_link.sh https://raw.githubusercontent.com/Percona-QA/percona-qa/master/get_download_link.sh
                     sudo chmod 755 /srv/pmm-qa/get_download_link.sh
                     sudo ln -sf /usr/bin/chromium-browser /usr/bin/chromium
-                """
+                '''
             }
         }
         stage('Start AMI Server') {
@@ -289,14 +289,14 @@ pipeline {
             steps {
                 dir('codeceptjs-e2e') {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                        sh """
+                        sh '''
                             npm ci
                             envsubst < env.list > env.generated.list
                             sed -i 's+http://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
                             export PWD=\$(pwd);
                             export CHROMIUM_PATH=/usr/bin/chromium
                             ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@ami-upgrade'
-                        """
+                        '''
                     }
                 }
             }
@@ -310,12 +310,12 @@ pipeline {
             steps {
                 checkClientAfterUpgrade(PMM_SERVER_LATEST);
                 dir('codeceptjs-e2e') {
-                    sh """
+                    sh '''
                         export PWD=\$(pwd);
                         export CHROMIUM_PATH=/usr/bin/chromium
                         sleep 30
                         ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '(?=.*@post-client-upgrade)(?=.*@ami-upgrade)'
-                    """
+                    '''
                 }
             }
         }

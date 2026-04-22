@@ -88,7 +88,7 @@ pipeline {
                     url: 'https://github.com/percona/pmm-qa.git'
 
                 slackSend channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: build started - ${BUILD_URL}"
-                sh """
+                sh '''
                     set -o errexit
                     sudo rm -rf /srv/pmm-qa
                     sudo mkdir -p /srv/pmm-qa
@@ -98,7 +98,7 @@ pipeline {
                     rm -rf pmm-ui-tests-v2
                     git clone --single-branch --branch ${params.PMM_V2_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git pmm-ui-tests-v2
                     sudo ln -sf /usr/bin/chromium-browser /usr/bin/chromium
-                """
+                '''
             }
         }
         stage('Start Server Instance') {
@@ -114,12 +114,12 @@ pipeline {
                 waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                 waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
                 sleep 20
-                sh """
+                sh '''
                     pushd pmm-ui-tests-v2
                     bash -x testdata/db_setup.sh
                     popd
                     docker network connect pmm-qa pmm-server
-                """
+                '''
                 script {
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "http://${env.SERVER_IP}/"
@@ -145,14 +145,14 @@ pipeline {
                     }
                     steps {
                         script {
-                            sh """
+                            sh '''
                                 set -o errexit
                                 set -o xtrace
                                 docker exec pmm-server sed -i'' -e 's^/release/^/experimental/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec pmm-server percona-release enable pmm2-client experimental
                                 docker exec pmm-server dnf clean all
                                 docker exec pmm-server dnf clean metadata
-                            """
+                            '''
                         }
                     }
                 }
@@ -162,14 +162,14 @@ pipeline {
                     }
                     steps {
                         script {
-                            sh """
+                            sh '''
                                 set -o errexit
                                 set -o xtrace
                                 docker exec pmm-server sed -i'' -e 's^/release/^/testing/^' /etc/yum.repos.d/pmm2-server.repo
                                 docker exec pmm-server percona-release enable pmm2-client testing
                                 docker exec pmm-server dnf clean all
                                 docker exec pmm-server dnf clean metadata
-                            """
+                            '''
                         }
                     }
                 }
@@ -179,12 +179,12 @@ pipeline {
                     }
                     steps {
                         script {
-                            sh """
+                            sh '''
                                 set -o errexit
                                 set -o xtrace
                                 docker exec pmm-server dnf clean all
                                 docker exec pmm-server dnf clean metadata
-                            """
+                            '''
                         }
                     }
                 }
@@ -201,7 +201,7 @@ pipeline {
                         setupPMMClient(SERVER_IP, CLIENT_VERSION.trim(), "pmm2", "no", "no", "no", 'compose_setup', ADMIN_PASSWORD, "no")
                     }
                 }
-                sh """
+                sh '''
                     set -o errexit
                     set -o xtrace
                     export PATH=$PATH:/usr/sbin
@@ -211,7 +211,7 @@ pipeline {
                         --pdpgsql-version 17 --ps-version 8.0 --mo-version 8.0 --addclient=pdpgsql,1 --addclient=ps,1 --mongo-replica-for-backup \
                         --pmm2
                     sleep 20
-                """
+                '''
             }
         }
         stage('Sanity check') {
@@ -226,12 +226,12 @@ pipeline {
             steps {
                 dir('pmm-ui-tests-v2') {
                     script {
-                        sh """
+                        sh '''
                             node --version
                             npm ci
                             npx playwright install
                             envsubst < env.list > env.generated.list
-                        """
+                        '''
                     }
                 }
             }
@@ -243,11 +243,11 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     dir('pmm-ui-tests-v2') {
-                        sh """
+                        sh '''
                             sed -i 's+http://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
                             export PWD=\$(pwd);
                             npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-pre-migration'
-                        """
+                        '''
                     }
                 }
             }
@@ -255,7 +255,7 @@ pipeline {
         stage('Migrate pmm2 to pmm3') {
             steps {
                 script {
-                    sh """
+                    sh '''
                         echo "\$UPGRADE_TAG"
                         if [[ "\$UPGRADE_TAG" == "experimental" ]]; then
                             export PERCONA_REPOSITORY="experimental"
@@ -289,7 +289,7 @@ pipeline {
                             docker exec \$i cat /usr/local/percona/pmm/config/pmm-agent.yaml
                             docker exec \$i systemctl restart pmm-agent
                         done
-                    """
+                    '''
                     env.SERVER_IP = "127.0.0.1"
                     env.PMM_UI_URL = "https://${env.SERVER_IP}/"
                     env.PMM_URL = "https://admin:${env.ADMIN_PASSWORD}@${env.SERVER_IP}"
@@ -308,13 +308,13 @@ pipeline {
             steps {
                 withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
                     dir('codeceptjs-e2e') {
-                        sh """
+                        sh '''
                             sed -i 's+http://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
                             npm ci
                             npx playwright install
                             export PWD=\$(pwd);
                             npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@pmm-migration'
-                        """
+                        '''
                     }
                 }
             }

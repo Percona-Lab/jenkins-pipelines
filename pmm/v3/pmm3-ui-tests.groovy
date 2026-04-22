@@ -222,12 +222,12 @@ pipeline {
                     steps {
                         withCredentials([aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                             dir('codeceptjs-e2e') {
-                                sh """
+                                sh '''
                                     docker network create pmm-qa || true
                                     aws ecr-public get-login-password --region us-east-1 | docker login -u AWS --password-stdin public.ecr.aws/e7j3v3n0
                                     PWD=\$(pwd) MONGO_IMAGE=\${MONGO_IMAGE} POSTGRES_IMAGE=\${POSTGRES_IMAGE} PROXYSQL_IMAGE=\${PROXYSQL_IMAGE} PMM_SERVER_IMAGE=\${DOCKER_VERSION} docker-compose up -d
                                     docker network connect pmm-qa pmm-server || true
-                                """
+                                '''
                             }
                         }
                         waitForContainer('pmm-server', 'pmm-managed entered RUNNING state')
@@ -263,7 +263,7 @@ pipeline {
                 script {
                         env.PMM_REPO = params.CLIENT_VERSION == "pmm3-rc" ? "testing" : "experimental"
                 }
-                sh """
+                sh '''
                         set -o errexit
                         set -o xtrace
                         # Exit if no CLIENTS are provided
@@ -292,7 +292,7 @@ pipeline {
                                 --client-version=\${PMM_CLIENT_VERSION} \
                                 \${CLIENTS}
                         popd
-                    """
+                    '''
             }
         }
         stage('Setup') {
@@ -310,10 +310,10 @@ pipeline {
                 stage('Setup Node') {
                     steps {
                         dir('codeceptjs-e2e') {
-                            sh """
+                            sh '''
                                 npm ci
                                 envsubst < env.list > env.generated.list
-                            """
+                            '''
                         }
                     }
                 }
@@ -329,7 +329,7 @@ pipeline {
                 }
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     dir('codeceptjs-e2e') {
-                        sh """
+                        sh '''
                             sed -i 's+http://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
                             export PWD=\$(pwd);
                             export PATH=\$PATH:/usr/sbin
@@ -338,7 +338,7 @@ pipeline {
                             fi
                             export CHROMIUM_PATH=/usr/bin/chromium
                             ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep ${env.CODECEPT_TAG}
-                        """
+                        '''
                     }
                 }
             }

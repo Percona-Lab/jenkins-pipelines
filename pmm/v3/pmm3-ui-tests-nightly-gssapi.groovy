@@ -216,7 +216,7 @@ pipeline {
         stage('Setup Node') {
             steps {
                 dir('codeceptjs-e2e') {
-                    sh """
+                    sh '''
                         curl -sL https://deb.nodesource.com/setup_22.x -o nodesource_setup.sh
                         sudo bash nodesource_setup.sh
                         sudo apt install nodejs
@@ -225,7 +225,7 @@ pipeline {
                         npx playwright install
                         sudo npx playwright install-deps
                         envsubst < env.list > env.generated.list
-                    """
+                    '''
                 }
             }
         }
@@ -250,10 +250,10 @@ pipeline {
             steps {
                 dir('codeceptjs-e2e') {
                     withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
-                        sh """
+                        sh '''
                             sed -i 's+https://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
                             npx codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep '@gssapi-nightly'
-                        """
+                        '''
                     }
                 }
             }

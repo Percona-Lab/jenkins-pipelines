@@ -305,11 +305,11 @@ pipeline {
           }
 
           try {
-              sh """
+              sh '''
                 curl -k -X PUT -H "Content-Type: application/json" \
                 -d '{"password":"${params.ADMIN_PASSWORD}"}' \
                 https://admin:${currentPass}@${env.PMM_SERVER_IP}/graph/api/admin/users/1/password
-              """
+              '''
           } catch(e) {
               echo "Warning: Password update failed. Proceeding."
           }

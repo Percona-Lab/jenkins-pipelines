@@ -134,7 +134,7 @@ pipeline {
         }
         stage('Run PMM Server') {
             steps {
-                sh """
+                sh '''
                     sudo rm -rf /srv/pmm-qa
                     sudo mkdir -p /srv/pmm-qa
                     pushd /srv/pmm-qa
@@ -148,15 +148,15 @@ pipeline {
                     PWD=\$(pwd) docker-compose up -d postgres
                     PWD=\$(pwd) docker-compose up -d proxysql
                     popd
-                """
+                '''
                 waitForContainer('pmm-agent_mongo', 'waiting for connections on port 27017')
                 waitForContainer('pmm-agent_mysql_5_7', "Server hostname (bind-address):")
                 waitForContainer('pmm-agent_postgres', 'PostgreSQL init process complete; ready for start up.')
-                sh """
+                sh '''
                     pushd /srv/pmm-qa/codeceptjs-e2e
                     bash -x testdata/db_setup.sh
                     popd
-                """
+                '''
                 sh '''
                     curl -O ${VM_NAME}.ova http://percona-vm.s3-website-us-east-1.amazonaws.com/${OVA_VERSION} > /dev/null
                 '''
@@ -202,7 +202,7 @@ pipeline {
                     sleep 120
                 '''
                 withCredentials([usernamePassword(credentialsId: 'Jenkins API', passwordVariable: 'PASS', usernameVariable: 'USER')]) {
-                    sh """
+                    sh '''
                         set +x
                         mkdir -p /tmp/${VM_NAME}
                         rm -rf /tmp/${VM_NAME}/sshkey
@@ -212,7 +212,7 @@ pipeline {
                         cat "/tmp/${VM_NAME}/sshkey.pub" > PUB_KEY
                         chmod 600 /tmp/${VM_NAME}/sshkey
                         set -x
-                    """
+                    '''
                 }
                 script {
                     env.IP      = sh(returnStdout: true, script: "cat IP | cut -f1 -d' '").trim()
@@ -223,7 +223,7 @@ pipeline {
 
                 setupPMMClient(env.PUBLIC_IP, params.CLIENT_VERSION, 'pmm', 'yes', 'no', 'yes', 'ovf_setup', env.ADMIN_PASSWORD)
 
-                sh """
+                sh '''
                     set -o errexit
                     set -o xtrace
                     export PATH=$PATH:/usr/sbin
@@ -237,7 +237,7 @@ pipeline {
                         --pmm-server-ip=${PUBLIC_IP}
                     sleep 10
                     pmm-admin list
-                """
+                '''
             }
         }
         stage('Start UI Tests') {
