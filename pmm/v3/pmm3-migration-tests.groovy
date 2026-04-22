@@ -93,10 +93,10 @@ pipeline {
                     sudo rm -rf /srv/pmm-qa
                     sudo mkdir -p /srv/pmm-qa
                     pushd /srv/pmm-qa
-                        sudo git clone --single-branch --branch ${params.PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                     popd
                     rm -rf pmm-ui-tests-v2
-                    git clone --single-branch --branch ${params.PMM_V2_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git pmm-ui-tests-v2
+                    git clone --single-branch --branch ${PMM_V2_UI_GIT_BRANCH} https://github.com/percona/pmm-ui-tests.git pmm-ui-tests-v2
                     sudo ln -sf /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }

@@ -277,7 +277,7 @@ pipeline {
 
                         sudo rm -rf /srv/pmm-qa
                         sudo mkdir -p /srv/pmm-qa
-                        sudo rsync -a ${env.WORKSPACE}/ /srv/pmm-qa/
+                        sudo rsync -a ${WORKSPACE}/ /srv/pmm-qa/
                         sudo chown -R ec2-user:ec2-user /srv/pmm-qa
 
                         pushd /srv/pmm-qa/qa-integration/pmm_qa
@@ -329,16 +329,16 @@ pipeline {
                 }
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     dir('codeceptjs-e2e') {
-                        sh '''
+                        sh """
                             sed -i 's+http://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
                             export PWD=\$(pwd);
                             export PATH=\$PATH:/usr/sbin
-                            if [[ "${params.CLIENT_VERSION}" != 3-dev-latest ]]; then
-                               export PATH="${env.WORKSPACE}/pmm-client/bin:\$PATH"
+                            if [[ "\$CLIENT_VERSION" != 3-dev-latest ]]; then
+                               export PATH="`pwd`/pmm-client/bin:$PATH"
                             fi
                             export CHROMIUM_PATH=/usr/bin/chromium
-                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep ${env.CODECEPT_TAG}
-                        '''
+                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --grep ${CODECEPT_TAG}
+                        """
                     }
                 }
             }
