@@ -227,8 +227,6 @@ pipeline {
                 dir('pmm-ui-tests-v2') {
                     script {
                         sh """
-                            curl -sL https://rpm.nodesource.com/setup_20.x | sudo bash -
-                            sudo dnf install -y nodejs
                             node --version
                             npm ci
                             npx playwright install
