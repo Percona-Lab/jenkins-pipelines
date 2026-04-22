@@ -120,7 +120,7 @@ pipeline {
             name: 'DOCKER_OS'
         )
         string(
-            defaultValue: 'https://github.com/vorsel/percona-server-mongodb.git',
+            defaultValue: 'https://github.com/percona/percona-server-mongodb.git',
             description: 'Repository to fetch build script from',
             name: 'GIT_REPO'
         )
