@@ -29,7 +29,7 @@ pipeline {
         string(name: 'SERVER_VERSION', defaultValue: '18.3', description: 'Docker PG version to test.')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'Branch for testing repository')
         choice(name: 'REPOSITORY', choices: ['perconalab', 'percona'], description: 'Docker hub repository.')
-        choice(name: 'MILESTONE', choices: ['1', '2', '3'], defaultValue: '3', description: 'Custom image Milestone.')
+        choice(name: 'MILESTONE', choices: ['3', '1', '2'], description: 'Custom image Milestone.')
         booleanParam(name: 'WITH_POSTGIS', defaultValue: true, description: "Enable PostGIS testing.")
         booleanParam(name: 'DESTROY_ENV', defaultValue: true, description: 'Destroy VM after tests')
     }
