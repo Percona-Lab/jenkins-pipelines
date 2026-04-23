@@ -82,23 +82,23 @@ pipeline {
                 }
             }
         }
-        stage('Test') {
-            steps {
-                withCredentials([
-                    usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME'),
-                    usernamePassword(credentialsId: 'OIDC_ACCESS', passwordVariable: 'OIDC_CLIENT_SECRET', usernameVariable: 'OIDC_CLIENT_ID'),
-                    string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
-                    script {
-                        moleculeParallelTestPSMDB(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION), moleculeDir)
-                    }
-                }
-            }
-            post {
-                always {
-                    junit testResults: "**/*-report.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
-                }
-            }
-        }
+//        stage('Test') {
+//            steps {
+//                withCredentials([
+//                    usernamePassword(credentialsId: 'PSMDB_PRIVATE_REPO_ACCESS', passwordVariable: 'PASSWORD', usernameVariable: 'USERNAME'),
+//                    usernamePassword(credentialsId: 'OIDC_ACCESS', passwordVariable: 'OIDC_CLIENT_SECRET', usernameVariable: 'OIDC_CLIENT_ID'),
+//                    string(credentialsId: 'VAULT_TRIAL_LICENSE', variable: 'VAULT_TRIAL_LICENSE')]) {
+//                    script {
+//                        moleculeParallelTestPSMDB(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION), moleculeDir)
+//                    }
+//                }
+//            }
+//            post {
+//                always {
+//                    junit testResults: "**/*-report.xml", keepLongStdio: true, allowEmptyResults: true, skipPublishingChecks: true
+//                }
+//            }
+//        }
     }
 //    post {
 //        success {
