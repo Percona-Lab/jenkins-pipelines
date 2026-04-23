@@ -28,8 +28,12 @@ def call(String CLOUD_NAME, String REPO_NAME, String DESTINATION) {
                                 for arch in `ls -1 redhat/\${rhel}`; do
                                     repo_path=\${rpm_dest_path}/RPMS/\${arch}
                                     mkdir -p \${repo_path}
-                                    if [ `ls redhat/\${rhel}/\${arch}/*.rpm | wc -l` -gt 0 ]; then
+                                    if [ `ls redhat/\${rhel}/\${arch}/*.rpm 2>/dev/null | wc -l` -gt 0 ]; then
                                         rsync -aHv redhat/\${rhel}/\${arch}/*.rpm \${repo_path}/
+                                    fi
+                                    # noarch packages are architecture-independent: also copy them into each arch-specific repo
+                                    if [ "\${arch}" != "noarch" ] && [ -d redhat/\${rhel}/noarch ] && [ `ls redhat/\${rhel}/noarch/*.rpm 2>/dev/null | wc -l` -gt 0 ]; then
+                                        rsync -aHv redhat/\${rhel}/noarch/*.rpm \${repo_path}/
                                     fi
                                     createrepo --update \${createrepo_opts} \${repo_path}
                                     if [ -f \${repo_path}/repodata/repomd.xml.asc ]; then
