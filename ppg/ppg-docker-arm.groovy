@@ -9,11 +9,13 @@ pipeline {
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+        IMAGE_VER = "${params.PPG_VERSION.tokenize('-')[0]}-${params.BUILD_NUMBER}"
     }
     parameters {
         choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         choice(name: 'PPG_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PPG_VERSION', defaultValue: '12.19-1', description: 'PPG version')
+        string(name: 'BUILD_NUMBER', defaultValue: '1', description: 'Image Build Number')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab','AWS_ECR','DockerHub'], description: 'Target repo for docker image, use DockerHub for release only')
         choice(name: 'LATEST', choices: ['no','yes'], description: 'Tag image as latest')
     }
@@ -24,7 +26,7 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                    currentBuild.displayName = "${params.PPG_REPO}-${params.PPG_VERSION}"
+                    currentBuild.displayName = "${params.PPG_REPO}-${env.IMAGE_VER}"
                 }
             }
         }
@@ -68,29 +70,29 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                          MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                         docker tag percona-distribution-postgresql perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-arm64
+                         docker tag percona-distribution-postgresql perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-arm64
                          docker tag percona-distribution-postgresql perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64
                          docker tag percona-distribution-postgresql perconalab/percona-distribution-postgresql:\$MAJ_VER-arm64
-                         docker push perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-arm64
+                         docker push perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-arm64
                          docker push perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64
                          docker push perconalab/percona-distribution-postgresql:\$MAJ_VER-arm64
 
-                         docker tag percona-distribution-postgresql-with-postgis perconalab/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-arm64
+                         docker tag percona-distribution-postgresql-with-postgis perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-arm64
                          docker tag percona-distribution-postgresql-with-postgis perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-arm64
                          docker tag percona-distribution-postgresql-with-postgis perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER-arm64
-                         docker push perconalab/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-arm64
+                         docker push perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-arm64
                          docker push perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-arm64
                          docker push perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER-arm64
 
-                         docker manifest create --amend perconalab/percona-distribution-postgresql:${params.PPG_VERSION} \
-                            perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-amd64 \
-                            perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-arm64
-                         docker manifest annotate perconalab/percona-distribution-postgresql:${params.PPG_VERSION} \
-                            perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-distribution-postgresql:${params.PPG_VERSION} \
-                            perconalab/percona-distribution-postgresql:${params.PPG_VERSION}-amd64 --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-distribution-postgresql:${params.PPG_VERSION}
-                         docker manifest push perconalab/percona-distribution-postgresql:${params.PPG_VERSION}
+                         docker manifest create --amend perconalab/percona-distribution-postgresql:${env.IMAGE_VER} \
+                            perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-amd64 \
+                            perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-arm64
+                         docker manifest annotate perconalab/percona-distribution-postgresql:${env.IMAGE_VER} \
+                            perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-distribution-postgresql:${env.IMAGE_VER} \
+                            perconalab/percona-distribution-postgresql:${env.IMAGE_VER}-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-distribution-postgresql:${env.IMAGE_VER}
+                         docker manifest push perconalab/percona-distribution-postgresql:${env.IMAGE_VER}
 
                          docker manifest create --amend perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER \
                             perconalab/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64 \
@@ -112,15 +114,15 @@ pipeline {
                          docker manifest inspect perconalab/percona-distribution-postgresql:\$MAJ_VER
                          docker manifest push perconalab/percona-distribution-postgresql:\$MAJ_VER
 
-                         docker manifest create --amend perconalab/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION} \
-                            perconalab/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-amd64 \
-                            perconalab/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-arm64
-                         docker manifest annotate perconalab/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION} \
-                            perconalab/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION} \
-                            perconalab/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-amd64 --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}
-                         docker manifest push perconalab/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}
+                         docker manifest create --amend perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER} \
+                            perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-amd64 \
+                            perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-arm64
+                         docker manifest annotate perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER} \
+                            perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER} \
+                            perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}
+                         docker manifest push perconalab/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}
 
                          docker manifest create --amend perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER \
                             perconalab/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-amd64 \
@@ -178,29 +180,29 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                          MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                         docker tag percona-distribution-postgresql percona/percona-distribution-postgresql:${params.PPG_VERSION}-arm64
+                         docker tag percona-distribution-postgresql percona/percona-distribution-postgresql:${env.IMAGE_VER}-arm64
                          docker tag percona-distribution-postgresql percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64
                          docker tag percona-distribution-postgresql percona/percona-distribution-postgresql:\$MAJ_VER-arm64
-                         docker push percona/percona-distribution-postgresql:${params.PPG_VERSION}-arm64
+                         docker push percona/percona-distribution-postgresql:${env.IMAGE_VER}-arm64
                          docker push percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-arm64
                          docker push percona/percona-distribution-postgresql:\$MAJ_VER-arm64
 
-                         docker tag percona-distribution-postgresql-with-postgis percona/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-arm64
+                         docker tag percona-distribution-postgresql-with-postgis percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-arm64
                          docker tag percona-distribution-postgresql-with-postgis percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-arm64
                          docker tag percona-distribution-postgresql-with-postgis percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-arm64
-                         docker push percona/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-arm64
+                         docker push percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-arm64
                          docker push percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-arm64
                          docker push percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER-arm64
 
-                         docker manifest create --amend percona/percona-distribution-postgresql:${params.PPG_VERSION} \
-                            percona/percona-distribution-postgresql:${params.PPG_VERSION}-amd64 \
-                            percona/percona-distribution-postgresql:${params.PPG_VERSION}-arm64
-                         docker manifest annotate percona/percona-distribution-postgresql:${params.PPG_VERSION} \
-                            percona/percona-distribution-postgresql:${params.PPG_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-distribution-postgresql:${params.PPG_VERSION} \
-                            percona/percona-distribution-postgresql:${params.PPG_VERSION}-amd64 --os linux --arch amd64
-                         docker manifest inspect percona/percona-distribution-postgresql:${params.PPG_VERSION}
-                         docker manifest push percona/percona-distribution-postgresql:${params.PPG_VERSION}
+                         docker manifest create --amend percona/percona-distribution-postgresql:${env.IMAGE_VER} \
+                            percona/percona-distribution-postgresql:${env.IMAGE_VER}-amd64 \
+                            percona/percona-distribution-postgresql:${env.IMAGE_VER}-arm64
+                         docker manifest annotate percona/percona-distribution-postgresql:${env.IMAGE_VER} \
+                            percona/percona-distribution-postgresql:${env.IMAGE_VER}-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate percona/percona-distribution-postgresql:${env.IMAGE_VER} \
+                            percona/percona-distribution-postgresql:${env.IMAGE_VER}-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/percona-distribution-postgresql:${env.IMAGE_VER}
+                         docker manifest push percona/percona-distribution-postgresql:${env.IMAGE_VER}
 
                          docker manifest create --amend percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER \
                             percona/percona-distribution-postgresql:\$MAJ_VER.\$MIN_VER-amd64 \
@@ -222,15 +224,15 @@ pipeline {
                          docker manifest inspect percona/percona-distribution-postgresql:\$MAJ_VER
                          docker manifest push percona/percona-distribution-postgresql:\$MAJ_VER
 
-                         docker manifest create --amend percona/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION} \
-                            percona/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-amd64 \
-                            percona/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-arm64
-                         docker manifest annotate percona/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION} \
-                            percona/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate percona/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION} \
-                            percona/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}-amd64 --os linux --arch amd64
-                         docker manifest inspect percona/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}
-                         docker manifest push percona/percona-distribution-postgresql-with-postgis:${params.PPG_VERSION}
+                         docker manifest create --amend percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER} \
+                            percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-amd64 \
+                            percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-arm64
+                         docker manifest annotate percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER} \
+                            percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER} \
+                            percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}-amd64 --os linux --arch amd64
+                         docker manifest inspect percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}
+                         docker manifest push percona/percona-distribution-postgresql-with-postgis:${env.IMAGE_VER}
 
                          docker manifest create --amend percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER \
                             percona/percona-distribution-postgresql-with-postgis:\$MAJ_VER.\$MIN_VER-amd64 \
@@ -287,13 +289,13 @@ pipeline {
             deleteDir()
         }
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of PPG ${PPG_VERSION} for ARM, repo ${PPG_REPO} succeed")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER} for ARM, repo ${PPG_REPO} succeed")
         }
         unstable {
-            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of PPG ${PPG_VERSION} fro ARM, repo ${PPG_REPO} unstable - [${BUILD_URL}testReport/]")
+            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER} fro ARM, repo ${PPG_REPO} unstable - [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of PPG ${PPG_VERSION} for ARM, repo ${PPG_REPO} failed - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER} for ARM, repo ${PPG_REPO} failed - [${BUILD_URL}]")
         }
     }
 }
