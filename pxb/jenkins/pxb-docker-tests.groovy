@@ -153,20 +153,23 @@ pipeline {
                             steps {
                                 sh """
                                     sudo yum install -y wget git
-                                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
+                                    TRIVY_VERSION="0.69.3"
                                     ARCH=\$(uname -m)
                                     if [[ "\$ARCH" == "aarch64" ]]; then
                                         ARCH_NAME="ARM64"
+                                        TRIVY_CHECKSUM="7e3924a974e912e57b4a99f65ece7931f8079584dae12eb7845024f97087bdfd"
                                     elif [[ "\$ARCH" == "x86_64" ]]; then
                                         ARCH_NAME="64bit"
+                                        TRIVY_CHECKSUM="1816b632dfe529869c740c0913e36bd1629cb7688bd5634f4a858c1d57c88b75"
                                     else
                                         echo "Unsupported architecture: \$ARCH"
                                         exit 1
                                     fi
                                     echo "Detected architecture: \$ARCH, using Trivy for Linux-\$ARCH_NAME"
                                     wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-\${ARCH_NAME}.tar.gz
+                                    echo "\${TRIVY_CHECKSUM}  trivy_\${TRIVY_VERSION}_Linux-\${ARCH_NAME}.tar.gz" | sha256sum -c -
                                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-\${ARCH_NAME}.tar.gz -C /usr/local/bin/
-                                    wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
+                                    wget https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
                                     /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit-arm.xml \
                                     --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_ACC}/percona-xtrabackup:${env.VERSION}-${env.PKG_VERSION} || true
                                 """
@@ -243,20 +246,23 @@ pipeline {
                                     sudo yum install -y wget git
                                     echo "installing curl"
                                     sudo yum install -y curl
-                                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
+                                    TRIVY_VERSION="0.69.3"
                                     ARCH=\$(uname -m)
                                     if [[ "\$ARCH" == "aarch64" ]]; then
                                         ARCH_NAME="ARM64"
+                                        TRIVY_CHECKSUM="7e3924a974e912e57b4a99f65ece7931f8079584dae12eb7845024f97087bdfd"
                                     elif [[ "\$ARCH" == "x86_64" ]]; then
                                         ARCH_NAME="64bit"
+                                        TRIVY_CHECKSUM="1816b632dfe529869c740c0913e36bd1629cb7688bd5634f4a858c1d57c88b75"
                                     else
                                         echo "Unsupported architecture: \$ARCH"
                                         exit 1
                                     fi
                                     echo "Detected architecture: \$ARCH, using Trivy for Linux-\$ARCH_NAME"
                                     wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-\${ARCH_NAME}.tar.gz
+                                    echo "\${TRIVY_CHECKSUM}  trivy_\${TRIVY_VERSION}_Linux-\${ARCH_NAME}.tar.gz" | sha256sum -c -
                                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-\${ARCH_NAME}.tar.gz -C /usr/local/bin/
-                                    wget https://raw.githubusercontent.com/aquasecurity/trivy/main/contrib/junit.tpl
+                                    wget https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl
                                     /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit-amd.xml \
                                     --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL ${DOCKER_ACC}/percona-xtrabackup:${env.VERSION}-${env.PKG_VERSION} || true
                                 """

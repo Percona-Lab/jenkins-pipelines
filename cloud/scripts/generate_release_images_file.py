@@ -9,7 +9,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 PMM_CLIENT = "2.44.1-1"
 PMM_SERVER = "2.44.1"
-PG_MAJOR_VERSIONS = ["13", "14", "15", "16", "17"]
+PG_MAJOR_VERSIONS = ["13", "14", "15", "16", "17", "18"]
 
 MONTH_MAP = {
     "jan": 1,
@@ -98,6 +98,7 @@ def get_image_lines(op, ver):
             "pmm3": (P, "pmm3"),
         },
         "pg": {
+            "18": (D, "percona/percona-distribution-postgresql", "18"),
             "17": (D, "percona/percona-distribution-postgresql", "17"),
             "16": (D, "percona/percona-distribution-postgresql", "16"),
             "15": (D, "percona/percona-distribution-postgresql", "15"),

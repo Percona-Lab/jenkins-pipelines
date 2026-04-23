@@ -1,5 +1,16 @@
 def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENABLE_PULL_MODE, String ENABLE_TESTING_REPO, String CLIENT_INSTANCE, String SETUP_TYPE, String ADMIN_PASSWORD = 'admin', String ENABLE_EXPERIMENTAL_REPO = 'yes') {
    withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'AMI/OVF', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+        withEnv([
+            "SERVER_IP=${SERVER_IP}",
+            "CLIENT_VERSION=${CLIENT_VERSION}",
+            "PMM_VERSION=${PMM_VERSION}",
+            "ENABLE_PULL_MODE=${ENABLE_PULL_MODE}",
+            "ENABLE_TESTING_REPO=${ENABLE_TESTING_REPO}",
+            "CLIENT_INSTANCE=${CLIENT_INSTANCE}",
+            "SETUP_TYPE=${SETUP_TYPE}",
+            "ADMIN_PASSWORD=${ADMIN_PASSWORD}",
+            "ENABLE_EXPERIMENTAL_REPO=${ENABLE_EXPERIMENTAL_REPO}",
+        ]) {
         sh '''
             set -o errexit
             set -o xtrace
@@ -14,7 +25,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 echo "Exiting..."
                 exit 1
             fi
-            
+
             if [ "${SETUP_TYPE}" = compose_setup ]; then
                 export IP=192.168.0.1
             fi
@@ -25,6 +36,10 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 rm -f percona-release-latest.noarch.rpm
                 sudo dnf clean all
                 sudo dnf makecache
+            fi
+
+            if [[ "${CLIENT_VERSION}" == "latest-tarball" ]]; then
+                CLIENT_VERSION="https://pmm-build-cache.s3.us-east-2.amazonaws.com/PR-BUILDS/pmm-client/pmm-client-latest.tar.gz"
             fi
 
             if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
@@ -119,5 +134,6 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
             fi
             set -e
         '''
+        }
     }
 }
