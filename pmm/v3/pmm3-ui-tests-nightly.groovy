@@ -312,7 +312,7 @@ pipeline {
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
         string(
-            defaultValue: '93',
+            defaultValue: '100',
             description: 'PTS (Cloudbees Predictive Tests Selection) confidence % for selecting tests to run. Valid values are from 0 to 100.',
             name: 'PTS_CONFIDENCE')
     }
