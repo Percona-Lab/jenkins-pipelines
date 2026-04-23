@@ -100,7 +100,7 @@ pipeline {
             }
         }
     }
-    post {
+//    post {
 //        success {
 //            slackNotify("#mongodb_autofeed", "#00FF00", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION}, repo ${REPO} - finished succesfully - [${BUILD_URL}]")
 //        }
