@@ -98,7 +98,7 @@ def loadEnvFile(envFilePath) {
 
 pipeline {
   agent {
-    label 'min-bookworm-x64'
+    label 'deb12-x64-min'
   }
   environment {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
