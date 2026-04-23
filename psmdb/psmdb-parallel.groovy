@@ -107,10 +107,10 @@ pipeline {
 //        failure {
 //            slackNotify("#mongodb_autofeed", "#FF0000", "[${JOB_NAME}]: package tests for PSMDB ${PSMDB_VERSION}, repo ${REPO} - failed - [${BUILD_URL}]")
 //        }
-        always {
-            script {
-                moleculeParallelPostDestroy(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION), moleculeDir)
-            }
-        }
+//        always {
+//            script {
+//                moleculeParallelPostDestroy(pdmdbOperatingSystems(PSMDB_VERSION,PSMDB_VERSION), moleculeDir)
+//            }
+//        }
     }
 }
