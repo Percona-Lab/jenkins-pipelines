@@ -178,9 +178,6 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
                 set -o errexit
                 set -o xtrace
                 echo "Checking Agent Status on Client Nodes";
-                sudo mkdir -p /srv/pmm-qa || :
-                sudo git clone --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa
-                sudo chmod -R 755 /srv/pmm-qa
                 sudo chmod 755 /srv/pmm-qa/support_scripts/agent_status.py
                 python3 /srv/pmm-qa/support_scripts/agent_status.py
             '
@@ -344,6 +341,8 @@ pipeline {
                     sudo apt update
                     sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
                     sudo systemctl enable --now docker
+
+                    sudo chmod -R 755 /srv/pmm-qa
                 '''
             }
         }
