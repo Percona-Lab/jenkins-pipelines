@@ -26,7 +26,7 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                    currentBuild.displayName = "${params.PPG_REPO}-${env.IMAGE_VER} v3"
+                    currentBuild.displayName = "${params.PPG_REPO}-${env.IMAGE_VER}"
                 }
             }
         }
@@ -64,51 +64,51 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                          MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                         docker tag percona-distribution-postgresql-custom perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-arm64
-                         docker tag percona-distribution-postgresql-custom perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3-arm64
-                         docker tag percona-distribution-postgresql-custom perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-arm64
-                         docker push perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-arm64
-                         docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3-arm64
-                         docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-arm64
+                         docker tag percona-distribution-postgresql-custom perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-arm64
+                         docker tag percona-distribution-postgresql-custom perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-arm64
+                         docker tag percona-distribution-postgresql-custom perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-arm64
+                         docker push perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-arm64
+                         docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-arm64
+                         docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-arm64
 
-                         docker manifest create --amend perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3 \
-                            perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-amd64 \
-                            perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-arm64
-                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3 \
-                            perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3 \
-                            perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3-amd64 --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3
-                         docker manifest push perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-v3
+                         docker manifest create --amend perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER} \
+                            perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-amd64 \
+                            perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-arm64
+                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER} \
+                            perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER} \
+                            perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}
+                         docker manifest push perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}
 
-                         docker manifest create --amend perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3 \
-                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3-amd64 \
-                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3-arm64
-                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3 \
-                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3 \
-                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3-amd64 --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3
-                         docker manifest push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3
+                         docker manifest create --amend perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER \
+                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-amd64 \
+                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-arm64
+                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER \
+                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER \
+                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER
+                         docker manifest push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER
 
-                         docker manifest create --amend perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3 \
-                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-amd64 \
-                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-arm64
-                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3 \
-                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-arm64 --os linux --arch arm64 --variant v8
-                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3 \
-                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-amd64 --os linux --arch amd64
-                         docker manifest inspect perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3
-                         docker manifest push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3
+                         docker manifest create --amend perconalab/percona-distribution-postgresql-custom:\$MAJ_VER \
+                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-amd64 \
+                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-arm64
+                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:\$MAJ_VER \
+                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
+                         docker manifest annotate perconalab/percona-distribution-postgresql-custom:\$MAJ_VER \
+                            perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-amd64 --os linux --arch amd64
+                         docker manifest inspect perconalab/percona-distribution-postgresql-custom:\$MAJ_VER
+                         docker manifest push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER
 
                          if [ ${params.LATEST} = "yes" ]; then
                             docker manifest create --amend perconalab/percona-distribution-postgresql-custom:latest \
-                               perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-amd64 \
-                               perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-arm64
+                               perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-amd64 \
+                               perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-arm64
                             docker manifest annotate perconalab/percona-distribution-postgresql-custom:latest \
-                               perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-arm64 --os linux --arch arm64 --variant v8
+                               perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-arm64 --os linux --arch arm64 --variant v8
                             docker manifest annotate perconalab/percona-distribution-postgresql-custom:latest \
-                               perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-amd64 --os linux --arch amd64
+                               perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-amd64 --os linux --arch amd64
                             docker manifest inspect perconalab/percona-distribution-postgresql-custom:latest
                             docker manifest push perconalab/percona-distribution-postgresql-custom:latest
                          fi
@@ -127,13 +127,13 @@ pipeline {
             deleteDir()
         }
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER}-v3 for ARM, repo ${PPG_REPO} succeed")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER} for ARM, repo ${PPG_REPO} succeed")
         }
         unstable {
-            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER}-v3 for ARM, repo ${PPG_REPO} unstable - [${BUILD_URL}testReport/]")
+            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER} for ARM, repo ${PPG_REPO} unstable - [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER}-v3 for ARM, repo ${PPG_REPO} failed - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER} for ARM, repo ${PPG_REPO} failed - [${BUILD_URL}]")
         }
     }
 }
