@@ -203,6 +203,10 @@ pipeline {
                         --network="pmm-qa" \
                         -e PMM_DEBUG=1 \
                         -e PMM_ENABLE_TELEMETRY=0 \
+                        -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
+                        -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
+                        -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com \
+                        -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
                         --publish 80:8080 --publish 443:8443 \
                         --volume pmm-volume:/srv \
                         --name pmm-server \
