@@ -176,7 +176,7 @@ pipeline {
                         env.PRE_UPGRADE_FLAG = "@pre-external-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-external-upgrade"
                         env.PLAYWRIGHT_FLAG= "@rta"
-                        env.PMM_CLIENTS = "--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql --database external --database ps=8.4 --database pdpgsql --database psmdb,SETUP_TYPE=pss,COMPOSE_PROFILES=extra --database pxc --database pgsql"
+                        env.PMM_CLIENTS = "--database ssl_psmdb --database ssl_mysql --database ssl_pdpgsql --database external --database psmdb,SETUP_TYPE=pss,COMPOSE_PROFILES=extra --database pxc"
                     } else if (env.UPGRADE_FLAG == "OTHERS") {
                         env.PRE_UPGRADE_FLAG = "@pre-settings-metrics-upgrade|@pre-advisors-alerting-upgrade|@pre-annotations-prometheus-upgrade|@pre-dashboards-upgrade|@pre-custom-password-upgrade|@pre-mongo-backup-upgrade"
                         env.POST_UPGRADE_FLAG = "@post-settings-metrics-upgrade|@post-advisors-alerting-upgrade|@post-annotations-prometheus-upgrade|@post-dashboards-upgrade|@post-custom-password-upgrade|@post-mongo-backup-upgrade"
