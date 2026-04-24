@@ -6,7 +6,6 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
 def pmm_submodules() {
     return [
         "pmm",
-        "grafana-dashboards",
         "grafana",
         "pmm-qa",
         "mysqld_exporter",
