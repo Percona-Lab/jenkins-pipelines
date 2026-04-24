@@ -131,14 +131,12 @@ pipeline {
                     steps {
                         script {
                             triggerJenkinsRc('pmm3-ui-tests-nightly (ami)', 'pmm3-ui-tests-nightly', [
-                                string(name: 'GIT_BRANCH',              value: 'main'),
+                                string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'SERVER_TYPE',             value: 'ami'),
                                 string(name: 'DOCKER_VERSION',          value: params.AMI_ID.trim()),
                                 string(name: 'CLIENT_VERSION',          value: 'pmm3-rc'),
                                 string(name: 'ENABLE_PULL_MODE',        value: 'no'),
                                 string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
-                                string(name: 'QA_INTEGRATION_GIT_BRANCH', value: 'main'),
-                                string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'HELM_CHART_BRANCH',       value: 'main'),
                                 string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
                                 string(name: 'K8S_VERSION',             value: '1.34'),
@@ -160,14 +158,12 @@ pipeline {
                     steps {
                         script {
                             triggerJenkinsRc('pmm3-ui-tests-nightly (ovf)', 'pmm3-ui-tests-nightly', [
-                                string(name: 'GIT_BRANCH',              value: 'main'),
+                                string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'SERVER_TYPE',             value: 'ovf'),
                                 string(name: 'DOCKER_VERSION',          value: "PMM3-Server-${params.RC_VERSION.trim()}.ova"),
                                 string(name: 'CLIENT_VERSION',          value: 'pmm3-rc'),
                                 string(name: 'ENABLE_PULL_MODE',        value: 'no'),
                                 string(name: 'ADMIN_PASSWORD',          value: 'admin1'),
-                                string(name: 'QA_INTEGRATION_GIT_BRANCH', value: 'main'),
-                                string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'HELM_CHART_BRANCH',       value: 'main'),
                                 string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
                                 string(name: 'K8S_VERSION',             value: '1.34'),
@@ -189,14 +185,12 @@ pipeline {
                     steps {
                         script {
                             triggerJenkinsRc('pmm3-ui-tests-nightly (docker)', 'pmm3-ui-tests-nightly', [
-                                string(name: 'GIT_BRANCH',              value: 'main'),
+                                string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'SERVER_TYPE',             value: 'docker'),
                                 string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
                                 string(name: 'CLIENT_VERSION',          value: 'pmm3-rc'),
                                 string(name: 'ENABLE_PULL_MODE',        value: 'no'),
                                 string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
-                                string(name: 'QA_INTEGRATION_GIT_BRANCH', value: 'main'),
-                                string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'HELM_CHART_BRANCH',       value: 'main'),
                                 string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
                                 string(name: 'K8S_VERSION',             value: '1.34'),
@@ -218,14 +212,12 @@ pipeline {
                     steps {
                         script {
                             triggerJenkinsRc('pmm3-ui-tests-nightly (helm)', 'pmm3-ui-tests-nightly', [
-                                string(name: 'GIT_BRANCH',              value: 'main'),
+                                string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'SERVER_TYPE',             value: 'helm'),
                                 string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
                                 string(name: 'CLIENT_VERSION',          value: 'pmm3-rc'),
                                 string(name: 'ENABLE_PULL_MODE',        value: 'no'),
                                 string(name: 'ADMIN_PASSWORD',          value: 'admin1'),
-                                string(name: 'QA_INTEGRATION_GIT_BRANCH', value: 'main'),
-                                string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'HELM_CHART_BRANCH',       value: 'main'),
                                 string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
                                 string(name: 'K8S_VERSION',             value: '1.34'),
@@ -247,14 +239,12 @@ pipeline {
                     steps {
                         script {
                             triggerJenkinsRc('pmm3-ui-tests-nightly (ha)', 'pmm3-ui-tests-nightly', [
-                                string(name: 'GIT_BRANCH',              value: 'main'),
+                                string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'SERVER_TYPE',             value: 'ha'),
                                 string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
                                 string(name: 'CLIENT_VERSION',          value: 'pmm3-rc'),
                                 string(name: 'ENABLE_PULL_MODE',        value: 'no'),
                                 string(name: 'ADMIN_PASSWORD',          value: 'admin1'),
-                                string(name: 'QA_INTEGRATION_GIT_BRANCH', value: 'main'),
-                                string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'HELM_CHART_BRANCH',       value: 'main'),
                                 string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
                                 string(name: 'K8S_VERSION',             value: '1.34'),
@@ -281,14 +271,12 @@ pipeline {
                                 def ver = t.toString()
                                 branches["compat ${ver}"] = {
                                     triggerJenkinsRc("pmm3-ui-tests-nightly (compat ${ver})", 'pmm3-ui-tests-nightly', [
-                                        string(name: 'GIT_BRANCH',              value: 'main'),
+                                        string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                         string(name: 'SERVER_TYPE',             value: 'docker'),
                                         string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
                                         string(name: 'CLIENT_VERSION',          value: ver),
                                         string(name: 'ENABLE_PULL_MODE',        value: 'no'),
                                         string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
-                                        string(name: 'QA_INTEGRATION_GIT_BRANCH', value: 'main'),
-                                        string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                         string(name: 'HELM_CHART_BRANCH',       value: 'main'),
                                         string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
                                         string(name: 'K8S_VERSION',             value: '1.34'),
@@ -313,14 +301,12 @@ pipeline {
                     steps {
                         script {
                             triggerJenkinsRc('pmm3-ui-tests-nightly-gssapi', 'pmm3-ui-tests-nightly-gssapi', [
-                                string(name: 'GIT_BRANCH',              value: 'main'),
+                                string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'SERVER_TYPE',             value: 'docker'),
                                 string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
                                 string(name: 'CLIENT_VERSION',          value: params.PMM_CLIENT_TARBALL_OL9.trim()),
                                 string(name: 'ENABLE_PULL_MODE',        value: 'no'),
                                 string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
-                                string(name: 'QA_INTEGRATION_GIT_BRANCH', value: 'main'),
-                                string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'PSMDB_VERSION',           value: '8.0'),
                                 string(name: 'MODB_VERSION',            value: '8.0'),
                             ])
@@ -363,9 +349,7 @@ pipeline {
                     steps {
                         script {
                             triggerJenkinsRc('pmm3-upgrade-tests-matrix', 'pmm3-upgrade-tests-matrix', [
-                                string(name: 'PMM_UI_GIT_BRANCH',         value: 'main'),
-                                string(name: 'PMM_QA_GIT_BRANCH',         value: 'main'),
-                                string(name: 'QA_INTEGRATION_GIT_BRANCH', value: 'main'),
+                                string(name: 'PMM_QA_GIT_BRANCH', value: 'main'),
                             ])
                         }
                     }
@@ -390,7 +374,7 @@ pipeline {
                     steps {
                         script {
                             triggerJenkinsRc('pmm3-ui-tests-matrix', 'pmm3-ui-tests-matrix', [
-                                string(name: 'GIT_BRANCH',       value: 'main'),
+                                string(name: 'PMM_QA_GIT_BRANCH', value: 'main'),
                                 string(name: 'GIT_COMMIT_HASH',  value: ''),
                                 string(name: 'DOCKER_VERSION',   value: env.PMM_SERVER_IMAGE),
                                 string(name: 'CLIENT_VERSION',   value: 'pmm3-rc'),
@@ -398,7 +382,6 @@ pipeline {
                                 string(name: 'POSTGRES_IMAGE',   value: 'perconalab/percona-distribution-postgresql:16.0'),
                                 string(name: 'MONGO_IMAGE',      value: 'percona/percona-server-mongodb:4.4'),
                                 string(name: 'PROXYSQL_IMAGE',   value: 'proxysql/proxysql:2.3.0'),
-                                string(name: 'PMM_QA_GIT_BRANCH', value: 'main'),
                             ])
                         }
                     }
