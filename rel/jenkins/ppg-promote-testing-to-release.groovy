@@ -230,7 +230,7 @@ ENDSSH
                 }
             }
         }
-        stage('Sync packages to production download') {
+        stage('Sync Tarballs/SBOMs to production download') {
             steps {
                 withCredentials([sshUserPrivateKey(credentialsId: 'repo.ci.percona.com', keyFileVariable: 'KEY_PATH', usernameVariable: 'USER')]) {
                     sh """
