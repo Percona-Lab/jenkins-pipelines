@@ -239,6 +239,11 @@ pipeline {
                                 sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:noble"
                             }
                         }
+                        stage('Build client binary deb Resolute') {
+                            steps {
+                                sh "${PATH_TO_SCRIPTS}/build-client-deb ubuntu:resolute"
+                            }
+                        }
                     }
                     post {
                         success {
