@@ -100,8 +100,8 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'PMM-14987',
-            description: 'Tag/Branch for pmm repository',
+            defaultValue: 'main',
+            description: 'Tag/Branch for pmm-qa repository',
             name: 'GIT_BRANCH',
             trim: true)
         string(
