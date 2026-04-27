@@ -131,10 +131,6 @@ pipeline {
             defaultValue: 'main',
             description: 'Tag/Branch for pmm qa repository',
             name: 'PMM_QA_GIT_BRANCH')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for qa-integration repository',
-            name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(
             choices: ["SSL", "EXTERNAL SERVICES", "OTHERS"],
             description: 'Subset of tests for the upgrade',
@@ -189,10 +185,6 @@ pipeline {
         stage('Start Server Instance') {
             steps {
                 sh '''
-                    sudo mkdir -p /srv/qa-integration || true
-                    pushd /srv/qa-integration
-                        sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                    popd
                     sudo chown ec2-user -R /srv/pmm-qa
 
                     docker network create pmm-qa
