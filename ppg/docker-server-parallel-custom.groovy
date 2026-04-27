@@ -29,14 +29,14 @@ pipeline {
         string(name: 'SERVER_VERSION', defaultValue: '18.3', description: 'Docker PG version to test.')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'Branch for testing repository')
         choice(name: 'REPOSITORY', choices: ['perconalab', 'percona'], description: 'Docker hub repository.')
-        choice(name: 'MILESTONE', choices: ['1', '2', '3'], description: 'DO Milestone.')
+        choice(name: 'MILESTONE', choices: ['3', '1', '2'], description: 'Custom image Milestone.')
         booleanParam(name: 'WITH_POSTGIS', defaultValue: true, description: "Enable PostGIS testing.")
         booleanParam(name: 'DESTROY_ENV', defaultValue: true, description: 'Destroy VM after tests')
     }
 
     environment {
         PATH = "/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:${env.HOME}/.local/bin"
-        MOLECULE_DIR = "docker/ppg-docker-DO"
+        MOLECULE_DIR = "docker/ppg-docker-custom"
     }
 
     options {
@@ -50,7 +50,7 @@ pipeline {
             steps {
                 script {
                     def suffix = params.WITH_POSTGIS ? "with-postgis" : "no-postgis"
-                    currentBuild.displayName = "#${env.BUILD_NUMBER}-docker-DO-${suffix}-${params.SERVER_VERSION}"
+                    currentBuild.displayName = "#${env.BUILD_NUMBER}-docker-custom-${suffix}-${params.SERVER_VERSION}"
                 }
             }
         }
@@ -70,8 +70,18 @@ pipeline {
             steps {
                 script {
                     // List of distros to test
-                    def distros = ['rocky-9', 'rhel-10', 'debian-12', 'debian-13', 'ubuntu-jammy', 
-                                  'rocky-9-arm64', 'rhel-10-arm64', 'debian-12-arm64', 'debian-13-arm64', 'ubuntu-jammy-arm64']
+                    def distros = [
+                        'rocky-9',
+                        'rhel-10',
+                        'debian-12',
+                        'debian-13',
+                        'ubuntu-jammy',
+                        'rocky-9-arm64',
+                        'rhel-10-arm64',
+                        'debian-12-arm64',
+                        'debian-13-arm64',
+                        'ubuntu-jammy-arm64',
+                    ]
                     moleculeParallelTestPPG(distros, env.MOLECULE_DIR)
                 }
             }
@@ -82,8 +92,19 @@ pipeline {
         always {
             script {
                 if (params.DESTROY_ENV) {
-                    def distros = ['rocky-9', 'rhel-10', 'debian-12', 'debian-13', 'ubuntu-jammy', 
-                                  'rocky-9-arm64', 'rhel-10-arm64', 'debian-12-arm64', 'debian-13-arm64', 'ubuntu-jammy-arm64']
+                    // List of distros to test
+                    def distros = [
+                        'rocky-9',
+                        'rhel-10',
+                        'debian-12',
+                        'debian-13',
+                        'ubuntu-jammy',
+                        'rocky-9-arm64',
+                        'rhel-10-arm64',
+                        'debian-12-arm64',
+                        'debian-13-arm64',
+                        'ubuntu-jammy-arm64',
+                    ]
                     moleculeParallelPostDestroyPPG(distros, env.MOLECULE_DIR)
                 }
                 // FIX: Passing params explicitly

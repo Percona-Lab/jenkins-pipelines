@@ -74,6 +74,7 @@ void initParams() {
         IMAGE_TOOLKIT = IMAGE_TOOLKIT ?: getParam("IMAGE_TOOLKIT")
         IMAGE_PMM_CLIENT = IMAGE_PMM_CLIENT ?: getParam("IMAGE_PMM_CLIENT")
         IMAGE_PMM_SERVER = IMAGE_PMM_SERVER ?: getParam("IMAGE_PMM_SERVER")
+        IMAGE_BINLOG_SERVER = IMAGE_BINLOG_SERVER ?: getParam("IMAGE_BINLOG_SERVER")
         if ("$PLATFORM_VER".toLowerCase() == "max") {
             PLATFORM_VER = getParam("PLATFORM_VER", "MINIKUBE_${PLATFORM_VER}")
         }
@@ -98,7 +99,7 @@ void prepareSources() {
     initParams()
 
     GIT_SHORT_COMMIT = sh(script: 'git -C source rev-parse --short HEAD', returnStdout: true).trim()
-    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MYSQL-$IMAGE_BACKUP-$IMAGE_ROUTER-$IMAGE_HAPROXY-$IMAGE_ORCHESTRATOR-$IMAGE_TOOLKIT-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
+    PARAMS_HASH = sh(script: "echo $GIT_BRANCH-$GIT_SHORT_COMMIT-$PLATFORM_VER-$CLUSTER_WIDE-$IMAGE_OPERATOR-$IMAGE_MYSQL-$IMAGE_BACKUP-$IMAGE_ROUTER-$IMAGE_HAPROXY-$IMAGE_ORCHESTRATOR-$IMAGE_TOOLKIT-$IMAGE_PMM_CLIENT-$IMAGE_PMM_SERVER-$IMAGE_BINLOG_SERVER | md5sum | cut -d' ' -f1", returnStdout: true).trim()
 }
 
 void dockerBuildPush() {
@@ -225,6 +226,7 @@ void runTest(Integer TEST_ID) {
                     export IMAGE_TOOLKIT=$IMAGE_TOOLKIT
                     export IMAGE_PMM_CLIENT=$IMAGE_PMM_CLIENT
                     export IMAGE_PMM_SERVER=$IMAGE_PMM_SERVER
+                    export IMAGE_BINLOG_SERVER=$IMAGE_BINLOG_SERVER
                     export PATH="\${KREW_ROOT:-\$HOME/.krew}/bin:\$PATH"
 
                     kubectl kuttl test --config e2e-tests/kuttl.yaml --test "^$testName\$"
@@ -285,6 +287,7 @@ IMAGE_ORCHESTRATOR=${IMAGE_ORCHESTRATOR ?: 'e2e_defaults'}
 IMAGE_TOOLKIT=${IMAGE_TOOLKIT ?: 'e2e_defaults'}
 IMAGE_PMM_CLIENT=${IMAGE_PMM_CLIENT ?: 'e2e_defaults'}
 IMAGE_PMM_SERVER=${IMAGE_PMM_SERVER ?: 'e2e_defaults'}
+IMAGE_BINLOG_SERVER=${IMAGE_BINLOG_SERVER ?: 'e2e_defaults'}
 PLATFORM_VER=$PLATFORM_VER"""
 
     writeFile file: "TestsReport.xml", text: testsReport
@@ -317,6 +320,7 @@ pipeline {
         string(name: 'IMAGE_TOOLKIT', defaultValue: '', description: 'ex: perconalab/percona-server-mysql-operator:main-toolkit')
         string(name: 'IMAGE_PMM_CLIENT', defaultValue: '', description: 'ex: perconalab/pmm-client:dev-latest')
         string(name: 'IMAGE_PMM_SERVER', defaultValue: '', description: 'ex: perconalab/pmm-server:dev-latest')
+        string(name: 'IMAGE_BINLOG_SERVER', defaultValue: '', description: 'ex: perconalab/percona-binlog-server:0.2.1')
         choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
     agent {

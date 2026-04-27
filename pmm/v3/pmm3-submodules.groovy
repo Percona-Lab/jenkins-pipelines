@@ -79,8 +79,6 @@ pipeline {
                 stash includes: 'pmmQABranch', name: 'pmmQABranch'
                 stash includes: 'apiCommitSha', name: 'apiCommitSha'
                 stash includes: 'pmmQACommitSha', name: 'pmmQACommitSha'
-                stash includes: 'pmmUITestBranch', name: 'pmmUITestBranch'
-                stash includes: 'pmmUITestsCommitSha', name: 'pmmUITestsCommitSha'
                 stash includes: 'fbCommitSha', name: 'fbCommitSha'
                 slackSend channel: '#pmm-notifications', color: '#0000FF', message: "[${JOB_NAME}]: v3 build started, URL: ${BUILD_URL}"
             }
@@ -222,10 +220,6 @@ pipeline {
                         export DOCKER_TAG=perconalab/pmm-server-fb:${BRANCH_NAME}-${SHORTENED_COMMIT}
                         export DOCKERFILE=Dockerfile.el9
 
-                        DOCKERFILE_PATH="tmp/source/pmm/build/docker/server/${DOCKERFILE}"
-                        awk 'NR==9 { print "ENV PMM_ENABLE_TELEMETRY=0" } { print }' "${DOCKERFILE_PATH}" > "${DOCKERFILE_PATH}.tmp"
-                        mv "${DOCKERFILE_PATH}.tmp" "${DOCKERFILE_PATH}"
-
                         ${PATH_TO_SCRIPTS}/build-server-docker
                     '''
                 }
@@ -311,7 +305,6 @@ pipeline {
                     withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_API_TOKEN')]) {
                         unstash 'IMAGE'
                         unstash 'pmmQABranch'
-                        unstash 'pmmUITestBranch'
                         unstash 'fbCommitSha'
                         def IMAGE = sh(returnStdout: true, script: "cat results/docker/TAG").trim()
                         def CLIENT_IMAGE = sh(returnStdout: true, script: "cat results/docker/CLIENT_TAG").trim()
@@ -345,13 +338,11 @@ pipeline {
                         '''
 
                         def PMM_QA_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmQABranch").trim()
-                        def PMM_UI_TESTS_GIT_BRANCH = sh(returnStdout: true, script: "cat pmmUITestBranch").trim()
                         payload = [
                           ref: "${PMM_BRANCH}",
                           inputs: [
                             pmm_server_image: "${IMAGE}", pmm_client_image: "${CLIENT_IMAGE}", sha: "${FB_COMMIT_HASH}",
-                            pmm_qa_branch: "${PMM_QA_GIT_BRANCH}", pmm_ui_tests_branch: "${PMM_UI_TESTS_GIT_BRANCH}",
-                            pmm_client_version: "${CLIENT_URL}"
+                            pmm_qa_branch: "${PMM_QA_GIT_BRANCH}", pmm_client_version: "${CLIENT_URL}"
                           ]
                         ]
                         writeFile(file: 'body.json', text: JsonOutput.toJson(payload))

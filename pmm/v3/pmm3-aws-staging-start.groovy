@@ -129,7 +129,7 @@ pipeline {
         )
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for qa-integration repository',
+            description: 'Tag/Branch for pmm-qa repository',
             name: 'PMM_QA_GIT_BRANCH'
         )
     }
@@ -248,7 +248,7 @@ pipeline {
                                         ${DOCKER_ENV_VARIABLE} \
                                         ${DOCKER_VERSION}
 
-                                    sleep 10
+                                    sleep 30
                                     docker logs pmm-server
 
                                     if [ ${ADMIN_PASSWORD} != admin ]; then
@@ -288,14 +288,15 @@ pipeline {
 
                         docker network create pmm-qa || true
 
-                        sudo mkdir -p /srv/qa-integration || :
-                        pushd /srv/qa-integration
-                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
+                        sudo rm -rf /srv/pmm-qa
+                        sudo mkdir -p /srv/pmm-qa
+                        pushd /srv/pmm-qa
+                            sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                         popd
 
-                        sudo chown ec2-user -R /srv/qa-integration
+                        sudo chown ec2-user -R /srv/pmm-qa
 
-                        pushd /srv/qa-integration/pmm_qa
+                        pushd /srv/pmm-qa/qa-integration/pmm_qa
                             echo "Setting docker based PMM clients"
                             python3 -m venv virtenv
                             . virtenv/bin/activate

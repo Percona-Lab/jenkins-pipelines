@@ -563,7 +563,7 @@ Resources:
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
                   install -o jenkins -g jenkins -d /var/log/jenkins
-                  chown -R jenkins:jenkins /mnt/$JENKINS_HOST /var/log/jenkins
+                  chown -hR jenkins:jenkins /mnt/$JENKINS_HOST /var/log/jenkins
 
                   wget -O /mnt/$JENKINS_HOST/init.groovy.d/plugins.groovy \
                     https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/master/IaC/init.groovy.d/plugins.groovy

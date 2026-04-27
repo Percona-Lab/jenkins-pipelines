@@ -87,8 +87,8 @@ pipeline {
     parameters {
         string(
             defaultValue: 'main',
-            description: 'Tag/Branch for UI Tests repository',
-            name: 'PMM_UI_GIT_BRANCH')
+            description: 'Tag/Branch for pmm-qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
         string(
             defaultValue: "percona/pmm-server:$oldestVersion",
             description: 'PMM Server Version to test for Upgrade',
@@ -109,14 +109,6 @@ pipeline {
             choices: ["experimental", "testing", "release"],
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for pmm qa repository',
-            name: 'PMM_QA_GIT_BRANCH')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for qa-integration repository',
-            name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(
             choices: ["SSL", "EXTERNAL SERVICES", "MONGO BACKUP", "CUSTOM PASSWORD", "CUSTOM DASHBOARDS", "ANNOTATIONS-PROMETHEUS", "ADVISORS-ALERTING", "SETTINGS-METRICS"],
             description: 'Subset of tests for the upgrade',
@@ -134,15 +126,15 @@ pipeline {
                     currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
                 git poll: false,
-                    branch: PMM_UI_GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-ui-tests.git'
+                    branch: PMM_QA_GIT_BRANCH,
+                    url: 'https://github.com/percona/pmm-qa.git'
 
                 sh '''
-                    sudo mkdir -p /srv/pmm-qa || :
-                    pushd /srv/pmm-qa
-                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
-                    popd
-                    sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
+                    sudo rm -rf /srv/pmm-qa
+                    sudo mkdir -p /srv/pmm-qa
+                    sudo rsync -a ${env.WORKSPACE}/ /srv/pmm-qa/
+                    sudo chown -R ec2-user:ec2-user /srv/pmm-qa || true
+                    sudo ln -sf /usr/bin/chromium-browser /usr/bin/chromium
                 '''
             }
         }
@@ -188,12 +180,6 @@ pipeline {
         stage('Start Server Instance') {
             steps {
                 sh '''
-                    sudo mkdir -p /srv/qa-integration || true
-                    pushd /srv/qa-integration
-                        sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                    popd
-                    sudo chown ec2-user -R /srv/qa-integration
-
                     docker network create pmm-qa
                     docker volume create pmm-volume
 
@@ -261,15 +247,17 @@ pipeline {
                 }
                 stage('Install dependencies') {
                     steps {
-                        sh '''
-                            npm ci
-                            npx playwright install
-                            envsubst < env.list > env.generated.list
-                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                            export PWD=$(pwd)
-                            export CHROMIUM_PATH=/usr/bin/chromium
-                            ansible-galaxy collection install ansible.utils
-                        '''
+                        dir('codeceptjs-e2e') {
+                            sh '''
+                                npm ci
+                                npx playwright install
+                                envsubst < env.list > env.generated.list
+                                sed -i 's+http://localhost/+${env.PMM_UI_URL}/+g' pr.codecept.js
+                                export PWD=\$(pwd)
+                                export CHROMIUM_PATH=/usr/bin/chromium
+                                ansible-galaxy collection install ansible.utils
+                            '''
+                        }
                     }
                 }
             }
@@ -280,7 +268,7 @@ pipeline {
                     set -o errexit
                     set -o xtrace
 
-                    pushd /srv/qa-integration/pmm_qa
+                    pushd /srv/pmm-qa/qa-integration/pmm_qa
                     echo "Setting docker based PMM clients"
                     mkdir -m 777 -p /tmp/backup_data
                     python3 -m venv virtenv
@@ -365,28 +353,34 @@ pipeline {
         }
         stage('Run pre upgrade UI tests') {
             steps {
-                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep \${PRE_UPGRADE_FLAG}
-                    '''
+                dir('codeceptjs-e2e') {
+                    withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                        sh '''
+                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${PRE_UPGRADE_FLAG}
+                        '''
+                    }
                 }
             }
         }
         stage('Run UI upgrade') {
             steps {
-                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
-                    '''
+                dir('codeceptjs-e2e') {
+                    withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                        sh '''
+                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
+                        '''
+                    }
                 }
             }
         }
         stage('Run post pmm server upgrade UI tests') {
             steps {
-                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
-                    '''
+                dir('codeceptjs-e2e') {
+                    withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                        sh '''
+                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                        '''
+                    }
                 }
             }
         }
@@ -441,10 +435,12 @@ pipeline {
         }
         stage('Run post pmm client upgrade UI tests') {
             steps {
-                withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
-                    sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep \${POST_UPGRADE_FLAG}
-                    '''
+                dir('codeceptjs-e2e') {
+                    withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
+                        sh '''
+                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                        '''
+                    }
                 }
             }
         }
@@ -487,7 +483,7 @@ pipeline {
                 archiveArtifacts artifacts: 'logs.zip'
                 archiveArtifacts artifacts: 'srv-logs.tar.gz'
 
-                def PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
+                def PATH_TO_REPORT_RESULTS = 'codeceptjs-e2e/tests/output/parallel_chunk*/*.xml'
                 try {
                     junit PATH_TO_REPORT_RESULTS
                 } catch (err) {
@@ -496,7 +492,7 @@ pipeline {
             }
         }
         failure {
-            archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
+            archiveArtifacts artifacts: 'codeceptjs-e2e/tests/output/parallel_chunk*/*.png'
         }
     }
 }

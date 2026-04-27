@@ -104,7 +104,11 @@ start_jenkins() {
     install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
     install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
     install -o jenkins -g jenkins -d /var/log/jenkins
-    chown -R jenkins:jenkins /mnt/$JENKINS_HOST /var/log/jenkins
+    # -h: change ownership of symlinks themselves rather than dereferencing.
+    # Prevents broken symlinks (e.g. stale queue.xml) from aborting bootstrap
+    # under errexit, while still failing fast on real chown errors (perm
+    # denied, read-only mount, missing path).
+    chown -hR jenkins:jenkins /mnt/$JENKINS_HOST /var/log/jenkins
 
     printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
         | tee -a /etc/hosts
