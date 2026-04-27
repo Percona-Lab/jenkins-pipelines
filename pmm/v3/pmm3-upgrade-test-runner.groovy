@@ -277,7 +277,7 @@ pipeline {
                         \${PMM_CLIENTS}
                     popd
                     docker ps -a
-                    ls
+                    ls /
                 '''
             }
         }
