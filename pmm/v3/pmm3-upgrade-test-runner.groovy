@@ -273,7 +273,7 @@ pipeline {
                     set -o errexit
                     set -o xtrace
 
-                    pushd /srv/qa-integration/pmm_qa
+                    pushd /srv/pmm-qa/qa-integration/pmm_qa
                     echo "Setting docker based PMM clients"
                     mkdir -m 777 -p /tmp/backup_data
                     python3 -m venv virtenv
