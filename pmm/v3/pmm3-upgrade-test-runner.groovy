@@ -124,7 +124,7 @@ pipeline {
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
         string(
-            defaultValue: 'main',
+            defaultValue: 'PMM-7-docker-way-upgrade',
             description: 'Tag/Branch for pmm qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
