@@ -100,10 +100,6 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository for pre upgrade',
             name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
         string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for UI Tests repository for post upgrade',
-            name: 'PMM_UI_GIT_BRANCH')
-        string(
             defaultValue: "percona/pmm-server:$oldestVersion",
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
@@ -364,7 +360,6 @@ pipeline {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                         ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep '@pmm-upgrade'
-                        git checkout -f \${PMM_UI_GIT_BRANCH}
                     '''
                 }
             }
@@ -521,7 +516,9 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep \${POST_UPGRADE_FLAG}
+                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                        popd
                     '''
                 }
             }
