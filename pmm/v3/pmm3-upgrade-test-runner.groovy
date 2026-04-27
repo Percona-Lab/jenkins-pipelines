@@ -193,7 +193,7 @@ pipeline {
                     pushd /srv/qa-integration
                         sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
                     popd
-                    sudo chown ec2-user -R /srv/qa-integration
+                    sudo chown ec2-user -R /srv/pmm-qa
 
                     docker network create pmm-qa
                     docker volume create pmm-volume
