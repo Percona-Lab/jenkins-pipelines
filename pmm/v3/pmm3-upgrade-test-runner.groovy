@@ -222,7 +222,6 @@ pipeline {
                             -e PMM_DEV_PERCONA_PLATFORM_PUBLIC_KEY=RWTkF7Snv08FCboTne4djQfN5qbrLfAjb8SY3/wwEP+X5nUrkxCEvUDJ \
                             -e PMM_ENABLE_UPDATES=1 \
                             -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
-                            -e PMM_ENABLE_TELEMETRY=0 \
                             --publish 80:8080 --publish 443:8443 \
                             --volume pmm-volume:/srv \
                             --name pmm-server \
@@ -240,7 +239,6 @@ pipeline {
                             -e PMM_ENABLE_UPDATES=1 \
                             -e PMM_DEV_UPDATE_DOCKER_IMAGE=\${DOCKER_TAG_UPGRADE} \
                             -e PMM_ENABLE_INTERNAL_PG_QAN=1 \
-                            -e PMM_ENABLE_TELEMETRY=0 \
                             --publish 80:8080 --publish 443:8443 \
                             --volume pmm-volume:/srv \
                             --name pmm-server \
@@ -517,13 +515,13 @@ pipeline {
                 }
             }
         }
-//         stage('Check Client after Upgrade') {
-//             steps {
-//                 script {
-//                     checkClientAfterUpgrade(PMM_SERVER_LATEST)
-//                 }
-//             }
-//         }
+        stage('Check Client after Upgrade') {
+            steps {
+                script {
+                    checkClientAfterUpgrade(PMM_SERVER_LATEST)
+                }
+            }
+        }
         stage('Run post pmm client upgrade UI tests') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
