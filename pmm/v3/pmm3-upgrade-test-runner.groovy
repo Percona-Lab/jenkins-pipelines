@@ -278,6 +278,7 @@ pipeline {
                     popd
                     docker ps -a
                     ls /
+                    pwd
                 '''
             }
         }
