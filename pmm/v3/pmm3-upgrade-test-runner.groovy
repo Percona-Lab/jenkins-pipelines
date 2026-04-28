@@ -595,7 +595,7 @@ pipeline {
                 archiveArtifacts artifacts: 'playwright-screenshots.tar.gz'
                 archiveArtifacts artifacts: 'playwright-logs.tar.gz'
 
-                def PATH_TO_REPORT_RESULTS = '/tests/output/*.xml'
+                def PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
                 try {
                     dir('/srv/pmm-qa/codeceptjs-e2e') {
                         junit PATH_TO_REPORT_RESULTS
