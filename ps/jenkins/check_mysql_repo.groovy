@@ -84,18 +84,20 @@ pipeline {
                                     comm -13 ${repoName}.last ${repoName}.current | \
                                         awk '{print "${repoUrl}/tree/"\$1}' > ${repoName}.newtags || true
 
-                                    mv -fv ${repoName}.current ${repoName}.last
+                                    # State promotion (current -> last) and S3 push deferred to
+                                    # 'Persist State' stage so a failure in 'Process New Tags' or
+                                    # 'Send Notifications' does not silently advance S3 state and
+                                    # cause new tags to be lost without an alert.
                                 else
                                     # First run - just save current state
                                     git ls-remote --tags --refs ${repoUrl} | awk -F'/' '{print \$3}' | sort > ${repoName}.last
                                     touch ${repoName}.newtags
                                 fi
                             """
-                            pushArtifactFile("${repoName}.last", S3_PATH)
                         }
                     }
                     }
-                stash allowEmpty: true, includes: '*.newtags, *.last', name: 'TagFiles'
+                stash allowEmpty: true, includes: '*.newtags, *.last, *.current', name: 'TagFiles'
             }
         }
         stage('Process New Tags') {
@@ -128,10 +130,20 @@ pipeline {
                         set -o xtrace
 
                         git clone --filter=blob:none ${ReposPathMap['MySQL']} mysql-server-repo
-
-                        curl -fsSL -o mysql_commit_report.py \
-                            https://raw.githubusercontent.com/percona/mysql-eol-dev/b42ac69b49a6ed489f25400efc9f0b8d1ac1df68/scripts/mysql_commit_report.py
                     """
+
+                    // mysql-eol-dev is a private repo. Anonymous fetches from
+                    // raw.githubusercontent.com return 404. Use a Jenkins-stored
+                    // token; pinned SHA preserves reproducibility.
+                    withCredentials([string(credentialsId: 'Github_Integration', variable: 'GITHUB_API_TOKEN')]) {
+                        sh '''
+                            set -o errexit
+                            set -o xtrace
+                            curl -fsSL -H "Authorization: token ${GITHUB_API_TOKEN}" \
+                                -o mysql_commit_report.py \
+                                https://raw.githubusercontent.com/percona/mysql-eol-dev/b42ac69b49a6ed489f25400efc9f0b8d1ac1df68/scripts/mysql_commit_report.py
+                        '''
+                    }
 
                     // Create directory for CSV output
                     sh 'mkdir -p csv_output'
@@ -227,6 +239,30 @@ CSV Reports: ${artifactUrl}"""
                             SlackChannels.each { channel ->
                                 slackNotify(channel, '#00FF00', message)
                             }
+                        }
+                    }
+                }
+            }
+        }
+        stage('Persist State') {
+            // Runs only when all earlier stages succeed. If 'Process New Tags' or
+            // 'Send Notifications' fails, this stage is skipped and S3 keeps the
+            // old baseline so the next cron run will retry.
+            steps {
+                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding',
+                    accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                    credentialsId: 'AWS_STASH',
+                    secretKeyVariable: 'AWS_SECRET_ACCESS_KEY']]) {
+                    script {
+                        ReposPathMap.each { repoName, repoUrl ->
+                            sh """
+                                set -o errexit
+                                set -o xtrace
+                                if [ -f ${repoName}.current ]; then
+                                    mv -fv ${repoName}.current ${repoName}.last
+                                fi
+                            """
+                            pushArtifactFile("${repoName}.last", S3_PATH)
                         }
                     }
                 }
