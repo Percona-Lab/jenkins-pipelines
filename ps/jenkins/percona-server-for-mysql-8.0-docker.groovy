@@ -227,7 +227,7 @@ parameters {
                                 cd percona-server-8.0
                             elif [ ${PS_MAJOR_RELEASE} = "84" ]; then
                                 cd percona-server-8.4
-                            elif [ ${PS_MAJOR_RELEASE} = 9* ]; then
+                            elif [[ ${PS_MAJOR_RELEASE} == 9* ]]; then
                                 cd percona-server-9.x
                             fi
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" ${Dockerfile}
