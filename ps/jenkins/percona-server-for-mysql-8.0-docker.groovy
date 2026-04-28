@@ -226,7 +226,7 @@ parameters {
                             case ${PS_MAJOR_RELEASE} in
                                 80) cd percona-server-8.0 ;;
                                 84) cd percona-server-8.4 ;;
-                                9*) cd percona-server-9.6 ;;
+                                9*) cd percona-server-9.x ;;
                             esac
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" ${Dockerfile}
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" ${Dockerfile}
