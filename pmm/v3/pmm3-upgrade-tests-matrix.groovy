@@ -3,7 +3,7 @@ library changelog: false, identifier: 'lib@PMM-7-fix-upgrade-3-7-0', retriever: 
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
-def pmmVersions = pmmVersion('v3')[-5..-1]
+def pmmVersions = pmmVersion('v3')[-6..-1]
 def latestVersion = pmmVersion('v3').last()
 def oldVersions = pmmVersion('v3-old')
 
