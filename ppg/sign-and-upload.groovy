@@ -37,10 +37,6 @@ pipeline {
             description: 'packaging repo name',
             name: 'PACKAGING_REPO')
         choice(
-            choices: [ 'github_pat', 'github_token', 'JNKPERCONA_TOKEN' ],
-            description: 'Select GitHub credential to use',
-            name: 'GITHUB_CRED')
-        choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
             name: 'COMPONENT')
@@ -53,7 +49,7 @@ pipeline {
     stages {
         stage('Download artifact') {
             steps {
-                withCredentials([string(credentialsId: params.GITHUB_CRED, variable: 'TOKEN')]) {
+                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
                     sh '''
                     echo "Install jq"
                     if ! command -v jq > /dev/null; then
