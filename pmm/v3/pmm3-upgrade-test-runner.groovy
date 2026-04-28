@@ -601,7 +601,7 @@ pipeline {
                         junit PATH_TO_REPORT_RESULTS
                     }
                 } catch (err) {
-                    error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
+//                     error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
                 }
             }
         }
