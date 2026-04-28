@@ -235,8 +235,8 @@ pipeline {
                                     pip3 install --user -r requirements.txt
                                     export PXB_VERSION="${env.PXB_VERSION}"
                                     export PXB_REVISION="${env.PXB_REVISION}"
-                                    export DOCKER_ACC="${PXB_DOCKER_ACC}"
-                                    echo "printing variables: \$DOCKER_ACC , \$PXB_VERSION , \$PXB_REVISION"
+                                    export PXB_DOCKER_ACC="${PXB_DOCKER_ACC}"
+                                    echo "printing variables: \$PXB_DOCKER_ACC , \$PXB_VERSION , \$PXB_REVISION"
                                     sudo docker run --rm --entrypoint xtrabackup \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
                                     sudo docker run --rm --entrypoint xbcloud    \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
                                     sudo docker run --rm --entrypoint xbcrypt    \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
@@ -336,8 +336,8 @@ pipeline {
                                     pip3 install --user -r requirements.txt
                                     export PXB_VERSION="${env.PXB_VERSION}"
                                     export PXB_REVISION="${env.PXB_REVISION}"
-                                    export DOCKER_ACC="${PXB_DOCKER_ACC}"
-                                    echo "printing variables: \$DOCKER_ACC , \$PXB_VERSION , \$PXB_REVISION"
+                                    export PXB_DOCKER_ACC="${PXB_DOCKER_ACC}"
+                                    echo "printing variables: \$PXB_DOCKER_ACC , \$PXB_VERSION , \$PXB_REVISION"
                                     sudo docker run --rm --entrypoint xtrabackup \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
                                     sudo docker run --rm --entrypoint xbcloud    \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
                                     sudo docker run --rm --entrypoint xbcrypt    \${PXB_DOCKER_ACC}/percona-xtrabackup:\${PXB_VERSION} --version
