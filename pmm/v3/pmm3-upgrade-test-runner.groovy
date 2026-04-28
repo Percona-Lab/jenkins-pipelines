@@ -591,7 +591,7 @@ pipeline {
                 archiveArtifacts artifacts: 'playwright-screenshots.tar.gz'
                 archiveArtifacts artifacts: 'playwright-logs.tar.gz'
 
-                def PATH_TO_REPORT_RESULTS = '/srv/pmm-qa/codeceptjs-e2e/tests/output/parallel_chunk*/*.xml'
+                def PATH_TO_REPORT_RESULTS = '/srv/pmm-qa/codeceptjs-e2e/tests/output/*.xml'
                 try {
                     junit PATH_TO_REPORT_RESULTS
                 } catch (err) {
@@ -600,7 +600,7 @@ pipeline {
             }
         }
         failure {
-            archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
+            archiveArtifacts artifacts: '/srv/pmm-qa/codeceptjs-e2e/tests/output/*.png'
         }
     }
 }
