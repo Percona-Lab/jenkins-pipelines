@@ -645,6 +645,9 @@ pipeline {
                     }
                 }
                 stage('Debian Trixie(13) tarball') {
+                    when {
+                        expression { !env.SKIP_TRIXIE.toBoolean() }
+                    }
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64' : 'docker-32gb'
                     }
