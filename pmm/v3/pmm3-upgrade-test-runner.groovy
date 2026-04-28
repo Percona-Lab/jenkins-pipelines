@@ -377,6 +377,10 @@ pipeline {
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
                             ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                            ls /srv/pmm-qa/codeceptjs-e2e/tests/output/
+                            ls /srv/pmm-qa/codeceptjs-e2e/tests/
+                            ls /srv/pmm-qa/codeceptjs-e2e/
+                            ls /srv/pmm-qa/
                         popd
                     '''
                 }
