@@ -136,11 +136,13 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                        if ("${PS_MAJOR_RELEASE}" == "80") {
-                            buildStage("ubuntu:focal", "--build_source_deb=1")
-                        } else {
-                            buildStage("debian:bookworm", "--build_source_deb=1")
+                        script {
+                            PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
+                            if ("${PS_MAJOR_RELEASE}" == "80") {
+                                buildStage("ubuntu:focal", "--build_source_deb=1")
+                            } else {
+                                buildStage("debian:bookworm", "--build_source_deb=1")
+                            }
                         }
 
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
