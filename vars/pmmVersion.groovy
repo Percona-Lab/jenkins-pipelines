@@ -104,7 +104,7 @@ def call(String type='dev-latest') {
     case 'v3':
       return v3
     case 'v3-old':
-      return v3[0..-6]
+      return v3[0..-7]
     case 'v3-ami':
       return v3Versions
   }
