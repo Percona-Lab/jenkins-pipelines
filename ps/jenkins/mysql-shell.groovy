@@ -92,11 +92,11 @@ pipeline {
                 script {
                     cleanUpWS()
                     PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
-                    //if ("${PS_MAJOR_RELEASE}" == "80") {
-                    //    buildStage("ubuntu:focal", "--get_sources=1")
-                    //} else {
+                    if ("${PS_MAJOR_RELEASE}" == "80") {
+                        buildStage("ubuntu:focal", "--get_sources=1")
+                    } else {
                     buildStage("debian:bookworm", "--get_sources=1")
-                    //}
+                    }
                 }
                 sh '''
                    REPO_UPLOAD_PATH=$(grep "UPLOAD" test/mysql-shell.properties | cut -d = -f 2 | sed "s:$:${BUILD_NUMBER}:")
@@ -136,7 +136,12 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:focal", "--build_source_deb=1")
+                        PS_MAJOR_RELEASE = sh(returnStdout: true, script: ''' echo ${PS_BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}' ''').trim()
+                        if ("${PS_MAJOR_RELEASE}" == "80") {
+                            buildStage("ubuntu:focal", "--build_source_deb=1")
+                        } else {
+                            buildStage("debian:bookworm", "--build_source_deb=1")
+                        }
 
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
