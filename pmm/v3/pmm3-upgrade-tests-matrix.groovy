@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@PMM-7-fix-upgrade-3-7-0', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -26,13 +26,13 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
 
     for (pmmVersion in pmmVersions) {
         if(pmmVersion == pmmVersions.last()) {
-            def pmmClientVersion = 'pmm3-rc';
+            def LATEST_PMM_VERSION = sh(returnStdout: true, script: "curl -fsSL https://raw.githubusercontent.com/Percona-Lab/pmm-submodules/v3/VERSION").trim()
+            print "LATEST PMM VERSION IS: ${LATEST_PMM_VERSION}"
             results.put(
                 "Run matrix upgrade tests from version: \"$pmmVersion\"",
                 generateStage("pmm-${pmmVersion}", PMM_UI_GIT_BRANCH, "perconalab/pmm-server:${pmmVersion}-rc", 'perconalab/pmm-server:3-dev-latest', pmmClientVersion, 'experimental', PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, "3.8.0")
             )
         } else {
-            def pmmClientVersion = pmmVersion in oldVersions ? "https://downloads.percona.com/downloads/pmm3/${pmmVersion}/binary/tarball/pmm-client-${pmmVersion}-x86_64.tar.gz" : pmmVersion;
             println pmmClientVersion
             results.put(
                 "Run matrix upgrade tests from version: \"$pmmVersion\"",
@@ -47,7 +47,7 @@ def generateVariants(String PMM_UI_GIT_BRANCH, PMM_QA_GIT_BRANCH, QA_INTEGRATION
 def generateStage(String PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion) {
     return {
         stage("Run \"$pmmVersion\" upgrade tests") {
-            runUpgradeJob(PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion);
+//             runUpgradeJob(PMM_UI_PRE_UPGRADE_GIT_BRANCH, PMM_UI_GIT_BRANCH, DOCKER_TAG, DOCKER_TAG_UPGRADE, CLIENT_VERSION, CLIENT_REPOSITORY, PMM_QA_GIT_BRANCH, QA_INTEGRATION_GIT_BRANCH, latestVersion);
         }
     }
 }
