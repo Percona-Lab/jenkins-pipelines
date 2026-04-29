@@ -89,21 +89,17 @@ initMap['micro-amazon'] = '''
         echo try again
     done
 
-    sudo yum -y install java-17-amazon-corretto || :
-    sudo yum -y install java-17-openjdk || :
-    sudo yum -y install tzdata-java git unzip || :
-    sudo yum -y remove awscli java-1.7.0-openjdk || :
+    sudo yum -y remove java-1.8.0-openjdk || :
+    sudo yum -y remove java-1.8.0-openjdk-headless || :
 
-    # Install AWS CLI v2
-    if ! $(aws --version | grep -q 'aws-cli/2'); then
-        sudo rm -rf /tmp/aws* || true
-        until curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/tmp/awscliv2.zip"; do
-            sleep 1
-            echo try again
-        done
-        cd /tmp && unzip -q awscliv2.zip
-        sudo /tmp/aws/install
+    SYSREL=$(cat /etc/system-release | tr -dc '0-9.' | awk -F'.' '{print $1}')
+    if [ "${SYSREL}" = "2023" ]; then
+        JAVA_PKG="java-17-amazon-corretto"
+    else
+        JAVA_PKG="java-17-openjdk-headless"
     fi
+    sudo yum -y install ${JAVA_PKG} tzdata-java || :
+    sudo yum -y install git || :
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
