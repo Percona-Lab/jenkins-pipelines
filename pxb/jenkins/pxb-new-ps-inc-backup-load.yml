@@ -1,5 +1,5 @@
 - job:
-    name: pxb-new-ps-molecule
+    name: pxb-new-ps-inc-backup-load
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
             - 'master'
             wipe-workspace: true
       lightweight-checkout: true
-      script-path: pxb/jenkins/pxb-new-ps-molecule.groovy
+      script-path: pxb/jenkins/pxb-new-ps-inc-backup-load.groovy

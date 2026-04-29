@@ -102,17 +102,16 @@ pipeline {
   }
   environment {
     PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin';
-    MOLECULE_DIR = "molecule/pxb-new-ps-tarball/";
+    MOLECULE_DIR = "molecule/pxb-new-ps-innodb-rocksdb/";
     PXB_VERSION = "${params.PXB_VERSION}";
     PS_VERSION = "${params.PS_VERSION}";
     TESTING_BRANCH = "${params.TESTING_BRANCH}";
-    SELECT_TEST_INC_BACKUP_LOAD = "${params.SELECT_TEST_INC_BACKUP_LOAD}";
-    SELECT_TEST_INNODB_MYROCKS = "${params.SELECT_TEST_INNODB_MYROCKS}";
+    SELECT_TEST_PYTEST = "${params.SELECT_TEST_PYTEST}";
   }
   parameters {
     string(
       name: 'PXB_VERSION',
-      defaultValue: '8.0.35-34',
+      defaultValue: '8.0.35-35',
       description: 'PXB full version'
     )
     string(
@@ -127,7 +126,7 @@ pipeline {
     )
     string(
       name: 'PS_VERSION',
-      defaultValue: '8.0.44-35',
+      defaultValue: '8.0.45-36',
       description: 'PS full version'
     )
     string(
@@ -146,12 +145,7 @@ pipeline {
       name: 'TESTING_BRANCH'
     )
     string(
-      name: 'SELECT_TEST_INC_BACKUP_LOAD',
-      defaultValue: 'all',
-      description: 'Pytest -k filter expression. Use "all" to run every test from inc_backup_load_tests.py, or a pytest -k expression like "test_normal_backup or test_rocksdb_backup"'
-    )
-    string(
-      name: 'SELECT_TEST_INNODB_MYROCKS',
+      name: 'SELECT_TEST_PYTEST',
       defaultValue: 'all',
       description: 'Pytest -k filter expression. Use "all" to run every test from innodb_myrocks_backup_tests.py, or a pytest -k expression like "test_ssl_backup"'
     )
