@@ -295,7 +295,12 @@ def create(Map config) {
  * ])
  */
 def destroy(Map config) {
-    def required = ['clusterName', 's3Bucket', 'awsRegion', 'workDir']
+    // In force mode the caller skips the S3 state lookup and provides the
+    // AWS infraID directly. Used to recover from create-job failures where
+    // S3 state was never written (e.g. the installer aborted mid-run).
+    def required = config.force
+        ? ['clusterName', 'infraID', 'awsRegion', 'workDir']
+        : ['clusterName', 's3Bucket', 'awsRegion', 'workDir']
     required.each { param ->
         if (!config.containsKey(param) || !config[param]) {
             error "Missing required parameter: ${param}"
@@ -315,48 +320,70 @@ def destroy(Map config) {
     openshiftTools.log('INFO', "Destroying OpenShift cluster: ${params.clusterName}")
 
     try {
-        // Get metadata and cluster state from S3
-        def metadataResult = openshiftS3.getMetadata([
-            bucket: params.s3Bucket,
-            clusterName: params.clusterName,
-            region: params.awsRegion
-        ])
-
-        if (!metadataResult) {
-            error "No metadata found for cluster ${params.clusterName}."
-        }
-
-        // Convert LazyMap to regular Map for serialization
-        def metadata = metadataResult.collectEntries { k, v -> [k, v] }
-
         def clusterDir = "${params.workDir}/${params.clusterName}"
         sh "mkdir -p ${clusterDir}"
 
-        // Download cluster state from S3
-        def stateExists = openshiftS3.downloadState([
-            bucket: params.s3Bucket,
-            clusterName: params.clusterName,
-            region: params.awsRegion,
-            workDir: params.workDir
-        ])
+        def metadata = [:]
 
-        if (!stateExists) {
-            openshiftTools.log('WARN', "No valid state found for cluster ${params.clusterName}. May be test data or corrupt state file.", params)
-            openshiftTools.log('INFO', "Proceeding with S3 cleanup only (no OpenShift resources to destroy).", params)
-
-            // Even without valid state, we should clean up S3
-            openshiftS3.cleanup([
+        if (params.force) {
+            // Synthesize the minimal metadata.json that `openshift-install
+            // destroy cluster` requires (infraID + aws.region + aws.identifier).
+            // clusterName/clusterID are required by the JSON schema but never
+            // read by the AWS destroyer.
+            openshiftTools.log('WARN', "FORCE mode: synthesizing metadata.json from infraID ${params.infraID}", params)
+            def synth = [
+                clusterName: params.clusterName,
+                clusterID  : '00000000-0000-0000-0000-000000000000',
+                infraID    : params.infraID,
+                aws        : [
+                    region       : params.awsRegion,
+                    identifier   : [["kubernetes.io/cluster/${params.infraID}".toString(): 'owned']],
+                    clusterDomain: ''
+                ]
+            ]
+            writeFile file: "${clusterDir}/metadata.json", text: new JsonBuilder(synth).toPrettyString()
+            metadata = [openshift_version: params.openshiftVersion]
+        } else {
+            // Get metadata and cluster state from S3
+            def metadataResult = openshiftS3.getMetadata([
                 bucket: params.s3Bucket,
                 clusterName: params.clusterName,
                 region: params.awsRegion
             ])
 
-            return [
+            if (!metadataResult) {
+                error "No metadata found for cluster ${params.clusterName}."
+            }
+
+            // Convert LazyMap to regular Map for serialization
+            metadata = metadataResult.collectEntries { k, v -> [k, v] }
+
+            // Download cluster state from S3
+            def stateExists = openshiftS3.downloadState([
+                bucket: params.s3Bucket,
                 clusterName: params.clusterName,
-                destroyed: false,
-                s3Cleaned: true,
-                reason: 'Invalid or corrupt state file - S3 cleanup only'
-            ]
+                region: params.awsRegion,
+                workDir: params.workDir
+            ])
+
+            if (!stateExists) {
+                openshiftTools.log('WARN', "No valid state found for cluster ${params.clusterName}. May be test data or corrupt state file.", params)
+                openshiftTools.log('INFO', "Proceeding with S3 cleanup only (no OpenShift resources to destroy).", params)
+
+                // Even without valid state, we should clean up S3
+                openshiftS3.cleanup([
+                    bucket: params.s3Bucket,
+                    clusterName: params.clusterName,
+                    region: params.awsRegion
+                ])
+
+                return [
+                    clusterName: params.clusterName,
+                    destroyed: false,
+                    s3Cleaned: true,
+                    reason: 'Invalid or corrupt state file - S3 cleanup only'
+                ]
+            }
         }
 
         // Install OpenShift tools
@@ -382,17 +409,29 @@ def destroy(Map config) {
             openshift-install destroy cluster --log-level=info
         """
 
-        // Clean up S3
-        openshiftS3.cleanup([
-            bucket: params.s3Bucket,
-            clusterName: params.clusterName,
-            region: params.awsRegion
-        ])
+        // Sweep any leftover image-registry bucket the installer may have missed
+        // when it was started without S3 state (force mode).
+        if (params.force) {
+            sh """
+                for b in \$(aws s3api list-buckets --query "Buckets[?starts_with(Name,'${params.infraID}-image-registry')].Name" --output text); do
+                    echo "Force mode: removing leftover image-registry bucket s3://\$b"
+                    aws s3 rb "s3://\$b" --force --region ${params.awsRegion} || true
+                done
+            """
+        } else {
+            // Clean up S3 state for this cluster
+            openshiftS3.cleanup([
+                bucket: params.s3Bucket,
+                clusterName: params.clusterName,
+                region: params.awsRegion
+            ])
+        }
 
         return [
             clusterName: params.clusterName,
             destroyed: true,
-            s3Cleaned: true
+            s3Cleaned: !params.force,
+            force: params.force ?: false
         ]
     } catch (Exception e) {
         error "Failed to destroy OpenShift cluster: ${e.message}"
