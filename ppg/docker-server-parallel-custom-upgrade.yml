@@ -1,5 +1,5 @@
 - job:
-    name: docker-server-parallel-DO
+    name: docker-server-parallel-custom-upgrade
     project-type: pipeline
     description: |
         Do not edit this job through the web!
@@ -11,4 +11,4 @@
               - 'master'
             wipe-workspace: false
       lightweight-checkout: true
-      script-path: ppg/docker-server-parallel-DO.groovy
+      script-path: ppg/docker-server-parallel-custom-upgrade.groovy

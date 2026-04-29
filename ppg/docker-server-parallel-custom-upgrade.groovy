@@ -35,14 +35,14 @@ pipeline {
         string(name: 'UPGRADE_DOCKER_TAG', defaultValue: '18.3-17.9-16.13-1', description: 'Upgrade docker tag to use: 18.3-17.9-16.13-1, 18.3-17.9-16.13-2. etc.')
         string(name: 'TESTING_BRANCH', defaultValue: 'main', description: 'Branch for testing repository')
         choice(name: 'REPOSITORY', choices: ['perconalab', 'percona'], description: 'Docker hub repository.')
-        choice(name: 'MILESTONE', choices: ['1', '2', '3'], description: 'DO Milestone.')
+        choice(name: 'MILESTONE', choices: ['3', '1', '2'], description: 'Custom image Milestone.')
         booleanParam(name: 'WITH_POSTGIS', defaultValue: true, description: "Enable PostGIS testing.")
         booleanParam(name: 'DESTROY_ENV', defaultValue: true, description: 'Destroy VM after tests')
     }
 
     environment {
         PATH = "/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:${env.HOME}/.local/bin"
-        MOLECULE_DIR = "docker/ppg-docker-DO-upgrade"
+        MOLECULE_DIR = "docker/ppg-docker-custom-upgrade"
     }
 
     options {
@@ -55,7 +55,7 @@ pipeline {
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "#${env.BUILD_NUMBER}-docker-DO-upgrade-${params.OLD_SERVER_VERSION}-to-${params.NEW_SERVER_VERSION}"
+                    currentBuild.displayName = "#${env.BUILD_NUMBER}-docker-custom-upgrade-${params.OLD_SERVER_VERSION}-to-${params.NEW_SERVER_VERSION}"
                 }
             }
         }
