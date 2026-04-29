@@ -606,7 +606,9 @@ pipeline {
             }
         }
         failure {
-            archiveArtifacts artifacts: '/srv/pmm-qa/codeceptjs-e2e/tests/output/*.png'
+            dir('/srv/pmm-qa/codeceptjs-e2e') {
+                archiveArtifacts artifacts: 'tests/output/*.png'
+            }
         }
     }
 }
