@@ -411,6 +411,11 @@ pipeline {
                                         rc_version             : params.RC_VERSION.trim(),
                                         pmm_client_tarball_ol8 : params.PMM_CLIENT_TARBALL_OL8.trim(),
                                         pmm_client_tarball_ol9 : params.PMM_CLIENT_TARBALL_OL9.trim(),
+                                        pmm_qa_branch          : 'main',
+                                        pxc_version            : 'https://github.com/Percona-QA/package-testing/blob/master/VERSIONS',
+                                        pxc_glibc              : '2.35',
+                                        pdpgsql_version        : '17',
+                                        pmm_ui_tests_branch    : 'v3',
                                     ],
                                 ]).toString()
                                 writeFile file: 'rc-suite-dispatch.json', text: payload
