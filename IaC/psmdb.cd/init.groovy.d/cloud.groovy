@@ -118,7 +118,13 @@ initMap['docker'] = '''
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
-    sudo yum -y install java-17-amazon-corretto git docker cronie unzip
+    sudo yum -y install java-17-amazon-corretto git cronie unzip dnf-plugins-core
+    sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+    sudo sed -i 's/$releasever/9/g' /etc/yum.repos.d/docker-ce.repo
+    until sudo dnf -y install docker-ce docker-ce-cli docker-compose-plugin containerd.io; do
+        sleep 1
+        echo try again
+    done
     sudo yum -y remove awscli
     sudo systemctl enable crond
     sudo systemctl start crond
@@ -181,7 +187,13 @@ initMap['docker-32gb'] = '''
 
     echo '10.30.6.9 repo.ci.percona.com' | sudo tee -a /etc/hosts
 
-    sudo yum -y install java-17-amazon-corretto git docker cronie unzip
+    sudo yum -y install java-17-amazon-corretto git cronie unzip dnf-plugins-core
+    sudo dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+    sudo sed -i 's/$releasever/9/g' /etc/yum.repos.d/docker-ce.repo
+    until sudo dnf -y install docker-ce docker-ce-cli docker-compose-plugin containerd.io; do
+        sleep 1
+        echo try again
+    done
     sudo yum -y remove awscli
     sudo systemctl enable crond
     sudo systemctl start crond

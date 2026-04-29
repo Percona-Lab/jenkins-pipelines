@@ -90,6 +90,7 @@ imageMap['eu-west-1a.docker-32gb-hirsute']  = properties.AwsAmi['Ubuntu2104_x86_
 imageMap['eu-west-1a.docker-32gb-focal']    = properties.AwsAmi['Ubuntu2004_x86_64']['euWest1']
 imageMap['eu-west-1a.docker-32gb-jammy']    = properties.AwsAmi['Ubuntu2204_x86_64']['euWest1']
 imageMap['eu-west-1a.docker-32gb-noble']    = properties.AwsAmi['Ubuntu2404_x86_64']['euWest1']
+imageMap['eu-west-1a.docker-32gb-resolute'] = properties.AwsAmi['Ubuntu2604_x86_64']['euWest1']
 imageMap['eu-west-1a.docker-32gb-bullseye'] = imageMap['eu-west-1a.min-bullseye-x64']
 
 imageMap['eu-west-1a.docker-32gb-aarch64']  = properties.AwsAmi['AmazonLinux2_aarch64']['euWest1']
@@ -98,6 +99,7 @@ imageMap['eu-west-1a.min-bookworm-aarch64'] = properties.AwsAmi['Debian12_aarch6
 imageMap['eu-west-1a.min-bullseye-aarch64'] = properties.AwsAmi['Debian11_aarch64']['euWest1']
 imageMap['eu-west-1a.min-jammy-aarch64']    = properties.AwsAmi['Ubuntu2204_aarch64']['euWest1']
 imageMap['eu-west-1a.min-noble-aarch64']    = properties.AwsAmi['Ubuntu2404_aarch64']['euWest1']
+imageMap['eu-west-1a.min-resolute-aarch64'] = properties.AwsAmi['Ubuntu2604_aarch64']['euWest1']
 imageMap['eu-west-1a.min-trixie-aarch64']   = properties.AwsAmi['Debian13_aarch64']['euWest1']
 imageMap['eu-west-1a.min-al2023-aarch64']   = properties.AwsAmi['AmazonLinux2023_aarch64']['euWest1']
 
@@ -123,6 +125,7 @@ imageMap['eu-west-1b.docker-32gb-hirsute']  = imageMap['eu-west-1a.docker-32gb-h
 imageMap['eu-west-1b.docker-32gb-focal']    = imageMap['eu-west-1a.docker-32gb-focal']
 imageMap['eu-west-1b.docker-32gb-jammy']    = imageMap['eu-west-1a.docker-32gb-jammy']
 imageMap['eu-west-1b.docker-32gb-noble']    = imageMap['eu-west-1a.docker-32gb-noble']
+imageMap['eu-west-1b.docker-32gb-resolute'] = imageMap['eu-west-1a.docker-32gb-resolute']
 imageMap['eu-west-1b.docker-32gb-bullseye'] = imageMap['eu-west-1a.docker-32gb-bullseye']
 
 imageMap['eu-west-1b.docker-32gb-aarch64']    = imageMap['eu-west-1a.docker-32gb-aarch64']
@@ -131,6 +134,7 @@ imageMap['eu-west-1b.min-bookworm-aarch64']   = imageMap['eu-west-1a.min-bookwor
 imageMap['eu-west-1b.min-bullseye-aarch64']   = imageMap['eu-west-1a.min-bullseye-aarch64']
 imageMap['eu-west-1b.min-jammy-aarch64']      = imageMap['eu-west-1a.min-jammy-aarch64']
 imageMap['eu-west-1b.min-noble-aarch64']      = imageMap['eu-west-1a.min-noble-aarch64']
+imageMap['eu-west-1b.min-resolute-aarch64']   = imageMap['eu-west-1a.min-resolute-aarch64']
 imageMap['eu-west-1b.min-trixie-aarch64']     = imageMap['eu-west-1a.min-trixie-aarch64']
 imageMap['eu-west-1b.min-al2023-aarch64']     = imageMap['eu-west-1a.min-al2023-aarch64']
 
@@ -156,6 +160,7 @@ imageMap['eu-west-1c.docker-32gb-hirsute']  = imageMap['eu-west-1a.docker-32gb-h
 imageMap['eu-west-1c.docker-32gb-focal']    = imageMap['eu-west-1a.docker-32gb-focal']
 imageMap['eu-west-1c.docker-32gb-jammy']    = imageMap['eu-west-1a.docker-32gb-jammy']
 imageMap['eu-west-1c.docker-32gb-noble']    = imageMap['eu-west-1a.docker-32gb-noble']
+imageMap['eu-west-1c.docker-32gb-resolute'] = imageMap['eu-west-1a.docker-32gb-resolute']
 imageMap['eu-west-1c.docker-32gb-bullseye'] = imageMap['eu-west-1a.docker-32gb-bullseye']
 
 imageMap['eu-west-1c.docker-32gb-aarch64']    = imageMap['eu-west-1a.docker-32gb-aarch64']
@@ -164,6 +169,7 @@ imageMap['eu-west-1c.min-bookworm-aarch64']   = imageMap['eu-west-1a.min-bookwor
 imageMap['eu-west-1c.min-bullseye-aarch64']   = imageMap['eu-west-1a.min-bullseye-aarch64']
 imageMap['eu-west-1c.min-jammy-aarch64']      = imageMap['eu-west-1a.min-jammy-aarch64']
 imageMap['eu-west-1c.min-noble-aarch64']      = imageMap['eu-west-1a.min-noble-aarch64']
+imageMap['eu-west-1c.min-resolute-aarch64']   = imageMap['eu-west-1a.min-resolute-aarch64']
 imageMap['eu-west-1c.min-trixie-aarch64']     = imageMap['eu-west-1a.min-trixie-aarch64']
 imageMap['eu-west-1c.min-al2023-aarch64']     = imageMap['eu-west-1a.min-al2023-aarch64']
 
@@ -197,6 +203,7 @@ userMap['docker-32gb-hirsute']  = properties.AwsAmi['Ubuntu2104_x86_64']['user']
 userMap['docker-32gb-focal']    = properties.AwsAmi['Ubuntu2004_x86_64']['user']
 userMap['docker-32gb-jammy']    = properties.AwsAmi['Ubuntu2204_x86_64']['user']
 userMap['docker-32gb-noble']    = properties.AwsAmi['Ubuntu2404_x86_64']['user']
+userMap['docker-32gb-resolute'] = properties.AwsAmi['Ubuntu2604_x86_64']['user']
 userMap['docker-32gb-bullseye'] = properties.AwsAmi['Debian11_x86_64']['user']
 
 userMap['docker-32gb-aarch64']    = properties.AwsAmi['AmazonLinux2_aarch64']['user']
@@ -205,6 +212,7 @@ userMap['min-bookworm-aarch64']   = properties.AwsAmi['Debian12_aarch64']['user'
 userMap['min-bullseye-aarch64']   = properties.AwsAmi['Debian11_aarch64']['user']
 userMap['min-jammy-aarch64']      = properties.AwsAmi['Ubuntu2204_aarch64']['user']
 userMap['min-noble-aarch64']      = properties.AwsAmi['Ubuntu2404_aarch64']['user']
+userMap['min-resolute-aarch64']   = properties.AwsAmi['Ubuntu2604_aarch64']['user']
 userMap['min-trixie-aarch64']     = properties.AwsAmi['Debian13_aarch64']['user']
 userMap['min-al2023-aarch64']     = properties.AwsAmi['AmazonLinux2023_aarch64']['user']
 
@@ -342,6 +350,7 @@ initMap['docker-32gb-hirsute'] = '''
 initMap['docker-32gb-focal'] = initMap['docker-32gb-hirsute']
 initMap['docker-32gb-jammy'] = initMap['docker-32gb-hirsute']
 initMap['docker-32gb-noble'] = initMap['docker-32gb-hirsute']
+initMap['docker-32gb-resolute'] = initMap['docker-32gb-hirsute']
 
 initMap['docker-32gb-bullseye'] = '''
     set -o xtrace
@@ -603,6 +612,7 @@ initMap['min-bookworm-aarch64'] = initMap['debMap']
 initMap['min-bullseye-aarch64'] = initMap['debMap']
 initMap['min-jammy-aarch64']    = initMap['debMap']
 initMap['min-noble-aarch64']    = initMap['debMap']
+initMap['min-resolute-aarch64'] = initMap['debMap']
 initMap['min-trixie-aarch64']   = initMap['debMap']
 initMap['min-al2023-aarch64']   = initMap['min-al2023-x64']
 
@@ -635,6 +645,7 @@ typeMap['docker-32gb-hirsute'] = 'i4i.2xlarge'
 typeMap['docker-32gb-focal'] = 'i4i.2xlarge'
 typeMap['docker-32gb-jammy'] = 'i4i.2xlarge'
 typeMap['docker-32gb-noble'] = 'i4i.2xlarge'
+typeMap['docker-32gb-resolute'] = 'i4i.2xlarge'
 typeMap['docker-32gb-bullseye'] = 'i4i.2xlarge'
 
 typeMap['docker-32gb-aarch64']  = 'r6g.2xlarge'
@@ -643,6 +654,7 @@ typeMap['min-bookworm-aarch64'] = typeMap['docker-32gb-aarch64']
 typeMap['min-bullseye-aarch64'] = typeMap['docker-32gb-aarch64']
 typeMap['min-jammy-aarch64']    = typeMap['docker-32gb-aarch64']
 typeMap['min-noble-aarch64']    = typeMap['docker-32gb-aarch64']
+typeMap['min-resolute-aarch64'] = typeMap['docker-32gb-aarch64']
 typeMap['min-trixie-aarch64']   = typeMap['docker-32gb-aarch64']
 typeMap['min-al2023-aarch64']   = typeMap['docker-32gb-aarch64']
 
@@ -665,6 +677,7 @@ execMap['docker-32gb-hirsute'] = '1'
 execMap['docker-32gb-focal'] = '1'
 execMap['docker-32gb-jammy'] = '1'
 execMap['docker-32gb-noble'] = '1'
+execMap['docker-32gb-resolute'] = '1'
 execMap['min-bookworm-x64']  = '1'
 execMap['min-bullseye-x64']  = '1'
 execMap['docker-32gb-bullseye']  = '1'
@@ -676,6 +689,7 @@ execMap['min-bookworm-aarch64'] = '1'
 execMap['min-bullseye-aarch64'] = '1'
 execMap['min-jammy-aarch64']    = '1'
 execMap['min-noble-aarch64']    = '1'
+execMap['min-resolute-aarch64'] = '1'
 execMap['min-trixie-aarch64']   = '1'
 execMap['min-al2023-aarch64']   = '1'
 
@@ -702,6 +716,7 @@ devMap['docker-32gb-noble'] = devMap['docker']
 devMap['min-bookworm-x64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-bullseye-x64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-trixie-x64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['docker-32gb-resolute'] = devMap['docker']
 devMap['docker-32gb-bullseye']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 
 devMap['docker-32gb-aarch64']  = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
@@ -710,6 +725,7 @@ devMap['min-bookworm-aarch64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-bullseye-aarch64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-jammy-aarch64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-noble-aarch64']    = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
+devMap['min-resolute-aarch64'] = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-trixie-aarch64']   = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 devMap['min-al2023-aarch64']   = '/dev/xvda=:8:true:gp2,/dev/xvdd=:80:true:gp2'
 
@@ -732,6 +748,7 @@ labelMap['docker-32gb-hirsute'] = ''
 labelMap['docker-32gb-focal'] = ''
 labelMap['docker-32gb-jammy'] = ''
 labelMap['docker-32gb-noble'] = ''
+labelMap['docker-32gb-resolute'] = ''
 labelMap['min-bookworm-x64']  = ''
 labelMap['min-bullseye-x64']  = ''
 labelMap['min-trixie-x64']    = ''
@@ -743,6 +760,7 @@ labelMap['min-bookworm-aarch64'] = ''
 labelMap['min-bullseye-aarch64'] = ''
 labelMap['min-jammy-aarch64']    = ''
 labelMap['min-noble-aarch64']    = ''
+labelMap['min-resolute-aarch64'] = ''
 labelMap['min-trixie-aarch64']   = ''
 labelMap['min-al2023-aarch64']   = ''
 
@@ -765,6 +783,7 @@ jvmoptsMap['docker-32gb-hirsute'] = jvmoptsMap['docker']
 jvmoptsMap['docker-32gb-focal'] = jvmoptsMap['docker']
 jvmoptsMap['docker-32gb-jammy'] = jvmoptsMap['docker']
 jvmoptsMap['docker-32gb-noble'] = jvmoptsMap['docker']
+jvmoptsMap['docker-32gb-resolute'] = jvmoptsMap['docker']
 jvmoptsMap['min-bookworm-x64']  = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
 jvmoptsMap['min-bullseye-x64']  = jvmoptsMap['docker']
 jvmoptsMap['min-trixie-x64']    = '-Xmx512m -Xms512m --add-opens=java.base/java.lang=ALL-UNNAMED --add-opens=java.base/java.lang.reflect=ALL-UNNAMED'
@@ -776,6 +795,7 @@ jvmoptsMap['min-bookworm-aarch64'] = jvmoptsMap['docker']
 jvmoptsMap['min-bullseye-aarch64'] = jvmoptsMap['docker']
 jvmoptsMap['min-jammy-aarch64']    = jvmoptsMap['docker']
 jvmoptsMap['min-noble-aarch64']    = jvmoptsMap['docker']
+jvmoptsMap['min-resolute-aarch64'] = jvmoptsMap['docker']
 jvmoptsMap['min-trixie-aarch64']   = jvmoptsMap['docker']
 jvmoptsMap['min-al2023-aarch64']   = jvmoptsMap['docker']
 
@@ -867,6 +887,7 @@ String region = 'eu-west-1'
             getTemplate('docker-32gb-focal',    "${region}${it}"),
             getTemplate('docker-32gb-jammy',    "${region}${it}"),
             getTemplate('docker-32gb-noble',    "${region}${it}"),
+            getTemplate('docker-32gb-resolute', "${region}${it}"),
             getTemplate('docker-32gb-bullseye', "${region}${it}"),
             getTemplate('docker-32gb-aarch64',  "${region}${it}"),
             getTemplate('min-centos-7-aarch64', "${region}${it}"),
@@ -874,6 +895,7 @@ String region = 'eu-west-1'
             getTemplate('min-bullseye-aarch64', "${region}${it}"),
             getTemplate('min-jammy-aarch64',    "${region}${it}"),
             getTemplate('min-noble-aarch64',    "${region}${it}"),
+            getTemplate('min-resolute-aarch64',  "${region}${it}"),
             getTemplate('min-trixie-aarch64',   "${region}${it}"),
             getTemplate('min-al2023-aarch64',   "${region}${it}"),
         ],                                       // List<? extends SlaveTemplate> templates

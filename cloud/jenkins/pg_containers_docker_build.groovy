@@ -32,7 +32,7 @@ void pushUpgradeImageToDockerHub(String IMAGE_POSTFIX){
 void build(String IMAGE_POSTFIX){
     sh """
         cd ./source/
-        for PG_VER in 18 17 16 15 14 13; do
+        for PG_VER in 18 17 16 15 14; do
             if [ ${IMAGE_POSTFIX} = pgbouncer ]; then
                 docker build --no-cache --squash --build-arg PG_VERSION=\${PG_VER} --build-arg PPG_REPO='release' --build-arg PGO_TAG=${GIT_PD_BRANCH} \
                   -t perconalab/percona-postgresql-operator:${GIT_PD_BRANCH}-${IMAGE_POSTFIX}\${PG_VER} \
@@ -64,7 +64,7 @@ void pushImageToDockerHub(String IMAGE_POSTFIX){
                     IMAGE_NAME='percona-postgresql-operator'
                     docker login -u '${USER}' -p '${PASS}'
                     aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR
-                    for PG_VER in 18 17 16 15 14 13; do
+                    for PG_VER in 18 17 16 15 14; do
                         if [ \\${SOME_IMAGE_POSTFIX} = pgbouncer ] || [ \\${SOME_IMAGE_POSTFIX} = pgbackrest ]; then
                             docker push perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}
                             echo "perconalab/\\${IMAGE_NAME}:${GIT_PD_BRANCH}-\\${SOME_IMAGE_POSTFIX}\\${PG_VER}" >> list-of-images.txt
@@ -102,14 +102,6 @@ void generateImageSummary(filePath) {
 }
 pipeline {
     parameters {
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for percona/percona-postgresql-operator repository',
-            name: 'GIT_BRANCH')
-        string(
-            defaultValue: 'https://github.com/percona/percona-server-mongodb-operator',
-            description: 'percona/percona-server-mongodb-operator repository',
-            name: 'GIT_REPO')
         string(
             defaultValue: 'main',
             description: 'Tag/Branch for percona/percona-docker repository',

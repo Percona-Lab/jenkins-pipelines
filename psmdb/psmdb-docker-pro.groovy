@@ -74,13 +74,16 @@ pipeline {
               retry(3) {
                try {
                 sh """
-                    TRIVY_VERSION=\$(curl --silent 'https://api.github.com/repos/aquasecurity/trivy/releases/latest' | grep '"tag_name":' | tr -d '"' | sed -E 's/.*v(.+),.*/\\1/')
+                    TRIVY_VERSION="0.69.3"
                     if [[ ${ARCH} == "x86_64" ]]; then
                         TRIVY_ARCH="64bit"
+                        TRIVY_CHECKSUM="1816b632dfe529869c740c0913e36bd1629cb7688bd5634f4a858c1d57c88b75"
                     elif [[ ${ARCH} == "aarch64" ]]; then
                         TRIVY_ARCH="ARM64"
+                        TRIVY_CHECKSUM="7e3924a974e912e57b4a99f65ece7931f8079584dae12eb7845024f97087bdfd"
                     fi
                     wget https://github.com/aquasecurity/trivy/releases/download/v\${TRIVY_VERSION}/trivy_\${TRIVY_VERSION}_Linux-\${TRIVY_ARCH}.tar.gz
+                    echo "\${TRIVY_CHECKSUM}  trivy_\${TRIVY_VERSION}_Linux-\${TRIVY_ARCH}.tar.gz" | sha256sum -c -
                     sudo tar zxvf trivy_\${TRIVY_VERSION}_Linux-\${TRIVY_ARCH}.tar.gz -C /usr/local/bin/
                     rm trivy_\${TRIVY_VERSION}_Linux-\${TRIVY_ARCH}.tar.gz
                     wget https://raw.githubusercontent.com/aquasecurity/trivy/v\${TRIVY_VERSION}/contrib/junit.tpl

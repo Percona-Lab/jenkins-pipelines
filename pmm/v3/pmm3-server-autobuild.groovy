@@ -122,6 +122,7 @@ pipeline {
 
                     export DOCKER_TAG=perconalab/pmm-server:$(date -u '+%Y%m%d%H%M')
                     export DOCKERFILE=Dockerfile.el9
+
                     ${PATH_TO_SCRIPTS}/build-server-docker
 
                     if [ -n "${DOCKER_RC_TAG}" ]; then

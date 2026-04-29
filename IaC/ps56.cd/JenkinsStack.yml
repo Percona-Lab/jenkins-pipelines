@@ -611,7 +611,7 @@ Resources:
 
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST
                   install -o jenkins -g jenkins -d /mnt/$JENKINS_HOST/init.groovy.d
-                  chown -R jenkins:jenkins /mnt/$JENKINS_HOST
+                  chown -hR jenkins:jenkins /mnt/$JENKINS_HOST
 
                   printf "127.0.0.1 $(hostname) $(hostname -A)\n10.30.6.220 vbox-01.ci.percona.com\n10.30.6.9 repo.ci.percona.com\n" \
                       | tee -a /etc/hosts
