@@ -250,6 +250,31 @@ Starting cluster creation process...
             }
         }
 
+        stage('Pre-flight Quota Check') {
+            steps {
+                withCredentials([
+                    aws(
+                        credentialsId: 'jenkins-openshift-aws',
+                        accessKeyVariable: 'AWS_ACCESS_KEY_ID',
+                        secretKeyVariable: 'AWS_SECRET_ACCESS_KEY'
+                    )
+                ]) {
+                    script {
+                        // Catch quota saturation before the installer wastes
+                        // 15 minutes hitting the CAPI infrastructure-readiness
+                        // timeout. Failure here gives an immediate, actionable
+                        // error pointing to the specific exhausted quota.
+                        openshiftPreflight.check([
+                            awsRegion  : params.AWS_REGION,
+                            masterType : params.MASTER_INSTANCE_TYPE,
+                            workerType : params.WORKER_INSTANCE_TYPE,
+                            workerCount: params.WORKER_COUNT.toInteger()
+                        ])
+                    }
+                }
+            }
+        }
+
         stage('List Existing Clusters') {
             steps {
                 withCredentials([
