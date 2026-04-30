@@ -109,7 +109,7 @@ pipeline {
         } //stage
         stage('Build pg_stat_monitor generic source packages') {
             parallel {
-                /*stage('Source rpm') {
+                stage('Source rpm') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -121,7 +121,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "srpm/", AWS_STASH_PATH)
                         uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
                     }
-                }*/
+                }
 		stage('Source deb') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -129,7 +129,7 @@ pipeline {
                     steps {
                         cleanUpWS()
                         popArtifactFolder(params.CLOUD, "source_tarball/", AWS_STASH_PATH)
-                        buildStage("ubuntu:resolute", "--build_source_deb=1")
+                        buildStage("ubuntu:jammy", "--build_source_deb=1")
 
                         pushArtifactFolder(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
@@ -139,7 +139,7 @@ pipeline {
         } //stage
         stage('Build pg_stat_monitor RPMs') {
             parallel {
-		/*stage('Oracle Linux 8 AMD') {
+		stage('Oracle Linux 8 AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -268,7 +268,7 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
-                }*/
+                }
                 stage('Ubuntu Resolute(26.04) AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
@@ -295,7 +295,7 @@ pipeline {
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
                 }
-		/*stage('Debian Bullseye(11) AMD') {
+		stage('Debian Bullseye(11) AMD') {
                     agent {
                         label params.CLOUD == 'Hetzner' ? 'docker-x64-min' : 'docker'
                     }
@@ -372,12 +372,12 @@ pipeline {
                         pushArtifactFolder(params.CLOUD, "deb/", AWS_STASH_PATH)
                         uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
                     }
-                }*/
+                }
             } //parallel
         } //stage
         stage('Sign packages') {
             steps {
-                //signRPM(params.CLOUD)
+                signRPM(params.CLOUD)
                 signDEB(params.CLOUD)
             }
         }
