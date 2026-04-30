@@ -424,14 +424,19 @@ def destroy(Map config) {
             // installer doesn't always reach EIPs when it tears down a partially-installed
             // cluster, so unattached cluster-tagged EIPs accumulate against the regional
             // quota until they're released by hand (PKG-1321 root cause).
+            //
+            // Filter scope: tag key matches THIS cluster's infraID exactly, AND value is
+            // 'owned' (OpenShift's marker for installer-created resources). Excludes any
+            // hypothetical 'shared' resource and any other cluster's EIPs. Also gated to
+            // unattached EIPs so attached infrastructure stays safe.
             sh """
                 ALLOCATIONS=\$(aws ec2 describe-addresses \\
                     --region ${params.awsRegion} \\
-                    --filters Name=tag-key,Values=kubernetes.io/cluster/${params.infraID} \\
+                    --filters Name=tag:kubernetes.io/cluster/${params.infraID},Values=owned \\
                     --query 'Addresses[?!AssociationId].AllocationId' \\
                     --output text 2>/dev/null || echo '')
                 for ALLOC in \$ALLOCATIONS; do
-                    echo "Force mode: releasing orphan EIP \$ALLOC tagged with kubernetes.io/cluster/${params.infraID}"
+                    echo "Force mode: releasing orphan EIP \$ALLOC tagged kubernetes.io/cluster/${params.infraID}=owned"
                     aws ec2 release-address --allocation-id "\$ALLOC" --region ${params.awsRegion} || true
                 done
             """
