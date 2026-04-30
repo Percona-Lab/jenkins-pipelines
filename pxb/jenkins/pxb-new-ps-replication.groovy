@@ -147,7 +147,7 @@ pipeline {
     string(
       name: 'SELECT_TEST_PYTEST',
       defaultValue: 'all',
-      description: 'Pytest -k filter expression. Use "all" to run every test from inc_backup_load_tests.py, or a pytest -k expression like "test_normal_backup or test_rocksdb_backup"'
+      description: 'Pytest -k filter expression. Use "all" to run every test from replication_backup_tests.py, or a pytest -k expression like "test_replication_gtid_multithreaded or test_replication_gtid_singlethreaded"'
     )
   }
   options {
