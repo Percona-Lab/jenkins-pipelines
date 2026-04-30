@@ -419,6 +419,22 @@ def destroy(Map config) {
                     aws s3 rb "s3://\$b" --force --region ${params.awsRegion} || true
                 done
             """
+
+            // Sweep orphan EIPs left tagged with this cluster's infraID. The OpenShift
+            // installer doesn't always reach EIPs when it tears down a partially-installed
+            // cluster, so unattached cluster-tagged EIPs accumulate against the regional
+            // quota until they're released by hand (PKG-1321 root cause).
+            sh """
+                ALLOCATIONS=\$(aws ec2 describe-addresses \\
+                    --region ${params.awsRegion} \\
+                    --filters Name=tag-key,Values=kubernetes.io/cluster/${params.infraID} \\
+                    --query 'Addresses[?!AssociationId].AllocationId' \\
+                    --output text 2>/dev/null || echo '')
+                for ALLOC in \$ALLOCATIONS; do
+                    echo "Force mode: releasing orphan EIP \$ALLOC tagged with kubernetes.io/cluster/${params.infraID}"
+                    aws ec2 release-address --allocation-id "\$ALLOC" --region ${params.awsRegion} || true
+                done
+            """
         } else {
             // Clean up S3 state for this cluster
             openshiftS3.cleanup([

@@ -198,13 +198,15 @@ private performAWSResourceDiscovery(String region, String accessKey = null, Stri
             awsEnvVars = ["AWS_ACCESS_KEY_ID=${accessKey}", "AWS_SECRET_ACCESS_KEY=${secretKey}"]
         }
 
-        // First, get all VPCs to identify cluster names
-        def vpcOutput = ''
+        // Discover cluster names from any resource carrying a kubernetes.io/cluster/<name>
+        // tag, not just VPCs. A partially-torn-down cluster can leave orphan EIPs, IAM
+        // roles, or NAT gateways with the cluster tag but no surviving VPC; anchoring
+        // discovery to VPCs alone hides those clusters from the list/destroy paths.
+        def tagOutput = ''
         withEnv(awsEnvVars) {
-            vpcOutput = sh(
+            tagOutput = sh(
                 script: """
                     aws resourcegroupstaggingapi get-resources \
-                        --resource-type-filters 'ec2:vpc' \
                         --region ${region} \
                         --query 'ResourceTagMappingList[].Tags[?starts_with(Key, `kubernetes.io/cluster/`)].Key' \
                         --output text 2>/dev/null || echo ''
@@ -213,12 +215,12 @@ private performAWSResourceDiscovery(String region, String accessKey = null, Stri
             ).trim()
         }
 
-        if (!vpcOutput) {
+        if (!tagOutput) {
             return [clusters: [], error: null]
         }
 
         // Extract unique cluster names (handle both newline and tab separators)
-        def clusterNames = vpcOutput.split('[\\n\\t]').collect { tagKey ->
+        def clusterNames = tagOutput.split('[\\n\\t]').collect { tagKey ->
             tagKey.trim().replace('kubernetes.io/cluster/', '')
         }.findAll { it }.unique()
 
