@@ -14,14 +14,10 @@ pipeline {
             description: 'For what platform (OS) need to test',
             choices: ppgOperatingSystemsALL()
         )
-        choice(
+        string(
             name: 'REPO',
             description: 'Repo for testing',
-            choices: [
-                'testing',
-                'experimental',
-                'release'
-            ]
+            defaultValue: 'testing'
         )
         string(
             defaultValue: 'ppg-18.3',
