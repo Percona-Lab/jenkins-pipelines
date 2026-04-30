@@ -1,4 +1,4 @@
-library changelog: false, identifier: 'lib@PMM-7-fix-upgrade-3-7-0', retriever: modernSCM([
+library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
@@ -100,10 +100,6 @@ pipeline {
             description: 'Tag/Branch for UI Tests repository for pre upgrade',
             name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
         string(
-            defaultValue: 'PMM-7-docker-way-upgrade',
-            description: 'Tag/Branch for UI Tests repository for post upgrade',
-            name: 'PMM_UI_GIT_BRANCH')
-        string(
             defaultValue: "percona/pmm-server:$oldestVersion",
             description: 'PMM Server Version to test for Upgrade',
             name: 'DOCKER_TAG')
@@ -131,10 +127,6 @@ pipeline {
             defaultValue: 'PMM-7-docker-way-upgrade',
             description: 'Tag/Branch for pmm qa repository',
             name: 'PMM_QA_GIT_BRANCH')
-        string(
-            defaultValue: 'main',
-            description: 'Tag/Branch for qa-integration repository',
-            name: 'QA_INTEGRATION_GIT_BRANCH')
         choice(
             choices: ["SSL", "EXTERNAL SERVICES", "OTHERS"],
             description: 'Subset of tests for the upgrade',
@@ -189,11 +181,7 @@ pipeline {
         stage('Start Server Instance') {
             steps {
                 sh '''
-                    sudo mkdir -p /srv/qa-integration || true
-                    pushd /srv/qa-integration
-                        sudo git clone --single-branch --branch \${QA_INTEGRATION_GIT_BRANCH} https://github.com/Percona-Lab/qa-integration.git .
-                    popd
-                    sudo chown ec2-user -R /srv/qa-integration
+                    sudo chown ec2-user -R /srv/pmm-qa
 
                     docker network create pmm-qa
                     docker volume create pmm-volume
@@ -240,7 +228,7 @@ pipeline {
                     set -o errexit
                     set -o xtrace
 
-                    pushd /srv/qa-integration/pmm_qa
+                    pushd /srv/pmm-qa/qa-integration/pmm_qa
                     echo "Setting docker based PMM clients"
                     mkdir -m 777 -p /tmp/backup_data
                     python3 -m venv virtenv
@@ -327,7 +315,7 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep \${PRE_UPGRADE_FLAG}
+                        ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep \${PRE_UPGRADE_FLAG}
                     '''
                 }
             }
@@ -361,7 +349,14 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            npm ci
+                        popd
+                    '''
+                    sh '''
+                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                        popd
                     '''
                 }
             }
@@ -496,18 +491,20 @@ pipeline {
                 }
             }
         }
-//         stage('Check Client after Upgrade') {
-//             steps {
-//                 script {
-//                     checkClientAfterUpgrade(PMM_SERVER_LATEST)
-//                 }
-//             }
-//         }
+        stage('Check Client after Upgrade') {
+            steps {
+                script {
+                    checkClientAfterUpgrade(PMM_SERVER_LATEST)
+                }
+            }
+        }
         stage('Run post pmm client upgrade UI tests') {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                        ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep \${POST_UPGRADE_FLAG}
+                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                        popd
                     '''
                 }
             }
@@ -573,16 +570,20 @@ pipeline {
                 archiveArtifacts artifacts: 'playwright-screenshots.tar.gz'
                 archiveArtifacts artifacts: 'playwright-logs.tar.gz'
 
-                def PATH_TO_REPORT_RESULTS = 'tests/output/parallel_chunk*/*.xml'
+                def PATH_TO_REPORT_RESULTS = 'tests/output/*.xml'
                 try {
-                    junit PATH_TO_REPORT_RESULTS
+                    dir('/srv/pmm-qa/codeceptjs-e2e') {
+                        junit PATH_TO_REPORT_RESULTS
+                    }
                 } catch (err) {
-                    error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
+//                     error "No test reports found at path: " + PATH_TO_REPORT_RESULTS
                 }
             }
         }
         failure {
-            archiveArtifacts artifacts: 'tests/output/parallel_chunk*/*.png'
+            dir('/srv/pmm-qa/codeceptjs-e2e') {
+                archiveArtifacts artifacts: 'tests/output/*.png'
+            }
         }
     }
 }
