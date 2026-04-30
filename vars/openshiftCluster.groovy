@@ -331,13 +331,14 @@ def destroy(Map config) {
             // clusterName/clusterID are required by the JSON schema but never
             // read by the AWS destroyer.
             openshiftTools.log('WARN', "FORCE mode: synthesizing metadata.json from infraID ${params.infraID}", params)
+            def tagKey = "kubernetes.io/cluster/${params.infraID}".toString()
             def synth = [
                 clusterName: params.clusterName,
                 clusterID  : '00000000-0000-0000-0000-000000000000',
                 infraID    : params.infraID,
                 aws        : [
                     region       : params.awsRegion,
-                    identifier   : [["kubernetes.io/cluster/${params.infraID}".toString(): 'owned']],
+                    identifier   : [[(tagKey): 'owned']],
                     clusterDomain: ''
                 ]
             ]
