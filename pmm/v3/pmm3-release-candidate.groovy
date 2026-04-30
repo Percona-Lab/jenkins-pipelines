@@ -357,7 +357,7 @@ pipeline {
                 }
             }
         }
-        stage('Queue RC testing') {
+        stage('Queue RC tests') {
             when {
                 expression { env.REMOVE_RELEASE_BRANCH == 'no' }
             }

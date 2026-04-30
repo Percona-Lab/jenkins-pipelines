@@ -36,6 +36,7 @@ pipeline {
     options {
         disableConcurrentBuilds()
         timeout(time: 30, unit: 'MINUTES')
+        buildDiscarder(logRotator(numToKeepStr: '10'))
     }
     parameters {
         string(
@@ -448,6 +449,11 @@ pipeline {
 |Orchestrator build: ${env.BUILD_URL}""".stripMargin())
                 }
             }
+        }
+    }
+    post {
+        always {
+            deleteDir()
         }
     }
 }
