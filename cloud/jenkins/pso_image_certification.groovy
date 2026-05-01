@@ -1,81 +1,94 @@
 def certificationTests = []
-def certification = load "cloud/common/imageCertification.groovy"
+def certification
+
+def imageTag(image) {
+    def parts = image.tokenize(":")
+    return parts.size() > 1 ? parts[-1] : "latest"
+}
 
 def buildTargetImage(key, image, params) {
     def PS_OPERATOR_PROJECT_ID = "68f123a8583dd663019ea44d"
-    def PS_CONTAINERS_PROJECT_ID  = "5e627846b6bf136294e8bb8b"
+    def PS_CONTAINERS_PROJECT_ID  = "68f1227a9e42a645692ae3de"
     def REGISTRY = "quay.io/redhat-isv-containers"
 
     def isOperator = (key == 'IMAGE_OPERATOR')
-    env.PROJECT_ID = isOperator ? PS_OPERATOR_PROJECT_ID : PS_CONTAINERS_PROJECT_ID
-    env.REGISTRY_USER = isOperator ? params.REGISTRY_USER_OPERATOR : params.REGISTRY_USER_CONTAINERS
-    env.REGISTRY_KEY  = isOperator ? params.REGISTRY_KEY_OPERATOR  : params.REGISTRY_KEY_CONTAINERS
+    def projectId = isOperator ? PS_OPERATOR_PROJECT_ID : PS_CONTAINERS_PROJECT_ID
+    def credentials = isOperator ? 'PSO_OPERATOR_REGISTRY' : 'PSO_CONTAINERS_REGISTRY'
 
     switch (key) {
         case 'IMAGE_OPERATOR':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}",
-                component: env.PROJECT_ID
+                dest: "${REGISTRY}/${projectId}:${params.RELEASE}",
+                component: projectId,
+                credentials: credentials
             ]
 
         case 'IMAGE_MYSQL84':
         case 'IMAGE_MYSQL80':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-ps-${certification.getTag(image)}",
-                component: env.PROJECT_ID
+                dest: "${REGISTRY}/${projectId}:${params.RELEASE}-ps-${imageTag(image)}",
+                component: projectId,
+                credentials: credentials
             ]
 
         case 'IMAGE_BACKUP84':
         case 'IMAGE_BACKUP80':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-backup-${certification.getTag(image)}",
-                component: env.PROJECT_ID
+                dest: "${REGISTRY}/${projectId}:${params.RELEASE}-backup-${imageTag(image)}",
+                component: projectId,
+                credentials: credentials
             ]
 
         case 'IMAGE_ROUTER84':
         case 'IMAGE_ROUTER80':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-router-${certification.getTag(image)}",
-                component: env.PROJECT_ID
+                dest: "${REGISTRY}/${projectId}:${params.RELEASE}-router-${imageTag(image)}",
+                component: projectId,
+                credentials: credentials
             ]
         
         case 'IMAGE_BINLOG_SERVER':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-binlog-server",
-                component: env.PROJECT_ID
+                dest: "${REGISTRY}/${projectId}:${params.RELEASE}-binlog-server",
+                component: projectId,
+                credentials: credentials
             ]
 
         case 'IMAGE_HAPROXY':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-haproxy",
-                component: env.PROJECT_ID
+                dest: "${REGISTRY}/${projectId}:${params.RELEASE}-haproxy",
+                component: projectId,
+                credentials: credentials
             ]
 
         case 'IMAGE_ORCHESTRATOR':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-orchestrator",
-                component: env.PROJECT_ID
+                dest: "${REGISTRY}/${projectId}:${params.RELEASE}-orchestrator",
+                component: projectId,
+                credentials: credentials
             ]
 
         case 'IMAGE_TOOLKIT':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-toolkit",
-                component: env.PROJECT_ID
+                dest: "${REGISTRY}/${projectId}:${params.RELEASE}-toolkit",
+                component: projectId,
+                credentials: credentials
             ]
         
         case 'IMAGE_PMM_CLIENT':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-pmm3",
-                component: env.PROJECT_ID
+                dest: "${REGISTRY}/${projectId}:${params.RELEASE}-pmm3",
+                component: projectId,
+                credentials: credentials
             ]
 
         default:
@@ -86,7 +99,7 @@ def buildTargetImage(key, image, params) {
 
 pipeline {
     agent {
-        label 'docker'
+        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
 
     parameters {
@@ -119,28 +132,15 @@ pipeline {
             description: 'Select image to certify'
         )
 
-        booleanParam(
-            name: 'SKIP_PUBLISHED',
-            defaultValue: false,
-            description: 'Skip preflight failure if image is already published'
-        )
-
-        password(
-            name: 'PYXIS_TOKEN', 
-            description: 'Access https://connect.redhat.com/account/api-keys to create one'
-        )
-
-        password(name: 'REGISTRY_USER_OPERATOR')
-        password(name: 'REGISTRY_KEY_OPERATOR')
-
-        password(name: 'REGISTRY_USER_CONTAINERS')
-        password(name: 'REGISTRY_KEY_CONTAINERS')
+        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
 
     stages {
         stage('Prepare Sources') {
             steps {
                 script {
+                    certification = load "cloud/common/imageCertification.groovy"
+
                     def branch = params.BRANCH?.trim() ? params.BRANCH.trim() : "release-${params.RELEASE}"
                     certification.prepareSources(
                         branch: branch,
@@ -153,6 +153,8 @@ pipeline {
         stage('Certify Image') {
             steps {
                 script {
+                    certification = certification ?: load("cloud/common/imageCertification.groovy")
+
                     def images = certification.loadReleaseVersions()
 
                     def branch = params.BRANCH?.trim() ? params.BRANCH.trim() : "release-${params.RELEASE}"
@@ -164,35 +166,25 @@ pipeline {
                     echo "Selection: ${params.IMAGE}"
 
                     def failedImages = []
+                    def imagesToCertify = images
 
                     if (params.IMAGE == 'ALL') {
-
                         echo "Running certification for ALL images"
-                        images.each { key, image ->
-                            def target = buildTargetImage(key, image, params)
-                            if (target == null) {
-                                echo "Skipped ${key}"
-                                return
-                            }
-
-                            echo "Processing ${key} -> ${image}"
-                            if (!certification.certifyImage(key, target, params, certificationTests)) {
-                                failedImages.add(key)
-                            }
-                        }
-
                     } else {
-
                         def selectedImage = images[params.IMAGE]
                         if (!selectedImage) {
                             error("Image not found in release_versions: ${params.IMAGE}")
                         }
 
-                        echo "Processing ${params.IMAGE} -> ${selectedImage}"
-                        def target = buildTargetImage(params.IMAGE, selectedImage, params)
-                        if (!certification.certifyImage(params.IMAGE, target, params, certificationTests)) {
-                            failedImages.add(params.IMAGE)
-                        }
+                        imagesToCertify = [(params.IMAGE): selectedImage]
+                    }
+
+                    imagesToCertify.each { key, image ->
+                        def target = buildTargetImage(key, image, params)
+                        if (!target) return
+
+                        echo "Processing ${key} -> ${image}"
+                        failedImages += certification.certifyImage(key, target, params, certificationTests) ? [] : [key]
                     }
 
                     if (failedImages) {
@@ -207,8 +199,10 @@ pipeline {
     post {
         always {
             script {
+                certification = certification ?: load("cloud/common/imageCertification.groovy")
+
                 certification.publishResults()
-                certification.sendSlack(certificationTests, env.CERTIFICATION_BRANCH, params.PLATFORM)
+                certification.sendSlack(certificationTests, env.CERTIFICATION_BRANCH, params.PLATFORM, params.RELEASE)
             }
         }
     }

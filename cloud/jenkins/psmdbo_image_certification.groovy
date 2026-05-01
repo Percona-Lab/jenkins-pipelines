@@ -1,8 +1,13 @@
 def certificationTests = []
-def certification = load "cloud/common/imageCertification.groovy"
+def certification
+
+def imageTag(image) {
+    def parts = image.tokenize(":")
+    return parts.size() > 1 ? parts[-1] : "latest"
+}
 
 def getMongoVersion(image) {
-    def tag = certification.getTag(image)
+    def tag = imageTag(image)
     def matcher = tag =~ /([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)/
     return matcher ? matcher[0][1] : tag
 }
@@ -13,16 +18,16 @@ def buildTargetImage(key, image, params) {
     def REGISTRY = "quay.io/redhat-isv-containers"
 
     def isOperator = (key == 'IMAGE_OPERATOR')
-    env.PROJECT_ID = isOperator ? PSMDB_OPERATOR_PROJECT_ID : PSMDB_CONTAINERS_PROJECT_ID
-    env.REGISTRY_USER = isOperator ? params.REGISTRY_USER_OPERATOR : params.REGISTRY_USER_CONTAINERS
-    env.REGISTRY_KEY  = isOperator ? params.REGISTRY_KEY_OPERATOR  : params.REGISTRY_KEY_CONTAINERS
+    def projectId = isOperator ? PSMDB_OPERATOR_PROJECT_ID : PSMDB_CONTAINERS_PROJECT_ID
+    def credentials = isOperator ? 'PSMDBO_OPERATOR_REGISTRY' : 'PSMDBO_CONTAINERS_REGISTRY'
 
     switch (key) {
         case 'IMAGE_OPERATOR':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}",
-                component: env.PROJECT_ID
+                dest: "${REGISTRY}/${projectId}:${params.RELEASE}",
+                component: projectId,
+                credentials: credentials
             ]
 
         case 'IMAGE_MONGOD60':
@@ -30,29 +35,33 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_MONGOD80':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${getMongoVersion(image)}",
-                component: env.PROJECT_ID
+                dest: "${REGISTRY}/${projectId}:${getMongoVersion(image)}",
+                component: projectId,
+                credentials: credentials
             ]
 
         case 'IMAGE_BACKUP':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-backup",
-                component: env.PROJECT_ID
+                dest: "${REGISTRY}/${projectId}:${params.RELEASE}-backup",
+                component: projectId,
+                credentials: credentials
             ]
 
         case 'IMAGE_PMM3_CLIENT':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-pmm3",
-                component: env.PROJECT_ID
+                dest: "${REGISTRY}/${projectId}:${params.RELEASE}-pmm3",
+                component: projectId,
+                credentials: credentials
             ]
 
         case 'IMAGE_LOGCOLLECTOR':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-logcollector-${certification.getTag(image)}",
-                component: env.PROJECT_ID
+                dest: "${REGISTRY}/${projectId}:${params.RELEASE}-logcollector-${imageTag(image)}",
+                component: projectId,
+                credentials: credentials
             ]
 
         default:
@@ -63,7 +72,7 @@ def buildTargetImage(key, image, params) {
 
 pipeline {
     agent {
-        label 'docker'
+        label params.JENKINS_AGENT == 'Hetzner' ? 'docker-x64-min' : 'docker'
     }
 
     parameters {
@@ -91,28 +100,19 @@ pipeline {
             description: 'Select image to certify'
         )
 
-        booleanParam(
-            name: 'SKIP_PUBLISHED',
-            defaultValue: false,
-            description: 'Skip preflight failure if image is already published'
-        )
-
-        password(
-            name: 'PYXIS_TOKEN', 
-            description: 'Access https://connect.redhat.com/account/api-keys to create one'
-        )
-
-        password(name: 'REGISTRY_USER_OPERATOR')
-        password(name: 'REGISTRY_KEY_OPERATOR')
-
-        password(name: 'REGISTRY_USER_CONTAINERS')
-        password(name: 'REGISTRY_KEY_CONTAINERS')
+        choice(name: 'JENKINS_AGENT', choices: ['Hetzner', 'AWS'], description: 'Cloud infra for build')
     }
 
     stages {
         stage('Prepare Sources') {
             steps {
                 script {
+                    certification = load "cloud/common/imageCertification.groovy"
+
+                    if (params.RELEASE?.trim()) {
+                        currentBuild.displayName = params.RELEASE.trim()
+                    }
+
                     def branch = params.BRANCH?.trim() ? params.BRANCH.trim() : "release-${params.RELEASE}"
                     certification.prepareSources(
                         branch: branch,
@@ -125,6 +125,8 @@ pipeline {
         stage('Certify Image') {
             steps {
                 script {
+                    certification = certification ?: load("cloud/common/imageCertification.groovy")
+
                     def images = certification.loadReleaseVersions()
 
                     def branch = params.BRANCH?.trim() ? params.BRANCH.trim() : "release-${params.RELEASE}"
@@ -143,10 +145,7 @@ pipeline {
 
                         images.each { key, image ->
                             def target = buildTargetImage(key, image, params)
-                            if (target == null) {
-                                echo "Skipped ${key}"
-                                return
-                            }
+                            if (!target) return
 
                             echo "Processing ${key} -> ${image}"
                             if (!certification.certifyImage(key, target, params, certificationTests)) {
@@ -180,8 +179,9 @@ pipeline {
     post {
         always {
             script {
+                certification = certification ?: load("cloud/common/imageCertification.groovy")
                 certification.publishResults()
-                certification.sendSlack(certificationTests, env.CERTIFICATION_BRANCH, params.PLATFORM)
+                certification.sendSlack(certificationTests, env.CERTIFICATION_BRANCH, params.PLATFORM, params.RELEASE)
             }
         }
     }

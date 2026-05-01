@@ -2,11 +2,11 @@ import argparse
 import subprocess
 import json
 import os
-import re
 import sys
 import shutil
 from datetime import datetime, timezone
 from xml.etree import ElementTree as ET
+
 
 def log(msg):
     now = datetime.now(timezone.utc).strftime("%H:%M:%S")
@@ -92,7 +92,7 @@ def docker_login(user, key):
     run_cmd(
         ["docker", "login", "-u", user, "--password-stdin", "quay.io"],
         input=key,
-        quiet=True,
+        quiet=False,
     )
 
 
@@ -215,14 +215,6 @@ def install_preflight():
     return preflight_path
 
 
-def is_already_published(output: str) -> bool:
-    output = output.lower()
-    return (
-        "published image can't be updated" in output
-        or re.search(r"published\s*:\s*true", output) is not None
-    )
-
-
 def result_dir_for(image):
     image_name = image.split("/")[-1].replace(":", "_")
     return os.path.join("preflight-results", image_name)
@@ -232,9 +224,28 @@ def result_name_for(image):
     return image.split("/")[-1].replace(":", "_")
 
 
-def write_junit_result(image, dest, platform, component, status):
+def junit_image_name(image):
+    return image.rsplit(":", 1)[-1]
+
+
+def rename_result_json_files(results_dir, image):
+    image_name = junit_image_name(image)
+
+    for root, _, files in os.walk(results_dir):
+        for file_name in files:
+            if not file_name.endswith(".json") or file_name.startswith(
+                f"{image_name}-"
+            ):
+                continue
+
+            source = os.path.join(root, file_name)
+            dest = os.path.join(root, f"{image_name}-{file_name}")
+            os.replace(source, dest)
+
+
+def write_junit_result(image, dest, platform, _component, status):
     os.makedirs("preflight-results", exist_ok=True)
-    name = result_name_for(dest)
+    name = junit_image_name(dest)
 
     testsuite = ET.Element(
         "testsuite",
@@ -249,8 +260,8 @@ def write_junit_result(image, dest, platform, component, status):
         testsuite,
         "testcase",
         {
-            "classname": f"{component}-image-certification",
-            "name": f"{name} {platform}",
+            "classname": "image-certification",
+            "name": name,
         },
     )
 
@@ -271,7 +282,7 @@ def write_junit_result(image, dest, platform, component, status):
     log(f"junit result saved: {path}")
 
 
-def run_preflight(dest, platform, docker_config, token, component, skip_published):
+def run_preflight(dest, platform, docker_config, token, component):
     preflight = install_preflight()
 
     log("running preflight")
@@ -306,9 +317,7 @@ def run_preflight(dest, platform, docker_config, token, component, skip_publishe
     for line in output.splitlines():
         log(line)
 
-    if skip_published and is_already_published(output):
-        log("image already published, skipping")
-        return
+    rename_result_json_files(results_dir, dest)
 
     if result.returncode != 0:
         log(f"preflight failed ({result.returncode})")
@@ -333,7 +342,6 @@ def main():
     parser.add_argument(
         "--platform", choices=["amd64", "arm64", "multiplatform"], required=True
     )
-    parser.add_argument("--skip_published", default=False)
 
     # Can be set as environment variables
     parser.add_argument("--token")
@@ -370,7 +378,6 @@ def main():
             args.docker_config,
             token,
             args.component,
-            args.skip_published,
         )
     except SystemExit as e:
         status = e.code if isinstance(e.code, int) else 1
