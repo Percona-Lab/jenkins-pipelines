@@ -114,38 +114,28 @@ pipeline {
 
                     def failedImages = []
                     def skippedImages = []
+                    def imagesToCertify = images
 
                     if (params.IMAGE == 'ALL') {
-
                         echo "Running certification for ALL images"
-
-                        images.each { key, image ->
-                            def target = buildTargetImage(key, image, params)
-                            if (!target) {
-                                skippedImages.add(key)
-                                return
-                            }
-
-                            echo "Processing ${key} -> ${image}"
-                            if (!certification.certifyImage(key, target, params, certificationTests)) {
-                                failedImages.add(key)
-                            }
-                        }
-
                     } else {
-
                         def selectedImage = images[params.IMAGE]
                         if (!selectedImage) {
                             error("Image not found in release_versions: ${params.IMAGE}")
                         }
 
-                        echo "Processing ${params.IMAGE} -> ${selectedImage}"
-                        def target = buildTargetImage(params.IMAGE, selectedImage, params)
+                        imagesToCertify = [(params.IMAGE): selectedImage]
+                    }
+
+                    imagesToCertify.each { key, image ->
+                        def target = buildTargetImage(key, image, params)
                         if (!target) {
-                            skippedImages.add(params.IMAGE)
-                        } else if (!certification.certifyImage(params.IMAGE, target, params, certificationTests)) {
-                            failedImages.add(params.IMAGE)
+                            skippedImages.add(key)
+                            return
                         }
+
+                        echo "Processing ${key} -> ${image}"
+                        failedImages += certification.certifyImage(key, target, params, certificationTests) ? [] : [key]
                     }
 
                     if (skippedImages) {

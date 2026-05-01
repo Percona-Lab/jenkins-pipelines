@@ -27,6 +27,9 @@ def buildTargetImage(key, image, params) {
         case 'IMAGE_PMM3_CLIENT':
             return target(image, containersProjectId, "${params.RELEASE}-pmm3", containersCredentials)
 
+        case 'IMAGE_UPGRADE':
+            return target(image, containersProjectId, "${params.RELEASE}-upgrade", containersCredentials)
+
         case 'IMAGE_POSTGRESQL14':
         case 'IMAGE_POSTGRESQL15':
         case 'IMAGE_POSTGRESQL16':
@@ -82,6 +85,7 @@ pipeline {
                 'ALL',
                 'IMAGE_OPERATOR',
                 'IMAGE_PMM3_CLIENT',
+                'IMAGE_UPGRADE',
                 'IMAGE_POSTGRESQL14',
                 'IMAGE_POSTGRESQL15',
                 'IMAGE_POSTGRESQL16',

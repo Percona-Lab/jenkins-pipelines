@@ -102,6 +102,10 @@ pipeline {
                 script {
                     certification = load "cloud/common/imageCertification.groovy"
 
+                    if (params.RELEASE?.trim()) {
+                        currentBuild.displayName = params.RELEASE.trim()
+                    }
+
                     def branch = params.BRANCH?.trim() ? params.BRANCH.trim() : "release-${params.RELEASE}"
                     certification.prepareSources(
                         branch: branch,
