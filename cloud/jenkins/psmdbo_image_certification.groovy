@@ -1,13 +1,19 @@
 def certificationTests = []
 def certification = load "cloud/common/imageCertification.groovy"
 
+def getMongoVersion(image) {
+    def tag = certification.getTag(image)
+    def matcher = tag =~ /([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)/
+    return matcher ? matcher[0][1] : tag
+}
+
 def buildTargetImage(key, image, params) {
-    def PS_OPERATOR_PROJECT_ID = "68f123a8583dd663019ea44d"
-    def PS_CONTAINERS_PROJECT_ID  = "5e627846b6bf136294e8bb8b"
+    def PSMDB_OPERATOR_PROJECT_ID = "5e62470102235d3f505f60e3"
+    def PSMDB_CONTAINERS_PROJECT_ID  = "5e627846b6bf136294e8bb8b"
     def REGISTRY = "quay.io/redhat-isv-containers"
 
     def isOperator = (key == 'IMAGE_OPERATOR')
-    env.PROJECT_ID = isOperator ? PS_OPERATOR_PROJECT_ID : PS_CONTAINERS_PROJECT_ID
+    env.PROJECT_ID = isOperator ? PSMDB_OPERATOR_PROJECT_ID : PSMDB_CONTAINERS_PROJECT_ID
     env.REGISTRY_USER = isOperator ? params.REGISTRY_USER_OPERATOR : params.REGISTRY_USER_CONTAINERS
     env.REGISTRY_KEY  = isOperator ? params.REGISTRY_KEY_OPERATOR  : params.REGISTRY_KEY_CONTAINERS
 
@@ -19,62 +25,33 @@ def buildTargetImage(key, image, params) {
                 component: env.PROJECT_ID
             ]
 
-        case 'IMAGE_MYSQL84':
-        case 'IMAGE_MYSQL80':
+        case 'IMAGE_MONGOD60':
+        case 'IMAGE_MONGOD70':
+        case 'IMAGE_MONGOD80':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-ps-${certification.getTag(image)}",
+                dest: "${REGISTRY}/${env.PROJECT_ID}:${getMongoVersion(image)}",
                 component: env.PROJECT_ID
             ]
 
-        case 'IMAGE_BACKUP84':
-        case 'IMAGE_BACKUP80':
+        case 'IMAGE_BACKUP':
             return [
                 src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-backup-${certification.getTag(image)}",
+                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-backup",
                 component: env.PROJECT_ID
             ]
 
-        case 'IMAGE_ROUTER84':
-        case 'IMAGE_ROUTER80':
-            return [
-                src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-router-${certification.getTag(image)}",
-                component: env.PROJECT_ID
-            ]
-        
-        case 'IMAGE_BINLOG_SERVER':
-            return [
-                src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-binlog-server",
-                component: env.PROJECT_ID
-            ]
-
-        case 'IMAGE_HAPROXY':
-            return [
-                src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-haproxy",
-                component: env.PROJECT_ID
-            ]
-
-        case 'IMAGE_ORCHESTRATOR':
-            return [
-                src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-orchestrator",
-                component: env.PROJECT_ID
-            ]
-
-        case 'IMAGE_TOOLKIT':
-            return [
-                src: image,
-                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-toolkit",
-                component: env.PROJECT_ID
-            ]
-        
-        case 'IMAGE_PMM_CLIENT':
+        case 'IMAGE_PMM3_CLIENT':
             return [
                 src: image,
                 dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-pmm3",
+                component: env.PROJECT_ID
+            ]
+
+        case 'IMAGE_LOGCOLLECTOR':
+            return [
+                src: image,
+                dest: "${REGISTRY}/${env.PROJECT_ID}:${params.RELEASE}-logcollector-${certification.getTag(image)}",
                 component: env.PROJECT_ID
             ]
 
@@ -104,17 +81,12 @@ pipeline {
             choices: [
                 'ALL',
                 'IMAGE_OPERATOR',
-                'IMAGE_MYSQL84',
-                'IMAGE_MYSQL80',
-                'IMAGE_BACKUP84',
-                'IMAGE_BACKUP80',
-                'IMAGE_ROUTER84',
-                'IMAGE_ROUTER80',
-                'IMAGE_BINLOG_SERVER',
-                'IMAGE_HAPROXY',
-                'IMAGE_ORCHESTRATOR',
-                'IMAGE_TOOLKIT',
-                'IMAGE_PMM_CLIENT'
+                'IMAGE_MONGOD60',
+                'IMAGE_MONGOD70',
+                'IMAGE_MONGOD80',
+                'IMAGE_BACKUP',
+                'IMAGE_PMM3_CLIENT',
+                'IMAGE_LOGCOLLECTOR'
             ],
             description: 'Select image to certify'
         )
@@ -144,7 +116,7 @@ pipeline {
                     def branch = params.BRANCH?.trim() ? params.BRANCH.trim() : "release-${params.RELEASE}"
                     certification.prepareSources(
                         branch: branch,
-                        repo: 'https://github.com/percona/percona-server-mysql-operator.git'
+                        repo: 'https://github.com/percona/percona-server-mongodb-operator.git'
                     )
                 }
             }
@@ -168,6 +140,7 @@ pipeline {
                     if (params.IMAGE == 'ALL') {
 
                         echo "Running certification for ALL images"
+
                         images.each { key, image ->
                             def target = buildTargetImage(key, image, params)
                             if (target == null) {

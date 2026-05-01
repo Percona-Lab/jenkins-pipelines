@@ -2,104 +2,129 @@ import argparse
 import subprocess
 import json
 import os
+import re
 import sys
 import shutil
-from datetime import datetime
-
+from datetime import datetime, timezone
+from xml.etree import ElementTree as ET
 
 def log(msg):
-    now = datetime.utcnow().strftime("%H:%M:%S")
+    now = datetime.now(timezone.utc).strftime("%H:%M:%S")
     print(f"[{now}] {msg}", flush=True)
 
 
-def run(cmd, cwd=None, env=None, quiet=False):
+def hide_secrets(cmd):
+    return [
+        "--pyxis-api-token=****" if arg.startswith("--pyxis-api-token=") else arg
+        for arg in cmd
+    ]
+
+
+def run_cmd(
+    cmd,
+    cwd=None,
+    env=None,
+    quiet=False,
+    input=None,
+    check=True,
+    capture_output=False,
+    return_result=False,
+):
     if not quiet:
-        log(f"$ {' '.join(cmd)}")
+        log(f"$ {' '.join(hide_secrets(cmd))}")
+
+    stdout = (
+        subprocess.PIPE if capture_output else subprocess.DEVNULL if quiet else None
+    )
+    stderr = subprocess.PIPE if quiet or capture_output else None
 
     result = subprocess.run(
         cmd,
         cwd=cwd,
         env=env,
-        stdout=subprocess.DEVNULL if quiet else None,
-        stderr=subprocess.PIPE if quiet else None,
-        text=True
+        input=input,
+        stdout=stdout,
+        stderr=stderr,
+        text=True,
     )
 
-    if result.returncode != 0:
-        if quiet and result.stderr:
-            log(result.stderr.strip())
-        log(f"failed ({result.returncode})")
-        sys.exit(result.returncode)
+    if result.returncode == 0 or not check:
+        if return_result:
+            return result
+        return result.stdout if capture_output else None
+
+    if quiet and result.stderr:
+        log(result.stderr.strip())
+
+    log(f"failed ({result.returncode})")
+    sys.exit(result.returncode)
 
 
 def ensure_go():
-    go_path = shutil.which("go")
-    if go_path:
-        return go_path
-
-    log("go not found, installing")
-
-    version = "1.22.5"
-    goos = "darwin" if sys.platform == "darwin" else "linux"
-
-    arch = os.uname().machine
-    goarch = "arm64" if arch in ["arm64", "aarch64"] else "amd64"
-
-    archive = f"go{version}.{goos}-{goarch}.tar.gz"
-    url = f"https://go.dev/dl/{archive}"
-
     tools = ".tools"
-    os.makedirs(tools, exist_ok=True)
+    go_binary = os.path.abspath(os.path.join(tools, "go", "bin", "go"))
+    if os.path.exists(go_binary):
+        return go_binary
 
+    log("installing latest go")
+    goos, goarch = detect_platform()
+    version = json.loads(
+        subprocess.check_output(
+            ["curl", "-sL", "https://go.dev/dl/?mode=json"],
+            text=True,
+        )
+    )[0]["version"]
+    archive = f"{version}.{goos}-{goarch}.tar.gz"
     archive_path = os.path.join(tools, archive)
 
-    run(["curl", "-sL", "-o", archive_path, url], quiet=True)
-    run(["tar", "-C", tools, "-xzf", archive_path], quiet=True)
-
-    go_bin_dir = os.path.abspath(os.path.join(tools, "go", "bin"))
-    go_binary = os.path.join(go_bin_dir, "go")
-    os.environ["PATH"] = f"{go_bin_dir}:{os.environ.get('PATH', '')}"
+    os.makedirs(tools, exist_ok=True)
+    run_cmd(
+        ["curl", "-sL", "-o", archive_path, f"https://go.dev/dl/{archive}"],
+        quiet=True,
+    )
+    run_cmd(["tar", "-C", tools, "-xzf", archive_path], quiet=True)
 
     log(f"go ready: {go_binary}")
-
     return go_binary
 
 
 def docker_login(user, key):
-    log("docker login quay.io")
-
-    p = subprocess.Popen(
+    run_cmd(
         ["docker", "login", "-u", user, "--password-stdin", "quay.io"],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        text=True,
+        input=key,
+        quiet=True,
     )
 
-    _, err = p.communicate(input=key)
 
-    if p.returncode != 0:
-        log("login failed")
-        log(err.strip())
-        sys.exit(p.returncode)
+def cleanup_docker_image(image):
+    run_cmd(["docker", "rmi", "-f", image], quiet=True, check=False)
+    run_cmd(["docker", "image", "prune", "-f"], quiet=True, check=False)
 
 
-def cleanup_image(image):
-    subprocess.run(["docker", "rmi", "-f", image],
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-    subprocess.run(["docker", "image", "prune", "-f"],
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+def prepare_single_platform_image(image, dest, platform):
+    run_cmd(["docker", "pull", "--platform", f"linux/{platform}", image])
+    run_cmd(["docker", "tag", image, dest])
+    run_cmd(["docker", "push", dest])
+
+
+def prepare_multiplatform_image(image, dest):
+    for platform in ["amd64", "arm64"]:
+        run_cmd(["docker", "pull", "--platform", f"linux/{platform}", image])
+
+    run_cmd(["docker", "buildx", "imagetools", "create", "-t", dest, image])
 
 
 def prepare_image(image, dest, platform):
     log("prepare image")
 
-    cleanup_image(image)
-    cleanup_image(dest)
+    cleanup_docker_image(image)
+    cleanup_docker_image(dest)
 
-    run(["docker", "pull", "--platform", f"linux/{platform}", image])
-    run(["docker", "tag", image, dest])
-    run(["docker", "push", dest])
+    if platform == "multiplatform":
+        prepare_multiplatform_image(image, dest)
+        return
+
+    prepare_single_platform_image(image, dest, platform)
 
 
 def detect_platform():
@@ -109,89 +134,178 @@ def detect_platform():
     return goos, goarch
 
 
-def install_preflight():
-    if shutil.which("preflight"):
-        log("preflight already installed")
-        return
-
-    ensure_go()
-
-    log("installing preflight")
-
+def download_preflight_source():
     repo = "openshift-preflight"
     shutil.rmtree(repo, ignore_errors=True)
+    run_cmd(
+        [
+            "git",
+            "clone",
+            "-q",
+            "https://github.com/redhat-openshift-ecosystem/openshift-preflight",
+        ]
+    )
+    return repo
 
-    run(["git", "clone", "-q", "https://github.com/redhat-openshift-ecosystem/openshift-preflight"])
 
-    goos, goarch = detect_platform()
-
-    tags = subprocess.check_output(
+def checkout_latest_preflight_version(repo):
+    tags = run_cmd(
         ["git", "tag", "--sort=-creatordate"],
         cwd=repo,
-        text=True
+        capture_output=True,
     ).splitlines()
-
     if not tags:
-        log("no tags found in repo")
-        sys.exit(1)
+        sys.exit("no tags found in repo")
 
     tag = tags[0]
+    run_cmd(["git", "checkout", "-q", tag], cwd=repo)
+    return tag
 
-    run(["git", "checkout", "-q", tag], cwd=repo)
 
-    version = subprocess.check_output(
+def current_git_commit(repo):
+    return run_cmd(
         ["git", "rev-parse", "HEAD"],
         cwd=repo,
-        text=True
+        capture_output=True,
     ).strip()
 
-    env = os.environ.copy()
-    env.update({
+
+def build_preflight(repo, tag):
+    goos, goarch = detect_platform()
+    env = {
+        **os.environ,
         "GOOS": goos,
         "GOARCH": goarch,
         "CGO_ENABLED": "0",
-    })
+    }
 
     log("building preflight")
+    run_cmd(
+        [
+            ensure_go(),
+            "build",
+            "-o",
+            "../preflight",
+            "-ldflags",
+            f"-X github.com/redhat-openshift-ecosystem/openshift-preflight/version.commit={current_git_commit(repo)} "
+            f"-X github.com/redhat-openshift-ecosystem/openshift-preflight/version.version={tag}",
+            "cmd/preflight/main.go",
+        ],
+        cwd=repo,
+        env=env,
+        quiet=True,
+    )
 
-    run([
-        "go", "build",
-        "-o", "../preflight",
-        "-ldflags",
-        f"-X github.com/redhat-openshift-ecosystem/openshift-preflight/version.commit={version} "
-        f"-X github.com/redhat-openshift-ecosystem/openshift-preflight/version.version={tag}",
-        "cmd/preflight/main.go"
-    ], cwd=repo, env=env, quiet=True)
 
-    os.chmod("preflight", 0o755)
+def install_preflight():
+    preflight_path = os.path.abspath("preflight")
+    if os.path.exists(preflight_path):
+        log("preflight already installed")
+        return preflight_path
+
+    log("installing preflight")
+
+    repo = download_preflight_source()
+    tag = checkout_latest_preflight_version(repo)
+    build_preflight(repo, tag)
+    os.chmod(preflight_path, 0o755)
     shutil.rmtree(repo)
 
     log("preflight ready")
+    return preflight_path
 
 
 def is_already_published(output: str) -> bool:
-    return "published image can't be updated" in output.lower()
+    output = output.lower()
+    return (
+        "published image can't be updated" in output
+        or re.search(r"published\s*:\s*true", output) is not None
+    )
+
+
+def result_dir_for(image):
+    image_name = image.split("/")[-1].replace(":", "_")
+    return os.path.join("preflight-results", image_name)
+
+
+def result_name_for(image):
+    return image.split("/")[-1].replace(":", "_")
+
+
+def write_junit_result(image, dest, platform, component, status):
+    os.makedirs("preflight-results", exist_ok=True)
+    name = result_name_for(dest)
+
+    testsuite = ET.Element(
+        "testsuite",
+        {
+            "name": "image-certification",
+            "tests": "1",
+            "failures": "0" if status == 0 else "1",
+        },
+    )
+
+    testcase = ET.SubElement(
+        testsuite,
+        "testcase",
+        {
+            "classname": f"{component}-image-certification",
+            "name": f"{name} {platform}",
+        },
+    )
+
+    if status != 0:
+        failure = ET.SubElement(
+            testcase, "failure", {"message": "Certification failed"}
+        )
+        failure.text = (
+            f"Image: {image}\n"
+            f"Destination: {dest}\n"
+            f"Platform: {platform}\n"
+            f"Exit code: {status}"
+        )
+
+    path = os.path.join("preflight-results", f"{name}.xml")
+    ET.ElementTree(testsuite).write(path, encoding="utf-8", xml_declaration=True)
+
+    log(f"junit result saved: {path}")
 
 
 def run_preflight(dest, platform, docker_config, token, component, skip_published):
-    install_preflight()
+    preflight = install_preflight()
 
     log("running preflight")
 
+    results_dir = result_dir_for(dest)
+    os.makedirs(results_dir, exist_ok=True)
+
     cmd = [
-        "./preflight",
-        "check", "container", dest,
-        f"--platform={platform}",
+        preflight,
+        "check",
+        "container",
+        dest,
+        "" if platform == "multiplatform" else f"--platform={platform}",
+        f"--artifacts={os.path.abspath(results_dir)}",
         f"--docker-config={docker_config}",
         f"--pyxis-api-token={token}",
         f"--certification-component-id={component}",
-        "--loglevel", "debug",
+        "--loglevel",
+        "debug",
         "--submit",
     ]
+    cmd = [arg for arg in cmd if arg]
 
-    result = subprocess.run(cmd)
+    result = run_cmd(
+        cmd,
+        capture_output=True,
+        check=False,
+        return_result=True,
+    )
 
     output = (result.stdout or "") + (result.stderr or "")
+    for line in output.splitlines():
+        log(line)
+
     if skip_published and is_already_published(output):
         log("image already published, skipping")
         return
@@ -200,17 +314,7 @@ def run_preflight(dest, platform, docker_config, token, component, skip_publishe
         log(f"preflight failed ({result.returncode})")
         sys.exit(result.returncode)
 
-
-def print_summary(data):
-    fails = [r for r in data["results"] if r["result"] != "PASS"]
-
-    log(f"results: {len(data['results'])} total / {len(fails)} failed")
-
-    for f in fails:
-        log(f"{f['name']} -> {f['result']}")
-
-    if fails:
-        sys.exit(1)
+    log(f"preflight artifacts saved: {results_dir}")
 
 
 def get_secret(cli_value, env_name, required=True):
@@ -226,7 +330,9 @@ def main():
     parser.add_argument("--image", required=True)
     parser.add_argument("--dest_image", required=True)
     parser.add_argument("--component", required=True)
-    parser.add_argument("--platform", required=True)
+    parser.add_argument(
+        "--platform", choices=["amd64", "arm64", "multiplatform"], required=True
+    )
     parser.add_argument("--skip_published", default=False)
 
     # Can be set as environment variables
@@ -235,7 +341,10 @@ def main():
     parser.add_argument("--registry-key")
 
     # By default gets from user home
-    parser.add_argument("--docker-config", default=os.path.expanduser("~/.docker/config.json"))
+    parser.add_argument(
+        "--docker-config",
+        default=os.path.expanduser("~/.docker/config.json"),
+    )
 
     args = parser.parse_args()
 
@@ -250,18 +359,31 @@ def main():
 
     log("start")
 
-    docker_login(registry_user, registry_key)
+    try:
+        docker_login(registry_user, registry_key)
 
-    prepare_image(args.image, args.dest_image, args.platform)
+        prepare_image(args.image, args.dest_image, args.platform)
 
-    run_preflight(
-        args.dest_image,
-        args.platform,
-        args.docker_config,
-        token,
-        args.component,
-        args.skip_published,
-    )
+        run_preflight(
+            args.dest_image,
+            args.platform,
+            args.docker_config,
+            token,
+            args.component,
+            args.skip_published,
+        )
+    except SystemExit as e:
+        status = e.code if isinstance(e.code, int) else 1
+        write_junit_result(
+            args.image,
+            args.dest_image,
+            args.platform,
+            args.component,
+            status,
+        )
+        raise
+
+    write_junit_result(args.image, args.dest_image, args.platform, args.component, 0)
 
     log("done")
 
