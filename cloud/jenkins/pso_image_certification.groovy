@@ -149,6 +149,12 @@ pipeline {
                         def target = buildTargetImage(key, image, params)
                         if (!target) {
                             skippedImages.add(key)
+                            certificationTests.add([
+                                name: key,
+                                cluster: params.PLATFORM,
+                                result: 'skipped',
+                                time: 0,
+                            ])
                             return
                         }
 

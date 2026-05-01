@@ -88,6 +88,12 @@ def sendSlack(tests, branch, platform, release) {
     try {
         def passedImages = tests.findAll { it.result == 'passed' }.collect { it.name }
         def failedImages = tests.findAll { it.result == 'failure' }.collect { it.name }
+        def skippedImages = tests.findAll { it.result == 'skipped' }.collect { it.name }
+        if (!passedImages && !failedImages) {
+            echo "No image certification results found. Slack notification skipped."
+            return
+        }
+
         def color = failedImages ? '#DAA038' : '#36A64F'
         def status = failedImages ? 'UNSTABLE' : 'SUCCESS'
         def message = "*${env.JOB_NAME} #${env.BUILD_NUMBER}* - ${status}\n"
@@ -99,7 +105,10 @@ def sendSlack(tests, branch, platform, release) {
             message += "*Passed:* ${passedImages.join(', ')}\n"
         }
         if (failedImages) {
-            message += "*Failed:* ${failedImages.join(', ')}"
+            message += "*Failed:* ${failedImages.join(', ')}\n"
+        }
+        if (skippedImages) {
+            message += "*Skipped:* ${skippedImages.join(', ')}"
         }
 
         slackSend channel: '#cloud-dev-ci', color: color, message: message
