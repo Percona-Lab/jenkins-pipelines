@@ -12,6 +12,15 @@ def prepareSources(Map cfg) {
     """
 }
 
+def requireReleaseVersion(params) {
+    def release = params.RELEASE?.trim()
+    if (!release) {
+        error("RELEASE is required")
+    }
+
+    return release
+}
+
 def loadReleaseVersions() {
     def images = [:]
 

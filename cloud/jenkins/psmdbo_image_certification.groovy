@@ -84,11 +84,10 @@ pipeline {
                 script {
                     certification = load "cloud/common/imageCertification.groovy"
 
-                    if (params.RELEASE?.trim()) {
-                        currentBuild.displayName = params.RELEASE.trim()
-                    }
+                    def release = certification.requireReleaseVersion(params)
+                    currentBuild.displayName = release
 
-                    def branch = params.BRANCH?.trim() ? params.BRANCH.trim() : "release-${params.RELEASE}"
+                    def branch = params.BRANCH?.trim() ? params.BRANCH.trim() : "release-${release}"
                     certification.prepareSources(
                         branch: branch,
                         repo: 'https://github.com/percona/percona-server-mongodb-operator.git'
