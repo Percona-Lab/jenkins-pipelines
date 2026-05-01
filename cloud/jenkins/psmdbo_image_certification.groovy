@@ -6,63 +6,38 @@ def imageTag(image) {
     return parts.size() > 1 ? parts[-1] : "latest"
 }
 
-def getMongoVersion(image) {
-    def tag = imageTag(image)
-    def matcher = tag =~ /([0-9]+\.[0-9]+\.[0-9]+-[0-9]+)/
-    return matcher ? matcher[0][1] : tag
+def target(src, projectId, tag, credentials) {
+    return [
+        src: src,
+        dest: "quay.io/redhat-isv-containers/${projectId}:${tag}",
+        credentials: credentials
+    ]
 }
 
 def buildTargetImage(key, image, params) {
-    def PSMDB_OPERATOR_PROJECT_ID = "5e62470102235d3f505f60e3"
-    def PSMDB_CONTAINERS_PROJECT_ID  = "5e627846b6bf136294e8bb8b"
-    def REGISTRY = "quay.io/redhat-isv-containers"
-
+    def operatorProjectId = '5e62470102235d3f505f60e3'
+    def containersProjectId = '5e627846b6bf136294e8bb8b'
     def isOperator = (key == 'IMAGE_OPERATOR')
-    def projectId = isOperator ? PSMDB_OPERATOR_PROJECT_ID : PSMDB_CONTAINERS_PROJECT_ID
+    def projectId = isOperator ? operatorProjectId : containersProjectId
     def credentials = isOperator ? 'PSMDBO_OPERATOR_REGISTRY' : 'PSMDBO_CONTAINERS_REGISTRY'
 
     switch (key) {
         case 'IMAGE_OPERATOR':
-            return [
-                src: image,
-                dest: "${REGISTRY}/${projectId}:${params.RELEASE}",
-                component: projectId,
-                credentials: credentials
-            ]
+            return target(image, projectId, params.RELEASE, credentials)
 
         case 'IMAGE_MONGOD60':
         case 'IMAGE_MONGOD70':
         case 'IMAGE_MONGOD80':
-            return [
-                src: image,
-                dest: "${REGISTRY}/${projectId}:${getMongoVersion(image)}",
-                component: projectId,
-                credentials: credentials
-            ]
+            return target(image, projectId, "${params.RELEASE}-psmdb-${imageTag(image)}", credentials)
 
         case 'IMAGE_BACKUP':
-            return [
-                src: image,
-                dest: "${REGISTRY}/${projectId}:${params.RELEASE}-backup",
-                component: projectId,
-                credentials: credentials
-            ]
+            return target(image, projectId, "${params.RELEASE}-backup", credentials)
 
         case 'IMAGE_PMM3_CLIENT':
-            return [
-                src: image,
-                dest: "${REGISTRY}/${projectId}:${params.RELEASE}-pmm3",
-                component: projectId,
-                credentials: credentials
-            ]
+            return target(image, projectId, "${params.RELEASE}-pmm3", credentials)
 
         case 'IMAGE_LOGCOLLECTOR':
-            return [
-                src: image,
-                dest: "${REGISTRY}/${projectId}:${params.RELEASE}-logcollector-${imageTag(image)}",
-                component: projectId,
-                credentials: credentials
-            ]
+            return target(image, projectId, "${params.RELEASE}-logcollector-${imageTag(image)}", credentials)
 
         default:
             echo "Skipping ${key}"
@@ -138,6 +113,7 @@ pipeline {
                     echo "Selection: ${params.IMAGE}"
 
                     def failedImages = []
+                    def skippedImages = []
 
                     if (params.IMAGE == 'ALL') {
 
@@ -145,7 +121,10 @@ pipeline {
 
                         images.each { key, image ->
                             def target = buildTargetImage(key, image, params)
-                            if (!target) return
+                            if (!target) {
+                                skippedImages.add(key)
+                                return
+                            }
 
                             echo "Processing ${key} -> ${image}"
                             if (!certification.certifyImage(key, target, params, certificationTests)) {
@@ -162,9 +141,15 @@ pipeline {
 
                         echo "Processing ${params.IMAGE} -> ${selectedImage}"
                         def target = buildTargetImage(params.IMAGE, selectedImage, params)
-                        if (!certification.certifyImage(params.IMAGE, target, params, certificationTests)) {
+                        if (!target) {
+                            skippedImages.add(params.IMAGE)
+                        } else if (!certification.certifyImage(params.IMAGE, target, params, certificationTests)) {
                             failedImages.add(params.IMAGE)
                         }
+                    }
+
+                    if (skippedImages) {
+                        echo "Certification skipped for: ${skippedImages.join(', ')}"
                     }
 
                     if (failedImages) {

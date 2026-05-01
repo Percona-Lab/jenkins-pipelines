@@ -15,42 +15,36 @@ def target(src, projectId, tag, credentials) {
 }
 
 def buildTargetImage(key, image, params) {
-    def operatorProjectId = '68f123a8583dd663019ea44d'
-    def containersProjectId = '68f1227a9e42a645692ae3de'
-    def isOperator = (key == 'IMAGE_OPERATOR')
-    def projectId = isOperator ? operatorProjectId : containersProjectId
-    def credentials = isOperator ? 'PSO_OPERATOR_REGISTRY' : 'PSO_CONTAINERS_REGISTRY'
+    def operatorProjectId = '5e6265b1b6bf136294e8bb82'
+    def containersProjectId = '5e627965fe2231a0c28603fe'
+    def operatorCredentials = 'PXCO_OPERATOR_REGISTRY'
+    def containersCredentials = 'PXCO_CONTAINERS_REGISTRY'
 
     switch (key) {
         case 'IMAGE_OPERATOR':
-            return target(image, projectId, params.RELEASE, credentials)
+            return target(image, operatorProjectId, params.RELEASE, operatorCredentials)
 
-        case 'IMAGE_MYSQL84':
-        case 'IMAGE_MYSQL80':
-            return target(image, projectId, "${params.RELEASE}-ps-${imageTag(image)}", credentials)
+        case 'IMAGE_PMM3_CLIENT':
+            return target(image, containersProjectId, "${params.RELEASE}-pmm3", containersCredentials)
+
+        case 'IMAGE_PXC84':
+        case 'IMAGE_PXC80':
+        case 'IMAGE_PXC57':
+            return target(image, containersProjectId, "${params.RELEASE}-pxc-${imageTag(image)}", containersCredentials)
 
         case 'IMAGE_BACKUP84':
         case 'IMAGE_BACKUP80':
-            return target(image, projectId, "${params.RELEASE}-backup-${imageTag(image)}", credentials)
-
-        case 'IMAGE_ROUTER84':
-        case 'IMAGE_ROUTER80':
-            return target(image, projectId, "${params.RELEASE}-router-${imageTag(image)}", credentials)
-        
-        case 'IMAGE_BINLOG_SERVER':
-            return target(image, projectId, "${params.RELEASE}-binlog-server", credentials)
+        case 'IMAGE_BACKUP57':
+            return target(image, containersProjectId, "${params.RELEASE}-backup-${imageTag(image)}", containersCredentials)
 
         case 'IMAGE_HAPROXY':
-            return target(image, projectId, "${params.RELEASE}-haproxy", credentials)
+            return target(image, containersProjectId, "${params.RELEASE}-haproxy", containersCredentials)
 
-        case 'IMAGE_ORCHESTRATOR':
-            return target(image, projectId, "${params.RELEASE}-orchestrator", credentials)
+        case 'IMAGE_PROXY':
+            return target(image, containersProjectId, "${params.RELEASE}-proxysql", containersCredentials)
 
-        case 'IMAGE_TOOLKIT':
-            return target(image, projectId, "${params.RELEASE}-toolkit", credentials)
-        
-        case 'IMAGE_PMM_CLIENT':
-            return target(image, projectId, "${params.RELEASE}-pmm3", credentials)
+        case 'IMAGE_LOGCOLLECTOR':
+            return target(image, containersProjectId, "${params.RELEASE}-logcollector-${imageTag(image)}", containersCredentials)
 
         default:
             echo "Skipping ${key}"
@@ -78,17 +72,16 @@ pipeline {
             choices: [
                 'ALL',
                 'IMAGE_OPERATOR',
-                'IMAGE_MYSQL84',
-                'IMAGE_MYSQL80',
+                'IMAGE_PMM3_CLIENT',
+                'IMAGE_PXC84',
+                'IMAGE_PXC80',
+                'IMAGE_PXC57',
                 'IMAGE_BACKUP84',
                 'IMAGE_BACKUP80',
-                'IMAGE_ROUTER84',
-                'IMAGE_ROUTER80',
-                'IMAGE_BINLOG_SERVER',
+                'IMAGE_BACKUP57',
                 'IMAGE_HAPROXY',
-                'IMAGE_ORCHESTRATOR',
-                'IMAGE_TOOLKIT',
-                'IMAGE_PMM_CLIENT'
+                'IMAGE_PROXY',
+                'IMAGE_LOGCOLLECTOR'
             ],
             description: 'Select image to certify'
         )
@@ -102,10 +95,14 @@ pipeline {
                 script {
                     certification = load "cloud/common/imageCertification.groovy"
 
+                    if (params.RELEASE?.trim()) {
+                        currentBuild.displayName = params.RELEASE.trim()
+                    }
+
                     def branch = params.BRANCH?.trim() ? params.BRANCH.trim() : "release-${params.RELEASE}"
                     certification.prepareSources(
                         branch: branch,
-                        repo: 'https://github.com/percona/percona-server-mysql-operator.git'
+                        repo: 'https://github.com/percona/percona-xtradb-cluster-operator.git'
                     )
                 }
             }
@@ -117,7 +114,6 @@ pipeline {
                     certification = certification ?: load("cloud/common/imageCertification.groovy")
 
                     def images = certification.loadReleaseVersions()
-
                     def branch = params.BRANCH?.trim() ? params.BRANCH.trim() : "release-${params.RELEASE}"
                     env.CERTIFICATION_BRANCH = branch
 
@@ -142,14 +138,14 @@ pipeline {
                     }
 
                     imagesToCertify.each { key, image ->
-                        def target = buildTargetImage(key, image, params)
-                        if (!target) {
+                        def imageTarget = buildTargetImage(key, image, params)
+                        if (!imageTarget) {
                             skippedImages.add(key)
                             return
                         }
 
                         echo "Processing ${key} -> ${image}"
-                        failedImages += certification.certifyImage(key, target, params, certificationTests) ? [] : [key]
+                        failedImages += certification.certifyImage(key, imageTarget, params, certificationTests) ? [] : [key]
                     }
 
                     if (skippedImages) {

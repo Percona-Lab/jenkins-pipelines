@@ -34,6 +34,8 @@ def loadReleaseVersions() {
 def certifyImage(key, target, params, tests) {
     def startedAt = System.currentTimeMillis()
     def status
+    def dest = target.dest
+    def component = target.component
 
     withCredentials([
         string(credentialsId: 'PYXIS_TOKEN', variable: 'PYXIS_TOKEN'),
@@ -43,14 +45,17 @@ def certifyImage(key, target, params, tests) {
             passwordVariable: 'REGISTRY_KEY'
         )
     ]) {
+        component = component ?: env.REGISTRY_USER.replaceAll(/^.*\+/, '').replaceAll(/-robot$/, '')
+        dest = dest.replace('__PROJECT_ID__', component)
+
         status = sh(
             returnStatus: true,
             script: """
             set -e
             python3 cloud/scripts/certify_images.py \
               --image ${target.src} \
-              --dest_image ${target.dest} \
-              --component ${target.component} \
+              --dest_image ${dest} \
+              --component ${component} \
               --platform ${params.PLATFORM}
         """
         )
