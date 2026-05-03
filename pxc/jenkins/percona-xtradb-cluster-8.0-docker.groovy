@@ -118,9 +118,9 @@ pipeline {
                                 sudo docker tag perconalab/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-arm64 percona/percona-xtradb-cluster:${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}-debug-arm64
                             fi
                             case ${PXC_MAJOR_RELEASE} in
-                                80) cd percona-xtradb-cluster-8.0-backup ;;
-                                84) cd percona-xtradb-cluster-8.4-backup ;;
-                                9*) cd percona-xtradb-cluster-9.x-backup ;;
+                                80) cd ../percona-xtradb-cluster-8.0-backup ;;
+                                84) cd ../percona-xtradb-cluster-8.4-backup ;;
+                                9*) cd ../percona-xtradb-cluster-9.x-backup ;;
                             esac
                             sed -i "s/ENV PXC_VERSION.*/ENV PXC_VERSION=${MYSQL_VERSION_MAJOR}.${MYSQL_VERSION_MINOR}.${MYSQL_VERSION_PATCH}${MYSQL_VERSION_EXTRA}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV PXC_REPO.*/ENV PXC_REPO=testing/g" Dockerfile
