@@ -1,0 +1,119 @@
+- job:
+    name: percona-xtrabackup-9.x-test-param
+    project-type: matrix
+    defaults: global
+    description: |
+        Do not edit this job through the web!
+    disabled: false
+    concurrent: true
+    auth-token: xbparam24
+    node: launcher-x64
+    properties:
+    - groovy-label:
+        script: |
+            return (CLOUD == 'AWS') ? 'micro-amazon' : 'launcher-x64'
+        sandbox: true
+    - build-discarder:
+        days-to-keep: -1
+        num-to-keep: 30
+        artifact-days-to-keep: -1
+        artifact-num-to-keep: 30
+    parameters:
+    - string:
+        name: BOOTSTRAP_URL
+        default: ""
+        description:
+    - string:
+        name: USE_BINARIES_FROM_BUILD_ID
+        default: "lastSuccessfulBuild"
+        description: Specific percona-xtrabackup-9.x-compile-param build id to use binaries from.
+    - string:
+        name: INNODB9X_VERSION
+        default: "9.6.0"
+        description: Version of MySQL InnoDB which will be used for bootstrap.sh script
+    - string:
+        name: XTRADB9X_VERSION
+        default: "9.6.0-1"
+        description: Version of Percona XtraDB which will be used for bootstrap.sh script
+    - string:
+        name: XBTR_ARGS
+        default: ""
+        description: "./run.sh options, for options like: -j N Run tests in N parallel processes, -T seconds, -x options Extra options to pass to xtrabackup"
+    - bool:
+        name: WITH_AZURITE
+        default: false
+        description: "Starts Microsoft Azurite emulator and tests xbcloud against it"
+    - bool:
+        name: WITH_XBCLOUD_TESTS
+        default: true
+        description: "Run xbcloud tests"
+    - bool:
+        name: WITH_VAULT_TESTS
+        default: true
+        description: "Run vault tests"
+    - bool:
+        name: WITH_KMIP_TESTS
+        default: true
+        description: "Run kmip tests"
+    - choice:
+        name: CLOUD
+        choices:
+        - "Hetzner"
+        - "AWS"
+        description: "Host provider for Jenkins workers"
+    axes:
+    - axis:
+        name: CMAKE_BUILD_TYPE
+        type: user-defined
+        values:
+          - RelWithDebInfo
+          - Debug
+    - axis:
+        type: user-defined
+        name: DOCKER_OS
+        values:
+        - oraclelinux:9
+        - ubuntu:jammy
+        - ubuntu:noble
+        - debian:bookworm
+        - debian:trixie
+        - asan
+    - axis:
+        name: XTRABACKUP_TARGET
+        type: user-defined
+        values:
+        - innodb9x
+        - xtradb9x
+    builders:
+    - trigger-builds:
+      - project: percona-xtrabackup-9.x-test-pipeline
+        current-parameters: true
+        predefined-parameters: |
+          DOCKER_OS=${{DOCKER_OS}}
+          CMAKE_BUILD_TYPE=${{CMAKE_BUILD_TYPE}}
+          XTRABACKUP_TARGET=${{XTRABACKUP_TARGET}}
+          CLOUD=${{CLOUD}}
+        block: true
+        block-thresholds:
+          build-step-failure-threshold: FAILURE
+          unstable-threshold: never
+          failure-threshold: FAILURE
+    - shell: |
+        sudo find . -name "*.xml" -o -name "*.log" -delete
+    - copyartifact:
+        project: percona-xtrabackup-9.x-test-pipeline
+        which-build: specific-build
+        build-number: "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_9_x_test_pipeline}}"
+        do-not-fingerprint: true
+    - shell: |
+        echo "${{TRIGGERED_BUILD_NUMBERS_percona_xtrabackup_9_x_test_pipeline}}" > PIPELINE_BUILD_NUMBER
+    publishers:
+    - junit:
+        results: "**/junit.xml"
+        keep-long-stdio: true
+    - archive:
+        artifacts: 'PIPELINE_BUILD_NUMBER'
+    - archive:
+        artifacts: 'junit.xml'
+    - archive:
+        artifacts: 'results.tar.gz'

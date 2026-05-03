@@ -67,6 +67,9 @@ pipeline {
                     echo "Validating version v${params.VERSION} for ${params.OPERATOR}..."
 
                     sh """
+                        if ! command -v jq >/dev/null 2>&1; then
+                            sudo dnf install -y jq
+                        fi
                         curl -s ${env.GITHUB_API_URL} > /tmp/releases.json
                     """
                     def versionExists = sh(
@@ -107,6 +110,10 @@ pipeline {
         stage('Install dependencies') {
             steps {
                 sh '''
+                    if ! command -v ruby >/dev/null 2>&1; then
+                        sudo dnf install -y ruby
+                    fi
+
                     curl -LsSf https://astral.sh/uv/install.sh | sh
                     export PATH="$HOME/.local/bin:$PATH"
                     uv init
@@ -190,7 +197,7 @@ pipeline {
                         sh """
                             export PATH="\$HOME/.local/bin:\$WORKSPACE/go/bin:\$HOME/go/bin:\$PATH"
                             git fetch --depth=1 origin "refs/tags/v${params.PREVIOUS_VERSION}:refs/tags/v${params.PREVIOUS_VERSION}"
-                            crdify 'git://v${params.PREVIOUS_VERSION}?path=deploy/crd.yaml' 'git://${env.RELEASE_BRANCH}?path=deploy/crd.yaml' > ../crd_diff.txt
+                            crdify 'git://v${params.PREVIOUS_VERSION}?path=deploy/crd.yaml' 'git://${env.RELEASE_BRANCH}?path=deploy/crd.yaml' > crd_diff.txt
                         """
                     }
                     archiveArtifacts artifacts: 'crd_diff.txt', allowEmptyArchive: false, fingerprint: true
@@ -209,6 +216,7 @@ pipeline {
                                 fi
                                 git checkout -b ${updateBranch}
 
+                                rm -f crd_diff.txt
                                 git add .
                                 if ! git diff --cached --exit-code; then
                                     git commit -m "Update images for ${params.VERSION} release"
