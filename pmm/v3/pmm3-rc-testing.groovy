@@ -19,11 +19,12 @@ def slackRcReply(String message) {
 
 def triggerJenkinsRc(String shortName, String jobName, List jobParams) {
     try {
-        build job: jobName, wait: false, propagate: false, parameters: jobParams
-        def url = "${env.JENKINS_URL}job/${jobName}/"
-        slackRcReply("*${shortName}*: ${url}")
+        def run = build job: jobName, wait: true, propagate: false, parameters: jobParams
+        slackRcReply("*${shortName}*: ${run.absoluteUrl}")
+        return run.result
     } catch (err) {
         slackRcReply("*${shortName}* (failed to queue): ${err.getMessage()}")
+        return 'FAILED_TO_TRIGGER'
     }
 }
 
@@ -35,7 +36,7 @@ pipeline {
     }
     options {
         disableConcurrentBuilds()
-        timeout(time: 30, unit: 'MINUTES')
+        timeout(time: 48, unit: 'HOURS')
         buildDiscarder(logRotator(numToKeepStr: '10'))
     }
     parameters {
@@ -108,7 +109,7 @@ pipeline {
 |
 |Each triggered job will appear below with a link.""".stripMargin()
                     def slackResponse = slackSend botUser: true, channel: RC_SLACK_CHANNEL, message: intro
-                    env.SLACK_RC_THREAD = slackResponse?.threadId?.toString() ?: ''
+                    env.SLACK_RC_THREAD = slackResponse.threadId
                 }
             }
         }
@@ -413,10 +414,9 @@ pipeline {
                                         pmm_client_tarball_ol8 : params.PMM_CLIENT_TARBALL_OL8.trim(),
                                         pmm_client_tarball_ol9 : params.PMM_CLIENT_TARBALL_OL9.trim(),
                                         pmm_qa_branch          : 'main',
-                                        pxc_version            : 'https://github.com/Percona-QA/package-testing/blob/master/VERSIONS',
+                                        pxc_version            : '8.0',
                                         pxc_glibc              : '2.35',
                                         pdpgsql_version        : '17',
-                                        pmm_ui_tests_branch    : 'v3',
                                     ],
                                 ]).toString()
                                 writeFile file: 'rc-suite-dispatch.json', text: payload
@@ -447,6 +447,7 @@ pipeline {
                     slackRcReply("""*RC orchestrator finished* — all triggers were attempted.
 |Check each link above for status.
 |Orchestrator build: ${env.BUILD_URL}""".stripMargin())
+                    slackSend botUser: true, channel: RC_SLACK_CHANNEL, message: "*RC testing finished* (`${params.RC_VERSION.trim()}`)\nResults: ${env.BUILD_URL}"
                 }
             }
         }
