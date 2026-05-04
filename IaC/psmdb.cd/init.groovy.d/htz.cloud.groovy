@@ -30,7 +30,7 @@ execMap['launcher-x64-hel1']  = 30
 execMap['launcher-x64-fsn1']  = 30
 
 bootDeadlineMap =[:]
-bootDeadlineMap['default']            = 3
+bootDeadlineMap['default']            = 8
 bootDeadlineMap['deb12-x64-nbg1']     = bootDeadlineMap['default']
 bootDeadlineMap['deb12-x64-hel1']     = bootDeadlineMap['default']
 bootDeadlineMap['deb12-x64-fsn1']     = bootDeadlineMap['default']
