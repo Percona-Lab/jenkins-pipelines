@@ -87,6 +87,14 @@ initMap['deb-docker'] = '''#!/bin/bash -x
     sudo mkswap /swapfile
     sudo swapon /swapfile
 
+    # Pin apt to deb.debian.org (avoid Hetzner mirror lottery, see PKG-1323/PKG-1324)
+    sudo tee /etc/apt/sources.list > /dev/null <<'APT_EOF'
+deb http://deb.debian.org/debian bookworm main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian bookworm-updates main contrib non-free non-free-firmware
+deb http://deb.debian.org/debian bookworm-backports main contrib non-free non-free-firmware
+deb http://security.debian.org/debian-security bookworm-security main contrib non-free non-free-firmware
+APT_EOF
+
     export DEBIAN_FRONTEND=noninteractive
     until sudo apt-get update; do
         sleep 1
