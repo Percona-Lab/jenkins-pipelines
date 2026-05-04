@@ -195,8 +195,10 @@ parameters {
                             else
                                 Dockerfile="Dockerfile-mysqlsh-upstream"
                             fi
+
                             PS_RELEASE=$(echo ${BRANCH} | sed 's/release-//g')
                             PS_MAJOR_RELEASE=$(echo ${BRANCH} | sed "s/release-//g" | sed "s/\\.//g" | awk '{print substr($0, 0, 2)}')
+
                             if [ ${PS_MAJOR_RELEASE} != "80" ]; then
                                 MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
                                 MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 6)}' | sed 's/-//g')
@@ -204,6 +206,7 @@ parameters {
                                 MYSQL_SHELL_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
                                 MYSQL_ROUTER_RELEASE=$(echo ${BRANCH} | sed 's/release-//g' | awk '{print substr($0, 0, 7)}' | sed 's/-//g')
                             fi
+
                             sudo apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common
                             sudo apt-get -y install apparmor
                             sudo aa-status
@@ -223,37 +226,23 @@ parameters {
                             git clone ${REPO_DOCKER}
                             cd percona-docker
                             git checkout ${REPO_DOCKER_BRANCH}
-                            if [ ${PS_MAJOR_RELEASE} = "80" ]; then
-                                cd percona-server-8.0
-                            else
-                                cd percona-server-8.4
-                            fi
+
+                            case ${PS_MAJOR_RELEASE} in
+                                80) cd percona-server-8.0 ;;
+                                84) cd percona-server-8.4 ;;
+                                9*) cd percona-server-9.x ;;
+                            esac
+
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" ${Dockerfile}
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" ${Dockerfile}
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" ${Dockerfile}
                             sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" ${Dockerfile}
-                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                                if [ ${PS_MAJOR_RELEASE} = "84" ]; then
-                                    sed -i "s/percona-release enable ps-80/percona-release enable ps-84-lts/g" ${Dockerfile}
-                                else
-                                    sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" ${Dockerfile}
-                                fi
-                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"testing\";percona-release enable mysql-shell/g" ${Dockerfile}
-                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"testing\";percona-release enable mysql-shell/g" ${Dockerfile}.aarch64
-                            fi
                             sed -i "s/ENV PS_VERSION.*/ENV PS_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" ${Dockerfile}.aarch64
                             sed -i "s/ENV PS_TELEMETRY_VERSION.*/ENV PS_TELEMETRY_VERSION ${PS_RELEASE}-${RPM_RELEASE}/g" ${Dockerfile}.aarch64
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" ${Dockerfile}.aarch64
                             sed -i "s/ENV PS_REPO .*/ENV PS_REPO testing/g" ${Dockerfile}.aarch64
-                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                                if [ ${PS_MAJOR_RELEASE} = "84" ]; then
-                                    sed -i "s/percona-release enable ps-80/percona-release enable ps-84-lts/g" ${Dockerfile}.aarch64
-                                else
-                                    sed -i "s/percona-release enable ps-80/percona-release enable ps-8x-innovation/g" ${Dockerfile}.aarch64
-                                fi
-                                sed -i "s/percona-release enable mysql-shell/PS_REPO=\"testing\";percona-release enable mysql-shell/g" ${Dockerfile}.aarch64
-                            fi
                             sudo docker --version
+
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker builder prune -af
                                 sudo docker build --provenance=false -t perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64 --progress plain --platform="linux/amd64" -f ${Dockerfile} .
@@ -264,16 +253,16 @@ parameters {
                                 sudo docker pull perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64
                                 sudo docker tag perconalab/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64 percona/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64
                             fi
+
                             cd ../mysql-router
                             sed -i "s/ENV ROUTE_VERSION.*/ENV ROUTE_VERSION ${PS_RELEASE}.${RPM_RELEASE}/g" Dockerfile
                             sed -i "s/ENV MYSQL_SHELL_VERSION.*/ENV MYSQL_SHELL_VERSION ${MYSQL_SHELL_RELEASE}-${RPM_RELEASE}/g" Dockerfile
-                            if [ ${PS_MAJOR_RELEASE} != "80" ]; then
-                                if [ ${PS_MAJOR_RELEASE} = "84" ]; then
-                                    sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-84-lts testing/g" Dockerfile
-                                else
-                                    sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-8x-innovation testing/g" Dockerfile
-                                fi
-                            fi
+
+                            case ${PS_MAJOR_RELEASE} in
+                                84) sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-84-lts testing/g" Dockerfile ;;
+                                9*) sed -i "s/percona-release enable ps-80 testing/percona-release enable ps-9x-innovation testing/g" Dockerfile ;;
+                            esac
+
                             if [ ${ORGANIZATION} != "percona" ]; then
                                 sudo docker build --provenance=false -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64 --platform="linux/amd64" .
                                 sudo docker build --provenance=false -t perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64 --platform="linux/arm64" .
@@ -285,6 +274,7 @@ parameters {
                                 sudo docker tag perconalab/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64 percona/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64
                                 sudo docker tag percona/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64 percona/percona-mysql-router:${MYSQL_ROUTER_RELEASE}
                             fi
+
                             sudo docker images
                         '''
                         withCredentials([
