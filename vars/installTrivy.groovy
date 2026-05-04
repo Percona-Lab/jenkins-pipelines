@@ -10,9 +10,9 @@
 //   installTrivy(method: 'binary', junitTpl: true)   // also download junit.tpl
 
 def call(Map args = [:]) {
-    def TRIVY_VERSION    = "0.69.3"
-    def CHECKSUM_AMD64   = "1816b632dfe529869c740c0913e36bd1629cb7688bd5634f4a858c1d57c88b75"
-    def CHECKSUM_ARM64   = "7e3924a974e912e57b4a99f65ece7931f8079584dae12eb7845024f97087bdfd"
+    def TRIVY_VERSION    = "0.70.0"
+    def CHECKSUM_AMD64   = "8b4376d5d6befe5c24d503f10ff136d9e0c49f9127a4279fd110b727929a5aa9"
+    def CHECKSUM_ARM64   = "2f6bb988b553a1bbac6bdd1ce890f5e412439564e17522b88a4541b4f364fc8d"
 
     def method    = args.get('method', 'auto')
     def junitTpl  = args.get('junitTpl', false)
