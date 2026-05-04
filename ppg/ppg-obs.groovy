@@ -68,7 +68,8 @@ pipeline {
             steps {
                 script {
                     platformsList = params.PLATFORMS
-                        .split('\n')*.trim()
+                        .split('\n')
+                        .collect { it.trim() }
                         .findAll { it }
                     if (platformsList.isEmpty()) {
                         error('PLATFORMS parameter is empty — provide at least one OS name.')
