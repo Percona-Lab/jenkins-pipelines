@@ -4,6 +4,7 @@ library changelog: false, identifier: "lib@obs", retriever: modernSCM([
 ])
 
 def platformsList = []
+def defaultPlatforms = ppgOperatingSystemsALL().join('\n')
 
 pipeline {
     agent {
@@ -14,7 +15,7 @@ pipeline {
         text(
             name: 'PLATFORMS',
             description: 'Platforms (OSes) to test, one per line. Defaults to the full ppgOperatingSystemsALL() list — trim to target a subset.',
-            defaultValue: ppgOperatingSystemsALL().join('\n')
+            defaultValue: defaultPlatforms
         )
         string(
             name: 'REPO',
