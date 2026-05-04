@@ -3,16 +3,18 @@ library changelog: false, identifier: "lib@obs", retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ])
 
+def platformsList = []
+
 pipeline {
     agent {
         label 'min-ol-9-x64'
     }
 
     parameters {
-        choice(
-            name: 'PLATFORM',
-            description: 'For what platform (OS) need to test',
-            choices: ppgOperatingSystemsALL()
+        text(
+            name: 'PLATFORMS',
+            description: 'Platforms (OSes) to test, one per line. Defaults to the full ppgOperatingSystemsALL() list — trim to target a subset.',
+            defaultValue: ppgOperatingSystemsALL().join('\n')
         )
         string(
             name: 'REPO',
@@ -61,10 +63,23 @@ pipeline {
         withCredentials(moleculeDistributionJenkinsCreds())
     }
     stages {
+        stage('Set platforms') {
+            steps {
+                script {
+                    platformsList = params.PLATFORMS
+                        .split('\n')*.trim()
+                        .findAll { it }
+                    if (platformsList.isEmpty()) {
+                        error('PLATFORMS parameter is empty — provide at least one OS name.')
+                    }
+                    echo "Targeting ${platformsList.size()} platform(s): ${platformsList.join(', ')}"
+                }
+            }
+        }
         stage('Set build name') {
             steps {
                 script {
-                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${env.PLATFORM}"
+                    currentBuild.displayName = "${env.BUILD_NUMBER}-${env.SCENARIO}-${platformsList.size()}os"
                 }
             }
         }
@@ -81,31 +96,10 @@ pipeline {
                 }
             }
         }
-        stage('Create virtual machines') {
+        stage('Test') {
             steps {
                 script {
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "create", env.PLATFORM)
-                }
-            }
-        }
-        stage('Run playbook for test') {
-            steps {
-                script {
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "converge", env.PLATFORM)
-                }
-            }
-        }
-        stage('Start testinfra tests') {
-            steps {
-                script {
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "verify", env.PLATFORM)
-                }
-            }
-        }
-        stage('Start Cleanup ') {
-            steps {
-                script {
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "cleanup", env.PLATFORM)
+                    moleculeParallelTestPPG(platformsList, env.MOLECULE_DIR)
                 }
             }
         }
@@ -114,8 +108,8 @@ pipeline {
         always {
             script {
                 if (params.DESTROY_ENV) {
-                    echo "DESTROY_ENV is true. Cleaning up resources..."
-                    moleculeExecuteActionWithScenarioPPG(env.MOLECULE_DIR, "destroy", env.PLATFORM)
+                    echo "DESTROY_ENV is true. Cleaning up ${platformsList.size()} platform(s) in parallel..."
+                    moleculeParallelPostDestroyPPG(platformsList, env.MOLECULE_DIR)
                 } else {
                     echo "DESTROY_ENV is false. Leaving VMs active for debugging."
                 }
