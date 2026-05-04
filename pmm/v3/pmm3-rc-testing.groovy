@@ -18,14 +18,15 @@ def slackRcReply(String message) {
 }
 
 def triggerJenkinsRc(String shortName, String jobName, List jobParams) {
+    def run
     try {
-        def run = build job: jobName, wait: true, propagate: false, parameters: jobParams
-        slackRcReply("*${shortName}*: ${run.absoluteUrl}")
-        return run.result
+        run = build job: jobName, wait: false, propagate: false, parameters: jobParams
     } catch (err) {
         slackRcReply("*${shortName}* (failed to queue): ${err.getMessage()}")
-        return 'FAILED_TO_TRIGGER'
+        throw err
     }
+    slackRcReply("*${shortName}*: ${run.absoluteUrl}")
+    waitForBuild runId: run.externalizableId, propagate: true
 }
 
 // ---------- pipeline ---------------------------------------------------------
@@ -440,20 +441,16 @@ pipeline {
                 }
             }
         }
-
-        stage('Orchestrator wrap-up') {
-            steps {
-                script {
-                    slackRcReply("""*RC orchestrator finished* — all triggers were attempted.
-|Check each link above for status.
-|Orchestrator build: ${env.BUILD_URL}""".stripMargin())
-                    slackSend botUser: true, channel: RC_SLACK_CHANNEL, message: "*RC testing finished* (`${params.RC_VERSION.trim()}`)\nResults: ${env.BUILD_URL}"
-                }
-            }
-        }
     }
     post {
         always {
+            script {
+                slackRcReply("""*RC orchestrator finished* — all triggers were attempted.
+|Check each link above for status.
+|Orchestrator build: ${env.BUILD_URL}""".stripMargin())
+                slackSend botUser: true, channel: RC_SLACK_CHANNEL, message: "*RC testing finished* (`${params.RC_VERSION.trim()}`)\nResults: ${env.BUILD_URL}"
+                currentBuild.result = 'SUCCESS'
+            }
             deleteDir()
         }
     }
