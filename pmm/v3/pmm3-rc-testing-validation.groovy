@@ -20,6 +20,7 @@ pipeline {
                 expression { params.ROLE == 'child-pass' }
             }
             steps {
+                echo "Child job completed successfully."
             }
         }
         stage('[Child] Fail intentionally') {
