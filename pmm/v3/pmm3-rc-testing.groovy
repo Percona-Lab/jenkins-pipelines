@@ -317,7 +317,7 @@ pipeline {
                     steps {
                         script {
                             triggerJenkinsRc('pmm3-package-testing-matrix', 'pmm3-package-testing-matrix', [
-                                string(name: 'GIT_BRANCH',      value: 'master'),
+                                string(name: 'GIT_BRANCH',      value: 'main'),
                                 string(name: 'GIT_COMMIT_HASH', value: ''),
                                 string(name: 'DOCKER_VERSION',  value: env.PMM_SERVER_IMAGE),
                                 string(name: 'PMM_VERSION',     value: params.RC_VERSION.trim()),
@@ -332,7 +332,7 @@ pipeline {
                     steps {
                         script {
                             triggerJenkinsRc('pmm3-package-testing-arm-matrix', 'pmm3-package-testing-arm-matrix', [
-                                string(name: 'GIT_BRANCH',      value: 'master'),
+                                string(name: 'GIT_BRANCH',      value: 'main'),
                                 string(name: 'GIT_COMMIT_HASH', value: ''),
                                 string(name: 'DOCKER_VERSION',  value: env.PMM_SERVER_IMAGE),
                                 string(name: 'PMM_VERSION',     value: params.RC_VERSION.trim()),
