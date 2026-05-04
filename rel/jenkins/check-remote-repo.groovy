@@ -14,13 +14,15 @@ void sendMessage(String REPO_NAME, String REPO_URL) {
 }
 void checkRepo(String REPO_NAME, String REPO_URL) {
     popArtifactFile("${REPO_NAME}.last")
+    // Changes to include multi-component tag names with slashes (e.g. pgbackrest's release/2.58.0)
     sh """
-        if [ -n ${REPO_NAME}.last ]; then
-            git ls-remote --tags --refs ${REPO_URL} | awk -F'/' '{print \$3}' | sort | uniq > ${REPO_NAME}.current
+        if [ -s ${REPO_NAME}.last ]; then
+            git ls-remote --tags --refs ${REPO_URL} | sed 's|.*refs/tags/||' | sort -u > ${REPO_NAME}.current
             cat ${REPO_NAME}.last ${REPO_NAME}.current | sort | uniq -u | awk '{print "$REPO_URL/tree/"\$1}' > ${REPO_NAME}.newtags
             mv -fv ${REPO_NAME}.current ${REPO_NAME}.last
         else
-            git ls-remote --tags --refs ${REPO_URL} | awk -F'/' '{print \$3}' | sort | uniq > ${REPO_NAME}.last
+            git ls-remote --tags --refs ${REPO_URL} | sed 's|.*refs/tags/||' | sort -u > ${REPO_NAME}.last
+            : > ${REPO_NAME}.newtags
         fi
         
     """
@@ -69,13 +71,32 @@ ReposPathMap = [
     'PgAudit':              "${GitHubURL}/pgaudit/pgaudit",
     'PgAudit-Set-User':     "${GitHubURL}/pgaudit/set_user",
     'PgBackrest':           "${GitHubURL}/pgbackrest/pgbackrest",
+    'PgGather':             "${GitHubURL}/jobinau/pg_gather",
     'PgRepack':             "${GitHubURL}/reorg/pg_repack",
     'PgBadger':             "${GitHubURL}/darold/pgbadger",
     'PgBouncer':            "${GitHubURL}/pgbouncer/pgbouncer",
     'Wal2Json':             "${GitHubURL}/eulerto/wal2json",
     'Valkey':               "${GitHubURL}/valkey-io/valkey",
+    'PgPool':               "${GitHubURL}/pgpool/pgpool2",
+    'PgTDE':                "${GitHubURL}/percona/pg_tde",
+    'PostGIS':              "${GitHubURL}/postgis/postgis",
+    'PgStatMonitor':        "${GitHubURL}/percona/pg_stat_monitor",
+    'PgVector':             "${GitHubURL}/pgvector/pgvector",
+    'TimescaleDB':          "${GitHubURL}/timescale/timescaledb",
+    'PgVectorScale':        "${GitHubURL}/timescale/pgvectorscale",
+    'PgAnonymizer':         "https://gitlab.com/dalibo/postgresql_anonymizer",
+    'PgCron':               "${GitHubURL}/citusdata/pg_cron",
+    'PgPartman':            "${GitHubURL}/pgpartman/pg_partman",
+    'H3-Pg':                "${GitHubURL}/postgis/h3-pg",
+    'PgSimilarity':         "${GitHubURL}/eulerto/pg_similarity",
+    'PgRouting':            "${GitHubURL}/pgRouting/pgrouting",
+    'Rum':                  "${GitHubURL}/postgrespro/rum",
+    'HLL':                  "${GitHubURL}/citusdata/postgresql-hll",
+    'Unit':                 "${GitHubURL}/df7cb/postgresql-unit",
+    'IP4R':                 "${GitHubURL}/RhodiumToad/ip4r",
     'PostgreSQL-Common':    "https://salsa.debian.org/postgresql/postgresql-common",
-    'PostgreSQL':           "git://git.postgresql.org/git/postgresql"
+    'PostgreSQL':           "${GitHubURL}/postgres/postgres",
+    'PostgreSQL-Percona':   "${GitHubURL}/percona/postgres"
     ]
 
 ReposSlackMap = [
@@ -104,12 +125,31 @@ ReposSlackMap = [
     'PgAudit':              "#postgresql-build",
     'PgAudit-Set-User':     "#postgresql-build",
     'PgBackrest':           "#postgresql-build",
+    'PgGather':             "#postgresql-build",
     'PgRepack':             "#postgresql-build",
     'PgBadger':             "#postgresql-build",
     'PgBouncer':            "#postgresql-build",
     'Wal2Json':             "#postgresql-build",
+    'PgPool':               "#postgresql-build",
+    'PgTDE':                "#postgresql-build",
+    'PostGIS':              "#postgresql-build",
+    'PgStatMonitor':        "#postgresql-build",
+    'PgVector':             "#postgresql-build",
+    'TimescaleDB':          "#postgresql-build",
+    'PgVectorScale':        "#postgresql-build",
+    'PgAnonymizer':         "#postgresql-build",
+    'PgCron':               "#postgresql-build",
+    'PgPartman':            "#postgresql-build",
+    'H3-Pg':                "#postgresql-build",
+    'PgSimilarity':         "#postgresql-build",
+    'PgRouting':            "#postgresql-build",
+    'Rum':                  "#postgresql-build",
+    'HLL':                  "#postgresql-build",
+    'Unit':                 "#postgresql-build",
+    'IP4R':                 "#postgresql-build",
     'PostgreSQL-Common':    "#postgresql-build",
     'PostgreSQL':           "#postgresql-build",
+    'PostgreSQL-Percona':   "#postgresql-build",
     'Valkey':               "#valkey"
     ]
 

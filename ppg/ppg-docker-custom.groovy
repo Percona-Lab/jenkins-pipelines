@@ -9,11 +9,13 @@ pipeline {
     }
     environment {
         PATH = '/usr/local/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/home/ec2-user/.local/bin'
+        IMAGE_VER = "${params.PPG_VERSION.tokenize('-')[0]}-${params.BUILD_NUMBER}"
     }
     parameters {
         choice(name: 'CLOUD', choices: [ 'Hetzner','AWS' ], description: 'Cloud infra for build')
         choice(name: 'PPG_REPO', choices: ['testing','release','experimental'], description: 'Percona-release repo')
         string(name: 'PPG_VERSION', defaultValue: '16.13-1', description: 'PPG version')
+        string(name: 'BUILD_NUMBER', defaultValue: '1', description: 'Image Build Number')
         choice(name: 'TARGET_REPO', choices: ['PerconaLab'], description: 'Target repo for docker custom image, use PerconaLab only')
         choice(name: 'LATEST', choices: ['no','yes'], description: 'Tag image as latest')
     }
@@ -24,7 +26,7 @@ pipeline {
         stage('Set build name'){
             steps {
                 script {
-                    currentBuild.displayName = "${params.PPG_REPO}-${params.PPG_VERSION}-extras"
+                    currentBuild.displayName = "${params.PPG_REPO}-${env.IMAGE_VER}"
                 }
             }
         }
@@ -52,7 +54,7 @@ pipeline {
                     sed -E "s/ENV PPG_MAJOR_VERSION (.+)/ENV PPG_MAJOR_VERSION \$MAJ_VER/" -i Dockerfile-postgis
                     sed -E "s/ENV PPG_MINOR_VERSION (.+)/ENV PPG_MINOR_VERSION \$MIN_VER/" -i Dockerfile-postgis
                     export DOCKER_BUILDKIT=1
-                    docker build --platform=linux/amd64 --no-cache --provenance=false -t percona-distribution-postgresql-custom:\$MAJ_VER-v3 -f Dockerfile-postgis .
+                    docker build --platform=linux/amd64 --no-cache --provenance=false -t percona-distribution-postgresql-custom:${env.IMAGE_VER} -f Dockerfile-postgis .
                     """
             }
         }
@@ -64,10 +66,10 @@ pipeline {
                     MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
                     if [ ${params.PPG_REPO} = "release" ]; then
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-distribution-postgresql-custom:\$MAJ_VER-v3
+                                         --timeout 10m0s --ignore-unfixed --exit-code 1 --severity HIGH,CRITICAL percona-distribution-postgresql-custom:${env.IMAGE_VER}
                     else
                         /usr/local/bin/trivy -q image --format template --template @junit.tpl  -o trivy-hight-junit.xml \
-                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-distribution-postgresql-custom:\$MAJ_VER-v3
+                                         --timeout 10m0s --ignore-unfixed --exit-code 0 --severity HIGH,CRITICAL percona-distribution-postgresql-custom:${env.IMAGE_VER}
                     fi
                """
             }
@@ -87,14 +89,14 @@ pipeline {
                          docker login -u '${USER}' -p '${PASS}'
                          MAJ_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f1 -d'.')
                          MIN_VER=\$(echo ${params.PPG_VERSION} | cut -f1 -d'-' | cut -f2 -d'.')
-                         docker tag percona-distribution-postgresql-custom:\$MAJ_VER-v3 perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v3-amd64
-                         docker push perconalab/percona-distribution-postgresql-custom:${params.PPG_VERSION}-v3-amd64
-                         docker tag percona-distribution-postgresql-custom:\$MAJ_VER-v3 perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3-amd64
-                         docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-v3-amd64
-                         docker tag percona-distribution-postgresql-custom:\$MAJ_VER-v3 perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-amd64
-                         docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-v3-amd64
+                         docker tag percona-distribution-postgresql-custom:${env.IMAGE_VER} perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-amd64
+                         docker push perconalab/percona-distribution-postgresql-custom:${env.IMAGE_VER}-amd64
+                         docker tag percona-distribution-postgresql-custom:${env.IMAGE_VER} perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-amd64
+                         docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER.\$MIN_VER-amd64
+                         docker tag percona-distribution-postgresql-custom:${env.IMAGE_VER} perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-amd64
+                         docker push perconalab/percona-distribution-postgresql-custom:\$MAJ_VER-amd64
                          if [ ${params.LATEST} = "yes" ]; then
-                            docker tag percona-distribution-postgresql-custom:\$MAJ_VER-v3 perconalab/percona-distribution-postgresql-custom:latest
+                            docker tag percona-distribution-postgresql-custom:${env.IMAGE_VER} perconalab/percona-distribution-postgresql-custom:latest
                             docker push perconalab/percona-distribution-postgresql-custom:latest
                          fi
                      """
@@ -111,13 +113,13 @@ pipeline {
             deleteDir()
         }
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of PPG ${PPG_VERSION} repo ${PPG_REPO} succeed")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER} repo ${PPG_REPO} succeed")
         }
         unstable {
-            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of PPG ${PPG_VERSION} repo ${PPG_REPO} unstable - [${BUILD_URL}testReport/]")
+            slackNotify("#releases-ci", "#F6F930", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER} repo ${PPG_REPO} unstable - [${BUILD_URL}testReport/]")
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of PPG ${PPG_VERSION} repo ${PPG_REPO} failed - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: Building of PPG ${env.IMAGE_VER} repo ${PPG_REPO} failed - [${BUILD_URL}]")
         }
     }
 }

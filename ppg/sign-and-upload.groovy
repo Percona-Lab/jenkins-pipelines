@@ -32,6 +32,10 @@ pipeline {
             defaultValue: 'ppg-17.6',
             description: 'PPG repo name',
             name: 'PPG_REPO')
+        string(
+            defaultValue: 'percona/postgres-packaging',
+            description: 'packaging repo name',
+            name: 'PACKAGING_REPO')
         choice(
             choices: 'laboratory\ntesting\nexperimental',
             description: 'Repo component to push packages to',
@@ -45,7 +49,7 @@ pipeline {
     stages {
         stage('Download artifact') {
             steps {
-                withCredentials([string(credentialsId: 'github_token', variable: 'TOKEN')]) {
+                withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'TOKEN')]) {
                     sh '''
                     echo "Install jq"
                     if ! command -v jq > /dev/null; then
@@ -55,20 +59,29 @@ pipeline {
                     echo "Searching release: $RELEASE_NAME"
                     RELEASE_ID=$(curl -s \
                         -H "Authorization: Bearer $TOKEN" \
-                        https://api.github.com/repos/percona/postgres-packaging/releases?per_page=100 \
-                        | jq ".[] | select(.name==\\"$RELEASE_NAME\\") | .id")
+                        https://api.github.com/repos/$PACKAGING_REPO/releases?per_page=100 \
+                        | jq --arg name "$RELEASE_NAME" '.[] | select(.name==$name) | .id')
+
+                    if [ -z "$RELEASE_ID" ] || [ "$RELEASE_ID" = "null" ]; then
+                        echo "Release not found: $RELEASE_NAME"
+                        exit 1
+                    fi
                     
                     ASSET_ID=$(curl -s \
                         -H "Authorization: Bearer $TOKEN" \
-                        https://api.github.com/repos/percona/postgres-packaging/releases/$RELEASE_ID \
-                        | jq '.assets[0].id')
-                    
+                        https://api.github.com/repos/$PACKAGING_REPO/releases/$RELEASE_ID \
+                        | jq '.assets[] | select(.name | endswith(".tar.gz")) | .id')
 
+                    if [ -z "$ASSET_ID" ] || [ "$ASSET_ID" = "null" ]; then
+                        echo "Asset not found in release"
+                        exit 1
+                    fi
+                    
                     echo "Downloading artifact $RELEASE_NAME..."
                     curl -L \
                         -H "Accept: application/octet-stream" \
                         -H "Authorization: Bearer $TOKEN" \
-                        https://api.github.com/repos/percona/postgres-packaging/releases/assets/$ASSET_ID \
+                        https://api.github.com/repos/$PACKAGING_REPO/releases/assets/$ASSET_ID \
                         -o github-artifact.tar.gz
                     '''
                 }
@@ -97,7 +110,7 @@ pipeline {
                 
                     uploadTarballfromAWS(params.CLOUD, "source_tarball/", AWS_STASH_PATH, 'source')
                     uploadRPMfromAWS(params.CLOUD, "srpm/", AWS_STASH_PATH)
-                    uploadDEBfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
+                    uploadSourceDebfromAWS(params.CLOUD, "source_deb/", AWS_STASH_PATH)
                 
                     uploadRPMfromAWS(params.CLOUD, "rpm/", AWS_STASH_PATH)
                     uploadDEBfromAWS(params.CLOUD, "deb/", AWS_STASH_PATH)
@@ -121,21 +134,21 @@ pipeline {
         stage('Push to public repository') {
             steps {
                 // sync packages
-                sync2ProdAutoBuild(params.CLOUD, PPG_REPO, COMPONENT)
+                sync2ProdAutoBuildPG(params.CLOUD, PPG_REPO, COMPONENT)
             }
         }
 
     }
     post {
         success {
-            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${RELEASE_NAME} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#00FF00", "[${JOB_NAME}]: build has been finished successfully for ${RELEASE_NAME} (${PPG_REPO}) - [${BUILD_URL}]")
             script {
-                currentBuild.description = "Built for ${RELEASE_NAME}"
+                currentBuild.description = "Built for ${RELEASE_NAME} (${PPG_REPO})"
             }
             deleteDir()
         }
         failure {
-            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${RELEASE_NAME} - [${BUILD_URL}]")
+            slackNotify("#releases-ci", "#FF0000", "[${JOB_NAME}]: build failed for ${RELEASE_NAME} (${PPG_REPO}) - [${BUILD_URL}]")
             deleteDir()
         }
         always {
