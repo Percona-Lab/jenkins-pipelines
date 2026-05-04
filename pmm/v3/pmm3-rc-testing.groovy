@@ -18,15 +18,11 @@ def slackRcReply(String message) {
 }
 
 def triggerJenkinsRc(String shortName, String jobName, List jobParams) {
-    def run
-    try {
-        run = build job: jobName, wait: false, propagate: false, parameters: jobParams
-    } catch (err) {
-        slackRcReply("*${shortName}* (failed to queue): ${err.getMessage()}")
-        throw err
-    }
+    def run = build job: jobName, wait: true, propagate: false, parameters: jobParams
     slackRcReply("*${shortName}*: ${run.absoluteUrl}")
-    waitForBuild runId: run.externalizableId, propagate: true
+    if (run.result != 'SUCCESS') {
+        error("${shortName} finished with: ${run.result}")
+    } 
 }
 
 // ---------- pipeline ---------------------------------------------------------
