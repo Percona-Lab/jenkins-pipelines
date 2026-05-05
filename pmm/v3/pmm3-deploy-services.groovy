@@ -264,13 +264,6 @@ pipeline {
           }
         }
 
-        stage('psmdb-pss-inmemory') {
-          when { expression { return params.DEPLOY_MONGO_GROUP.toBoolean() } }
-          steps {
-            runClientWithRetry('--database psmdb,SETUP_TYPE=pss,STORAGE_ENGINE=inMemory', 'psmdb-pss-inmemory')
-          }
-        }
-
         stage('pgsql-stack') {
           when { expression { return params.DEPLOY_POSTGRES_GROUP.toBoolean() } }
           steps {
