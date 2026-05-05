@@ -190,7 +190,6 @@ pipeline {
                     docker run --detach --restart always \
                         --network="pmm-qa" \
                         -e PMM_DEBUG=1 \
-                        -e PMM_ENABLE_TELEMETRY=0 \
                         -e PMM_DEV_PERCONA_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
                         -e PERCONA_TEST_PLATFORM_ADDRESS=https://check-dev.percona.com:443 \
                         -e PMM_DEV_PORTAL_URL=https://portal-dev.percona.com \
@@ -333,7 +332,6 @@ pipeline {
                         docker run --detach --restart always \
                             --network="pmm-qa" \
                             -e PMM_DEBUG=1 \
-                            -e PMM_ENABLE_TELEMETRY=0 \
                             --publish 80:8080 --publish 443:8443 \
                             --volumes-from pmm-server-old \
                             --name pmm-server \
