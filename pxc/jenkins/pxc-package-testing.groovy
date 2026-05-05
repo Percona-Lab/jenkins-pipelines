@@ -1,6 +1,6 @@
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@pxc-tarball-link-fix', retriever: modernSCM([
     $class: 'GitSCMSource',
-    remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
+    remote: 'https://github.com/kaushikpuneet07/jenkins-pipelines.git'
 ]) _
 
 import groovy.transform.Field
@@ -807,7 +807,13 @@ properties([
                                         'rhel-9',
                                         'rhel-9-arm',
                                         'rhel-10',
-                                        'rhel-10-arm'
+                                        'rhel-10-arm',
+                                        'rocky-linux-8',
+                                        'rocky-linux-8-arm',
+                                        'rocky-linux-9',
+                                        'rocky-linux-9-arm',
+                                        'amazon-linux-2023',
+                                        'amazon-linux-2023-arm'
                         ]
 
                         def pxc57_nodes = [
