@@ -123,12 +123,12 @@ pipeline {
     string(
       name: 'PXB_RHEL_GCLIBC_VERSION',
       defaultValue: '2.39',
-      description: 'PS full version'
+      description: 'PXB glibc version for RHEL'
     )
     string(
       name: 'PXB_DEBIAN_GCLIBC_VERSION',
       defaultValue: '2.36',
-      description: 'PS full version'
+      description: 'PXB glibc version for Debian'
     )
     string(
       name: 'PS_VERSION',
@@ -138,12 +138,12 @@ pipeline {
     string(
       name: 'PS_RHEL_GCLIBC_VERSION',
       defaultValue: '2.35',
-      description: 'PS full version'
+      description: 'PS glibc version for RHEL'
     )
     string(
       name: 'PS_DEBIAN_GCLIBC_VERSION',
       defaultValue: '2.35',
-      description: 'PS full version'
+      description: 'PS glibc version for Debian'
     )
     string(
       defaultValue: 'master',
