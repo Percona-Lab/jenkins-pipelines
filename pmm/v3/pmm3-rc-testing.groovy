@@ -9,7 +9,7 @@ import groovy.json.JsonBuilder
 
 final String RC_SLACK_CHANNEL = '#qa-automation'
 
-def slackRcReply(String message) {
+def slackRcMessage(String message) {
     if (!env.SLACK_RC_THREAD?.trim()) {
         echo '[slack] No thread ID — skipping Slack notification.'
         return
@@ -19,7 +19,7 @@ def slackRcReply(String message) {
 
 def triggerJenkinsRc(String shortName, String jobName, List jobParams) {
     def run = build job: jobName, wait: true, propagate: false, parameters: jobParams
-    slackRcReply("*${shortName}*: ${run.absoluteUrl}")
+    slackRcMessage("*${shortName}*: ${run.absoluteUrl}")
     if (run.result != 'SUCCESS') {
         error("${shortName} finished with: ${run.result}")
     } 
@@ -428,9 +428,9 @@ pipeline {
                                             --data @rc-suite-dispatch.json
                                     """
                                 }
-                                slackRcReply("*Github Release Testing Suite*: https://github.com/percona/pmm-qa/actions/workflows/rc-testing-suite.yml")
+                                slackRcMessage("*Github Release Testing Suite*: https://github.com/percona/pmm-qa/actions/workflows/rc-testing-suite.yml")
                             } catch (err) {
-                                slackRcReply("*Github Release Testing Suite* (dispatch failed): ${err.getMessage()}")
+                                slackRcMessage("*Github Release Testing Suite* (dispatch failed): ${err.getMessage()}")
                             }
                         }
                     }
@@ -441,7 +441,7 @@ pipeline {
     post {
         always {
             script {
-                slackRcReply("""*RC orchestrator finished* — all triggers were attempted.
+                slackRcMessage("""*RC orchestrator finished* — all triggers were attempted.
 |Check each link above for status.
 |Orchestrator build: ${env.BUILD_URL}""".stripMargin())
                 slackSend botUser: true, channel: RC_SLACK_CHANNEL, message: "*RC testing finished* (`${params.RC_VERSION.trim()}`)\nResults: ${env.BUILD_URL}"
