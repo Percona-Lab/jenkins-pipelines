@@ -113,7 +113,7 @@ pipeline {
 
         stage('Trigger RC suites') {
             parallel {
-                stage('Lane 1 — Nightly AMI + compat') {
+                stage('Lane 1') {
                     stages {
                         stage('nightly (AMI)') {
                             steps {
@@ -290,7 +290,7 @@ pipeline {
                     }
                 }
 
-                stage('Lane 2 — Nightly OVF + Docker + Helm + HA + GSSAPI') {
+                stage('Lane 2') {
                     stages {
                         stage('nightly (OVF)') {
                             steps {
@@ -432,7 +432,7 @@ pipeline {
                     }
                 }
 
-                stage('Lane 3 — Other tests') {
+                stage('Lane 3') {
                     stages {
                         stage('pmm3-migration-tests') {
                             steps {
@@ -519,9 +519,9 @@ pipeline {
                     }
                 }
 
-                stage('Lane 4 — GitHub rc-testing-suite') {
+                stage('Lane 4') {
                     stages {
-                        stage('dispatch workflow') {
+                        stage('GitHub rc-testing-suite') {
                             steps {
                                 script {
                                     try {
