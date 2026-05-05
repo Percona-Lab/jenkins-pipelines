@@ -260,7 +260,7 @@ pipeline {
         stage('ps-single+psmdb-pss') {
           when { expression { return params.DEPLOY_MYSQL_GROUP.toBoolean() || params.DEPLOY_MONGO_GROUP.toBoolean() } }
           steps {
-            runClientWithRetry('--database ps,QUERY_SOURCE=slowlog,MY_ROCKS=true --database psmdb,SETUP_TYPE=pss', 'ps-single-psmdb')
+            runClientWithRetry('--database ps,QUERY_SOURCE=slowlog,MY_ROCKS=true --database psmdb,SETUP_TYPE=pss --database psmdb,SETUP_TYPE=pss,STORAGE_ENGINE=inMemory', 'ps-single-psmdb')
           }
         }
 
