@@ -73,7 +73,7 @@ labelMap['deb12-aarch64']     = 'docker-aarch64 docker-deb12-aarch64 deb12-aarch
 labelMap['launcher-x64']      = 'launcher-x64'
 
 networkMap = [:]
-networkMap['percona-vpc-eu'] = '10442325' // percona-vpc-eu
+networkMap['ps80.cd.percona.com'] = '11374633' // ps80.cd.percona.com
 
 initMap = [:]
 initMap['deb-docker'] = '''#!/bin/bash -x
@@ -183,7 +183,7 @@ templates.each { it ->
                        it.bootDeadline = bootDeadlineMap[tmplName]
                        it.remoteFs = "/mnt/jenkins/"
                        it.jvmOpts = jvmOptsMap[tmplName]
-                       it.network = networkMap['percona-vpc-eu']
+                       it.network = networkMap['ps80.cd.percona.com']
                        it.userData = initMap[tmplName]
                }
 
