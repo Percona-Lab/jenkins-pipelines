@@ -159,7 +159,7 @@ pipeline {
                             triggerJenkinsRc('pmm3-ui-tests-nightly (ovf)', 'pmm3-ui-tests-nightly', [
                                 string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'SERVER_TYPE',             value: 'ovf'),
-                                string(name: 'DOCKER_VERSION',          value: "PMM3-Server-${params.RC_VERSION.trim()}.ova"),
+                                string(name: 'DOCKER_VERSION',          value: "https://percona-vm.s3.amazonaws.com/PMM3-Server-${params.RC_VERSION.trim()}.ova"),
                                 string(name: 'CLIENT_VERSION',          value: 'pmm3-rc'),
                                 string(name: 'ENABLE_PULL_MODE',        value: 'no'),
                                 string(name: 'ADMIN_PASSWORD',          value: 'admin1'),
