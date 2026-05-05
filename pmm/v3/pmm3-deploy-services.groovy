@@ -288,16 +288,7 @@ pipeline {
         stage('valkey-psmdb-inmemory') {
           when { expression { return params.DEPLOY_VALKEY.toBoolean() || params.DEPLOY_MONGO_GROUP.toBoolean() } }
           steps {
-            script {
-              def parts = []
-              if (params.DEPLOY_VALKEY.toBoolean()) {
-                parts << '--database valkey'
-              }
-              if (params.DEPLOY_MONGO_GROUP.toBoolean()) {
-                parts << '--database psmdb,SETUP_TYPE=pss,STORAGE_ENGINE=inMemory'
-              }
-              runClientWithRetry(parts.join(' '), 'valkey-psmdb-inmemory')
-            }
+            runClientWithRetry('--database valkey --database psmdb,SETUP_TYPE=pss,STORAGE_ENGINE=inMemory', 'valkey-psmdb-inmemory')
           }
         }
       }
