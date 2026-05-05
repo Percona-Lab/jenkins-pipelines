@@ -295,7 +295,7 @@ pipeline {
         stage('valkey') {
           when { expression { return params.DEPLOY_VALKEY.toBoolean() } }
           steps {
-            runClientWithRetry('--database valkey', 'valkey')
+            runClientWithRetry('--database valkey --database psmdb,SETUP_TYPE=pss,STORAGE_ENGINE=inMemory', 'valkey')
           }
         }
       }
