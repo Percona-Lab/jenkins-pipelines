@@ -7,7 +7,7 @@ import groovy.json.JsonBuilder
 
 // ---------- Slack + triggers --------------------------------------------------
 
-final String RC_SLACK_CHANNEL = '#qa-automation'
+final String RC_SLACK_CHANNEL = '#deleteafter'
 
 def slackRcMessage(String message) {
     if (!env.SLACK_RC_THREAD?.trim()) {
@@ -22,7 +22,7 @@ def triggerJenkinsRc(String shortName, String jobName, List jobParams) {
     slackRcMessage("*${shortName}*: ${run.absoluteUrl}")
     if (run.result != 'SUCCESS') {
         error("${shortName} finished with: ${run.result}")
-    } 
+    }
 }
 
 // ---------- pipeline ---------------------------------------------------------
@@ -112,23 +112,12 @@ pipeline {
         }
 
         stage('Trigger RC suites') {
-            parallel {
-                stage('AMI upgrade') {
-                    steps {
-                        script {
-                            triggerJenkinsRc('pmm3-upgrade-ami-test', 'pmm3-upgrade-ami-test', [
-                                string(name: 'PMM_UI_GIT_BRANCH',         value: 'main'),
-                                string(name: 'PMM_QA_GIT_BRANCH',         value: 'main'),
-                                string(name: 'QA_INTEGRATION_GIT_BRANCH', value: 'main'),
-                                booleanParam(name: 'IS_RC_TESTING',       value: true),
-                            ])
-                        }
-                    }
-                }
+            steps {
+                script {
+                    def compatTags = readFile('compat-tags.txt').trim().split('\n').collect { it.trim() }.findAll { it }
 
-                stage('AMI nightly') {
-                    steps {
-                        script {
+                    parallel(
+                        'lane-nightlies-a': {
                             triggerJenkinsRc('pmm3-ui-tests-nightly (ami)', 'pmm3-ui-tests-nightly', [
                                 string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'SERVER_TYPE',             value: 'ami'),
@@ -150,12 +139,31 @@ pipeline {
                                 string(name: 'QUERY_SOURCE',            value: 'slowlog'),
                                 string(name: 'PTS_CONFIDENCE',          value: '93'),
                             ])
-                        }
-                    }
-                }
-                stage('OVF nightly') {
-                    steps {
-                        script {
+                            compatTags.each { String ver ->
+                                triggerJenkinsRc("pmm3-ui-tests-nightly (compat ${ver})", 'pmm3-ui-tests-nightly', [
+                                    string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
+                                    string(name: 'SERVER_TYPE',             value: 'docker'),
+                                    string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
+                                    string(name: 'CLIENT_VERSION',          value: ver),
+                                    string(name: 'ENABLE_PULL_MODE',        value: 'no'),
+                                    string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
+                                    string(name: 'HELM_CHART_BRANCH',       value: 'main'),
+                                    string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
+                                    string(name: 'K8S_VERSION',             value: '1.34'),
+                                    string(name: 'PXC_VERSION',             value: '8.0'),
+                                    string(name: 'PS_VERSION',              value: '8.4'),
+                                    string(name: 'MS_VERSION',              value: '8.4'),
+                                    string(name: 'PGSQL_VERSION',           value: '17'),
+                                    string(name: 'PDPGSQL_VERSION',         value: '17'),
+                                    string(name: 'MD_VERSION',              value: '10.6'),
+                                    string(name: 'PSMDB_VERSION',           value: '8.0'),
+                                    string(name: 'MODB_VERSION',            value: '8.0'),
+                                    string(name: 'QUERY_SOURCE',            value: 'slowlog'),
+                                    string(name: 'PTS_CONFIDENCE',          value: '93'),
+                                ])
+                            }
+                        },
+                        'lane-nightlies-b': {
                             triggerJenkinsRc('pmm3-ui-tests-nightly (ovf)', 'pmm3-ui-tests-nightly', [
                                 string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'SERVER_TYPE',             value: 'ovf'),
@@ -177,12 +185,6 @@ pipeline {
                                 string(name: 'QUERY_SOURCE',            value: 'slowlog'),
                                 string(name: 'PTS_CONFIDENCE',          value: '99'),
                             ])
-                        }
-                    }
-                }
-                stage('Docker nightly') {
-                    steps {
-                        script {
                             triggerJenkinsRc('pmm3-ui-tests-nightly (docker)', 'pmm3-ui-tests-nightly', [
                                 string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'SERVER_TYPE',             value: 'docker'),
@@ -204,12 +206,6 @@ pipeline {
                                 string(name: 'QUERY_SOURCE',            value: 'slowlog'),
                                 string(name: 'PTS_CONFIDENCE',          value: '93'),
                             ])
-                        }
-                    }
-                }
-                stage('OpenShift nightly') {
-                    steps {
-                        script {
                             triggerJenkinsRc('pmm3-ui-tests-nightly (helm)', 'pmm3-ui-tests-nightly', [
                                 string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'SERVER_TYPE',             value: 'helm'),
@@ -231,12 +227,6 @@ pipeline {
                                 string(name: 'QUERY_SOURCE',            value: 'slowlog'),
                                 string(name: 'PTS_CONFIDENCE',          value: '93'),
                             ])
-                        }
-                    }
-                }
-                stage('HA nightly') {
-                    steps {
-                        script {
                             triggerJenkinsRc('pmm3-ui-tests-nightly (ha)', 'pmm3-ui-tests-nightly', [
                                 string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'SERVER_TYPE',             value: 'ha'),
@@ -258,47 +248,6 @@ pipeline {
                                 string(name: 'QUERY_SOURCE',            value: 'slowlog'),
                                 string(name: 'PTS_CONFIDENCE',          value: '93'),
                             ])
-                        }
-                    }
-                }
-                stage('Compatibility nightlies (GA matrix)') {
-                    steps {
-                        script {
-                            def tags = readFile('compat-tags.txt').trim().split('\n').collect { it.trim() }.findAll { it }
-                            def branches = [:]
-                            tags.each { t ->
-                                def ver = t.toString()
-                                branches["compat ${ver}"] = {
-                                    triggerJenkinsRc("pmm3-ui-tests-nightly (compat ${ver})", 'pmm3-ui-tests-nightly', [
-                                        string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
-                                        string(name: 'SERVER_TYPE',             value: 'docker'),
-                                        string(name: 'DOCKER_VERSION',          value: env.PMM_SERVER_IMAGE),
-                                        string(name: 'CLIENT_VERSION',          value: ver),
-                                        string(name: 'ENABLE_PULL_MODE',        value: 'no'),
-                                        string(name: 'ADMIN_PASSWORD',          value: 'pmm3admin!'),
-                                        string(name: 'HELM_CHART_BRANCH',       value: 'main'),
-                                        string(name: 'OPENSHIFT_VERSION',       value: 'latest'),
-                                        string(name: 'K8S_VERSION',             value: '1.34'),
-                                        string(name: 'PXC_VERSION',             value: '8.0'),
-                                        string(name: 'PS_VERSION',              value: '8.4'),
-                                        string(name: 'MS_VERSION',              value: '8.4'),
-                                        string(name: 'PGSQL_VERSION',           value: '17'),
-                                        string(name: 'PDPGSQL_VERSION',         value: '17'),
-                                        string(name: 'MD_VERSION',              value: '10.6'),
-                                        string(name: 'PSMDB_VERSION',           value: '8.0'),
-                                        string(name: 'MODB_VERSION',            value: '8.0'),
-                                        string(name: 'QUERY_SOURCE',            value: 'slowlog'),
-                                        string(name: 'PTS_CONFIDENCE',          value: '93'),
-                                    ])
-                                }
-                            }
-                            parallel branches
-                        }
-                    }
-                }
-                stage('GSSAPI nightly') {
-                    steps {
-                        script {
                             triggerJenkinsRc('pmm3-ui-tests-nightly-gssapi', 'pmm3-ui-tests-nightly-gssapi', [
                                 string(name: 'PMM_QA_GIT_BRANCH',       value: 'main'),
                                 string(name: 'SERVER_TYPE',             value: 'docker'),
@@ -309,53 +258,15 @@ pipeline {
                                 string(name: 'PSMDB_VERSION',           value: '8.0'),
                                 string(name: 'MODB_VERSION',            value: '8.0'),
                             ])
-                        }
-                    }
-                }
-
-                stage('package-testing-matrix (amd64)') {
-                    steps {
-                        script {
-                            triggerJenkinsRc('pmm3-package-testing-matrix', 'pmm3-package-testing-matrix', [
-                                string(name: 'GIT_BRANCH',      value: 'main'),
-                                string(name: 'GIT_COMMIT_HASH', value: ''),
-                                string(name: 'DOCKER_VERSION',  value: env.PMM_SERVER_IMAGE),
-                                string(name: 'PMM_VERSION',     value: params.RC_VERSION.trim()),
-                                string(name: 'INSTALL_REPO',    value: 'testing'),
-                                string(name: 'TARBALL',         value: params.PMM_CLIENT_TARBALL.trim()),
-                                string(name: 'METRICS_MODE',    value: 'auto'),
+                            triggerJenkinsRc('openshift-helm-tests', 'openshift-helm-tests', [
+                                string(name: 'PMM_QA_GIT_BRANCH',  value: 'main'),
+                                string(name: 'PMM_CHART_BRANCH',   value: 'latest'),
+                                string(name: 'IMAGE_REPO',         value: env.PMM_SERVER_IMAGE.split(':')[0]),
+                                string(name: 'IMAGE_TAG',          value: env.PMM_SERVER_IMAGE.split(':')[1]),
+                                string(name: 'OPENSHIFT_VERSION',  value: 'latest'),
                             ])
-                        }
-                    }
-                }
-                stage('package-testing-arm-matrix') {
-                    steps {
-                        script {
-                            triggerJenkinsRc('pmm3-package-testing-arm-matrix', 'pmm3-package-testing-arm-matrix', [
-                                string(name: 'GIT_BRANCH',      value: 'main'),
-                                string(name: 'GIT_COMMIT_HASH', value: ''),
-                                string(name: 'DOCKER_VERSION',  value: env.PMM_SERVER_IMAGE),
-                                string(name: 'PMM_VERSION',     value: params.RC_VERSION.trim()),
-                                string(name: 'INSTALL_REPO',    value: 'testing'),
-                                string(name: 'TARBALL',         value: params.PMM_CLIENT_TARBALL_ARM64.trim()),
-                                string(name: 'METRICS_MODE',    value: 'auto'),
-                            ])
-                        }
-                    }
-                }
-
-                stage('upgrade-tests-matrix') {
-                    steps {
-                        script {
-                            triggerJenkinsRc('pmm3-upgrade-tests-matrix', 'pmm3-upgrade-tests-matrix', [
-                                string(name: 'PMM_QA_GIT_BRANCH', value: 'main'),
-                            ])
-                        }
-                    }
-                }
-                stage('migration-tests') {
-                    steps {
-                        script {
+                        },
+                        'lane-rc-other': {
                             triggerJenkinsRc('pmm3-migration-tests', 'pmm3-migration-tests', [
                                 string(name: 'PMM_V3_UI_GIT_BRANCH', value: 'main'),
                                 string(name: 'PMM_V2_UI_GIT_BRANCH', value: 'v2'),
@@ -365,13 +276,6 @@ pipeline {
                                 string(name: 'PMM_QA_GIT_BRANCH',   value: 'v2'),
                                 string(name: 'UPGRADE_TAG',          value: 'testing'),
                             ])
-                        }
-                    }
-                }
-
-                stage('pmm3-ui-tests-matrix') {
-                    steps {
-                        script {
                             triggerJenkinsRc('pmm3-ui-tests-matrix', 'pmm3-ui-tests-matrix', [
                                 string(name: 'PMM_QA_GIT_BRANCH', value: 'main'),
                                 string(name: 'GIT_COMMIT_HASH',  value: ''),
@@ -382,27 +286,35 @@ pipeline {
                                 string(name: 'MONGO_IMAGE',      value: 'percona/percona-server-mongodb:4.4'),
                                 string(name: 'PROXYSQL_IMAGE',   value: 'proxysql/proxysql:2.3.0'),
                             ])
-                        }
-                    }
-                }
-
-                stage('openshift-helm-tests') {
-                    steps {
-                        script {
-                            triggerJenkinsRc('openshift-helm-tests', 'openshift-helm-tests', [
-                                string(name: 'PMM_QA_GIT_BRANCH',  value: 'main'),
-                                string(name: 'PMM_CHART_BRANCH',   value: 'latest'),
-                                string(name: 'IMAGE_REPO',         value: env.PMM_SERVER_IMAGE.split(':')[0]),
-                                string(name: 'IMAGE_TAG',          value: env.PMM_SERVER_IMAGE.split(':')[1]),
-                                string(name: 'OPENSHIFT_VERSION',  value: 'latest'),
+                            triggerJenkinsRc('pmm3-upgrade-ami-test', 'pmm3-upgrade-ami-test', [
+                                string(name: 'PMM_UI_GIT_BRANCH',         value: 'main'),
+                                string(name: 'PMM_QA_GIT_BRANCH',         value: 'main'),
+                                string(name: 'QA_INTEGRATION_GIT_BRANCH', value: 'main'),
+                                booleanParam(name: 'IS_RC_TESTING',       value: true),
                             ])
-                        }
-                    }
-                }
-
-                stage('GHA rc-testing-suite') {
-                    steps {
-                        script {
+                            triggerJenkinsRc('pmm3-package-testing-matrix', 'pmm3-package-testing-matrix', [
+                                string(name: 'GIT_BRANCH',      value: 'main'),
+                                string(name: 'GIT_COMMIT_HASH', value: ''),
+                                string(name: 'DOCKER_VERSION',  value: env.PMM_SERVER_IMAGE),
+                                string(name: 'PMM_VERSION',     value: params.RC_VERSION.trim()),
+                                string(name: 'INSTALL_REPO',    value: 'testing'),
+                                string(name: 'TARBALL',         value: params.PMM_CLIENT_TARBALL.trim()),
+                                string(name: 'METRICS_MODE',    value: 'auto'),
+                            ])
+                            triggerJenkinsRc('pmm3-package-testing-arm-matrix', 'pmm3-package-testing-arm-matrix', [
+                                string(name: 'GIT_BRANCH',      value: 'main'),
+                                string(name: 'GIT_COMMIT_HASH', value: ''),
+                                string(name: 'DOCKER_VERSION',  value: env.PMM_SERVER_IMAGE),
+                                string(name: 'PMM_VERSION',     value: params.RC_VERSION.trim()),
+                                string(name: 'INSTALL_REPO',    value: 'testing'),
+                                string(name: 'TARBALL',         value: params.PMM_CLIENT_TARBALL_ARM64.trim()),
+                                string(name: 'METRICS_MODE',    value: 'auto'),
+                            ])
+                            triggerJenkinsRc('pmm3-upgrade-tests-matrix', 'pmm3-upgrade-tests-matrix', [
+                                string(name: 'PMM_QA_GIT_BRANCH', value: 'main'),
+                            ])
+                        },
+                        'GHA rc-testing-suite': {
                             try {
                                 def payload = new JsonBuilder([
                                     ref   : 'main',
@@ -433,7 +345,7 @@ pipeline {
                                 slackRcMessage("*Github Release Testing Suite* (dispatch failed): ${err.getMessage()}")
                             }
                         }
-                    }
+                    )
                 }
             }
         }
