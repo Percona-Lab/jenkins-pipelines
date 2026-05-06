@@ -380,8 +380,15 @@ pipeline {
                 dir('codeceptjs-e2e') {
                     withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                         sh '''
-                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
-                        '''
+                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            npm ci
+                        popd
+                    '''
+                    sh '''
+                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                        popd
+                    '''
                     }
                 }
             }
@@ -440,7 +447,9 @@ pipeline {
                 dir('codeceptjs-e2e') {
                     withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                         sh '''
-                            ./node_modules/.bin/codeceptjs run-multiple parallel --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                            pushd /srv/pmm-qa/codeceptjs-e2e
+                                ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
+                            popd
                         '''
                     }
                 }
