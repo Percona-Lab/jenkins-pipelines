@@ -1,0 +1,14 @@
+- job:
+    name: router_docker
+    project-type: pipeline
+    description: |
+        Do not edit this job through the web!
+    pipeline-scm:
+      scm:
+        - git:
+            url: https://github.com/kaushikpuneet07/jenkins-pipelines.git
+            branches:
+            - 'PS-8631'
+            wipe-workspace: false
+      lightweight-checkout: true
+      script-path: pdps/router_docker.groovy
