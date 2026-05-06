@@ -207,8 +207,6 @@ pipeline {
         stage('Install dependencies') {
             steps {
                 sh '''
-                    envsubst < env.list > env.generated.list
-                    export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ansible-galaxy collection install ansible.utils
                 '''
@@ -236,8 +234,6 @@ pipeline {
                         \${PMM_CLIENTS}
                     popd
                     docker ps -a
-                    ls /
-                    pwd
                 '''
             }
         }
@@ -315,6 +311,7 @@ pipeline {
                             npm ci
                             sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                             npx playwright install chromium
+                            envsubst < env.list > env.generated.list
                         popd
                     '''
                     sh '''
