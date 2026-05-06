@@ -4,7 +4,7 @@ import jenkins.model.Jenkins
 import hudson.plugins.sshslaves.SSHLauncher
 
 
-library changelog: false, identifier: 'lib@master', retriever: modernSCM([
+library changelog: false, identifier: 'lib@PMM-7-fix-concurrency-builds', retriever: modernSCM([
     $class: 'GitSCMSource',
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
