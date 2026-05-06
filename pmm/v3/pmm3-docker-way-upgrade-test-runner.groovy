@@ -98,7 +98,11 @@ pipeline {
         string(
             defaultValue: "pmm-$oldestVersion",
             description: 'Tag/Branch for UI Tests repository for pre upgrade',
-            name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
+            name: 'PMM_QA_PRE_UPGRADE_GIT_BRANCH')
+        string(
+            defaultValue: 'PMM-7-fix-docker-upgrade',
+            description: 'Tag/Branch for pmm qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
         string(
             defaultValue: "percona/pmm-server:$oldestVersion",
             description: 'PMM Server Version to test for Upgrade',
@@ -123,10 +127,6 @@ pipeline {
             choices: ["experimental", "testing", "release"],
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
-        string(
-            defaultValue: 'PMM-7-docker-way-upgrade',
-            description: 'Tag/Branch for pmm qa repository',
-            name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ["SSL", "EXTERNAL SERVICES", "OTHERS"],
             description: 'Subset of tests for the upgrade',
@@ -143,10 +143,6 @@ pipeline {
                     env.ADMIN_PASSWORD = 'admin'
                     currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
-                git poll: false,
-                    branch: PMM_UI_PRE_UPGRADE_GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-ui-tests.git'
-
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
@@ -318,12 +314,13 @@ pipeline {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
-                            git checkout -f \${PMM_UI_PRE_UPGRADE_GIT_BRANCH}
+                            git checkout -f \${PMM_QA_PRE_UPGRADE_GIT_BRANCH}
                             npm ci
                         popd
                     '''
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
+                            cat pr.codecept.js
                             ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep \${PRE_UPGRADE_FLAG}
                         popd
                     '''
