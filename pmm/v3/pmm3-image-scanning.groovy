@@ -4,7 +4,7 @@ This job helps run an image scan with Trivy
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label params.USE_ONDEMAND ? 'agent-amd64-ol9-ondemand' : 'agent-amd64-ol9'
     }
     parameters {
         string(
@@ -15,6 +15,11 @@ pipeline {
             defaultValue: 'perconalab/pmm-server:3-dev-latest',
             description: 'PMM Server image with tag to scan',
             name: 'PMM_SERVER_IMAGE')
+        booleanParam(
+            defaultValue: false,
+            description: 'Use on-demand instances instead of spot (for RC/Release builds)',
+            name: 'USE_ONDEMAND'
+        )
     }
     stages {
         stage('Install Trivy') {
