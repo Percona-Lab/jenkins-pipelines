@@ -7,7 +7,7 @@ import groovy.json.JsonBuilder
 
 // ---------- Slack + triggers --------------------------------------------------
 
-final String RC_SLACK_CHANNEL = '#deleteafter'
+final String RC_SLACK_CHANNEL = '#qa-automation'
 
 def slackRcMessage(String message) {
     if (!env.SLACK_RC_THREAD?.trim()) {
