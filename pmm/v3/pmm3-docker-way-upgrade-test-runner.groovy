@@ -97,11 +97,11 @@ pipeline {
     parameters {
         string(
             defaultValue: "pmm-$oldestVersion",
-            description: 'Tag/Branch for UI Tests repository for pre upgrade',
+            description: 'Branch for pmm qa repository pre upgrade',
             name: 'PMM_QA_PRE_UPGRADE_GIT_BRANCH')
         string(
             defaultValue: 'PMM-7-fix-docker-upgrade',
-            description: 'Tag/Branch for pmm qa repository',
+            description: 'Branch for pmm qa repository',
             name: 'PMM_QA_GIT_BRANCH')
         string(
             defaultValue: "percona/pmm-server:$oldestVersion",
@@ -207,10 +207,7 @@ pipeline {
         stage('Install dependencies') {
             steps {
                 sh '''
-                    npm ci
-                    npx playwright install chromium
                     envsubst < env.list > env.generated.list
-                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                     export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ansible-galaxy collection install ansible.utils
@@ -316,6 +313,8 @@ pipeline {
                         pushd /srv/pmm-qa/codeceptjs-e2e
                             git checkout -f \${PMM_QA_PRE_UPGRADE_GIT_BRANCH}
                             npm ci
+                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
+                            npx playwright install chromium
                         popd
                     '''
                     sh '''
