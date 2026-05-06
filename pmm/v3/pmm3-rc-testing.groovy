@@ -434,6 +434,41 @@ pipeline {
 
                 stage('Lane 3') {
                     stages {
+                        stage('GitHub rc-testing-suite') {
+                            steps {
+                                script {
+                                    try {
+                                        def payload = new JsonBuilder([
+                                            ref   : 'main',
+                                            inputs: [
+                                                rc_version             : params.RC_VERSION.trim(),
+                                                pmm_client_tarball_ol8 : params.PMM_CLIENT_TARBALL_OL8.trim(),
+                                                pmm_client_tarball_ol9 : params.PMM_CLIENT_TARBALL_OL9.trim(),
+                                                pmm_qa_branch          : 'main',
+                                                pxc_version            : '8.0',
+                                                pxc_glibc              : '2.35',
+                                                pdpgsql_version        : '17',
+                                            ],
+                                        ]).toString()
+                                        writeFile file: 'rc-suite-dispatch.json', text: payload
+                                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
+                                            sh """
+                                                set -euo pipefail
+                                                curl -fsS -X POST \\
+                                                    -H "Accept: application/vnd.github+json" \\
+                                                    -H "Authorization: Bearer \${GITHUB_TOKEN}" \\
+                                                    -H "X-GitHub-Api-Version: 2022-11-28" \\
+                                                    "https://api.github.com/repos/percona/pmm-qa/actions/workflows/rc-testing-suite.yml/dispatches" \\
+                                                    --data @rc-suite-dispatch.json
+                                            """
+                                        }
+                                        slackRcMessage("*Github Release Testing Suite*: https://github.com/percona/pmm-qa/actions/workflows/rc-testing-suite.yml")
+                                    } catch (err) {
+                                        slackRcMessage("*Github Release Testing Suite* (dispatch failed): ${err.getMessage()}")
+                                    }
+                                }
+                            }
+                        }
                         stage('pmm3-migration-tests') {
                             steps {
                                 script {
@@ -513,47 +548,6 @@ pipeline {
                                     triggerJenkinsRc('pmm3-upgrade-tests-matrix', 'pmm3-upgrade-tests-matrix', [
                                         string(name: 'PMM_QA_GIT_BRANCH', value: 'main'),
                                     ])
-                                }
-                            }
-                        }
-                    }
-                }
-
-                stage('Lane 4') {
-                    stages {
-                        stage('GitHub rc-testing-suite') {
-                            steps {
-                                script {
-                                    try {
-                                        def payload = new JsonBuilder([
-                                            ref   : 'main',
-                                            inputs: [
-                                                rc_version             : params.RC_VERSION.trim(),
-                                                pmm_client_tarball_ol8 : params.PMM_CLIENT_TARBALL_OL8.trim(),
-                                                pmm_client_tarball_ol9 : params.PMM_CLIENT_TARBALL_OL9.trim(),
-                                                pmm_qa_branch          : 'main',
-                                                pxc_version            : '8.0',
-                                                pxc_glibc              : '2.35',
-                                                pdpgsql_version        : '17',
-                                            ],
-                                        ]).toString()
-                                        writeFile file: 'rc-suite-dispatch.json', text: payload
-                                        withCredentials([string(credentialsId: 'GITHUB_API_TOKEN', variable: 'GITHUB_TOKEN')]) {
-                                            sh """
-                                                set -euo pipefail
-                                                curl -fsS -X POST \\
-                                                    -H "Accept: application/vnd.github+json" \\
-                                                    -H "Authorization: Bearer \${GITHUB_TOKEN}" \\
-                                                    -H "X-GitHub-Api-Version: 2022-11-28" \\
-                                                    "https://api.github.com/repos/percona/pmm-qa/actions/workflows/rc-testing-suite.yml/dispatches" \\
-                                                    --data @rc-suite-dispatch.json
-                                            """
-                                        }
-                                        slackRcMessage("*Github Release Testing Suite*: https://github.com/percona/pmm-qa/actions/workflows/rc-testing-suite.yml")
-                                    } catch (err) {
-                                        slackRcMessage("*Github Release Testing Suite* (dispatch failed): ${err.getMessage()}")
-                                        unstable('GHA rc-testing-suite dispatch failed')
-                                    }
                                 }
                             }
                         }
