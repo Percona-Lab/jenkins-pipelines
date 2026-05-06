@@ -164,7 +164,7 @@ pipeline {
             description: 'HA setup Kubernetes cluster version',
             name: 'K8S_VERSION')
         string(
-            defaultValue: '93',
+            defaultValue: '100',
             description: 'Launchable subset confidence % for selecting tests to run.',
             name: 'PTS_CONFIDENCE')
         string(
