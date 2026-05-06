@@ -51,11 +51,9 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 else
                     sudo percona-release enable-only pmm2-client release
                 fi
-                sudo yum clean all || true
+                sudo yum clean all
                 sudo yum makecache
-                if ! sudo yum -y install "pmm2-client-${CLIENT_VERSION}*.el9.x86_64"; then
-                    sudo yum -y install pmm2-client
-                fi
+                sudo yum -y install "pmm2-client-$CLIENT_VERSION-6.el9.x86_64"
                 sleep 10
             else
                 if [[ "$CLIENT_VERSION" = http* ]]; then
