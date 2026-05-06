@@ -194,6 +194,7 @@ pipeline {
                     sh '''
                         set -o errexit
                         set -o xtrace
+                        command -v cloud-init >/dev/null 2>&1 && sudo cloud-init status --wait
 
                         echo "${DEFAULT_SSH_KEYS}" >> /home/ec2-user/.ssh/authorized_keys
                         if [ -n "${SSH_KEY}" ]; then
@@ -201,6 +202,7 @@ pipeline {
                         fi
 
                         curl -O https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                        sudo dnf clean packages
                         sudo dnf -y install ./percona-release-latest.noarch.rpm
                         sudo rpm --import /etc/pki/rpm-gpg/PERCONA-PACKAGING-KEY
                     '''

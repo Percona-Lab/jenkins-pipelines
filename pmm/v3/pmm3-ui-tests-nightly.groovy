@@ -3,8 +3,17 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+def buildRetry3(String job, List parameters) {
+    def run
+    for (int i = 0; i < 3; i++) {
+        run = build job: job, wait: true, propagate: false, parameters: parameters
+        if (run.result == 'SUCCESS') return run
+    }
+    error("${job} ${run.result}: ${run.absoluteUrl}")
+}
+
 void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
-    stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
+    stagingJob = buildRetry3('pmm3-aws-staging-start', [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -15,7 +24,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'DAYS', value: '1'),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
-    ]
+    ])
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     def clientInstance = "yes";
@@ -72,12 +81,14 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
 }
 
 def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD) {
+    def pmmImageRepo = DOCKER_VERSION.split(":")[0]
     def pmmImageTag = DOCKER_VERSION.split(":")[1]
 
     clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
         string(name: 'K8S_VERSION', value: K8S_VERSION),
         string(name: 'HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
         string(name: 'PMM_IMAGE_TAG', value: pmmImageTag),
+        string(name: 'PMM_IMAGE_REPOSITORY', value: pmmImageRepo),
         string(name: 'PMM_ADMIN_PASSWORD', value: ADMIN_PASSWORD),
         booleanParam(name: 'ENABLE_EXTERNAL_ACCESS', value: true),
         string(name: 'RETENTION_DAYS', value: '1'),
@@ -95,9 +106,7 @@ def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, AD
 }
 
 void runAMIStagingStart(String AMI_ID) {
-    amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
-        string(name: 'AMI_ID', value: AMI_ID)
-    ]
+    amiStagingJob = buildRetry3('pmm3-ami-staging-start', [string(name: 'AMI_ID', value: AMI_ID)])
     env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
     env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
     env.ADMIN_PASSWORD = amiStagingJob.buildVariables.INSTANCE_ID
@@ -109,7 +118,7 @@ void runAMIStagingStart(String AMI_ID) {
 
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION,
 PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION , QUERY_SOURCE, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
-    stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
+    stagingJob = buildRetry3('pmm3-aws-staging-start', [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -130,7 +139,7 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
         string(name: 'QUERY_SOURCE', value: QUERY_SOURCE),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
-    ]
+    ])
     if ( NODE_TYPE == 'mysql-node' ) {
         env.VM_CLIENT_IP_MYSQL = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_MYSQL = stagingJob.buildVariables.VM_NAME
@@ -178,8 +187,6 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
                 set -o errexit
                 set -o xtrace
                 echo "Checking Agent Status on Client Nodes";
-                sudo mkdir -p /srv/pmm-qa || :
-                sudo git clone --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa
                 sudo chmod -R 755 /srv/pmm-qa
                 sudo chmod 755 /srv/pmm-qa/support_scripts/agent_status.py
                 python3 /srv/pmm-qa/support_scripts/agent_status.py
@@ -312,7 +319,7 @@ pipeline {
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
         string(
-            defaultValue: '93',
+            defaultValue: '100',
             description: 'PTS (Cloudbees Predictive Tests Selection) confidence % for selecting tests to run. Valid values are from 0 to 100.',
             name: 'PTS_CONFIDENCE')
     }
@@ -344,6 +351,10 @@ pipeline {
                     sudo apt update
                     sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
                     sudo systemctl enable --now docker
+
+                    sudo rm -rf /srv/pmm-qa
+                    sudo mkdir -p /srv/pmm-qa
+                    sudo rsync -a ${WORKSPACE}/ /srv/pmm-qa/
                 '''
             }
         }
