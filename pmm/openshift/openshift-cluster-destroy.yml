@@ -37,6 +37,27 @@
             - 'error-cleanup'
             - 'other'
           description: 'Reason for cluster destruction'
+      - bool:
+          name: FORCE_MODE
+          default: false
+          description: |
+            Force-destroy a cluster that has no S3 state (leaked from a failed create job).
+            Synthesizes a minimal metadata.json from the AWS-tag infraID and runs
+            openshift-install destroy without touching S3.
+      - string:
+          name: INFRA_ID
+          default: ''
+          description: |
+            AWS-tag infraID (kubernetes.io/cluster/<infraID>) shown by openshift-cluster-list.
+            When FORCE_MODE=true and this is blank, defaults to CLUSTER_NAME (which is
+            already the infraID for clusters that show up as aws-tags only).
+            Override only when CLUSTER_NAME is the base name and the infraID has a suffix.
+          trim: true
+      - string:
+          name: OPENSHIFT_VERSION
+          default: '4.16.9'
+          description: 'OpenShift version of the openshift-install binary to use in FORCE_MODE'
+          trim: true
 
     pipeline-scm:
       scm:
