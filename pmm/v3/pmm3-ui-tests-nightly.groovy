@@ -8,7 +8,6 @@ def buildRetry3(String job, List parameters) {
     for (int i = 0; i < 3; i++) {
         run = build job: job, wait: true, propagate: false, parameters: parameters
         if (run.result == 'SUCCESS') return run
-        if (i < 2) sleep(time: 10, unit: 'SECONDS')
     }
     error("${job} ${run.result}: ${run.absoluteUrl}")
 }
@@ -82,12 +81,14 @@ def runOpenshiftClusterCreate(String OPENSHIFT_VERSION, DOCKER_VERSION, ADMIN_PA
 }
 
 def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, ADMIN_PASSWORD) {
+    def pmmImageRepo = DOCKER_VERSION.split(":")[0]
     def pmmImageTag = DOCKER_VERSION.split(":")[1]
 
     clusterCreateJob = build job: 'pmm3-ha-eks', parameters: [
         string(name: 'K8S_VERSION', value: K8S_VERSION),
         string(name: 'HELM_CHART_BRANCH', value: HELM_CHART_BRANCH),
         string(name: 'PMM_IMAGE_TAG', value: pmmImageTag),
+        string(name: 'PMM_IMAGE_REPOSITORY', value: pmmImageRepo),
         string(name: 'PMM_ADMIN_PASSWORD', value: ADMIN_PASSWORD),
         booleanParam(name: 'ENABLE_EXTERNAL_ACCESS', value: true),
         string(name: 'RETENTION_DAYS', value: '1'),
@@ -186,8 +187,6 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
                 set -o errexit
                 set -o xtrace
                 echo "Checking Agent Status on Client Nodes";
-                sudo mkdir -p /srv/pmm-qa || :
-                sudo git clone --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa
                 sudo chmod -R 755 /srv/pmm-qa
                 sudo chmod 755 /srv/pmm-qa/support_scripts/agent_status.py
                 python3 /srv/pmm-qa/support_scripts/agent_status.py
@@ -320,7 +319,7 @@ pipeline {
             description: "Query Source for Monitoring",
             name: 'QUERY_SOURCE')
         string(
-            defaultValue: '93',
+            defaultValue: '100',
             description: 'PTS (Cloudbees Predictive Tests Selection) confidence % for selecting tests to run. Valid values are from 0 to 100.',
             name: 'PTS_CONFIDENCE')
     }
@@ -352,6 +351,10 @@ pipeline {
                     sudo apt update
                     sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
                     sudo systemctl enable --now docker
+
+                    sudo rm -rf /srv/pmm-qa
+                    sudo mkdir -p /srv/pmm-qa
+                    sudo rsync -a ${WORKSPACE}/ /srv/pmm-qa/
                 '''
             }
         }

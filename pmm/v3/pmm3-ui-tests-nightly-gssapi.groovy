@@ -8,7 +8,6 @@ def buildRetry3(String job, List parameters) {
     for (int i = 0; i < 3; i++) {
         run = build job: job, wait: true, propagate: false, parameters: parameters
         if (run.result == 'SUCCESS') return run
-        if (i < 2) sleep(time: 10, unit: 'SECONDS')
     }
     error("${job} ${run.result}: ${run.absoluteUrl}")
 }
@@ -80,8 +79,6 @@ void checkClientNodesAgentStatus(String VM_CLIENT_IP, PMM_QA_GIT_BRANCH) {
                 set -o errexit
                 set -o xtrace
                 echo "Checking Agent Status on Client Nodes";
-                sudo mkdir -p /srv/pmm-qa || :
-                sudo git clone --single-branch --branch $PMM_QA_GIT_BRANCH https://github.com/percona/pmm-qa.git /srv/pmm-qa
                 sudo chmod -R 755 /srv/pmm-qa
                 sudo chmod 755 /srv/pmm-qa/support_scripts/agent_status.py
                 python3 /srv/pmm-qa/support_scripts/agent_status.py
