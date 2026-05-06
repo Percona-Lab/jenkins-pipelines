@@ -319,6 +319,11 @@ pipeline {
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
                             git checkout -f \${PMM_UI_PRE_UPGRADE_GIT_BRANCH}
+                            npm ci
+                        popd
+                    '''
+                    sh '''
+                        pushd /srv/pmm-qa/codeceptjs-e2e
                             ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep \${PRE_UPGRADE_FLAG}
                         popd
                     '''
