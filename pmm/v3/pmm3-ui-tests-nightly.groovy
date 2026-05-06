@@ -3,8 +3,18 @@ library changelog: false, identifier: 'lib@master', retriever: modernSCM([
     remote: 'https://github.com/Percona-Lab/jenkins-pipelines.git'
 ]) _
 
+def buildRetry3(String job, List parameters) {
+    def run
+    for (int i = 0; i < 3; i++) {
+        run = build job: job, wait: true, propagate: false, parameters: parameters
+        if (run.result == 'SUCCESS') return run
+        if (i < 2) sleep(time: 10, unit: 'SECONDS')
+    }
+    error("${job} ${run.result}: ${run.absoluteUrl}")
+}
+
 void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
-    stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
+    stagingJob = buildRetry3('pmm3-aws-staging-start', [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -15,7 +25,7 @@ void runStagingServer(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INS
         string(name: 'DAYS', value: '1'),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
-    ]
+    ])
     env.VM_IP = stagingJob.buildVariables.IP
     env.VM_NAME = stagingJob.buildVariables.VM_NAME
     def clientInstance = "yes";
@@ -95,9 +105,7 @@ def runHAClusterCreate(String K8S_VERSION, DOCKER_VERSION, HELM_CHART_BRANCH, AD
 }
 
 void runAMIStagingStart(String AMI_ID) {
-    amiStagingJob = build job: 'pmm3-ami-staging-start', parameters: [
-        string(name: 'AMI_ID', value: AMI_ID)
-    ]
+    amiStagingJob = buildRetry3('pmm3-ami-staging-start', [string(name: 'AMI_ID', value: AMI_ID)])
     env.AMI_INSTANCE_ID = amiStagingJob.buildVariables.INSTANCE_ID
     env.AMI_INSTANCE_IP = amiStagingJob.buildVariables.PUBLIC_IP
     env.ADMIN_PASSWORD = amiStagingJob.buildVariables.INSTANCE_ID
@@ -109,7 +117,7 @@ void runAMIStagingStart(String AMI_ID) {
 
 void runStagingClient(String DOCKER_VERSION, CLIENT_VERSION, CLIENTS, CLIENT_INSTANCE, SERVER_IP, NODE_TYPE, ENABLE_PULL_MODE, PXC_VERSION,
 PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSION, MODB_VERSION , QUERY_SOURCE, PMM_QA_GIT_BRANCH, ADMIN_PASSWORD = "admin") {
-    stagingJob = build job: 'pmm3-aws-staging-start', parameters: [
+    stagingJob = buildRetry3('pmm3-aws-staging-start', [
         string(name: 'DOCKER_VERSION', value: DOCKER_VERSION),
         string(name: 'CLIENT_VERSION', value: CLIENT_VERSION),
         string(name: 'CLIENTS', value: CLIENTS),
@@ -130,7 +138,7 @@ PS_VERSION, MS_VERSION, PGSQL_VERSION, PDPGSQL_VERSION, MD_VERSION, PSMDB_VERSIO
         string(name: 'QUERY_SOURCE', value: QUERY_SOURCE),
         string(name: 'PMM_QA_GIT_BRANCH', value: PMM_QA_GIT_BRANCH),
         string(name: 'ADMIN_PASSWORD', value: ADMIN_PASSWORD)
-    ]
+    ])
     if ( NODE_TYPE == 'mysql-node' ) {
         env.VM_CLIENT_IP_MYSQL = stagingJob.buildVariables.IP
         env.VM_CLIENT_NAME_MYSQL = stagingJob.buildVariables.VM_NAME

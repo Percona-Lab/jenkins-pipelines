@@ -14,6 +14,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
         sh '''
             set -o errexit
             set -o xtrace
+            command -v cloud-init >/dev/null 2>&1 && sudo cloud-init status --wait
             export PATH="$PATH:/usr/sbin:/sbin"
             test -f /usr/lib64/libsasl2.so.2 || sudo ln -s /usr/lib64/libsasl2.so.3.0.0 /usr/lib64/libsasl2.so.2
             export IP=$(curl -4 -s ifconfig.me)
@@ -32,6 +33,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
 
             if ! command -v percona-release > /dev/null; then
                 curl -O https://repo.percona.com/yum/percona-release-latest.noarch.rpm
+                sudo dnf clean packages
                 sudo dnf -y install ./percona-release-latest.noarch.rpm
                 rm -f percona-release-latest.noarch.rpm
                 sudo dnf clean all
@@ -44,12 +46,15 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
 
             if [ "${CLIENT_VERSION}" = 3-dev-latest ]; then
                 sudo percona-release enable-only pmm3-client experimental
+                sudo dnf clean packages
                 sudo dnf -y install pmm-client
             elif [ "${CLIENT_VERSION}" = pmm3-rc ]; then
                 sudo percona-release enable-only pmm3-client testing
+                sudo dnf clean packages
                 sudo dnf -y install pmm-client
             elif [ "${CLIENT_VERSION}" = pmm3-latest ]; then
                 sudo percona-release enable-only pmm3-client experimental
+                sudo dnf clean packages
                 sudo dnf -y install pmm-client
             elif [[ "${CLIENT_VERSION}" = 3* ]]; then
                 if [ "${ENABLE_TESTING_REPO}" = yes ]; then
@@ -61,6 +66,7 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 fi
 
                 export FULL_CLIENT_VERSION=$(dnf list pmm-client --showduplicates | grep -w "${CLIENT_VERSION}" | awk '{print $2}')
+                sudo dnf clean packages
                 sudo dnf -y install "pmm-client-${FULL_CLIENT_VERSION}"
                 sleep 10
             else
