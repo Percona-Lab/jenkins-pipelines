@@ -275,6 +275,7 @@ pipeline {
                           --arg ref "$PMM_QA_GIT_BRANCH" \
                           --arg server "$VM_IP" \
                           --arg client "$CLIENT_VERSION" \
+                          --arg image "$DOCKER_VERSION" \
                           --arg branch "$PMM_QA_GIT_BRANCH" \
                           --arg pwd "$ADMIN_PASSWORD" \
                           --arg confidence "${PTS_CONFIDENCE}%" \
@@ -283,6 +284,7 @@ pipeline {
                              inputs: {
                                pmm_server_address: $server,
                                pmm_client_version: $client,
+                               pmm_server_image: $image,
                                pmm_qa_branch: $branch,
                                admin_password: $pwd,
                                launchable_confidence: $confidence
