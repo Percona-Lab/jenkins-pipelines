@@ -111,7 +111,7 @@ pipeline {
   parameters {
     string(
       name: 'PXB_VERSION',
-      defaultValue: '8.0.35-35',
+      defaultValue: '8.4.0-5',
       description: 'PXB full version'
     )
     string(
@@ -126,7 +126,7 @@ pipeline {
     )
     string(
       name: 'PS_VERSION',
-      defaultValue: '8.0.45-36',
+      defaultValue: '8.4.8-8',
       description: 'PS full version'
     )
     string(
