@@ -2,10 +2,10 @@ def call() {
     return """
         export ami_debian11_x86_64=ami-009e9420630204b5d
         export ami_debian12_x86_64=ami-09ca7bd4727fb280b
-        export ami_debian13_x86_64=ami-0be4fe95f0181e6ae
+        export ami_debian13_x86_64=ami-0da1f66573556d917
         export ami_ol8_x86_64=ami-058eb9eaa259563c0
         export ami_ol9_x86_64=ami-0514f056ab68c7863
-        export ami_rhel8_x86_64=ami-013babf09dd3650a0
+        export ami_rhel8_x86_64=ami-0d38405c22c6dfaf3
         export ami_rhel9_x86_64=ami-01ea92f779cc1c71f
         export ami_rhel10_x86_64=ami-01777900cf626c469
         export ami_rocky8_x86_64=ami-0f99e90e01ec42b57
@@ -16,10 +16,10 @@ def call() {
         export ami_ubuntu26_x86_64=ami-051eaec1417c5d4ae
         export ami_debian11_arm64=ami-08bb051b83411b514
         export ami_debian12_arm64=ami-04991928175cf27a1
-        export ami_debian13_arm64=ami-06732b4e86178978f
+        export ami_debian13_arm64=ami-08241d277446b81d7
         export ami_ol8_arm64=ami-02063adb64607f0f3
         export ami_ol9_arm64=ami-0fcd8b1be597c5fcd
-        export ami_rhel8_arm64=ami-0262cbd29d3c00f2e
+        export ami_rhel8_arm64=ami-05796f88f5487ea38
         export ami_rhel9_arm64=ami-024a0efb56778bc6b
         export ami_rhel10_arm64=ami-0ad16a1fbf63249be
         export ami_rocky8_arm64=ami-07212fece0fd77907
