@@ -207,6 +207,7 @@ pipeline {
         stage('Install dependencies') {
             steps {
                 sh '''
+
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ansible-galaxy collection install ansible.utils
                 '''
@@ -311,6 +312,7 @@ pipeline {
                             npm ci
                             npx playwright install chromium
                             envsubst < env.list > env.generated.list
+                            export PWD=$(pwd)
                         popd
                     '''
                     sh '''
