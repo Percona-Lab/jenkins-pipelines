@@ -97,8 +97,12 @@ pipeline {
     parameters {
         string(
             defaultValue: "pmm-$oldestVersion",
-            description: 'Tag/Branch for UI Tests repository for pre upgrade',
-            name: 'PMM_UI_PRE_UPGRADE_GIT_BRANCH')
+            description: 'Branch for QA repository pre upgrade',
+            name: 'PMM_QA_PRE_UPGRADE_GIT_BRANCH')
+        string(
+            defaultValue: 'PMM-7-fix-docker-upgrade',
+            description: 'Tag/Branch for pmm qa repository',
+            name: 'PMM_QA_GIT_BRANCH')
         string(
             defaultValue: "percona/pmm-server:$oldestVersion",
             description: 'PMM Server Version to test for Upgrade',
@@ -123,10 +127,6 @@ pipeline {
             choices: ["experimental", "testing", "release"],
             description: 'PMM client repository',
             name: 'CLIENT_REPOSITORY')
-        string(
-            defaultValue: 'PMM-7-docker-way-upgrade',
-            description: 'Tag/Branch for pmm qa repository',
-            name: 'PMM_QA_GIT_BRANCH')
         choice(
             choices: ["SSL", "EXTERNAL SERVICES", "OTHERS"],
             description: 'Subset of tests for the upgrade',
@@ -143,14 +143,10 @@ pipeline {
                     env.ADMIN_PASSWORD = 'admin'
                     currentBuild.description = "${env.UPGRADE_FLAG} - Upgrade for PMM from ${env.DOCKER_TAG.split(":")[1]} to ${env.PMM_SERVER_LATEST}."
                 }
-                git poll: false,
-                    branch: PMM_UI_PRE_UPGRADE_GIT_BRANCH,
-                    url: 'https://github.com/percona/pmm-ui-tests.git'
-
                 sh '''
                     sudo mkdir -p /srv/pmm-qa || :
                     pushd /srv/pmm-qa
-                        sudo git clone --single-branch --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
+                        sudo git clone --branch ${PMM_QA_GIT_BRANCH} https://github.com/percona/pmm-qa.git .
                     popd
                     sudo ln -s /usr/bin/chromium-browser /usr/bin/chromium
 
@@ -246,11 +242,6 @@ pipeline {
         stage('Install dependencies') {
             steps {
                 sh '''
-                    npm ci
-                    npx playwright install chromium
-                    envsubst < env.list > env.generated.list
-                    sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
-                    export PWD=$(pwd)
                     export CHROMIUM_PATH=/usr/bin/chromium
                     ansible-galaxy collection install ansible.utils
                 '''
@@ -352,7 +343,16 @@ pipeline {
             steps {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
-                        ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep \${PRE_UPGRADE_FLAG}
+                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            npm ci
+                            npx playwright install chromium
+                            git checkout -f \${PMM_QA_PRE_UPGRADE_GIT_BRANCH}
+                        popd
+                    '''
+                    sh '''
+                        pushd /srv/pmm-qa/codeceptjs-e2e
+                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep \${PRE_UPGRADE_FLAG}
+                        popd
                     '''
                 }
             }
@@ -376,11 +376,8 @@ pipeline {
                     '''
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
+                            git checkout -f \${PMM_QA_GIT_BRANCH}
                             ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep ${POST_UPGRADE_FLAG}
-                            ls /srv/pmm-qa/codeceptjs-e2e/tests/output/
-                            ls /srv/pmm-qa/codeceptjs-e2e/tests/
-                            ls /srv/pmm-qa/codeceptjs-e2e/
-                            ls /srv/pmm-qa/
                         popd
                     '''
                 }
