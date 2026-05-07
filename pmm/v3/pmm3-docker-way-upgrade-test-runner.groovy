@@ -309,7 +309,6 @@ pipeline {
                         pushd /srv/pmm-qa/codeceptjs-e2e
                             git checkout -f \${PMM_QA_PRE_UPGRADE_GIT_BRANCH}
                             npm ci
-                            sed -i 's+http://localhost/+${PMM_UI_URL}/+g' pr.codecept.js
                             npx playwright install chromium
                             envsubst < env.list > env.generated.list
                         popd
@@ -350,7 +349,7 @@ pipeline {
                 withCredentials([aws(accessKeyVariable: 'BACKUP_LOCATION_ACCESS_KEY', credentialsId: 'BACKUP_E2E_TESTS', secretKeyVariable: 'BACKUP_LOCATION_SECRET_KEY'), aws(accessKeyVariable: 'AWS_ACCESS_KEY_ID', credentialsId: 'PMM_AWS_DEV', secretKeyVariable: 'AWS_SECRET_ACCESS_KEY')]) {
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
-                            git checkout \${PMM_QA_GIT_BRANCH}
+                            git checkout -f \${PMM_QA_GIT_BRANCH}
                             npm ci
                         popd
                     '''
