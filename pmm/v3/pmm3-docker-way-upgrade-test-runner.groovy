@@ -335,6 +335,7 @@ pipeline {
                             --volumes-from pmm-server-old \
                             --name pmm-server \
                             ${DOCKER_TAG_UPGRADE}
+                        docker ps -a
                     '''
                 }
             }
