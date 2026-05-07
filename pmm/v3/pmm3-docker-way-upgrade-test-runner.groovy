@@ -316,7 +316,7 @@ pipeline {
                     '''
                     sh '''
                         pushd /srv/pmm-qa/codeceptjs-e2e
-                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep \${PRE_UPGRADE_FLAG}
+                            ./node_modules/.bin/codeceptjs run --reporter mocha-multi -c pr.codecept.js --steps --grep "${PRE_UPGRADE_FLAG}"
                         popd
                     '''
                 }
