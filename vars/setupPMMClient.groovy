@@ -24,13 +24,12 @@ def call(String SERVER_IP, String CLIENT_VERSION, String PMM_VERSION, String ENA
                 export ADMIN_PASSWORD=admin
             fi
 
+            sudo dnf clean expire-cache
             if [ "${PMM_VERSION}" = pmm2 ]; then
               echo exclude=mirror.es.its.nyu.edu | sudo tee -a /etc/yum/pluginconf.d/fastestmirror.conf
             fi
             if ! command -v percona-release > /dev/null; then
                 sudo yum -y install https://repo.percona.com/yum/percona-release-latest.noarch.rpm || true
-                sudo yum clean all
-                sudo yum makecache
             fi
 
             if [[ "$CLIENT_VERSION" =~ dev-latest|3-dev-latest ]]; then
