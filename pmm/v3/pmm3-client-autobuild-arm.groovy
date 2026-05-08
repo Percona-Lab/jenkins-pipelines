@@ -10,7 +10,7 @@ library changelog: false, identifier: 'v3lib@master', retriever: modernSCM(
 
 pipeline {
     agent {
-        label params.USE_ONDEMAND ? 'agent-arm64-ol9-ondemand' : 'agent-arm64-ol9'
+        label params.USE_ONDEMAND ? 'agent-arm64-ondemand' : 'agent-arm64'
     }
     parameters {
         string(

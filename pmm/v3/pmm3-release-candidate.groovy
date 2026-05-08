@@ -121,7 +121,7 @@ String DEFAULT_BRANCH = 'v3'
 
 pipeline {
     agent {
-        label 'agent-amd64-ol9-ondemand'
+        label 'agent-amd64-ondemand'
     }
     parameters {
         string(
