@@ -68,6 +68,36 @@ def withRBE(Closure body) {
     ].join(' ')
     def augmentedFlags = "${baseFlags} ${ciMetadata}".trim()
 
+    // PSMDB-2034 token-rotation sidecar:
+    //
+    // The Bazel CredentialHelper inside the build container can't refresh
+    // a JWT it received via `-e PSMDB_RBE_JENKINS_TOKEN` once that JWT's
+    // `exp` slips past now() — it has nothing to negotiate with Dex
+    // (subject_token expired ⇒ Dex returns access_denied). Builds that
+    // outlive one Jenkins-OIDC TTL (~2 h) therefore fail mid-build, even
+    // though the pipeline itself is still alive and could happily mint
+    // a fresh JWT.
+    //
+    // We fix that by running a sidecar `parallel` branch on the same
+    // node / workspace that re-issues a JWT every TTL/2 minutes via the
+    // OIDC Provider plugin and atomic-renames it into a workspace file
+    // the helper reads. Every getSecret() call mints a fresh token
+    // (io.jenkins.plugins.oidc_provider.IdTokenCredentials#token sets
+    // iat=now / exp=now+lifetime on every call), so the loop needs no
+    // custom plugin. Build branch signals end-of-life by touching a
+    // flag file in `finally`, which lets the sidecar exit cleanly
+    // without depending on the hard 24h timeout.
+    //
+    // The legacy PSMDB_RBE_JENKINS_TOKEN env is still set so dev runs
+    // and any agent that hasn't picked up the helper's file-source
+    // patch keep working. The helper prefers the file when both are
+    // present.
+    def tokenDir  = "${env.WORKSPACE}/.psmdb_rbe"
+    def tokenFile = "${tokenDir}/token"
+    def doneFlag  = "${tokenDir}/build.done"
+
+    sh "mkdir -p ${tokenDir} && rm -f ${tokenFile} ${doneFlag}"
+
     withCredentials([
         string(
             credentialsId: params.PSMDB_RBE_OIDC_CREDENTIALS_ID,
@@ -77,9 +107,42 @@ def withRBE(Closure body) {
         withEnv([
             "PSMDB_RBE_OIDC_ISSUER=${params.PSMDB_RBE_OIDC_ISSUER}",
             "PSMDB_RBE_OIDC_CONNECTOR_ID=${params.PSMDB_RBE_OIDC_CONNECTOR_ID}",
-            "PSMDB_RBE_BAZEL_FLAGS=${augmentedFlags}"
+            "PSMDB_RBE_BAZEL_FLAGS=${augmentedFlags}",
+            "PSMDB_RBE_JENKINS_TOKEN_FILE=${tokenFile}"
         ]) {
-            body()
+            // Seed the file with the initial token so the first helper
+            // invocation is unblocked even before the sidecar produces
+            // a write.
+            writeFile(file: "${tokenFile}.tmp", text: env.PSMDB_RBE_JENKINS_TOKEN, encoding: 'UTF-8')
+            sh "chmod 600 ${tokenFile}.tmp && mv ${tokenFile}.tmp ${tokenFile}"
+
+            parallel(
+                'token-refresh': {
+                    timeout(time: 24, unit: 'HOURS') {
+                        waitUntil(initialRecurrencePeriod: 50 * 60 * 1000, quiet: true) {
+                            if (fileExists(doneFlag)) { return true }
+                            withCredentials([
+                                string(
+                                    credentialsId: params.PSMDB_RBE_OIDC_CREDENTIALS_ID,
+                                    variable: 'TOK'
+                                )
+                            ]) {
+                                writeFile(file: "${tokenFile}.tmp", text: env.TOK, encoding: 'UTF-8')
+                                sh "chmod 600 ${tokenFile}.tmp && mv ${tokenFile}.tmp ${tokenFile}"
+                            }
+                            return false
+                        }
+                    }
+                },
+                'build-task': {
+                    try {
+                        body()
+                    } finally {
+                        sh "touch ${doneFlag}"
+                    }
+                },
+                failFast: true
+            )
         }
     }
 }
@@ -87,7 +150,10 @@ def withRBE(Closure body) {
 void buildStage(String DOCKER_OS, String STAGE_PARAM, boolean RBE_ENABLED = false) {
     String dockerEnvFlags = ""
     if (RBE_ENABLED) {
-        dockerEnvFlags = "-e PSMDB_RBE_JENKINS_TOKEN -e PSMDB_RBE_OIDC_ISSUER -e PSMDB_RBE_OIDC_CONNECTOR_ID -e PSMDB_RBE_BAZEL_FLAGS"
+        // -v ${build_dir}:${build_dir} (set later) makes the sidecar-rotated
+        // file at $PSMDB_RBE_JENKINS_TOKEN_FILE visible inside the container;
+        // passing the path here lets the helper find it.
+        dockerEnvFlags = "-e PSMDB_RBE_JENKINS_TOKEN -e PSMDB_RBE_JENKINS_TOKEN_FILE -e PSMDB_RBE_OIDC_ISSUER -e PSMDB_RBE_OIDC_CONNECTOR_ID -e PSMDB_RBE_BAZEL_FLAGS"
     }
     sh """
         set -o xtrace
