@@ -382,6 +382,8 @@ Resources:
             Principal:
               Service: ec2.amazonaws.com
       Path: /
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore
       Policies:
         - PolicyName: StartInstances
           PolicyDocument:
@@ -448,6 +450,13 @@ Resources:
                   - sqs:ReceiveMessage
                   - sqs:DeleteMessage
                   - sqs:DeleteMessageBatch
+        - PolicyName: AlloyGatewayBearerRead
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+            - Effect: Allow
+              Resource: !Sub 'arn:aws:secretsmanager:us-east-1:${AWS::AccountId}:secret:percona-ci-platform/alloy-gateway/bearer-*'
+              Action: secretsmanager:GetSecretValue
 
   JMasterProfile: # create Profile for jenkins master (needed for run workers)
     Type: AWS::IAM::InstanceProfile
