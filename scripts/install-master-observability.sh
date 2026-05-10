@@ -42,17 +42,28 @@ REPO
 dnf -y install alloy
 
 # 3. Boot-time bearer fetch from Secrets Manager (us-east-1, account-local).
-# Atomic write: stage to .tmp then mv, so a failed Secrets Manager call
-# does NOT leave an empty token file that would 401 every push.
+# The secret value is JSON (`{"bearer_token":"..."}`); extract the field with
+# python3 (always present on AL2023). Atomic write: stage to .tmp then mv,
+# so a failed Secrets Manager call does NOT leave an empty token file that
+# would 401 every push.
 cat > /usr/local/bin/alloy-fetch-token <<'SCRIPT'
 #!/bin/bash
 set -euo pipefail
 umask 077
-tok=$(aws secretsmanager get-secret-value \
+raw=$(aws secretsmanager get-secret-value \
     --region us-east-1 \
     --secret-id percona-ci-platform/alloy-gateway/bearer \
     --query SecretString --output text)
-[[ -n "$tok" ]] || { echo "alloy-fetch-token: empty secret" >&2; exit 1; }
+tok=$(printf '%s' "$raw" | python3 -c '
+import json, sys
+d = json.loads(sys.stdin.read())
+for k in ("bearer_token", "bearer", "token"):
+    if isinstance(d, dict) and k in d:
+        print(d[k], end=""); break
+else:
+    print(d, end="")
+')
+[[ -n "$tok" ]] || { echo "alloy-fetch-token: empty bearer" >&2; exit 1; }
 tmp=/etc/alloy/gateway-token.tmp
 printf '%s' "$tok" > "$tmp"
 chown root:alloy "$tmp"
