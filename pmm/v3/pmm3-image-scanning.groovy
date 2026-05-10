@@ -4,7 +4,7 @@ This job helps run an image scan with Trivy
 
 pipeline {
     agent {
-        label params.USE_ONDEMAND ? 'agent-amd64-ol9-ondemand' : 'agent-amd64-ol9'
+        label params.USE_ONDEMAND ? 'agent-amd64-ondemand' : 'agent-amd64'
     }
     parameters {
         string(

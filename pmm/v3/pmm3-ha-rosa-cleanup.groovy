@@ -1,6 +1,6 @@
 pipeline {
     agent {
-        label 'agent-amd64-ol9'
+        label 'agent-amd64'
     }
 
     triggers {
