@@ -876,38 +876,6 @@ Resources:
                 done
               }
 
-              prometheus.remote_write "mimir" {
-                endpoint {
-                  url               = "https://mimir-push.cd.percona.com/api/v1/metrics/write"
-                  bearer_token_file = "/etc/alloy/gateway-token"
-                  headers           = { "X-Scope-OrgID" = "percona-ci" }
-                }
-                external_labels = {
-                  master = "$MASTER_LABEL",
-                  fleet  = "percona-jenkins",
-                  role   = "master",
-                }
-              }
-
-              loki.source.file "jenkins" {
-                targets       = [{__path__ = "/var/log/jenkins/jenkins.log", master = "$MASTER_LABEL", fleet = "percona-jenkins", role = "master", component = "jenkins"}]
-                forward_to    = [loki.write.gateway.receiver]
-                tail_from_end = true
-              }
-
-              loki.write "gateway" {
-                endpoint {
-                  url               = "https://loki-push.cd.percona.com/loki/api/v1/push"
-                  bearer_token_file = "/etc/alloy/gateway-token"
-                }
-              }
-              CONFIG
-                  chown root:alloy /etc/alloy/config.alloy
-                  chmod 0640 /etc/alloy/config.alloy
-
-                  systemctl daemon-reload
-                  systemctl enable --now alloy
-              }
 
               main() {
                   setup_aws
