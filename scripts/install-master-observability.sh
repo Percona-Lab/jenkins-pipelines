@@ -62,9 +62,11 @@ SCRIPT
 chmod 0755 /usr/local/bin/alloy-fetch-token
 
 install -d -m 0755 /etc/systemd/system/alloy.service.d
+# `+` prefix on ExecStartPre runs the fetcher as root regardless of `User=alloy`
+# on the unit, so it can write /etc/alloy/gateway-token (0440 root:alloy).
 cat > /etc/systemd/system/alloy.service.d/fetch-token.conf <<'DROPIN'
 [Service]
-ExecStartPre=/usr/local/bin/alloy-fetch-token
+ExecStartPre=+/usr/local/bin/alloy-fetch-token
 Restart=on-failure
 RestartSec=30s
 DROPIN
