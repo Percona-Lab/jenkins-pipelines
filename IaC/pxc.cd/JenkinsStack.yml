@@ -896,7 +896,7 @@ Resources:
                   setup_dhparam
                   setup_letsencrypt
                   setup_nginx_allow_list
-                  curl -fsSL --retry 5 https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/c3cf6bff23cadd7be431b984e4e3939ec522b741/scripts/install-master-observability.sh | JENKINS_HOST="$JENKINS_HOST" bash
+                  curl -fsSL --retry 5 https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/08df5f4e101e52d0e03a7e0062696ace909a86bc/scripts/install-master-observability.sh | JENKINS_HOST="$JENKINS_HOST" bash
               }
 
               main
