@@ -641,23 +641,23 @@ Resources:
                       | tee -a /etc/hosts
                   mkdir -p /etc/systemd/system/jenkins.service.d
                   cat <<-EOF | tee /etc/systemd/system/jenkins.service.d/override.conf
-                       [Service]
-                       TimeoutStartSec=600
-                       # Directory where Jenkins stores its configuration and workspaces
-                       Environment="JENKINS_HOME=/mnt/$JENKINS_HOST"
-                       WorkingDirectory=/mnt/$JENKINS_HOST
+              		[Service]
+              		TimeoutStartSec=600
+              		# Directory where Jenkins stores its configuration and workspaces
+              		Environment="JENKINS_HOME=/mnt/$JENKINS_HOST"
+              		WorkingDirectory=/mnt/$JENKINS_HOST
 
-                       # Location of the exploded WAR
-                       Environment="JENKINS_WEBROOT=/var/cache/jenkins/war"
+              		# Location of the exploded WAR
+              		Environment="JENKINS_WEBROOT=/var/cache/jenkins/war"
 
-                       # Location of the Jenkins log.
-                       Environment="JENKINS_LOG=/var/log/jenkins/jenkins.log"
+              		# Location of the Jenkins log.
+              		Environment="JENKINS_LOG=/var/log/jenkins/jenkins.log"
               	EOF
 
                   cat <<-"EOF" | tee -a /etc/systemd/system/jenkins.service.d/override.conf
 
-                       # Arguments for the Jenkins JVM
-                        Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
+              		# Arguments for the Jenkins JVM
+              		Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms3072m -Xmx4096m -Xss4m -server -Dorg.jenkinsci.plugins.durabletask.BourneShellScript.HEARTBEAT_CHECK_INTERVAL=600"
               	EOF
 
                   systemctl daemon-reload
@@ -865,8 +865,6 @@ Resources:
               setup_ssh_keys() {
                 KEYS_LIST="evgeniy.patlan alex.miroshnychenko eduardo.casarero santiago.ruiz andrew.siemen vadim.yalovets surabhi.bhat talha.rizwan anderson.nogueira"
 
-
-
                 for KEY in $KEYS_LIST; do
                     RETRY="3"
                     while [ $RETRY != "0" ]; do
@@ -883,68 +881,6 @@ Resources:
                         fi
                     done
                 done
-              }
-
-              install_observability() {
-                  # PS-10997 / ADR 0013: master-side push pipeline.
-                  # Installs amazon-ssm-agent (fleet ops fan-out) and Grafana Alloy
-                  # (scrapes /hetzner-prometheus + tails Jenkins log; pushes to the
-                  # in-cluster alloy-gateway ALB). Bearer token is fetched from AWS
-                  # Secrets Manager at every Alloy restart via systemd ExecStartPre.
-
-                  local MASTER_LABEL
-                  MASTER_LABEL=$(printf '%s' "$JENKINS_HOST" | sed -e 's/\.percona\.com$//')
-
-                  # 1. SSM agent (used for fleet-wide Run Command fan-out, not for the push itself).
-                  dnf -y install amazon-ssm-agent || yum -y install amazon-ssm-agent
-                  systemctl enable --now amazon-ssm-agent
-
-                  # 2. Grafana RPM repo + Alloy.
-                  cat > /etc/yum.repos.d/grafana.repo <<'REPO'
-              [grafana]
-              name=grafana
-              baseurl=https://rpm.grafana.com
-              repo_gpgcheck=1
-              enabled=1
-              gpgcheck=1
-              gpgkey=https://rpm.grafana.com/gpg.key
-              sslverify=1
-              sslcacert=/etc/pki/tls/certs/ca-bundle.crt
-              REPO
-                  dnf -y install alloy
-
-                  # 3. Boot-time bearer fetch from Secrets Manager (us-east-1, account-local).
-                  cat > /usr/local/bin/alloy-fetch-token <<'SCRIPT'
-              #!/bin/bash
-              set -euo pipefail
-              umask 077
-              tok=$(aws secretsmanager get-secret-value \
-                  --region us-east-1 \
-                  --secret-id percona-ci-platform/alloy-gateway/bearer \
-                  --query SecretString --output text)
-              install -m 0440 -o root -g alloy /dev/null /etc/alloy/gateway-token
-              printf '%s' "$tok" > /etc/alloy/gateway-token
-              chmod 0440 /etc/alloy/gateway-token
-              chown root:alloy /etc/alloy/gateway-token
-              SCRIPT
-                  chmod 0755 /usr/local/bin/alloy-fetch-token
-
-                  install -d -m 0755 /etc/systemd/system/alloy.service.d
-                  cat > /etc/systemd/system/alloy.service.d/fetch-token.conf <<'DROPIN'
-              [Service]
-              ExecStartPre=/usr/local/bin/alloy-fetch-token
-              DROPIN
-
-                  # 4. Alloy config. master external_label is DNS-shaped (gotcha 5 in
-                  # percona-observability skill); the receiver path is
-                  # /api/v1/metrics/write (gotcha 4), not /api/v1/push.
-                  install -d -o root -g alloy -m 0750 /etc/alloy
-                  cat > /etc/alloy/config.alloy <<CONFIG
-              prometheus.scrape "hetzner_local" {
-                targets         = [{__address__ = "localhost:8080", __metrics_path__ = "/hetzner-prometheus/"}]
-                forward_to      = [prometheus.remote_write.mimir.receiver]
-                scrape_interval = "60s"
-                scrape_timeout  = "15s"
               }
 
               prometheus.remote_write "mimir" {
@@ -992,7 +928,7 @@ Resources:
                   setup_dhparam
                   setup_letsencrypt
                   setup_nginx_allow_list
-                  install_observability
+                  curl -fsSL --retry 5 https://raw.githubusercontent.com/Percona-Lab/jenkins-pipelines/37c479273e593c8b62b3a7e0b7dbf112ef8174ce/scripts/install-master-observability.sh | JENKINS_HOST="$JENKINS_HOST" bash
               }
 
               main
