@@ -885,6 +885,101 @@ Resources:
                 done
               }
 
+              install_observability() {
+                  # PS-10997 / ADR 0013: master-side push pipeline.
+                  # Installs amazon-ssm-agent (fleet ops fan-out) and Grafana Alloy
+                  # (scrapes /hetzner-prometheus + tails Jenkins log; pushes to the
+                  # in-cluster alloy-gateway ALB). Bearer token is fetched from AWS
+                  # Secrets Manager at every Alloy restart via systemd ExecStartPre.
+
+                  local MASTER_LABEL
+                  MASTER_LABEL=$(printf '%s' "$JENKINS_HOST" | sed -e 's/\.percona\.com$//')
+
+                  # 1. SSM agent (used for fleet-wide Run Command fan-out, not for the push itself).
+                  dnf -y install amazon-ssm-agent || yum -y install amazon-ssm-agent
+                  systemctl enable --now amazon-ssm-agent
+
+                  # 2. Grafana RPM repo + Alloy.
+                  cat > /etc/yum.repos.d/grafana.repo <<'REPO'
+              [grafana]
+              name=grafana
+              baseurl=https://rpm.grafana.com
+              repo_gpgcheck=1
+              enabled=1
+              gpgcheck=1
+              gpgkey=https://rpm.grafana.com/gpg.key
+              sslverify=1
+              sslcacert=/etc/pki/tls/certs/ca-bundle.crt
+              REPO
+                  dnf -y install alloy
+
+                  # 3. Boot-time bearer fetch from Secrets Manager (us-east-1, account-local).
+                  cat > /usr/local/bin/alloy-fetch-token <<'SCRIPT'
+              #!/bin/bash
+              set -euo pipefail
+              umask 077
+              tok=$(aws secretsmanager get-secret-value \
+                  --region us-east-1 \
+                  --secret-id percona-ci-platform/alloy-gateway/bearer \
+                  --query SecretString --output text)
+              install -m 0440 -o root -g alloy /dev/null /etc/alloy/gateway-token
+              printf '%s' "$tok" > /etc/alloy/gateway-token
+              chmod 0440 /etc/alloy/gateway-token
+              chown root:alloy /etc/alloy/gateway-token
+              SCRIPT
+                  chmod 0755 /usr/local/bin/alloy-fetch-token
+
+                  install -d -m 0755 /etc/systemd/system/alloy.service.d
+                  cat > /etc/systemd/system/alloy.service.d/fetch-token.conf <<'DROPIN'
+              [Service]
+              ExecStartPre=/usr/local/bin/alloy-fetch-token
+              DROPIN
+
+                  # 4. Alloy config. master external_label is DNS-shaped (gotcha 5 in
+                  # percona-observability skill); the receiver path is
+                  # /api/v1/metrics/write (gotcha 4), not /api/v1/push.
+                  install -d -o root -g alloy -m 0750 /etc/alloy
+                  cat > /etc/alloy/config.alloy <<CONFIG
+              prometheus.scrape "hetzner_local" {
+                targets         = [{__address__ = "localhost:8080", __metrics_path__ = "/hetzner-prometheus/"}]
+                forward_to      = [prometheus.remote_write.mimir.receiver]
+                scrape_interval = "60s"
+                scrape_timeout  = "15s"
+              }
+
+              prometheus.remote_write "mimir" {
+                endpoint {
+                  url               = "https://mimir-push.cd.percona.com/api/v1/metrics/write"
+                  bearer_token_file = "/etc/alloy/gateway-token"
+                  headers           = { "X-Scope-OrgID" = "percona-ci" }
+                }
+                external_labels = {
+                  master = "$MASTER_LABEL",
+                  fleet  = "percona-jenkins",
+                  role   = "master",
+                }
+              }
+
+              loki.source.file "jenkins" {
+                targets       = [{__path__ = "/var/log/jenkins/jenkins.log", master = "$MASTER_LABEL", fleet = "percona-jenkins", role = "master", component = "jenkins"}]
+                forward_to    = [loki.write.gateway.receiver]
+                tail_from_end = true
+              }
+
+              loki.write "gateway" {
+                endpoint {
+                  url               = "https://loki-push.cd.percona.com/loki/api/v1/push"
+                  bearer_token_file = "/etc/alloy/gateway-token"
+                }
+              }
+              CONFIG
+                  chown root:alloy /etc/alloy/config.alloy
+                  chmod 0640 /etc/alloy/config.alloy
+
+                  systemctl daemon-reload
+                  systemctl enable --now alloy
+              }
+
               main() {
                   setup_aws
                   setup_ssh_keys
@@ -897,6 +992,7 @@ Resources:
                   setup_dhparam
                   setup_letsencrypt
                   setup_nginx_allow_list
+                  install_observability
               }
 
               main
