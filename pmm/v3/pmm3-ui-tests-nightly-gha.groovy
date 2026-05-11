@@ -132,7 +132,7 @@ pipeline {
     }
     parameters {
         string(
-            defaultValue: 'main',
+            defaultValue: 'PMM-15033-add-gh-related-scripts-for-nightly-tests',
             description: 'Tag/Branch for pmm-qa repository (used both for the GH workflow ref and the client setup checkout inside the workers).',
             name: 'PMM_QA_GIT_BRANCH')
         choice(
@@ -144,7 +144,7 @@ pipeline {
             description: 'PMM Server docker container version (image-name:version-tag)',
             name: 'DOCKER_VERSION')
         string(
-            defaultValue: '3-dev-latest',
+            defaultValue: 'latest-tarball',
             description: 'PMM Client version',
             name: 'CLIENT_VERSION')
         string(
