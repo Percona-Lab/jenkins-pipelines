@@ -366,9 +366,9 @@ parameters {
                     def PS_RELEASE = "${BRANCH}".replace('release-', '')
                     def imageList = [
                         "${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-amd64",
-                        "${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64"
+                        "${ORGANIZATION}/percona-server:${PS_RELEASE}.${RPM_RELEASE}-arm64",
                         "${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}-amd64",
-                        "${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}-arm64",
+                        "${ORGANIZATION}/percona-mysql-router:${PS_RELEASE}.${RPM_RELEASE}-arm64"
                     ]
 
                 // 🔹 Scan images and store logs
