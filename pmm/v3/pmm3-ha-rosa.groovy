@@ -4,6 +4,14 @@ def cleanupCluster() {
         sh '''
             rosa login --token="${ROSA_TOKEN}"
 
+            # Capture cluster ID before deletion (cluster may already be partly gone if create failed midway)
+            CLUSTER_ID=""
+            if [ -f ${HOME}/cluster-id.txt ]; then
+                CLUSTER_ID=$(cat ${HOME}/cluster-id.txt)
+            elif rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" >/dev/null 2>&1; then
+                CLUSTER_ID=$(rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" -o json | jq -r '.id // empty')
+            fi
+
             if rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" >/dev/null 2>&1; then
                 rosa delete cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" --yes --watch
             fi
@@ -20,6 +28,29 @@ def cleanupCluster() {
                 rosa delete oidc-provider --oidc-config-id "${OIDC_ID}" --region "${REGION}" --mode auto --yes || true
                 rosa delete oidc-config --oidc-config-id "${OIDC_ID}" --region "${REGION}" --mode auto --yes || true
             fi
+
+            # Sweep AWS resources tied to this cluster's ID (catches what ROSA may leave behind)
+            if [ -n "$CLUSTER_ID" ]; then
+                VPC_ID=$(aws ec2 describe-vpcs --region "${REGION}" \
+                    --filters "Name=tag:Name,Values=${VPC_NAME}" "Name=state,Values=available" \
+                    --query 'Vpcs[0].VpcId' --output text 2>/dev/null)
+                if [ -n "$VPC_ID" ] && [ "$VPC_ID" != "None" ]; then
+                    echo "Sweeping AWS resources for cluster ID $CLUSTER_ID"
+                    for sub in $(aws ec2 describe-subnets --region "${REGION}" --filters "Name=vpc-id,Values=$VPC_ID" --query 'Subnets[*].SubnetId' --output text | tr '\\t' '\\n'); do
+                        aws ec2 delete-tags --region "${REGION}" --resources "$sub" --tags Key="kubernetes.io/cluster/${CLUSTER_ID}" 2>/dev/null || true
+                    done
+                    for vpce in $(aws ec2 describe-vpc-endpoints --region "${REGION}" --filters "Name=vpc-id,Values=$VPC_ID" "Name=tag:kubernetes.io/cluster/${CLUSTER_ID},Values=owned" --query 'VpcEndpoints[].VpcEndpointId' --output text | tr '\\t' '\\n'); do
+                        [ -z "$vpce" ] && continue
+                        echo "  Deleting VPC endpoint $vpce"
+                        aws ec2 delete-vpc-endpoints --region "${REGION}" --vpc-endpoint-ids "$vpce" || true
+                    done
+                    for sg in $(aws ec2 describe-security-groups --region "${REGION}" --filters "Name=vpc-id,Values=$VPC_ID" "Name=group-name,Values=${CLUSTER_ID}-*" --query 'SecurityGroups[].GroupId' --output text | tr '\\t' '\\n'); do
+                        [ -z "$sg" ] && continue
+                        echo "  Deleting SG $sg"
+                        aws ec2 delete-security-group --region "${REGION}" --group-id "$sg" || true
+                    done
+                fi
+            fi
         '''
     }
 }
@@ -31,7 +62,7 @@ pipeline {
 
     options {
         buildDiscarder(logRotator(numToKeepStr: '30'))
-        timeout(time: 60, unit: 'MINUTES')
+        timeout(time: 120, unit: 'MINUTES')
         disableConcurrentBuilds()
     }
 
@@ -77,8 +108,8 @@ pipeline {
         CLUSTER_NAME = "pmm-ha-rosa-${BUILD_NUMBER}"
         REGION = "us-east-2"
         KUBECONFIG = "${HOME}/.kube/rosa-${BUILD_NUMBER}"
-        WORKER_COUNT = "7"
-        WORKER_INSTANCE_TYPE = "m5.xlarge"
+        WORKER_COUNT = "3"
+        WORKER_INSTANCE_TYPE = "m7i.2xlarge"
         PATH = "${HOME}/.local/bin:${PATH}"
         VPC_NAME = "pmm-ha-rosa-shared-vpc"
         VPC_CIDR = "10.0.0.0/16"
@@ -351,8 +382,13 @@ pipeline {
                             --subnet-ids "${ALL_SUBNETS}" \
                             --compute-machine-type "${WORKER_INSTANCE_TYPE}" \
                             --replicas "${WORKER_COUNT}" \
-                            --tags "iit-billing-tag pmm,created-by jenkins,build-number ${BUILD_NUMBER},retention-days ${RETENTION_DAYS},purpose pmm-ha-rosa-testing" \
+                            --tags "iit-billing-tag pmm,created-by jenkins,build-number ${BUILD_NUMBER},retention-days ${RETENTION_DAYS},creation-time $(date -u +%s),delete-cluster-after-hours $((RETENTION_DAYS * 24)),purpose pmm-ha-rosa-testing" \
                             --yes
+
+                        # Capture cluster ID for cleanup-on-failure (saved to HOME so it survives workspace wipe)
+                        CLUSTER_ID=$(rosa describe cluster --cluster="${CLUSTER_NAME}" --region="${REGION}" -o json | jq -r '.id')
+                        echo "${CLUSTER_ID}" > ${HOME}/cluster-id.txt
+                        echo "Cluster ID: ${CLUSTER_ID}"
 
                         echo "Creating OIDC provider for the cluster..."
                         rosa create oidc-provider --cluster="${CLUSTER_NAME}" --region="${REGION}" --mode auto --yes
@@ -413,6 +449,23 @@ pipeline {
                         done
 
                         oc whoami
+
+                        echo "Waiting for all worker nodes to be ready (timeout: 20m)..."
+                        for i in $(seq 1 40); do
+                            READY_COUNT=$(oc get nodes --no-headers | grep -c " Ready " || true)
+                            echo "Ready nodes: ${READY_COUNT}/${WORKER_COUNT}"
+                            if [ "${READY_COUNT}" -ge "${WORKER_COUNT}" ]; then
+                                echo "All worker nodes are ready."
+                                break
+                            fi
+                            if [ "$i" -eq 40 ]; then
+                                echo "ERROR: Timed out waiting for ${WORKER_COUNT} nodes to be ready after 20 minutes."
+                                oc get nodes
+                                exit 1
+                            fi
+                            sleep 30
+                        done
+                        oc get nodes -o wide
                     '''
                 }
             }
@@ -444,10 +497,13 @@ pipeline {
                         helm repo update
 
                         # Install Kyverno (version 3.6.1 compatible with OpenShift/K8s 1.31+)
+                        # HA deployment (3 admission replicas + PDB) prevents webhook outages
+                        # that block all pod creation in non-excluded namespaces
                         helm upgrade --install kyverno kyverno/kyverno \
                             --namespace kyverno --create-namespace \
                             --version 3.6.1 \
-                            --set admissionController.replicas=1 \
+                            --set admissionController.replicas=3 \
+                            --set admissionController.podDisruptionBudget.minAvailable=1 \
                             --set backgroundController.replicas=1 \
                             --set cleanupController.replicas=1 \
                             --set reportsController.replicas=1 \
@@ -456,9 +512,17 @@ pipeline {
                         # Wait for admission controller to be ready
                         oc wait --for=condition=ready pod -l app.kubernetes.io/component=admission-controller -n kyverno --timeout=120s || true
 
-                        # Wait for webhook to fully initialize (HTTPS)
-                        echo "Waiting for Kyverno webhook to initialize..."
-                        sleep 30
+                        echo "Waiting for Kyverno webhook TLS to initialize..."
+                        for i in $(seq 1 20); do
+                            CERT=$(oc get secret kyverno-svc.kyverno.svc.kyverno-tls-pair -n kyverno \
+                                -o jsonpath='{.data.tls\\.crt}' 2>/dev/null || true)
+                            if [ -n "${CERT}" ]; then
+                                echo "Kyverno webhook TLS is ready."
+                                break
+                            fi
+                            echo "  Waiting for TLS cert... (${i}/20)"
+                            sleep 10
+                        done
 
                         echo "Creating Docker Hub pull-through cache policy..."
 
@@ -475,7 +539,7 @@ spec:
         any:
           - resources:
               kinds: ["Pod"]
-              operations: ["CREATE", "UPDATE"]
+              operations: ["CREATE"]
       exclude:
         any:
           - resources:
@@ -497,7 +561,7 @@ spec:
         any:
           - resources:
               kinds: ["Pod"]
-              operations: ["CREATE", "UPDATE"]
+              operations: ["CREATE"]
       exclude:
         any:
           - resources:
@@ -540,7 +604,20 @@ EOF
                         helm repo update
 
                         helm dependency update charts/pmm-ha-dependencies
-                        helm upgrade --install pmm-operators charts/pmm-ha-dependencies -n pmm --wait --timeout 10m
+                        helm upgrade --install pmm-operators charts/pmm-ha-dependencies -n pmm \
+                            --set altinity-clickhouse-operator.resources.requests.cpu=100m \
+                            --set altinity-clickhouse-operator.resources.requests.memory=128Mi \
+                            --set altinity-clickhouse-operator.resources.limits.cpu=500m \
+                            --set altinity-clickhouse-operator.resources.limits.memory=256Mi \
+                            --set victoria-metrics-operator.resources.requests.cpu=100m \
+                            --set victoria-metrics-operator.resources.requests.memory=128Mi \
+                            --set victoria-metrics-operator.resources.limits.cpu=500m \
+                            --set victoria-metrics-operator.resources.limits.memory=256Mi \
+                            --set pg-operator.resources.requests.cpu=100m \
+                            --set pg-operator.resources.requests.memory=128Mi \
+                            --set pg-operator.resources.limits.cpu=500m \
+                            --set pg-operator.resources.limits.memory=256Mi \
+                            --wait --timeout 10m
 
                         oc wait --for=condition=ready pod -l app.kubernetes.io/name=victoria-metrics-operator -n pmm --timeout=10m
                         oc wait --for=condition=ready pod -l app.kubernetes.io/name=altinity-clickhouse-operator -n pmm --timeout=10m
@@ -585,6 +662,22 @@ EOF
                             --set pmmResources.requests.memory=2Gi \
                             --set clickhouse.resources.requests.cpu=500m \
                             --set clickhouse.resources.requests.memory=2Gi \
+                            --set pg-db.instances[0].name=instance1 \
+                            --set pg-db.instances[0].replicas=3 \
+                            --set pg-db.instances[0].dataVolumeClaimSpec.accessModes[0]=ReadWriteOnce \
+                            --set pg-db.instances[0].dataVolumeClaimSpec.resources.requests.storage=5Gi \
+                            --set pg-db.instances[0].resources.requests.cpu=500m \
+                            --set pg-db.instances[0].resources.requests.memory=512Mi \
+                            --set pg-db.instances[0].resources.limits.cpu=1 \
+                            --set pg-db.instances[0].resources.limits.memory=1Gi \
+                            --set pg-db.proxy.pgBouncer.resources.requests.cpu=100m \
+                            --set pg-db.proxy.pgBouncer.resources.requests.memory=128Mi \
+                            --set pg-db.proxy.pgBouncer.resources.limits.cpu=250m \
+                            --set pg-db.proxy.pgBouncer.resources.limits.memory=256Mi \
+                            --set haproxy.resources.requests.cpu=250m \
+                            --set haproxy.resources.requests.memory=256Mi \
+                            --set haproxy.resources.limits.cpu=500m \
+                            --set haproxy.resources.limits.memory=512Mi \
                             ${PMM_IMAGE_REPOSITORY:+--set image.repository=${PMM_IMAGE_REPOSITORY}} \
                             ${PMM_IMAGE_TAG:+--set image.tag=${PMM_IMAGE_TAG}}
 
@@ -614,8 +707,47 @@ EOF
                             exit $HELM_EXIT_CODE
                         fi
 
+                        # Grant additional SCCs for monitoring components created by the chart
+                        # node-exporter needs host-level access (hostNetwork, hostPID, hostPath)
+                        oc adm policy add-scc-to-user node-exporter -z pmm-ha-prometheus-node-exporter -n pmm || true
+                        # kube-state-metrics needs seccomp + nonroot UID outside default range
+                        oc adm policy add-scc-to-user nonroot-v2 -z pmm-ha-kube-state-metrics -n pmm || true
+
+                        echo "Waiting for all PMM HA components to be ready..."
+
+                        # PMM servers
                         oc rollout status statefulset/pmm-ha -n pmm --timeout=30m
+
+                        # ClickHouse
                         oc wait --for=condition=ready pod -l clickhouse.altinity.com/chi=pmm-ha -n pmm --timeout=10m
+
+                        # ClickHouse Keeper
+                        oc wait --for=condition=ready pod -l clickhouse-keeper.altinity.com/chk=pmm-ha-keeper -n pmm --timeout=10m
+
+                        # PostgreSQL instances
+                        oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/data=postgres -n pmm --timeout=10m
+
+                        # PgBouncer
+                        oc wait --for=condition=ready pod -l postgres-operator.crunchydata.com/cluster=pmm-ha-pg-db,postgres-operator.crunchydata.com/role=pgbouncer -n pmm --timeout=10m
+
+                        # HAProxy
+                        oc rollout status deployment/pmm-ha-haproxy -n pmm --timeout=10m
+
+                        # VictoriaMetrics
+                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmstorage,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=10m
+                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vminsert,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=5m
+                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmselect,app.kubernetes.io/instance=pmm-ha-vmcluster -n pmm --timeout=5m
+                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmauth -n pmm --timeout=5m
+                        oc wait --for=condition=ready pod -l app.kubernetes.io/name=vmagent -n pmm --timeout=5m
+
+                        echo ""
+                        echo "All PMM HA components are ready."
+                        NOT_READY=$(oc get pods -n pmm --no-headers | grep -v -E "Running|Completed" | grep -v "node-exporter" || true)
+                        if [ -n "${NOT_READY}" ]; then
+                            echo "WARNING: Some non-critical pods are not ready:"
+                            echo "${NOT_READY}"
+                        fi
+                        echo ""
                         oc get pods -n pmm
                     '''
                 }
@@ -754,6 +886,7 @@ EOF
                     cp ${KUBECONFIG} ${WORKSPACE}/kubeconfig || true
                     cp ${HOME}/cluster-admin-password.txt ${WORKSPACE}/ || true
                     cp ${HOME}/api-url.txt ${WORKSPACE}/ || true
+                    cp ${HOME}/oidc-config-id.txt ${WORKSPACE}/ || true
                 '''
                 archiveArtifacts artifacts: 'kubeconfig', fingerprint: true, allowEmptyArchive: true
                 archiveArtifacts artifacts: 'cluster-admin-password.txt', fingerprint: true, allowEmptyArchive: true
