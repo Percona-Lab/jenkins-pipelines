@@ -301,7 +301,7 @@ parameters {
                             sudo docker tag ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64 ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64
                             sudo docker push ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-amd64
                             sudo docker push ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-amd64
-                            sudo docker tag ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64 ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-a64
+                            sudo docker tag ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64 ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64
                             sudo docker push ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}.${RPM_RELEASE}-arm64
                             sudo docker push ${ORGANIZATION}/percona-mysql-router:${MYSQL_ROUTER_RELEASE}-arm64
                        '''
